@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { type ReactNode } from "react";
 import Alert from "@mui/material/Alert";
 import Header from "./Header";
 import Breadcrumb from "./Breadcrumb";
