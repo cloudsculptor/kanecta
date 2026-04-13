@@ -5,7 +5,7 @@ $bp-tablet: 768px;
   width: 100%;
   background: linear-gradient(160deg, #1e0a3c 0%, #3a1270 60%, #5b21b6 100%);
   color: #fff;
-  padding: 14px 24px;
+  padding: 24px 24px;
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -28,21 +28,21 @@ $bp-tablet: 768px;
   }
 
   &__title {
-    font-size: 36px;
+    font-size: 52px;
     font-weight: 700;
-    letter-spacing: -1px;
+    letter-spacing: -1.5px;
     margin: 0 0 6px;
     color: #fff;
     line-height: 1;
 
     @media (max-width: $bp-tablet) {
-      font-size: 26px;
-      letter-spacing: -0.5px;
+      font-size: 38px;
+      letter-spacing: -1px;
     }
 
     @media (max-width: $bp-mobile) {
-      font-size: 22px;
-      letter-spacing: 0;
+      font-size: 30px;
+      letter-spacing: -0.5px;
     }
   }
 

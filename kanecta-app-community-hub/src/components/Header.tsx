@@ -1,11 +1,6 @@
 import { useState } from "react";
-import Button from "@mui/material/Button";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogContentText from "@mui/material/DialogContentText";
-import DialogTitle from "@mui/material/DialogTitle";
 import IconButton from "@mui/material/IconButton";
+import LoginDialog from "./LoginDialog";
 
 export default function Header() {
   const [open, setOpen] = useState(false);
@@ -43,17 +38,7 @@ export default function Header() {
         </div>
       </header>
 
-      <Dialog open={open} onClose={() => setOpen(false)}>
-        <DialogTitle>Sign up & Login</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            The ability to log in and directly contribute is coming soon.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpen(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
+      <LoginDialog open={open} onClose={() => setOpen(false)} />
     </>
   );
 }

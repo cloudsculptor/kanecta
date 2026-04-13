@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
-import Alert from "@mui/material/Alert";
 import Header from "./Header";
 import Breadcrumb from "./Breadcrumb";
+import ComingSoon from "./ComingSoon";
 
 interface PageLayoutProps {
   pageName: string;
@@ -15,9 +15,7 @@ export default function PageLayout({ pageName, children }: PageLayoutProps) {
       <Breadcrumb pageName={pageName} />
       <main className="page-content">
         <h2>{pageName}</h2>
-        <Alert severity="info" sx={{ mb: 3 }}>
-          Content coming soon
-        </Alert>
+        <ComingSoon />
         {children}
       </main>
     </>
