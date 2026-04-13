@@ -23,7 +23,7 @@ const navItems = [
     path: "/needs",
   },
   {
-    title: "Organisations",
+    title: "Groups & Organisations",
     blurb: "Discover local community groups, and organisations near you.",
     path: "/organisations",
   },
