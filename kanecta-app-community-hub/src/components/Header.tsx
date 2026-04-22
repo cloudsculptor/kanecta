@@ -1,15 +1,21 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import IconButton from "@mui/material/IconButton";
 import LoginDialog from "./LoginDialog";
 
 export default function Header() {
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
 
   return (
     <>
       <header className="site-header">
         <div className="site-header__spacer" />
-        <div className="site-header__center">
+        <div
+          className="site-header__center"
+          onClick={() => navigate("/")}
+          style={{ cursor: "pointer" }}
+        >
           <h1 className="site-header__title">Featherston</h1>
           <p className="site-header__subtitle">Community Information Hub</p>
         </div>
