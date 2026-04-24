@@ -13,7 +13,6 @@ datastore/
 ├── .kanecta/
 │ ├── data/
 │ ├── aliases/
-│ ├── cli/
 │ ├── config/
 │ ├── search/
 │ ├── types/
