@@ -13,6 +13,7 @@ datastore/
 ├── .kanecta/
 │ ├── data/
 │ ├── aliases/
+│ ├── cli/
 │ ├── config/
 │ ├── search/
 │ ├── types/
@@ -24,20 +25,33 @@ datastore/
 ```
 
 ### .kanecta/data/ — Source of Truth
-All items in the Kanecta datastore live here in a sharded UUID structure. Every item is a folder named after its UUID, sharded at two-character intervals.
+All items in the Kanecta datastore live here in a sharded UUID structure. Every item's files live inside a directory path built by stripping hyphens from the UUID and splitting the resulting 32-character hex string into two-character chunks — all the way through, 16 levels deep.
 
 **Structure Example:**
 ```
 .kanecta/data/
-├── a1/
-│ ├── b2/
-│ │ ├── c3d4e5f6abcdef1234567890/
-│ │ │ ├── metadata.json
-│ │ │ ├── image.png (optional)
-│ │ │ └── document.txt (optional)
+└── a1/
+    └── b2/
+        └── c3/
+            └── d4/
+                └── e5/
+                    └── f6/
+                        └── ab/
+                            └── cd/
+                                └── ef/
+                                    └── 12/
+                                        └── 34/
+                                            └── 56/
+                                                └── 78/
+                                                    └── 90/
+                                                        └── 12/
+                                                            └── 34/
+                                                                ├── metadata.json
+                                                                ├── image.png (optional)
+                                                                └── document.txt (optional)
 ```
 
-**UUID Sharding:** UUIDs are split into two-character chunks to create directory paths. Example: UUID `a1b2c3d4e5f6...` becomes `a1/b2/c3/d4e5f6.../metadata.json`.
+**UUID Sharding:** Strip hyphens from the UUID to get 32 hex characters, then split into 2-character chunks. Every chunk becomes one directory level. Example: UUID `a1b2c3d4-e5f6-abcd-ef12-345678901234` → strip hyphens → `a1b2c3d4e5f6abcdef12345678901234` → `a1/b2/c3/d4/e5/f6/ab/cd/ef/12/34/56/78/90/12/34/metadata.json`.
 
 Each item folder contains:
 - **metadata.json** — Item metadata (required)
@@ -119,10 +133,12 @@ Reverse index mapping type UUIDs to all items of that type. Uses sharded structu
 **Structure:**
 ```
 .kanecta/types/
-├── a1/
-│ ├── b2/
-│ │ ├── c3d4e5f6.../
-│ │ │ └── items.json
+└── a1/
+    └── b2/
+        └── c3/
+            └── d4/
+                └── .../ (16 levels total, one per 2-char UUID chunk)
+                    └── items.json
 ```
 
 **items.json:**
@@ -177,10 +193,12 @@ Reverse index mapping items to all items that link to them.
 **Structure:**
 ```
 .kanecta/links/
-├── a1/
-│ ├── b2/
-│ │ ├── c3d4e5f6.../
-│ │ │ └── backlinks.json
+└── a1/
+    └── b2/
+        └── c3/
+            └── d4/
+                └── .../ (16 levels total, one per 2-char UUID chunk)
+                    └── backlinks.json
 ```
 
 **backlinks.json:**
