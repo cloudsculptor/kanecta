@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const datastoreRoot = path.resolve(__dirname, '../../kanecta-private-datastore');
-const cliConfig = JSON.parse(fs.readFileSync(path.join(datastoreRoot, 'cli', 'config.json'), 'utf8'));
+const cliConfig = JSON.parse(fs.readFileSync(path.join(datastoreRoot, '.kanecta', 'cli', 'config.json'), 'utf8'));
 const { id } = cliConfig;
 
 const outputPath = path.join(datastoreRoot, 'kanecta.md');
