@@ -1,4 +1,4 @@
-# Kanecta Store Specification
+# Kanecta Datastore Specification
 
 ## Overview
 Kanecta is an open-source, self-hosted personal and organizational information repository. Data is stored as a hierarchical tree structure with globally unique identifiers, enabling flexible organization, linking, and multi-user collaboration.
@@ -6,10 +6,10 @@ Kanecta is an open-source, self-hosted personal and organizational information r
 ## 1. Directory Structure
 
 ### Root Level
-When a user initializes Kanecta, they designate a **store** location on disk. Inside that store:
+When a user initializes Kanecta, they designate a **datastore** location on disk. Inside that datastore:
 
 ```
-store/
+datastore/
 ├── .kanecta/
 │ ├── data/
 │ ├── aliases/
@@ -24,7 +24,7 @@ store/
 ```
 
 ### .kanecta/data/ — Source of Truth
-All items in the Kanecta store live here in a sharded UUID structure. Every item is a folder named after its UUID, sharded at two-character intervals.
+All items in the Kanecta datastore live here in a sharded UUID structure. Every item is a folder named after its UUID, sharded at two-character intervals.
 
 **Structure Example:**
 ```
@@ -106,7 +106,7 @@ Stores configuration as JSON files.
 }
 ```
 
-- **owner**: Email or domain identifying the store owner. Used as default owner for new items.
+- **owner**: Email or domain identifying the datastore owner. Used as default owner for new items.
 
 ### .kanecta/search/ — Search Index Cache
 
@@ -232,12 +232,12 @@ When displayed, the symlink resolves to show the target item's content.
 3. Create metadata.json with required fields:
 - **id**: The generated UUID
 - **type**: Specify the type (string, object, etc.)
-- **owner**: Use store owner from config unless overridden
+- **owner**: Use datastore owner from config unless overridden
 - **sort_order**: Default to 0 or next available order among siblings
 4. Update parent item if parent_id is set.
 5. **Index updates**:
 - If type is "object", add item UUID to `.kanecta/types/[type-uuid]/items.json`
-- If owner is different from store owner, add to `.kanecta/remotes-index/[owner-shard]/items.json`
+- If owner is different from datastore owner, add to `.kanecta/remotes-index/[owner-shard]/items.json`
 - If item contains `[[uuid]]` in value, add entries to `.kanecta/links/[target-uuid]/backlinks.json`
 
 ### Updating Items
@@ -300,7 +300,7 @@ Whenever an item is created, updated, or deleted:
 ## 4. Constraints and Assumptions
 
 - UUIDs are globally unique across all installations.
-- Aliases should be unique within a store (not enforced at filesystem level; application should validate).
+- Aliases should be unique within a datastore (not enforced at filesystem level; application should validate).
 - Circular references are allowed but may cause issues in some views.
 - Symlinks can point to items owned by other users (via remotes/).
 - File system operations are atomic enough for single-user scenarios; multi-user sync requires additional logic.
@@ -321,5 +321,5 @@ Whenever an item is created, updated, or deleted:
 ## Notes
 
 - This specification describes the format at rest and the operations that maintain consistency.
-- Any application reading or writing Kanecta stores must follow these business rules.
+- Any application reading or writing Kanecta datastores must follow these business rules.
 - The specification is version 1.0 and subject to iteration as the project evolves.
