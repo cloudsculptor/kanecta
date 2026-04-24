@@ -1,0 +1,12 @@
+{
+  "name": "kanecta-cli",
+  "version": "0.1.0",
+  "description": "Kanecta command line tool",
+  "main": "index.js",
+  "bin": {
+    "kanecta": "./index.js"
+  },
+  "scripts": {
+    "kanecta": "node index.js"
+  }
+}
