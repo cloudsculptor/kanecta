@@ -6,6 +6,7 @@ const path = require('path');
 const datastoreRoot = path.resolve(__dirname, '../kanecta-datastore-sample');
 const config = JSON.parse(fs.readFileSync(path.join(datastoreRoot, '.kanecta', 'config', 'config.json'), 'utf8'));
 const { id: rootId, levels: maxLevels } = config.defaultView;
+const showId = process.argv.includes('--id');
 
 function uuidToPath(uuid) {
   return uuid.replace(/-/g, '').match(/.{2}/g).join('/');
@@ -40,7 +41,7 @@ function loadAllItems() {
   return { items, byParent };
 }
 
-function buildText(rootId, items, byParent, maxLevels) {
+function buildText(rootId, items, byParent, maxLevels, showId) {
   const lines = [];
 
   function traverse(id, depth) {
@@ -48,7 +49,12 @@ function buildText(rootId, items, byParent, maxLevels) {
     const item = items[id];
     if (!item) return;
 
-    lines.push(`${'  '.repeat(depth)}${item.value}`);
+    const indent = '  '.repeat(depth);
+    if (showId) {
+      lines.push(`${item.id} | ${indent}${item.value}`);
+    } else {
+      lines.push(`${indent}${item.value}`);
+    }
 
     for (const child of byParent[id] || []) {
       traverse(child.id, depth + 1);
@@ -60,7 +66,7 @@ function buildText(rootId, items, byParent, maxLevels) {
 }
 
 const { items, byParent } = loadAllItems();
-const output = buildText(rootId, items, byParent, maxLevels);
+const output = buildText(rootId, items, byParent, maxLevels, showId);
 
 const outputPath = path.join(datastoreRoot, 'kanecta.txt');
 fs.writeFileSync(outputPath, output);
