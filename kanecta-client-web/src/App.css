@@ -7,45 +7,47 @@
 
 h1 {
   font-size: 2rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
-.item-card {
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  overflow: hidden;
-  margin: 0;
-}
-
-.field {
+.levels-label {
   display: flex;
-  gap: 1rem;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid #e0e0e0;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 1.5rem;
+}
 
-  &:last-child {
-    border-bottom: none;
-  }
+.levels-input {
+  width: 60px;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
 
-  dt {
-    width: 100px;
-    flex-shrink: 0;
-    font-weight: 600;
-    color: #555;
-    font-size: 0.875rem;
-    padding-top: 1px;
-  }
+.tree {
+  list-style: none;
+  padding: 0;
+  margin: 0;
 
-  dd {
+  ul {
+    list-style: none;
+    padding-left: 1.25rem;
     margin: 0;
-    color: #111;
-    word-break: break-all;
+    border-left: 2px solid #e0e0e0;
+  }
+
+  li {
+    padding: 0.3rem 0;
   }
 }
 
-.mono {
-  font-family: monospace;
-  font-size: 0.875rem;
+.node-value {
+  font-size: 0.95rem;
+  color: #111;
 }
 
 .loading,
