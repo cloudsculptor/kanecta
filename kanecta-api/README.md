@@ -39,7 +39,7 @@ GET /f1a00002-b45e-4c3d-9e7f-000000000001
 ```json
 {
   "id": "f1a00002-b45e-4c3d-9e7f-000000000001",
-  "parent_id": "f1a00001-b45e-4c3d-9e7f-000000000001",
+  "parentId": "f1a00001-b45e-4c3d-9e7f-000000000001",
   "value": "Clarify",
   "type": "string",
   ...
