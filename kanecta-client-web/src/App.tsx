@@ -28,7 +28,6 @@ function App() {
 
   return (
     <main className="app">
-      <h1>Kanecta</h1>
       {error && <p className="error">Failed to load item: {error}</p>}
       {!item && !error && <p className="loading">Loading…</p>}
       {item && (
@@ -36,26 +35,6 @@ function App() {
           <div className="field">
             <dt>Value</dt>
             <dd>{item.value}</dd>
-          </div>
-          <div className="field">
-            <dt>Type</dt>
-            <dd>{item.type}</dd>
-          </div>
-          <div className="field">
-            <dt>ID</dt>
-            <dd className="mono">{item.id}</dd>
-          </div>
-          <div className="field">
-            <dt>Parent ID</dt>
-            <dd className="mono">{item.parent_id ?? '—'}</dd>
-          </div>
-          <div className="field">
-            <dt>Owner</dt>
-            <dd>{item.owner}</dd>
-          </div>
-          <div className="field">
-            <dt>Sort order</dt>
-            <dd>{item.sort_order}</dd>
           </div>
         </dl>
       )}
