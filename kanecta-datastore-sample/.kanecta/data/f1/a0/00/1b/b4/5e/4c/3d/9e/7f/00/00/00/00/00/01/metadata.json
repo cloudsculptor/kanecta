@@ -1,0 +1,13 @@
+{
+  "id": "f1a0001b-b45e-4c3d-9e7f-000000000001",
+  "parent_id": "f1a0001a-b45e-4c3d-9e7f-000000000001",
+  "value": "Commit with a clear message explaining why, not just what",
+  "type": "string",
+  "type_id": null,
+  "owner": "richardsempire@gmail.com",
+  "license": null,
+  "sort_order": 0,
+  "cached_at": null,
+  "subscribed_at": null,
+  "subscription_source": null
+}
