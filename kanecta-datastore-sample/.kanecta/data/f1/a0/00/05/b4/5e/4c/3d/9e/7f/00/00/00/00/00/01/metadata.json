@@ -1,13 +1,13 @@
 {
   "id": "f1a00005-b45e-4c3d-9e7f-000000000001",
-  "parent_id": "f1a00002-b45e-4c3d-9e7f-000000000001",
+  "parentId": "f1a00002-b45e-4c3d-9e7f-000000000001",
   "value": "Ask questions now — not mid-build",
   "type": "string",
-  "type_id": null,
+  "typeId": null,
   "owner": "richardsempire@gmail.com",
   "license": null,
-  "sort_order": 2,
-  "cached_at": null,
-  "subscribed_at": null,
-  "subscription_source": null
+  "sortOrder": 2,
+  "cachedAt": null,
+  "subscribedAt": null,
+  "subscriptionSource": null
 }

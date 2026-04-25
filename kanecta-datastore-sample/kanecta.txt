@@ -1,0 +1,35 @@
+Base Work Process
+  Clarify
+    Confirm the goal and success criteria before starting
+    Identify constraints (time, tech stack, compatibility)
+    Ask questions now — not mid-build
+  Specify
+    Write or reference the specification/requirements
+    Identify edge cases and data model implications
+    Get sign-off before writing code
+  Plan
+    Break work into discrete, ordered tasks
+    Identify dependencies between tasks
+    Estimate scope; flag anything unexpectedly large
+  Build
+    Work task by task; mark each complete as you go
+    Follow spec — do not add unrequested features
+    Write the simplest code that works
+  Test
+    Cover the golden path and key edge cases
+    For UI work: run the dev server and test in a browser
+    Fix issues found before moving on
+  Review
+    Re-read changed code for correctness and simplicity
+    Check for security issues (injection, auth, input validation)
+    Remove dead code and unnecessary comments
+  Ship
+    Commit with a clear message explaining why, not just what
+    Create PR if working in a team branch
+    Update WORK_PLAN.md to reflect completed work
+  Principles
+    Prefer editing existing files to creating new ones
+    No comments unless the why is non-obvious
+    No abstractions before there are three concrete cases
+    No error handling for scenarios that cannot happen
+    Confirm before destructive or hard-to-reverse actions
