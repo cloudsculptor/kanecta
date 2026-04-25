@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const datastoreRoot = path.resolve(__dirname, '../../kanecta-private-datastore');
+const datastoreRoot = path.resolve(__dirname, '../kanecta-datastore-sample');
 const config = JSON.parse(fs.readFileSync(path.join(datastoreRoot, '.kanecta', 'config', 'config.json'), 'utf8'));
 const { id: rootId, levels: maxLevels } = config.defaultView;
 

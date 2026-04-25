@@ -11,10 +11,10 @@ function uuidToPath(uuid) {
 function resolveDatastoreRoot() {
   return process.env.KANECTA_DATASTORE
     ? path.resolve(process.env.KANECTA_DATASTORE)
-    : path.resolve(__dirname, '../../../kanecta-private-datastore');
+    : path.resolve(__dirname, '../../kanecta-datastore-sample');
 }
 
-app.get('/:id', (req, res) => {
+app.get('/items/:id', (req, res) => {
   const { id } = req.params;
 
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
