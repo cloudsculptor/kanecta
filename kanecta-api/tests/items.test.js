@@ -45,7 +45,7 @@ describe('GET /items/:id?levels=N', () => {
     expect(res.body.id).toBe(KNOWN_ID);
     expect(Array.isArray(res.body.children)).toBe(true);
     expect(res.body.children).toHaveLength(3);
-    // children are sorted by sort_order
+    // children are sorted by sortOrder
     expect(res.body.children[0].value).toBe('Confirm the goal and success criteria before starting');
     expect(res.body.children[1].value).toBe('Identify constraints (time, tech stack, compatibility)');
     expect(res.body.children[2].value).toBe('Ask questions now — not mid-build');

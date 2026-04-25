@@ -24,7 +24,7 @@ function loadAllItems() {
       } else if (entry.name === 'metadata.json') {
         const item = JSON.parse(fs.readFileSync(full, 'utf8'));
         items[item.id] = item;
-        const key = item.parent_id || '__root__';
+        const key = item.parentId || '__root__';
         if (!byParent[key]) byParent[key] = [];
         byParent[key].push(item);
       }
@@ -34,7 +34,7 @@ function loadAllItems() {
   walk(dataDir);
 
   for (const key of Object.keys(byParent)) {
-    byParent[key].sort((a, b) => a.sort_order - b.sort_order);
+    byParent[key].sort((a, b) => a.sortOrder - b.sortOrder);
   }
 
   return { items, byParent };

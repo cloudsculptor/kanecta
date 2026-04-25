@@ -61,32 +61,32 @@ Each item folder contains:
 ```json
 {
 "id": "string (UUID)",
-"parent_id": "string (UUID) or null",
+"parentId": "string (UUID) or null",
 "value": "string or null",
 "type": "string",
-"type_id": "string (UUID) or null",
+"typeId": "string (UUID) or null",
 "owner": "string (email or domain)",
 "license": "string or null",
-"sort_order": "integer",
-"cached_at": "string (ISO8601) or null",
-"subscribed_at": "string (ISO8601) or null",
-"subscription_source": "string or null"
+"sortOrder": "integer",
+"cachedAt": "string (ISO8601) or null",
+"subscribedAt": "string (ISO8601) or null",
+"subscriptionSource": "string or null"
 }
 ```
 
 **Field Definitions:**
 
 - **id** (required): Unique identifier for this item. UUID format.
-- **parent_id**: UUID of parent item, or null if root level.
+- **parentId**: UUID of parent item, or null if root level.
 - **value**: Item content. Can be text string, UUID reference (for symlinks), or null.
 - **type** (required): Item type. Values: "string", "number", "text", "file", "symlink", "object".
-- **type_id**: If type is "object", UUID of the type definition. Otherwise null.
+- **typeId**: If type is "object", UUID of the type definition. Otherwise null.
 - **owner** (required): Email or domain of item owner.
 - **license**: License identifier (MIT, AGPL, CC-BY, etc.) or null.
-- **sort_order** (required): Integer for sibling ordering. Higher numbers appear lower in the tree.
-- **cached_at**: ISO8601 timestamp when remote item was last cached. Null for local items.
-- **subscribed_at**: ISO8601 timestamp when subscription started. Null if not subscribed.
-- **subscription_source**: URL or identifier of remote source for updates.
+- **sortOrder** (required): Integer for sibling ordering. Higher numbers appear lower in the tree.
+- **cachedAt**: ISO8601 timestamp when remote item was last cached. Null for local items.
+- **subscribedAt**: ISO8601 timestamp when subscription started. Null if not subscribed.
+- **subscriptionSource**: URL or identifier of remote source for updates.
 
 ### .kanecta/aliases/ — Human-Readable Shortcuts
 
@@ -152,8 +152,8 @@ Reverse index mapping type UUIDs to all items of that type. Uses sharded structu
 Stores copies of items owned by other users. Uses identical sharding to data/.
 
 Remote items include all standard metadata fields plus:
-- **cached_at**: Timestamp of last fetch from remote source (required for remotes)
-- **subscribed_at**: Timestamp when subscription started (optional)
+- **cachedAt**: Timestamp of last fetch from remote source (required for remotes)
+- **subscribedAt**: Timestamp when subscription started (optional)
 
 ### .kanecta/remotes-index/ — Remote Owner Index
 
@@ -232,7 +232,7 @@ Create a "symlink" type item. Set type to "symlink" and value to the target UUID
 "id": "symlink-uuid",
 "type": "symlink",
 "value": "target-uuid",
-"parent_id": "parent-uuid"
+"parentId": "parent-uuid"
 }
 ```
 
@@ -250,8 +250,8 @@ When displayed, the symlink resolves to show the target item's content.
 - **id**: The generated UUID
 - **type**: Specify the type (string, object, etc.)
 - **owner**: Use datastore owner from config unless overridden
-- **sort_order**: Default to 0 or next available order among siblings
-4. Update parent item if parent_id is set.
+- **sortOrder**: Default to 0 or next available order among siblings
+4. Update parent item if parentId is set.
 5. **Index updates**:
 - If type is "object", add item UUID to `.kanecta/types/[type-uuid]/items.json`
 - If owner is different from datastore owner, add to `.kanecta/remotes-index/[owner-shard]/items.json`
@@ -266,9 +266,9 @@ When displayed, the symlink resolves to show the target item's content.
 3. If type changes:
 - Remove from old type index in `.kanecta/types/`
 - Add to new type index
-4. If parent_id changes:
-- Update parent_id in metadata
-- Reorder sort_order if needed among new siblings
+4. If parentId changes:
+- Update parentId in metadata
+- Reorder sortOrder if needed among new siblings
 5. Update search index via search library
 
 ### Deleting Items
@@ -293,16 +293,16 @@ When displayed, the symlink resolves to show the target item's content.
 
 ### Tree Traversal
 
-1. Start at root (parent_id = null).
-2. Find all items with parent_id matching current item's id.
-3. Sort by sort_order.
+1. Start at root (parentId = null).
+2. Find all items with parentId matching current item's id.
+3. Sort by sortOrder.
 4. Recursively build tree structure.
 
 ### Caching Remote Items
 
 1. When fetching item from remote owner, store in `.kanecta/remotes/[shard]/[metadata].json`.
-2. Set **cached_at** to current timestamp.
-3. If subscribing, set **subscribed_at** to current timestamp and **subscription_source** to remote URL.
+2. Set **cachedAt** to current timestamp.
+3. If subscribing, set **subscribedAt** to current timestamp and **subscriptionSource** to remote URL.
 4. Add item UUID to `.kanecta/remotes-index/[owner-shard]/items.json`.
 
 ### Updating Search Index

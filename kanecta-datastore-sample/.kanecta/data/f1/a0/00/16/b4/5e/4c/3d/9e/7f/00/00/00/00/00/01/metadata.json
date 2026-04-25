@@ -1,13 +1,13 @@
 {
   "id": "f1a00016-b45e-4c3d-9e7f-000000000001",
-  "parent_id": "f1a00001-b45e-4c3d-9e7f-000000000001",
+  "parentId": "f1a00001-b45e-4c3d-9e7f-000000000001",
   "value": "Review",
   "type": "string",
-  "type_id": null,
+  "typeId": null,
   "owner": "richardsempire@gmail.com",
   "license": null,
-  "sort_order": 5,
-  "cached_at": null,
-  "subscribed_at": null,
-  "subscription_source": null
+  "sortOrder": 5,
+  "cachedAt": null,
+  "subscribedAt": null,
+  "subscriptionSource": null
 }
