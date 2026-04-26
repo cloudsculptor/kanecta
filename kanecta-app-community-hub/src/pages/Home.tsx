@@ -4,7 +4,8 @@ import Header from "../components/Header";
 const navItems = [
   {
     title: "Events",
-    blurb: "Find local events, gatherings, and activities happening in Featherston.",
+    blurb:
+      "Find local events, gatherings, and activities happening in Featherston.",
     path: "/events",
   },
   {
