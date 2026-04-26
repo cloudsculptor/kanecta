@@ -6,16 +6,21 @@ import ComingSoon from "./ComingSoon";
 interface PageLayoutProps {
   pageName: string;
   children?: ReactNode;
+  showComingSoon?: boolean;
 }
 
-export default function PageLayout({ pageName, children }: PageLayoutProps) {
+export default function PageLayout({
+  pageName,
+  children,
+  showComingSoon = true,
+}: PageLayoutProps) {
   return (
     <>
       <Header />
       <Breadcrumb pageName={pageName} />
       <main className="page-content">
         <h2>{pageName}</h2>
-        <ComingSoon />
+        {showComingSoon && <ComingSoon />}
         {children}
       </main>
     </>

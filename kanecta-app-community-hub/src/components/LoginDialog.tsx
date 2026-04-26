@@ -52,9 +52,7 @@ export default function LoginDialog({ open, onClose }: LoginDialogProps) {
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Sign up &amp; Login</DialogTitle>
       <DialogContent>
-        <DialogContentText sx={{ mb: 2 }}>
-          Coming soon:
-        </DialogContentText>
+        <DialogContentText sx={{ mb: 2 }}>Coming soon:</DialogContentText>
         <List disablePadding>
           {items.map(({ icon, color, text }) => (
             <ListItem key={text} alignItems="flex-start" sx={{ px: 0, py: 1 }}>
