@@ -191,6 +191,12 @@ $bp-tablet: 768px;
       margin-bottom: 20px;
     }
   }
+
+  p {
+    line-height: 1.7;
+    margin-top: 0;
+    margin-bottom: 16px;
+  }
 }
 
 .counter {
@@ -362,7 +368,7 @@ $bp-tablet: 768px;
 
   &::before,
   &::after {
-    content: '';
+    content: "";
     position: absolute;
     top: -4.5px;
     border: 5px solid transparent;
