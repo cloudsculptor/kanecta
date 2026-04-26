@@ -41,6 +41,10 @@ export default function AboutThisSite() {
         against this site being captured by any individual or special interest
         group.
       </p>
+      <p>
+        Read more about our <a href="/about/governance">roles and responsibilities</a>.
+      </p>
+
     </PageLayout>
   );
 }

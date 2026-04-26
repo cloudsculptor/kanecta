@@ -8,6 +8,7 @@ import Organisations from "./pages/Organisations";
 import GoodsAndServices from "./pages/GoodsAndServices";
 import SocialServices from "./pages/SocialServices";
 import AboutThisSite from "./pages/AboutThisSite";
+import Governance from "./pages/Governance";
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
       <Route path="/goods-and-services" element={<GoodsAndServices />} />
       <Route path="/social-services" element={<SocialServices />} />
       <Route path="/about" element={<AboutThisSite />} />
+      <Route path="/about/governance" element={<Governance />} />
     </Routes>
   );
 }
