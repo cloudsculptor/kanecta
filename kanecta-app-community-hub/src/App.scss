@@ -395,6 +395,17 @@ $bp-tablet: 768px;
   }
 }
 
+.about-quote {
+  margin: 20px 0;
+  padding: 14px 20px;
+  border-left: 3px solid var(--accent);
+  background: var(--accent-bg);
+  border-radius: 0 6px 6px 0;
+  font-style: italic;
+  font-size: 1.05em;
+  color: var(--text-h);
+}
+
 .role-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
