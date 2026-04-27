@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import Tooltip from "@mui/material/Tooltip";
 import Header from "../components/Header";
 import { useUserRole } from "../auth/useUserRole";
 
@@ -7,11 +8,21 @@ const publicActive = [
     title: "Events",
     blurb: "Find local events, gatherings, and activities happening in Featherston.",
     path: "/events",
+    image: "/events-balloon.jpg",
+    attribution: {
+      label: "Photo: Bryan Kennedy / Public Domain",
+      url: "https://commons.wikimedia.org/wiki/File:Balloon_free_image.jpg",
+    },
   },
   {
     title: "Transport",
     blurb: "Carpooling, ride sharing, and transport options in the area.",
     path: "/transport",
+    image: "/featherston-station.jpg",
+    attribution: {
+      label: "Photo: Sanciston / CC0",
+      url: "https://commons.wikimedia.org/wiki/File:Featherston_station_2025.png",
+    },
   },
 ];
 
@@ -77,10 +88,53 @@ const localItems = [
   },
 ];
 
-function NavCard({ title, blurb, path }: { title: string; blurb: string; path: string }) {
+interface Attribution {
+  label: string;
+  url: string;
+}
+
+function NavCard({
+  title,
+  blurb,
+  path,
+  image,
+  attribution,
+}: {
+  title: string;
+  blurb: string;
+  path: string;
+  image?: string;
+  attribution?: Attribution;
+}) {
   return (
     <Link to={path} className="nav-card">
-      <div className="nav-card__image" />
+      <Tooltip
+        title={
+          attribution ? (
+            <a
+              href={attribution.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              style={{ color: "inherit", textDecoration: "underline" }}
+            >
+              {attribution.label}
+            </a>
+          ) : ""
+        }
+        enterDelay={1500}
+        enterNextDelay={1500}
+        disableHoverListener={!attribution}
+      >
+        <div
+          className="nav-card__image"
+          style={
+            image
+              ? { backgroundImage: `url(${image})`, backgroundSize: "cover", backgroundPosition: "center" }
+              : undefined
+          }
+        />
+      </Tooltip>
       <div className="nav-card__content">
         <h2 className="nav-card__title">{title}</h2>
         <p className="nav-card__blurb">{blurb}</p>
