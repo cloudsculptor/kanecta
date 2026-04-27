@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 import Header from "../components/Header";
+import { useUserRole } from "../auth/useUserRole";
 
-const navItems = [
+const activeItems = [
   {
     title: "Events",
     blurb:
@@ -13,6 +14,9 @@ const navItems = [
     blurb: "Share your skills or find someone with the expertise you need.",
     path: "/skills",
   },
+];
+
+const comingItems = [
   {
     title: "Transport",
     blurb: "Carpooling, ride sharing, and transport options in the area.",
@@ -46,11 +50,14 @@ const navItems = [
 ];
 
 export default function Home() {
+  const role = useUserRole();
+  const isLoggedIn = role !== "PUBLIC";
+
   return (
     <>
       <Header />
       <nav className="nav-grid">
-        {navItems.map((item) => (
+        {activeItems.map((item) => (
           <Link key={item.title} to={item.path} className="nav-card">
             <div className="nav-card__image" />
             <div className="nav-card__content">
@@ -59,6 +66,32 @@ export default function Home() {
             </div>
           </Link>
         ))}
+
+        {!isLoggedIn && (
+          <div className="nav-divider">
+            <span>Ideas for the future</span>
+          </div>
+        )}
+
+        {comingItems.map((item) =>
+          isLoggedIn ? (
+            <Link key={item.title} to={item.path} className="nav-card">
+              <div className="nav-card__image" />
+              <div className="nav-card__content">
+                <h2 className="nav-card__title">{item.title}</h2>
+                <p className="nav-card__blurb">{item.blurb}</p>
+              </div>
+            </Link>
+          ) : (
+            <div key={item.title} className="nav-card nav-card--coming">
+              <div className="nav-card__image" />
+              <div className="nav-card__content">
+                <h2 className="nav-card__title">{item.title}</h2>
+                <p className="nav-card__blurb">{item.blurb}</p>
+              </div>
+            </div>
+          )
+        )}
       </nav>
     </>
   );
