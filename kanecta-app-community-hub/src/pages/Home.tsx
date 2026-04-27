@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import Tooltip from "@mui/material/Tooltip";
 import Header from "../components/Header";
+import Footer from "../components/Footer";
 import { useUserRole } from "../auth/useUserRole";
 
 const publicActive = [
@@ -175,6 +176,7 @@ export default function Home() {
           </>
         )}
       </nav>
+      <Footer />
     </>
   );
 }

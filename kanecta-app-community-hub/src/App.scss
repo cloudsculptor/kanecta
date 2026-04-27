@@ -448,6 +448,32 @@ $bp-tablet: 768px;
   }
 }
 
+.site-footer {
+  margin-top: auto;
+  border-top: 1px solid var(--border);
+  padding: 20px 32px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+
+  &__link {
+    color: var(--text);
+    text-decoration: none;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+
+  &__divider {
+    color: var(--border);
+  }
+}
+
 .ticks {
   position: relative;
   width: 100%;
