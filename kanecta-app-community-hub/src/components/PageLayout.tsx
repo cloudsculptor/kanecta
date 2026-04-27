@@ -2,6 +2,7 @@ import { type ReactNode } from "react";
 import Header from "./Header";
 import Breadcrumb from "./Breadcrumb";
 import ComingSoon from "./ComingSoon";
+import Footer from "./Footer";
 
 interface PageLayoutProps {
   pageName: string;
@@ -23,6 +24,7 @@ export default function PageLayout({
         {showComingSoon && <ComingSoon />}
         {children}
       </main>
+      <Footer />
     </>
   );
 }
