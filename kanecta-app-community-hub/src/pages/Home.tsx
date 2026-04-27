@@ -78,9 +78,9 @@ const localItems = [
     path: "/local-economy",
   },
   {
-    title: "About this site",
-    blurb: "Learn how this site works and how to get involved.",
-    path: "/about",
+    title: "Resilience",
+    blurb: "The community resilience plan — workstreams, survey results, and local action.",
+    path: "/resilience",
   },
 ];
 

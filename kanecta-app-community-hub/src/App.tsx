@@ -9,6 +9,7 @@ import GoodsAndServices from "./pages/GoodsAndServices";
 import SocialServices from "./pages/SocialServices";
 import AboutThisSite from "./pages/AboutThisSite";
 import Governance from "./pages/Governance";
+import Resilience from "./pages/Resilience";
 import Kai from "./pages/Kai";
 import TransportAndMobility from "./pages/TransportAndMobility";
 import SkillSharing from "./pages/SkillSharing";
@@ -28,6 +29,7 @@ export default function App() {
       <Route path="/social-services" element={<SocialServices />} />
       <Route path="/about" element={<AboutThisSite />} />
       <Route path="/about/governance" element={<Governance />} />
+      <Route path="/resilience" element={<Resilience />} />
       <Route path="/kai" element={<Kai />} />
       <Route path="/transport-and-mobility" element={<TransportAndMobility />} />
       <Route path="/skill-sharing" element={<SkillSharing />} />
