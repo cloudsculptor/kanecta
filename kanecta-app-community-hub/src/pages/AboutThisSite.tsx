@@ -1,3 +1,4 @@
+import Tooltip from "@mui/material/Tooltip";
 import PageLayout from "../components/PageLayout";
 
 export default function AboutThisSite() {
@@ -22,8 +23,28 @@ export default function AboutThisSite() {
       </p>
       <h4>A resource that belongs to everyone</h4>
       <p>
-        All content and the software that powers this site are published under
-        open source licences — free to{" "}
+        All content and the software that powers this site are published under{" "}
+        <Tooltip
+          enterDelay={300}
+          title={
+            <span style={{ lineHeight: 1.6 }}>
+              Software:{" "}
+              <a href="https://en.wikipedia.org/wiki/GNU_Affero_General_Public_License" target="_blank" rel="noopener noreferrer" style={{ color: "inherit" }}>
+                AGPL
+              </a>
+              <br />
+              Content:{" "}
+              <a href="https://en.wikipedia.org/wiki/Creative_Commons_license" target="_blank" rel="noopener noreferrer" style={{ color: "inherit" }}>
+                Creative Commons
+              </a>
+            </span>
+          }
+        >
+          <span style={{ textDecoration: "underline dotted", cursor: "help" }}>
+            open source licences
+          </span>
+        </Tooltip>
+        {" "}— free to{" "}
         <a href="https://github.com/cloudsculptor/featherston" target="_blank" rel="noopener noreferrer">
           download
         </a>
