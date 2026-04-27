@@ -33,6 +33,12 @@ export default function Events() {
           </a>{" "}
           — regional events aggregator covering the wider Wairarapa
         </li>
+        <li>
+          <a href="https://www.facebook.com/featherston.wairarapa/" target="_blank" rel="noopener noreferrer">
+            Featherston, Wairarapa
+          </a>{" "}
+          — local Facebook page with community news and events
+        </li>
       </ul>
 
       <h3>Annual Highlights</h3>
