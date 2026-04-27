@@ -53,11 +53,6 @@ const localItems = [
     path: "/kai",
   },
   {
-    title: "Events",
-    blurb: "Find local events, gatherings, and activities happening in Featherston.",
-    path: "/events",
-  },
-  {
     title: "Transport and Mobility",
     blurb: "Carpooling, ride sharing, and transport options in the area.",
     path: "/transport-and-mobility",
