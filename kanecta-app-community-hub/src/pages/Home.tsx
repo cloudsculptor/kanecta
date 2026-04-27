@@ -41,8 +41,8 @@ const publicComing = [
     blurb: "Access social support, welfare, and community care services.",
   },
   {
-    title: "About this site",
-    blurb: "Learn how this site works and how to get involved.",
+    title: "Notice Board",
+    blurb: "Community announcements, lost & found, and local news.",
   },
 ];
 
