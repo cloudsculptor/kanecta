@@ -23,8 +23,11 @@ export default function AboutThisSite() {
       <h4>A resource that belongs to everyone</h4>
       <p>
         All content and the software that powers this site are published under
-        open source licences — free to download, share, and reuse by anyone, no
-        permission needed. If you ever decide this site isn't for you, your
+        open source licences — free to{" "}
+        <a href="https://github.com/cloudsculptor/featherston" target="_blank" rel="noopener noreferrer">
+          download
+        </a>
+        , share, and reuse by anyone, no permission needed. If you ever decide this site isn't for you, your
         contributions aren't lost or locked away. You can take a full copy and
         host it elsewhere. Everything contributed here is a gift to the public,
         and nobody can ever take that away.
@@ -42,6 +45,17 @@ export default function AboutThisSite() {
         that power as widely as possible, and to build in every safeguard we can
         against this site being captured by any individual or special interest
         group.
+      </p>
+      <p>
+        Our governance model draws on the principles of{" "}
+        <a href="https://en.wikipedia.org/wiki/Sortition" target="_blank" rel="noopener noreferrer">
+          sortition
+        </a>{" "}
+        — the selection of decision-makers by random lot — and{" "}
+        <a href="https://en.wikipedia.org/wiki/Direct_democracy" target="_blank" rel="noopener noreferrer">
+          direct democracy
+        </a>
+        , giving every community member an equal voice.
       </p>
       <h4>Free to use, free from influence</h4>
       <blockquote className="about-quote">
