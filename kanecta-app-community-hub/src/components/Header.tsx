@@ -19,7 +19,7 @@ const ROLE_COLOR: Record<UserRole, string> = {
   PUBLIC: "#757575",
   VISITOR: "#1565c0",
   LOCAL: "#2e7d32",
-  TEAM: "#aa3bff",
+  TEAM: "#3a7d44",
 };
 
 export default function Header() {
