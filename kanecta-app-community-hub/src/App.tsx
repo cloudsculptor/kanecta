@@ -9,6 +9,11 @@ import GoodsAndServices from "./pages/GoodsAndServices";
 import SocialServices from "./pages/SocialServices";
 import AboutThisSite from "./pages/AboutThisSite";
 import Governance from "./pages/Governance";
+import Kai from "./pages/Kai";
+import TransportAndMobility from "./pages/TransportAndMobility";
+import SkillSharing from "./pages/SkillSharing";
+import CommunicationNetworks from "./pages/CommunicationNetworks";
+import LocalEconomy from "./pages/LocalEconomy";
 
 export default function App() {
   return (
@@ -23,6 +28,11 @@ export default function App() {
       <Route path="/social-services" element={<SocialServices />} />
       <Route path="/about" element={<AboutThisSite />} />
       <Route path="/about/governance" element={<Governance />} />
+      <Route path="/kai" element={<Kai />} />
+      <Route path="/transport-and-mobility" element={<TransportAndMobility />} />
+      <Route path="/skill-sharing" element={<SkillSharing />} />
+      <Route path="/communication-networks" element={<CommunicationNetworks />} />
+      <Route path="/local-economy" element={<LocalEconomy />} />
     </Routes>
   );
 }
