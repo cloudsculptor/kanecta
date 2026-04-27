@@ -7,5 +7,5 @@ const ROLE_CLAIM = "https://featherston.app/role";
 export function useUserRole(): UserRole {
   const { isAuthenticated, user } = useAuth0();
   if (!isAuthenticated || !user) return "PUBLIC";
-  return (user[ROLE_CLAIM] as UserRole) ?? "VISITOR";
+  return (user[ROLE_CLAIM] as UserRole) ?? "LOCAL";
 }
