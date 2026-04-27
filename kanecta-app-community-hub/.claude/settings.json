@@ -6,7 +6,19 @@
       "Bash(git push)",
       "Bash(npm install *)",
       "WebFetch(domain:commons.wikimedia.org)",
-      "WebFetch(domain:upload.wikimedia.org)"
+      "WebFetch(domain:upload.wikimedia.org)",
+      "WebSearch",
+      "WebFetch(domain:www.facebook.com)",
+      "WebFetch(domain:www.foodbank.co.nz)",
+      "WebFetch(domain:fcc.nz)",
+      "WebFetch(domain:waisct.org.nz)",
+      "WebFetch(domain:www.familyservices.govt.nz)",
+      "WebFetch(domain:featherstoninfo.nz)",
+      "Read(//home/richard/Downloads/**)",
+      "Bash(git rm *)"
+    ],
+    "additionalDirectories": [
+      "/home/richard/Downloads"
     ]
   }
 }
