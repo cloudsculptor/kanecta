@@ -10,6 +10,12 @@ export default function Events() {
       </p>
       <ul>
         <li>
+          <a href="https://featherstoninfo.nz/" target="_blank" rel="noopener noreferrer">
+            Featherston Info
+          </a>{" "}
+          — local information site with news and upcoming events
+        </li>
+        <li>
           <a href="https://featherston.org.nz/events/" target="_blank" rel="noopener noreferrer">
             Featherston NZ — Events
           </a>{" "}
@@ -27,12 +33,6 @@ export default function Events() {
           </a>{" "}
           — regional events aggregator covering the wider Wairarapa
         </li>
-        <li>
-          <a href="https://featherstoninfo.nz/" target="_blank" rel="noopener noreferrer">
-            Featherston Info
-          </a>{" "}
-          — local information site with news and upcoming events
-        </li>
       </ul>
 
       <h3>Annual Highlights</h3>
@@ -43,12 +43,6 @@ export default function Events() {
           </a>{" "}
           — annual literary festival held each May, one of New Zealand's
           premier book events
-        </li>
-        <li>
-          <a href="https://www.eventfinda.co.nz/whatson/events/featherston" target="_blank" rel="noopener noreferrer">
-            Wairarapa Music in the Country
-          </a>{" "}
-          — three days of live music at Tauherenikau Racecourse each January
         </li>
       </ul>
     </PageLayout>
