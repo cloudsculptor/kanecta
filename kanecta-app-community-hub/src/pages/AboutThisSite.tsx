@@ -42,7 +42,7 @@ export default function AboutThisSite() {
         group.
       </p>
       <p>
-        Read more about our <a href="/about/governance">roles and responsibilities</a>.
+        Read more about our <a href="/about/governance">governance structure</a>.
       </p>
 
     </PageLayout>

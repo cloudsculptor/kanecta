@@ -1,11 +1,32 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth0 } from "@auth0/auth0-react";
+import Chip from "@mui/material/Chip";
+import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
-import LoginDialog from "./LoginDialog";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import { useUserRole, type UserRole } from "../auth/useUserRole";
+
+const ROLE_LABEL: Record<UserRole, string> = {
+  PUBLIC: "Public",
+  VISITOR: "Visitor",
+  LOCAL: "Local",
+  TEAM: "Team",
+};
+
+const ROLE_COLOR: Record<UserRole, string> = {
+  PUBLIC: "#757575",
+  VISITOR: "#1565c0",
+  LOCAL: "#2e7d32",
+  TEAM: "#aa3bff",
+};
 
 export default function Header() {
-  const [open, setOpen] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const navigate = useNavigate();
+  const { isAuthenticated, user, logout, loginWithRedirect } = useAuth0();
+  const role = useUserRole();
 
   return (
     <>
@@ -20,31 +41,88 @@ export default function Header() {
           <p className="site-header__subtitle">Community Information Hub</p>
         </div>
         <div className="site-header__actions">
-          <IconButton
-            aria-label="Sign in"
-            onClick={() => setOpen(true)}
-            sx={{
-              color: "rgba(255,255,255,0.8)",
-              "&:hover": {
-                color: "#fff",
-                backgroundColor: "rgba(255,255,255,0.12)",
-              },
-            }}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              width="26"
-              height="26"
-              aria-hidden="true"
+          {isAuthenticated ? (
+            <>
+              <IconButton
+                aria-label="Account menu"
+                onClick={(e) => setMenuAnchor(e.currentTarget)}
+                sx={{
+                  color: ROLE_COLOR[role],
+                  "&:hover": {
+                    color: "#fff",
+                    backgroundColor: "rgba(255,255,255,0.12)",
+                  },
+                }}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  width="26"
+                  height="26"
+                  aria-hidden="true"
+                >
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                </svg>
+              </IconButton>
+              <Menu
+                anchorEl={menuAnchor}
+                open={Boolean(menuAnchor)}
+                onClose={() => setMenuAnchor(null)}
+              >
+                <MenuItem disabled sx={{ opacity: "1 !important", py: 1.5 }}>
+                  <div>
+                    <div style={{ fontSize: 13, marginBottom: 6 }}>
+                      {user?.email}
+                    </div>
+                    <Chip
+                      label={ROLE_LABEL[role]}
+                      size="small"
+                      sx={{
+                        backgroundColor: ROLE_COLOR[role],
+                        color: "#fff",
+                        fontSize: 11,
+                        fontWeight: 600,
+                      }}
+                    />
+                  </div>
+                </MenuItem>
+                <Divider />
+                <MenuItem
+                  onClick={() => {
+                    setMenuAnchor(null);
+                    logout({ logoutParams: { returnTo: window.location.origin } });
+                  }}
+                >
+                  Sign out
+                </MenuItem>
+              </Menu>
+            </>
+          ) : (
+            <IconButton
+              aria-label="Sign in"
+              onClick={() => loginWithRedirect()}
+              sx={{
+                color: "rgba(255,255,255,0.8)",
+                "&:hover": {
+                  color: "#fff",
+                  backgroundColor: "rgba(255,255,255,0.12)",
+                },
+              }}
             >
-              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-            </svg>
-          </IconButton>
+              <svg
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                width="26"
+                height="26"
+                aria-hidden="true"
+              >
+                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+              </svg>
+            </IconButton>
+          )}
         </div>
       </header>
 
-      <LoginDialog open={open} onClose={() => setOpen(false)} />
     </>
   );
 }
