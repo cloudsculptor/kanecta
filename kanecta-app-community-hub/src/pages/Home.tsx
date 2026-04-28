@@ -168,6 +168,11 @@ export default function Home() {
               title="Discussions"
               blurb="Share ideas, ask questions, and connect with others in the Featherston community."
               path="/discussion"
+              image="/discussions-community.jpg"
+              attribution={{
+                label: "Photo: Andis Rado / CC BY-SA 4.0",
+                url: "https://commons.wikimedia.org/wiki/File:OSCAL_2017_-_meetups_and_communities_09.jpg",
+              }}
             />
             {localItems.map((item) => <NavCard key={item.title} {...item} />)}
           </>
