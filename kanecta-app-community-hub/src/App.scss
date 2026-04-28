@@ -5,63 +5,47 @@ $bp-tablet: 768px;
   width: 100%;
   background: linear-gradient(160deg, #0d2b12 0%, #1a4d22 60%, #2d6a35 100%);
   color: #fff;
-  padding: 24px 24px;
+  padding: 0 20px;
+  height: 56px;
   box-sizing: border-box;
   display: flex;
   align-items: center;
+  justify-content: space-between;
 
-  &__spacer,
-  &__actions {
-    width: 44px;
+  &__brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+    text-decoration: none;
+    outline: none;
+
+    &:focus-visible {
+      outline: 2px solid rgba(255,255,255,0.5);
+      border-radius: 4px;
+    }
+  }
+
+  &__mountain {
+    font-size: 26px !important;
+    color: rgba(255,255,255,0.85);
     flex-shrink: 0;
+  }
+
+  &__title {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    color: #fff;
+    line-height: 1;
+    margin: 0;
   }
 
   &__actions {
     display: flex;
-    justify-content: flex-end;
     align-items: center;
-  }
-
-  &__center {
-    flex: 1;
-    text-align: center;
-  }
-
-  &__title {
-    font-size: 52px;
-    font-weight: 700;
-    letter-spacing: -1.5px;
-    margin: 0 0 6px;
-    color: #fff;
-    line-height: 1;
-
-    @media (max-width: $bp-tablet) {
-      font-size: 38px;
-      letter-spacing: -1px;
-    }
-
-    @media (max-width: $bp-mobile) {
-      font-size: 30px;
-      letter-spacing: -0.5px;
-    }
-  }
-
-  &__subtitle {
-    font-size: 14px;
-    font-weight: 300;
-    color: rgba(255, 255, 255, 0.75);
-    margin: 0;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-
-    @media (max-width: $bp-tablet) {
-      font-size: 13px;
-    }
-
-    @media (max-width: $bp-mobile) {
-      font-size: 12px;
-      letter-spacing: 0.5px;
-    }
+    gap: 4px;
   }
 }
 

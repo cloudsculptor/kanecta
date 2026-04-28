@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
+import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
+import LandscapeIcon from "@mui/icons-material/Landscape";
 import { useUserRole, type UserRole } from "../auth/useUserRole";
 
 const ROLE_LABEL: Record<UserRole, string> = {
@@ -27,100 +29,79 @@ export default function Header() {
   const role = useUserRole();
 
   return (
-    <>
-      <header className="site-header">
-        <div className="site-header__spacer" />
-        <div
-          className="site-header__center"
-          onClick={() => navigate("/")}
-          style={{ cursor: "pointer" }}
-        >
-          <h1 className="site-header__title">Featherston</h1>
-          <p className="site-header__subtitle">Community Information Hub</p>
-        </div>
-        <div className="site-header__actions">
-          {isAuthenticated ? (
-            <>
-              <IconButton
-                aria-label="Account menu"
-                onClick={(e) => setMenuAnchor(e.currentTarget)}
-                sx={{
-                  color: ROLE_COLOR[role],
-                  "&:hover": {
-                    color: "#fff",
-                    backgroundColor: "rgba(255,255,255,0.12)",
-                  },
-                }}
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  width="26"
-                  height="26"
-                  aria-hidden="true"
-                >
-                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                </svg>
-              </IconButton>
-              <Menu
-                anchorEl={menuAnchor}
-                open={Boolean(menuAnchor)}
-                onClose={() => setMenuAnchor(null)}
-              >
-                <MenuItem disabled sx={{ opacity: "1 !important", py: 1.5 }}>
-                  <div>
-                    <div style={{ fontSize: 13, marginBottom: 6 }}>
-                      {user?.email}
-                    </div>
-                    <Chip
-                      label={ROLE_LABEL[role]}
-                      size="small"
-                      sx={{
-                        backgroundColor: ROLE_COLOR[role],
-                        color: "#fff",
-                        fontSize: 11,
-                        fontWeight: 600,
-                      }}
-                    />
-                  </div>
-                </MenuItem>
-                <Divider />
-                <MenuItem
-                  onClick={() => {
-                    setMenuAnchor(null);
-                    logout({ logoutParams: { returnTo: window.location.origin } });
-                  }}
-                >
-                  Sign out
-                </MenuItem>
-              </Menu>
-            </>
-          ) : (
+    <header className="site-header">
+      <div className="site-header__brand" onClick={() => navigate("/")} role="link" tabIndex={0} onKeyDown={(e) => e.key === "Enter" && navigate("/")}>
+        <LandscapeIcon className="site-header__mountain" />
+        <span className="site-header__title">Featherston</span>
+      </div>
+
+      <div className="site-header__actions">
+        {isAuthenticated ? (
+          <>
             <IconButton
-              aria-label="Sign in"
-              onClick={() => loginWithRedirect()}
+              aria-label="Account menu"
+              onClick={(e) => setMenuAnchor(e.currentTarget)}
               sx={{
-                color: "rgba(255,255,255,0.8)",
-                "&:hover": {
-                  color: "#fff",
-                  backgroundColor: "rgba(255,255,255,0.12)",
-                },
+                color: ROLE_COLOR[role],
+                "&:hover": { color: "#fff", backgroundColor: "rgba(255,255,255,0.12)" },
               }}
             >
-              <svg
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                width="26"
-                height="26"
-                aria-hidden="true"
-              >
+              <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22" aria-hidden="true">
                 <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
               </svg>
             </IconButton>
-          )}
-        </div>
-      </header>
-
-    </>
+            <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
+              <MenuItem disabled sx={{ opacity: "1 !important", py: 1.5 }}>
+                <div>
+                  <div style={{ fontSize: 13, marginBottom: 6 }}>{user?.email}</div>
+                  <Chip
+                    label={ROLE_LABEL[role]}
+                    size="small"
+                    sx={{ backgroundColor: ROLE_COLOR[role], color: "#fff", fontSize: 11, fontWeight: 600 }}
+                  />
+                </div>
+              </MenuItem>
+              <Divider />
+              <MenuItem onClick={() => { setMenuAnchor(null); logout({ logoutParams: { returnTo: window.location.origin } }); }}>
+                Sign out
+              </MenuItem>
+            </Menu>
+          </>
+        ) : (
+          <>
+            <Button
+              onClick={() => loginWithRedirect()}
+              sx={{
+                color: "rgba(255,255,255,0.85)",
+                fontWeight: 500,
+                textTransform: "none",
+                fontSize: 14,
+                "&:hover": { color: "#fff", backgroundColor: "rgba(255,255,255,0.08)" },
+              }}
+            >
+              Log in
+            </Button>
+            <Button
+              onClick={() => loginWithRedirect({ authorizationParams: { screen_hint: "signup" } })}
+              variant="contained"
+              sx={{
+                backgroundColor: "rgba(255,255,255,0.15)",
+                color: "#fff",
+                fontWeight: 600,
+                textTransform: "none",
+                fontSize: 14,
+                borderRadius: "999px",
+                px: 2.5,
+                boxShadow: "none",
+                border: "1px solid rgba(255,255,255,0.3)",
+                "&:hover": { backgroundColor: "rgba(255,255,255,0.25)", boxShadow: "none" },
+              }}
+            >
+              Sign up
+            </Button>
+          </>
+        )}
+      </div>
+    </header>
   );
 }
