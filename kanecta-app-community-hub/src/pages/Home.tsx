@@ -95,15 +95,17 @@ function NavCard({
   path,
   image,
   attribution,
+  featured,
 }: {
   title: string;
   blurb: string;
   path: string;
   image?: string;
   attribution?: Attribution;
+  featured?: boolean;
 }) {
   return (
-    <Link to={path} className="nav-card">
+    <Link to={path} className={`nav-card${featured ? " nav-card--featured" : ""}`}>
       <Tooltip
         title={
           attribution ? (
@@ -160,7 +162,15 @@ export default function Home() {
       <Header />
       <nav className="nav-grid">
         {isLocal ? (
-          localItems.map((item) => <NavCard key={item.title} {...item} />)
+          <>
+            <NavCard
+              featured
+              title="Discussions"
+              blurb="Share ideas, ask questions, and connect with others in the Featherston community."
+              path="/discussion"
+            />
+            {localItems.map((item) => <NavCard key={item.title} {...item} />)}
+          </>
         ) : (
           <>
             {publicActive.map((item) => <NavCard key={item.title} {...item} />)}
