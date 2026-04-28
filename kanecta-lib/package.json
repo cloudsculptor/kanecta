@@ -1,0 +1,28 @@
+{
+  "name": "@kanecta/lib",
+  "version": "0.1.0",
+  "description": "Node.js library for reading and writing Kanecta datastores",
+  "main": "src/index.js",
+  "files": [
+    "src/"
+  ],
+  "scripts": {
+    "test": "jest --runInBand",
+    "release": "bash scripts/release.sh",
+    "release:minor": "bash scripts/release.sh minor",
+    "release:major": "bash scripts/release.sh major"
+  },
+  "keywords": [
+    "kanecta",
+    "datastore",
+    "connector"
+  ],
+  "author": "Richie Thomas <richardsempire@gmail.com>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.17.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}
