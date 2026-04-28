@@ -87,45 +87,48 @@ $bp-tablet: 768px;
 
 .nav-card {
   display: flex;
-  align-items: center;
-  gap: 20px;
-  padding: 20px;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
   background: var(--bg);
-  border: 2px solid var(--border);
-  border-radius: 12px;
+  border: none;
+  border-radius: 6px;
+  overflow: hidden;
   cursor: pointer;
   text-align: left;
   width: 100%;
   box-sizing: border-box;
   text-decoration: none;
   color: inherit;
-  transition:
-    border-color 0.2s,
-    box-shadow 0.2s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08), 0 2px 12px rgba(0,0,0,0.06);
+  transition: box-shadow 0.2s, transform 0.2s;
 
   &:hover {
-    border-color: var(--accent);
-    box-shadow: var(--shadow);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.08);
+    transform: translateY(-2px);
   }
 
   &__image {
-    width: 88px;
-    height: 88px;
-    min-width: 88px;
-    border-radius: 8px;
+    width: 120px;
+    min-width: 120px;
+    align-self: stretch;
+    border-radius: 0;
     background: var(--accent-bg);
     flex-shrink: 0;
 
     @media (max-width: $bp-mobile) {
-      width: 64px;
-      height: 64px;
-      min-width: 64px;
+      width: 90px;
+      min-width: 90px;
     }
   }
 
   &__content {
     flex: 1;
     min-width: 0;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
   }
 
   &__title {
