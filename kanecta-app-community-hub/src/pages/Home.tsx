@@ -167,7 +167,7 @@ export default function Home() {
               featured
               title="Discussions"
               blurb="Share ideas, ask questions, and connect with others in the Featherston community."
-              path="/discussion"
+              path="/discussions"
               image="/discussions-community.jpg"
               attribution={{
                 label: "Photo: Andis Rado / CC BY-SA 4.0",
