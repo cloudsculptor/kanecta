@@ -4,7 +4,6 @@ import { useAuth0 } from "@auth0/auth0-react";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
-import IconButton from "@mui/material/IconButton";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import LandscapeIcon from "@mui/icons-material/Landscape";
@@ -16,11 +15,14 @@ const ROLE_LABEL: Record<UserRole, string> = {
   TEAM: "Team",
 };
 
-const ROLE_COLOR: Record<UserRole, string> = {
-  PUBLIC: "#757575",
-  LOCAL: "#2e7d32",
-  TEAM: "#3a7d44",
-};
+function displayName(user: { given_name?: string; nickname?: string; email?: string } | undefined): string {
+  if (!user) return "";
+  if (user.given_name) return user.given_name;
+  if (user.nickname && !user.nickname.includes("@")) return user.nickname;
+  if (user.email) return user.email.split("@")[0];
+  return "Account";
+}
+
 
 export default function Header() {
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
@@ -38,18 +40,29 @@ export default function Header() {
       <div className="site-header__actions">
         {isAuthenticated ? (
           <>
-            <IconButton
+            <Button
               aria-label="Account menu"
               onClick={(e) => setMenuAnchor(e.currentTarget)}
               sx={{
-                color: ROLE_COLOR[role],
-                "&:hover": { color: "#fff", backgroundColor: "rgba(255,255,255,0.12)" },
+                backgroundColor: "rgba(255,255,255,0.15)",
+                border: "1.5px solid rgba(255,255,255,0.35)",
+                borderRadius: "999px",
+                px: 1.5,
+                py: "5px",
+                minWidth: 0,
+                gap: "6px",
+                color: "#fff",
+                textTransform: "none",
+                fontSize: 14,
+                fontWeight: 500,
+                "&:hover": { backgroundColor: "rgba(255,255,255,0.25)" },
               }}
             >
-              <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="#fff" width="18" height="18" aria-hidden="true">
                 <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
               </svg>
-            </IconButton>
+              {displayName(user)}
+            </Button>
             <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
               <MenuItem disabled sx={{ opacity: "1 !important", py: 1.5 }}>
                 <div>
@@ -57,7 +70,7 @@ export default function Header() {
                   <Chip
                     label={ROLE_LABEL[role]}
                     size="small"
-                    sx={{ backgroundColor: ROLE_COLOR[role], color: "#fff", fontSize: 11, fontWeight: 600 }}
+                    sx={{ backgroundColor: "#3a7d44", color: "#fff", fontSize: 11, fontWeight: 600 }}
                   />
                 </div>
               </MenuItem>
