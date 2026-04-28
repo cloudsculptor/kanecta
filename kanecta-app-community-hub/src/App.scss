@@ -146,6 +146,36 @@ $bp-tablet: 768px;
     filter: grayscale(1);
   }
 
+  &--featured {
+    grid-column: 1 / -1;
+    background: linear-gradient(120deg, #fdf0d0 0%, #f7e0a8 100%);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.10), 0 4px 20px rgba(0,0,0,0.07);
+
+    &:hover {
+      box-shadow: 0 6px 24px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .nav-card__image {
+      width: 120px;
+      min-width: 120px;
+      background: rgba(180,130,40,0.15);
+
+      @media (max-width: $bp-mobile) {
+        width: 90px;
+        min-width: 90px;
+      }
+    }
+
+    .nav-card__title {
+      color: #5c3d0e;
+      font-size: 22px;
+    }
+
+    .nav-card__blurb {
+      color: #7a5220;
+    }
+  }
+
   &__blurb {
     font-size: 14px;
     color: var(--text);
