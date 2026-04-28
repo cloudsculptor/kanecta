@@ -52,12 +52,12 @@ $bp-tablet: 768px;
 .nav-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-  padding: 24px 24px 40px;
+  gap: 20px;
+  padding: 32px;
 
   @media (max-width: $bp-tablet) {
     grid-template-columns: 1fr;
-    padding: 16px 16px 32px;
+    padding: 20px 16px;
   }
 }
 
@@ -87,47 +87,49 @@ $bp-tablet: 768px;
 
 .nav-card {
   display: flex;
-  flex-direction: row;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
   background: var(--bg);
-  border-radius: 6px;
-  overflow: hidden;
+  border: 2px solid var(--border);
+  border-radius: 12px;
   cursor: pointer;
   text-align: left;
   width: 100%;
   box-sizing: border-box;
   text-decoration: none;
   color: inherit;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08), 0 2px 12px rgba(0,0,0,0.06);
-  transition: box-shadow 0.2s, transform 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 
   &:hover {
-    box-shadow: 0 4px 16px rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.08);
-    transform: translateY(-2px);
+    border-color: var(--accent);
+    box-shadow: var(--shadow);
   }
 
   &__image {
-    width: 140px;
-    min-width: 140px;
-    align-self: stretch;
+    width: 88px;
+    height: 88px;
+    min-width: 88px;
+    border-radius: 8px;
     background: var(--accent-bg);
     flex-shrink: 0;
 
     @media (max-width: $bp-mobile) {
-      width: 100px;
-      min-width: 100px;
+      width: 64px;
+      height: 64px;
+      min-width: 64px;
     }
   }
 
   &__content {
-    padding: 18px 20px;
     flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
+    min-width: 0;
   }
 
   &__title {
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 600;
     color: var(--text-h);
     margin: 0 0 6px;
