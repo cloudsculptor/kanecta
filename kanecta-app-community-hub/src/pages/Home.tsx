@@ -17,7 +17,7 @@ const publicActive = [
   },
   {
     title: "Transport",
-    blurb: "Carpooling, ride sharing, and transport options in the area.",
+    blurb: "Public transport, carpooling, ride sharing, and transport options in the area.",
     path: "/transport",
     image: "/featherston-station.jpg",
     attribution: {
