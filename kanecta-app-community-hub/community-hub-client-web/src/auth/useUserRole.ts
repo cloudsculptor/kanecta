@@ -1,11 +1,12 @@
-import { useAuth0 } from "@auth0/auth0-react";
+import { useKeycloak } from "./KeycloakProvider";
+import keycloak from "./keycloak";
 
-export type UserRole = "PUBLIC" | "LOCAL" | "TEAM";
-
-const ROLE_CLAIM = "https://featherston.app/role";
+export type UserRole = "PUBLIC" | "LOCAL" | "TEAM" | "RESILIENCE";
 
 export function useUserRole(): UserRole {
-  const { isAuthenticated, user } = useAuth0();
-  if (!isAuthenticated || !user) return "PUBLIC";
-  return (user[ROLE_CLAIM] as UserRole) ?? "LOCAL";
+  const { authenticated } = useKeycloak();
+  if (!authenticated) return "PUBLIC";
+  if (keycloak.hasRealmRole("team")) return "TEAM";
+  if (keycloak.hasRealmRole("resilience")) return "RESILIENCE";
+  return "LOCAL";
 }
