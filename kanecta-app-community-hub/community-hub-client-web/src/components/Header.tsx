@@ -1,34 +1,36 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth0 } from "@auth0/auth0-react";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import LandscapeIcon from "@mui/icons-material/Landscape";
+import { useKeycloak } from "../auth/KeycloakProvider";
 import { useUserRole, type UserRole } from "../auth/useUserRole";
+import keycloak from "../auth/keycloak";
 
 const ROLE_LABEL: Record<UserRole, string> = {
   PUBLIC: "Public",
   LOCAL: "Local",
   TEAM: "Team",
+  RESILIENCE: "Resilience",
 };
 
-function displayName(user: { given_name?: string; nickname?: string; email?: string } | undefined): string {
-  if (!user) return "";
-  if (user.given_name) return user.given_name;
-  if (user.nickname && !user.nickname.includes("@")) return user.nickname;
-  if (user.email) return user.email.split("@")[0];
+function displayName(profile: Record<string, unknown> | undefined): string {
+  if (!profile) return "";
+  if (typeof profile.given_name === "string") return profile.given_name;
+  if (typeof profile.preferred_username === "string" && !profile.preferred_username.includes("@")) return profile.preferred_username;
+  if (typeof profile.email === "string") return profile.email.split("@")[0];
   return "Account";
 }
-
 
 export default function Header() {
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const navigate = useNavigate();
-  const { isAuthenticated, user, logout, loginWithRedirect } = useAuth0();
+  const { authenticated } = useKeycloak();
   const role = useUserRole();
+  const profile = keycloak.idTokenParsed;
 
   return (
     <header className="site-header">
@@ -38,7 +40,7 @@ export default function Header() {
       </div>
 
       <div className="site-header__actions">
-        {isAuthenticated ? (
+        {authenticated ? (
           <>
             <Button
               aria-label="Account menu"
@@ -61,12 +63,12 @@ export default function Header() {
               <svg viewBox="0 0 24 24" fill="#fff" width="18" height="18" aria-hidden="true">
                 <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
               </svg>
-              {displayName(user)}
+              {displayName(profile)}
             </Button>
             <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
               <MenuItem disabled sx={{ opacity: "1 !important", py: 1.5 }}>
                 <div>
-                  <div style={{ fontSize: 13, marginBottom: 6 }}>{user?.email}</div>
+                  <div style={{ fontSize: 13, marginBottom: 6 }}>{profile?.email}</div>
                   <Chip
                     label={ROLE_LABEL[role]}
                     size="small"
@@ -75,7 +77,7 @@ export default function Header() {
                 </div>
               </MenuItem>
               <Divider />
-              <MenuItem onClick={() => { setMenuAnchor(null); logout({ logoutParams: { returnTo: window.location.origin } }); }}>
+              <MenuItem onClick={() => { setMenuAnchor(null); keycloak.logout({ redirectUri: window.location.origin }); }}>
                 Sign out
               </MenuItem>
             </Menu>
@@ -83,7 +85,7 @@ export default function Header() {
         ) : (
           <>
             <Button
-              onClick={() => loginWithRedirect()}
+              onClick={() => keycloak.login()}
               sx={{
                 color: "rgba(255,255,255,0.85)",
                 fontWeight: 500,
@@ -95,7 +97,7 @@ export default function Header() {
               Log in
             </Button>
             <Button
-              onClick={() => loginWithRedirect({ authorizationParams: { screen_hint: "signup" } })}
+              onClick={() => keycloak.register()}
               variant="contained"
               sx={{
                 backgroundColor: "rgba(255,255,255,0.15)",

@@ -15,7 +15,17 @@
       "WebFetch(domain:www.familyservices.govt.nz)",
       "WebFetch(domain:featherstoninfo.nz)",
       "Read(//home/richard/Downloads/**)",
-      "Bash(git rm *)"
+      "Bash(git rm *)",
+      "Bash(npm run *)",
+      "Bash(curl -L \"https://upload.wikimedia.org/wikipedia/commons/5/5b/OSCAL_2017_-_meetups_and_communities_09.jpg\" -o /home/richard/code/featherston/public/discussions-community.jpg)",
+      "Bash(npm show *)",
+      "Bash(npm pack *)",
+      "Bash(curl -s https://registry.npmjs.org/@kanecta/lib/-/lib-0.1.1.tgz)",
+      "Bash(tar -xz -C /tmp)",
+      "Read(//tmp/package/**)",
+      "Read(//tmp/**)",
+      "Bash(mkdir -p /home/richard/code/featherston-api)",
+      "Read(//home/richard/code/**)"
     ],
     "additionalDirectories": [
       "/home/richard/Downloads"
