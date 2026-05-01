@@ -9,7 +9,7 @@ A community information site for the town of Featherston, New Zealand. Built as 
 - **React Router v7** for routing
 - **MUI (Material UI) v9** for components
 - **SCSS** (via sass) for styles — `App.scss` for component styles, `index.scss` for global variables and base styles
-- **Auth0** for authentication (`@auth0/auth0-react`)
+- **Keycloak** for authentication (`keycloak-js`) — self-hosted at `https://auth.featherston.co.nz`
 
 ## Architecture
 
@@ -17,16 +17,21 @@ No backend. This is a purely static SPA deployed on DigitalOcean App Platform fr
 
 ## Authentication & roles
 
-Auth0 is configured at `featherston.au.auth0.com`. A post-login Action embeds a custom role claim (`https://featherston.app/role`) into the ID token.
+Keycloak is self-hosted on the Remutaka Server at `https://auth.featherston.co.nz`, realm `featherston`, client `featherston-web`.
+
+Roles are assigned as Keycloak realm roles. The auth layer is in `src/auth/`:
+- `keycloak.ts` — Keycloak singleton instance
+- `KeycloakProvider.tsx` — React context, initialises with `check-sso` so session is restored silently
+- `useUserRole.ts` — maps Keycloak realm roles to the app's role type
 
 Four roles, defined in `src/auth/useUserRole.ts`:
 
 | Role | Description |
 |------|-------------|
 | `PUBLIC` | Not logged in |
-| `VISITOR` | Logged in, no role assigned |
-| `LOCAL` | Featherston local |
-| `TEAM` | Site team member |
+| `LOCAL` | Logged in (default for authenticated users with no specific role) |
+| `RESILIENCE` | Has the `resilience` Keycloak realm role |
+| `TEAM` | Has the `team` Keycloak realm role |
 
 Use `useUserRole()` anywhere in the app to get the current role.
 
@@ -65,6 +70,7 @@ feat(home): add photos to Events and Transport tiles
 - Platform: DigitalOcean App Platform
 - Branch: `master` (auto-deploys on push)
 - Environment variables required at build time:
-  - `VITE_AUTH0_DOMAIN`
-  - `VITE_AUTH0_CLIENT_ID`
+  - `VITE_KEYCLOAK_URL` — `https://auth.featherston.co.nz`
+  - `VITE_KEYCLOAK_REALM` — `featherston`
+  - `VITE_KEYCLOAK_CLIENT_ID` — `featherston-web`
 - Production URL: https://featherston.co.nz
