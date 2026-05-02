@@ -1,33 +1,35 @@
-'use strict';
+import express from "express";
+import { createServer } from "http";
+import { Server as SocketIO } from "socket.io";
+import discussionsRouter from "./routes/discussions.js";
+import { setupDiscussionsSocket } from "./socket/discussions.js";
 
-const express = require('express');
-const { KanectaConnector } = require('@kanecta/lib');
-
-const PORT = process.env.PORT || 3000;
-const DATASTORE_PATH = process.env.DATASTORE_PATH || '../../featherston-datastore';
-
-const store = new KanectaConnector({ datastorePath: DATASTORE_PATH });
 const app = express();
+const httpServer = createServer(app);
+
+const io = new SocketIO(httpServer, {
+  cors: {
+    origin: process.env.CLIENT_ORIGIN || "https://featherston.co.nz",
+    methods: ["GET", "POST"],
+  },
+});
+
+setupDiscussionsSocket(io);
 
 app.use(express.json());
 
-app.get('/api/items/:id', async (req, res) => {
-  try {
-    const item = await store.getItem(req.params.id);
-    res.json(item);
-  } catch (err) {
-    if (err.message.startsWith('Item not found')) {
-      res.status(404).json({ error: err.message });
-    } else if (err.message.startsWith('Invalid UUID')) {
-      res.status(400).json({ error: err.message });
-    } else {
-      console.error(err);
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  }
+// Attach io to every request so routes can emit events
+app.use((req, res, next) => {
+  req.io = io;
+  next();
 });
 
-app.listen(PORT, () => {
-  console.log(`featherston-api listening on port ${PORT}`);
-  console.log(`datastore: ${DATASTORE_PATH}`);
+app.get("/health", (req, res) => res.json({ ok: true }));
+app.use("/api/discussions", discussionsRouter);
+
+const PORT = process.env.PORT || 3000;
+httpServer.listen(PORT, () => {
+  console.log(`Featherston API running on port ${PORT}`);
 });
+
+export { app, httpServer };
