@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Message, Reaction } from "../../api/discussions";
+import EmojiPicker from "./EmojiPicker";
 
 interface Props {
   message: Message;
@@ -29,6 +30,7 @@ export default function MessageItem({
   const [hovered, setHovered] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(message.content);
+  const [showEmoji, setShowEmoji] = useState(false);
   const isOwn = message.user_id === currentUserId;
   const isDeleted = !!message.deleted_at;
 
@@ -111,13 +113,22 @@ export default function MessageItem({
 
       {hovered && !editing && (
         <div className="discussions-message__actions">
-          {(isOwn || canModerate) && (
-            <button title="Delete" onClick={() => onDelete(message.id)}>🗑</button>
-          )}
+          <div style={{ position: "relative" }}>
+            <button title="React" onClick={() => setShowEmoji((v) => !v)}>😊</button>
+            {showEmoji && (
+              <EmojiPicker
+                onSelect={(emoji) => onReact(message.id, emoji)}
+                onClose={() => setShowEmoji(false)}
+              />
+            )}
+          </div>
+          <button title="Reply in thread" onClick={() => onOpenReplies(message)}>💬</button>
           {isOwn && (
             <button title="Edit" onClick={() => { setEditing(true); setEditValue(message.content); }}>✏️</button>
           )}
-          <button title="Reply" onClick={() => onOpenReplies(message)}>💬</button>
+          {(isOwn || canModerate) && (
+            <button title="Delete" onClick={() => onDelete(message.id)}>🗑</button>
+          )}
         </div>
       )}
     </div>

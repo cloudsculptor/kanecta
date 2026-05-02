@@ -6,6 +6,7 @@ import Footer from "../components/Footer";
 import MessageItem from "../components/discussions/MessageItem";
 import MessageInput from "../components/discussions/MessageInput";
 import CreateThreadModal from "../components/discussions/CreateThreadModal";
+import ReplyPanel from "../components/discussions/ReplyPanel";
 import { useUserRole } from "../auth/useUserRole";
 import { useKeycloak } from "../auth/KeycloakProvider";
 import { useThreadSocket } from "../hooks/useSocket";
@@ -24,6 +25,7 @@ export default function Discussions() {
   const [loadingThreads, setLoadingThreads] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [showCreateThread, setShowCreateThread] = useState(false);
+  const [replyTarget, setReplyTarget] = useState<Message | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const activeThread = threads.find((t) => t.id === activeThreadId);
@@ -174,7 +176,7 @@ export default function Discussions() {
                   onDelete={deleteMessage}
                   onReact={react}
                   onUnreact={unreact}
-                  onOpenReplies={() => {}}
+                  onOpenReplies={setReplyTarget}
                 />
               ))
             )}
@@ -188,6 +190,19 @@ export default function Discussions() {
             />
           )}
         </main>
+
+        {replyTarget && (
+          <ReplyPanel
+            parentMessage={replyTarget}
+            currentUserId={currentUserId}
+            canModerate={canModerate}
+            onClose={() => setReplyTarget(null)}
+            onEdit={editMessage}
+            onDelete={deleteMessage}
+            onReact={react}
+            onUnreact={unreact}
+          />
+        )}
       </div>
 
       <CreateThreadModal
