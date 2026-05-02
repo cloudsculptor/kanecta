@@ -1,6 +1,6 @@
 import keycloak from "../auth/keycloak";
 
-const BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const BASE = import.meta.env.VITE_API_URL ?? "";
 
 async function authFetch(path: string, init: RequestInit = {}) {
   const token = keycloak.token;
