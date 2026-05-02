@@ -72,109 +72,109 @@ CREATE TABLE discussions_reactions (
 ### Phase 0 — Test Infrastructure Setup
 
 #### Frontend: Storybook
-- [ ] Install Storybook (`@storybook/react-vite`, `@storybook/addon-essentials`, `@storybook/addon-interactions`, `@storybook/test`)
-- [ ] Configure `.storybook/main.ts` and `preview.ts` (include MUI theme, featherston SCSS globals)
-- [ ] Add mock providers: `KeycloakProvider`, `UserRole`, Socket.io (so stories work without a live backend)
-- [ ] Add `storybook` and `build-storybook` scripts to `package.json`
-- [ ] Verify Storybook runs and existing components render
+- [x] Install Storybook (`@storybook/react-vite`, `@storybook/addon-essentials`, `@storybook/addon-interactions`, `@storybook/test`)
+- [x] Configure `.storybook/main.ts` and `preview.ts` (include MUI theme, featherston SCSS globals)
+- [x] Add mock providers: `KeycloakProvider`, `UserRole`, Socket.io (so stories work without a live backend)
+- [x] Add `storybook` and `build-storybook` scripts to `package.json`
+- [x] Verify Storybook runs and existing components render
 
 **Convention:** every component in `src/components/discussions/` gets a co-located `.stories.tsx` file. Each story covers: default, loading, empty, error, and role variants (team vs moderator) where relevant.
 
 #### Backend: Jest + Supertest
-- [ ] Install `jest`, `supertest`, `@types/jest`, `@types/supertest`
-- [ ] Configure `jest.config.js` (ESM support, test file pattern)
-- [ ] Add `test` and `test:watch` scripts to `featherston-api/package.json`
-- [ ] Create test helpers: mock Postgres pool, mock JWT middleware (so tests run without live DB or Keycloak)
-- [ ] Verify Jest runs
+- [x] Install `jest`, `supertest`, `@types/jest`, `@types/supertest`
+- [x] Configure `jest.config.js` (ESM support, test file pattern)
+- [x] Add `test` and `test:watch` scripts to `featherston-api/package.json`
+- [x] Create test helpers: mock Postgres pool, mock JWT middleware (so tests run without live DB or Keycloak)
+- [x] Verify Jest runs
 
 **Convention:** every route file and middleware gets a co-located `.test.js` file. Tests cover: success cases, auth failures (401), permission failures (403), validation errors (400), and not-found (404).
 
 ### Phase 1 — Foundation & Access Control
-- [ ] Add `moderator` role to Keycloak featherston realm (via API)
-- [ ] Add `MODERATOR` to `UserRole` type in frontend
-- [ ] Update `useUserRole.ts` to map Keycloak `moderator` realm role
-- [ ] Update discussions access gate: `team` and `moderator` only
-- [ ] Create "You need to be added to the team" page for LOCAL/RESILIENCE users
-- [ ] Run database schema migrations against Remutaka DB
+- [x] Add `moderator` role to Keycloak featherston realm (via API)
+- [x] Add `MODERATOR` to `UserRole` type in frontend
+- [x] Update `useUserRole.ts` to map Keycloak `moderator` realm role
+- [x] Update discussions access gate: `team` and `moderator` only
+- [x] Create "You need to be added to the team" page for LOCAL/RESILIENCE users
+- [x] Run database schema migrations against Remutaka DB
 
 ### Phase 2 — Backend Foundation
-- [ ] Add `pg` package to featherston-api
-- [ ] Create Postgres connection pool (`db.js`)
-- [ ] Create Keycloak JWT validation middleware (verify against Keycloak public keys)
-- [ ] Thread endpoints:
+- [x] Add `pg` package to featherston-api
+- [x] Create Postgres connection pool (`db.js`)
+- [x] Create Keycloak JWT validation middleware (verify against Keycloak public keys)
+- [x] Thread endpoints:
   - `GET /api/discussions/threads` — list all active threads
   - `POST /api/discussions/threads` — create thread (team/moderator only)
-- [ ] Message endpoints:
+- [x] Message endpoints:
   - `GET /api/discussions/threads/:id/messages` — paginated messages (top-level only)
   - `POST /api/discussions/threads/:id/messages` — post message
   - `PUT /api/discussions/messages/:id` — edit own message
   - `DELETE /api/discussions/messages/:id` — delete own message (or any if moderator)
-- [ ] Reply endpoints:
+- [x] Reply endpoints:
   - `GET /api/discussions/messages/:id/replies` — replies to a message
   - `POST /api/discussions/messages/:id/replies` — post a reply
-- [ ] Reaction endpoints:
+- [x] Reaction endpoints:
   - `POST /api/discussions/messages/:id/reactions` — add reaction
   - `DELETE /api/discussions/messages/:id/reactions/:emoji` — remove reaction
 
-- [ ] **Tests:** `middleware/auth.test.js` (valid token, expired token, missing token, wrong audience), `routes/discussions.test.js` (all endpoints: success, 401, 403, 404, 400 validation)
+- [x] **Tests:** `middleware/auth.test.js` (valid token, expired token, missing token, wrong audience), `routes/discussions.test.js` (all endpoints: success, 401, 403, 404, 400 validation)
 
 ### Phase 3 — Socket.io Real-time
-- [ ] Add `socket.io` to featherston-api
-- [ ] JWT auth on Socket.io handshake
-- [ ] Rooms: one per thread (`thread:{id}`), one per message thread (`replies:{messageId}`)
-- [ ] Emit events:
+- [x] Add `socket.io` to featherston-api
+- [x] JWT auth on Socket.io handshake
+- [x] Rooms: one per thread (`thread:{id}`), one per message thread (`replies:{messageId}`)
+- [x] Emit events:
   - `message:new` — new top-level message
   - `message:edit` — message content updated
   - `message:delete` — message removed
   - `reply:new` — new reply to a message
   - `reaction:update` — reactions changed on a message
   - `thread:new` — new thread created
-- [ ] Socket.io client setup in frontend
-- [ ] Auto-join room when entering a thread
+- [x] Socket.io client setup in frontend
+- [x] Auto-join room when entering a thread
 
 ### Phase 4 — Frontend: Core Messaging
-- [ ] Replace hardcoded threads with API fetch
-- [ ] Replace hardcoded messages with API fetch
-- [ ] Enable message input — post on Enter, Shift+Enter for newline
-- [ ] Auto-scroll to bottom on load and on new message
-- [ ] Real-time: new messages appear via Socket.io
-- [ ] Thread creation UI (modal: name + optional description)
-- [ ] Real-time: new threads appear in sidebar
-- [ ] Loading and error states throughout
-- [ ] **Stories:** `ThreadList` (default, loading, empty, with unread badges), `MessageList` (default, loading, empty), `MessageInput` (default, disabled), `CreateThreadModal` (open, submitting, error)
+- [x] Replace hardcoded threads with API fetch
+- [x] Replace hardcoded messages with API fetch
+- [x] Enable message input — post on Enter, Shift+Enter for newline
+- [x] Auto-scroll to bottom on load and on new message
+- [x] Real-time: new messages appear via Socket.io
+- [x] Thread creation UI (modal: name + optional description)
+- [x] Real-time: new threads appear in sidebar
+- [x] Loading and error states throughout
+- [x] **Stories:** `ThreadList` (default, loading, empty, with unread badges), `MessageList` (default, loading, empty), `MessageInput` (default, disabled), `CreateThreadModal` (open, submitting, error)
 
 ### Phase 5 — Message Actions
-- [ ] Hover actions toolbar (edit / delete / react / reply)
-- [ ] Inline edit (click edit → input replaces text, save on Enter, cancel on Esc)
-- [ ] Real-time: edits update live
-- [ ] Delete with confirmation — soft delete, show greyed "This message was deleted"
-- [ ] Real-time: deletions update live
-- [ ] Moderator: sees delete on all messages
+- [x] Hover actions toolbar (edit / delete / react / reply)
+- [x] Inline edit (click edit → input replaces text, save on Enter, cancel on Esc)
+- [x] Real-time: edits update live
+- [x] Delete with confirmation — soft delete, show greyed "This message was deleted"
+- [x] Real-time: deletions update live
+- [x] Moderator: sees delete on all messages
 - [x] **Stories:** `MessageItem` (default, edited, deleted, own message, moderator view, hover state showing actions toolbar)
 
 ### Phase 6 — Threaded Replies (Slack-style)
-- [ ] "X replies" link below messages that have replies
-- [ ] Side panel slides in from right on click
-- [ ] Side panel shows original message + all replies
-- [ ] Reply input at bottom of side panel
-- [ ] Reply count updates in real-time
-- [ ] Side panel updates in real-time via `replies:{messageId}` room
+- [x] "X replies" link below messages that have replies
+- [x] Side panel slides in from right on click
+- [x] Side panel shows original message + all replies
+- [x] Reply input at bottom of side panel
+- [x] Reply count updates in real-time
+- [x] Side panel updates in real-time via `replies:{messageId}` room
 - [x] **Stories:** `ReplyPanel` (empty, with replies, loading, own reply with actions)
 
 ### Phase 7 — Reactions
-- [ ] Emoji set: Noto Emoji via `emoji-mart` (Apache 2.0)
-- [ ] Add attribution to site footer/about page with link to fonts.google.com/noto
-- [ ] Emoji picker popover on hover action
-- [ ] Reaction pills below message (emoji + count)
-- [ ] Click own reaction to remove it
+- [x] Emoji set: Noto Emoji via `emoji-mart` (Apache 2.0)
+- [x] Add attribution to site footer/about page with link to fonts.google.com/noto
+- [x] Emoji picker popover on hover action
+- [x] Reaction pills below message (emoji + count)
+- [x] Click own reaction to remove it
 - [ ] Tooltip on reaction showing who reacted
-- [ ] Real-time reaction updates via Socket.io
-- [ ] **Stories:** `EmojiPicker` (open), `ReactionPills` (none, one type, multiple types, own reaction highlighted)
+- [x] Real-time reaction updates via Socket.io
+- [x] **Stories:** `EmojiPicker` (open), `ReactionPills` (none, one type, multiple types, own reaction highlighted)
 
 ### Phase 8 — @Mentions
-- [ ] Trigger mention UI when `@` is typed in message input
-- [ ] Autocomplete dropdown showing team members (fetch from Keycloak admin API)
-- [ ] Render @name highlighted with coloured pill in message text
+- [x] Trigger mention UI when `@` is typed in message input
+- [x] Autocomplete dropdown showing team members (fetch from Keycloak admin API)
+- [x] Render @name highlighted with coloured pill in message text
 - [ ] Unread badge on thread in sidebar when you are mentioned
 - [ ] Mentions & Reactions section at top of sidebar (Slack's @ button equivalent)
 - [x] **Stories:** `MessageInput` with mention dropdown open, `MessageItem` with mention highlighted, `ThreadList` with mention badge

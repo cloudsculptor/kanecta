@@ -167,12 +167,12 @@ router.post("/messages/:id/reactions", requireAuth, canAccess, async (req, res) 
   if (!emoji) return res.status(400).json({ error: "Emoji is required" });
   try {
     await pool.query(
-      `INSERT INTO discussions_reactions (message_id, user_id, emoji) VALUES ($1, $2, $3)
+      `INSERT INTO discussions_reactions (message_id, user_id, user_name, emoji) VALUES ($1, $2, $3, $4)
        ON CONFLICT DO NOTHING`,
-      [req.params.id, req.user.id, emoji]
+      [req.params.id, req.user.id, req.user.name, emoji]
     );
     const { rows } = await pool.query(
-      `SELECT emoji, COUNT(*) AS count, array_agg(user_id) AS user_ids
+      `SELECT emoji, COUNT(*) AS count, array_agg(user_id) AS user_ids, array_agg(user_name) AS user_names
        FROM discussions_reactions WHERE message_id = $1 GROUP BY emoji`,
       [req.params.id]
     );
@@ -191,7 +191,7 @@ router.delete("/messages/:id/reactions/:emoji", requireAuth, canAccess, async (r
       [req.params.id, req.user.id, req.params.emoji]
     );
     const { rows } = await pool.query(
-      `SELECT emoji, COUNT(*) AS count, array_agg(user_id) AS user_ids
+      `SELECT emoji, COUNT(*) AS count, array_agg(user_id) AS user_ids, array_agg(user_name) AS user_names
        FROM discussions_reactions WHERE message_id = $1 GROUP BY emoji`,
       [req.params.id]
     );

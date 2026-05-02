@@ -41,6 +41,7 @@ export interface Reaction {
   emoji: string;
   count: string;
   user_ids: string[];
+  user_names: string[];
 }
 
 export interface User {
