@@ -150,7 +150,7 @@ CREATE TABLE discussions_reactions (
 - [ ] Delete with confirmation — soft delete, show greyed "This message was deleted"
 - [ ] Real-time: deletions update live
 - [ ] Moderator: sees delete on all messages
-- [ ] **Stories:** `MessageItem` (default, edited, deleted, own message, moderator view, hover state showing actions toolbar)
+- [x] **Stories:** `MessageItem` (default, edited, deleted, own message, moderator view, hover state showing actions toolbar)
 
 ### Phase 6 — Threaded Replies (Slack-style)
 - [ ] "X replies" link below messages that have replies
@@ -159,7 +159,7 @@ CREATE TABLE discussions_reactions (
 - [ ] Reply input at bottom of side panel
 - [ ] Reply count updates in real-time
 - [ ] Side panel updates in real-time via `replies:{messageId}` room
-- [ ] **Stories:** `ReplyPanel` (empty, with replies, loading, own reply with actions)
+- [x] **Stories:** `ReplyPanel` (empty, with replies, loading, own reply with actions)
 
 ### Phase 7 — Reactions
 - [ ] Emoji set: Noto Emoji via `emoji-mart` (Apache 2.0)
@@ -177,7 +177,7 @@ CREATE TABLE discussions_reactions (
 - [ ] Render @name highlighted with coloured pill in message text
 - [ ] Unread badge on thread in sidebar when you are mentioned
 - [ ] Mentions & Reactions section at top of sidebar (Slack's @ button equivalent)
-- [ ] **Stories:** `MessageInput` with mention dropdown open, `MessageItem` with mention highlighted, `ThreadList` with mention badge
+- [x] **Stories:** `MessageInput` with mention dropdown open, `MessageItem` with mention highlighted, `ThreadList` with mention badge
 
 ---
 

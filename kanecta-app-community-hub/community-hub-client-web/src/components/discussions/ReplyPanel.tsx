@@ -1,0 +1,114 @@
+import { useState, useEffect, useRef } from "react";
+import { useRepliesSocket } from "../../hooks/useSocket";
+import { api, type Message, type Reaction } from "../../api/discussions";
+import MessageItem from "./MessageItem";
+import MessageInput from "./MessageInput";
+
+interface Props {
+  parentMessage: Message;
+  currentUserId: string;
+  canModerate: boolean;
+  onClose: () => void;
+  onEdit: (id: string, content: string) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+  onReact: (id: string, emoji: string) => Promise<void>;
+  onUnreact: (id: string, emoji: string) => Promise<void>;
+}
+
+export default function ReplyPanel({
+  parentMessage, currentUserId, canModerate,
+  onClose, onEdit, onDelete, onReact, onUnreact,
+}: Props) {
+  const [replies, setReplies] = useState<Message[]>([]);
+  const [reactions, setReactions] = useState<Record<string, Reaction[]>>({});
+  const [loading, setLoading] = useState(true);
+  const endRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    api.messages.replies(parentMessage.id).then(setReplies).finally(() => setLoading(false));
+  }, [parentMessage.id]);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [replies]);
+
+  useRepliesSocket(parentMessage.id, {
+    "reply:new": (data) => setReplies((prev) => [...prev, data as Message]),
+  });
+
+  async function sendReply(content: string) {
+    await api.messages.reply(parentMessage.id, content);
+  }
+
+  async function editReply(id: string, content: string) {
+    const updated = await onEdit(id, content);
+    setReplies((prev) => prev.map((r) => (r.id === id ? { ...r, content } : r)));
+    return updated;
+  }
+
+  async function deleteReply(id: string) {
+    await onDelete(id);
+    setReplies((prev) => prev.map((r) => r.id === id ? { ...r, deleted_at: new Date().toISOString(), content: "" } : r));
+  }
+
+  return (
+    <div className="discussions-reply-panel">
+      <div className="discussions-reply-panel__header">
+        Thread
+        <button className="discussions-reply-panel__close" onClick={onClose} aria-label="Close thread">×</button>
+      </div>
+
+      <div className="discussions-reply-panel__original">
+        <MessageItem
+          message={parentMessage}
+          reactions={reactions[parentMessage.id] || []}
+          currentUserId={currentUserId}
+          canModerate={canModerate}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onReact={onReact}
+          onUnreact={onUnreact}
+          onOpenReplies={() => {}}
+        />
+      </div>
+
+      <div className="discussions-reply-panel__replies">
+        {loading ? (
+          <div className="discussions-reply-panel__loading">Loading replies…</div>
+        ) : replies.length === 0 ? (
+          <div className="discussions-reply-panel__empty">No replies yet. Start the thread!</div>
+        ) : (
+          replies.map((r) => (
+            <MessageItem
+              key={r.id}
+              message={r}
+              reactions={reactions[r.id] || []}
+              currentUserId={currentUserId}
+              canModerate={canModerate}
+              onEdit={editReply}
+              onDelete={deleteReply}
+              onReact={async (id, emoji) => {
+                const updated = await onReact(id, emoji);
+                setReactions((prev) => ({ ...prev, [id]: updated as unknown as Reaction[] }));
+              }}
+              onUnreact={async (id, emoji) => {
+                const updated = await onUnreact(id, emoji);
+                setReactions((prev) => ({ ...prev, [id]: updated as unknown as Reaction[] }));
+              }}
+              onOpenReplies={() => {}}
+            />
+          ))
+        )}
+        <div ref={endRef} />
+      </div>
+
+      <div className="discussions-reply-panel__input">
+        <MessageInput
+          placeholder="Reply…"
+          onSend={sendReply}
+        />
+      </div>
+    </div>
+  );
+}
