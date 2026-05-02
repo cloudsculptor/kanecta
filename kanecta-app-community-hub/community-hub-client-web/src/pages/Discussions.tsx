@@ -83,12 +83,18 @@ export default function Discussions() {
     setThreads((prev) => [...prev, data as Thread]);
   }, []);
 
+  const handleReplyCount = useCallback((data: unknown) => {
+    const { message_id } = data as { message_id: string };
+    setMessages((prev) => prev.map((m) => m.id === message_id ? { ...m, reply_count: m.reply_count + 1 } : m));
+  }, []);
+
   useThreadSocket(activeThreadId, {
     "message:new": handleNewMessage,
     "message:edit": handleEditMessage,
     "message:delete": handleDeleteMessage,
     "reaction:update": handleReactionUpdate,
     "thread:new": handleNewThread,
+    "message:reply_count": handleReplyCount,
   });
 
   async function sendMessage(content: string) {
