@@ -1,4 +1,4 @@
-import { useState, useRef, type KeyboardEvent } from "react";
+import { useState, useRef, useCallback, type KeyboardEvent } from "react";
 
 interface User {
   id: string;
@@ -39,10 +39,16 @@ export default function MentionInput({ placeholder, onSend, disabled, users }: P
     ? users.filter((u) => u.name.toLowerCase().includes(mentionSearch.toLowerCase())).slice(0, 6)
     : [];
 
+  const autoResize = useCallback((el: HTMLTextAreaElement) => {
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+  }, []);
+
   function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const val = e.target.value;
     const cursor = e.target.selectionStart;
     setValue(val);
+    autoResize(e.target);
 
     // Detect @ trigger
     const textToCursor = val.slice(0, cursor);
