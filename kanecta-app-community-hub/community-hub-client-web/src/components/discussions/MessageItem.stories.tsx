@@ -45,8 +45,8 @@ export const Deleted: Story = {
 export const WithReactions: Story = {
   args: {
     reactions: [
-      { emoji: "👍", count: "3", user_ids: ["user-1", "user-2", "user-3"] },
-      { emoji: "❤️", count: "1", user_ids: ["user-2"] },
+      { emoji: "👍", count: "3", user_ids: ["user-1", "user-2", "user-3"], user_names: ["Jane Smith", "Mike R.", "Aroha T."] },
+      { emoji: "❤️", count: "1", user_ids: ["user-2"], user_names: ["Mike R."] },
     ],
   },
 };
