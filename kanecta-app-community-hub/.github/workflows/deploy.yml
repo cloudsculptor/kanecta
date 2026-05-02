@@ -44,8 +44,8 @@ jobs:
 
       - name: Deploy API
         run: |
-          rsync -az --delete --exclude node_modules -e "ssh -i ~/.ssh/deploy_key" \
+          rsync -az --delete --exclude node_modules --exclude ecosystem.config.cjs -e "ssh -i ~/.ssh/deploy_key" \
             featherston-api/ \
             root@${{ secrets.DEPLOY_HOST }}:/opt/featherston-api/
           ssh -i ~/.ssh/deploy_key root@${{ secrets.DEPLOY_HOST }} \
-            "cd /opt/featherston-api && npm install --omit=dev && pm2 start ecosystem.config.cjs --update-env && pm2 save"
+            "cd /opt/featherston-api && npm install --omit=dev && pm2 restart featherston-api && pm2 save"
