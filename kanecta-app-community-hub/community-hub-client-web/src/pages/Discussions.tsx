@@ -50,7 +50,10 @@ export default function Discussions() {
 
   useEffect(() => {
     if (role === "PUBLIC") navigate("/", { replace: true });
-  }, [role, navigate]);;
+    else if (role === "LOCAL" || role === "RESILIENCE") navigate("/discussions/team-required", { replace: true });
+  }, [role, navigate]);
+
+  if (role !== "TEAM" && role !== "MODERATOR") return null;
 
   return (
     <div className="discussions-page">
