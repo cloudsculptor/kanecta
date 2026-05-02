@@ -54,7 +54,7 @@ const STATUS_LABEL: Record<RoadmapItem["status"], string> = {
 export default function Roadmap() {
   return (
     <PageLayout pageName="Roadmap" showComingSoon={false}>
-      <p>What we're building and what's coming next. Order, and even ideas not locked in, just an idea:</p>
+      <p>What we're building and idea's of what might come next.</p>
 
       <div className="roadmap-list">
         {items.map((item) => (
