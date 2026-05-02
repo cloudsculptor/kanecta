@@ -2,16 +2,14 @@ import { useEffect, useRef } from "react";
 import { io, type Socket } from "socket.io-client";
 import keycloak from "../auth/keycloak";
 
-const BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const BASE = import.meta.env.VITE_API_URL ?? "";
 
 let socket: Socket | null = null;
 
 function getSocket(): Socket {
   if (!socket) {
-    socket = io(BASE, {
-      auth: { token: keycloak.token },
-      autoConnect: true,
-    });
+    const opts = { auth: { token: keycloak.token }, autoConnect: true };
+    socket = BASE ? io(BASE, opts) : io(opts);
   }
   return socket;
 }
