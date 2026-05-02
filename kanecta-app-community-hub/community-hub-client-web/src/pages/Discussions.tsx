@@ -113,11 +113,13 @@ export default function Discussions() {
   async function react(messageId: string, emoji: string) {
     const updated = await api.reactions.add(messageId, emoji);
     setReactions((prev) => ({ ...prev, [messageId]: updated }));
+    return updated;
   }
 
   async function unreact(messageId: string, emoji: string) {
     const updated = await api.reactions.remove(messageId, emoji);
     setReactions((prev) => ({ ...prev, [messageId]: updated }));
+    return updated;
   }
 
   async function createThread(name: string, description?: string) {
