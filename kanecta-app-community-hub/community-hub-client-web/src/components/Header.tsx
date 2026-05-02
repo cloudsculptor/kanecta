@@ -97,7 +97,7 @@ export default function Header() {
               Log in
             </Button>
             <Button
-              onClick={() => keycloak.register()}
+              onClick={() => keycloak.login()}
               variant="contained"
               sx={{
                 backgroundColor: "rgba(255,255,255,0.15)",
