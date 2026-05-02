@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { useRepliesSocket } from "../../hooks/useSocket";
-import { api, type Message, type Reaction } from "../../api/discussions";
+import { api, type Message, type Reaction, type User } from "../../api/discussions";
 import MessageItem from "./MessageItem";
-import MessageInput from "./MessageInput";
+import MentionInput from "./MentionInput";
 
 interface Props {
   parentMessage: Message;
   currentUserId: string;
   canModerate: boolean;
+  users: User[];
   onClose: () => void;
   onEdit: (id: string, content: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
@@ -16,7 +17,7 @@ interface Props {
 }
 
 export default function ReplyPanel({
-  parentMessage, currentUserId, canModerate,
+  parentMessage, currentUserId, canModerate, users,
   onClose, onEdit, onDelete, onReact, onUnreact,
 }: Props) {
   const [replies, setReplies] = useState<Message[]>([]);
@@ -104,9 +105,10 @@ export default function ReplyPanel({
       </div>
 
       <div className="discussions-reply-panel__input">
-        <MessageInput
+        <MentionInput
           placeholder="Reply…"
           onSend={sendReply}
+          users={users}
         />
       </div>
     </div>
