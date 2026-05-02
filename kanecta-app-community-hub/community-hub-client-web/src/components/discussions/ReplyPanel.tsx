@@ -91,11 +91,11 @@ export default function ReplyPanel({
               onDelete={deleteReply}
               onReact={async (id, emoji) => {
                 const updated = await onReact(id, emoji);
-                setReactions((prev) => ({ ...prev, [id]: updated as unknown as Reaction[] }));
+                if (Array.isArray(updated)) setReactions((prev) => ({ ...prev, [id]: updated as Reaction[] }));
               }}
               onUnreact={async (id, emoji) => {
                 const updated = await onUnreact(id, emoji);
-                setReactions((prev) => ({ ...prev, [id]: updated as unknown as Reaction[] }));
+                if (Array.isArray(updated)) setReactions((prev) => ({ ...prev, [id]: updated as Reaction[] }));
               }}
               onOpenReplies={() => {}}
             />
