@@ -69,6 +69,26 @@ CREATE TABLE discussions_reactions (
 
 ## Build Phases
 
+### Phase 0 — Test Infrastructure Setup
+
+#### Frontend: Storybook
+- [ ] Install Storybook (`@storybook/react-vite`, `@storybook/addon-essentials`, `@storybook/addon-interactions`, `@storybook/test`)
+- [ ] Configure `.storybook/main.ts` and `preview.ts` (include MUI theme, featherston SCSS globals)
+- [ ] Add mock providers: `KeycloakProvider`, `UserRole`, Socket.io (so stories work without a live backend)
+- [ ] Add `storybook` and `build-storybook` scripts to `package.json`
+- [ ] Verify Storybook runs and existing components render
+
+**Convention:** every component in `src/components/discussions/` gets a co-located `.stories.tsx` file. Each story covers: default, loading, empty, error, and role variants (team vs moderator) where relevant.
+
+#### Backend: Jest + Supertest
+- [ ] Install `jest`, `supertest`, `@types/jest`, `@types/supertest`
+- [ ] Configure `jest.config.js` (ESM support, test file pattern)
+- [ ] Add `test` and `test:watch` scripts to `featherston-api/package.json`
+- [ ] Create test helpers: mock Postgres pool, mock JWT middleware (so tests run without live DB or Keycloak)
+- [ ] Verify Jest runs
+
+**Convention:** every route file and middleware gets a co-located `.test.js` file. Tests cover: success cases, auth failures (401), permission failures (403), validation errors (400), and not-found (404).
+
 ### Phase 1 — Foundation & Access Control
 - [ ] Add `moderator` role to Keycloak featherston realm (via API)
 - [ ] Add `MODERATOR` to `UserRole` type in frontend
@@ -96,6 +116,8 @@ CREATE TABLE discussions_reactions (
   - `POST /api/discussions/messages/:id/reactions` — add reaction
   - `DELETE /api/discussions/messages/:id/reactions/:emoji` — remove reaction
 
+- [ ] **Tests:** `middleware/auth.test.js` (valid token, expired token, missing token, wrong audience), `routes/discussions.test.js` (all endpoints: success, 401, 403, 404, 400 validation)
+
 ### Phase 3 — Socket.io Real-time
 - [ ] Add `socket.io` to featherston-api
 - [ ] JWT auth on Socket.io handshake
@@ -119,14 +141,16 @@ CREATE TABLE discussions_reactions (
 - [ ] Thread creation UI (modal: name + optional description)
 - [ ] Real-time: new threads appear in sidebar
 - [ ] Loading and error states throughout
+- [ ] **Stories:** `ThreadList` (default, loading, empty, with unread badges), `MessageList` (default, loading, empty), `MessageInput` (default, disabled), `CreateThreadModal` (open, submitting, error)
 
 ### Phase 5 — Message Actions
 - [ ] Hover actions toolbar (edit / delete / react / reply)
 - [ ] Inline edit (click edit → input replaces text, save on Enter, cancel on Esc)
 - [ ] Real-time: edits update live
-- [ ] Delete with confirmation (soft-delete, show placeholder or remove TBD)
+- [ ] Delete with confirmation — soft delete, show greyed "This message was deleted"
 - [ ] Real-time: deletions update live
 - [ ] Moderator: sees delete on all messages
+- [ ] **Stories:** `MessageItem` (default, edited, deleted, own message, moderator view, hover state showing actions toolbar)
 
 ### Phase 6 — Threaded Replies (Slack-style)
 - [ ] "X replies" link below messages that have replies
@@ -135,21 +159,25 @@ CREATE TABLE discussions_reactions (
 - [ ] Reply input at bottom of side panel
 - [ ] Reply count updates in real-time
 - [ ] Side panel updates in real-time via `replies:{messageId}` room
+- [ ] **Stories:** `ReplyPanel` (empty, with replies, loading, own reply with actions)
 
 ### Phase 7 — Reactions
-- [ ] Choose emoji set: Noto Emoji via `emoji-mart` (Apache 2.0)
-- [ ] Add attribution to site footer/about page with link to google.com/get/noto
+- [ ] Emoji set: Noto Emoji via `emoji-mart` (Apache 2.0)
+- [ ] Add attribution to site footer/about page with link to fonts.google.com/noto
 - [ ] Emoji picker popover on hover action
 - [ ] Reaction pills below message (emoji + count)
 - [ ] Click own reaction to remove it
 - [ ] Tooltip on reaction showing who reacted
 - [ ] Real-time reaction updates via Socket.io
+- [ ] **Stories:** `EmojiPicker` (open), `ReactionPills` (none, one type, multiple types, own reaction highlighted)
 
 ### Phase 8 — @Mentions
 - [ ] Trigger mention UI when `@` is typed in message input
 - [ ] Autocomplete dropdown showing team members (fetch from Keycloak admin API)
-- [ ] Render @name highlighted in blue in message text
-- [ ] TBD: notification badge (pending answer to open question above)
+- [ ] Render @name highlighted with coloured pill in message text
+- [ ] Unread badge on thread in sidebar when you are mentioned
+- [ ] Mentions & Reactions section at top of sidebar (Slack's @ button equivalent)
+- [ ] **Stories:** `MessageInput` with mention dropdown open, `MessageItem` with mention highlighted, `ThreadList` with mention badge
 
 ---
 
