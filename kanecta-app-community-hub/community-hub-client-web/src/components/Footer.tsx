@@ -15,6 +15,15 @@ export default function Footer() {
       >
         Source code (AGPL)
       </a>
+      <span className="site-footer__divider" aria-hidden="true">·</span>
+      <a
+        href="https://fonts.google.com/noto/specimen/Noto+Emoji"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="site-footer__link"
+      >
+        Emoji: Noto Emoji (Apache 2.0)
+      </a>
     </footer>
   );
 }
