@@ -12,8 +12,8 @@ interface Props {
   onClose: () => void;
   onEdit: (id: string, content: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
-  onReact: (id: string, emoji: string) => Promise<void>;
-  onUnreact: (id: string, emoji: string) => Promise<void>;
+  onReact: (id: string, emoji: string) => Promise<unknown>;
+  onUnreact: (id: string, emoji: string) => Promise<unknown>;
 }
 
 export default function ReplyPanel({
