@@ -41,6 +41,56 @@ describe("GET /api/discussions/users", () => {
     expect(res.status).toBe(200);
     expect(res.body[0].name).toBe("Jane Smith");
   });
+
+  test("500 on DB error", async () => {
+    mockQuery.mockRejectedValueOnce(new Error("db down"));
+    const res = await request(teamApp).get("/api/discussions/users");
+    expect(res.status).toBe(500);
+  });
+});
+
+// ── Additional edge cases ─────────────────────────────────────────────────────
+
+describe("GET /api/discussions/threads/:threadId/messages with before param", () => {
+  test("accepts before query param for pagination", async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    const res = await request(teamApp)
+      .get("/api/discussions/threads/t1/messages?before=2026-01-01T00:00:00Z");
+    expect(res.status).toBe(200);
+    // before param should be passed as 3rd query arg
+    expect(mockQuery.mock.calls[0][1]).toHaveLength(3);
+  });
+});
+
+describe("POST /api/discussions/threads whitespace trimming", () => {
+  test("400 when name is only whitespace", async () => {
+    const res = await request(teamApp).post("/api/discussions/threads").send({ name: "   " });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("POST /api/discussions/threads/:threadId/messages whitespace trimming", () => {
+  test("400 when content is only whitespace", async () => {
+    const res = await request(teamApp)
+      .post("/api/discussions/threads/t1/messages")
+      .send({ content: "   " });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("GET /api/discussions/messages/:id/replies", () => {
+  test("returns replies", async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [{ id: "r1", content: "reply" }] });
+    const res = await request(teamApp).get("/api/discussions/messages/m1/replies");
+    expect(res.status).toBe(200);
+    expect(res.body[0].content).toBe("reply");
+  });
+
+  test("500 on DB error", async () => {
+    mockQuery.mockRejectedValueOnce(new Error("db down"));
+    const res = await request(teamApp).get("/api/discussions/messages/m1/replies");
+    expect(res.status).toBe(500);
+  });
 });
 
 // ── Threads ──────────────────────────────────────────────────────────────────
