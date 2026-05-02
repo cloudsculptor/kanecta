@@ -97,12 +97,13 @@ export default function MessageItem({
           <div className="discussions-message__reactions">
             {reactions.map((r) => {
               const reacted = r.user_ids.includes(currentUserId);
+              const names = (r.user_names || r.user_ids).join(", ");
               return (
                 <button
                   key={r.emoji}
                   className={`discussions-reaction${reacted ? " discussions-reaction--own" : ""}`}
                   onClick={() => reacted ? onUnreact(message.id, r.emoji) : onReact(message.id, r.emoji)}
-                  title={`${r.count} reaction${Number(r.count) !== 1 ? "s" : ""}`}
+                  title={names}
                 >
                   {r.emoji} {r.count}
                 </button>
