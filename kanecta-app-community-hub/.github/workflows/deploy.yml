@@ -48,4 +48,4 @@ jobs:
             featherston-api/ \
             root@${{ secrets.DEPLOY_HOST }}:/opt/featherston-api/
           ssh -i ~/.ssh/deploy_key root@${{ secrets.DEPLOY_HOST }} \
-            "cd /opt/featherston-api && npm install --omit=dev && pm2 restart featherston-api"
+            "cd /opt/featherston-api && npm install --omit=dev && pm2 start ecosystem.config.cjs --update-env && pm2 save"
