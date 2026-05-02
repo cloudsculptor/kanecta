@@ -3,8 +3,8 @@
 Slack-style real-time discussions for featherston.co.nz.
 
 ## Open Questions
-- [ ] @mentions: highlight only, or also show a notification badge/counter to the mentioned user?
-- [ ] Deleted messages: show "This message was deleted" placeholder, or remove entirely?
+- [x] @mentions: exactly like Slack — highlighted pill in text, unread badge on thread in sidebar, dedicated Mentions & Reactions section in sidebar
+- [x] Deleted messages: soft delete, show greyed-out "This message was deleted" placeholder (Slack behaviour)
 - [ ] Thread archiving: can team members archive threads, or only moderators?
 - [ ] Message character limit?
 
