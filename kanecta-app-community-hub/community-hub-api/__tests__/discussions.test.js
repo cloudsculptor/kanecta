@@ -32,6 +32,17 @@ const moderatorApp = makeApp(["moderator"]);
 
 afterEach(() => mockQuery.mockReset());
 
+// ── Users ─────────────────────────────────────────────────────────────────────
+
+describe("GET /api/discussions/users", () => {
+  test("returns distinct users", async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [{ id: "u1", name: "Jane Smith" }] });
+    const res = await request(teamApp).get("/api/discussions/users");
+    expect(res.status).toBe(200);
+    expect(res.body[0].name).toBe("Jane Smith");
+  });
+});
+
 // ── Threads ──────────────────────────────────────────────────────────────────
 
 describe("GET /api/discussions/threads", () => {

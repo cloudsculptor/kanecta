@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Message, Reaction } from "../../api/discussions";
 import EmojiPicker from "./EmojiPicker";
+import { parseMentions } from "./MentionInput";
 
 interface Props {
   message: Message;
@@ -83,7 +84,13 @@ export default function MessageItem({
             </div>
           </div>
         ) : (
-          <p className="discussions-message__text">{message.content}</p>
+          <p className="discussions-message__text">
+            {parseMentions(message.content).map((seg, i) =>
+              seg.type === "mention"
+                ? <span key={i} className="discussions-mention-pill">@{seg.value}</span>
+                : <span key={i}>{seg.value}</span>
+            )}
+          </p>
         )}
 
         {reactions.length > 0 && (

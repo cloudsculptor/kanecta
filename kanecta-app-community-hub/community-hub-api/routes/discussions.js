@@ -203,4 +203,20 @@ router.delete("/messages/:id/reactions/:emoji", requireAuth, canAccess, async (r
   }
 });
 
+// ── Users (for @mention autocomplete) ────────────────────────────────────────
+
+router.get("/users", requireAuth, canAccess, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT DISTINCT user_id AS id, user_name AS name
+       FROM discussions_messages
+       WHERE deleted_at IS NULL
+       ORDER BY user_name ASC`
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch users" });
+  }
+});
+
 export default router;

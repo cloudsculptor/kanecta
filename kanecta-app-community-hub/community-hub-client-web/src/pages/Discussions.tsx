@@ -4,7 +4,7 @@ import Header from "../components/Header";
 import Breadcrumb from "../components/Breadcrumb";
 import Footer from "../components/Footer";
 import MessageItem from "../components/discussions/MessageItem";
-import MessageInput from "../components/discussions/MessageInput";
+import MentionInput from "../components/discussions/MentionInput";
 import CreateThreadModal from "../components/discussions/CreateThreadModal";
 import ReplyPanel from "../components/discussions/ReplyPanel";
 import { useUserRole } from "../auth/useUserRole";
@@ -26,6 +26,7 @@ export default function Discussions() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [showCreateThread, setShowCreateThread] = useState(false);
   const [replyTarget, setReplyTarget] = useState<Message | null>(null);
+  const [teamUsers, setTeamUsers] = useState<{ id: string; name: string }[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const activeThread = threads.find((t) => t.id === activeThreadId);
@@ -43,6 +44,9 @@ export default function Discussions() {
       setThreads(data);
       if (data.length > 0) setActiveThreadId(data[0].id);
     }).finally(() => setLoadingThreads(false));
+
+    // Fetch team members for @mention autocomplete
+    api.users.list().then(setTeamUsers).catch(() => {});
   }, [authenticated]);
 
   useEffect(() => {
@@ -184,9 +188,10 @@ export default function Discussions() {
           </div>
 
           {activeThread && (
-            <MessageInput
+            <MentionInput
               placeholder={`Message #${activeThread.name.toLowerCase()}`}
               onSend={sendMessage}
+              users={teamUsers}
             />
           )}
         </main>
@@ -196,6 +201,7 @@ export default function Discussions() {
             parentMessage={replyTarget}
             currentUserId={currentUserId}
             canModerate={canModerate}
+            users={teamUsers}
             onClose={() => setReplyTarget(null)}
             onEdit={editMessage}
             onDelete={deleteMessage}

@@ -43,7 +43,15 @@ export interface Reaction {
   user_ids: string[];
 }
 
+export interface User {
+  id: string;
+  name: string;
+}
+
 export const api = {
+  users: {
+    list: () => authFetch("/api/discussions/users") as Promise<User[]>,
+  },
   threads: {
     list: () => authFetch("/api/discussions/threads") as Promise<Thread[]>,
     create: (name: string, description?: string) =>
