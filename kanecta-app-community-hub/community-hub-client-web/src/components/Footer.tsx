@@ -7,6 +7,10 @@ export default function Footer() {
         About this site
       </Link>
       <span className="site-footer__divider" aria-hidden="true">·</span>
+      <Link to="/roadmap" className="site-footer__link">
+        Roadmap
+      </Link>
+      <span className="site-footer__divider" aria-hidden="true">·</span>
       <a
         href="https://github.com/cloudsculptor/featherston"
         target="_blank"

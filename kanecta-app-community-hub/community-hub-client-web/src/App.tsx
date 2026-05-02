@@ -17,6 +17,7 @@ import CommunicationNetworks from "./pages/CommunicationNetworks";
 import LocalEconomy from "./pages/LocalEconomy";
 import Discussions from "./pages/Discussions";
 import TeamRequired from "./pages/TeamRequired";
+import Roadmap from "./pages/Roadmap";
 
 export default function App() {
   return (
@@ -39,6 +40,7 @@ export default function App() {
       <Route path="/local-economy" element={<LocalEconomy />} />
       <Route path="/discussions" element={<Discussions />} />
       <Route path="/discussions/team-required" element={<TeamRequired />} />
+      <Route path="/roadmap" element={<Roadmap />} />
     </Routes>
   );
 }
