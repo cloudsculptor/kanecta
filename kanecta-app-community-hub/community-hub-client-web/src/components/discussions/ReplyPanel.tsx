@@ -10,6 +10,7 @@ interface Props {
   canModerate: boolean;
   users: User[];
   onClose: () => void;
+  onReplied: (messageId: string) => void;
   onEdit: (id: string, content: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onReact: (id: string, emoji: string) => Promise<unknown>;
@@ -18,7 +19,7 @@ interface Props {
 
 export default function ReplyPanel({
   parentMessage, currentUserId, canModerate, users,
-  onClose, onEdit, onDelete, onReact, onUnreact,
+  onClose, onReplied, onEdit, onDelete, onReact, onUnreact,
 }: Props) {
   const [replies, setReplies] = useState<Message[]>([]);
   const [reactions, setReactions] = useState<Record<string, Reaction[]>>({});
@@ -44,6 +45,7 @@ export default function ReplyPanel({
   async function sendReply(content: string) {
     const reply = await api.messages.reply(parentMessage.id, content);
     setReplies((prev) => prev.some((r) => r.id === reply.id) ? prev : [...prev, reply]);
+    onReplied(parentMessage.id);
   }
 
   async function editReply(id: string, content: string) {
