@@ -18,6 +18,7 @@ import LocalEconomy from "./pages/LocalEconomy";
 import Discussions from "./pages/Discussions";
 import TeamRequired from "./pages/TeamRequired";
 import Roadmap from "./pages/Roadmap";
+import Constitution from "./pages/Constitution";
 
 export default function App() {
   return (
@@ -41,6 +42,7 @@ export default function App() {
       <Route path="/discussions" element={<Discussions />} />
       <Route path="/discussions/team-required" element={<TeamRequired />} />
       <Route path="/roadmap" element={<Roadmap />} />
+      <Route path="/constitution" element={<Constitution />} />
     </Routes>
   );
 }

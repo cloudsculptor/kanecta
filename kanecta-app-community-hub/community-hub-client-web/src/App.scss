@@ -457,6 +457,24 @@ $bp-tablet: 768px;
     color: var(--text);
     line-height: 1.6;
     margin: 0;
+
+    a { color: var(--accent); }
+  }
+
+  &__title-link {
+    text-decoration: none;
+    color: inherit;
+    &:hover h2 { color: var(--accent); }
+  }
+
+  &__learn-more {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--accent);
+    text-decoration: none;
+    &:hover { text-decoration: underline; }
   }
 
   &__status {
@@ -650,6 +668,15 @@ $bp-tablet: 768px;
   display: flex;
   flex-direction: column;
   min-height: 100svh;
+}
+
+.discussions-dev-banner {
+  background: rgba(234, 179, 8, 0.1);
+  border-bottom: 1px solid rgba(234, 179, 8, 0.35);
+  color: #92650a;
+  font-size: 13px;
+  padding: 10px 20px;
+  text-align: center;
 }
 
 .discussions-layout {
