@@ -24,7 +24,7 @@ export default function Footer() {
       ))}
 
       {/* Mobile: About + ··· button */}
-      <Link to="/about" className="site-footer__link site-footer__mobile-only">About</Link>
+      <Link to="/about" className="site-footer__link site-footer__mobile-only">About this site</Link>
       <span className="site-footer__divider site-footer__mobile-only" aria-hidden="true">·</span>
       <button
         className="site-footer__link site-footer__more site-footer__mobile-only"
