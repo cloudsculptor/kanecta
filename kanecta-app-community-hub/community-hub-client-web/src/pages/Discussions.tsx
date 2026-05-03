@@ -53,6 +53,9 @@ export default function Discussions() {
     if (!authenticated) return;
     api.threads.list().then((data) => {
       setThreads(data);
+      if (data.length > 0 && !window.matchMedia("(max-width: 768px)").matches) {
+        setActiveThreadId(data[0].id);
+      }
     }).finally(() => setLoadingThreads(false));
     api.users.list().then(setTeamUsers).catch(() => {});
   }, [authenticated]);
