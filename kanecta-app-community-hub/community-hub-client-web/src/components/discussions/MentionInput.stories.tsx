@@ -20,6 +20,11 @@ const meta: Meta<typeof MentionInput> = {
 export default meta;
 type Story = StoryObj<typeof MentionInput>;
 
+/** Default empty state — send button is disabled until you type something. */
 export const Default: Story = {};
+
+/** Disabled — both the textarea and send button are greyed out. */
 export const Disabled: Story = { args: { disabled: true } };
+
+/** No users configured — @ will produce no autocomplete dropdown. */
 export const NoUsers: Story = { args: { users: [] } };
