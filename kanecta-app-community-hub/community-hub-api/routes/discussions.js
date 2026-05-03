@@ -47,7 +47,7 @@ router.get("/threads/:threadId/messages", requireAuth, canAccess, async (req, re
   try {
     const { rows } = await pool.query(
       `SELECT id, thread_id, user_id, user_name, content, created_at, edited_at, deleted_at,
-              (SELECT COUNT(*) FROM discussions_messages r WHERE r.parent_message_id = m.id) AS reply_count
+              (SELECT COUNT(*) FROM discussions_messages r WHERE r.parent_message_id = m.id)::int AS reply_count
        FROM discussions_messages m
        WHERE thread_id = $1
          AND parent_message_id IS NULL
