@@ -834,7 +834,10 @@ $bp-tablet: 768px;
       border-radius: 4px;
       font-size: 14px;
       line-height: 1;
-      &:hover { background: var(--accent-bg); }
+      color: #bbb;
+      display: flex;
+      align-items: center;
+      &:hover { background: var(--accent-bg); color: var(--accent); }
     }
   }
 

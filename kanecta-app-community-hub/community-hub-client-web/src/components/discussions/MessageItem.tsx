@@ -133,7 +133,7 @@ export default function MessageItem({
           </p>
         )}
 
-        {(reactions.length > 0 || hovered) && !editing && (
+        {reactions.length > 0 && !editing && (
           <div className="discussions-message__reactions" style={{ position: "relative" }}>
             {reactions.map((r) => {
               const reacted = r.user_ids.includes(currentUserId);
@@ -150,8 +150,8 @@ export default function MessageItem({
               );
             })}
 
-            {/* Add reaction pill — shown when there are existing reactions or on hover */}
-            {(reactions.length > 0 || hovered) && (
+            {/* Add reaction pill — shown next to existing reactions on hover */}
+            {hovered && reactions.length > 0 && (
               <div style={{ position: "relative", display: "inline-block" }}>
                 <button
                   className="discussions-reaction discussions-reaction--add"
@@ -162,6 +162,7 @@ export default function MessageItem({
                 </button>
                 {showEmoji && (
                   <EmojiPicker
+                    align="left"
                     onSelect={(emoji) => { onReact(message.id, emoji); setShowEmoji(false); }}
                     onClose={() => setShowEmoji(false)}
                   />
@@ -180,11 +181,18 @@ export default function MessageItem({
 
       {hovered && !editing && (
         <div className="discussions-message__actions">
-          {!reactions.length && (
+          <div style={{ position: "relative" }}>
             <button title="Add reaction" onClick={() => setShowEmoji((v) => !v)}>
               <IconSmiley />
             </button>
-          )}
+            {showEmoji && !reactions.length && (
+              <EmojiPicker
+                align="right"
+                onSelect={(emoji) => { onReact(message.id, emoji); setShowEmoji(false); }}
+                onClose={() => setShowEmoji(false)}
+              />
+            )}
+          </div>
           <button title="Reply in thread" onClick={() => onOpenReplies(message)}>
             <IconReply />
           </button>
