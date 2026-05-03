@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useMobile } from "../hooks/useMobile";
+import DiscussionsMobile from "./DiscussionsMobile";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import MessageItem from "../components/discussions/MessageItem";
@@ -25,6 +27,7 @@ function BackArrow() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function Discussions() {
+  const isMobile = useMobile();
   const role = useUserRole();
   const { authenticated } = useKeycloak();
   const navigate = useNavigate();
@@ -53,9 +56,7 @@ export default function Discussions() {
     if (!authenticated) return;
     api.threads.list().then((data) => {
       setThreads(data);
-      if (data.length > 0 && !window.matchMedia("(max-width: 768px)").matches) {
-        setActiveThreadId(data[0].id);
-      }
+      if (data.length > 0) setActiveThreadId(data[0].id);
     }).finally(() => setLoadingThreads(false));
     api.users.list().then(setTeamUsers).catch(() => {});
   }, [authenticated]);
@@ -152,6 +153,7 @@ export default function Discussions() {
   }
 
   if (role !== "TEAM" && role !== "MODERATOR") return null;
+  if (isMobile) return <DiscussionsMobile />;
 
   const inThread = !!activeThreadId;
   const inReplies = !!replyTarget;
