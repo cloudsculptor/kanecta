@@ -87,7 +87,7 @@ export default function Discussions() {
 
   const handleReplyCount = useCallback((data: unknown) => {
     const { message_id } = data as { message_id: string };
-    setMessages((prev) => prev.map((m) => m.id === message_id ? { ...m, reply_count: m.reply_count + 1 } : m));
+    setMessages((prev) => prev.map((m) => m.id === message_id ? { ...m, reply_count: Number(m.reply_count) + 1 } : m));
   }, []);
 
   useThreadSocket(activeThreadId, {
@@ -218,7 +218,7 @@ export default function Discussions() {
             onClose={() => setReplyTarget(null)}
             onReplied={(messageId) =>
               setMessages((prev) =>
-                prev.map((m) => m.id === messageId ? { ...m, reply_count: m.reply_count + 1 } : m)
+                prev.map((m) => m.id === messageId ? { ...m, reply_count: Number(m.reply_count) + 1 } : m)
               )
             }
             onEdit={editMessage}
