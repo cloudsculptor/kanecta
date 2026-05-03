@@ -35,11 +35,15 @@ export default function ReplyPanel({
   }, [replies]);
 
   useRepliesSocket(parentMessage.id, {
-    "reply:new": (data) => setReplies((prev) => [...prev, data as Message]),
+    "reply:new": (data) => {
+      const reply = data as Message;
+      setReplies((prev) => prev.some((r) => r.id === reply.id) ? prev : [...prev, reply]);
+    },
   });
 
   async function sendReply(content: string) {
-    await api.messages.reply(parentMessage.id, content);
+    const reply = await api.messages.reply(parentMessage.id, content);
+    setReplies((prev) => prev.some((r) => r.id === reply.id) ? prev : [...prev, reply]);
   }
 
   async function editReply(id: string, content: string) {

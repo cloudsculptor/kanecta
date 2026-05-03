@@ -61,7 +61,9 @@ export default function Discussions() {
   }, [messages]);
 
   const handleNewMessage = useCallback((data: unknown) => {
-    setMessages((prev) => [...prev, data as Message]);
+    const msg = data as Message;
+    // Deduplicate — message may already be present from optimistic update
+    setMessages((prev) => prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]);
   }, []);
 
   const handleEditMessage = useCallback((data: unknown) => {
@@ -99,15 +101,18 @@ export default function Discussions() {
 
   async function sendMessage(content: string) {
     if (!activeThreadId) return;
-    await api.messages.post(activeThreadId, content);
+    const message = await api.messages.post(activeThreadId, content);
+    setMessages((prev) => prev.some((m) => m.id === message.id) ? prev : [...prev, message]);
   }
 
   async function editMessage(id: string, content: string) {
-    await api.messages.edit(id, content);
+    const updated = await api.messages.edit(id, content);
+    setMessages((prev) => prev.map((m) => m.id === id ? updated : m));
   }
 
   async function deleteMessage(id: string) {
     await api.messages.delete(id);
+    setMessages((prev) => prev.map((m) => m.id === id ? { ...m, deleted_at: new Date().toISOString(), content: "" } : m));
   }
 
   async function react(messageId: string, emoji: string) {
