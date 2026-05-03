@@ -53,8 +53,6 @@ export default function Discussions() {
     if (!authenticated) return;
     api.threads.list().then((data) => {
       setThreads(data);
-      // Auto-select first thread on desktop only
-      if (data.length > 0 && window.innerWidth > 768) setActiveThreadId(data[0].id);
     }).finally(() => setLoadingThreads(false));
     api.users.list().then(setTeamUsers).catch(() => {});
   }, [authenticated]);
