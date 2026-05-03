@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Message, Reaction } from "../../api/discussions";
 import EmojiPicker from "./EmojiPicker";
-import { parseMentions } from "./MentionInput";
+import { parseContent } from "./MentionInput";
 
 interface Props {
   message: Message;
@@ -85,11 +85,23 @@ export default function MessageItem({
           </div>
         ) : (
           <p className="discussions-message__text">
-            {parseMentions(message.content).map((seg, i) =>
-              seg.type === "mention"
-                ? <span key={i} className="discussions-mention-pill">@{seg.value}</span>
-                : <span key={i}>{seg.value}</span>
-            )}
+            {parseContent(message.content).map((seg, i) => {
+              if (seg.type === "mention")
+                return <span key={i} className="discussions-mention-pill">@{seg.value}</span>;
+              if (seg.type === "url")
+                return (
+                  <a
+                    key={i}
+                    href={seg.value}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="discussions-message__link"
+                  >
+                    {seg.value}
+                  </a>
+                );
+              return <span key={i}>{seg.value}</span>;
+            })}
           </p>
         )}
 

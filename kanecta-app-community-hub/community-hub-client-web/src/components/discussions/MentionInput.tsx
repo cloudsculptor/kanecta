@@ -12,15 +12,42 @@ interface Props {
   users: User[];
 }
 
-// Parse @mentions for display — returns segments of text/mention
-export function parseMentions(content: string): Array<{ type: "text" | "mention"; value: string }> {
-  const parts = content.split(/(@\[[^\]]+\]\([^)]+\))/g);
-  return parts.map((part) => {
-    const match = part.match(/^@\[([^\]]+)\]\(([^)]+)\)$/);
-    if (match) return { type: "mention", value: match[1] };
-    return { type: "text", value: part };
-  });
+export type ContentSegment =
+  | { type: "text"; value: string }
+  | { type: "mention"; value: string }
+  | { type: "url"; value: string };
+
+// Parse message content into text, @mention, and URL segments for rendering
+export function parseContent(content: string): ContentSegment[] {
+  const result: ContentSegment[] = [];
+
+  // First split by encoded mention pattern: @[Name](userId)
+  const mentionParts = content.split(/(@\[[^\]]+\]\([^)]+\))/g);
+
+  for (const part of mentionParts) {
+    const mentionMatch = part.match(/^@\[([^\]]+)\]\(([^)]+)\)$/);
+    if (mentionMatch) {
+      result.push({ type: "mention", value: mentionMatch[1] });
+      continue;
+    }
+
+    // Within text segments, split by URLs
+    const urlParts = part.split(/(https?:\/\/[^\s<>"{}|\\^`[\]]+)/g);
+    for (const seg of urlParts) {
+      if (!seg) continue;
+      if (/^https?:\/\//.test(seg)) {
+        result.push({ type: "url", value: seg });
+      } else {
+        result.push({ type: "text", value: seg });
+      }
+    }
+  }
+
+  return result;
 }
+
+// Keep old export name as alias so existing imports don't break
+export const parseMentions = parseContent;
 
 // Encode a mention: @[Name](userId)
 export function encodeMention(user: User) {
