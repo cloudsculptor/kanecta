@@ -549,20 +549,76 @@ $bp-tablet: 768px;
   align-items: center;
   gap: 12px;
   font-size: 13px;
+  position: relative;
 
   &__link {
     color: var(--text);
     text-decoration: none;
     opacity: 0.6;
     transition: opacity 0.2s;
-
-    &:hover {
-      opacity: 1;
-    }
+    &:hover { opacity: 1; }
   }
 
-  &__divider {
-    color: var(--border);
+  &__divider { color: var(--border); }
+
+  &__more {
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 16px;
+    letter-spacing: 2px;
+    padding: 0;
+    line-height: 1;
+  }
+
+  &__desktop-only {
+    @media (max-width: 768px) { display: none !important; }
+  }
+
+  &__mobile-only {
+    display: none;
+    @media (max-width: 768px) { display: inline; }
+  }
+
+  // Bottom sheet overlay
+  &__overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.3);
+    z-index: 200;
+  }
+
+  // Bottom sheet
+  &__sheet {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--bg);
+    border-radius: 16px 16px 0 0;
+    padding: 8px 0 32px;
+    z-index: 201;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.12);
+  }
+
+  &__sheet-handle {
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    margin: 8px auto 16px;
+  }
+
+  &__sheet-link {
+    padding: 14px 24px;
+    font-size: 16px;
+    color: var(--text-h);
+    text-decoration: none;
+    border-bottom: 1px solid var(--border);
+    &:last-child { border-bottom: none; }
+    &:hover { background: var(--accent-bg); }
   }
 }
 
