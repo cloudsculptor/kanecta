@@ -90,6 +90,9 @@ export default function Roadmap() {
             {item.to === "/constitution" && (
               <Link to={item.to} className="roadmap-item__learn-more">See draft constitution →</Link>
             )}
+            {item.to === "/discussions" && (
+              <Link to={item.to} className="roadmap-item__learn-more">See discussions page (under development) →</Link>
+            )}
           </div>
         ))}
       </div>
