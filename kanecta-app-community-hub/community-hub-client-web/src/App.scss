@@ -940,17 +940,17 @@ $bp-tablet: 768px;
 }
 
 .discussions-input {
-  padding: 12px 20px 16px;
+  padding: 10px 20px;
   border-top: 1px solid var(--border);
   flex-shrink: 0;
 
   &__row {
     display: flex;
-    align-items: flex-end;
-    gap: 8px;
+    align-items: center;
+    gap: 4px;
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 4px 4px 4px 0;
+    padding: 0 6px 0 0;
     transition: border-color 0.15s;
     &:focus-within { border-color: var(--accent); }
   }
@@ -958,7 +958,7 @@ $bp-tablet: 768px;
   &__field {
     flex: 1;
     box-sizing: border-box;
-    padding: 8px 14px;
+    padding: 9px 14px;
     border: none;
     border-radius: 8px;
     font-size: 14px;
@@ -967,7 +967,7 @@ $bp-tablet: 768px;
     background: transparent;
     outline: none;
     resize: none;
-    min-height: 36px;
+    min-height: 38px;
     max-height: 200px;
     overflow-y: hidden;
     line-height: 1.5;
@@ -978,20 +978,20 @@ $bp-tablet: 768px;
 
   &__send {
     flex-shrink: 0;
-    width: 32px;
-    height: 32px;
-    border-radius: 6px;
+    width: 28px;
+    height: 28px;
     border: none;
-    background: var(--accent);
-    color: #fff;
+    background: none;
+    color: var(--accent);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.15s, opacity 0.15s;
+    border-radius: 4px;
+    transition: opacity 0.15s, background 0.15s;
 
-    &:hover:not(:disabled) { background: darken(#3a7d44, 8%); }
-    &:disabled { opacity: 0.35; cursor: not-allowed; }
+    &:hover:not(:disabled) { background: var(--accent-bg); }
+    &:disabled { opacity: 0.25; cursor: not-allowed; }
   }
 }
 
