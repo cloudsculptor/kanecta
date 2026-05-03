@@ -54,3 +54,29 @@ export const WithReactions: Story = {
 export const ModeratorView: Story = {
   args: { currentUserId: "user-2", canModerate: true },
 };
+
+export const WithUrl: Story = {
+  args: { message: { ...base, content: "Check out https://featherston.co.nz for more info." } },
+};
+
+export const WithUrlOnly: Story = {
+  args: { message: { ...base, content: "https://featherston.co.nz" } },
+};
+
+export const WithMultipleUrls: Story = {
+  args: {
+    message: {
+      ...base,
+      content: "Two good reads: https://featherston.co.nz and https://en.wikipedia.org/wiki/Featherston,_New_Zealand",
+    },
+  },
+};
+
+export const WithMentionAndUrl: Story = {
+  args: {
+    message: {
+      ...base,
+      content: "@[Jane Smith](user-1) here's that link I mentioned: https://featherston.co.nz/roadmap",
+    },
+  },
+};
