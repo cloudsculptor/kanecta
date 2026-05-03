@@ -62,7 +62,14 @@ export default function ReplyPanel({
   return (
     <div className="discussions-reply-panel">
       <div className="discussions-reply-panel__header">
-        Thread
+        {/* Mobile: back arrow; Desktop: close × */}
+        <button className="discussions-reply-panel__back" onClick={onClose} aria-label="Back">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          <span className="discussions-reply-panel__back-label">Back</span>
+        </button>
+        <span>Thread</span>
         <button className="discussions-reply-panel__close" onClick={onClose} aria-label="Close thread">×</button>
       </div>
 
