@@ -68,8 +68,29 @@ export default function MentionInput({ placeholder, onSend, disabled, users }: P
 
   const autoResize = useCallback((el: HTMLTextAreaElement) => {
     el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+    const newHeight = Math.min(el.scrollHeight, 200);
+    el.style.height = `${newHeight}px`;
+    // Only show scrollbar when content exceeds max height
+    el.style.overflowY = el.scrollHeight > 200 ? "auto" : "hidden";
   }, []);
+
+  async function doSend() {
+    const content = value.trim();
+    if (!content || sending) return;
+    setSending(true);
+    try {
+      await onSend(content);
+      setValue("");
+      setMentionSearch(null);
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "auto";
+        textareaRef.current.style.overflowY = "hidden";
+        textareaRef.current.focus();
+      }
+    } finally {
+      setSending(false);
+    }
+  }
 
   function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const val = e.target.value;
@@ -116,16 +137,7 @@ export default function MentionInput({ placeholder, onSend, disabled, users }: P
 
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      const content = value.trim();
-      if (!content || sending) return;
-      setSending(true);
-      try {
-        await onSend(content);
-        setValue("");
-        setMentionSearch(null);
-      } finally {
-        setSending(false);
-      }
+      doSend();
     }
   }
 
@@ -145,16 +157,29 @@ export default function MentionInput({ placeholder, onSend, disabled, users }: P
           ))}
         </div>
       )}
-      <textarea
-        ref={textareaRef}
-        className="discussions-input__field"
-        placeholder={placeholder}
-        value={value}
-        onChange={handleChange}
-        onKeyDown={handleKeyDown}
-        disabled={disabled || sending}
-        rows={1}
-      />
+      <div className="discussions-input__row">
+        <textarea
+          ref={textareaRef}
+          className="discussions-input__field"
+          placeholder={placeholder}
+          value={value}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          disabled={disabled || sending}
+          rows={1}
+        />
+        <button
+          className="discussions-input__send"
+          onClick={doSend}
+          disabled={!value.trim() || sending}
+          aria-label="Send message"
+          title="Send (Enter)"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+          </svg>
+        </button>
+      </div>
     </div>
   );
 }
