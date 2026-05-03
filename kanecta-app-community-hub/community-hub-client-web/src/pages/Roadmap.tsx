@@ -1,17 +1,39 @@
+import { Link } from "react-router-dom";
 import PageLayout from "../components/PageLayout";
 
 interface RoadmapItem {
   title: string;
-  description: string;
+  description: React.ReactNode;
   status: "live" | "in-progress" | "planned";
+  to?: string;
 }
 
 const items: RoadmapItem[] = [
+  {
+    title: "Constitution",
+    description: (
+      <>
+        Drafting a constitution so we can register as an{" "}
+        <a
+          href="https://is-register.companiesoffice.govt.nz/help-centre/starting-an-incorporated-society/applying-to-incorporate-a-society/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          incorporated society
+        </a>{" "}
+        under New Zealand law — giving the community formal legal standing and ensuring no single
+        person controls the platform.
+      </>
+    ),
+    status: "in-progress",
+    to: "/constitution",
+  },
   {
     title: "Discussions",
     description:
       "A place for conversations on any topic, and ideas for the site itself. Open to team members, with more community access coming as we grow.",
     status: "in-progress",
+    to: "/discussions",
   },
   {
     title: "Download your data",
@@ -33,8 +55,7 @@ const items: RoadmapItem[] = [
   },
   {
     title: "Open statistics",
-    description:
-      "Showing user counts and page view counts.",
+    description: "Showing user counts and page view counts.",
     status: "planned",
   },
   {
@@ -66,6 +87,9 @@ export default function Roadmap() {
               </span>
             </div>
             <p className="roadmap-item__description">{item.description}</p>
+            {item.to === "/constitution" && (
+              <Link to={item.to} className="roadmap-item__learn-more">See draft constitution →</Link>
+            )}
           </div>
         ))}
       </div>
