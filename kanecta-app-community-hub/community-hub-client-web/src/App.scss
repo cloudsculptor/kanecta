@@ -658,48 +658,45 @@ $bp-tablet: 768px;
   overflow: hidden;
   border-top: 1px solid var(--border);
   text-align: left;
-  position: relative; // needed for mobile absolute children
+  position: relative;
+}
 
-  // ── Mobile: slide navigation ──────────────────────────────────────────────
-  @media (max-width: $bp-tablet) {
-    // Sidebar fills full width, visible by default
-    .discussions-sidebar {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      min-width: 100%;
-      transform: translateX(0);
-      transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-      z-index: 1;
-    }
-
-    // Messages hidden off-screen right, slides in when thread selected
-    .discussions-main {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      transform: translateX(100%);
-      transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-      z-index: 2;
-    }
-
-    // Reply panel hidden, slides in from right
-    .discussions-reply-panel {
-      transform: translateX(100%);
-      transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    // When a thread is selected: slide sidebar out, messages in
-    &--in-thread {
-      .discussions-sidebar { transform: translateX(-100%); }
-      .discussions-main { transform: translateX(0); }
-    }
-
-    // When in replies: slide replies in over messages
-    &--in-replies .discussions-reply-panel {
-      transform: translateX(0) !important;
-    }
+// ── Mobile slide navigation (top-level to avoid specificity fights) ───────────
+@media (max-width: $bp-tablet) {
+  .discussions-layout .discussions-sidebar {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    transform: translateX(0);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1;
   }
+
+  .discussions-layout .discussions-main {
+    position: absolute !important;
+    inset: 0 !important;
+    transform: translateX(100%);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 2;
+  }
+
+  .discussions-layout .discussions-reply-panel {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    transform: translateX(100%);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 3;
+    border-left: none;
+  }
+
+  // Thread selected: sidebar slides out left, messages slide in
+  .discussions-layout--in-thread .discussions-sidebar { transform: translateX(-100%); }
+  .discussions-layout--in-thread .discussions-main    { transform: translateX(0); }
+
+  // Reply panel open: slides in from right over messages
+  .discussions-layout--in-replies .discussions-reply-panel { transform: translateX(0); }
 }
 
 .discussions-sidebar {
