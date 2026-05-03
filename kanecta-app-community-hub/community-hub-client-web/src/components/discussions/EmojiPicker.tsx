@@ -23,6 +23,10 @@ export default function EmojiPicker({ onSelect, onClose }: Props) {
       theme: "light",
       previewPosition: "none",
       skinTonePosition: "none",
+      perLine: 7,
+      emojiSize: 18,
+      emojiButtonSize: 28,
+      maxFrequentRows: 2,
     });
 
     containerRef.current.appendChild(pickerRef.current);
