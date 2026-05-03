@@ -5,9 +5,10 @@ import data from "@emoji-mart/data";
 interface Props {
   onSelect: (emoji: string) => void;
   onClose: () => void;
+  align?: "left" | "right";
 }
 
-export default function EmojiPicker({ onSelect, onClose }: Props) {
+export default function EmojiPicker({ onSelect, onClose, align = "left" }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const pickerRef = useRef<HTMLElement | null>(null);
 
@@ -44,7 +45,12 @@ export default function EmojiPicker({ onSelect, onClose }: Props) {
   return (
     <div
       ref={containerRef}
-      style={{ position: "absolute", zIndex: 200, bottom: "calc(100% + 4px)", right: 0 }}
+      style={{
+        position: "absolute",
+        zIndex: 200,
+        bottom: "calc(100% + 4px)",
+        ...(align === "right" ? { right: 0 } : { left: 0 }),
+      }}
     />
   );
 }
