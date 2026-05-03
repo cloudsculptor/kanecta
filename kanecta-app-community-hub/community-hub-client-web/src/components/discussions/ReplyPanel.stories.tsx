@@ -23,6 +23,7 @@ const meta: Meta<typeof ReplyPanel> = {
     currentUserId: "user-1",
     canModerate: false,
     onClose: () => {},
+    onReplied: (id) => { console.log("replied to", id); },
     onEdit: async () => {},
     onDelete: async () => {},
     onReact: async () => {},
