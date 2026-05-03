@@ -157,6 +157,10 @@ export default function Discussions() {
     <div className="discussions-page">
       <Header />
 
+      <div className="discussions-dev-banner">
+        🚧 Discussions is under active development — features may change and some things may not work perfectly yet.
+      </div>
+
       <div className={`discussions-layout${inThread ? " discussions-layout--in-thread" : ""}${inReplies ? " discussions-layout--in-replies" : ""}`}>
 
         {/* ── Sidebar / Thread List ── */}
