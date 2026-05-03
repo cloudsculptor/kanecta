@@ -125,3 +125,57 @@ export const AsOtherUser: Story = {
   args: { currentUserId: "user-2", currentUserName: "Mike Robinson" },
   name: "Posting as a different user",
 };
+
+/**
+ * Reply count increments immediately — demonstrates that hovering a message
+ * and clicking the reply count link shows the correct number without refresh.
+ * Simulates the onReplied optimistic update that ReplyPanel calls back.
+ */
+function ReplyCountDemo() {
+  const [messages, setMessages] = useState([
+    { ...makeMessage("Check out the new roadmap!", "user-2", "Mike Robinson"), reply_count: 2 },
+  ]);
+
+  function simulateReply(messageId: string) {
+    setMessages((prev) =>
+      prev.map((m) => m.id === messageId ? { ...m, reply_count: m.reply_count + 1 } : m)
+    );
+  }
+
+  return (
+    <div style={{ padding: 20, maxWidth: 640 }}>
+      <p style={{ fontSize: 13, color: "#888", marginBottom: 12 }}>
+        Click <strong>Simulate reply</strong> — the reply count below the message should update instantly.
+      </p>
+      <MemoryRouter>
+        <div style={{ border: "1px solid #e5e4e7", borderRadius: 8, padding: "12px 16px" }}>
+          {messages.map((m) => (
+            <MessageItem
+              key={m.id}
+              message={m}
+              reactions={[]}
+              currentUserId="user-1"
+              canModerate={false}
+              onEdit={async () => {}}
+              onDelete={async () => {}}
+              onReact={async () => {}}
+              onUnreact={async () => {}}
+              onOpenReplies={() => {}}
+            />
+          ))}
+        </div>
+        <button
+          onClick={() => simulateReply(messages[0].id)}
+          style={{ marginTop: 12, padding: "6px 14px", background: "#3a7d44", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" }}
+        >
+          Simulate reply (+1)
+        </button>
+      </MemoryRouter>
+    </div>
+  );
+}
+
+export const ReplyCountUpdatesLive: Story = {
+  render: () => <ReplyCountDemo />,
+  name: "Reply count updates without page refresh",
+};

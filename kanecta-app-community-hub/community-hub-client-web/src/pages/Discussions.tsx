@@ -216,6 +216,11 @@ export default function Discussions() {
             canModerate={canModerate}
             users={teamUsers}
             onClose={() => setReplyTarget(null)}
+            onReplied={(messageId) =>
+              setMessages((prev) =>
+                prev.map((m) => m.id === messageId ? { ...m, reply_count: m.reply_count + 1 } : m)
+              )
+            }
             onEdit={editMessage}
             onDelete={deleteMessage}
             onReact={react}
