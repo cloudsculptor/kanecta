@@ -11,8 +11,9 @@ import keycloak from "../auth/keycloak";
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
 const BackArrow = () => (
-  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="15 18 9 12 15 6" />
+  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="19" y1="12" x2="5" y2="12" />
+    <polyline points="12 19 5 12 12 5" />
   </svg>
 );
 
@@ -61,7 +62,7 @@ function ThreadsScreen({
 
 function MessagesScreen({
   thread, messages, loading, reactions, currentUserId, canModerate, users,
-  onBack, onNew, onSend, onEdit, onDelete, onReact, onUnreact, onOpenReplies,
+  onBack, onSend, onEdit, onDelete, onReact, onUnreact, onOpenReplies,
 }: {
   thread: Thread;
   messages: Message[];
@@ -71,7 +72,6 @@ function MessagesScreen({
   canModerate: boolean;
   users: { id: string; name: string }[];
   onBack: () => void;
-  onNew: () => void;
   onSend: (content: string) => Promise<void>;
   onEdit: (id: string, content: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
@@ -84,10 +84,9 @@ function MessagesScreen({
 
   return (
     <div className="dm-screen dm-messages">
-      <div className="dm-bar">
-        <button className="dm-bar__back" onClick={onBack}><BackArrow /><span>Threads</span></button>
-        <span className="dm-bar__title"># {thread.name}</span>
-        <button className="dm-bar__action" onClick={onNew} aria-label="New thread">+</button>
+      <div className="dm-bar dm-bar--left">
+        <button className="dm-bar__back" onClick={onBack}><BackArrow /></button>
+        <span className="dm-bar__thread-name">#{thread.name}</span>
       </div>
       <div className="dm-message-list">
         {loading ? (
@@ -354,7 +353,6 @@ export default function DiscussionsMobile() {
           canModerate={canModerate}
           users={teamUsers}
           onBack={() => { setActiveThread(null); setReplyTarget(null); }}
-          onNew={() => setShowCreateThread(true)}
           onSend={sendMessage}
           onEdit={editMessage}
           onDelete={deleteMessage}
