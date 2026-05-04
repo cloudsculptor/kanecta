@@ -29,6 +29,7 @@ function ThreadsScreen({
   return (
     <div className="dm-screen dm-threads">
       <div className="dm-bar">
+        <span />
         <span className="dm-bar__title">Discussions</span>
         <button className="dm-bar__action" onClick={onNew} aria-label="New thread">+</button>
       </div>
