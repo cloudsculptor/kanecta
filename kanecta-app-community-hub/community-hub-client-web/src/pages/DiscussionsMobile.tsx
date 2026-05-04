@@ -323,10 +323,7 @@ export default function DiscussionsMobile() {
   if (replyTarget && activeThread) {
     return (
       <>
-        <div className="discussions-dev-banner">
-          🚧 Discussions is under active development — features may change.
-        </div>
-        <RepliesScreen
+<RepliesScreen
           parentMessage={replyTarget}
           currentUserId={currentUserId}
           canModerate={canModerate}
@@ -348,10 +345,7 @@ export default function DiscussionsMobile() {
   if (activeThread) {
     return (
       <>
-        <div className="discussions-dev-banner">
-          🚧 Discussions is under active development — features may change.
-        </div>
-        <MessagesScreen
+<MessagesScreen
           thread={activeThread}
           messages={messages}
           loading={loadingMessages}
