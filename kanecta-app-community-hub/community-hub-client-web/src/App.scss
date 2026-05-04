@@ -428,7 +428,7 @@ $bp-tablet: 768px;
 .dm-screen {
   display: flex;
   flex-direction: column;
-  height: calc(100dvh - 60px); // full height minus site header; dvh responds to keyboard
+  height: 100dvh; // DiscussionsMobile has no site header — full viewport
   overflow: hidden;
   text-align: left;
 }
@@ -580,11 +580,16 @@ $bp-tablet: 768px;
   text-align: left;
 }
 
-// 3-line tall input in mobile message/reply screens
+// Mobile message/reply screens — 3-line input, tight padding
+.dm-messages .discussions-input,
+.dm-replies .discussions-input {
+  padding: 8px 12px;
+  padding-bottom: env(safe-area-inset-bottom, 8px);
+}
+
 .dm-messages .discussions-input__field,
 .dm-replies .discussions-input__field {
   min-height: 72px;
-  rows: 3;
 }
 
 .dm-empty {
