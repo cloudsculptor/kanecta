@@ -79,8 +79,11 @@ function MessagesScreen({
   onUnreact: (id: string, emoji: string) => Promise<unknown>;
   onOpenReplies: (msg: Message) => void;
 }) {
-  const endRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  const listRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!listRef.current) return;
+    listRef.current.scrollTop = listRef.current.scrollHeight;
+  }, [messages]);
 
   return (
     <div className="dm-screen dm-messages">
@@ -88,7 +91,7 @@ function MessagesScreen({
         <button className="dm-bar__back" onClick={onBack}><BackArrow /></button>
         <span className="dm-bar__thread-name"># {thread.name}</span>
       </div>
-      <div className="dm-message-list">
+      <div className="dm-message-list" ref={listRef}>
         {loading ? (
           <div className="dm-empty">Loading messages…</div>
         ) : messages.length === 0 ? (
@@ -109,7 +112,6 @@ function MessagesScreen({
             />
           ))
         )}
-        <div ref={endRef} />
       </div>
       <MentionInput
         placeholder={`Message #${thread.name.toLowerCase()}`}
