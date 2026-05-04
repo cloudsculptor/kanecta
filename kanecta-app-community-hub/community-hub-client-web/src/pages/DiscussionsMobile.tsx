@@ -86,7 +86,7 @@ function MessagesScreen({
     <div className="dm-screen dm-messages">
       <div className="dm-bar dm-bar--left">
         <button className="dm-bar__back" onClick={onBack}><BackArrow /></button>
-        <span className="dm-bar__thread-name">#{thread.name}</span>
+        <span className="dm-bar__thread-name"># {thread.name}</span>
       </div>
       <div className="dm-message-list">
         {loading ? (
