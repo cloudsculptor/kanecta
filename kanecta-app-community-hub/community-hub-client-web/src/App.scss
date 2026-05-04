@@ -557,6 +557,11 @@ $bp-tablet: 768px;
   color: var(--text-h);
 }
 
+.dm-bar__back--white {
+  color: rgba(255,255,255,0.8) !important;
+  &:hover { color: #fff !important; }
+}
+
 .dm-threads .dm-bar {
   background: #1a2e1d;
   border-bottom-color: rgba(255,255,255,0.1);
