@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import MessageItem from "../components/discussions/MessageItem";
 import MentionInput from "../components/discussions/MentionInput";
 import CreateThreadModal from "../components/discussions/CreateThreadModal";
@@ -20,17 +21,18 @@ const BackArrow = () => (
 // ── Thread list screen ────────────────────────────────────────────────────────
 
 function ThreadsScreen({
-  threads, loading, onSelect, onNew,
+  threads, loading, onSelect, onNew, onBack,
 }: {
   threads: Thread[];
   loading: boolean;
   onSelect: (t: Thread) => void;
   onNew: () => void;
+  onBack: () => void;
 }) {
   return (
     <div className="dm-screen dm-threads">
       <div className="dm-bar">
-        <span />
+        <button className="dm-bar__back dm-bar__back--white" onClick={onBack} aria-label="Back to home"><BackArrow /></button>
         <span className="dm-bar__title">Discussions</span>
         <button className="dm-bar__action" onClick={onNew} aria-label="New thread">+</button>
       </div>
@@ -231,6 +233,7 @@ function RepliesScreen({
 // ── Root mobile component ─────────────────────────────────────────────────────
 
 export default function DiscussionsMobile() {
+  const navigate = useNavigate();
   const { authenticated } = useKeycloak();
   const role = useUserRole();
 
@@ -374,6 +377,7 @@ export default function DiscussionsMobile() {
         loading={loadingThreads}
         onSelect={setActiveThread}
         onNew={() => setShowCreateThread(true)}
+        onBack={() => navigate("/")}
       />
       <CreateThreadModal open={showCreateThread} onClose={() => setShowCreateThread(false)} onCreate={createThread} />
     </>
