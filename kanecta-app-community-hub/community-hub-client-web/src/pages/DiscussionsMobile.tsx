@@ -367,9 +367,6 @@ export default function DiscussionsMobile() {
 
   return (
     <>
-      <div className="discussions-dev-banner">
-        🚧 Discussions is under active development — features may change.
-      </div>
       <ThreadsScreen
         threads={threads}
         loading={loadingThreads}
