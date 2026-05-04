@@ -544,6 +544,19 @@ $bp-tablet: 768px;
   }
 }
 
+// Messages bar: left-aligned (arrow + #name)
+.dm-bar--left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dm-bar__thread-name {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
 .dm-threads .dm-bar {
   background: #1a2e1d;
   border-bottom-color: rgba(255,255,255,0.1);
