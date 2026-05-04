@@ -585,11 +585,11 @@ $bp-tablet: 768px;
   text-align: left;
 }
 
-// Mobile message/reply screens — 3-line input, tight padding
+// Mobile message/reply screens — 3-line input, balanced padding
 .dm-messages .discussions-input,
 .dm-replies .discussions-input {
   padding: 8px 12px;
-  padding-bottom: env(safe-area-inset-bottom, 8px);
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
 }
 
 .dm-messages .discussions-input__field,
