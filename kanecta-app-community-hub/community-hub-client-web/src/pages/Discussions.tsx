@@ -56,10 +56,19 @@ export default function Discussions() {
     if (!authenticated) return;
     api.threads.list().then((data) => {
       setThreads(data);
-      if (data.length > 0) setActiveThreadId(data[0].id);
+      const hashId = window.location.hash.slice(1);
+      const initial = data.find((t) => t.id === hashId) ?? data[0] ?? null;
+      setActiveThreadId(initial?.id ?? null);
     }).finally(() => setLoadingThreads(false));
     api.users.list().then(setTeamUsers).catch(() => {});
   }, [authenticated]);
+
+  useEffect(() => {
+    window.history.replaceState(
+      null, "",
+      activeThreadId ? `#${activeThreadId}` : window.location.pathname,
+    );
+  }, [activeThreadId]);
 
   useEffect(() => {
     if (!activeThreadId) return;
