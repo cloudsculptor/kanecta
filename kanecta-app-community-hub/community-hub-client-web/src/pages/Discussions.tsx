@@ -7,6 +7,7 @@ import MessageItem from "../components/discussions/MessageItem";
 import MentionInput from "../components/discussions/MentionInput";
 import CreateThreadModal from "../components/discussions/CreateThreadModal";
 import ReplyPanel from "../components/discussions/ReplyPanel";
+import ThreadOptionsMenu from "../components/discussions/ThreadOptionsMenu";
 import { useUserRole } from "../auth/useUserRole";
 import { useKeycloak } from "../auth/KeycloakProvider";
 import { useThreadSocket } from "../hooks/useSocket";
@@ -107,6 +108,18 @@ export default function Discussions() {
     setMessages((prev) => prev.map((m) => m.id === message_id ? { ...m, reply_count: Number(m.reply_count) + 1 } : m));
   }, []);
 
+  const handleThreadArchived = useCallback((data: unknown) => {
+    const { id } = data as { id: string };
+    setThreads((prev) => {
+      const remaining = prev.filter((t) => t.id !== id);
+      setActiveThreadId((cur) => {
+        if (cur === id) return remaining.length > 0 ? remaining[0].id : null;
+        return cur;
+      });
+      return remaining;
+    });
+  }, []);
+
   useThreadSocket(activeThreadId, {
     "message:new": handleNewMessage,
     "message:edit": handleEditMessage,
@@ -114,6 +127,7 @@ export default function Discussions() {
     "reaction:update": handleReactionUpdate,
     "thread:new": handleNewThread,
     "message:reply_count": handleReplyCount,
+    "thread:archived": handleThreadArchived,
   });
 
   async function sendMessage(content: string) {
@@ -227,6 +241,12 @@ export default function Discussions() {
               {activeThread.description && (
                 <span className="discussions-main__description">{activeThread.description}</span>
               )}
+              <ThreadOptionsMenu
+                thread={activeThread}
+                currentUserId={currentUserId}
+                canModerate={canModerate}
+                onArchived={() => handleThreadArchived({ id: activeThread.id })}
+              />
             </div>
           )}
 

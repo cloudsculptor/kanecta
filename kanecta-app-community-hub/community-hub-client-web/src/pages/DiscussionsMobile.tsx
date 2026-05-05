@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import MessageItem from "../components/discussions/MessageItem";
 import MentionInput from "../components/discussions/MentionInput";
 import CreateThreadModal from "../components/discussions/CreateThreadModal";
+import ThreadOptionsMenu from "../components/discussions/ThreadOptionsMenu";
 import { useKeycloak } from "../auth/KeycloakProvider";
 import { useUserRole } from "../auth/useUserRole";
 import { useThreadSocket, useRepliesSocket } from "../hooks/useSocket";
@@ -64,7 +65,7 @@ function ThreadsScreen({
 
 function MessagesScreen({
   thread, messages, loading, reactions, currentUserId, canModerate, users,
-  onBack, onSend, onEdit, onDelete, onReact, onUnreact, onOpenReplies,
+  onBack, onSend, onEdit, onDelete, onReact, onUnreact, onOpenReplies, onArchived,
 }: {
   thread: Thread;
   messages: Message[];
@@ -80,6 +81,7 @@ function MessagesScreen({
   onReact: (id: string, emoji: string) => Promise<unknown>;
   onUnreact: (id: string, emoji: string) => Promise<unknown>;
   onOpenReplies: (msg: Message) => void;
+  onArchived: () => void;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -92,6 +94,12 @@ function MessagesScreen({
       <div className="dm-bar dm-bar--left">
         <button className="dm-bar__back" onClick={onBack}><BackArrow /></button>
         <span className="dm-bar__thread-name"># {thread.name}</span>
+        <ThreadOptionsMenu
+          thread={thread}
+          currentUserId={currentUserId}
+          canModerate={canModerate}
+          onArchived={onArchived}
+        />
       </div>
       <div className="dm-message-list" ref={listRef}>
         {loading ? (
@@ -287,6 +295,12 @@ export default function DiscussionsMobile() {
     setMessages((prev) => prev.map((m) => m.id === message_id ? { ...m, reply_count: Number(m.reply_count) + 1 } : m));
   }, []);
 
+  const handleThreadArchived = useCallback((id: string) => {
+    setThreads((prev) => prev.filter((t) => t.id !== id));
+    setActiveThread((cur) => (cur?.id === id ? null : cur));
+    setReplyTarget(null);
+  }, []);
+
   useThreadSocket(activeThread?.id ?? null, {
     "message:new": handleNewMessage,
     "message:edit": handleEditMessage,
@@ -294,6 +308,7 @@ export default function DiscussionsMobile() {
     "reaction:update": handleReactionUpdate,
     "thread:new": handleNewThread,
     "message:reply_count": handleReplyCount,
+    "thread:archived": (data) => handleThreadArchived((data as { id: string }).id),
   });
 
   async function sendMessage(content: string) {
@@ -364,6 +379,7 @@ export default function DiscussionsMobile() {
           onReact={react}
           onUnreact={unreact}
           onOpenReplies={setReplyTarget}
+          onArchived={() => handleThreadArchived(activeThread.id)}
         />
         <CreateThreadModal open={showCreateThread} onClose={() => setShowCreateThread(false)} onCreate={createThread} onGoToThread={(id) => { const t = threads.find((x) => x.id === id); if (t) setActiveThread(t); setShowCreateThread(false); }} />
       </>

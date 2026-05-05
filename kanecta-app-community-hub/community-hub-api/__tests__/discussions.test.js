@@ -135,6 +135,38 @@ describe("POST /api/discussions/threads", () => {
   });
 });
 
+// ── Archive thread ────────────────────────────────────────────────────────────
+
+describe("PATCH /api/discussions/threads/:threadId/archive", () => {
+  test("archives thread when requester is the creator", async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [{ created_by_user_id: "user-1", created_by_name: "Jane Smith" }] });
+    mockQuery.mockResolvedValueOnce({ rows: [] }); // UPDATE
+    const res = await request(teamApp).patch("/api/discussions/threads/t1/archive");
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+  });
+
+  test("archives thread when requester is a moderator", async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [{ created_by_user_id: "someone-else", created_by_name: "Mike R." }] });
+    mockQuery.mockResolvedValueOnce({ rows: [] }); // UPDATE
+    const res = await request(moderatorApp).patch("/api/discussions/threads/t1/archive");
+    expect(res.status).toBe(200);
+  });
+
+  test("returns 403 when requester is not the creator and not a moderator", async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [{ created_by_user_id: "someone-else", created_by_name: "Mike R." }] });
+    const res = await request(teamApp).patch("/api/discussions/threads/t1/archive");
+    expect(res.status).toBe(403);
+    expect(res.body.created_by_name).toBe("Mike R.");
+  });
+
+  test("returns 404 when thread does not exist or is already archived", async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    const res = await request(teamApp).patch("/api/discussions/threads/t1/archive");
+    expect(res.status).toBe(404);
+  });
+});
+
 // ── Messages ─────────────────────────────────────────────────────────────────
 
 describe("GET /api/discussions/threads/:threadId/messages", () => {
