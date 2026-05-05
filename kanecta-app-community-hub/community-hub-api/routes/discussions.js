@@ -162,6 +162,28 @@ router.post("/messages/:id/replies", requireAuth, canAccess, async (req, res) =>
 
 // ── Reactions ─────────────────────────────────────────────────────────────────
 
+router.get("/threads/:threadId/reactions", requireAuth, canAccess, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT dr.message_id, dr.emoji, COUNT(*) AS count,
+              array_agg(dr.user_id) AS user_ids, array_agg(dr.user_name) AS user_names
+       FROM discussions_reactions dr
+       JOIN discussions_messages dm ON dm.id = dr.message_id
+       WHERE dm.thread_id = $1
+       GROUP BY dr.message_id, dr.emoji`,
+      [req.params.threadId]
+    );
+    const grouped = {};
+    for (const row of rows) {
+      if (!grouped[row.message_id]) grouped[row.message_id] = [];
+      grouped[row.message_id].push({ emoji: row.emoji, count: row.count, user_ids: row.user_ids, user_names: row.user_names });
+    }
+    res.json(grouped);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch reactions" });
+  }
+});
+
 router.post("/messages/:id/reactions", requireAuth, canAccess, async (req, res) => {
   const { emoji } = req.body;
   if (!emoji) return res.status(400).json({ error: "Emoji is required" });
