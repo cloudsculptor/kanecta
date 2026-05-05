@@ -10,7 +10,7 @@ const canAccess = requireRole("team", "moderator");
 router.get("/threads", requireAuth, canAccess, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT id, name, description, created_by_name, created_at
+      `SELECT id, name, description, created_by_name, created_by_user_id, created_at
        FROM discussions_threads
        WHERE archived_at IS NULL
        ORDER BY created_at ASC`
@@ -45,6 +45,34 @@ router.post("/threads", requireAuth, canAccess, async (req, res) => {
     res.status(201).json(thread);
   } catch (err) {
     res.status(500).json({ error: "Failed to create thread" });
+  }
+});
+
+router.patch("/threads/:threadId/archive", requireAuth, canAccess, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT created_by_user_id, created_by_name FROM discussions_threads
+       WHERE id = $1 AND archived_at IS NULL`,
+      [req.params.threadId]
+    );
+    if (!rows.length) return res.status(404).json({ error: "Thread not found" });
+
+    const isModerator = req.user.roles.includes("moderator");
+    if (!isModerator && rows[0].created_by_user_id !== req.user.id) {
+      return res.status(403).json({
+        error: "Only the thread creator or an admin can archive this thread",
+        created_by_name: rows[0].created_by_name,
+      });
+    }
+
+    await pool.query(
+      "UPDATE discussions_threads SET archived_at = NOW() WHERE id = $1",
+      [req.params.threadId]
+    );
+    req.io?.emit("thread:archived", { id: req.params.threadId });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to archive thread" });
   }
 });
 
