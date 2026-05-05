@@ -151,7 +151,7 @@ export default function MessageItem({
             })}
 
             {/* Add reaction pill — always rendered to hold its space, visible only on hover */}
-            <div style={{ position: "relative", display: "inline-block", visibility: hovered ? "visible" : "hidden" }}>
+            <div style={{ position: "relative", display: "flex", alignItems: "center", visibility: hovered ? "visible" : "hidden" }}>
               <button
                 className="discussions-reaction discussions-reaction--add"
                 onClick={() => setShowEmoji((v) => !v)}
