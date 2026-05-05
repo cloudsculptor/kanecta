@@ -57,14 +57,14 @@ export default function CreateThreadModal({ open, onClose, onCreate, onGoToThrea
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>New Thread</DialogTitle>
-      <DialogContent>
+      <DialogTitle sx={{ px: 3, pt: 2.5, pb: 2.5 }}>New Thread</DialogTitle>
+      <DialogContent sx={{ px: 3, pt: 0, pb: 0 }}>
         <TextField
           autoFocus fullWidth label="Thread name" value={name}
           onChange={(e) => handleNameChange(e.target.value)}
           error={!!error} helperText={error}
           onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); }}
-          sx={{ mt: 1, mb: 2 }}
+          sx={{ mb: 2 }}
         />
         <TextField
           fullWidth label="Description (optional)" value={description}
@@ -87,9 +87,30 @@ export default function CreateThreadModal({ open, onClose, onCreate, onGoToThrea
           </Box>
         )}
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={saving}>Cancel</Button>
-        <Button onClick={handleCreate} variant="contained" disabled={saving}>
+      <DialogActions sx={{ px: 3, pt: 2, pb: 2 }}>
+        <Button
+          onClick={onClose}
+          disabled={saving}
+          variant="outlined"
+          sx={{
+            color: "var(--accent)",
+            borderColor: "var(--accent)",
+            "&:hover": { borderColor: "var(--accent)", bgcolor: "var(--accent-bg)" },
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleCreate}
+          variant="contained"
+          disabled={saving}
+          sx={{
+            bgcolor: "var(--accent)",
+            boxShadow: "none",
+            "&:hover": { bgcolor: "#2d6a35", boxShadow: "none" },
+            "&:disabled": { bgcolor: "var(--accent-border)" },
+          }}
+        >
           {saving ? "Creating…" : "Create"}
         </Button>
       </DialogActions>
