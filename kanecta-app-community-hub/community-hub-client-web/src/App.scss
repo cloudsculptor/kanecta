@@ -1582,12 +1582,6 @@ $bp-tablet: 768px;
     gap: 12px;
   }
 
-  &__input {
-    padding: 8px 16px 12px;
-    border-top: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-
   &__loading, &__empty {
     font-size: 13px;
     color: var(--text);

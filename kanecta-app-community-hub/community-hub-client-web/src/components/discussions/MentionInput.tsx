@@ -166,7 +166,7 @@ export default function MentionInput({ placeholder, onSend, disabled, users }: P
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           disabled={disabled || sending}
-          rows={1}
+          rows={3}
         />
         <button
           className="discussions-input__send"

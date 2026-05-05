@@ -123,13 +123,11 @@ export default function ReplyPanel({
         <div ref={endRef} />
       </div>
 
-      <div className="discussions-reply-panel__input">
-        <MentionInput
-          placeholder="Reply…"
-          onSend={sendReply}
-          users={users}
-        />
-      </div>
+      <MentionInput
+        placeholder="Reply…"
+        onSend={sendReply}
+        users={users}
+      />
     </div>
   );
 }
