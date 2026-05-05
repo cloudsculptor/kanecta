@@ -65,7 +65,14 @@ export default function Discussions() {
     if (!activeThreadId) return;
     setLoadingMessages(true);
     setMessages([]);
-    api.messages.list(activeThreadId).then(setMessages).finally(() => setLoadingMessages(false));
+    setReactions({});
+    Promise.all([
+      api.messages.list(activeThreadId),
+      api.reactions.listForThread(activeThreadId),
+    ]).then(([msgs, rxns]) => {
+      setMessages(msgs);
+      setReactions(rxns);
+    }).finally(() => setLoadingMessages(false));
   }, [activeThreadId]);
 
   useEffect(() => {

@@ -28,8 +28,14 @@ export default function ReplyPanel({
 
   useEffect(() => {
     setLoading(true);
-    api.messages.replies(parentMessage.id).then(setReplies).finally(() => setLoading(false));
-  }, [parentMessage.id]);
+    Promise.all([
+      api.messages.replies(parentMessage.id),
+      api.reactions.listForThread(parentMessage.thread_id),
+    ]).then(([msgs, rxns]) => {
+      setReplies(msgs);
+      setReactions(rxns);
+    }).finally(() => setLoading(false));
+  }, [parentMessage.id, parentMessage.thread_id]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });

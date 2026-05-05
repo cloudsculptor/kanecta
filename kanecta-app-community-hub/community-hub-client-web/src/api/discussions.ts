@@ -85,6 +85,8 @@ export const api = {
       }) as Promise<Message>,
   },
   reactions: {
+    listForThread: (threadId: string) =>
+      authFetch(`/api/discussions/threads/${threadId}/reactions`) as Promise<Record<string, Reaction[]>>,
     add: (messageId: string, emoji: string) =>
       authFetch(`/api/discussions/messages/${messageId}/reactions`, {
         method: "POST",
