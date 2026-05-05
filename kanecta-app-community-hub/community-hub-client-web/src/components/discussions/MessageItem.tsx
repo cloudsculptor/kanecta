@@ -162,7 +162,6 @@ export default function MessageItem({
                 </button>
                 {showEmoji && (
                   <EmojiPicker
-                    align="left"
                     onSelect={(emoji) => { onReact(message.id, emoji); setShowEmoji(false); }}
                     onClose={() => setShowEmoji(false)}
                   />
@@ -187,7 +186,6 @@ export default function MessageItem({
             </button>
             {showEmoji && !reactions.length && (
               <EmojiPicker
-                align="right"
                 onSelect={(emoji) => { onReact(message.id, emoji); setShowEmoji(false); }}
                 onClose={() => setShowEmoji(false)}
               />
