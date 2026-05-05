@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -22,6 +22,10 @@ export default function CreateThreadModal({ open, onClose, onCreate, onGoToThrea
   const [error, setError] = useState("");
   const [duplicate, setDuplicate] = useState<Thread | null>(null);
 
+  useEffect(() => {
+    if (open) { setName(""); setDescription(""); setError(""); setDuplicate(null); }
+  }, [open]);
+
   function handleNameChange(value: string) {
     setName(value);
     if (duplicate) setDuplicate(null);
@@ -35,7 +39,6 @@ export default function CreateThreadModal({ open, onClose, onCreate, onGoToThrea
     setDuplicate(null);
     try {
       await onCreate(name.trim(), description.trim() || undefined);
-      setName(""); setDescription("");
       onClose();
     } catch (err) {
       if (err instanceof DuplicateThreadError) {
@@ -51,7 +54,6 @@ export default function CreateThreadModal({ open, onClose, onCreate, onGoToThrea
   function handleGoToThread() {
     if (!duplicate) return;
     onGoToThread?.(duplicate.id);
-    setName(""); setDescription(""); setDuplicate(null);
     onClose();
   }
 
