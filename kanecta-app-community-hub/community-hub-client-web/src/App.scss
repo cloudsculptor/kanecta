@@ -1041,26 +1041,6 @@ $bp-tablet: 768px;
     flex-shrink: 0;
   }
 
-  &__options-btn {
-    margin-left: auto;
-    flex-shrink: 0;
-    border: none;
-    background: none;
-    color: var(--text);
-    cursor: pointer;
-    padding: 4px 6px;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    opacity: 0.45;
-    transition: opacity 0.15s, background 0.15s;
-
-    &:hover {
-      opacity: 1;
-      background: var(--accent-bg);
-    }
-  }
-
   // Desktop header — hidden on mobile
   &__header {
     display: flex;
@@ -1430,6 +1410,22 @@ $bp-tablet: 768px;
     border-left: 1px solid var(--border);
     padding-left: 10px;
   }
+}
+
+.discussions-options-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  opacity: 0.45;
+  transition: opacity 0.15s;
+
+  &:hover { opacity: 1; }
 }
 
 // ── Mention autocomplete ──────────────────────────────────────────────────────
