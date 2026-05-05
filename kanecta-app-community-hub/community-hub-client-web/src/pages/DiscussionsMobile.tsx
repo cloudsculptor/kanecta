@@ -4,6 +4,7 @@ import MessageItem from "../components/discussions/MessageItem";
 import MentionInput from "../components/discussions/MentionInput";
 import CreateThreadModal from "../components/discussions/CreateThreadModal";
 import ThreadOptionsMenu from "../components/discussions/ThreadOptionsMenu";
+import CopyLinkButton from "../components/discussions/CopyLinkButton";
 import { useKeycloak } from "../auth/KeycloakProvider";
 import { useUserRole } from "../auth/useUserRole";
 import { useThreadSocket, useRepliesSocket } from "../hooks/useSocket";
@@ -94,12 +95,15 @@ function MessagesScreen({
       <div className="dm-bar dm-bar--left">
         <button className="dm-bar__back" onClick={onBack}><BackArrow /></button>
         <span className="dm-bar__thread-name"># {thread.name}</span>
-        <ThreadOptionsMenu
-          thread={thread}
-          currentUserId={currentUserId}
-          canModerate={canModerate}
-          onArchived={onArchived}
-        />
+        <div className="discussions-header-actions">
+          <CopyLinkButton />
+          <ThreadOptionsMenu
+            thread={thread}
+            currentUserId={currentUserId}
+            canModerate={canModerate}
+            onArchived={onArchived}
+          />
+        </div>
       </div>
       <div className="dm-message-list" ref={listRef}>
         {loading ? (
