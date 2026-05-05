@@ -30,7 +30,7 @@ function BackArrow() {
 export default function Discussions() {
   const isMobile = useMobile();
   const role = useUserRole();
-  const { authenticated } = useKeycloak();
+  const { authenticated, initialized } = useKeycloak();
   const navigate = useNavigate();
 
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -49,9 +49,10 @@ export default function Discussions() {
   const canModerate = role === "MODERATOR";
 
   useEffect(() => {
+    if (!initialized) return;
     if (role === "PUBLIC") navigate("/", { replace: true });
     else if (role === "LOCAL" || role === "RESILIENCE") navigate("/discussions/team-required", { replace: true });
-  }, [role, navigate]);
+  }, [initialized, role, navigate]);
 
   useEffect(() => {
     if (!authenticated) return;
