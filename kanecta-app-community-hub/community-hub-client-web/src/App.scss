@@ -877,7 +877,7 @@ $bp-tablet: 768px;
   color: rgba(255,255,255,0.75);
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
+  overflow: hidden;
 
   &__heading {
     font-size: 13px;
@@ -888,6 +888,7 @@ $bp-tablet: 768px;
     padding: 20px 16px 8px;
     display: flex;
     align-items: center;
+    flex-shrink: 0;
 
     @media (max-width: $bp-mobile) {
       display: none;
@@ -897,7 +898,10 @@ $bp-tablet: 768px;
   &__list {
     list-style: none;
     margin: 0;
-    padding: 0 8px;
+    padding: 0 8px 8px;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
   }
 }
 
