@@ -290,6 +290,7 @@ export default function Discussions() {
         open={showCreateThread}
         onClose={() => setShowCreateThread(false)}
         onCreate={createThread}
+        onGoToThread={(id) => { selectThread(id); setShowCreateThread(false); }}
       />
     </div>
   );

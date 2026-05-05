@@ -118,10 +118,20 @@ describe("POST /api/discussions/threads", () => {
 
   test("creates thread and returns 201", async () => {
     const thread = { id: "t1", name: "General", created_by_name: "Jane Smith" };
-    mockQuery.mockResolvedValueOnce({ rows: [thread] });
+    mockQuery.mockResolvedValueOnce({ rows: [] }); // no duplicate
+    mockQuery.mockResolvedValueOnce({ rows: [thread] }); // insert
     const res = await request(teamApp).post("/api/discussions/threads").send({ name: "General" });
     expect(res.status).toBe(201);
     expect(res.body.name).toBe("General");
+  });
+
+  test("returns 409 with existing thread when name is a duplicate", async () => {
+    const existing = { id: "t1", name: "General", description: null };
+    mockQuery.mockResolvedValueOnce({ rows: [existing] });
+    const res = await request(teamApp).post("/api/discussions/threads").send({ name: "  general  " });
+    expect(res.status).toBe(409);
+    expect(res.body.existing.id).toBe("t1");
+    expect(res.body.existing.name).toBe("General");
   });
 });
 
