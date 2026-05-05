@@ -34,6 +34,7 @@ export const DuplicateThread: Story = {
         name: "General",
         description: "Day-to-day chat for the team",
         created_by_name: "Jane Smith",
+        created_by_user_id: "user-1",
         created_at: new Date().toISOString(),
       });
     },
@@ -53,6 +54,7 @@ export const DuplicateThreadNoNavigation: Story = {
         name: "General",
         description: "Day-to-day chat for the team",
         created_by_name: "Jane Smith",
+        created_by_user_id: "user-1",
         created_at: new Date().toISOString(),
       });
     },
