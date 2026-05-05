@@ -2,6 +2,12 @@ import { useEffect, useRef } from "react";
 import { Picker } from "emoji-mart";
 import data from "@emoji-mart/data";
 
+// Approximate rendered dimensions for our picker config (perLine:7, emojiButtonSize:28).
+// Height 435 is emoji-mart's hardcoded CSS value; width is min-content ≈ 352px + sidebar.
+const PICKER_HEIGHT = 440;
+const PICKER_WIDTH = 360;
+const GAP = 4;
+
 interface Props {
   onSelect: (emoji: string) => void;
   onClose: () => void;
@@ -12,7 +18,27 @@ export default function EmojiPicker({ onSelect, onClose }: Props) {
   const pickerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    const el = containerRef.current;
+    if (!el) return;
+
+    // Pre-calculate position from the trigger's bounding rect BEFORE mounting
+    // the picker, so there is no timing dependency on the web component rendering.
+    const parent = el.parentElement;
+    if (parent) {
+      const r = parent.getBoundingClientRect();
+
+      // Not enough space above → open downward instead
+      if (r.top < PICKER_HEIGHT + GAP) {
+        el.style.bottom = "auto";
+        el.style.top = `calc(100% + ${GAP}px)`;
+      }
+
+      // Right edge would overflow → align picker's right edge with trigger
+      if (r.left + PICKER_WIDTH > window.innerWidth) {
+        el.style.left = "auto";
+        el.style.right = "0";
+      }
+    }
 
     pickerRef.current = new (Picker as unknown as new (opts: object) => HTMLElement)({
       data,
@@ -29,34 +55,8 @@ export default function EmojiPicker({ onSelect, onClose }: Props) {
       maxFrequentRows: 2,
     });
 
-    containerRef.current.appendChild(pickerRef.current);
-
-    // After picker is in the DOM, nudge position to stay within viewport
-    requestAnimationFrame(() => {
-      const el = containerRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-
-      // Flip vertical: if top is clipped, open downward instead of upward
-      if (rect.top < 0) {
-        el.style.bottom = "auto";
-        el.style.top = "calc(100% + 4px)";
-      }
-
-      // Flip horizontal: if right edge is clipped, align to right of trigger
-      if (rect.right > window.innerWidth) {
-        el.style.left = "auto";
-        el.style.right = "0";
-      }
-
-      // If left edge is clipped, align to left of trigger
-      if (rect.left < 0) {
-        el.style.right = "auto";
-        el.style.left = "0";
-      }
-
-      el.style.visibility = "visible";
-    });
+    el.appendChild(pickerRef.current);
+    el.style.visibility = "visible";
 
     return () => { pickerRef.current?.remove(); };
   }, []);
