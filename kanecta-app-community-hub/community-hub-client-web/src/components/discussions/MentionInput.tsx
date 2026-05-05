@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, type KeyboardEvent } from "react";
+import data from "@emoji-mart/data";
 
 interface User {
   id: string;
@@ -54,25 +55,66 @@ export function encodeMention(user: User) {
   return `@[${user.name}](${user.id})`;
 }
 
+// ── Emoji search ──────────────────────────────────────────────────────────────
+
+interface EmojiEntry {
+  id: string;
+  name: string;
+  keywords: string[];
+  skins: { native: string }[];
+}
+
+const allEmojis = Object.values(
+  (data as { emojis: Record<string, EmojiEntry> }).emojis
+);
+
+function searchEmojis(query: string, max = 8): EmojiEntry[] {
+  const q = query.toLowerCase();
+  const exact: EmojiEntry[] = [];
+  const starts: EmojiEntry[] = [];
+  const rest: EmojiEntry[] = [];
+  for (const e of allEmojis) {
+    if (e.id === q) exact.push(e);
+    else if (e.id.startsWith(q)) starts.push(e);
+    else if (e.id.includes(q) || e.keywords?.some((k) => k.startsWith(q))) rest.push(e);
+    if (exact.length + starts.length >= max) break;
+  }
+  return [...exact, ...starts, ...rest].slice(0, max);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function MentionInput({ placeholder, onSend, disabled, users }: Props) {
   const [value, setValue] = useState("");
   const [sending, setSending] = useState(false);
+
   const [mentionSearch, setMentionSearch] = useState<string | null>(null);
   const [mentionStart, setMentionStart] = useState(-1);
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [mentionIndex, setMentionIndex] = useState(0);
+
+  const [emojiSearch, setEmojiSearch] = useState<string | null>(null);
+  const [emojiStart, setEmojiStart] = useState(-1);
+  const [emojiIndex, setEmojiIndex] = useState(0);
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const filtered = mentionSearch !== null
+  const filteredMentions = mentionSearch !== null
     ? users.filter((u) => u.name.toLowerCase().includes(mentionSearch.toLowerCase())).slice(0, 6)
     : [];
+
+  const filteredEmojis = emojiSearch !== null ? searchEmojis(emojiSearch) : [];
 
   const autoResize = useCallback((el: HTMLTextAreaElement) => {
     el.style.height = "auto";
     const newHeight = Math.min(el.scrollHeight, 200);
     el.style.height = `${newHeight}px`;
-    // Only show scrollbar when content exceeds max height
     el.style.overflowY = el.scrollHeight > 200 ? "auto" : "hidden";
   }, []);
+
+  function clearDropdowns() {
+    setMentionSearch(null);
+    setEmojiSearch(null);
+  }
 
   async function doSend() {
     const content = value.trim();
@@ -81,7 +123,7 @@ export default function MentionInput({ placeholder, onSend, disabled, users }: P
     try {
       await onSend(content);
       setValue("");
-      setMentionSearch(null);
+      clearDropdowns();
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
         textareaRef.current.style.overflowY = "hidden";
@@ -98,15 +140,27 @@ export default function MentionInput({ placeholder, onSend, disabled, users }: P
     setValue(val);
     autoResize(e.target);
 
-    // Detect @ trigger
     const textToCursor = val.slice(0, cursor);
+
+    // @ mention takes priority
     const atMatch = textToCursor.match(/@([^@\s]*)$/);
     if (atMatch) {
       setMentionSearch(atMatch[1]);
       setMentionStart(cursor - atMatch[0].length);
-      setSelectedIndex(0);
+      setMentionIndex(0);
+      setEmojiSearch(null);
+      return;
+    }
+    setMentionSearch(null);
+
+    // : emoji — must start with a letter to avoid matching timestamps/URLs
+    const colonMatch = textToCursor.match(/:([a-z][a-z0-9_+\-]*)$/i);
+    if (colonMatch) {
+      setEmojiSearch(colonMatch[1]);
+      setEmojiStart(cursor - colonMatch[0].length);
+      setEmojiIndex(0);
     } else {
-      setMentionSearch(null);
+      setEmojiSearch(null);
     }
   }
 
@@ -123,16 +177,35 @@ export default function MentionInput({ placeholder, onSend, disabled, users }: P
     }, 0);
   }
 
+  function selectEmoji(emoji: EmojiEntry) {
+    const native = emoji.skins[0].native;
+    const before = value.slice(0, emojiStart);
+    const after = value.slice(textareaRef.current?.selectionStart ?? emojiStart + (emojiSearch?.length ?? 0) + 1);
+    setValue(before + native + after);
+    setEmojiSearch(null);
+    setTimeout(() => {
+      const pos = before.length + native.length;
+      textareaRef.current?.setSelectionRange(pos, pos);
+      textareaRef.current?.focus();
+      if (textareaRef.current) autoResize(textareaRef.current);
+    }, 0);
+  }
+
   async function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if (mentionSearch !== null && filtered.length > 0) {
-      if (e.key === "ArrowDown") { e.preventDefault(); setSelectedIndex((i) => Math.min(i + 1, filtered.length - 1)); return; }
-      if (e.key === "ArrowUp") { e.preventDefault(); setSelectedIndex((i) => Math.max(i - 1, 0)); return; }
-      if (e.key === "Tab" || (e.key === "Enter" && mentionSearch !== null)) {
-        e.preventDefault();
-        selectMention(filtered[selectedIndex]);
-        return;
-      }
+    // Mention dropdown navigation
+    if (mentionSearch !== null && filteredMentions.length > 0) {
+      if (e.key === "ArrowDown") { e.preventDefault(); setMentionIndex((i) => Math.min(i + 1, filteredMentions.length - 1)); return; }
+      if (e.key === "ArrowUp") { e.preventDefault(); setMentionIndex((i) => Math.max(i - 1, 0)); return; }
+      if (e.key === "Tab" || e.key === "Enter") { e.preventDefault(); selectMention(filteredMentions[mentionIndex]); return; }
       if (e.key === "Escape") { setMentionSearch(null); return; }
+    }
+
+    // Emoji dropdown navigation
+    if (emojiSearch !== null && filteredEmojis.length > 0) {
+      if (e.key === "ArrowDown") { e.preventDefault(); setEmojiIndex((i) => Math.min(i + 1, filteredEmojis.length - 1)); return; }
+      if (e.key === "ArrowUp") { e.preventDefault(); setEmojiIndex((i) => Math.max(i - 1, 0)); return; }
+      if (e.key === "Tab" || e.key === "Enter") { e.preventDefault(); selectEmoji(filteredEmojis[emojiIndex]); return; }
+      if (e.key === "Escape") { setEmojiSearch(null); return; }
     }
 
     if (e.key === "Enter" && !e.shiftKey) {
@@ -143,16 +216,33 @@ export default function MentionInput({ placeholder, onSend, disabled, users }: P
 
   return (
     <div className="discussions-input" style={{ position: "relative" }}>
-      {mentionSearch !== null && filtered.length > 0 && (
+      {mentionSearch !== null && filteredMentions.length > 0 && (
         <div className="discussions-mention-list">
-          {filtered.map((u, i) => (
+          {filteredMentions.map((u, i) => (
             <button
               key={u.id}
-              className={`discussions-mention-item${i === selectedIndex ? " discussions-mention-item--selected" : ""}`}
+              className={`discussions-mention-item${i === mentionIndex ? " discussions-mention-item--selected" : ""}`}
               onMouseDown={(e) => { e.preventDefault(); selectMention(u); }}
             >
               <span className="discussions-mention-item__avatar">{u.name[0]}</span>
               {u.name}
+            </button>
+          ))}
+        </div>
+      )}
+      {emojiSearch !== null && filteredEmojis.length > 0 && (
+        <div className="discussions-mention-list">
+          {filteredEmojis.map((e, i) => (
+            <button
+              key={e.id}
+              className={`discussions-mention-item${i === emojiIndex ? " discussions-mention-item--selected" : ""}`}
+              onMouseDown={(ev) => { ev.preventDefault(); selectEmoji(e); }}
+            >
+              <span className="discussions-mention-item__avatar discussions-mention-item__avatar--emoji">
+                {e.skins[0].native}
+              </span>
+              <span className="discussions-emoji-id">:{e.id}:</span>
+              <span className="discussions-emoji-name">{e.name}</span>
             </button>
           ))}
         </div>
