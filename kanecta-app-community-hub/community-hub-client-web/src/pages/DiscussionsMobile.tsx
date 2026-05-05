@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import MessageItem from "../components/discussions/MessageItem";
+import MobileMessageItem from "../components/discussions/MobileMessageItem";
 import MentionInput from "../components/discussions/MentionInput";
 import CreateThreadModal from "../components/discussions/CreateThreadModal";
 import ThreadOptionsMenu from "../components/discussions/ThreadOptionsMenu";
@@ -112,7 +112,7 @@ function MessagesScreen({
           <div className="dm-empty">No messages yet. Say hello!</div>
         ) : (
           messages.map((msg) => (
-            <MessageItem
+            <MobileMessageItem
               key={msg.id}
               message={msg}
               reactions={reactions[msg.id] || []}
@@ -194,7 +194,7 @@ function RepliesScreen({
 
       {/* Original message */}
       <div className="dm-replies__parent">
-        <MessageItem
+        <MobileMessageItem
           message={parentMessage}
           reactions={[]}
           currentUserId={currentUserId}
@@ -214,7 +214,7 @@ function RepliesScreen({
           <div className="dm-empty">No replies yet.</div>
         ) : (
           replies.map((r) => (
-            <MessageItem
+            <MobileMessageItem
               key={r.id}
               message={r}
               reactions={reactions[r.id] || []}
