@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useMobile } from "../hooks/useMobile";
 import DiscussionsMobile from "./DiscussionsMobile";
 import Header from "../components/Header";
-import Footer from "../components/Footer";
 import MessageItem from "../components/discussions/MessageItem";
 import MentionInput from "../components/discussions/MentionInput";
 import CreateThreadModal from "../components/discussions/CreateThreadModal";
@@ -286,8 +285,6 @@ export default function Discussions() {
           />
         )}
       </div>
-
-      <Footer />
 
       <CreateThreadModal
         open={showCreateThread}
