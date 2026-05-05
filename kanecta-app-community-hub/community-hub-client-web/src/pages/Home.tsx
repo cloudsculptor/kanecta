@@ -155,13 +155,13 @@ function ComingCard({ title, blurb }: { title: string; blurb: string }) {
 
 export default function Home() {
   const role = useUserRole();
-  const isLocal = role !== "PUBLIC";
+  const isTeam = role === "TEAM" || role === "MODERATOR";
 
   return (
     <>
       <Header />
       <nav className="nav-grid">
-        {isLocal ? (
+        {isTeam ? (
           <>
             <NavCard
               featured
