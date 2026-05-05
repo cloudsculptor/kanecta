@@ -1,6 +1,10 @@
 $bp-mobile: 480px;
 $bp-tablet: 768px;
 
+// MUI DialogContent has no top padding by default, which clips floating
+// TextField labels. This ensures every dialog has clearance for the label.
+.MuiDialogContent-root { padding-top: 8px !important; }
+
 .site-header {
   width: 100%;
   background: linear-gradient(160deg, #0d2b12 0%, #1a4d22 60%, #2d6a35 100%);
