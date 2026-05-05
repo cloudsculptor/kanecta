@@ -21,6 +21,7 @@ export interface Thread {
   name: string;
   description: string | null;
   created_by_name: string;
+  created_by_user_id: string;
   created_at: string;
 }
 
@@ -63,6 +64,8 @@ export const api = {
   },
   threads: {
     list: () => authFetch("/api/discussions/threads") as Promise<Thread[]>,
+    archive: (threadId: string) =>
+      authFetch(`/api/discussions/threads/${threadId}/archive`, { method: "PATCH" }),
     create: async (name: string, description?: string): Promise<Thread> => {
       const token = keycloak.token;
       const res = await fetch(`${BASE}/api/discussions/threads`, {
