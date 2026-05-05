@@ -8,6 +8,7 @@ import MentionInput from "../components/discussions/MentionInput";
 import CreateThreadModal from "../components/discussions/CreateThreadModal";
 import ReplyPanel from "../components/discussions/ReplyPanel";
 import ThreadOptionsMenu from "../components/discussions/ThreadOptionsMenu";
+import CopyLinkButton from "../components/discussions/CopyLinkButton";
 import { useUserRole } from "../auth/useUserRole";
 import { useKeycloak } from "../auth/KeycloakProvider";
 import { useThreadSocket } from "../hooks/useSocket";
@@ -250,12 +251,15 @@ export default function Discussions() {
               {activeThread.description && (
                 <span className="discussions-main__description">{activeThread.description}</span>
               )}
-              <ThreadOptionsMenu
-                thread={activeThread}
-                currentUserId={currentUserId}
-                canModerate={canModerate}
-                onArchived={() => handleThreadArchived({ id: activeThread.id })}
-              />
+              <div className="discussions-header-actions">
+                <CopyLinkButton />
+                <ThreadOptionsMenu
+                  thread={activeThread}
+                  currentUserId={currentUserId}
+                  canModerate={canModerate}
+                  onArchived={() => handleThreadArchived({ id: activeThread.id })}
+                />
+              </div>
             </div>
           )}
 
