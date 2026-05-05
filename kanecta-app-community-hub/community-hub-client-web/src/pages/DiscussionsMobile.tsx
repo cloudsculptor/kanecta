@@ -341,7 +341,7 @@ export default function DiscussionsMobile() {
             setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, reply_count: Number(m.reply_count) + 1 } : m))
           }
         />
-        <CreateThreadModal open={showCreateThread} onClose={() => setShowCreateThread(false)} onCreate={createThread} />
+        <CreateThreadModal open={showCreateThread} onClose={() => setShowCreateThread(false)} onCreate={createThread} onGoToThread={(id) => { const t = threads.find((x) => x.id === id); if (t) setActiveThread(t); setShowCreateThread(false); }} />
       </>
     );
   }
@@ -365,7 +365,7 @@ export default function DiscussionsMobile() {
           onUnreact={unreact}
           onOpenReplies={setReplyTarget}
         />
-        <CreateThreadModal open={showCreateThread} onClose={() => setShowCreateThread(false)} onCreate={createThread} />
+        <CreateThreadModal open={showCreateThread} onClose={() => setShowCreateThread(false)} onCreate={createThread} onGoToThread={(id) => { const t = threads.find((x) => x.id === id); if (t) setActiveThread(t); setShowCreateThread(false); }} />
       </>
     );
   }
@@ -379,7 +379,7 @@ export default function DiscussionsMobile() {
         onNew={() => setShowCreateThread(true)}
         onBack={() => navigate("/")}
       />
-      <CreateThreadModal open={showCreateThread} onClose={() => setShowCreateThread(false)} onCreate={createThread} />
+      <CreateThreadModal open={showCreateThread} onClose={() => setShowCreateThread(false)} onCreate={createThread} onGoToThread={(id) => { const t = threads.find((x) => x.id === id); if (t) setActiveThread(t); setShowCreateThread(false); }} />
     </>
   );
 }

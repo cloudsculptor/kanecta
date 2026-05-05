@@ -49,17 +49,37 @@ export interface User {
   name: string;
 }
 
+export class DuplicateThreadError extends Error {
+  existing: Thread;
+  constructor(existing: Thread) {
+    super("A thread with this name already exists");
+    this.existing = existing;
+  }
+}
+
 export const api = {
   users: {
     list: () => authFetch("/api/discussions/users") as Promise<User[]>,
   },
   threads: {
     list: () => authFetch("/api/discussions/threads") as Promise<Thread[]>,
-    create: (name: string, description?: string) =>
-      authFetch("/api/discussions/threads", {
+    create: async (name: string, description?: string): Promise<Thread> => {
+      const token = keycloak.token;
+      const res = await fetch(`${BASE}/api/discussions/threads`, {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ name, description }),
-      }) as Promise<Thread>,
+      });
+      if (res.status === 409) {
+        const body = await res.json();
+        throw new DuplicateThreadError(body.existing as Thread);
+      }
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      return res.json();
+    },
   },
   messages: {
     list: (threadId: string) =>

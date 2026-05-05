@@ -25,6 +25,16 @@ router.post("/threads", requireAuth, canAccess, async (req, res) => {
   const { name, description } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: "Thread name is required" });
   try {
+    const normalized = name.trim().toLowerCase().replace(/\s+/g, "");
+    const { rows: dupes } = await pool.query(
+      `SELECT id, name, description FROM discussions_threads
+       WHERE archived_at IS NULL
+         AND LOWER(REGEXP_REPLACE(name, '\\s+', '', 'g')) = $1`,
+      [normalized]
+    );
+    if (dupes.length > 0) {
+      return res.status(409).json({ error: "A thread with this name already exists", existing: dupes[0] });
+    }
     const { rows } = await pool.query(
       `INSERT INTO discussions_threads (name, description, created_by_user_id, created_by_name)
        VALUES ($1, $2, $3, $4) RETURNING *`,
