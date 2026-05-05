@@ -150,24 +150,22 @@ export default function MessageItem({
               );
             })}
 
-            {/* Add reaction pill — shown next to existing reactions on hover */}
-            {hovered && reactions.length > 0 && (
-              <div style={{ position: "relative", display: "inline-block" }}>
-                <button
-                  className="discussions-reaction discussions-reaction--add"
-                  onClick={() => setShowEmoji((v) => !v)}
-                  title="Add reaction"
-                >
-                  <IconSmiley /> +
-                </button>
-                {showEmoji && (
-                  <EmojiPicker
-                    onSelect={(emoji) => { onReact(message.id, emoji); setShowEmoji(false); }}
-                    onClose={() => setShowEmoji(false)}
-                  />
-                )}
-              </div>
-            )}
+            {/* Add reaction pill — always rendered to hold its space, visible only on hover */}
+            <div style={{ position: "relative", display: "inline-block", visibility: hovered ? "visible" : "hidden" }}>
+              <button
+                className="discussions-reaction discussions-reaction--add"
+                onClick={() => setShowEmoji((v) => !v)}
+                title="Add reaction"
+              >
+                <IconSmiley /> +
+              </button>
+              {showEmoji && (
+                <EmojiPicker
+                  onSelect={(emoji) => { onReact(message.id, emoji); setShowEmoji(false); }}
+                  onClose={() => setShowEmoji(false)}
+                />
+              )}
+            </div>
           </div>
         )}
 
