@@ -160,7 +160,13 @@ function RepliesScreen({
 
   useEffect(() => {
     setLoading(true);
-    api.messages.replies(parentMessage.id).then(setReplies).finally(() => setLoading(false));
+    Promise.all([
+      api.messages.replies(parentMessage.id),
+      api.reactions.listForThread(parentMessage.thread_id),
+    ]).then(([msgs, rxns]) => {
+      setReplies(msgs);
+      setReactions(rxns);
+    }).finally(() => setLoading(false));
   }, [parentMessage.id]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [replies]);
@@ -284,7 +290,14 @@ export default function DiscussionsMobile() {
     if (!activeThread) return;
     setLoadingMessages(true);
     setMessages([]);
-    api.messages.list(activeThread.id).then(setMessages).finally(() => setLoadingMessages(false));
+    setReactions({});
+    Promise.all([
+      api.messages.list(activeThread.id),
+      api.reactions.listForThread(activeThread.id),
+    ]).then(([msgs, rxns]) => {
+      setMessages(msgs);
+      setReactions(rxns);
+    }).finally(() => setLoadingMessages(false));
   }, [activeThread?.id]);
 
   const handleNewMessage = useCallback((data: unknown) => {
