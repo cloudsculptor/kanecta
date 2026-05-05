@@ -1416,8 +1416,14 @@ $bp-tablet: 768px;
   }
 }
 
-.discussions-options-btn {
+.discussions-header-actions {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.discussions-options-btn {
   flex-shrink: 0;
   border: none;
   background: none;
