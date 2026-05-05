@@ -57,8 +57,8 @@ export default function CreateThreadModal({ open, onClose, onCreate, onGoToThrea
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ px: 3, pt: 2.5, pb: 2.5 }}>New Thread</DialogTitle>
-      <DialogContent sx={{ px: 3, pt: 0, pb: 0 }}>
+      <DialogTitle sx={{ px: 3, pt: 2.5, pb: 1.5 }}>New Thread</DialogTitle>
+      <DialogContent sx={{ px: 3, pt: 1, pb: 0 }}>
         <TextField
           autoFocus fullWidth label="Thread name" value={name}
           onChange={(e) => handleNameChange(e.target.value)}
