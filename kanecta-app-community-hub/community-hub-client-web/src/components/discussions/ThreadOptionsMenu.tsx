@@ -115,7 +115,7 @@ export default function ThreadOptionsMenu({ thread, currentUserId, canModerate, 
             <DialogTitle sx={{ px: 3, pt: 2.5, pb: 1.5 }}>
               Archive #{thread.name}?
             </DialogTitle>
-            <DialogContent sx={{ px: 3, pt: 1, pb: 0 }}>
+            <DialogContent sx={{ px: 3, pt: 0, pb: 0 }}>
               <DialogContentText>
                 This will hide the thread from the list. All messages will be preserved.
               </DialogContentText>
@@ -142,7 +142,7 @@ export default function ThreadOptionsMenu({ thread, currentUserId, canModerate, 
             <DialogTitle sx={{ px: 3, pt: 2.5, pb: 1.5 }}>
               Cannot archive thread
             </DialogTitle>
-            <DialogContent sx={{ px: 3, pt: 1, pb: 0 }}>
+            <DialogContent sx={{ px: 3, pt: 0, pb: 0 }}>
               <DialogContentText>
                 Only <strong>{thread.created_by_name}</strong> or an admin can archive this thread.
               </DialogContentText>
