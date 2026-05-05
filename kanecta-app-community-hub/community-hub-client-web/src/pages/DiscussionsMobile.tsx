@@ -260,9 +260,21 @@ export default function DiscussionsMobile() {
 
   useEffect(() => {
     if (!authenticated) return;
-    api.threads.list().then(setThreads).finally(() => setLoadingThreads(false));
+    api.threads.list().then((data) => {
+      setThreads(data);
+      const hashId = window.location.hash.slice(1);
+      const initial = data.find((t) => t.id === hashId);
+      if (initial) setActiveThread(initial);
+    }).finally(() => setLoadingThreads(false));
     api.users.list().then(setTeamUsers).catch(() => {});
   }, [authenticated]);
+
+  useEffect(() => {
+    window.history.replaceState(
+      null, "",
+      activeThread ? `#${activeThread.id}` : window.location.pathname,
+    );
+  }, [activeThread?.id]);
 
   useEffect(() => {
     if (!activeThread) return;
