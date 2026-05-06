@@ -218,22 +218,24 @@ export default function Discussions() {
         {/* ── Sidebar / Thread List ── */}
         <aside className="discussions-sidebar">
           {/* All Unreads nav item */}
-          <button
-            className={`discussions-nav-item${showUnreads ? " discussions-nav-item--active" : ""}`}
-            onClick={() => { setShowUnreads(true); setActiveThreadId(null); setReplyTarget(null); }}
-          >
-            <svg className="discussions-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-              <line x1="9" y1="10" x2="15" y2="10" />
-              <line x1="9" y1="14" x2="13" y2="14" />
-            </svg>
-            All Unreads
-            {threads.filter((t) => t.has_unread).length > 0 && (
-              <span className="discussions-nav-item__badge">
-                {threads.filter((t) => t.has_unread).length}
-              </span>
-            )}
-          </button>
+          <div className="discussions-sidebar__nav-section">
+            <button
+              className={`discussions-nav-item${showUnreads ? " discussions-nav-item--active" : ""}`}
+              onClick={() => { setShowUnreads(true); setActiveThreadId(null); setReplyTarget(null); }}
+            >
+              <svg className="discussions-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                <line x1="9" y1="10" x2="15" y2="10" />
+                <line x1="9" y1="14" x2="13" y2="14" />
+              </svg>
+              All Unreads
+              {threads.filter((t) => t.has_unread).length > 0 && (
+                <span className="discussions-nav-item__badge">
+                  {threads.filter((t) => t.has_unread).length}
+                </span>
+              )}
+            </button>
+          </div>
 
           {/* Thread list */}
           {loadingThreads ? (
