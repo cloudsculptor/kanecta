@@ -256,18 +256,19 @@ router.get("/unreads", requireAuth, canAccess, async (req, res) => {
        LEFT JOIN discussions_messages m ON m.thread_id = t.id
          AND m.deleted_at IS NULL
          AND (
-           -- New top-level messages
-           (m.parent_message_id IS NULL AND m.created_at > rd.last_read_at)
+           -- New top-level messages from others
+           (m.parent_message_id IS NULL AND m.created_at > rd.last_read_at AND m.user_id != $1)
            OR
-           -- New replies
-           (m.parent_message_id IS NOT NULL AND m.created_at > rd.last_read_at)
+           -- New replies from others
+           (m.parent_message_id IS NOT NULL AND m.created_at > rd.last_read_at AND m.user_id != $1)
            OR
-           -- Parent messages of new replies (shown as context)
+           -- Parent messages of new replies from others (shown as context)
            (m.parent_message_id IS NULL AND EXISTS (
              SELECT 1 FROM discussions_messages nr
              WHERE nr.parent_message_id = m.id
                AND nr.created_at > rd.last_read_at
                AND nr.deleted_at IS NULL
+               AND nr.user_id != $1
            ))
          )
        WHERE t.archived_at IS NULL
