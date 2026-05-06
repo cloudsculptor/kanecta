@@ -9,6 +9,7 @@ import { useKeycloak } from "../auth/KeycloakProvider";
 import { useUserRole } from "../auth/useUserRole";
 import { useThreadSocket, useRepliesSocket, useGlobalSocket } from "../hooks/useSocket";
 import MobileUnreads from "../components/discussions/MobileUnreads";
+import NotificationBell from "../components/discussions/NotificationBell";
 import { api, type Thread, type Message, type Reaction } from "../api/discussions";
 import keycloak from "../auth/keycloak";
 
@@ -94,7 +95,7 @@ function ThreadsScreen({
 
 function MessagesScreen({
   thread, messages, loading, reactions, currentUserId, canModerate, users,
-  onBack, onSend, onEdit, onDelete, onReact, onUnreact, onOpenReplies, onArchived,
+  onBack, onSend, onEdit, onDelete, onReact, onUnreact, onOpenReplies, onArchived, onToggleNotifications,
 }: {
   thread: Thread;
   messages: Message[];
@@ -111,6 +112,7 @@ function MessagesScreen({
   onUnreact: (id: string, emoji: string) => Promise<unknown>;
   onOpenReplies: (msg: Message) => void;
   onArchived: () => void;
+  onToggleNotifications: (enabled: boolean) => void;
 }) {
   const endRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -123,6 +125,11 @@ function MessagesScreen({
         <button className="dm-bar__back" onClick={onBack}><BackArrow /></button>
         <span className="dm-bar__thread-name"># {thread.name}</span>
         <div className="discussions-header-actions">
+          <NotificationBell
+            threadId={thread.id}
+            enabled={thread.is_notifications_enabled}
+            onToggle={onToggleNotifications}
+          />
           <CopyLinkButton />
           <ThreadOptionsMenu
             thread={thread}
@@ -469,6 +476,9 @@ export default function DiscussionsMobile() {
           onUnreact={unreact}
           onOpenReplies={setReplyTarget}
           onArchived={() => handleThreadArchived(activeThread.id)}
+          onToggleNotifications={(enabled) =>
+            setThreads((prev) => prev.map((t) => t.id === activeThread.id ? { ...t, is_notifications_enabled: enabled } : t))
+          }
         />
         <CreateThreadModal open={showCreateThread} onClose={() => setShowCreateThread(false)} onCreate={createThread} onGoToThread={(id) => { const t = threads.find((x) => x.id === id); if (t) setActiveThread(t); setShowCreateThread(false); }} />
       </>

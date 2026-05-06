@@ -24,6 +24,7 @@ export interface Thread {
   created_by_user_id: string;
   created_at: string;
   has_unread: boolean;
+  is_notifications_enabled: boolean;
 }
 
 export interface Message {
