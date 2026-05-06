@@ -11,7 +11,7 @@ import ThreadOptionsMenu from "../components/discussions/ThreadOptionsMenu";
 import CopyLinkButton from "../components/discussions/CopyLinkButton";
 import { useUserRole } from "../auth/useUserRole";
 import { useKeycloak } from "../auth/KeycloakProvider";
-import { useThreadSocket } from "../hooks/useSocket";
+import { useThreadSocket, useGlobalSocket } from "../hooks/useSocket";
 import { api, type Thread, type Message, type Reaction } from "../api/discussions";
 import keycloak from "../auth/keycloak";
 
@@ -83,6 +83,8 @@ export default function Discussions() {
     ]).then(([msgs, rxns]) => {
       setMessages(msgs);
       setReactions(rxns);
+      api.reads.mark(activeThreadId).catch(() => {});
+      setThreads((prev) => prev.map((t) => t.id === activeThreadId ? { ...t, has_unread: false } : t));
     }).finally(() => setLoadingMessages(false));
   }, [activeThreadId]);
 
@@ -111,7 +113,7 @@ export default function Discussions() {
   }, []);
 
   const handleNewThread = useCallback((data: unknown) => {
-    setThreads((prev) => [...prev, data as Thread]);
+    setThreads((prev) => [...prev, { ...(data as Thread), has_unread: false }]);
   }, []);
 
   const handleReplyCount = useCallback((data: unknown) => {
@@ -130,6 +132,20 @@ export default function Discussions() {
       return remaining;
     });
   }, []);
+
+  const activeThreadIdRef = useRef(activeThreadId);
+  activeThreadIdRef.current = activeThreadId;
+
+  useGlobalSocket({
+    "thread:activity": useCallback((data: unknown) => {
+      const { thread_id } = data as { thread_id: string };
+      if (thread_id === activeThreadIdRef.current) {
+        api.reads.mark(thread_id).catch(() => {});
+      } else {
+        setThreads((prev) => prev.map((t) => t.id === thread_id ? { ...t, has_unread: true } : t));
+      }
+    }, []),
+  });
 
   useThreadSocket(activeThreadId, {
     "message:new": handleNewMessage,
@@ -198,35 +214,63 @@ export default function Discussions() {
 
         {/* ── Sidebar / Thread List ── */}
         <aside className="discussions-sidebar">
-          <div className="discussions-sidebar__heading">
-            Threads
-            <button className="discussions-sidebar__new" onClick={() => setShowCreateThread(true)} title="New thread">+</button>
-          </div>
-
           {loadingThreads ? (
             <div className="discussions-sidebar__loading">Loading…</div>
           ) : threads.length === 0 ? (
-            <div className="discussions-sidebar__empty">No threads yet. Create one!</div>
+            <>
+              <div className="discussions-sidebar__heading">
+                Threads
+                <button className="discussions-sidebar__new" onClick={() => setShowCreateThread(true)} title="New thread">+</button>
+              </div>
+              <div className="discussions-sidebar__empty">No threads yet. Create one!</div>
+            </>
           ) : (
-            <ul className="discussions-sidebar__list">
-              {threads.map((t) => (
-                <li key={t.id}>
-                  <button
-                    className={`discussions-thread-item${t.id === activeThreadId ? " discussions-thread-item--active" : ""}`}
-                    onClick={() => selectThread(t.id)}
-                  >
-                    <span className="discussions-thread-item__hash">#</span>
-                    <span className="discussions-thread-item__content">
-                      <span className="discussions-thread-item__name">{t.name}</span>
-                      {t.description && (
-                        <span className="discussions-thread-item__preview">{t.description}</span>
-                      )}
-                    </span>
-                    <span className="discussions-thread-item__chevron">›</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <>
+              {threads.some((t) => t.has_unread) && (
+                <>
+                  <div className="discussions-sidebar__section-label">Unreads</div>
+                  <ul className="discussions-sidebar__list discussions-sidebar__list--unreads">
+                    {threads.filter((t) => t.has_unread).map((t) => (
+                      <li key={t.id}>
+                        <button
+                          className={`discussions-thread-item discussions-thread-item--unread${t.id === activeThreadId ? " discussions-thread-item--active" : ""}`}
+                          onClick={() => selectThread(t.id)}
+                        >
+                          <span className="discussions-thread-item__hash">#</span>
+                          <span className="discussions-thread-item__content">
+                            <span className="discussions-thread-item__name">{t.name}</span>
+                          </span>
+                          <span className="discussions-thread-item__dot" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              <div className="discussions-sidebar__heading">
+                Threads
+                <button className="discussions-sidebar__new" onClick={() => setShowCreateThread(true)} title="New thread">+</button>
+              </div>
+              <ul className="discussions-sidebar__list">
+                {threads.map((t) => (
+                  <li key={t.id}>
+                    <button
+                      className={`discussions-thread-item${t.has_unread ? " discussions-thread-item--unread" : ""}${t.id === activeThreadId ? " discussions-thread-item--active" : ""}`}
+                      onClick={() => selectThread(t.id)}
+                    >
+                      <span className="discussions-thread-item__hash">#</span>
+                      <span className="discussions-thread-item__content">
+                        <span className="discussions-thread-item__name">{t.name}</span>
+                        {t.description && (
+                          <span className="discussions-thread-item__preview">{t.description}</span>
+                        )}
+                      </span>
+                      {t.has_unread && t.id !== activeThreadId && <span className="discussions-thread-item__dot" />}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </aside>
 

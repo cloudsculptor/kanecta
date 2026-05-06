@@ -23,6 +23,7 @@ export interface Thread {
   created_by_name: string;
   created_by_user_id: string;
   created_at: string;
+  has_unread: boolean;
 }
 
 export interface Message {
@@ -59,6 +60,10 @@ export class DuplicateThreadError extends Error {
 }
 
 export const api = {
+  reads: {
+    mark: (threadId: string) =>
+      authFetch(`/api/discussions/threads/${threadId}/reads`, { method: "POST" }),
+  },
   users: {
     list: () => authFetch("/api/discussions/users") as Promise<User[]>,
   },
