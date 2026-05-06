@@ -194,12 +194,15 @@ describe("POST /api/discussions/threads/:threadId/messages", () => {
     expect(res.status).toBe(400);
   });
 
-  test("creates message and returns 201", async () => {
+  test("creates message, updates latest_message_at, updates poster read state, returns 201", async () => {
     const msg = { id: "m1", thread_id: "t1", content: "Hello", reply_count: 0 };
-    mockQuery.mockResolvedValueOnce({ rows: [msg] });
+    mockQuery.mockResolvedValueOnce({ rows: [msg] }); // INSERT message
+    mockQuery.mockResolvedValueOnce({ rows: [] });    // UPDATE latest_message_at
+    mockQuery.mockResolvedValueOnce({ rows: [] });    // UPSERT thread_reads for poster
     const res = await request(teamApp).post("/api/discussions/threads/t1/messages").send({ content: "Hello" });
     expect(res.status).toBe(201);
     expect(res.body.content).toBe("Hello");
+    expect(mockQuery).toHaveBeenCalledTimes(3);
   });
 });
 
@@ -259,12 +262,15 @@ describe("POST /api/discussions/messages/:id/replies", () => {
     expect(res.status).toBe(404);
   });
 
-  test("creates reply", async () => {
+  test("creates reply, updates latest_message_at, updates poster read state, returns 201", async () => {
     mockQuery
-      .mockResolvedValueOnce({ rows: [{ id: "m1", thread_id: "t1" }] })
-      .mockResolvedValueOnce({ rows: [{ id: "r1", content: "Reply" }] });
+      .mockResolvedValueOnce({ rows: [{ id: "m1", thread_id: "t1" }] }) // fetch parent
+      .mockResolvedValueOnce({ rows: [{ id: "r1", content: "Reply" }] }) // INSERT reply
+      .mockResolvedValueOnce({ rows: [] })                               // UPDATE latest_message_at
+      .mockResolvedValueOnce({ rows: [] });                              // UPSERT thread_reads for poster
     const res = await request(teamApp).post("/api/discussions/messages/m1/replies").send({ content: "Reply" });
     expect(res.status).toBe(201);
+    expect(mockQuery).toHaveBeenCalledTimes(4);
   });
 });
 
