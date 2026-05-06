@@ -1283,6 +1283,8 @@ $bp-tablet: 768px;
   &__icon {
     flex-shrink: 0;
     opacity: 0.8;
+    width: 16px;
+    height: 16px;
   }
 
   &__badge {
@@ -1363,11 +1365,12 @@ $bp-tablet: 768px;
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 20px 32px 10px;
+    padding: 10px 32px;
     position: sticky;
     top: 0;
-    background: var(--bg);
+    background: rgba(0,0,0,0.03);
     z-index: 1;
+    border-top: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
   }
 
