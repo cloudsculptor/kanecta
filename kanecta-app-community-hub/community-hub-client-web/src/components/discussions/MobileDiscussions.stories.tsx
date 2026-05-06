@@ -27,8 +27,8 @@ function BackArrow() {
   );
 }
 
-function MockThreadList({ threads = THREADS, onSelect }: { threads?: typeof THREADS; onSelect: (id: string) => void }) {
-  const unreadThreads = threads.filter((t) => t.has_unread);
+function MockThreadList({ threads = THREADS, onSelect, onShowUnreads = () => {} }: { threads?: typeof THREADS; onSelect: (id: string) => void; onShowUnreads?: () => void }) {
+  const unreadCount = threads.filter((t) => t.has_unread).length;
 
   return (
     <div className="dm-screen dm-threads">
@@ -43,24 +43,18 @@ function MockThreadList({ threads = THREADS, onSelect }: { threads?: typeof THRE
       </div>
 
       <div className="dm-thread-list">
-        <div className="dm-section-label">Unreads</div>
-        {unreadThreads.length > 0 ? (
-          <ul className="dm-thread-sublist">
-            {unreadThreads.map((t) => (
-              <li key={t.id}>
-                <button className="dm-thread-item dm-thread-item--unread" onClick={() => onSelect(t.id)}>
-                  <span className="dm-thread-item__hash">#</span>
-                  <span className="dm-thread-item__body">
-                    <span className="dm-thread-item__name">{t.name}</span>
-                  </span>
-                  <span className="dm-thread-item__dot" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="dm-all-read">All caught up</div>
-        )}
+        <div className="dm-nav-section">
+          <button className="dm-nav-item" onClick={onShowUnreads}>
+            <svg className="dm-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+              <line x1="9" y1="10" x2="15" y2="10" />
+              <line x1="9" y1="14" x2="13" y2="14" />
+            </svg>
+            All Unreads
+            {unreadCount > 0 && <span className="dm-nav-item__badge">{unreadCount}</span>}
+            <span className="dm-nav-item__chevron">›</span>
+          </button>
+        </div>
         <div className="dm-section-label">Threads</div>
         <ul className="dm-thread-sublist">
           {threads.map((t) => (
@@ -220,27 +214,24 @@ export const Interactive: Story = {
   name: "Interactive — tap threads, messages, replies",
 };
 
-/** Thread list with no unreads — all caught up, no UNREADS section shown. */
-export const ThreadListAllRead: Story = {
-  render: () => (
-    <div style={{ width: 390, height: 700, border: "12px solid #222", borderRadius: 40, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
-      <MockThreadList threads={THREADS.map((t) => ({ ...t, has_unread: false }))} onSelect={() => {}} />
-    </div>
-  ),
-  name: "Thread list — all read (no unreads section)",
-};
-
-/**
- * Thread list with the UNREADS section visible. Two threads appear at the top in bold
- * with a green dot, then again in the full list below.
- */
+/** Thread list — badge count shown on the All Unreads nav item when there are unreads. */
 export const ThreadListWithUnreads: Story = {
   render: () => (
     <div style={{ width: 390, height: 700, border: "12px solid #222", borderRadius: 40, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
       <MockThreadList onSelect={() => {}} />
     </div>
   ),
-  name: "Thread list — with unreads section",
+  name: "Thread list — All Unreads nav item with badge",
+};
+
+/** Thread list — no unreads, badge hidden. */
+export const ThreadListAllRead: Story = {
+  render: () => (
+    <div style={{ width: 390, height: 700, border: "12px solid #222", borderRadius: 40, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+      <MockThreadList threads={THREADS.map((t) => ({ ...t, has_unread: false }))} onSelect={() => {}} />
+    </div>
+  ),
+  name: "Thread list — All Unreads nav item, no badge",
 };
 
 /** Message view — after tapping a thread. */

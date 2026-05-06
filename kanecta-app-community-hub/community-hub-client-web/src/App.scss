@@ -632,6 +632,227 @@ $bp-tablet: 768px;
   font-style: italic;
 }
 
+// ── Mobile All Unreads nav item ───────────────────────────────────────────────
+
+.dm-nav-section {
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding: 8px 0;
+}
+
+.dm-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  background: none;
+  color: rgba(255,255,255,0.9);
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+
+  &:active { background: rgba(255,255,255,0.06); }
+
+  &__icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    opacity: 0.8;
+  }
+
+  &__badge {
+    background: var(--accent);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 10px;
+    padding: 1px 7px;
+    min-width: 20px;
+    text-align: center;
+    line-height: 18px;
+  }
+
+  &__chevron {
+    margin-left: auto;
+    font-size: 20px;
+    opacity: 0.3;
+  }
+}
+
+// ── Mobile Unreads screen ─────────────────────────────────────────────────────
+
+.unreads-screen {
+  background: var(--bg);
+
+  &__content {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  &__empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: var(--text);
+    opacity: 0.45;
+    font-size: 15px;
+  }
+
+  &__empty-icon {
+    font-size: 36px;
+    opacity: 0.5;
+  }
+
+  &__mark-all {
+    font-size: 14px;
+    color: var(--accent);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px 12px;
+    font-weight: 500;
+  }
+
+  &__thread {
+    border-bottom: 1px solid var(--border);
+  }
+
+  &__thread-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    position: sticky;
+    top: 0;
+    background: rgba(0,0,0,0.03);
+    border-bottom: 1px solid var(--border);
+    z-index: 1;
+  }
+
+  &__thread-name {
+    flex: 1;
+    background: none;
+    border: none;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-h);
+    cursor: pointer;
+    padding: 0;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  &__thread-hash {
+    opacity: 0.4;
+    font-size: 16px;
+  }
+
+  &__thread-mark-read {
+    font-size: 13px;
+    color: var(--accent);
+    background: none;
+    border: 1px solid var(--accent-border);
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 5px 12px;
+    white-space: nowrap;
+    font-weight: 500;
+    &:disabled { opacity: 0.5; cursor: default; }
+  }
+
+  &__thread-messages {
+    padding: 8px 16px 16px;
+  }
+
+  &__date-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 0 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text);
+    opacity: 0.4;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+
+    &::before, &::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+  }
+
+  &__message {
+    display: flex;
+    gap: 10px;
+    padding: 8px 0;
+  }
+
+  &__message-avatar {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    border-radius: 6px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+  }
+
+  &__message-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__message-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 2px;
+  }
+
+  &__message-author {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-h);
+  }
+
+  &__message-time {
+    font-size: 11px;
+    color: var(--text);
+    opacity: 0.45;
+  }
+
+  &__message-text {
+    margin: 0;
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.5;
+    word-break: break-word;
+  }
+
+  &__message-replies {
+    font-size: 12px;
+    color: var(--accent);
+    margin-top: 3px;
+    display: block;
+  }
+}
+
 .dm-thread-item {
   display: flex;
   align-items: center;
