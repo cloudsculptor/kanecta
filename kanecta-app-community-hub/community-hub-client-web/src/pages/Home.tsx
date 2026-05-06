@@ -3,6 +3,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import { useUserRole } from "../auth/useUserRole";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 const publicActive = [
   {
@@ -154,6 +155,7 @@ function ComingCard({ title, blurb }: { title: string; blurb: string }) {
 }
 
 export default function Home() {
+  usePageMeta("Featherston", "Community information and connection for the town of Featherston, New Zealand — events, organisations, skills, transport, resilience and more.");
   const role = useUserRole();
   const isTeam = role === "TEAM" || role === "MODERATOR";
 

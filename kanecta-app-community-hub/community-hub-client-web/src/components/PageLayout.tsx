@@ -3,6 +3,7 @@ import Header from "./Header";
 import Breadcrumb from "./Breadcrumb";
 import ComingSoon from "./ComingSoon";
 import Footer from "./Footer";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 interface PageLayoutProps {
   pageName: string;
@@ -15,6 +16,7 @@ export default function PageLayout({
   children,
   showComingSoon = true,
 }: PageLayoutProps) {
+  usePageMeta(pageName);
   return (
     <>
       <Header />
