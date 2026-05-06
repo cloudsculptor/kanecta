@@ -53,6 +53,121 @@ $bp-tablet: 768px;
   }
 }
 
+// ── App loading skeleton (shown while Keycloak check-sso is in flight) ─────────
+
+@keyframes app-skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.app-skeleton {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+
+  &__header {
+    height: 56px;
+    background: linear-gradient(160deg, #0d2b12 0%, #1a4d22 60%, #2d6a35 100%);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    flex-shrink: 0;
+  }
+
+  &__brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__site-name {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    color: #fff;
+    line-height: 1;
+  }
+
+  &__header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    padding: 32px;
+    text-align: left;
+
+    @media (max-width: $bp-tablet) {
+      grid-template-columns: 1fr;
+      padding: 20px 16px;
+    }
+  }
+
+  &__card {
+    display: flex;
+    background: var(--bg);
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08), 0 2px 12px rgba(0,0,0,0.06);
+    height: 90px;
+
+    &--wide { grid-column: 1 / -1; }
+  }
+
+  &__card-image {
+    width: 120px;
+    min-width: 120px;
+    flex-shrink: 0;
+
+    @media (max-width: $bp-mobile) {
+      width: 90px;
+      min-width: 90px;
+    }
+  }
+
+  &__card-body {
+    flex: 1;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  &__line {
+    height: 13px;
+    border-radius: 4px;
+    width: 70%;
+
+    &--title { height: 19px; width: 50%; }
+    &--short { width: 40%; }
+  }
+
+  // Shimmer applied to any element that needs the animation
+  &__shimmer {
+    background: linear-gradient(90deg, var(--border) 0%, #f2f1f4 50%, var(--border) 100%);
+    background-size: 400% 100%;
+    animation: app-skeleton-shimmer 1.4s ease-in-out infinite;
+
+    &--btn {
+      width: 60px;
+      height: 30px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.18) 50%, rgba(255,255,255,0.08) 100%);
+      background-size: 400% 100%;
+    }
+
+    &--btn-wide { width: 90px; }
+  }
+}
+
+// ── Nav grid ───────────────────────────────────────────────────────────────────
+
 .nav-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

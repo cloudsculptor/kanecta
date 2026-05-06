@@ -1,4 +1,6 @@
 import { Routes, Route } from "react-router-dom";
+import { useKeycloak } from "./auth/KeycloakProvider";
+import AppSkeleton from "./components/AppSkeleton";
 import Home from "./pages/Home";
 import Events from "./pages/Events";
 import Skills from "./pages/Skills";
@@ -21,6 +23,9 @@ import Roadmap from "./pages/Roadmap";
 import Constitution from "./pages/Constitution";
 
 export default function App() {
+  const { initialized } = useKeycloak();
+  if (!initialized) return <AppSkeleton />;
+
   return (
     <Routes>
       <Route path="/" element={<Home />} />
