@@ -96,11 +96,21 @@ describe("GET /api/discussions/messages/:id/replies", () => {
 // ── Threads ──────────────────────────────────────────────────────────────────
 
 describe("GET /api/discussions/threads", () => {
-  test("returns threads", async () => {
-    mockQuery.mockResolvedValueOnce({ rows: [{ id: "t1", name: "General" }] });
+  test("returns threads for returning user (has existing reads)", async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [{ 1: 1 }] }); // seeding check — has reads, skip seed
+    mockQuery.mockResolvedValueOnce({ rows: [{ id: "t1", name: "General", has_unread: false }] }); // main query
     const res = await request(teamApp).get("/api/discussions/threads");
     expect(res.status).toBe(200);
-    expect(res.body).toEqual([{ id: "t1", name: "General" }]);
+    expect(res.body[0].id).toBe("t1");
+  });
+
+  test("seeds reads on first visit (no existing reads) then returns threads", async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [] });          // seeding check — no reads
+    mockQuery.mockResolvedValueOnce({ rows: [] });          // seed INSERT
+    mockQuery.mockResolvedValueOnce({ rows: [{ id: "t1", name: "General", has_unread: false }] }); // main query
+    const res = await request(teamApp).get("/api/discussions/threads");
+    expect(res.status).toBe(200);
+    expect(mockQuery).toHaveBeenCalledTimes(3);
   });
 
   test("500 on DB error", async () => {
@@ -285,5 +295,59 @@ describe("DELETE /api/discussions/messages/:id/reactions/:emoji", () => {
       .mockResolvedValueOnce({ rows: [{ thread_id: "t1" }] });
     const res = await request(teamApp).delete("/api/discussions/messages/m1/reactions/👍");
     expect(res.status).toBe(200);
+  });
+});
+
+// ── Unreads ───────────────────────────────────────────────────────────────────
+
+describe("GET /api/discussions/unreads", () => {
+  test("returns unread threads with messages", async () => {
+    const row = {
+      thread_id: "t1",
+      name: "general",
+      last_read_at: "2026-01-01T00:00:00Z",
+      messages: [{ id: "m1", content: "Hello", parent_message_id: null }],
+    };
+    mockQuery.mockResolvedValueOnce({ rows: [row] });
+    const res = await request(teamApp).get("/api/discussions/unreads");
+    expect(res.status).toBe(200);
+    expect(res.body[0].thread_id).toBe("t1");
+    expect(res.body[0].messages).toHaveLength(1);
+  });
+
+  test("returns empty array when no unreads", async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    const res = await request(teamApp).get("/api/discussions/unreads");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+
+  test("passes user ID as $1 — required for excluding own messages", async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    await request(teamApp).get("/api/discussions/unreads");
+    expect(mockQuery.mock.calls[0][1]).toEqual(["user-1"]);
+  });
+
+  test("500 on DB error", async () => {
+    mockQuery.mockRejectedValueOnce(new Error("db down"));
+    const res = await request(teamApp).get("/api/discussions/unreads");
+    expect(res.status).toBe(500);
+  });
+});
+
+// ── Read state ────────────────────────────────────────────────────────────────
+
+describe("POST /api/discussions/threads/:threadId/reads", () => {
+  test("marks thread as read and returns ok", async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    const res = await request(teamApp).post("/api/discussions/threads/t1/reads");
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+  });
+
+  test("500 on DB error", async () => {
+    mockQuery.mockRejectedValueOnce(new Error("db down"));
+    const res = await request(teamApp).post("/api/discussions/threads/t1/reads");
+    expect(res.status).toBe(500);
   });
 });
