@@ -79,27 +79,31 @@ export default function ReplyPanel({
         <button className="discussions-reply-panel__close" onClick={onClose} aria-label="Close thread">×</button>
       </div>
 
-      <div className="discussions-reply-panel__original">
-        <MessageItem
-          message={parentMessage}
-          reactions={reactions[parentMessage.id] || []}
-          currentUserId={currentUserId}
-          canModerate={canModerate}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          onReact={onReact}
-          onUnreact={onUnreact}
-          onOpenReplies={() => {}}
-        />
-      </div>
-
       <div className="discussions-reply-panel__replies">
+        <div className="discussions-reply-panel__parent">
+          <MessageItem
+            message={parentMessage}
+            reactions={reactions[parentMessage.id] || []}
+            currentUserId={currentUserId}
+            canModerate={canModerate}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onReact={onReact}
+            onUnreact={onUnreact}
+            onOpenReplies={() => {}}
+          />
+        </div>
+
         {loading ? (
           <div className="discussions-reply-panel__loading">Loading replies…</div>
         ) : replies.length === 0 ? (
           <div className="discussions-reply-panel__empty">No replies yet. Start the thread!</div>
         ) : (
-          replies.map((r) => (
+          <>
+          <div className="discussions-reply-panel__divider">
+            {replies.length} {replies.length === 1 ? "reply" : "replies"}
+          </div>
+          {replies.map((r) => (
             <MessageItem
               key={r.id}
               message={r}
@@ -118,7 +122,8 @@ export default function ReplyPanel({
               }}
               onOpenReplies={() => {}}
             />
-          ))
+          ))}
+          </>
         )}
         <div ref={endRef} />
       </div>
