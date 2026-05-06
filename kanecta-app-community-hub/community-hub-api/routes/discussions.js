@@ -135,6 +135,13 @@ router.post("/threads/:threadId/messages", requireAuth, canAccess, async (req, r
       "UPDATE discussions_threads SET latest_message_at = $1 WHERE id = $2",
       [message.created_at, threadId]
     );
+    await pool.query(
+      `INSERT INTO discussions_thread_reads (user_id, thread_id, last_read_at)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id, thread_id) DO UPDATE SET last_read_at = EXCLUDED.last_read_at
+       WHERE EXCLUDED.last_read_at > discussions_thread_reads.last_read_at`,
+      [req.user.id, threadId, message.created_at]
+    );
     req.io?.to(`thread:${threadId}`).emit("message:new", message);
     req.io?.emit("thread:activity", { thread_id: threadId });
     res.status(201).json(message);
@@ -218,6 +225,13 @@ router.post("/messages/:id/replies", requireAuth, canAccess, async (req, res) =>
     await pool.query(
       "UPDATE discussions_threads SET latest_message_at = $1 WHERE id = $2",
       [reply.created_at, thread_id]
+    );
+    await pool.query(
+      `INSERT INTO discussions_thread_reads (user_id, thread_id, last_read_at)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id, thread_id) DO UPDATE SET last_read_at = EXCLUDED.last_read_at
+       WHERE EXCLUDED.last_read_at > discussions_thread_reads.last_read_at`,
+      [req.user.id, thread_id, reply.created_at]
     );
     req.io?.to(`replies:${req.params.id}`).emit("reply:new", reply);
     req.io?.to(`thread:${thread_id}`).emit("message:reply_count", { message_id: req.params.id });
