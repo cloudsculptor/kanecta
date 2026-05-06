@@ -625,6 +625,13 @@ $bp-tablet: 768px;
   padding: 16px 16px 4px;
 }
 
+.dm-all-read {
+  font-size: 13px;
+  color: rgba(255,255,255,0.25);
+  padding: 6px 16px 12px;
+  font-style: italic;
+}
+
 .dm-thread-item {
   display: flex;
   align-items: center;
@@ -1671,6 +1678,13 @@ $bp-tablet: 768px;
 
   &__list--unreads {
     padding-bottom: 4px;
+  }
+
+  &__all-read {
+    font-size: 13px;
+    color: rgba(255,255,255,0.25);
+    padding: 6px 16px 12px;
+    font-style: italic;
   }
 }
 

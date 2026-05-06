@@ -46,9 +46,9 @@ function ThreadsScreen({
         <div className="dm-empty">No threads yet. Tap + to create one.</div>
       ) : (
         <div className="dm-thread-list">
-          {unreadThreads.length > 0 && (
+          <div className="dm-section-label">Unreads</div>
+          {unreadThreads.length > 0 ? (
             <>
-              <div className="dm-section-label">Unreads</div>
               <ul className="dm-thread-sublist">
                 {unreadThreads.map((t) => (
                   <li key={t.id}>
@@ -62,9 +62,11 @@ function ThreadsScreen({
                   </li>
                 ))}
               </ul>
-              <div className="dm-section-label">Threads</div>
             </>
+          ) : (
+            <div className="dm-all-read">All caught up</div>
           )}
+          <div className="dm-section-label">Threads</div>
           <ul className="dm-thread-sublist">
             {threads.map((t) => (
               <li key={t.id}>

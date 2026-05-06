@@ -16,25 +16,25 @@ function MockSidebar({ threads, activeId }: { threads: MockThread[]; activeId?: 
 
   return (
     <aside className="discussions-sidebar" style={{ height: "100%" }}>
-      {unreadThreads.length > 0 && (
-        <>
-          <div className="discussions-sidebar__section-label">Unreads</div>
-          <ul className="discussions-sidebar__list discussions-sidebar__list--unreads">
-            {unreadThreads.map((t) => (
-              <li key={t.id}>
-                <button
-                  className={`discussions-thread-item discussions-thread-item--unread${t.id === activeId ? " discussions-thread-item--active" : ""}`}
-                >
-                  <span className="discussions-thread-item__hash">#</span>
-                  <span className="discussions-thread-item__content">
-                    <span className="discussions-thread-item__name">{t.name}</span>
-                  </span>
-                  <span className="discussions-thread-item__dot" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        </>
+      <div className="discussions-sidebar__section-label">Unreads</div>
+      {unreadThreads.length > 0 ? (
+        <ul className="discussions-sidebar__list discussions-sidebar__list--unreads">
+          {unreadThreads.map((t) => (
+            <li key={t.id}>
+              <button
+                className={`discussions-thread-item discussions-thread-item--unread${t.id === activeId ? " discussions-thread-item--active" : ""}`}
+              >
+                <span className="discussions-thread-item__hash">#</span>
+                <span className="discussions-thread-item__content">
+                  <span className="discussions-thread-item__name">{t.name}</span>
+                </span>
+                <span className="discussions-thread-item__dot" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="discussions-sidebar__all-read">All caught up</div>
       )}
 
       <div className="discussions-sidebar__heading">
@@ -93,10 +93,10 @@ const meta: Meta = {
 export default meta;
 type Story = StoryObj;
 
-/** No new activity — the UNREADS section is hidden and all thread names are normal weight. */
+/** No new activity — the UNREADS section is always visible, showing "All caught up". */
 export const AllRead: Story = {
   render: () => <MockSidebar threads={NO_UNREADS} activeId="t1" />,
-  name: "All read — no unreads section",
+  name: "All read — all caught up state",
 };
 
 /**
