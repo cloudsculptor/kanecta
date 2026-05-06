@@ -8,6 +8,7 @@ import CopyLinkButton from "../components/discussions/CopyLinkButton";
 import { useKeycloak } from "../auth/KeycloakProvider";
 import { useUserRole } from "../auth/useUserRole";
 import { useThreadSocket, useRepliesSocket, useGlobalSocket } from "../hooks/useSocket";
+import UnreadsScreen from "../components/discussions/UnreadsScreen";
 import { api, type Thread, type Message, type Reaction } from "../api/discussions";
 import keycloak from "../auth/keycloak";
 
@@ -23,15 +24,16 @@ const BackArrow = () => (
 // ── Thread list screen ────────────────────────────────────────────────────────
 
 function ThreadsScreen({
-  threads, loading, onSelect, onNew, onBack,
+  threads, loading, onSelect, onNew, onBack, onShowUnreads,
 }: {
   threads: Thread[];
   loading: boolean;
   onSelect: (t: Thread) => void;
   onNew: () => void;
   onBack: () => void;
+  onShowUnreads: () => void;
 }) {
-  const unreadThreads = threads.filter((t) => t.has_unread);
+  const unreadCount = threads.filter((t) => t.has_unread).length;
 
   return (
     <div className="dm-screen dm-threads">
@@ -40,47 +42,48 @@ function ThreadsScreen({
         <span className="dm-bar__title">Discussions</span>
         <button className="dm-bar__action" onClick={onNew} aria-label="New thread">+</button>
       </div>
+
       {loading ? (
         <div className="dm-empty">Loading…</div>
-      ) : threads.length === 0 ? (
-        <div className="dm-empty">No threads yet. Tap + to create one.</div>
       ) : (
         <div className="dm-thread-list">
-          <div className="dm-section-label">Unreads</div>
-          {unreadThreads.length > 0 ? (
+          {/* All Unreads nav item */}
+          <div className="dm-nav-section">
+            <button className="dm-nav-item" onClick={onShowUnreads}>
+              <svg className="dm-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                <line x1="9" y1="10" x2="15" y2="10" />
+                <line x1="9" y1="14" x2="13" y2="14" />
+              </svg>
+              All Unreads
+              {unreadCount > 0 && (
+                <span className="dm-nav-item__badge">{unreadCount}</span>
+              )}
+              <span className="dm-nav-item__chevron">›</span>
+            </button>
+          </div>
+
+          {threads.length === 0 ? (
+            <div className="dm-empty">No threads yet. Tap + to create one.</div>
+          ) : (
             <>
+              <div className="dm-section-label">Threads</div>
               <ul className="dm-thread-sublist">
-                {unreadThreads.map((t) => (
+                {threads.map((t) => (
                   <li key={t.id}>
-                    <button className="dm-thread-item dm-thread-item--unread" onClick={() => onSelect(t)}>
+                    <button className={`dm-thread-item${t.has_unread ? " dm-thread-item--unread" : ""}`} onClick={() => onSelect(t)}>
                       <span className="dm-thread-item__hash">#</span>
                       <span className="dm-thread-item__body">
                         <span className="dm-thread-item__name">{t.name}</span>
+                        {t.description && <span className="dm-thread-item__preview">{t.description}</span>}
                       </span>
-                      <span className="dm-thread-item__dot" />
+                      <span className="dm-thread-item__chevron">›</span>
                     </button>
                   </li>
                 ))}
               </ul>
             </>
-          ) : (
-            <div className="dm-all-read">All caught up</div>
           )}
-          <div className="dm-section-label">Threads</div>
-          <ul className="dm-thread-sublist">
-            {threads.map((t) => (
-              <li key={t.id}>
-                <button className={`dm-thread-item${t.has_unread ? " dm-thread-item--unread" : ""}`} onClick={() => onSelect(t)}>
-                  <span className="dm-thread-item__hash">#</span>
-                  <span className="dm-thread-item__body">
-                    <span className="dm-thread-item__name">{t.name}</span>
-                    {t.description && <span className="dm-thread-item__preview">{t.description}</span>}
-                  </span>
-                  <span className="dm-thread-item__chevron">›</span>
-                </button>
-              </li>
-            ))}
-          </ul>
         </div>
       )}
     </div>
@@ -288,6 +291,7 @@ export default function DiscussionsMobile() {
   const [reactions, setReactions] = useState<Record<string, Reaction[]>>({});
   const [replyTarget, setReplyTarget] = useState<Message | null>(null);
   const [showCreateThread, setShowCreateThread] = useState(false);
+  const [showUnreads, setShowUnreads] = useState(false);
   const [teamUsers, setTeamUsers] = useState<{ id: string; name: string }[]>([]);
 
   const currentUserId = keycloak.tokenParsed?.sub || "";
@@ -409,6 +413,22 @@ export default function DiscussionsMobile() {
     setActiveThread(t);
   }
 
+  if (showUnreads) {
+    return (
+      <UnreadsScreen
+        onBack={() => setShowUnreads(false)}
+        onMarkRead={(threadId) =>
+          setThreads((prev) => prev.map((t) => t.id === threadId ? { ...t, has_unread: false } : t))
+        }
+        onJumpToThread={(threadId) => {
+          const t = threads.find((x) => x.id === threadId);
+          if (t) setActiveThread(t);
+          setShowUnreads(false);
+        }}
+      />
+    );
+  }
+
   if (replyTarget && activeThread) {
     return (
       <>
@@ -464,6 +484,7 @@ export default function DiscussionsMobile() {
         onSelect={setActiveThread}
         onNew={() => setShowCreateThread(true)}
         onBack={() => navigate("/")}
+        onShowUnreads={() => setShowUnreads(true)}
       />
       <CreateThreadModal open={showCreateThread} onClose={() => setShowCreateThread(false)} onCreate={createThread} onGoToThread={(id) => { const t = threads.find((x) => x.id === id); if (t) setActiveThread(t); setShowCreateThread(false); }} />
     </>
