@@ -112,10 +112,9 @@ function MessagesScreen({
   onOpenReplies: (msg: Message) => void;
   onArchived: () => void;
 }) {
-  const listRef = useRef<HTMLDivElement>(null);
+  const endRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!listRef.current) return;
-    listRef.current.scrollTop = listRef.current.scrollHeight;
+    if (messages.length > 0) endRef.current?.scrollIntoView();
   }, [messages]);
 
   return (
@@ -133,7 +132,7 @@ function MessagesScreen({
           />
         </div>
       </div>
-      <div className="dm-message-list" ref={listRef}>
+      <div className="dm-message-list">
         {loading ? (
           <div className="dm-empty">Loading messages…</div>
         ) : messages.length === 0 ? (
@@ -154,6 +153,7 @@ function MessagesScreen({
             />
           ))
         )}
+        <div ref={endRef} />
       </div>
       <MentionInput
         placeholder={`Message #${thread.name.toLowerCase()}`}
@@ -215,27 +215,26 @@ function RepliesScreen({
   return (
     <div className="dm-screen dm-replies">
       <div className="dm-bar">
-        <button className="dm-bar__back" onClick={onBack}><BackArrow /><span>Back</span></button>
+        <button className="dm-bar__back" onClick={onBack}><BackArrow /></button>
         <span className="dm-bar__title">Thread</span>
         <span className="dm-bar__action" />
       </div>
 
-      {/* Original message */}
-      <div className="dm-replies__parent">
-        <MobileMessageItem
-          message={parentMessage}
-          reactions={[]}
-          currentUserId={currentUserId}
-          canModerate={canModerate}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          onReact={onReact}
-          onUnreact={onUnreact}
-          onOpenReplies={() => {}}
-        />
-      </div>
-
       <div className="dm-message-list">
+        {/* Original message scrolls with replies */}
+        <div className="dm-replies__parent">
+          <MobileMessageItem
+            message={parentMessage}
+            reactions={[]}
+            currentUserId={currentUserId}
+            canModerate={canModerate}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onReact={onReact}
+            onUnreact={onUnreact}
+            onOpenReplies={() => {}}
+          />
+        </div>
         {loading ? (
           <div className="dm-empty">Loading…</div>
         ) : replies.length === 0 ? (
