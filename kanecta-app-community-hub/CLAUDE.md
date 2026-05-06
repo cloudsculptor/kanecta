@@ -108,12 +108,14 @@ feat(home): add photos to Events and Transport tiles
 ## Deployment
 
 ### Frontend
-- Platform: DigitalOcean App Platform, auto-deploys on push to `master`
-- Build env vars (set as GitHub secrets):
+- Built by GitHub Actions on push to `master`, rsynced to `/var/www/featherston/` on Remutaka Server
+- nginx serves `/var/www/featherston/` with SPA fallback to `index.html`
+- Build env vars (set as GitHub Actions secrets):
   - `VITE_KEYCLOAK_URL` — `https://auth.featherston.co.nz`
   - `VITE_KEYCLOAK_REALM` — `featherston`
   - `VITE_KEYCLOAK_CLIENT_ID` — `featherston-web`
-- `VITE_API_URL` — leave unset in production (connects to same origin via nginx proxy)
+  - `VITE_VAPID_PUBLIC_KEY` — Web Push public key
+- `VITE_API_URL` — leave unset (API proxied by nginx from same origin)
 - Production URL: https://featherston.co.nz
 
 ### Backend
