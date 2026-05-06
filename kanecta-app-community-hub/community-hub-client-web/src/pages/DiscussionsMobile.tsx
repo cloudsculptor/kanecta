@@ -7,7 +7,7 @@ import ThreadOptionsMenu from "../components/discussions/ThreadOptionsMenu";
 import CopyLinkButton from "../components/discussions/CopyLinkButton";
 import { useKeycloak } from "../auth/KeycloakProvider";
 import { useUserRole } from "../auth/useUserRole";
-import { useThreadSocket, useRepliesSocket } from "../hooks/useSocket";
+import { useThreadSocket, useRepliesSocket, useGlobalSocket } from "../hooks/useSocket";
 import { api, type Thread, type Message, type Reaction } from "../api/discussions";
 import keycloak from "../auth/keycloak";
 
@@ -31,6 +31,8 @@ function ThreadsScreen({
   onNew: () => void;
   onBack: () => void;
 }) {
+  const unreadThreads = threads.filter((t) => t.has_unread);
+
   return (
     <div className="dm-screen dm-threads">
       <div className="dm-bar">
@@ -43,20 +45,41 @@ function ThreadsScreen({
       ) : threads.length === 0 ? (
         <div className="dm-empty">No threads yet. Tap + to create one.</div>
       ) : (
-        <ul className="dm-thread-list">
-          {threads.map((t) => (
-            <li key={t.id}>
-              <button className="dm-thread-item" onClick={() => onSelect(t)}>
-                <span className="dm-thread-item__hash">#</span>
-                <span className="dm-thread-item__body">
-                  <span className="dm-thread-item__name">{t.name}</span>
-                  {t.description && <span className="dm-thread-item__preview">{t.description}</span>}
-                </span>
-                <span className="dm-thread-item__chevron">›</span>
-              </button>
-            </li>
-          ))}
-        </ul>
+        <div className="dm-thread-list">
+          {unreadThreads.length > 0 && (
+            <>
+              <div className="dm-section-label">Unreads</div>
+              <ul className="dm-thread-sublist">
+                {unreadThreads.map((t) => (
+                  <li key={t.id}>
+                    <button className="dm-thread-item dm-thread-item--unread" onClick={() => onSelect(t)}>
+                      <span className="dm-thread-item__hash">#</span>
+                      <span className="dm-thread-item__body">
+                        <span className="dm-thread-item__name">{t.name}</span>
+                      </span>
+                      <span className="dm-thread-item__dot" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <div className="dm-section-label">Threads</div>
+            </>
+          )}
+          <ul className="dm-thread-sublist">
+            {threads.map((t) => (
+              <li key={t.id}>
+                <button className={`dm-thread-item${t.has_unread ? " dm-thread-item--unread" : ""}`} onClick={() => onSelect(t)}>
+                  <span className="dm-thread-item__hash">#</span>
+                  <span className="dm-thread-item__body">
+                    <span className="dm-thread-item__name">{t.name}</span>
+                    {t.description && <span className="dm-thread-item__preview">{t.description}</span>}
+                  </span>
+                  <span className="dm-thread-item__chevron">›</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   );
@@ -297,6 +320,8 @@ export default function DiscussionsMobile() {
     ]).then(([msgs, rxns]) => {
       setMessages(msgs);
       setReactions(rxns);
+      api.reads.mark(activeThread.id).catch(() => {});
+      setThreads((prev) => prev.map((t) => t.id === activeThread.id ? { ...t, has_unread: false } : t));
     }).finally(() => setLoadingMessages(false));
   }, [activeThread?.id]);
 
@@ -317,7 +342,7 @@ export default function DiscussionsMobile() {
     setReactions((prev) => ({ ...prev, [message_id]: r }));
   }, []);
   const handleNewThread = useCallback((data: unknown) => {
-    setThreads((prev) => [...prev, data as Thread]);
+    setThreads((prev) => [...prev, { ...(data as Thread), has_unread: false }]);
   }, []);
   const handleReplyCount = useCallback((data: unknown) => {
     const { message_id } = data as { message_id: string };
@@ -329,6 +354,20 @@ export default function DiscussionsMobile() {
     setActiveThread((cur) => (cur?.id === id ? null : cur));
     setReplyTarget(null);
   }, []);
+
+  const activeThreadRef = useRef(activeThread);
+  activeThreadRef.current = activeThread;
+
+  useGlobalSocket({
+    "thread:activity": useCallback((data: unknown) => {
+      const { thread_id } = data as { thread_id: string };
+      if (thread_id === activeThreadRef.current?.id) {
+        api.reads.mark(thread_id).catch(() => {});
+      } else {
+        setThreads((prev) => prev.map((t) => t.id === thread_id ? { ...t, has_unread: true } : t));
+      }
+    }, []),
+  });
 
   useThreadSocket(activeThread?.id ?? null, {
     "message:new": handleNewMessage,

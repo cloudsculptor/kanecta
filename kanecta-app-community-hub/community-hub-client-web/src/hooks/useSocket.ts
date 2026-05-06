@@ -44,6 +44,22 @@ export function useThreadSocket(
   }, [threadId]);
 }
 
+export function useGlobalSocket(handlers: Record<string, (data: unknown) => void>) {
+  const handlersRef = useRef(handlers);
+  handlersRef.current = handlers;
+
+  useEffect(() => {
+    const s = getSocket();
+    const cleanup: Array<() => void> = [];
+    for (const [event] of Object.entries(handlersRef.current)) {
+      const wrapped = (data: unknown) => handlersRef.current[event]?.(data);
+      s.on(event, wrapped);
+      cleanup.push(() => s.off(event, wrapped));
+    }
+    return () => cleanup.forEach((fn) => fn());
+  }, []);
+}
+
 export function useRepliesSocket(
   messageId: string | null,
   handlers: Record<string, (data: unknown) => void>
