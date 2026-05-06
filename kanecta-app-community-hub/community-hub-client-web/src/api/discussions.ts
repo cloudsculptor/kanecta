@@ -51,6 +51,13 @@ export interface User {
   name: string;
 }
 
+export interface UnreadThread {
+  thread_id: string;
+  name: string;
+  last_read_at: string;
+  messages: Message[];
+}
+
 export class DuplicateThreadError extends Error {
   existing: Thread;
   constructor(existing: Thread) {
@@ -61,6 +68,7 @@ export class DuplicateThreadError extends Error {
 
 export const api = {
   reads: {
+    list: () => authFetch("/api/discussions/unreads") as Promise<UnreadThread[]>,
     mark: (threadId: string) =>
       authFetch(`/api/discussions/threads/${threadId}/reads`, { method: "POST" }),
   },
