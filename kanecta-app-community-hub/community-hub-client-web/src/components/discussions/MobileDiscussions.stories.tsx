@@ -43,25 +43,25 @@ function MockThreadList({ threads = THREADS, onSelect }: { threads?: typeof THRE
       </div>
 
       <div className="dm-thread-list">
-        {unreadThreads.length > 0 && (
-          <>
-            <div className="dm-section-label">Unreads</div>
-            <ul className="dm-thread-sublist">
-              {unreadThreads.map((t) => (
-                <li key={t.id}>
-                  <button className="dm-thread-item dm-thread-item--unread" onClick={() => onSelect(t.id)}>
-                    <span className="dm-thread-item__hash">#</span>
-                    <span className="dm-thread-item__body">
-                      <span className="dm-thread-item__name">{t.name}</span>
-                    </span>
-                    <span className="dm-thread-item__dot" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <div className="dm-section-label">Threads</div>
-          </>
+        <div className="dm-section-label">Unreads</div>
+        {unreadThreads.length > 0 ? (
+          <ul className="dm-thread-sublist">
+            {unreadThreads.map((t) => (
+              <li key={t.id}>
+                <button className="dm-thread-item dm-thread-item--unread" onClick={() => onSelect(t.id)}>
+                  <span className="dm-thread-item__hash">#</span>
+                  <span className="dm-thread-item__body">
+                    <span className="dm-thread-item__name">{t.name}</span>
+                  </span>
+                  <span className="dm-thread-item__dot" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="dm-all-read">All caught up</div>
         )}
+        <div className="dm-section-label">Threads</div>
         <ul className="dm-thread-sublist">
           {threads.map((t) => (
             <li key={t.id}>
