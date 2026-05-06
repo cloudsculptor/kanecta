@@ -36,7 +36,7 @@ export const DuplicateThread: Story = {
         created_by_name: "Jane Smith",
         created_by_user_id: "user-1",
         created_at: new Date().toISOString(),
-        has_unread: false,
+        has_unread: false, is_notifications_enabled: false,
       });
     },
   },
@@ -57,7 +57,7 @@ export const DuplicateThreadNoNavigation: Story = {
         created_by_name: "Jane Smith",
         created_by_user_id: "user-1",
         created_at: new Date().toISOString(),
-        has_unread: false,
+        has_unread: false, is_notifications_enabled: false,
       });
     },
   },

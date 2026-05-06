@@ -2237,6 +2237,36 @@ $bp-tablet: 768px;
   gap: 2px;
 }
 
+.discussions-bell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text);
+  opacity: 0.4;
+  transition: opacity 0.15s, background 0.15s;
+
+  &:hover:not(:disabled) {
+    opacity: 0.8;
+    background: var(--accent-bg);
+  }
+
+  &--on {
+    opacity: 1;
+    color: var(--accent);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.2;
+  }
+}
+
 .discussions-options-btn {
   flex-shrink: 0;
   border: none;

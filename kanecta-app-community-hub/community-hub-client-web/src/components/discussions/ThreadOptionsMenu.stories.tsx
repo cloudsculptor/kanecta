@@ -20,13 +20,13 @@ const cancelSx = {
 const ownThread: Thread = {
   id: "t1", name: "General", description: "Day-to-day chat",
   created_by_name: "Jane Smith", created_by_user_id: "user-1",
-  created_at: new Date().toISOString(), has_unread: false,
+  created_at: new Date().toISOString(), has_unread: false, is_notifications_enabled: false,
 };
 
 const othersThread: Thread = {
   id: "t2", name: "Announcements", description: null,
   created_by_name: "Mike Robinson", created_by_user_id: "user-2",
-  created_at: new Date().toISOString(), has_unread: false,
+  created_at: new Date().toISOString(), has_unread: false, is_notifications_enabled: false,
 };
 
 // ── Fake header wrapper ───────────────────────────────────────────────────────

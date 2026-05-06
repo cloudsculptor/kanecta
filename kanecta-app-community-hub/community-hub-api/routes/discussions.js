@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import pool from "../db.js";
+import { notifyThreadSubscribers } from "./push.js";
 
 const router = Router();
 const canAccess = requireRole("team", "moderator");
@@ -28,9 +29,11 @@ router.get("/threads", requireAuth, canAccess, async (req, res) => {
       `SELECT t.id, t.name, t.description, t.created_by_name, t.created_by_user_id, t.created_at,
               CASE WHEN t.latest_message_at IS NOT NULL
                         AND (r.last_read_at IS NULL OR t.latest_message_at > r.last_read_at)
-                   THEN true ELSE false END AS has_unread
+                   THEN true ELSE false END AS has_unread,
+              CASE WHEN tns.user_id IS NOT NULL THEN true ELSE false END AS is_notifications_enabled
        FROM discussions_threads t
        LEFT JOIN discussions_thread_reads r ON r.thread_id = t.id AND r.user_id = $1
+       LEFT JOIN thread_notification_subscriptions tns ON tns.thread_id = t.id AND tns.user_id = $1
        WHERE t.archived_at IS NULL
        ORDER BY t.created_at ASC`,
       [req.user.id]
@@ -144,6 +147,14 @@ router.post("/threads/:threadId/messages", requireAuth, canAccess, async (req, r
     );
     req.io?.to(`thread:${threadId}`).emit("message:new", message);
     req.io?.emit("thread:activity", { thread_id: threadId });
+    ;(async () => {
+      const { rows: tr } = await pool.query("SELECT name FROM discussions_threads WHERE id = $1", [threadId]);
+      await notifyThreadSubscribers(threadId, req.user.id, {
+        title: `#${tr[0]?.name ?? "Featherston"}`,
+        body: `${req.user.name}: ${message.content.slice(0, 100)}`,
+        url: `/discussions#${threadId}`,
+      });
+    })().catch(() => {});
     res.status(201).json(message);
   } catch (err) {
     res.status(500).json({ error: "Failed to post message" });
@@ -236,9 +247,44 @@ router.post("/messages/:id/replies", requireAuth, canAccess, async (req, res) =>
     req.io?.to(`replies:${req.params.id}`).emit("reply:new", reply);
     req.io?.to(`thread:${thread_id}`).emit("message:reply_count", { message_id: req.params.id });
     req.io?.emit("thread:activity", { thread_id });
+    ;(async () => {
+      const { rows: tr } = await pool.query("SELECT name FROM discussions_threads WHERE id = $1", [thread_id]);
+      await notifyThreadSubscribers(thread_id, req.user.id, {
+        title: `#${tr[0]?.name ?? "Featherston"}`,
+        body: `${req.user.name}: ${reply.content.slice(0, 100)}`,
+        url: `/discussions#${thread_id}`,
+      });
+    })().catch(() => {});
     res.status(201).json(reply);
   } catch (err) {
     res.status(500).json({ error: "Failed to post reply" });
+  }
+});
+
+// ── Thread notification preferences ──────────────────────────────────────────
+
+router.post("/threads/:threadId/notifications", requireAuth, canAccess, async (req, res) => {
+  try {
+    await pool.query(
+      `INSERT INTO thread_notification_subscriptions (user_id, thread_id)
+       VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+      [req.user.id, req.params.threadId]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to subscribe to notifications" });
+  }
+});
+
+router.delete("/threads/:threadId/notifications", requireAuth, canAccess, async (req, res) => {
+  try {
+    await pool.query(
+      "DELETE FROM thread_notification_subscriptions WHERE user_id = $1 AND thread_id = $2",
+      [req.user.id, req.params.threadId]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to unsubscribe from notifications" });
   }
 });
 
