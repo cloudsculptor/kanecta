@@ -8,6 +8,7 @@ import MentionInput from "../components/discussions/MentionInput";
 import CreateThreadModal from "../components/discussions/CreateThreadModal";
 import ReplyPanel from "../components/discussions/ReplyPanel";
 import UnreadsView from "../components/discussions/UnreadsView";
+import NotificationBell from "../components/discussions/NotificationBell";
 import ThreadOptionsMenu from "../components/discussions/ThreadOptionsMenu";
 import CopyLinkButton from "../components/discussions/CopyLinkButton";
 import { useUserRole } from "../auth/useUserRole";
@@ -310,6 +311,13 @@ export default function Discussions() {
                 <span className="discussions-main__description">{activeThread.description}</span>
               )}
               <div className="discussions-header-actions">
+                <NotificationBell
+                  threadId={activeThread.id}
+                  enabled={activeThread.is_notifications_enabled}
+                  onToggle={(enabled) =>
+                    setThreads((prev) => prev.map((t) => t.id === activeThread.id ? { ...t, is_notifications_enabled: enabled } : t))
+                  }
+                />
                 <CopyLinkButton />
                 <ThreadOptionsMenu
                   thread={activeThread}

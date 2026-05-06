@@ -2,6 +2,7 @@ import express from "express";
 import { createServer } from "http";
 import { Server as SocketIO } from "socket.io";
 import discussionsRouter from "./routes/discussions.js";
+import pushRouter from "./routes/push.js";
 import { setupDiscussionsSocket } from "./socket/discussions.js";
 
 const app = express();
@@ -26,6 +27,7 @@ app.use((req, res, next) => {
 
 app.get("/health", (req, res) => res.json({ ok: true }));
 app.use("/api/discussions", discussionsRouter);
+app.use("/api/push", pushRouter);
 
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
