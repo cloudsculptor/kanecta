@@ -1,6 +1,26 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import keycloak from "./keycloak";
 
+declare global {
+  interface Window {
+    gtag?: (...args: unknown[]) => void;
+  }
+}
+
+function deriveRole(authenticated: boolean): string {
+  if (!authenticated) return "PUBLIC";
+  if (keycloak.hasRealmRole("moderator")) return "MODERATOR";
+  if (keycloak.hasRealmRole("team")) return "TEAM";
+  if (keycloak.hasRealmRole("resilience")) return "RESILIENCE";
+  return "GUEST";
+}
+
+function reportToAnalytics(authenticated: boolean) {
+  const role = deriveRole(authenticated);
+  window.gtag?.("set", { user_id: authenticated ? keycloak.tokenParsed?.sub : undefined });
+  window.gtag?.("set", "user_properties", { role });
+}
+
 interface KeycloakContextValue {
   initialized: boolean;
   authenticated: boolean;
@@ -22,6 +42,7 @@ export function KeycloakProvider({ children }: { children: ReactNode }) {
       .then((auth) => {
         setAuthenticated(auth);
         setInitialized(true);
+        reportToAnalytics(auth);
       });
   }, []);
 
