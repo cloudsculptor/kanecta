@@ -226,26 +226,26 @@ export default function Discussions() {
             </>
           ) : (
             <>
-              {threads.some((t) => t.has_unread) && (
-                <>
-                  <div className="discussions-sidebar__section-label">Unreads</div>
-                  <ul className="discussions-sidebar__list discussions-sidebar__list--unreads">
-                    {threads.filter((t) => t.has_unread).map((t) => (
-                      <li key={t.id}>
-                        <button
-                          className={`discussions-thread-item discussions-thread-item--unread${t.id === activeThreadId ? " discussions-thread-item--active" : ""}`}
-                          onClick={() => selectThread(t.id)}
-                        >
-                          <span className="discussions-thread-item__hash">#</span>
-                          <span className="discussions-thread-item__content">
-                            <span className="discussions-thread-item__name">{t.name}</span>
-                          </span>
-                          <span className="discussions-thread-item__dot" />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </>
+              <div className="discussions-sidebar__section-label">Unreads</div>
+              {threads.some((t) => t.has_unread) ? (
+                <ul className="discussions-sidebar__list discussions-sidebar__list--unreads">
+                  {threads.filter((t) => t.has_unread).map((t) => (
+                    <li key={t.id}>
+                      <button
+                        className={`discussions-thread-item discussions-thread-item--unread${t.id === activeThreadId ? " discussions-thread-item--active" : ""}`}
+                        onClick={() => selectThread(t.id)}
+                      >
+                        <span className="discussions-thread-item__hash">#</span>
+                        <span className="discussions-thread-item__content">
+                          <span className="discussions-thread-item__name">{t.name}</span>
+                        </span>
+                        <span className="discussions-thread-item__dot" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="discussions-sidebar__all-read">All caught up</div>
               )}
               <div className="discussions-sidebar__heading">
                 Threads
