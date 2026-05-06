@@ -7,6 +7,7 @@ import MessageItem from "../components/discussions/MessageItem";
 import MentionInput from "../components/discussions/MentionInput";
 import CreateThreadModal from "../components/discussions/CreateThreadModal";
 import ReplyPanel from "../components/discussions/ReplyPanel";
+import UnreadsView from "../components/discussions/UnreadsView";
 import ThreadOptionsMenu from "../components/discussions/ThreadOptionsMenu";
 import CopyLinkButton from "../components/discussions/CopyLinkButton";
 import { useUserRole } from "../auth/useUserRole";
@@ -41,6 +42,7 @@ export default function Discussions() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [showCreateThread, setShowCreateThread] = useState(false);
   const [replyTarget, setReplyTarget] = useState<Message | null>(null);
+  const [showUnreads, setShowUnreads] = useState(false);
   const [teamUsers, setTeamUsers] = useState<{ id: string; name: string }[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -192,6 +194,7 @@ export default function Discussions() {
   function selectThread(id: string) {
     setActiveThreadId(id);
     setReplyTarget(null);
+    setShowUnreads(false);
   }
 
   function goBackToThreads() {
@@ -214,6 +217,25 @@ export default function Discussions() {
 
         {/* ── Sidebar / Thread List ── */}
         <aside className="discussions-sidebar">
+          {/* All Unreads nav item */}
+          <button
+            className={`discussions-nav-item${showUnreads ? " discussions-nav-item--active" : ""}`}
+            onClick={() => { setShowUnreads(true); setActiveThreadId(null); setReplyTarget(null); }}
+          >
+            <svg className="discussions-nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+              <line x1="9" y1="10" x2="15" y2="10" />
+              <line x1="9" y1="14" x2="13" y2="14" />
+            </svg>
+            All Unreads
+            {threads.filter((t) => t.has_unread).length > 0 && (
+              <span className="discussions-nav-item__badge">
+                {threads.filter((t) => t.has_unread).length}
+              </span>
+            )}
+          </button>
+
+          {/* Thread list */}
           {loadingThreads ? (
             <div className="discussions-sidebar__loading">Loading…</div>
           ) : threads.length === 0 ? (
@@ -226,27 +248,6 @@ export default function Discussions() {
             </>
           ) : (
             <>
-              <div className="discussions-sidebar__section-label">Unreads</div>
-              {threads.some((t) => t.has_unread) ? (
-                <ul className="discussions-sidebar__list discussions-sidebar__list--unreads">
-                  {threads.filter((t) => t.has_unread).map((t) => (
-                    <li key={t.id}>
-                      <button
-                        className={`discussions-thread-item discussions-thread-item--unread${t.id === activeThreadId ? " discussions-thread-item--active" : ""}`}
-                        onClick={() => selectThread(t.id)}
-                      >
-                        <span className="discussions-thread-item__hash">#</span>
-                        <span className="discussions-thread-item__content">
-                          <span className="discussions-thread-item__name">{t.name}</span>
-                        </span>
-                        <span className="discussions-thread-item__dot" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="discussions-sidebar__all-read">All caught up</div>
-              )}
               <div className="discussions-sidebar__heading">
                 Threads
                 <button className="discussions-sidebar__new" onClick={() => setShowCreateThread(true)} title="New thread">+</button>
@@ -255,7 +256,7 @@ export default function Discussions() {
                 {threads.map((t) => (
                   <li key={t.id}>
                     <button
-                      className={`discussions-thread-item${t.has_unread ? " discussions-thread-item--unread" : ""}${t.id === activeThreadId ? " discussions-thread-item--active" : ""}`}
+                      className={`discussions-thread-item${t.has_unread ? " discussions-thread-item--unread" : ""}${t.id === activeThreadId && !showUnreads ? " discussions-thread-item--active" : ""}`}
                       onClick={() => selectThread(t.id)}
                     >
                       <span className="discussions-thread-item__hash">#</span>
@@ -275,7 +276,17 @@ export default function Discussions() {
         </aside>
 
         {/* ── Messages Panel ── */}
-        <main className="discussions-main">
+        <main className={`discussions-main${showUnreads ? " discussions-main--unreads" : ""}`}>
+          {showUnreads ? (
+            <UnreadsView
+              onMarkRead={(threadId) =>
+                setThreads((prev) => prev.map((t) => t.id === threadId ? { ...t, has_unread: false } : t))
+              }
+              onJumpToThread={(threadId) => selectThread(threadId)}
+            />
+          ) : (
+          <>
+
           {/* Mobile back bar — hidden on desktop via CSS */}
           <div className="discussions-main__mobile-bar">
             <button className="discussions-main__back" onClick={goBackToThreads}>
@@ -340,6 +351,8 @@ export default function Discussions() {
               onSend={sendMessage}
               users={teamUsers}
             />
+          )}
+          </>
           )}
         </main>
 

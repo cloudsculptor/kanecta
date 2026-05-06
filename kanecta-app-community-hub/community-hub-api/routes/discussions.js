@@ -230,6 +230,46 @@ router.post("/messages/:id/replies", requireAuth, canAccess, async (req, res) =>
 
 // ── Read state ────────────────────────────────────────────────────────────────
 
+router.get("/unreads", requireAuth, canAccess, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT t.id AS thread_id, t.name, rd.last_read_at,
+              COALESCE(
+                json_agg(
+                  json_build_object(
+                    'id', m.id,
+                    'thread_id', m.thread_id,
+                    'parent_message_id', m.parent_message_id,
+                    'user_id', m.user_id,
+                    'user_name', m.user_name,
+                    'content', m.content,
+                    'created_at', m.created_at,
+                    'edited_at', m.edited_at,
+                    'deleted_at', m.deleted_at,
+                    'reply_count', (SELECT COUNT(*)::int FROM discussions_messages rc WHERE rc.parent_message_id = m.id)
+                  ) ORDER BY m.created_at ASC
+                ) FILTER (WHERE m.id IS NOT NULL),
+                '[]'::json
+              ) AS messages
+       FROM discussions_threads t
+       JOIN discussions_thread_reads rd ON rd.thread_id = t.id AND rd.user_id = $1
+       LEFT JOIN discussions_messages m ON m.thread_id = t.id
+         AND m.parent_message_id IS NULL
+         AND m.deleted_at IS NULL
+         AND m.created_at > rd.last_read_at
+       WHERE t.archived_at IS NULL
+         AND t.latest_message_at IS NOT NULL
+         AND t.latest_message_at > rd.last_read_at
+       GROUP BY t.id, t.name, rd.last_read_at
+       ORDER BY t.created_at ASC`,
+      [req.user.id]
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch unreads" });
+  }
+});
+
 router.post("/threads/:threadId/reads", requireAuth, canAccess, async (req, res) => {
   try {
     await pool.query(
