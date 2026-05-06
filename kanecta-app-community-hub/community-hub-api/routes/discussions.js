@@ -254,9 +254,22 @@ router.get("/unreads", requireAuth, canAccess, async (req, res) => {
        FROM discussions_threads t
        JOIN discussions_thread_reads rd ON rd.thread_id = t.id AND rd.user_id = $1
        LEFT JOIN discussions_messages m ON m.thread_id = t.id
-         AND m.parent_message_id IS NULL
          AND m.deleted_at IS NULL
-         AND m.created_at > rd.last_read_at
+         AND (
+           -- New top-level messages
+           (m.parent_message_id IS NULL AND m.created_at > rd.last_read_at)
+           OR
+           -- New replies
+           (m.parent_message_id IS NOT NULL AND m.created_at > rd.last_read_at)
+           OR
+           -- Parent messages of new replies (shown as context)
+           (m.parent_message_id IS NULL AND EXISTS (
+             SELECT 1 FROM discussions_messages nr
+             WHERE nr.parent_message_id = m.id
+               AND nr.created_at > rd.last_read_at
+               AND nr.deleted_at IS NULL
+           ))
+         )
        WHERE t.archived_at IS NULL
          AND t.latest_message_at IS NOT NULL
          AND t.latest_message_at > rd.last_read_at

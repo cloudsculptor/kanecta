@@ -7,6 +7,14 @@ interface Props {
   onJumpToThread: (threadId: string) => void;
 }
 
+interface MessageGroup {
+  parent: Message;
+  isContext: boolean;
+  replies: Message[];
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 function avatar(name: string) {
   return name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
 }
@@ -15,19 +23,30 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString("en-NZ", { hour: "numeric", minute: "2-digit" });
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-NZ", { weekday: "long", day: "numeric", month: "long" });
+function buildGroups(messages: Message[], lastReadAt: string): MessageGroup[] {
+  const topLevel = messages.filter((m) => !m.parent_message_id);
+  const replies = messages.filter((m) => m.parent_message_id);
+  return topLevel
+    .map((parent) => ({
+      parent,
+      isContext: parent.created_at <= lastReadAt,
+      replies: replies.filter((r) => r.parent_message_id === parent.id),
+    }))
+    .filter((g) => !g.isContext || g.replies.length > 0);
 }
 
-function UnreadMessage({ message }: { message: Message }) {
+// ── Message rendering ─────────────────────────────────────────────────────────
+
+function UnreadMessage({ message, muted = false }: { message: Message; muted?: boolean }) {
   if (message.deleted_at) return null;
   return (
-    <div className="unreads-message">
+    <div className={`unreads-message${muted ? " unreads-message--context" : ""}`}>
       <div className="unreads-message__avatar">{avatar(message.user_name)}</div>
       <div className="unreads-message__body">
         <div className="unreads-message__meta">
           <span className="unreads-message__author">{message.user_name}</span>
           <span className="unreads-message__time">{formatTime(message.created_at)}</span>
+          {muted && <span className="unreads-message__context-label">original message</span>}
           {message.edited_at && <span className="unreads-message__edited">(edited)</span>}
         </div>
         <p className="unreads-message__text">
@@ -39,7 +58,7 @@ function UnreadMessage({ message }: { message: Message }) {
             return <span key={i}>{seg.value}</span>;
           })}
         </p>
-        {message.reply_count > 0 && (
+        {!muted && message.reply_count > 0 && (
           <span className="unreads-message__replies">{message.reply_count} {message.reply_count === 1 ? "reply" : "replies"}</span>
         )}
       </div>
@@ -47,15 +66,22 @@ function UnreadMessage({ message }: { message: Message }) {
   );
 }
 
-function groupByDate(messages: Message[]): { date: string; messages: Message[] }[] {
-  const groups: Map<string, Message[]> = new Map();
-  for (const msg of messages) {
-    const key = formatDate(msg.created_at);
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key)!.push(msg);
-  }
-  return Array.from(groups.entries()).map(([date, messages]) => ({ date, messages }));
+function MessageGroupBlock({ group }: { group: MessageGroup }) {
+  return (
+    <div className="unreads-group">
+      <UnreadMessage message={group.parent} muted={group.isContext} />
+      {group.replies.length > 0 && (
+        <div className="unreads-group__replies">
+          {group.replies.map((r) => (
+            <UnreadMessage key={r.id} message={r} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
+
+// ── Thread section ────────────────────────────────────────────────────────────
 
 function UnreadThreadSection({
   unread, onMarkRead, onJumpToThread,
@@ -65,14 +91,13 @@ function UnreadThreadSection({
   onJumpToThread: () => void;
 }) {
   const [marking, setMarking] = useState(false);
+  const groups = buildGroups(unread.messages, unread.last_read_at);
 
   async function handleMarkRead() {
     setMarking(true);
     await api.reads.mark(unread.thread_id).catch(() => {});
     onMarkRead();
   }
-
-  const groups = groupByDate(unread.messages);
 
   return (
     <div className="unreads-thread">
@@ -85,20 +110,13 @@ function UnreadThreadSection({
         </button>
       </div>
       <div className="unreads-thread__messages">
-        {groups.map(({ date, messages }) => (
-          <div key={date}>
-            <div className="unreads-thread__date-divider">
-              <span>{date}</span>
-            </div>
-            {messages.map((msg) => (
-              <UnreadMessage key={msg.id} message={msg} />
-            ))}
-          </div>
-        ))}
+        {groups.map((g) => <MessageGroupBlock key={g.parent.id} group={g} />)}
       </div>
     </div>
   );
 }
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export default function UnreadsView({ onMarkRead, onJumpToThread }: Props) {
   const [unreads, setUnreads] = useState<UnreadThread[]>([]);
