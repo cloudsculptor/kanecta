@@ -1139,7 +1139,7 @@ $bp-tablet: 768px;
     letter-spacing: 0.5px;
     text-transform: uppercase;
     color: rgba(255,255,255,0.45);
-    padding: 20px 16px 8px;
+    padding: 10px 16px 8px;
     display: flex;
     align-items: center;
     flex-shrink: 0;
@@ -1252,12 +1252,18 @@ $bp-tablet: 768px;
 
 // ── All Unreads nav item ──────────────────────────────────────────────────────
 
+.discussions-sidebar__nav-section {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  flex-shrink: 0;
+}
+
 .discussions-nav-item {
   display: flex;
   align-items: center;
   gap: 8px;
   width: calc(100% - 16px);
-  margin: 20px 8px 0;
+  margin: 0 8px;
   padding: 7px 10px;
   border: none;
   background: none;
