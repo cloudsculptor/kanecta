@@ -8,7 +8,7 @@ import CopyLinkButton from "../components/discussions/CopyLinkButton";
 import { useKeycloak } from "../auth/KeycloakProvider";
 import { useUserRole } from "../auth/useUserRole";
 import { useThreadSocket, useRepliesSocket, useGlobalSocket } from "../hooks/useSocket";
-import UnreadsScreen from "../components/discussions/UnreadsScreen";
+import MobileUnreads from "../components/discussions/MobileUnreads";
 import { api, type Thread, type Message, type Reaction } from "../api/discussions";
 import keycloak from "../auth/keycloak";
 
@@ -414,7 +414,7 @@ export default function DiscussionsMobile() {
 
   if (showUnreads) {
     return (
-      <UnreadsScreen
+      <MobileUnreads
         onBack={() => setShowUnreads(false)}
         onMarkRead={(threadId) =>
           setThreads((prev) => prev.map((t) => t.id === threadId ? { ...t, has_unread: false } : t))

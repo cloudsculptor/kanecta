@@ -8,6 +8,12 @@ interface Props {
   onMarkRead: (threadId: string) => void;
 }
 
+interface MessageGroup {
+  parent: Message;
+  isContext: boolean;
+  replies: Message[];
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function avatar(name: string) {
@@ -18,37 +24,30 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString("en-NZ", { hour: "numeric", minute: "2-digit" });
 }
 
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  if (d.toDateString() === today.toDateString()) return "Today";
-  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
-  return d.toLocaleDateString("en-NZ", { weekday: "long", day: "numeric", month: "long" });
+function buildGroups(messages: Message[], lastReadAt: string): MessageGroup[] {
+  const topLevel = messages.filter((m) => !m.parent_message_id);
+  const replies = messages.filter((m) => m.parent_message_id);
+  return topLevel
+    .map((parent) => ({
+      parent,
+      isContext: parent.created_at <= lastReadAt,
+      replies: replies.filter((r) => r.parent_message_id === parent.id),
+    }))
+    .filter((g) => !g.isContext || g.replies.length > 0);
 }
 
-function groupByDate(messages: Message[]): { date: string; messages: Message[] }[] {
-  const groups = new Map<string, Message[]>();
-  for (const msg of messages) {
-    const key = formatDate(msg.created_at);
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key)!.push(msg);
-  }
-  return Array.from(groups.entries()).map(([date, messages]) => ({ date, messages }));
-}
+// ── Message rendering ─────────────────────────────────────────────────────────
 
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-function UnreadMessage({ message }: { message: Message }) {
+function UnreadMessage({ message, muted = false }: { message: Message; muted?: boolean }) {
   if (message.deleted_at) return null;
   return (
-    <div className="unreads-screen__message">
+    <div className={`unreads-screen__message${muted ? " unreads-screen__message--context" : ""}`}>
       <div className="unreads-screen__message-avatar">{avatar(message.user_name)}</div>
       <div className="unreads-screen__message-body">
         <div className="unreads-screen__message-meta">
           <span className="unreads-screen__message-author">{message.user_name}</span>
           <span className="unreads-screen__message-time">{formatTime(message.created_at)}</span>
+          {muted && <span className="unreads-screen__context-label">original message</span>}
         </div>
         <p className="unreads-screen__message-text">
           {parseContent(message.content).map((seg, i) => {
@@ -59,7 +58,7 @@ function UnreadMessage({ message }: { message: Message }) {
             return <span key={i}>{seg.value}</span>;
           })}
         </p>
-        {message.reply_count > 0 && (
+        {!muted && message.reply_count > 0 && (
           <span className="unreads-screen__message-replies">
             {message.reply_count} {message.reply_count === 1 ? "reply" : "replies"}
           </span>
@@ -69,6 +68,23 @@ function UnreadMessage({ message }: { message: Message }) {
   );
 }
 
+function MessageGroupBlock({ group }: { group: MessageGroup }) {
+  return (
+    <div className="unreads-screen__group">
+      <UnreadMessage message={group.parent} muted={group.isContext} />
+      {group.replies.length > 0 && (
+        <div className="unreads-screen__group-replies">
+          {group.replies.map((r) => (
+            <UnreadMessage key={r.id} message={r} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Thread section ────────────────────────────────────────────────────────────
+
 function UnreadThreadSection({
   unread, onMarkRead, onJumpToThread,
 }: {
@@ -77,7 +93,7 @@ function UnreadThreadSection({
   onJumpToThread: () => void;
 }) {
   const [marking, setMarking] = useState(false);
-  const groups = groupByDate(unread.messages);
+  const groups = buildGroups(unread.messages, unread.last_read_at);
 
   async function handleMarkRead() {
     setMarking(true);
@@ -92,21 +108,12 @@ function UnreadThreadSection({
           <span className="unreads-screen__thread-hash">#</span>
           {unread.name}
         </button>
-        <button
-          className="unreads-screen__thread-mark-read"
-          onClick={handleMarkRead}
-          disabled={marking}
-        >
+        <button className="unreads-screen__thread-mark-read" onClick={handleMarkRead} disabled={marking}>
           {marking ? "Marking…" : "Mark as Read"}
         </button>
       </div>
       <div className="unreads-screen__thread-messages">
-        {groups.map(({ date, messages }) => (
-          <div key={date}>
-            <div className="unreads-screen__date-divider"><span>{date}</span></div>
-            {messages.map((msg) => <UnreadMessage key={msg.id} message={msg} />)}
-          </div>
-        ))}
+        {groups.map((g) => <MessageGroupBlock key={g.parent.id} group={g} />)}
       </div>
     </div>
   );
@@ -114,7 +121,7 @@ function UnreadThreadSection({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function UnreadsScreen({ onBack, onJumpToThread, onMarkRead }: Props) {
+export default function MobileUnreads({ onBack, onJumpToThread, onMarkRead }: Props) {
   const [unreads, setUnreads] = useState<UnreadThread[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -142,12 +149,13 @@ export default function UnreadsScreen({ onBack, onJumpToThread, onMarkRead }: Pr
           </svg>
         </button>
         <span className="dm-bar__title">All Unreads</span>
-        {!loading && unreads.length > 0 && (
+        {!loading && unreads.length > 0 ? (
           <button className="dm-bar__action unreads-screen__mark-all" onClick={handleMarkAll}>
             All read
           </button>
+        ) : (
+          <span className="dm-bar__action" />
         )}
-        {(loading || unreads.length === 0) && <span className="dm-bar__action" />}
       </div>
 
       {loading ? (
