@@ -1250,6 +1250,256 @@ $bp-tablet: 768px;
   }
 }
 
+// ── All Unreads nav item ──────────────────────────────────────────────────────
+
+.discussions-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: calc(100% - 16px);
+  margin: 8px 8px 2px;
+  padding: 7px 10px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: rgba(255,255,255,0.75);
+  font-size: 15px;
+  font-weight: 500;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+
+  &:hover {
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+  }
+
+  &--active {
+    background: rgba(255,255,255,0.14);
+    color: #fff;
+  }
+
+  &__icon {
+    flex-shrink: 0;
+    opacity: 0.8;
+  }
+
+  &__badge {
+    margin-left: auto;
+    background: var(--accent);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 10px;
+    padding: 1px 7px;
+    min-width: 20px;
+    text-align: center;
+    line-height: 18px;
+  }
+}
+
+// ── All Unreads view ──────────────────────────────────────────────────────────
+
+.discussions-main--unreads {
+  overflow-y: auto;
+}
+
+.unreads-view {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+
+  &__header {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    padding: 24px 32px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  &__title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-h);
+    margin: 0;
+  }
+
+  &__mark-all {
+    font-size: 13px;
+    color: var(--accent);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    &:hover { text-decoration: underline; }
+  }
+
+  &__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    color: var(--text);
+    opacity: 0.45;
+    font-size: 15px;
+    gap: 10px;
+  }
+
+  &__empty-icon {
+    font-size: 32px;
+    opacity: 0.5;
+  }
+}
+
+.unreads-thread {
+  border-bottom: 1px solid var(--border);
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 32px 10px;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 1;
+    border-bottom: 1px solid var(--border);
+  }
+
+  &__name {
+    flex: 1;
+    background: none;
+    border: none;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-h);
+    cursor: pointer;
+    padding: 0;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    &:hover { text-decoration: underline; }
+  }
+
+  &__hash {
+    opacity: 0.45;
+    font-size: 17px;
+  }
+
+  &__mark-read {
+    font-size: 13px;
+    color: var(--accent);
+    background: none;
+    border: 1px solid var(--accent-border);
+    border-radius: 5px;
+    cursor: pointer;
+    padding: 4px 10px;
+    white-space: nowrap;
+    transition: background 0.15s;
+    &:hover { background: var(--accent-bg); }
+    &:disabled { opacity: 0.5; cursor: default; }
+  }
+
+  &__messages {
+    padding: 8px 32px 20px;
+  }
+
+  &__date-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 0 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    opacity: 0.45;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+
+    &::before, &::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+  }
+}
+
+.unreads-message {
+  display: flex;
+  gap: 12px;
+  padding: 6px 0;
+
+  &__avatar {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    border-radius: 6px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 2px;
+  }
+
+  &__body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__meta {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 3px;
+  }
+
+  &__author {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-h);
+  }
+
+  &__time {
+    font-size: 11px;
+    color: var(--text);
+    opacity: 0.45;
+  }
+
+  &__edited {
+    font-size: 11px;
+    color: var(--text);
+    opacity: 0.35;
+  }
+
+  &__text {
+    margin: 0;
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  &__replies {
+    font-size: 12px;
+    color: var(--accent);
+    margin-top: 4px;
+    display: block;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 .discussions-main {
   flex: 1;
   display: flex;
