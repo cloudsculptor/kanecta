@@ -604,11 +604,25 @@ $bp-tablet: 768px;
 }
 
 .dm-thread-list {
-  list-style: none;
   margin: 0;
   padding: 0;
   overflow-y: auto;
   flex: 1;
+}
+
+.dm-thread-sublist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.dm-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+  padding: 16px 16px 4px;
 }
 
 .dm-thread-item {
@@ -659,6 +673,19 @@ $bp-tablet: 768px;
   &__chevron {
     font-size: 20px;
     opacity: 0.3;
+    flex-shrink: 0;
+  }
+
+  &--unread {
+    color: #fff;
+    .dm-thread-item__name { font-weight: 700; }
+  }
+
+  &__dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--accent);
     flex-shrink: 0;
   }
 }
@@ -1151,6 +1178,19 @@ $bp-tablet: 768px;
     font-weight: 600;
   }
 
+  &--unread {
+    color: #fff;
+    .discussions-thread-item__name { font-weight: 700; }
+  }
+
+  &__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+  }
+
   &__hash {
     opacity: 0.5;
     font-size: 16px;
@@ -1617,6 +1657,20 @@ $bp-tablet: 768px;
     font-size: 13px;
     color: rgba(255,255,255,0.35);
     padding: 12px 16px;
+  }
+
+  &__section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.35);
+    padding: 16px 16px 4px;
+    flex-shrink: 0;
+  }
+
+  &__list--unreads {
+    padding-bottom: 4px;
   }
 }
 

@@ -9,11 +9,31 @@ const canAccess = requireRole("team", "moderator");
 
 router.get("/threads", requireAuth, canAccess, async (req, res) => {
   try {
+    // Seed read state for first-time visitors so they start with everything read
+    const { rows: existing } = await pool.query(
+      "SELECT 1 FROM discussions_thread_reads WHERE user_id = $1 LIMIT 1",
+      [req.user.id]
+    );
+    if (existing.length === 0) {
+      await pool.query(
+        `INSERT INTO discussions_thread_reads (user_id, thread_id, last_read_at)
+         SELECT $1, id, COALESCE(latest_message_at, NOW())
+         FROM discussions_threads WHERE archived_at IS NULL
+         ON CONFLICT DO NOTHING`,
+        [req.user.id]
+      );
+    }
+
     const { rows } = await pool.query(
-      `SELECT id, name, description, created_by_name, created_by_user_id, created_at
-       FROM discussions_threads
-       WHERE archived_at IS NULL
-       ORDER BY created_at ASC`
+      `SELECT t.id, t.name, t.description, t.created_by_name, t.created_by_user_id, t.created_at,
+              CASE WHEN t.latest_message_at IS NOT NULL
+                        AND (r.last_read_at IS NULL OR t.latest_message_at > r.last_read_at)
+                   THEN true ELSE false END AS has_unread
+       FROM discussions_threads t
+       LEFT JOIN discussions_thread_reads r ON r.thread_id = t.id AND r.user_id = $1
+       WHERE t.archived_at IS NULL
+       ORDER BY t.created_at ASC`,
+      [req.user.id]
     );
     res.json(rows);
   } catch (err) {
@@ -111,7 +131,12 @@ router.post("/threads/:threadId/messages", requireAuth, canAccess, async (req, r
       [threadId, req.user.id, req.user.name, content.trim()]
     );
     const message = rows[0];
+    await pool.query(
+      "UPDATE discussions_threads SET latest_message_at = $1 WHERE id = $2",
+      [message.created_at, threadId]
+    );
     req.io?.to(`thread:${threadId}`).emit("message:new", message);
+    req.io?.emit("thread:activity", { thread_id: threadId });
     res.status(201).json(message);
   } catch (err) {
     res.status(500).json({ error: "Failed to post message" });
@@ -190,11 +215,36 @@ router.post("/messages/:id/replies", requireAuth, canAccess, async (req, res) =>
       [thread_id, req.params.id, req.user.id, req.user.name, content.trim()]
     );
     const reply = rows[0];
+    await pool.query(
+      "UPDATE discussions_threads SET latest_message_at = $1 WHERE id = $2",
+      [reply.created_at, thread_id]
+    );
     req.io?.to(`replies:${req.params.id}`).emit("reply:new", reply);
     req.io?.to(`thread:${thread_id}`).emit("message:reply_count", { message_id: req.params.id });
+    req.io?.emit("thread:activity", { thread_id });
     res.status(201).json(reply);
   } catch (err) {
     res.status(500).json({ error: "Failed to post reply" });
+  }
+});
+
+// ── Read state ────────────────────────────────────────────────────────────────
+
+router.post("/threads/:threadId/reads", requireAuth, canAccess, async (req, res) => {
+  try {
+    await pool.query(
+      `INSERT INTO discussions_thread_reads (user_id, thread_id, last_read_at)
+       VALUES ($1, $2, COALESCE(
+         (SELECT MAX(created_at) FROM discussions_messages WHERE thread_id = $2),
+         NOW()
+       ))
+       ON CONFLICT (user_id, thread_id)
+       DO UPDATE SET last_read_at = EXCLUDED.last_read_at`,
+      [req.user.id, req.params.threadId]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to mark thread as read" });
   }
 });
 

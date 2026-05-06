@@ -6,11 +6,11 @@ import type { Message } from "../../api/discussions";
 // ── Minimal mock components matching the real layout ──────────────────────────
 
 const THREADS = [
-  { id: "t1", name: "general", description: "Morning everyone! Hope you all have a great day." },
-  { id: "t2", name: "events", description: "Saturday market is on at 8am" },
-  { id: "t3", name: "transport", description: "Two seats free to Wellington Friday 7:30am" },
-  { id: "t4", name: "resilience", description: "Meeting notes now posted" },
-  { id: "t5", name: "local-help", description: "Looking for a plumber recommendation" },
+  { id: "t1", name: "general", description: "Morning everyone! Hope you all have a great day.", has_unread: false },
+  { id: "t2", name: "events", description: "Saturday market is on at 8am", has_unread: true },
+  { id: "t3", name: "transport", description: "Two seats free to Wellington Friday 7:30am", has_unread: false },
+  { id: "t4", name: "resilience", description: "Meeting notes now posted", has_unread: true },
+  { id: "t5", name: "local-help", description: "Looking for a plumber recommendation", has_unread: false },
 ];
 
 const MESSAGES: Message[] = [
@@ -27,35 +27,57 @@ function BackArrow() {
   );
 }
 
-function MockThreadList({ onSelect }: { onSelect: (id: string) => void }) {
+function MockThreadList({ threads = THREADS, onSelect }: { threads?: typeof THREADS; onSelect: (id: string) => void }) {
+  const unreadThreads = threads.filter((t) => t.has_unread);
+
   return (
-    <aside style={{ background: "#1a2e1d", color: "rgba(255,255,255,0.75)", display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
-      <div style={{ padding: "20px 16px 8px", fontSize: 13, fontWeight: 700, letterSpacing: "0.5px", textTransform: "uppercase", color: "rgba(255,255,255,0.45)", display: "flex", alignItems: "center" }}>
-        Threads
-        <button style={{ marginLeft: "auto", background: "none", border: "none", color: "rgba(255,255,255,0.5)", fontSize: 20, cursor: "pointer" }}>+</button>
+    <div className="dm-screen dm-threads">
+      <div className="dm-bar">
+        <button className="dm-bar__back dm-bar__back--white" aria-label="Back">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
+          </svg>
+        </button>
+        <span className="dm-bar__title">Discussions</span>
+        <button className="dm-bar__action">+</button>
       </div>
-      <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-        {THREADS.map((t) => (
-          <li key={t.id}>
-            <button
-              onClick={() => onSelect(t.id)}
-              style={{
-                display: "flex", alignItems: "center", gap: 10, width: "100%",
-                padding: "14px 16px", border: "none", borderBottom: "1px solid rgba(255,255,255,0.06)",
-                background: "none", color: "rgba(255,255,255,0.8)", cursor: "pointer", textAlign: "left",
-              }}
-            >
-              <span style={{ opacity: 0.5, fontSize: 16 }}>#</span>
-              <span style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ display: "block", fontSize: 15, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.name}</span>
-                <span style={{ display: "block", fontSize: 12, opacity: 0.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.description}</span>
-              </span>
-              <span style={{ opacity: 0.3, fontSize: 18 }}>›</span>
-            </button>
-          </li>
-        ))}
-      </ul>
-    </aside>
+
+      <div className="dm-thread-list">
+        {unreadThreads.length > 0 && (
+          <>
+            <div className="dm-section-label">Unreads</div>
+            <ul className="dm-thread-sublist">
+              {unreadThreads.map((t) => (
+                <li key={t.id}>
+                  <button className="dm-thread-item dm-thread-item--unread" onClick={() => onSelect(t.id)}>
+                    <span className="dm-thread-item__hash">#</span>
+                    <span className="dm-thread-item__body">
+                      <span className="dm-thread-item__name">{t.name}</span>
+                    </span>
+                    <span className="dm-thread-item__dot" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div className="dm-section-label">Threads</div>
+          </>
+        )}
+        <ul className="dm-thread-sublist">
+          {threads.map((t) => (
+            <li key={t.id}>
+              <button className={`dm-thread-item${t.has_unread ? " dm-thread-item--unread" : ""}`} onClick={() => onSelect(t.id)}>
+                <span className="dm-thread-item__hash">#</span>
+                <span className="dm-thread-item__body">
+                  <span className="dm-thread-item__name">{t.name}</span>
+                  {t.description && <span className="dm-thread-item__preview">{t.description}</span>}
+                </span>
+                <span className="dm-thread-item__chevron">›</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
   );
 }
 
@@ -198,14 +220,27 @@ export const Interactive: Story = {
   name: "Interactive — tap threads, messages, replies",
 };
 
-/** Thread list only — what the user sees on first load. */
-export const ThreadListView: Story = {
+/** Thread list with no unreads — all caught up, no UNREADS section shown. */
+export const ThreadListAllRead: Story = {
+  render: () => (
+    <div style={{ width: 390, height: 700, border: "12px solid #222", borderRadius: 40, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+      <MockThreadList threads={THREADS.map((t) => ({ ...t, has_unread: false }))} onSelect={() => {}} />
+    </div>
+  ),
+  name: "Thread list — all read (no unreads section)",
+};
+
+/**
+ * Thread list with the UNREADS section visible. Two threads appear at the top in bold
+ * with a green dot, then again in the full list below.
+ */
+export const ThreadListWithUnreads: Story = {
   render: () => (
     <div style={{ width: 390, height: 700, border: "12px solid #222", borderRadius: 40, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
       <MockThreadList onSelect={() => {}} />
     </div>
   ),
-  name: "Thread list (initial view)",
+  name: "Thread list — with unreads section",
 };
 
 /** Message view — after tapping a thread. */
