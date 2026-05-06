@@ -12,7 +12,7 @@ import keycloak from "../auth/keycloak";
 
 const ROLE_LABEL: Record<UserRole, string> = {
   PUBLIC: "Public",
-  LOCAL: "Local",
+  GUEST: "Guest",
   TEAM: "Team",
   RESILIENCE: "Resilience",
   MODERATOR: "Moderator",

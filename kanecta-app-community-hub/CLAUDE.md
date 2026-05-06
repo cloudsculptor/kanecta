@@ -30,7 +30,7 @@ Roles are assigned as Keycloak realm roles. The auth layer is in `src/auth/`:
 | Role | Keycloak role | Description |
 |------|--------------|-------------|
 | `PUBLIC` | — | Not logged in |
-| `LOCAL` | — | Logged in, no specific role |
+| `GUEST` | — | Logged in, no specific role |
 | `RESILIENCE` | `resilience` | Resilience workstream access |
 | `TEAM` | `team` | Full discussions access |
 | `MODERATOR` | `moderator` | Discussions + can delete anyone's messages |

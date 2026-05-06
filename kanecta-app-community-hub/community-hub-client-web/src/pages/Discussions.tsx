@@ -53,7 +53,7 @@ export default function Discussions() {
   useEffect(() => {
     if (!initialized) return;
     if (role === "PUBLIC") navigate("/", { replace: true });
-    else if (role === "LOCAL" || role === "RESILIENCE") navigate("/discussions/team-required", { replace: true });
+    else if (role === "GUEST" || role === "RESILIENCE") navigate("/discussions/team-required", { replace: true });
   }, [initialized, role, navigate]);
 
   useEffect(() => {
