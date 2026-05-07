@@ -1,11 +1,99 @@
 import { Link } from "react-router-dom";
 import PageLayout from "../components/PageLayout";
 
+const principles = [
+  {
+    heading: "People who do the work lead the organisation",
+    body: "Volunteers don't assist a committee — they are the organisation. Every decision about what to build, what to publish, and how to serve the community belongs to the people doing the work. No approval required.",
+  },
+  {
+    heading: "A good culture is the foundation of everything",
+    body: "The whole governance structure exists to protect and nurture the volunteer culture. When the culture is right — cooperative, caring, energetic — everything else follows. When it isn't, no amount of formal process will fix it.",
+  },
+  {
+    heading: "Safety and support, not control",
+    body: "The Custodian Board isn't there to manage volunteers. It's a safety net: chosen by random selection so it can't be captured, and empowered only to step in when something genuinely goes wrong.",
+  },
+];
+
 export default function Governance() {
   return (
     <PageLayout pageName="Governance" showComingSoon={false}>
-      <p><Link to="/governance/constitution">Constitution</Link></p>
-      <p><Link to="/governance/roles">Roles</Link></p>
+
+      <div className="gov-hero">
+        <p className="gov-hero__lead">
+          Featherston Inc is a volunteer-led organisation. The people who show up and do the work
+          are the people who lead it.
+        </p>
+        <p className="gov-hero__sub">
+          Our governance model is built around one question: how do we create the conditions for a
+          brilliant team of volunteers — and then get out of their way?
+        </p>
+      </div>
+
+      <div className="gov-section">
+        <h3 className="gov-section__heading">The volunteer culture</h3>
+        <p>
+          We want Featherston Inc to be the kind of team people genuinely want to be part of.
+          A group with real energy and momentum. People who care about the community, enjoy
+          working together, look out for each other, and find the work meaningful and fun.
+        </p>
+        <p>
+          When that culture exists, recruitment takes care of itself. New volunteers join because
+          they want to be around great people doing something worthwhile — not because they were
+          asked nicely or because there was a vacancy to fill.
+        </p>
+        <p>
+          Everything in the way we've structured this organisation is oriented toward building and
+          protecting that culture. Volunteers self-organise. They set their own priorities. They
+          make decisions together without needing sign-off from a committee. The energy stays with
+          the people doing the work.
+        </p>
+      </div>
+
+      <div className="gov-section">
+        <h3 className="gov-section__heading">The safety structure</h3>
+        <p>
+          Even the best teams occasionally have problems. Someone behaves badly. A conflict
+          escalates. A decision is made that damages trust. We've thought carefully about what
+          happens then.
+        </p>
+        <p>
+          The Custodian Board is a small group of five community members, chosen by random
+          selection (sortition) from among our voting members. Sortition matters: it means the
+          Board can't be stacked by friends, captured by a faction, or dominated by whoever
+          campaigns hardest. It reflects the community as it is.
+        </p>
+        <p>
+          The Board's job is not to run things — it's to protect people. It can investigate
+          complaints, mediate disputes, and in serious cases remove a volunteer who has acted
+          against our values. Beyond that, it stays out of the way. Volunteers don't need
+          permission. They need to feel safe.
+        </p>
+      </div>
+
+      <div className="gov-principles">
+        {principles.map(({ heading, body }) => (
+          <div key={heading} className="gov-principles__item">
+            <h4 className="gov-principles__heading">{heading}</h4>
+            <p className="gov-principles__body">{body}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="gov-links">
+        <Link to="/governance/roles" className="gov-links__item">
+          <span className="gov-links__title">Roles</span>
+          <span className="gov-links__desc">Who does what, and how roles are filled</span>
+          <span className="gov-links__arrow">→</span>
+        </Link>
+        <Link to="/governance/constitution" className="gov-links__item">
+          <span className="gov-links__title">Constitution</span>
+          <span className="gov-links__desc">The legal framework for Featherston Inc</span>
+          <span className="gov-links__arrow">→</span>
+        </Link>
+      </div>
+
     </PageLayout>
   );
 }
