@@ -2481,9 +2481,22 @@ $bp-tablet: 768px;
 
   &__sub {
     font-size: 16px;
-    color: var(--text);
-    line-height: 1.6;
+    font-weight: 600;
+    color: var(--text-h);
+    line-height: 1.5;
+    margin: 0 0 10px;
+  }
+
+  &__list {
     margin: 0;
+    padding-left: 1.25rem;
+    li {
+      font-size: 16px;
+      color: var(--text);
+      line-height: 1.6;
+      margin-bottom: 6px;
+      &:last-child { margin-bottom: 0; }
+    }
   }
 }
 
