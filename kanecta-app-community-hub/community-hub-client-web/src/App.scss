@@ -2466,47 +2466,12 @@ $bp-tablet: 768px;
 }
 
 // ── Governance page ───────────────────────────────────────────────────────────
-.gov-quote {
-  text-align: left;
-  width: 75%;
-  margin: 0 0 2.5rem;
-
-  &__text {
-    font-family: 'Cormorant Garamond', Georgia, serif;
-    font-size: 30px;
-    font-style: italic;
-    font-weight: 600;
-    color: var(--text-h);
-    line-height: 1.4;
-    margin: 0;
-    letter-spacing: 0.01em;
-
-    &::before {
-      content: '\201C';
-      font-family: 'Cormorant Garamond', Georgia, serif;
-      font-size: 1.8em;
-      font-style: normal;
-      font-weight: 700;
-      color: var(--accent);
-      line-height: 0;
-      vertical-align: -0.35em;
-      margin-right: 0.05em;
-    }
-
-    &::after {
-      content: '\201D';
-      font-family: 'Cormorant Garamond', Georgia, serif;
-      font-size: 1.8em;
-      font-style: normal;
-      font-weight: 700;
-      color: var(--accent);
-      line-height: 0;
-      vertical-align: -0.35em;
-      margin-left: 0.05em;
-    }
-
-    @media (max-width: $bp-tablet) { font-size: 22px; }
-  }
+.gov-lead {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-h);
+  line-height: 1.5;
+  margin: 0 0 2rem;
 }
 
 .gov-hero {
