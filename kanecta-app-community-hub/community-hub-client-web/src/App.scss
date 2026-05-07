@@ -2571,12 +2571,9 @@ $bp-tablet: 768px;
 
   &__addressed-by-empty {
     margin-top: 6px;
-    padding: 12px 14px;
-    border: 1px dashed var(--border);
-    border-radius: 6px;
-    font-size: 13px;
+    font-size: 15px;
     color: var(--text);
-    opacity: 0.35;
+    opacity: 0.55;
     font-style: italic;
   }
 }
