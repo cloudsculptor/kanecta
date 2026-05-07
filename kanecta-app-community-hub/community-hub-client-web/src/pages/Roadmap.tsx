@@ -26,7 +26,7 @@ const items: RoadmapItem[] = [
       </>
     ),
     status: "in-progress",
-    to: "/constitution",
+    to: "/governance/constitution",
   },
   {
     title: "Discussions",
@@ -87,7 +87,7 @@ export default function Roadmap() {
               </span>
             </div>
             <p className="roadmap-item__description">{item.description}</p>
-            {item.to === "/constitution" && (
+            {item.to === "/governance/constitution" && (
               <Link to={item.to} className="roadmap-item__learn-more">See draft constitution →</Link>
             )}
             {item.to === "/discussions" && (
