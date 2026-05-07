@@ -2493,6 +2493,62 @@ $bp-tablet: 768px;
   padding-top: 1.5rem;
   border-top: 1px solid var(--border);
 }
+.scenario-list {
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: scenario;
+
+  &__item {
+    counter-increment: scenario;
+    display: grid;
+    grid-template-columns: 2rem 1fr;
+    gap: 0 0.5rem;
+    padding: 0.9rem 0;
+    border-bottom: 1px solid var(--border);
+
+    &::before {
+      content: counter(scenario);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text);
+      opacity: 0.35;
+      padding-top: 2px;
+    }
+  }
+
+  &__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.25rem;
+  }
+
+  &__title {
+    color: var(--text-h);
+    font-size: 14px;
+  }
+
+  &__tag {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-border);
+    border-radius: 3px;
+    padding: 1px 6px;
+    white-space: nowrap;
+  }
+
+  &__description {
+    font-size: 13px;
+    margin: 0;
+    color: var(--text);
+    line-height: 1.5;
+  }
+}
+
 // ── End constitution page styles ──────────────────────────────────────────────
 
 // ── AsciiDoc content styles — remove this block alongside asciidocPlugin ─────
