@@ -1,0 +1,37 @@
+= Meeting Facilitator (Chairperson)
+:doctype: article
+
+Featherston Inc does not have a permanent Chairperson. This is a deliberate design choice: a fixed chair accumulates informal authority over time and becomes a single point of influence that can be captured or abused.
+
+Instead, the Custodian Board appoints a *rotating facilitator* by consensus at the start of each meeting. Any Board member may serve in this role. It is not a position of seniority — it is a practical function that rotates so that no one person shapes every meeting.
+
+== What the facilitator does
+
+The facilitator's role is to keep the meeting moving fairly and openly. During a meeting, the facilitator:
+
+* Opens the meeting and confirms all five members are present;
+* Reads or summarises the agenda;
+* Invites each member to speak in turn on each item;
+* Keeps discussion on topic and ensures all voices are heard;
+* Summarises points of agreement and disagreement clearly;
+* Confirms when consensus has been reached; and
+* Closes the meeting and confirms any action items.
+
+== What the facilitator does not do
+
+The facilitator does not hold any special decision-making power. Specifically:
+
+* There is *no casting vote*. All decisions require the consensus of all five Board members, regardless of who is facilitating.
+* The facilitator cannot rule an item out of order without the agreement of the Board.
+* The facilitator's summary or interpretation of consensus can be challenged by any member.
+* Outside of a meeting, the facilitator has no role or authority beyond that of any other Board member.
+
+== Why no permanent chair?
+
+Most incorporated societies have a permanent Chairperson who serves for a year or more. The risks are well-documented: the chair shapes agendas, controls discussion, and over time becomes the informal face and authority of the organisation — even when the rules say otherwise.
+
+This constitution removes that risk by making the chair role genuinely temporary: it lasts one meeting, it rotates, and it carries no authority beyond facilitation. Governance authority belongs collectively to all five Custodians equally.
+
+== Legal note
+
+Under section 45 and section 26(1)(f)(ii) of the Incorporated Societies Act 2022, the constitution must address the chairperson and casting vote. This constitution satisfies that requirement by specifying a rotating meeting facilitator with no casting vote and a consensus decision-making model.

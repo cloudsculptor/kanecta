@@ -22,6 +22,9 @@ import TeamRequired from "./pages/TeamRequired";
 import Roadmap from "./pages/Roadmap";
 import Constitution from "./pages/Constitution";
 import Roles from "./pages/Roles";
+import RoleCustodian from "./pages/RoleCustodian";
+import RoleChairperson from "./pages/RoleChairperson";
+import RoleVolunteer from "./pages/RoleVolunteer";
 
 export default function App() {
   const { initialized } = useKeycloak();
@@ -50,6 +53,9 @@ export default function App() {
       <Route path="/roadmap" element={<Roadmap />} />
       <Route path="/governance/constitution" element={<Constitution />} />
       <Route path="/governance/roles" element={<Roles />} />
+      <Route path="/governance/roles/custodian" element={<RoleCustodian />} />
+      <Route path="/governance/roles/chairperson" element={<RoleChairperson />} />
+      <Route path="/governance/roles/volunteer" element={<RoleVolunteer />} />
     </Routes>
   );
 }

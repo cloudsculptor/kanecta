@@ -259,7 +259,7 @@ const scenarios: Scenario[] = [
 
 export default function Constitution() {
   return (
-    <PageLayout pageName="Constitution" showComingSoon={false} parent={{ name: "Governance", path: "/governance" }}>
+    <PageLayout pageName="Constitution" showComingSoon={false} parents={[{ name: "Governance", path: "/governance" }]}>
       <h3>Summary</h3>
       <p>This is a summary of the key principles in the draft constitution below.</p>
       <div className="kaupapa-callout">
