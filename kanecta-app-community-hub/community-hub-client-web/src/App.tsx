@@ -47,7 +47,7 @@ export default function App() {
       <Route path="/discussions" element={<Discussions />} />
       <Route path="/discussions/team-required" element={<TeamRequired />} />
       <Route path="/roadmap" element={<Roadmap />} />
-      <Route path="/constitution" element={<Constitution />} />
+      <Route path="/governance/constitution" element={<Constitution />} />
     </Routes>
   );
 }

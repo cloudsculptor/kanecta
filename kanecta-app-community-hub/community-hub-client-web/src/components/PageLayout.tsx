@@ -9,18 +9,20 @@ interface PageLayoutProps {
   pageName: string;
   children?: ReactNode;
   showComingSoon?: boolean;
+  parent?: { name: string; path: string };
 }
 
 export default function PageLayout({
   pageName,
   children,
   showComingSoon = true,
+  parent,
 }: PageLayoutProps) {
   usePageMeta(pageName);
   return (
     <>
       <Header />
-      <Breadcrumb pageName={pageName} />
+      <Breadcrumb pageName={pageName} parent={parent} />
       <main className="page-content">
         <h2>{pageName}</h2>
         {showComingSoon && <ComingSoon />}
