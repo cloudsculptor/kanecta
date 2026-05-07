@@ -1,9 +1,11 @@
 import PageLayout from "../components/PageLayout";
+// AsciiDoc import — remove alongside asciidocPlugin in vite.config.ts and asciidoc.d.ts
+import constitutionHtml from "../../../featherston-constitution/constitution.adoc";
 
 export default function Constitution() {
   return (
     <PageLayout pageName="Constitution" showComingSoon={false} parent={{ name: "Governance", path: "/governance" }}>
-      <p>The draft constitution is being developed and will be published here for community feedback before the society is registered.</p>
+      <div className="adoc-content" dangerouslySetInnerHTML={{ __html: constitutionHtml }} />
     </PageLayout>
   );
 }

@@ -27,6 +27,7 @@
     "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
+    "@asciidoctor/core": "^3.0.4",
     "@chromatic-com/storybook": "^5.1.2",
     "@eslint/js": "^9.39.4",
     "@storybook/addon-a11y": "^10.3.6",
