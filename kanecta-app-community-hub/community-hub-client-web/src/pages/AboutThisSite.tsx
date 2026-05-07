@@ -103,7 +103,7 @@ export default function AboutThisSite() {
         you want to shape this site, you do it by participating — not by
         spending.
       </p>
-      <p><Link to="/governance">Governance</Link></p>
+      <p><Link to="/governance" className="roadmap-item__learn-more">See governance →</Link></p>
     </PageLayout>
   );
 }
