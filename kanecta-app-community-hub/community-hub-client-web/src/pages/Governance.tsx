@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import PageLayout from "../components/PageLayout";
 
 const roles = [
@@ -56,6 +57,7 @@ export default function Governance() {
           </div>
         ))}
       </div>      
+      <p><Link to="/governance/constitution">Constitution</Link></p>
     </PageLayout>
   );
 }
