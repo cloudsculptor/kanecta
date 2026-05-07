@@ -1,0 +1,27 @@
+{
+  "name": "featherston-constitution",
+  "version": "1.0.0",
+  "description": "Constitution of Featherston Inc",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node watch.js",
+    "build": "node build.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cloudsculptor/featherston-constitution.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/cloudsculptor/featherston-constitution/issues"
+  },
+  "homepage": "https://github.com/cloudsculptor/featherston-constitution#readme",
+  "dependencies": {
+    "@asciidoctor/core": "^3.0.4",
+    "browser-sync": "^3.0.4",
+    "chokidar": "^5.0.0",
+    "marked": "^18.0.3"
+  }
+}
