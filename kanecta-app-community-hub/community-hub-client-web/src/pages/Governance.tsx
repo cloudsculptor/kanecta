@@ -37,20 +37,19 @@ export default function Governance() {
       <div className="gov-section">
         <h3 className="gov-section__heading">Volunteer culture</h3>
         <p>
-          We want this to be the kind of team people genuinely want to be part of.
+          This is the kind of team people genuinely want to be part of.
           A group with real energy and momentum. People who care about the community, enjoy
           working together, look out for each other, and find the work meaningful and fun.
         </p>
         <p>
-          When that culture exists, recruitment takes care of itself. New volunteers join because
-          they want to be around great people doing something worthwhile - not because they were
-          asked nicely or because there was a vacancy to fill.
+          Recruitment takes care of itself. New volunteers join because they want to be around
+          great people doing something worthwhile - not because they were asked nicely or because
+          there was a vacancy to fill.
         </p>
         <p>
-          Everything in the way we've structured this group is oriented toward building and
-          protecting that culture. Volunteers self-organise. They set their own priorities. They
-          make decisions together without needing sign-off from a committee. The energy stays with
-          the people doing the work.
+          Volunteers self-organise. They set their own priorities. They make decisions together
+          without needing sign-off from a committee. The energy stays with the people doing
+          the work.
         </p>
       </div>
 
@@ -58,18 +57,18 @@ export default function Governance() {
         <h3 className="gov-section__heading">Supporting our volunteers</h3>
         <p>
           Even the best teams occasionally have problems. Someone behaves badly. A conflict
-          escalates. A decision is made that damages trust. We've thought carefully about what
-          happens then.
+          escalates. A decision is made that damages trust. There is a structure in place for
+          when that happens.
         </p>
         <p>
           The Custodian Board is a small group of five community members, chosen by random
-          selection (sortition) from among our voting members. Sortition matters: it means the
-          Board can't be stacked by friends, captured by a faction, or dominated by whoever
-          campaigns hardest. It reflects the community as it is.
+          selection (sortition) from among our voting members. Sortition means the Board can't
+          be stacked by friends, captured by a faction, or dominated by whoever campaigns
+          hardest. It reflects the community as it is.
         </p>
         <p>
-          The Board's job is not to run things - it's to protect people. It can investigate
-          complaints, mediate disputes, and in serious cases remove a volunteer who has acted
+          The Board's job is not to run things - it's to protect people. It investigates
+          complaints, mediates disputes, and in serious cases removes a volunteer who has acted
           against our values. Beyond that, it stays out of the way. Volunteers don't need
           permission. They need to feel safe.
         </p>
