@@ -291,10 +291,9 @@ export default function Constitution() {
 
       <h3 className="constitution-section-heading">Scenarios</h3>
       <p>
-        Like automated tests in software development, these scenarios are used to evaluate the
-        constitution against real-world problems. Each time the constitution is revised, AI and
-        community members can work through this list to check that protections still hold and
-        no regressions have been introduced.
+        These scenarios are used to evaluate the constitution against real-world problems. Each
+        time the constitution is revised, AI and community members can work through this list to
+        check that protections still hold and no regressions have been introduced.
       </p>
       <p>
         Scenarios derived directly from the Kaupapa principles are tagged. The remainder are
