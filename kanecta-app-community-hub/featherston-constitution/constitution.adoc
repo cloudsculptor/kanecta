@@ -8,16 +8,10 @@
 :tip-caption: 💡 Design Rationale
 :note-caption: 📋 Legal Note
 :important-caption: ⚠️ Important
-:version: 0.1 DRAFT
+:version: 0.1.0 DRAFT
 :date: 8 May 2026
 :status: DRAFT — FOR DISCUSSION ONLY. NOT YET SUBMITTED.
 
-[.lead]
-*{status}* | Version {version} | {date}
-
-This document is the proposed constitution of *Featherston Inc* (the Society), prepared in accordance with the Incorporated Societies Act 2022 (the 2022 Act) and associated regulations.
-
----
 
 == Preamble
 
