@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import Tooltip from "@mui/material/Tooltip";
 import PageLayout from "../components/PageLayout";
 
@@ -102,6 +103,7 @@ export default function AboutThisSite() {
         you want to shape this site, you do it by participating — not by
         spending.
       </p>
+      <p><Link to="/governance">Governance</Link></p>
     </PageLayout>
   );
 }
