@@ -2494,16 +2494,13 @@ $bp-tablet: 768px;
   border-top: 1px solid var(--border);
 }
 .scenario-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   margin: 1rem 0 0;
   padding: 0;
   list-style: none;
   counter-reset: scenario;
-
-  @media (max-width: 900px) { grid-template-columns: repeat(2, 1fr); }
-  @media (max-width: 600px) { grid-template-columns: 1fr; }
 }
 
 .scenario-card {
@@ -2512,7 +2509,6 @@ $bp-tablet: 768px;
   padding: 16px 18px 14px;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-top: 3px solid var(--accent);
   border-radius: 10px;
   display: flex;
   flex-direction: column;
@@ -2546,12 +2542,11 @@ $bp-tablet: 768px;
   &__tag {
     font-size: 11px;
     font-weight: 600;
-    color: var(--accent);
-    background: var(--accent-bg);
-    border: 1px solid var(--accent-border);
-    border-radius: 3px;
-    padding: 1px 6px;
+    border-radius: 999px;
+    padding: 2px 9px;
     white-space: nowrap;
+    background: var(--tag-bg, #e2e8f0);
+    color: var(--tag-color, #334155);
   }
 
   &__description {
