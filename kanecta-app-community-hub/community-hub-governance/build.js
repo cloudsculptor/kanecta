@@ -53,7 +53,7 @@ function addHyperlinks(text) {
 
 // ── Constitution build ────────────────────────────────────────────────────
 function buildConstitution() {
-  const src = fs.readFileSync(path.resolve(__dirname, 'constitution.adoc'), 'utf8');
+  const src = fs.readFileSync(path.resolve(__dirname, 'constitution/constitution.adoc'), 'utf8');
   const processed = addHyperlinks(src);
   const html = Asciidoctor.convert(processed, {
     safe: 'unsafe',
