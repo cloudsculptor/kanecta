@@ -22,7 +22,7 @@ export default function Governance() {
 
       <div className="gov-hero">
         <p className="gov-hero__lead">
-          Featherston Inc is a volunteer-led organisation. The people who show up and do the work
+          This is a volunteer-led organisation. The people who show up and do the work
           are the people who lead it.
         </p>
         <p className="gov-hero__sub">
