@@ -2467,8 +2467,10 @@ $bp-tablet: 768px;
 
 // ── Governance page ───────────────────────────────────────────────────────────
 .gov-hero {
-  border-left: 4px solid var(--accent);
-  padding: 4px 0 4px 20px;
+  background: var(--social-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px 28px;
   margin-bottom: 2.5rem;
 
   &__lead {
