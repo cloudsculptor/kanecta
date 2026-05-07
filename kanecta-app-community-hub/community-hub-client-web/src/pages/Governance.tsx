@@ -25,10 +25,13 @@ export default function Governance() {
           This is a volunteer-led organisation. The people who show up and do the work
           are the people who lead it.
         </p>
-        <p className="gov-hero__sub">
-          Our governance model is built around one question: how do we create the conditions for a
-          brilliant team of volunteers — and then get out of their way?
-        </p>
+        <p className="gov-hero__sub">How do we create the conditions for a brilliant team of volunteers — and then get out of their way?</p>
+        <ul className="gov-hero__list">
+          <li>The people willing to do the real, consistent, day-in day-out work should be the ones with the most influence.</li>
+          <li>Influence should grow with good character — positivity, kindness, honesty, inclusiveness, and a genuine service ethic toward the community.</li>
+          <li>People who actively make space for others, who want every voice heard and every contribution valued, should naturally rise.</li>
+          <li>The goal is a team where great human qualities are what get noticed — not loudness, status, or who shows up to the right meetings.</li>
+        </ul>
       </div>
 
       <div className="gov-section">
