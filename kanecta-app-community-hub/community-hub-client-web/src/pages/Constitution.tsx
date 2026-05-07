@@ -302,7 +302,7 @@ export default function Constitution() {
         {scenarios.map(({ title, description, tags }, i) => (
           <li key={title} className="scenario-card">
             <span className="scenario-card__number">{i + 1}</span>
-            <p className="scenario-card__title">{title}</p>
+            <div className="scenario-card__title">{title}</div>
             {tags && (
               <div className="scenario-card__tags">
                 {tags.map(tag => {
