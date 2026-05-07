@@ -2466,20 +2466,27 @@ $bp-tablet: 768px;
 }
 
 // ── Governance page ───────────────────────────────────────────────────────────
+.gov-quote {
+  font-size: 24px;
+  font-style: italic;
+  font-weight: 500;
+  color: var(--text-h);
+  line-height: 1.4;
+  margin: 0 0 2rem;
+  text-align: center;
+
+  &::before { content: '\201C'; }
+  &::after  { content: '\201D'; }
+
+  @media (max-width: $bp-tablet) { font-size: 19px; }
+}
+
 .gov-hero {
   background: var(--social-bg);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 24px 28px;
   margin-bottom: 2.5rem;
-
-  &__lead {
-    font-size: 20px;
-    font-weight: 600;
-    color: var(--text-h);
-    line-height: 1.4;
-    margin: 0 0 10px;
-  }
 
   &__sub {
     font-size: 16px;
