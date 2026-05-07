@@ -2591,6 +2591,34 @@ $bp-tablet: 768px;
     padding-left: 16px;
   }
 }
+.values-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+
+  &__item {
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border);
+
+    &:first-child { padding-top: 4px; }
+  }
+
+  &__title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-h);
+    margin: 0 0 6px;
+  }
+
+  &__body {
+    font-size: 16px;
+    color: var(--text);
+    line-height: 1.6;
+    margin: 0;
+    max-width: 680px;
+  }
+}
+
 // ── End governance page ───────────────────────────────────────────────────────
 
 // ── Constitution page styles ──────────────────────────────────────────────────
