@@ -20,11 +20,9 @@ export default function Governance() {
   return (
     <PageLayout pageName="Governance" showComingSoon={false}>
 
-      <blockquote className="gov-quote">
-        <p className="gov-quote__text">
-          This is a volunteer-led organisation. The people who show up and do the work should be the people who lead it.
-        </p>
-      </blockquote>
+      <p className="gov-lead">
+        This is a volunteer-led organisation. The people who show up and do the work should be the people who lead it.
+      </p>
 
       <div className="gov-hero">
         <p className="gov-hero__sub">How do we create the conditions for a brilliant team of volunteers - and then get out of their way?</p>
