@@ -7,7 +7,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-featherston-governance/constitution/node_modules/
+featherston-governance/node_modules/
 node_modules
 dist
 dist-ssr
