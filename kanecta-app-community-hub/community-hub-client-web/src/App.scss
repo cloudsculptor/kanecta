@@ -2538,10 +2538,11 @@ $bp-tablet: 768px;
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    margin-top: 2px;
+    margin-top: 6px;
   }
 
   &__tag {
+
     font-size: 12px;
     font-weight: 600;
     border-radius: 999px;
