@@ -11,6 +11,15 @@ const kaupapa = [
   { title: "Community first", body: "The website and Society serve 100% of Featherston's residents, not any subset." },
 ];
 
+const TAG_COLORS: Record<string, { bg: string; color: string }> = {
+  "Openness":                { bg: "#dbeafe", color: "#1e40af" },
+  "Anti-capture":            { bg: "#fce7f3", color: "#9d174d" },
+  "Participatory democracy": { bg: "#fef3c7", color: "#92400e" },
+  "Sortition as a safeguard":{ bg: "#ede9fe", color: "#5b21b6" },
+  "Sustainability":          { bg: "#d1fae5", color: "#065f46" },
+  "Community first":         { bg: "#ffedd5", color: "#9a3412" },
+};
+
 interface Scenario {
   title: string;
   description: string;
@@ -299,9 +308,15 @@ export default function Constitution() {
             <p className="scenario-card__title">{title}</p>
             {tags && (
               <div className="scenario-card__tags">
-                {tags.map(tag => (
-                  <span key={tag} className="scenario-card__tag">{tag}</span>
-                ))}
+                {tags.map(tag => {
+                  const c = TAG_COLORS[tag];
+                  return (
+                    <span key={tag} className="scenario-card__tag"
+                      style={c ? { "--tag-bg": c.bg, "--tag-color": c.color } as React.CSSProperties : undefined}>
+                      {tag}
+                    </span>
+                  );
+                })}
               </div>
             )}
             <p className="scenario-card__description">{description}</p>
