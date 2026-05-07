@@ -2526,7 +2526,7 @@ $bp-tablet: 768px;
   }
 
   &__title {
-    font-size: 19px;
+    font-size: 22px;
     font-weight: 600;
     color: var(--text-h);
     margin: 0;
@@ -2538,7 +2538,7 @@ $bp-tablet: 768px;
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    margin-top: 4px;
+    margin-top: 2px;
   }
 
   &__tag {
@@ -2554,7 +2554,7 @@ $bp-tablet: 768px;
   &__description {
     font-size: 16px;
     margin: 0;
-    margin-top: 4px;
+    margin-top: 12px;
     color: var(--text);
     line-height: 1.6;
   }
