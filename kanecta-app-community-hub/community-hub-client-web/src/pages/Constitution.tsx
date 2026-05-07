@@ -316,7 +316,7 @@ export default function Constitution() {
                 })}
               </div>
             )}
-            <p className="scenario-card__description">{description}</p>
+            <div className="scenario-card__description">{description}</div>
           </li>
         ))}
       </ol>
