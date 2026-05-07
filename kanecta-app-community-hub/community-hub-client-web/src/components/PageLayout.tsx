@@ -5,24 +5,29 @@ import ComingSoon from "./ComingSoon";
 import Footer from "./Footer";
 import { usePageMeta } from "../hooks/usePageMeta";
 
+interface Crumb {
+  name: string;
+  path: string;
+}
+
 interface PageLayoutProps {
   pageName: string;
   children?: ReactNode;
   showComingSoon?: boolean;
-  parent?: { name: string; path: string };
+  parents?: Crumb[];
 }
 
 export default function PageLayout({
   pageName,
   children,
   showComingSoon = true,
-  parent,
+  parents,
 }: PageLayoutProps) {
   usePageMeta(pageName);
   return (
     <>
       <Header />
-      <Breadcrumb pageName={pageName} parent={parent} />
+      <Breadcrumb pageName={pageName} parents={parents} />
       <main className="page-content">
         <h2>{pageName}</h2>
         {showComingSoon && <ComingSoon />}
