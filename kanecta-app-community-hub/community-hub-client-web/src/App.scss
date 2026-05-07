@@ -2465,6 +2465,36 @@ $bp-tablet: 768px;
   }
 }
 
+// ── Constitution page styles ──────────────────────────────────────────────────
+.kaupapa-callout {
+  border: 1px solid var(--accent-border);
+  border-left: 4px solid var(--accent);
+  background: var(--accent-bg);
+  border-radius: 6px;
+  padding: 1.25rem 1.5rem;
+  margin: 0.75rem 0 2rem;
+
+  &__intro {
+    margin: 0 0 0.75rem;
+    font-weight: 500;
+    color: var(--text-h);
+  }
+
+  &__list {
+    margin: 0;
+    padding-left: 1.5rem;
+    li { margin: 0.4rem 0; }
+    strong { color: var(--text-h); }
+  }
+}
+
+.constitution-section-heading {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+// ── End constitution page styles ──────────────────────────────────────────────
+
 // ── AsciiDoc content styles — remove this block alongside asciidocPlugin ─────
 .adoc-content {
   display: grid;
