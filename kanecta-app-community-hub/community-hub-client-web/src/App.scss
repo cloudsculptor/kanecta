@@ -2552,12 +2552,39 @@ $bp-tablet: 768px;
     color: var(--tag-color, #334155);
   }
 
-  &__description {
+  &__scenario {
     font-size: 16px;
     margin: 0;
     margin-top: 16px;
     color: var(--text);
     line-height: 1.6;
+  }
+
+  &__addressed-by {
+    margin-top: 16px;
+    padding: 10px 14px;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__addressed-by-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text);
+    opacity: 0.4;
+    white-space: nowrap;
+  }
+
+  &__addressed-by-empty {
+    font-size: 13px;
+    color: var(--text);
+    opacity: 0.35;
+    font-style: italic;
   }
 }
 
