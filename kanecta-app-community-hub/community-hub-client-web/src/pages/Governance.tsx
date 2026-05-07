@@ -58,6 +58,7 @@ export default function Governance() {
         ))}
       </div>      
       <p><Link to="/governance/constitution">Constitution</Link></p>
+      <p><Link to="/governance/roles">Roles</Link></p>
     </PageLayout>
   );
 }
