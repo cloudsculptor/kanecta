@@ -35,7 +35,7 @@ export default function Governance() {
       </div>
 
       <div className="gov-section">
-        <h3 className="gov-section__heading">The volunteer culture</h3>
+        <h3 className="gov-section__heading">Volunteer culture</h3>
         <p>
           We want this to be the kind of team people genuinely want to be part of.
           A group with real energy and momentum. People who care about the community, enjoy
@@ -55,7 +55,7 @@ export default function Governance() {
       </div>
 
       <div className="gov-section">
-        <h3 className="gov-section__heading">The safety structure</h3>
+        <h3 className="gov-section__heading">Supporting our volunteers</h3>
         <p>
           Even the best teams occasionally have problems. Someone behaves badly. A conflict
           escalates. A decision is made that damages trust. We've thought carefully about what
