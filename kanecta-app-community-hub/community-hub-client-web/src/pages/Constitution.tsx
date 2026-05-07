@@ -316,7 +316,11 @@ export default function Constitution() {
                 })}
               </div>
             )}
-            <div className="scenario-card__description">{description}</div>
+            <div className="scenario-card__scenario">{description}</div>
+            <div className="scenario-card__addressed-by">
+              <span className="scenario-card__addressed-by-label">Addressed by</span>
+              <span className="scenario-card__addressed-by-empty">Not yet analysed</span>
+            </div>
           </li>
         ))}
       </ol>
