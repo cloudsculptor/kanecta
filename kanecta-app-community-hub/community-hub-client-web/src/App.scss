@@ -2467,21 +2467,8 @@ $bp-tablet: 768px;
 
 // ── Governance page ───────────────────────────────────────────────────────────
 .gov-quote {
-  position: relative;
   text-align: center;
   margin: 0 0 2.5rem;
-  padding: 0 2rem;
-
-  &::before {
-    content: '\201C';
-    display: block;
-    font-family: 'Cormorant Garamond', Georgia, serif;
-    font-size: 140px;
-    line-height: 0.7;
-    color: var(--accent);
-    opacity: 0.5;
-    margin-bottom: 0.1em;
-  }
 
   &__text {
     font-family: 'Cormorant Garamond', Georgia, serif;
@@ -2493,21 +2480,32 @@ $bp-tablet: 768px;
     margin: 0;
     letter-spacing: 0.01em;
 
+    &::before {
+      content: '\201C';
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 1.8em;
+      font-style: normal;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 0;
+      vertical-align: -0.35em;
+      margin-right: 0.05em;
+    }
+
+    &::after {
+      content: '\201D';
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 1.8em;
+      font-style: normal;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 0;
+      vertical-align: -0.35em;
+      margin-left: 0.05em;
+    }
+
     @media (max-width: $bp-tablet) { font-size: 22px; }
   }
-
-  &::after {
-    content: '\201D';
-    display: block;
-    font-family: 'Cormorant Garamond', Georgia, serif;
-    font-size: 140px;
-    line-height: 0.4;
-    color: var(--accent);
-    opacity: 0.5;
-    margin-top: 0.15em;
-  }
-
-  @media (max-width: $bp-tablet) { padding: 0; }
 }
 
 .gov-hero {
