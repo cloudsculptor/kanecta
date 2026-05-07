@@ -292,16 +292,19 @@ export default function Constitution() {
         common failure modes drawn from the experience of community groups, incorporated
         societies, and non-profit organisations.
       </p>
-      <ol className="scenario-list">
-        {scenarios.map(({ title, description, tags }) => (
-          <li key={title} className="scenario-list__item">
-            <div className="scenario-list__header">
-              <strong className="scenario-list__title">{title}</strong>
-              {tags && tags.map(tag => (
-                <span key={tag} className="scenario-list__tag">{tag}</span>
-              ))}
-            </div>
-            <p className="scenario-list__description">{description}</p>
+      <ol className="scenario-grid">
+        {scenarios.map(({ title, description, tags }, i) => (
+          <li key={title} className="scenario-card">
+            <span className="scenario-card__number">{i + 1}</span>
+            <p className="scenario-card__title">{title}</p>
+            {tags && (
+              <div className="scenario-card__tags">
+                {tags.map(tag => (
+                  <span key={tag} className="scenario-card__tag">{tag}</span>
+                ))}
+              </div>
+            )}
+            <p className="scenario-card__description">{description}</p>
           </li>
         ))}
       </ol>
