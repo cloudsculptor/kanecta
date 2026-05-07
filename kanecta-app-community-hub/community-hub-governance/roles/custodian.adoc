@@ -49,3 +49,19 @@ This high bar is intentional. It means the Board can only act when everyone agre
 The Board meets *at least once per quarter*, and as often as needed. All five members must be present for a meeting to proceed. Any member may call a meeting with five working days' notice.
 
 At the start of each meeting, the Board appoints a *rotating facilitator* by consensus. This role has no casting vote and no special authority outside of facilitating discussion. It rotates among members.
+
+== Meeting Facilitator (Chairperson)
+
+Featherston Inc does not have a permanent Chairperson. A fixed chair accumulates informal authority over time and becomes a single point of influence that can be captured or abused. Instead, the Board appoints a rotating facilitator at the start of each meeting.
+
+The facilitator's role is to keep the meeting moving fairly and openly:
+
+* Opens the meeting and confirms all five members are present;
+* Reads or summarises the agenda;
+* Invites each member to speak in turn on each item;
+* Confirms when consensus has been reached; and
+* Closes the meeting and confirms any action items.
+
+The facilitator holds *no special decision-making power*. There is no casting vote. Outside of a meeting, the facilitator has no role or authority beyond that of any other Board member.
+
+NOTE: Under s.26(1)(f)(ii) of the Incorporated Societies Act 2022, the constitution must address the chairperson and casting vote. This is satisfied by the rotating facilitator model with consensus-only decision-making.
