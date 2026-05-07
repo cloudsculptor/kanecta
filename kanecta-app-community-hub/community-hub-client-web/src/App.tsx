@@ -37,7 +37,7 @@ export default function App() {
       <Route path="/goods-and-services" element={<GoodsAndServices />} />
       <Route path="/social-services" element={<SocialServices />} />
       <Route path="/about" element={<AboutThisSite />} />
-      <Route path="/about/governance" element={<Governance />} />
+      <Route path="/governance" element={<Governance />} />
       <Route path="/resilience" element={<Resilience />} />
       <Route path="/kai" element={<Kai />} />
       <Route path="/transport-and-mobility" element={<TransportAndMobility />} />
