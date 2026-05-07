@@ -21,6 +21,7 @@ import Discussions from "./pages/Discussions";
 import TeamRequired from "./pages/TeamRequired";
 import Roadmap from "./pages/Roadmap";
 import Constitution from "./pages/Constitution";
+import Roles from "./pages/Roles";
 
 export default function App() {
   const { initialized } = useKeycloak();
@@ -48,6 +49,7 @@ export default function App() {
       <Route path="/discussions/team-required" element={<TeamRequired />} />
       <Route path="/roadmap" element={<Roadmap />} />
       <Route path="/governance/constitution" element={<Constitution />} />
+      <Route path="/governance/roles" element={<Roles />} />
     </Routes>
   );
 }
