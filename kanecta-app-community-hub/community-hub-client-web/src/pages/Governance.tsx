@@ -23,7 +23,7 @@ export default function Governance() {
       <div className="gov-hero">
         <p className="gov-hero__lead">
           This is a volunteer-led organisation. The people who show up and do the work
-          are the people who lead it.
+          should be the people who lead it.
         </p>
         <p className="gov-hero__sub">How do we create the conditions for a brilliant team of volunteers - and then get out of their way?</p>
         <ul className="gov-hero__list">
