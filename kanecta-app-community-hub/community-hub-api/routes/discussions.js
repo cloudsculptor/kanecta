@@ -430,7 +430,7 @@ router.delete("/messages/:id/reactions/:emoji", requireAuth, canAccess, async (r
 // ── Users (for @mention autocomplete) ────────────────────────────────────────
 
 async function getKeycloakAdminToken() {
-  const url = `${process.env.KEYCLOAK_URL || "https://auth.featherston.co.nz"}/realms/${process.env.KEYCLOAK_REALM || "featherston"}/protocol/openid-connect/token`;
+  const url = `${process.env.KEYCLOAK_ADMIN_URL || process.env.KEYCLOAK_URL || "https://auth.featherston.co.nz"}/realms/${process.env.KEYCLOAK_REALM || "featherston"}/protocol/openid-connect/token`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -447,7 +447,7 @@ async function getKeycloakAdminToken() {
 
 router.get("/users", requireAuth, canAccess, async (req, res) => {
   try {
-    const base = `${process.env.KEYCLOAK_URL || "https://auth.featherston.co.nz"}/admin/realms/${process.env.KEYCLOAK_REALM || "featherston"}`;
+    const base = `${process.env.KEYCLOAK_ADMIN_URL || process.env.KEYCLOAK_URL || "https://auth.featherston.co.nz"}/admin/realms/${process.env.KEYCLOAK_REALM || "featherston"}`;
     const token = await getKeycloakAdminToken();
 
     const allUsersRes = await fetch(`${base}/users?max=500`, {
