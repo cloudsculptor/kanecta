@@ -145,7 +145,7 @@ export default function FinancesTransactions() {
               )}
               {rows.map(t => (
                 <tr key={t.id} className={`fin-table__row fin-table__row--${t.type}`}>
-                  <td className="fin-table__date">{t.date.slice(0, 10)}</td>
+                  <td className="fin-table__date">{new Date(t.date).toLocaleDateString("en-NZ", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" })}</td>
                   <td>{t.description}</td>
                   <td className="fin-table__cat">{ALL_CATEGORIES[t.category] ?? t.category}</td>
                   <td className="fin-table__ref">{t.reference ?? ""}</td>
