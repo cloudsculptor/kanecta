@@ -18,6 +18,7 @@ async function authFetch(path: string, init: RequestInit = {}) {
 
 export interface Transaction {
   id: number;
+  uuid: string;
   date: string;
   description: string;
   amount: string;
@@ -26,6 +27,7 @@ export interface Transaction {
   reference: string | null;
   created_by_name: string;
   created_at: string;
+  file_count: number;
 }
 
 export interface TransactionInput {
