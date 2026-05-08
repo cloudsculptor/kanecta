@@ -2962,6 +2962,7 @@ $bp-tablet: 768px;
     font-style: italic;
   }
 
+  &__id { font-size: 11px; font-family: var(--mono); color: var(--text); opacity: 0.45; white-space: nowrap; }
   &__files { width: 32px; text-align: center; }
 
   &__file-btn {
