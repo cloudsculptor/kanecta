@@ -358,11 +358,6 @@ The 2022 Act (s.46) requires that each officer consent in writing to their appoi
 *Design rationale:* Proxy voting is prohibited because it allows concentrated interests to accumulate voting power — directly contrary to the anti-capture kaupapa. If you care enough to influence a decision, you should be present (in person or online) to make your case.
 ====
 
-=== 16. Remote Participation
-
-. Members may participate in general meetings by video conference or other electronic means that allow real-time participation.
-. The Committee must take reasonable steps to ensure online participation is accessible to members without high-speed internet connections.
-
 ---
 
 == Part 6: Volunteers
