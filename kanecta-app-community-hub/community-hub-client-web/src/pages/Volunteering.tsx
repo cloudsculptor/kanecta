@@ -82,8 +82,7 @@ export default function Volunteering() {
         <DialogTitle>Coming soon</DialogTitle>
         <DialogContent>
           <p style={{ margin: 0 }}>
-            Online sign-up isn't available just yet. In the meantime, drop us a line at{" "}
-            <a href="mailto:hello@featherston.co.nz">hello@featherston.co.nz</a> and we'll be in touch.
+            Online sign-up isn't available just yet. Check back soon.
           </p>
         </DialogContent>
         <DialogActions>
