@@ -1,4 +1,9 @@
 import { useEffect, useState } from "react";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import Button from "@mui/material/Button";
 import PageLayout from "../components/PageLayout";
 import { useUserRole } from "../auth/useUserRole";
 import {
@@ -25,6 +30,7 @@ export default function FinancesTransactions() {
   const [form, setForm] = useState<TransactionInput>(EMPTY);
   const [editing, setEditing] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [filesOpen, setFilesOpen] = useState(false);
 
   useEffect(() => {
     if (!canView) return;
@@ -136,12 +142,13 @@ export default function FinancesTransactions() {
                 <th>Date</th><th>Description</th><th>Category</th><th>Reference</th>
                 <th className="fin-table__amount">Amount</th>
                 <th className="fin-table__amount">Balance</th>
+                <th></th>
                 {isTreasurer && <th></th>}
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 && (
-                <tr><td colSpan={cols} className="fin-table__empty">No transactions recorded yet.</td></tr>
+                <tr><td colSpan={cols + 1} className="fin-table__empty">No transactions recorded yet.</td></tr>
               )}
               {rows.map(t => (
                 <tr key={t.id} className={`fin-table__row fin-table__row--${t.type}`}>
@@ -155,6 +162,16 @@ export default function FinancesTransactions() {
                   <td className={`fin-table__amount fin-table__amount--balance ${t.balance < 0 ? "fin-table__amount--deficit" : ""}`}>
                     {fmt(t.balance)}
                   </td>
+                  <td className="fin-table__files">
+                    {t.file_count > 0 && (
+                      <button className="fin-table__file-btn" onClick={() => setFilesOpen(true)} title="View files">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" aria-hidden="true">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/>
+                        </svg>
+                        {t.file_count > 1 && <span className="fin-table__file-count">{t.file_count}</span>}
+                      </button>
+                    )}
+                  </td>
                   {isTreasurer && (
                     <td className="fin-table__actions">
                       <button onClick={() => startEdit(t)} className="fin-table__btn">Edit</button>
@@ -167,6 +184,16 @@ export default function FinancesTransactions() {
           </table>
         );
       })()}
+      <Dialog open={filesOpen} onClose={() => setFilesOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Files</DialogTitle>
+        <DialogContent>
+          <p style={{ margin: 0 }}>These files are stored by the administrator.</p>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setFilesOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
     </PageLayout>
   );
 }
