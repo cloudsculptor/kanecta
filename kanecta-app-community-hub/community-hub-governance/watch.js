@@ -3,7 +3,7 @@ const chokidar = require('chokidar');
 const browserSync = require('browser-sync').create();
 const path = require('path');
 
-const ADOC = path.resolve(__dirname, 'constitution.adoc');
+const ADOC = path.resolve(__dirname, 'constitution/constitution.adoc');
 const MD = path.resolve(__dirname, 'WORKPLAN.md');
 
 browserSync.init({
