@@ -84,16 +84,6 @@ export default function Governance() {
       </div>
 
       <div className="gov-links">
-        <Link to="/governance/procedures" className="gov-links__item">
-          <span className="gov-links__title">Procedures</span>
-          <span className="gov-links__desc">Step-by-step guides for moderation, IT, meetings, and legal obligations</span>
-          <span className="gov-links__arrow">→</span>
-        </Link>
-        <Link to="/governance/policies" className="gov-links__item">
-          <span className="gov-links__title">Policies</span>
-          <span className="gov-links__desc">Bylaws and guidelines for custodians and volunteers</span>
-          <span className="gov-links__arrow">→</span>
-        </Link>
         <Link to="/governance/purpose" className="gov-links__item">
           <span className="gov-links__title">Purpose</span>
           <span className="gov-links__desc">Why this organisation exists</span>
@@ -112,6 +102,16 @@ export default function Governance() {
         <Link to="/governance/constitution" className="gov-links__item">
           <span className="gov-links__title">Constitution</span>
           <span className="gov-links__desc">The legal framework for this organisation</span>
+          <span className="gov-links__arrow">→</span>
+        </Link>
+        <Link to="/governance/policies" className="gov-links__item">
+          <span className="gov-links__title">Policies</span>
+          <span className="gov-links__desc">Bylaws and guidelines for custodians and volunteers</span>
+          <span className="gov-links__arrow">→</span>
+        </Link>
+        <Link to="/governance/procedures" className="gov-links__item">
+          <span className="gov-links__title">Procedures</span>
+          <span className="gov-links__desc">Step-by-step guides for moderation, IT, meetings, and legal obligations</span>
           <span className="gov-links__arrow">→</span>
         </Link>
       </div>
