@@ -24,6 +24,11 @@ import Constitution from "./pages/Constitution";
 import Roles from "./pages/Roles";
 import Values from "./pages/Values";
 import Purpose from "./pages/Purpose";
+import PoliciesIndex from "./pages/PoliciesIndex";
+import PolicyCustodianBylaws from "./pages/PolicyCustodianBylaws";
+import PolicyCustodianGuidelines from "./pages/PolicyCustodianGuidelines";
+import PolicyVolunteerBylaws from "./pages/PolicyVolunteerBylaws";
+import PolicyVolunteerGuidelines from "./pages/PolicyVolunteerGuidelines";
 import RoleCustodian from "./pages/RoleCustodian";
 import RoleVolunteer from "./pages/RoleVolunteer";
 
@@ -56,6 +61,11 @@ export default function App() {
       <Route path="/governance/roles" element={<Roles />} />
       <Route path="/governance/values" element={<Values />} />
       <Route path="/governance/purpose" element={<Purpose />} />
+      <Route path="/governance/policies" element={<PoliciesIndex />} />
+      <Route path="/governance/policies/custodian-bylaws" element={<PolicyCustodianBylaws />} />
+      <Route path="/governance/policies/custodian-guidelines" element={<PolicyCustodianGuidelines />} />
+      <Route path="/governance/policies/volunteer-bylaws" element={<PolicyVolunteerBylaws />} />
+      <Route path="/governance/policies/volunteer-guidelines" element={<PolicyVolunteerGuidelines />} />
       <Route path="/governance/roles/custodian" element={<RoleCustodian />} />
       <Route path="/governance/roles/volunteer" element={<RoleVolunteer />} />
     </Routes>

@@ -2619,6 +2619,20 @@ $bp-tablet: 768px;
   }
 }
 
+.policy-group {
+  margin-bottom: 2rem;
+
+  &__heading {
+    font-size: 16px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text);
+    opacity: 0.5;
+    margin: 0 0 10px;
+  }
+}
+
 // ── End governance page ───────────────────────────────────────────────────────
 
 // ── Constitution page styles ──────────────────────────────────────────────────

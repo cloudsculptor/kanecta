@@ -1,0 +1,44 @@
+= Custodian Board Guidelines
+:doctype: article
+
+These guidelines are practical guidance for Custodian Board members. Unlike the bylaws, they are not formally binding — they reflect what has worked well and should be updated by the Board as experience grows.
+
+== Before your term begins
+
+* Read the constitution, the bylaws, and the previous Board's minutes in full before your first meeting.
+* Make sure you have access to all shared accounts, documents, and communication channels. If handover is incomplete, raise it immediately with the outgoing Board.
+* Introduce yourself to the current volunteers. You are there to support them, not to manage them.
+
+== Running good meetings
+
+* Circulate an agenda at least two days before each meeting. Members should know what they are being asked to decide.
+* Start by checking whether any member has a conflict of interest on any agenda item.
+* The facilitator's job is to make sure every member speaks and that the discussion moves. It is not to direct the outcome.
+* If you are going in circles, name it. "We've been on this for 20 minutes and we're not converging — should we table it?"
+* End every meeting with clear action items: what, who, by when.
+* Publish minutes within 14 days. Write them so that someone who wasn't there understands what was decided and why.
+
+== Between meetings
+
+* Stay in contact. If something comes up that might need Board attention, raise it with other members early rather than waiting for the next meeting.
+* Do not make unilateral statements on behalf of the Board. If a volunteer or member asks for a Board position on something, the answer is that it will be discussed at the next meeting.
+* If you receive a complaint or concern informally, encourage the person to submit it in writing so it can be properly considered.
+
+== Working with volunteers
+
+* Volunteers make all positive decisions. Your role is oversight, not management. Resist the urge to offer opinions on what the site should look like or what features should be built.
+* If you have ideas about the site, contribute as a volunteer, not as a Board member.
+* Be visible and approachable. Volunteers should feel comfortable raising concerns with you informally before they escalate.
+
+== Handling complaints
+
+* Take complaints seriously even when they seem minor. Early intervention prevents escalation.
+* Be genuinely fair. Before forming a view, hear from everyone involved.
+* Document everything. Even informal conversations about concerns should be noted.
+* When in doubt, seek outside perspective. The Board can bring in a mediator.
+
+== End of term
+
+* Write a brief handover note for the incoming Board covering: anything unresolved, anything the new Board should know about, and anything you wish you'd known at the start.
+* Transfer all access and credentials on or before the AGM.
+* Stay available for a short period after your term to answer questions from the incoming Board.
