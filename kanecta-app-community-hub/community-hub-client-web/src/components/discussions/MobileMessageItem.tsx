@@ -23,7 +23,14 @@ function avatar(name: string) {
 
 function formatTime(iso: string) {
   const d = new Date(iso);
-  return d.toLocaleTimeString("en-NZ", { hour: "numeric", minute: "2-digit" });
+  const time = d.toLocaleTimeString("en-NZ", { hour: "numeric", minute: "2-digit" });
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const startOfDay = new Date(d);
+  startOfDay.setHours(0, 0, 0, 0);
+  const days = Math.round((startOfToday.getTime() - startOfDay.getTime()) / 86_400_000);
+  const age = days === 0 ? "today" : days === 1 ? "1 day" : `${days} days`;
+  return `${time} · ${age}`;
 }
 
 export default function MobileMessageItem({
