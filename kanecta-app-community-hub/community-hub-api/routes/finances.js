@@ -21,15 +21,15 @@ router.get("/transactions", requireAuth, wrap(async (req, res) => {
   if (from) { params.push(from); conditions.push(`date >= $${params.length}`); }
   if (to)   { params.push(to);   conditions.push(`date <= $${params.length}`); }
   if (conditions.length) query += " WHERE " + conditions.join(" AND ");
-  query += " ORDER BY date DESC, id DESC";
+  query += " ORDER BY date ASC, sort_order ASC, id ASC";
   const { rows } = await pool.query(query, params);
   res.json(rows);
 }));
 
 // ── Create transaction (treasurer only) ──────────────────────────────────────
 router.post("/transactions", requireAuth, requireRole("treasurer"), wrap(async (req, res) => {
-  const { date, description, amount, type, category, reference } = req.body;
-  if (!date || !description || !amount || !type || !category)
+  const { date, description, amount, type, category, reference, sort_order } = req.body;
+  if (!date || !description || amount === undefined || amount === null || !type || !category)
     return res.status(400).json({ error: "Missing required fields" });
   if (!["income", "expense"].includes(type))
     return res.status(400).json({ error: "Invalid type" });
@@ -37,9 +37,9 @@ router.post("/transactions", requireAuth, requireRole("treasurer"), wrap(async (
     return res.status(400).json({ error: "Invalid category" });
   const { rows } = await pool.query(
     `INSERT INTO finances_transactions
-       (date, description, amount, type, category, reference, created_by_id, created_by_name)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-    [date, description, amount, type, category, reference || null,
+       (date, description, amount, type, category, reference, sort_order, created_by_id, created_by_name)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+    [date, description, amount, type, category, reference || null, sort_order ?? 0,
      req.user.id, req.user.name]
   );
   res.status(201).json(rows[0]);
@@ -47,14 +47,14 @@ router.post("/transactions", requireAuth, requireRole("treasurer"), wrap(async (
 
 // ── Update transaction (treasurer only) ──────────────────────────────────────
 router.put("/transactions/:id", requireAuth, requireRole("treasurer"), wrap(async (req, res) => {
-  const { date, description, amount, type, category, reference } = req.body;
+  const { date, description, amount, type, category, reference, sort_order } = req.body;
   if (!VALID_CATEGORIES.includes(category))
     return res.status(400).json({ error: "Invalid category" });
   const { rows } = await pool.query(
     `UPDATE finances_transactions
-     SET date=$1, description=$2, amount=$3, type=$4, category=$5, reference=$6, updated_at=NOW()
-     WHERE id=$7 RETURNING *`,
-    [date, description, amount, type, category, reference || null, req.params.id]
+     SET date=$1, description=$2, amount=$3, type=$4, category=$5, reference=$6, sort_order=$7, updated_at=NOW()
+     WHERE id=$8 RETURNING *`,
+    [date, description, amount, type, category, reference || null, sort_order ?? 0, req.params.id]
   );
   if (!rows.length) return res.status(404).json({ error: "Not found" });
   res.json(rows[0]);

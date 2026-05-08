@@ -103,7 +103,7 @@ export default function FinancesTransactions() {
               </select>
             </label>
             <label className="fin-form__label">Amount (NZD)
-              <input className="fin-form__input" type="number" min="0.01" step="0.01" required value={form.amount || ""} onChange={e => setForm(f => ({ ...f, amount: parseFloat(e.target.value) }))} />
+              <input className="fin-form__input" type="number" step="0.01" required value={form.amount || ""} onChange={e => setForm(f => ({ ...f, amount: parseFloat(e.target.value) }))} />
             </label>
           </div>
           <div className="fin-form__row">
@@ -122,14 +122,12 @@ export default function FinancesTransactions() {
       )}
 
       {loading ? <p>Loading…</p> : (() => {
-        // Calculate running balance oldest→newest, then display newest→oldest
-        const sorted = [...transactions].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.id - b.id);
+        // API returns oldest-first (date ASC, sort_order ASC). Running balance is a simple cumulative sum.
         let running = 0;
-        const withBalance = sorted.map(t => {
-          running += t.type === "income" ? Number(t.amount) : -Number(t.amount);
+        const rows = transactions.map(t => {
+          running += Number(t.amount);
           return { ...t, balance: running };
         });
-        const rows = withBalance.slice().reverse();
         const cols = isTreasurer ? 7 : 6;
         return (
           <table className="fin-table">
@@ -151,8 +149,8 @@ export default function FinancesTransactions() {
                   <td>{t.description}</td>
                   <td className="fin-table__cat">{ALL_CATEGORIES[t.category] ?? t.category}</td>
                   <td className="fin-table__ref">{t.reference ?? ""}</td>
-                  <td className={`fin-table__amount fin-table__amount--${t.type}`}>
-                    {t.type === "expense" ? "−" : "+"}{fmt(t.amount)}
+                  <td className={`fin-table__amount fin-table__amount--${Number(t.amount) < 0 ? "expense" : "income"}`}>
+                    {fmt(t.amount)}
                   </td>
                   <td className={`fin-table__amount fin-table__amount--balance ${t.balance < 0 ? "fin-table__amount--deficit" : ""}`}>
                     {fmt(t.balance)}
