@@ -45,6 +45,7 @@ import FinancesIndex from "./pages/FinancesIndex";
 import FinancesTransactions from "./pages/FinancesTransactions";
 import FinancesCashflow from "./pages/FinancesCashflow";
 import FinancesProfitLoss from "./pages/FinancesProfitLoss";
+import FinancesExpenses from "./pages/FinancesExpenses";
 import RoleCustodian from "./pages/RoleCustodian";
 import RoleVolunteer from "./pages/RoleVolunteer";
 
@@ -98,6 +99,7 @@ export default function App() {
       <Route path="/governance/finances/transactions" element={<FinancesTransactions />} />
       <Route path="/governance/finances/cashflow" element={<FinancesCashflow />} />
       <Route path="/governance/finances/profit-and-loss" element={<FinancesProfitLoss />} />
+      <Route path="/governance/finances/expenses" element={<FinancesExpenses />} />
       <Route path="/governance/roles/custodian" element={<RoleCustodian />} />
       <Route path="/governance/roles/volunteer" element={<RoleVolunteer />} />
     </Routes>

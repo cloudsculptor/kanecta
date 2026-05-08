@@ -6,6 +6,7 @@ const pages = [
   { title: "Transactions", path: "/governance/finances/transactions", description: "All income and expenditure records." },
   { title: "Cash Flow", path: "/governance/finances/cashflow", description: "NZ standard cash flow statement for a selected period." },
   { title: "Profit & Loss", path: "/governance/finances/profit-and-loss", description: "NZ standard income & expenditure statement for a selected period." },
+  { title: "Recurring Expenses", path: "/governance/finances/expenses", description: "Expected recurring costs broken down by frequency with NZD totals." },
 ];
 
 export default function FinancesIndex() {
