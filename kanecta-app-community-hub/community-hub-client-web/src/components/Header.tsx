@@ -16,6 +16,7 @@ const ROLE_LABEL: Record<UserRole, string> = {
   TEAM: "Team",
   RESILIENCE: "Resilience",
   MODERATOR: "Moderator",
+  TREASURER: "Treasurer",
 };
 
 function displayName(profile: Record<string, unknown> | undefined): string {
