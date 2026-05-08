@@ -458,7 +458,7 @@ router.get("/users", requireAuth, canAccess, async (req, res) => {
 
     const withRoles = await Promise.all(
       allUsers.map(async (u) => {
-        const r = await fetch(`${base}/users/${u.id}/role-mappings/realm`, {
+        const r = await fetch(`${base}/users/${u.id}/role-mappings/realm/composite`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!r.ok) return null;
