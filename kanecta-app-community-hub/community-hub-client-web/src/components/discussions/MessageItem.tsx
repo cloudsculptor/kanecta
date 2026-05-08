@@ -22,12 +22,18 @@ function avatar(name: string) {
 function formatTime(iso: string) {
   const d = new Date(iso);
   const time = d.toLocaleTimeString("en-NZ", { hour: "numeric", minute: "2-digit" });
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
-  const startOfDay = new Date(d);
-  startOfDay.setHours(0, 0, 0, 0);
-  const days = Math.round((startOfToday.getTime() - startOfDay.getTime()) / 86_400_000);
-  const age = days === 0 ? "today" : days === 1 ? "1 day" : `${days} days`;
+  const diffMs = Date.now() - d.getTime();
+  const hours = Math.floor(diffMs / 3_600_000);
+  const days = Math.floor(diffMs / 86_400_000);
+  const weeks = Math.floor(days / 7);
+  const months = Math.floor(days / 30.44);
+  const years = Math.floor(days / 365.25);
+  const age =
+    years >= 1 ? `${years}y` :
+    months >= 1 ? `${months}m` :
+    weeks >= 1 ? `${weeks}w` :
+    days >= 1 ? `${days}d` :
+    `${Math.max(hours, 1)}h`;
   return `${time} · ${age}`;
 }
 
