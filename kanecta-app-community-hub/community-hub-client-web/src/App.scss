@@ -2934,8 +2934,10 @@ $bp-tablet: 768px;
     text-align: right;
     font-weight: 600;
     white-space: nowrap;
-    &--income  { color: var(--accent); }
-    &--expense { color: #b91c1c; }
+    &--income   { color: var(--accent); }
+    &--expense  { color: #b91c1c; }
+    &--balance  { color: var(--text-h); font-weight: 700; }
+    &--deficit  { color: #b91c1c; }
   }
 
   &__actions { white-space: nowrap; text-align: right; }
