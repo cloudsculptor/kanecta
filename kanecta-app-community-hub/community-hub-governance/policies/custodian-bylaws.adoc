@@ -1,0 +1,84 @@
+= Custodian Board Bylaws
+:doctype: article
+
+These bylaws govern the formal operation of the Custodian Board. They flow directly from the constitution and are binding on all Board members. They may only be changed through a formal amendment process consistent with the constitution.
+
+== 1. Meetings
+
+=== 1.1 Frequency
+The Custodian Board meets at least once per calendar quarter. Additional meetings may be called as needed.
+
+=== 1.2 Calling a meeting
+Any Board member may call a meeting by giving at least five working days' written notice to all other members, stating the business to be transacted.
+
+=== 1.3 Quorum
+All five members of the Custodian Board must be present for a meeting to proceed. If a member cannot attend, the meeting must be rescheduled. There are no proxy votes.
+
+=== 1.4 Facilitator
+At the start of each meeting, members appoint a facilitator by consensus. The role rotates among members. The facilitator has no casting vote and no authority beyond facilitating discussion.
+
+=== 1.5 Remote attendance
+Members may attend by video call. Remote attendance counts toward quorum provided the member can hear and participate in all discussion.
+
+== 2. Decision-making
+
+=== 2.1 Consensus required
+All Board decisions require the consensus of all five members. A decision is reached when every member present agrees. There is no majority voting and no casting vote.
+
+=== 2.2 Deadlock
+If consensus cannot be reached, the matter is adjourned to a subsequent meeting. If consensus still cannot be reached at that subsequent meeting, the matter is referred to a Special General Meeting of Voting Members.
+
+=== 2.3 Out-of-session decisions
+In urgent circumstances, decisions may be made by written consensus (email or equivalent) provided all five members respond and all agree. Any out-of-session decision must be recorded in the minutes of the next meeting.
+
+== 3. Minutes and records
+
+=== 3.1 Minutes
+A written record must be kept of every meeting, including: who attended, what was discussed, what decisions were made, and any action items with responsible persons and due dates.
+
+=== 3.2 Publication
+Minutes must be published to all Voting Members within 14 days of the meeting.
+
+=== 3.3 Retention
+All minutes and Board correspondence must be retained for at least seven years and handed over to the incoming Board at the end of each term.
+
+== 4. Financial authorisation
+
+=== 4.1 Routine expenditure
+The Treasurer may authorise expenditure up to NZ$500 without Board approval.
+
+=== 4.2 Significant expenditure
+Any single expenditure above NZ$500 requires written authorisation from the Treasurer plus at least one Custodian Board member.
+
+=== 4.3 Financial reporting
+The Treasurer must provide a written financial report at every quarterly Board meeting. Accounts must be published publicly within 30 days of each quarter end.
+
+== 5. Conflicts of interest
+
+=== 5.1 Declaration
+Any Board member with a financial or personal interest in a matter before the Board must declare that interest at the start of discussion.
+
+=== 5.2 Recusal
+A member who has declared a conflict must not participate in the discussion or decision on that matter. Their absence does not affect quorum for that item only.
+
+=== 5.3 Recording
+All declared conflicts of interest must be recorded in the minutes.
+
+== 6. Vacancies
+
+=== 6.1 Mid-term vacancy
+If a Board position becomes vacant between AGMs, the remaining members shall invite a replacement from eligible Voting Members by consensus, to serve until the next AGM.
+
+=== 6.2 Reduced Board
+If a vacancy reduces the Board to fewer than three members, a Special General Meeting must be called within 30 days to conduct a supplementary sortition.
+
+== 7. Complaints
+
+=== 7.1 Receiving complaints
+The Board must acknowledge any written complaint from a member or volunteer within five working days.
+
+=== 7.2 Process
+The Board must give any person the subject of a complaint a fair opportunity to respond before making a determination.
+
+=== 7.3 Confidentiality
+Complaints and proceedings are confidential to the parties and the Board, unless the Board determines that publication is in the interests of the Society.
