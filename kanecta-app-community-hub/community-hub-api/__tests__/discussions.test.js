@@ -34,29 +34,34 @@ const moderatorApp = makeApp(["moderator"]);
 
 afterEach(() => { mockQuery.mockReset(); mockFetch.mockReset(); });
 
-function mockKeycloakUsers(teamUsers = []) {
-  const tokenRes = { ok: true, json: async () => ({ access_token: "test-token" }) };
-  const teamRes = { ok: true, json: async () => teamUsers };
-  mockFetch
-    .mockResolvedValueOnce(tokenRes)
-    .mockResolvedValueOnce(teamRes);
+function mockKeycloakUsers(allUsers = [], rolesByUserId = {}) {
+  mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ access_token: "test-token" }) });
+  mockFetch.mockResolvedValueOnce({ ok: true, json: async () => allUsers });
+  for (const u of allUsers) {
+    const roles = rolesByUserId[u.id] ?? [];
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => roles });
+  }
 }
 
 // ── Users ─────────────────────────────────────────────────────────────────────
 
 describe("GET /api/discussions/users", () => {
-  test("returns team users sorted by name", async () => {
-    mockKeycloakUsers([
-      { id: "u1", firstName: "Jane", lastName: "Smith", username: "jane" },
-      { id: "u2", firstName: "Bob", lastName: "Jones", username: "bob" },
-    ]);
+  test("returns only team users sorted by name", async () => {
+    mockKeycloakUsers(
+      [
+        { id: "u1", firstName: "Jane", lastName: "Smith", username: "jane" },
+        { id: "u2", firstName: "Bob", lastName: "Jones", username: "bob" },
+        { id: "u3", firstName: "Test", lastName: "User", username: "test" },
+      ],
+      { u1: [{ name: "team" }], u2: [{ name: "team" }], u3: [] },
+    );
     const res = await request(teamApp).get("/api/discussions/users");
     expect(res.status).toBe(200);
     expect(res.body.map((u) => u.name)).toEqual(["Bob Jones", "Jane Smith"]);
   });
 
   test("falls back to username when no first/last name", async () => {
-    mockKeycloakUsers([{ id: "u1", username: "alice" }]);
+    mockKeycloakUsers([{ id: "u1", username: "alice" }], { u1: [{ name: "team" }] });
     const res = await request(teamApp).get("/api/discussions/users");
     expect(res.status).toBe(200);
     expect(res.body[0].name).toBe("alice");
