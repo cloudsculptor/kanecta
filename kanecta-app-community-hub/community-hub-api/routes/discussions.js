@@ -457,13 +457,8 @@ async function getRoleMembers(token, role) {
 router.get("/users", requireAuth, canAccess, async (req, res) => {
   try {
     const token = await getKeycloakAdminToken();
-    const [teamUsers, modUsers] = await Promise.all([
-      getRoleMembers(token, "team"),
-      getRoleMembers(token, "moderator"),
-    ]);
-    const seen = new Set();
-    const users = [...teamUsers, ...modUsers]
-      .filter((u) => { if (seen.has(u.id)) return false; seen.add(u.id); return true; })
+    const teamUsers = await getRoleMembers(token, "team");
+    const users = teamUsers
       .map((u) => ({
         id: u.id,
         name: [u.firstName, u.lastName].filter(Boolean).join(" ") || u.username,
