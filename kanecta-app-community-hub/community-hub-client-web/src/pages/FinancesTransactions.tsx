@@ -28,7 +28,7 @@ export default function FinancesTransactions() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [form, setForm] = useState<TransactionInput>(EMPTY);
-  const [editing, setEditing] = useState<number | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
 
@@ -80,7 +80,7 @@ export default function FinancesTransactions() {
     setForm({ date: t.date.slice(0, 10), description: t.description, amount: Number(t.amount), type: t.type, category: t.category, reference: t.reference ?? "" });
   }
 
-  async function handleDelete(id: number) {
+  async function handleDelete(id: string) {
     if (!confirm("Delete this transaction?")) return;
     await deleteTransaction(id);
     setTransactions(ts => ts.filter(t => t.id !== id));
@@ -139,6 +139,7 @@ export default function FinancesTransactions() {
           <table className="fin-table">
             <thead>
               <tr>
+                <th className="fin-table__id">ID</th>
                 <th>Date</th><th>Description</th><th>Category</th><th>Reference</th>
                 <th className="fin-table__amount">Amount</th>
                 <th className="fin-table__amount">Balance</th>
@@ -152,6 +153,7 @@ export default function FinancesTransactions() {
               )}
               {rows.map(t => (
                 <tr key={t.id} className={`fin-table__row fin-table__row--${t.type}`}>
+                  <td className="fin-table__id" title={t.id}>{t.id.slice(0, 8)}…</td>
                   <td className="fin-table__date">{new Date(t.date).toLocaleDateString("en-NZ", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" })}</td>
                   <td>{t.description}</td>
                   <td className="fin-table__cat">{ALL_CATEGORIES[t.category] ?? t.category}</td>

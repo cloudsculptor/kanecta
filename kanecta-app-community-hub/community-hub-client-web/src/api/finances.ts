@@ -17,8 +17,7 @@ async function authFetch(path: string, init: RequestInit = {}) {
 }
 
 export interface Transaction {
-  id: number;
-  uuid: string;
+  id: string;
   date: string;
   description: string;
   amount: string;
@@ -79,11 +78,11 @@ export function createTransaction(data: TransactionInput): Promise<Transaction> 
   return authFetch("/api/finances/transactions", { method: "POST", body: JSON.stringify(data) });
 }
 
-export function updateTransaction(id: number, data: TransactionInput): Promise<Transaction> {
+export function updateTransaction(id: string, data: TransactionInput): Promise<Transaction> {
   return authFetch(`/api/finances/transactions/${id}`, { method: "PUT", body: JSON.stringify(data) });
 }
 
-export function deleteTransaction(id: number): Promise<void> {
+export function deleteTransaction(id: string): Promise<void> {
   return authFetch(`/api/finances/transactions/${id}`, { method: "DELETE" });
 }
 

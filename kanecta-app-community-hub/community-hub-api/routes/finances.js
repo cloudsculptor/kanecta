@@ -27,7 +27,7 @@ router.get("/transactions", requireAuth, wrap(async (req, res) => {
     LEFT JOIN finances_transaction_files tf ON tf.transaction_id = t.id
     GROUP BY t.id, t.date, t.description, t.amount, t.type, t.category,
              t.reference, t.sort_order, t.created_by_id, t.created_by_name,
-             t.created_at, t.updated_at, t.uuid
+             t.created_at, t.updated_at
     ORDER BY t.date ASC, t.sort_order ASC, t.id ASC
   `;
   const { rows } = await pool.query(query, params);
