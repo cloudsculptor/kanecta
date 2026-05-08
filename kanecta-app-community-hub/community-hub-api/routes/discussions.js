@@ -429,16 +429,49 @@ router.delete("/messages/:id/reactions/:emoji", requireAuth, canAccess, async (r
 
 // ── Users (for @mention autocomplete) ────────────────────────────────────────
 
+async function getKeycloakAdminToken() {
+  const url = `${process.env.KEYCLOAK_URL || "https://auth.featherston.co.nz"}/realms/${process.env.KEYCLOAK_REALM || "featherston"}/protocol/openid-connect/token`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+      client_id: process.env.KEYCLOAK_ADMIN_CLIENT_ID,
+      client_secret: process.env.KEYCLOAK_ADMIN_CLIENT_SECRET,
+    }),
+  });
+  if (!res.ok) throw new Error(`Keycloak token error: ${res.status}`);
+  const data = await res.json();
+  return data.access_token;
+}
+
+async function getRoleMembers(token, role) {
+  const base = `${process.env.KEYCLOAK_URL || "https://auth.featherston.co.nz"}/admin/realms/${process.env.KEYCLOAK_REALM || "featherston"}`;
+  const res = await fetch(`${base}/roles/${role}/users?max=500`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`Keycloak role members error: ${res.status}`);
+  return res.json();
+}
+
 router.get("/users", requireAuth, canAccess, async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      `SELECT DISTINCT user_id AS id, user_name AS name
-       FROM discussions_messages
-       WHERE deleted_at IS NULL
-       ORDER BY user_name ASC`
-    );
-    res.json(rows);
+    const token = await getKeycloakAdminToken();
+    const [teamUsers, modUsers] = await Promise.all([
+      getRoleMembers(token, "team"),
+      getRoleMembers(token, "moderator"),
+    ]);
+    const seen = new Set();
+    const users = [...teamUsers, ...modUsers]
+      .filter((u) => { if (seen.has(u.id)) return false; seen.add(u.id); return true; })
+      .map((u) => ({
+        id: u.id,
+        name: [u.firstName, u.lastName].filter(Boolean).join(" ") || u.username,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    res.json(users);
   } catch (err) {
+    console.error("Failed to fetch users from Keycloak:", err.message);
     res.status(500).json({ error: "Failed to fetch users" });
   }
 });
