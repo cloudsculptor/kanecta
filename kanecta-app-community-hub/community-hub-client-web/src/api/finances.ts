@@ -1,0 +1,94 @@
+import keycloak from "../auth/keycloak";
+
+const BASE = import.meta.env.VITE_API_URL ?? "";
+
+async function authFetch(path: string, init: RequestInit = {}) {
+  const token = keycloak.token;
+  const res = await fetch(`${BASE}${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init.headers,
+    },
+  });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.json();
+}
+
+export interface Transaction {
+  id: number;
+  date: string;
+  description: string;
+  amount: string;
+  type: "income" | "expense";
+  category: string;
+  reference: string | null;
+  created_by_name: string;
+  created_at: string;
+}
+
+export interface TransactionInput {
+  date: string;
+  description: string;
+  amount: number;
+  type: "income" | "expense";
+  category: string;
+  reference?: string;
+}
+
+export interface ReportRow {
+  type: "income" | "expense";
+  category: string;
+  total: string;
+}
+
+export const INCOME_CATEGORIES: Record<string, string> = {
+  membership:   "Membership contributions",
+  donation:     "Donations",
+  grant:        "Grants & funding",
+  interest:     "Interest received",
+  other_income: "Other income",
+};
+
+export const EXPENSE_CATEGORIES: Record<string, string> = {
+  hosting:        "Hosting & infrastructure",
+  domain:         "Domain registration",
+  software:       "Software & subscriptions",
+  administration: "Administration & office",
+  legal:          "Legal & professional fees",
+  insurance:      "Insurance",
+  bank_charges:   "Bank charges",
+  events:         "Events & meetings",
+  other_expense:  "Other expenditure",
+};
+
+export const ALL_CATEGORIES = { ...INCOME_CATEGORIES, ...EXPENSE_CATEGORIES };
+
+export function getTransactions(from?: string, to?: string): Promise<Transaction[]> {
+  const params = new URLSearchParams();
+  if (from) params.set("from", from);
+  if (to)   params.set("to", to);
+  const qs = params.toString();
+  return authFetch(`/api/finances/transactions${qs ? "?" + qs : ""}`);
+}
+
+export function createTransaction(data: TransactionInput): Promise<Transaction> {
+  return authFetch("/api/finances/transactions", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function updateTransaction(id: number, data: TransactionInput): Promise<Transaction> {
+  return authFetch(`/api/finances/transactions/${id}`, { method: "PUT", body: JSON.stringify(data) });
+}
+
+export function deleteTransaction(id: number): Promise<void> {
+  return authFetch(`/api/finances/transactions/${id}`, { method: "DELETE" });
+}
+
+export function getReports(from?: string, to?: string): Promise<ReportRow[]> {
+  const params = new URLSearchParams();
+  if (from) params.set("from", from);
+  if (to)   params.set("to", to);
+  const qs = params.toString();
+  return authFetch(`/api/finances/reports${qs ? "?" + qs : ""}`);
+}
