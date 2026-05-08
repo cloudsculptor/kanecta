@@ -34,35 +34,32 @@ const moderatorApp = makeApp(["moderator"]);
 
 afterEach(() => { mockQuery.mockReset(); mockFetch.mockReset(); });
 
-function mockKeycloakUsers(teamUsers = [], modUsers = []) {
+function mockKeycloakUsers(teamUsers = []) {
   const tokenRes = { ok: true, json: async () => ({ access_token: "test-token" }) };
   const teamRes = { ok: true, json: async () => teamUsers };
-  const modRes = { ok: true, json: async () => modUsers };
   mockFetch
     .mockResolvedValueOnce(tokenRes)
-    .mockResolvedValueOnce(teamRes)
-    .mockResolvedValueOnce(modRes);
+    .mockResolvedValueOnce(teamRes);
 }
 
 // ── Users ─────────────────────────────────────────────────────────────────────
 
 describe("GET /api/discussions/users", () => {
-  test("returns team and moderator users merged and sorted", async () => {
-    mockKeycloakUsers(
-      [{ id: "u1", firstName: "Jane", lastName: "Smith", username: "jane" }],
-      [{ id: "u2", firstName: "Bob", lastName: "Jones", username: "bob" }],
-    );
+  test("returns team users sorted by name", async () => {
+    mockKeycloakUsers([
+      { id: "u1", firstName: "Jane", lastName: "Smith", username: "jane" },
+      { id: "u2", firstName: "Bob", lastName: "Jones", username: "bob" },
+    ]);
     const res = await request(teamApp).get("/api/discussions/users");
     expect(res.status).toBe(200);
     expect(res.body.map((u) => u.name)).toEqual(["Bob Jones", "Jane Smith"]);
   });
 
-  test("deduplicates users in both roles", async () => {
-    const shared = { id: "u1", firstName: "Jane", lastName: "Smith", username: "jane" };
-    mockKeycloakUsers([shared], [shared]);
+  test("falls back to username when no first/last name", async () => {
+    mockKeycloakUsers([{ id: "u1", username: "alice" }]);
     const res = await request(teamApp).get("/api/discussions/users");
     expect(res.status).toBe(200);
-    expect(res.body).toHaveLength(1);
+    expect(res.body[0].name).toBe("alice");
   });
 
   test("500 on Keycloak error", async () => {
