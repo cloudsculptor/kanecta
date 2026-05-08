@@ -30,7 +30,7 @@ export default function FinancesTransactions() {
     if (!canView) return;
     getTransactions()
       .then(setTransactions)
-      .catch(() => setError("Failed to load transactions."))
+      .catch((err: Error) => setError(`Failed to load transactions: ${err.message}`))
       .finally(() => setLoading(false));
   }, [canView]);
 

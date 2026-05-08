@@ -10,8 +10,10 @@ const VALID_CATEGORIES = [
   "insurance", "bank_charges", "events", "other_expense",
 ];
 
+const wrap = fn => (req, res, next) => fn(req, res, next).catch(next);
+
 // ── List transactions (any authenticated user) ────────────────────────────────
-router.get("/transactions", requireAuth, async (req, res) => {
+router.get("/transactions", requireAuth, wrap(async (req, res) => {
   const { from, to } = req.query;
   let query = "SELECT * FROM finances_transactions";
   const params = [];
@@ -22,10 +24,10 @@ router.get("/transactions", requireAuth, async (req, res) => {
   query += " ORDER BY date DESC, id DESC";
   const { rows } = await pool.query(query, params);
   res.json(rows);
-});
+}));
 
 // ── Create transaction (treasurer only) ──────────────────────────────────────
-router.post("/transactions", requireAuth, requireRole("treasurer"), async (req, res) => {
+router.post("/transactions", requireAuth, requireRole("treasurer"), wrap(async (req, res) => {
   const { date, description, amount, type, category, reference } = req.body;
   if (!date || !description || !amount || !type || !category)
     return res.status(400).json({ error: "Missing required fields" });
@@ -41,10 +43,10 @@ router.post("/transactions", requireAuth, requireRole("treasurer"), async (req, 
      req.user.id, req.user.name]
   );
   res.status(201).json(rows[0]);
-});
+}));
 
 // ── Update transaction (treasurer only) ──────────────────────────────────────
-router.put("/transactions/:id", requireAuth, requireRole("treasurer"), async (req, res) => {
+router.put("/transactions/:id", requireAuth, requireRole("treasurer"), wrap(async (req, res) => {
   const { date, description, amount, type, category, reference } = req.body;
   if (!VALID_CATEGORIES.includes(category))
     return res.status(400).json({ error: "Invalid category" });
@@ -56,26 +58,25 @@ router.put("/transactions/:id", requireAuth, requireRole("treasurer"), async (re
   );
   if (!rows.length) return res.status(404).json({ error: "Not found" });
   res.json(rows[0]);
-});
+}));
 
 // ── Delete transaction (treasurer only) ──────────────────────────────────────
-router.delete("/transactions/:id", requireAuth, requireRole("treasurer"), async (req, res) => {
+router.delete("/transactions/:id", requireAuth, requireRole("treasurer"), wrap(async (req, res) => {
   const { rows } = await pool.query(
     "DELETE FROM finances_transactions WHERE id=$1 RETURNING id", [req.params.id]
   );
   if (!rows.length) return res.status(404).json({ error: "Not found" });
   res.json({ deleted: rows[0].id });
-});
+}));
 
 // ── Aggregated report data ────────────────────────────────────────────────────
-router.get("/reports", requireAuth, async (req, res) => {
+router.get("/reports", requireAuth, wrap(async (req, res) => {
   const { from, to } = req.query;
   const params = [];
   const conditions = [];
   if (from) { params.push(from); conditions.push(`date >= $${params.length}`); }
   if (to)   { params.push(to);   conditions.push(`date <= $${params.length}`); }
   const where = conditions.length ? "WHERE " + conditions.join(" AND ") : "";
-
   const { rows } = await pool.query(
     `SELECT type, category, SUM(amount)::NUMERIC(10,2) AS total
      FROM finances_transactions ${where}
@@ -83,6 +84,12 @@ router.get("/reports", requireAuth, async (req, res) => {
     params
   );
   res.json(rows);
+}));
+
+// ── Error handler for this router ─────────────────────────────────────────────
+router.use((err, req, res, _next) => {
+  console.error("[finances]", err.message);
+  res.status(500).json({ error: "Internal server error" });
 });
 
 export default router;
