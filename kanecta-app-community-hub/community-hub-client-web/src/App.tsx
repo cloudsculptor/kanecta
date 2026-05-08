@@ -23,6 +23,7 @@ import Roadmap from "./pages/Roadmap";
 import Constitution from "./pages/Constitution";
 import Roles from "./pages/Roles";
 import Values from "./pages/Values";
+import Purpose from "./pages/Purpose";
 import RoleCustodian from "./pages/RoleCustodian";
 import RoleVolunteer from "./pages/RoleVolunteer";
 
@@ -54,6 +55,7 @@ export default function App() {
       <Route path="/governance/constitution" element={<Constitution />} />
       <Route path="/governance/roles" element={<Roles />} />
       <Route path="/governance/values" element={<Values />} />
+      <Route path="/governance/purpose" element={<Purpose />} />
       <Route path="/governance/roles/custodian" element={<RoleCustodian />} />
       <Route path="/governance/roles/volunteer" element={<RoleVolunteer />} />
     </Routes>
