@@ -170,8 +170,9 @@ On cessation, all rights and privileges of membership cease immediately. The Soc
 
 . Ordinary and Voting Members are required to pay an annual membership contribution.
 . The current minimum annual contribution is **NZ$5 per person**.
-. The current maximum annual contribution that confers any additional benefit or influence is **NZ$20 per person or body corporate**.
+. The current maximum annual contribution that confers any additional benefit or influence is **NZ$100 per person or body corporate**.
 . Contributions are due annually on the anniversary of a member's joining date, or on 1 July each year if the Society adopts a common renewal date by resolution of the Committee.
+. The minimum and maximum contribution amounts may be adjusted by ordinary resolution at an Annual General Meeting. When considering any increase, the AGM must have regard to the principle that the maximum must not be set so high that any individual or body corporate could gain undue influence over the Society through financial contribution alone.
 
 ==== 7.2 Posting is Free
 
@@ -180,13 +181,13 @@ On cessation, all rights and privileges of membership cease immediately. The Soc
 
 ==== 7.3 Cap on Contributions — Anti-Capture Clause
 
-. The Society will not accept any single contribution from any individual, organisation, or funder exceeding NZ$20 per calendar year.
+. The Society will not accept any single contribution from any individual, organisation, or funder exceeding NZ$100 per calendar year.
 . The Society will not accept advertising, sponsorship, or funding arrangements that could allow any contributor to claim editorial influence, naming rights, or preferential treatment.
 . This clause may not be amended without a special resolution passed by at least 75% of Voting Members at a general meeting, and a full explanation of the proposed amendment published to all members at least 30 days in advance.
 
 [TIP]
 ====
-*Design rationale:* This is the financial anti-capture clause. It directly implements the principle that "if you are not paying, you are the product" — but its inversion: by capping what anyone can pay, we ensure no one can buy influence. A $20 contribution from a large charity carries exactly the same weight as $20 from a pensioner. The $20 cap is deliberately low enough that it represents genuine participation, not investment. The reason both the free posting clause and the cap clause require a 75% supermajority to amend is that these are foundational to the Society's kaupapa — they should not be changed lightly or quietly.
+*Design rationale:* This is the financial anti-capture clause. It directly implements the principle that "if you are not paying, you are the product" — but its inversion: by capping what anyone can pay, we ensure no one can buy influence. A $100 contribution from a large charity carries exactly the same weight as $100 from a pensioner. The cap is deliberately set at a level that represents genuine participation, not investment. The AGM may adjust amounts over time (for example to keep pace with inflation), but must always apply the anti-capture principle when doing so. The reason both the free posting clause and the cap clause require a 75% supermajority to amend is that these are foundational to the Society's kaupapa — they should not be changed lightly or quietly.
 ====
 
 ---
@@ -618,7 +619,7 @@ The following items require decisions by the founding members before this consti
 
 . **Society name** — Confirm "Featherston Inc" or choose an alternative.
 . **Surplus assets recipient** (clause 23) — ✅ Confirmed: Featherston Community Board.
-. **Bootstrap model** (clause 18) — ✅ Confirmed: appointed founding board, two-year sunset, dissolution if threshold not reached.
+. **Bootstrap model** (clause 18) — ✅ Confirmed: appointed founding board, one-year sunset, dissolution if threshold not reached.
 . **Schedule 1** — Fill in the full legal names of Custodian A–E before submission.
 . **Minimum contribution amount** (clause 7.1) — Confirm NZ$5 or adjust.
 . **Financial year** — Confirm 1 July–28 June or adjust.
