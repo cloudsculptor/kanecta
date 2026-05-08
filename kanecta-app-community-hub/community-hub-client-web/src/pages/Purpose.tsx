@@ -33,6 +33,9 @@ export default function Purpose() {
       <h3>Mission</h3>
       <p className="gov-lead">A community-owned digital platform, holding featherston.co.nz in permanent trust for all residents of Featherston.</p>
 
+      <h3 className="constitution-section-heading">Vision</h3>
+      <p className="gov-lead">Featherston has a trusted, permanent digital home — community-governed, impossible to capture, and still running long after the people who built it have moved on.</p>
+
       <h3 className="constitution-section-heading">What we're here to do</h3>
       <div className="values-list">
         {purposes.map(({ title, body }) => (
