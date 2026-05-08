@@ -116,7 +116,8 @@ export default function Discussions() {
   }, []);
 
   const handleNewThread = useCallback((data: unknown) => {
-    setThreads((prev) => [...prev, { ...(data as Thread), has_unread: false }]);
+    const thread = data as Thread;
+    setThreads((prev) => prev.some((t) => t.id === thread.id) ? prev : [...prev, { ...thread, has_unread: false }]);
   }, []);
 
   const handleReplyCount = useCallback((data: unknown) => {
@@ -189,7 +190,9 @@ export default function Discussions() {
   }
 
   async function createThread(name: string, description?: string) {
-    await api.threads.create(name, description);
+    const thread = await api.threads.create(name, description);
+    setThreads((prev) => prev.some((t) => t.id === thread.id) ? prev : [...prev, { ...thread, has_unread: false }]);
+    setActiveThreadId(thread.id);
   }
 
   function selectThread(id: string) {
