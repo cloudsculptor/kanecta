@@ -1,0 +1,41 @@
+= Financial Reporting
+:doctype: article
+
+This procedure covers how the Society's finances are managed, reported, and published. Radical financial transparency is a core commitment.
+
+== Day-to-day financial management
+
+* The Treasurer maintains accurate records of all income and expenditure.
+* All income (member contributions, any grants or donations) is recorded with the date, amount, and source.
+* All expenditure is recorded with the date, amount, payee, and purpose.
+* Receipts and invoices are retained for at least seven years.
+* Withdrawals above NZ$500 require authorisation from the Treasurer plus at least one Custodian Board member.
+
+== Quarterly reporting
+
+Within 30 days of the end of each quarter, the Treasurer publishes a brief financial report covering:
+
+* Total income received during the quarter, broken down by type
+* Total expenditure during the quarter, broken down by category
+* Opening and closing bank balance
+* Any unusual items or matters requiring Voting Member attention
+
+The report is published publicly on the site and presented at the next Board meeting.
+
+== Annual accounts
+
+At year end, the Treasurer prepares full annual financial statements including:
+
+* Income and expenditure statement for the year
+* Balance sheet as at year end
+* Notes explaining any significant items
+
+The annual statements are presented at the AGM and published publicly.
+
+== Audit and review
+
+The Custodian Board determines each year whether the accounts require an independent review or audit, having regard to the size of the Society's funds and any legal requirements under the Incorporated Societies Act 2022.
+
+== Contribution cap compliance
+
+The Society accepts contributions of no more than NZ$20 per person or organisation per year. The Treasurer monitors contributions and flags any that approach or exceed this cap. Any excess is returned promptly.
