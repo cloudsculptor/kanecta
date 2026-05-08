@@ -104,6 +104,7 @@ export default function AboutThisSite() {
         spending.
       </p>
       <p><Link to="/governance" className="roadmap-item__learn-more">See governance →</Link></p>
+      <p><Link to="/volunteering" className="roadmap-item__learn-more">Get involved →</Link></p>
     </PageLayout>
   );
 }
