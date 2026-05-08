@@ -84,6 +84,11 @@ export default function Governance() {
       </div>
 
       <div className="gov-links">
+        <Link to="/governance/procedures" className="gov-links__item">
+          <span className="gov-links__title">Procedures</span>
+          <span className="gov-links__desc">Step-by-step guides for moderation, IT, meetings, and legal obligations</span>
+          <span className="gov-links__arrow">→</span>
+        </Link>
         <Link to="/governance/policies" className="gov-links__item">
           <span className="gov-links__title">Policies</span>
           <span className="gov-links__desc">Bylaws and guidelines for custodians and volunteers</span>

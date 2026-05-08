@@ -1,0 +1,40 @@
+= Backup and Recovery
+:doctype: article
+
+This procedure covers how the site's data is backed up and how it is restored if something goes wrong.
+
+== What must be backed up
+
+* The database (all community content, member records, discussions)
+* The codebase (version-controlled in the public repository — this is the backup)
+* Configuration and environment settings (stored securely, separate from the code)
+* Any uploaded media or files
+
+== Backup frequency and retention
+
+* Database: automated daily backups, retained for 30 days.
+* Configuration: backed up whenever changed, retained indefinitely.
+* Backups are stored in at least two geographically separate locations.
+
+== Testing backups
+
+Backups are only useful if they actually work. The administrator tests recovery from backup at least once every six months by:
+
+. Restoring a backup to a test environment.
+. Verifying that the site runs correctly from the restored data.
+. Documenting the test result and the time taken.
+
+== Recovery procedure
+
+If data loss or corruption occurs:
+
+. Identify the scope of the loss — what data, covering what time period.
+. Identify the most recent clean backup.
+. Notify the Custodian Board and volunteers of the situation before beginning recovery.
+. Restore to the test environment first to confirm the backup is good.
+. Restore to production.
+. Communicate publicly what happened and what data (if any) was lost.
+
+== Open source as a continuity mechanism
+
+The site's codebase is published under an open source licence. In the event that the Society ceases to operate or loses access to its infrastructure, any member of the community can take the codebase and rebuild the site elsewhere. This is intentional — community knowledge should not be locked up in any single organisation's infrastructure.
