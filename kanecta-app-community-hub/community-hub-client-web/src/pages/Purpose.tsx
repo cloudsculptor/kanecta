@@ -30,6 +30,8 @@ const purposes = [
 export default function Purpose() {
   return (
     <PageLayout pageName="Purpose" showComingSoon={false} parents={[{ name: "Governance", path: "/governance" }]}>
+      <p className="gov-lead">A community-owned digital platform, holding featherston.co.nz in permanent trust for all residents of Featherston.</p>
+
       <div className="values-list">
         {purposes.map(({ title, body }) => (
           <div key={title} className="values-list__item">
