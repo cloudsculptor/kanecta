@@ -1,6 +1,8 @@
-import { jest, describe, test, expect, afterEach } from "@jest/globals";
+import { jest, describe, test, expect, afterEach, beforeEach } from "@jest/globals";
 
 const mockQuery = jest.fn();
+const mockFetch = jest.fn();
+global.fetch = mockFetch;
 
 jest.unstable_mockModule("../db.js", () => ({ default: { query: mockQuery } }));
 jest.unstable_mockModule("../middleware/auth.js", () => ({
@@ -30,20 +32,41 @@ function makeApp(roles = ["team"]) {
 const teamApp = makeApp(["team"]);
 const moderatorApp = makeApp(["moderator"]);
 
-afterEach(() => mockQuery.mockReset());
+afterEach(() => { mockQuery.mockReset(); mockFetch.mockReset(); });
+
+function mockKeycloakUsers(teamUsers = [], modUsers = []) {
+  const tokenRes = { ok: true, json: async () => ({ access_token: "test-token" }) };
+  const teamRes = { ok: true, json: async () => teamUsers };
+  const modRes = { ok: true, json: async () => modUsers };
+  mockFetch
+    .mockResolvedValueOnce(tokenRes)
+    .mockResolvedValueOnce(teamRes)
+    .mockResolvedValueOnce(modRes);
+}
 
 // ── Users ─────────────────────────────────────────────────────────────────────
 
 describe("GET /api/discussions/users", () => {
-  test("returns distinct users", async () => {
-    mockQuery.mockResolvedValueOnce({ rows: [{ id: "u1", name: "Jane Smith" }] });
+  test("returns team and moderator users merged and sorted", async () => {
+    mockKeycloakUsers(
+      [{ id: "u1", firstName: "Jane", lastName: "Smith", username: "jane" }],
+      [{ id: "u2", firstName: "Bob", lastName: "Jones", username: "bob" }],
+    );
     const res = await request(teamApp).get("/api/discussions/users");
     expect(res.status).toBe(200);
-    expect(res.body[0].name).toBe("Jane Smith");
+    expect(res.body.map((u) => u.name)).toEqual(["Bob Jones", "Jane Smith"]);
   });
 
-  test("500 on DB error", async () => {
-    mockQuery.mockRejectedValueOnce(new Error("db down"));
+  test("deduplicates users in both roles", async () => {
+    const shared = { id: "u1", firstName: "Jane", lastName: "Smith", username: "jane" };
+    mockKeycloakUsers([shared], [shared]);
+    const res = await request(teamApp).get("/api/discussions/users");
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+  });
+
+  test("500 on Keycloak error", async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 503 });
     const res = await request(teamApp).get("/api/discussions/users");
     expect(res.status).toBe(500);
   });
