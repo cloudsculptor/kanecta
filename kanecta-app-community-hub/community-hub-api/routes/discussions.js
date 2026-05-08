@@ -445,25 +445,36 @@ async function getKeycloakAdminToken() {
   return data.access_token;
 }
 
-async function getRoleMembers(token, role) {
-  const base = `${process.env.KEYCLOAK_URL || "https://auth.featherston.co.nz"}/admin/realms/${process.env.KEYCLOAK_REALM || "featherston"}`;
-  const res = await fetch(`${base}/roles/${role}/users?max=500`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) throw new Error(`Keycloak role members error: ${res.status}`);
-  return res.json();
-}
-
 router.get("/users", requireAuth, canAccess, async (req, res) => {
   try {
+    const base = `${process.env.KEYCLOAK_URL || "https://auth.featherston.co.nz"}/admin/realms/${process.env.KEYCLOAK_REALM || "featherston"}`;
     const token = await getKeycloakAdminToken();
-    const teamUsers = await getRoleMembers(token, "team");
-    const users = teamUsers
+
+    const allUsersRes = await fetch(`${base}/users?max=500`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!allUsersRes.ok) throw new Error(`Keycloak users error: ${allUsersRes.status}`);
+    const allUsers = await allUsersRes.json();
+
+    const withRoles = await Promise.all(
+      allUsers.map(async (u) => {
+        const r = await fetch(`${base}/users/${u.id}/role-mappings/realm`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!r.ok) return null;
+        const roles = await r.json();
+        return roles.some((role) => role.name === "team") ? u : null;
+      })
+    );
+
+    const users = withRoles
+      .filter(Boolean)
       .map((u) => ({
         id: u.id,
         name: [u.firstName, u.lastName].filter(Boolean).join(" ") || u.username,
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
+
     res.json(users);
   } catch (err) {
     console.error("Failed to fetch users from Keycloak:", err.message);
