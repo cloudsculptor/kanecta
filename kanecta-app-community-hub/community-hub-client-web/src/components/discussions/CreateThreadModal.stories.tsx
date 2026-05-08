@@ -21,21 +21,7 @@ export const Closed: Story = {
   args: { open: false },
 };
 
-/** Simulates the saving state — Create button shows "Creating…" and is disabled. */
-export const Saving: Story = {
-  args: {
-    onCreate: () => new Promise(() => {}),
-  },
-  play: async ({ canvas }) => {
-    const { userEvent } = await import("@storybook/test");
-    const nameInput = canvas.getByLabelText(/thread name/i);
-    await userEvent.type(nameInput, "Weekend Market");
-    const createBtn = canvas.getByRole("button", { name: /create/i });
-    await userEvent.click(createBtn);
-  },
-};
-
-/** onCreate resolves after a short delay — thread appears in list immediately on close. */
+/** onCreate resolves after a short delay — Create button shows "Creating…" while saving. */
 export const SlowCreate: Story = {
   args: {
     onCreate: async (name, desc) => {
