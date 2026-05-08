@@ -50,7 +50,6 @@ export default function FinancesExpenses() {
       <table className="fin-table">
         <thead>
           <tr>
-            <th className="fin-table__id">ID</th>
             <th>Supplier</th>
             <th>Description</th>
             <th>Category</th>
@@ -61,7 +60,6 @@ export default function FinancesExpenses() {
         <tbody>
           {rows.map(e => (
             <tr key={e.id} className="fin-table__row fin-table__row--expense">
-              <td className="fin-table__id" title={e.id}>{e.id.slice(0, 8)}…</td>
               <td>{e.supplier}</td>
               <td>
                 {e.url
@@ -102,6 +100,10 @@ export default function FinancesExpenses() {
           <div className="fin-expenses__annual-total">
             <span>Total annual cost (monthly × 12 + annual)</span>
             <span>{fmtNZD(String(totalAnnualNZD))}</span>
+          </div>
+          <div className="fin-expenses__subtotal" style={{ marginTop: "0.5rem" }}>
+            <span>Average monthly cost</span>
+            <span>{fmtNZD(String(Math.round(totalAnnualNZD / 12 * 100) / 100))}</span>
           </div>
         </>
       )}
