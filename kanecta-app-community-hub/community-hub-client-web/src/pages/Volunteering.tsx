@@ -1,6 +1,14 @@
+import { useState } from "react";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import Button from "@mui/material/Button";
 import PageLayout from "../components/PageLayout";
 
 export default function Volunteering() {
+  const [open, setOpen] = useState(false);
+
   return (
     <PageLayout pageName="Volunteering" showComingSoon={false}>
       <p className="gov-lead">
@@ -34,9 +42,9 @@ export default function Volunteering() {
           <p className="vol-card__note">
             Putting your name forward doesn't mean you'll be selected — selection is by random lot from everyone who is willing. But we can't have a functioning board without people in the pool.
           </p>
-          <a href="mailto:hello@featherston.co.nz?subject=Custodian Board pool" className="vol-card__cta">
+          <button className="vol-card__cta" onClick={() => setOpen(true)}>
             Put my name forward →
-          </a>
+          </button>
         </div>
 
         <div className="vol-card">
@@ -63,12 +71,26 @@ export default function Volunteering() {
             <li>Kindness and the ability to work well with others</li>
             <li>Any skill level welcome — there's something meaningful for everyone</li>
           </ul>
-          <a href="mailto:hello@featherston.co.nz?subject=Volunteering" className="vol-card__cta">
+          <button className="vol-card__cta" onClick={() => setOpen(true)}>
             Get in touch →
-          </a>
+          </button>
         </div>
 
       </div>
+
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Coming soon</DialogTitle>
+        <DialogContent>
+          <p style={{ margin: 0 }}>
+            Online sign-up isn't available just yet. In the meantime, drop us a line at{" "}
+            <a href="mailto:hello@featherston.co.nz">hello@featherston.co.nz</a> and we'll be in touch.
+          </p>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
     </PageLayout>
   );
 }
