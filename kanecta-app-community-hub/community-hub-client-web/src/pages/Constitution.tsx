@@ -275,7 +275,7 @@ export default function Constitution() {
 
       <h3 className="constitution-section-heading">Draft Constitution</h3>
       <p>
-        This is the proposed constitution of Featherston Inc, prepared in accordance with the
+        This is the proposed constitution, prepared in accordance with the
         Incorporated Societies Act 2022. It is currently a draft — circulated for community
         consultation and not yet submitted for registration.
       </p>

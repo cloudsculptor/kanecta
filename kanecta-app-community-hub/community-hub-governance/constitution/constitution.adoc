@@ -17,13 +17,6 @@
 
 This section is not legally required but provides important context for members, the public, and the Registrar about why this Society exists.
 
-=== Origin Story
-
-In early 2025, a small group of Featherston residents attended a community hui concerned with resilience — how our town might fare if global disruptions to oil supply, trade, or infrastructure significantly changed daily life. From that gathering, working groups formed around different themes: food, health, transport, and communications.
-
-One participant — a software developer by trade — began building a website to centralise information from all these groups. In doing so, he noticed that the domain name `featherston.co.nz` was available. In New Zealand, a `.co.nz` domain is considered the most authoritative and recognisable address for a person, business, or community — comparable to `.com` internationally. For a town of approximately 2,500–3,000 people, holding this domain is a meaningful responsibility.
-
-After reflection, the developer concluded that it would be inappropriate to dedicate that domain exclusively to one small interest group — however well-intentioned — when it could serve the entire community. This Society is the legal and governance vehicle to ensure the domain, the website, and the community information it contains are held in perpetuity for all residents of Featherston, not any individual or special interest group.
 
 [TIP]
 ====
