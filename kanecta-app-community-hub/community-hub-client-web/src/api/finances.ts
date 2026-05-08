@@ -86,6 +86,22 @@ export function deleteTransaction(id: string): Promise<void> {
   return authFetch(`/api/finances/transactions/${id}`, { method: "DELETE" });
 }
 
+export interface Expense {
+  id: string;
+  supplier: string;
+  description: string;
+  category: string;
+  frequency: "monthly" | "annual";
+  currency: string;
+  amount: string;
+  nzd_amount: string;
+  url: string | null;
+}
+
+export function getExpenses(): Promise<Expense[]> {
+  return authFetch("/api/finances/expenses");
+}
+
 export function getReports(from?: string, to?: string): Promise<ReportRow[]> {
   const params = new URLSearchParams();
   if (from) params.set("from", from);

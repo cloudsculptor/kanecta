@@ -94,6 +94,14 @@ router.get("/reports", requireAuth, wrap(async (req, res) => {
   res.json(rows);
 }));
 
+// ── Expenses (recurring) ─────────────────────────────────────────────────────
+router.get("/expenses", requireAuth, wrap(async (req, res) => {
+  const { rows } = await pool.query(
+    "SELECT * FROM finances_expenses ORDER BY frequency, supplier, description"
+  );
+  res.json(rows);
+}));
+
 // ── Error handler for this router ─────────────────────────────────────────────
 router.use((err, req, res, _next) => {
   console.error("[finances]", err.message);

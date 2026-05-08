@@ -2986,6 +2986,48 @@ $bp-tablet: 768px;
     color: var(--accent);
   }
 }
+.fin-expenses {
+  &__freq-heading {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-h);
+    margin: 1.5rem 0 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    font-size: 12px;
+    opacity: 0.5;
+  }
+
+  &__subtotal {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-h);
+    border-top: 1px solid var(--border);
+    margin-bottom: 0.5rem;
+  }
+
+  &__annual-total {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-h);
+    border-top: 2px solid var(--text-h);
+    margin-top: 1.5rem;
+  }
+}
+
+.fin-table__currency {
+  font-size: 11px;
+  font-weight: 400;
+  opacity: 0.6;
+  margin-left: 2px;
+}
+
 // ── End finances ──────────────────────────────────────────────────────────────
 
 // ── End governance page ───────────────────────────────────────────────────────
