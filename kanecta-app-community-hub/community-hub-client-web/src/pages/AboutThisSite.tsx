@@ -1,8 +1,11 @@
 import { Link } from "react-router-dom";
 import Tooltip from "@mui/material/Tooltip";
 import PageLayout from "../components/PageLayout";
+import { useUserRole } from "../auth/useUserRole";
 
 export default function AboutThisSite() {
+  const role = useUserRole();
+  const canViewGovernance = role === "TEAM" || role === "MODERATOR" || role === "TREASURER";
   return (
     <PageLayout pageName="About this site" showComingSoon={false}>
       <p>
@@ -103,7 +106,7 @@ export default function AboutThisSite() {
         you want to shape this site, you do it by participating — not by
         spending.
       </p>
-      <p><Link to="/governance" className="roadmap-item__learn-more">See governance →</Link></p>
+      {canViewGovernance && <p><Link to="/governance" className="roadmap-item__learn-more">See governance →</Link></p>}
       <p><Link to="/volunteering" className="roadmap-item__learn-more">Get involved →</Link></p>
     </PageLayout>
   );
