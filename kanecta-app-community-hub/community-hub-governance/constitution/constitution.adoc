@@ -88,7 +88,7 @@ Under s.26(1)(b) of the 2022 Act, the constitution must state the Society's purp
 
 === 3. Categories of Membership
 
-The Society has three categories of membership:
+The Society has four categories of membership:
 
 ==== 3.1 Ordinary Members
 
@@ -111,7 +111,7 @@ A Voting Member is an Ordinary Member who additionally:
 . Has a residential address within the **Featherston Ward** of the South Wairarapa District, as defined by the Local Government Commission under the Local Government Act 2002 (Representation Plan SO 36000); and
 . Has been an Ordinary Member for at least 30 continuous days; and
 . Has made the minimum annual financial contribution (see clause 7) within the last 12 months; and
-. Has consented to being called upon to participate in governance activities, including but not limited to: serving on the Custodian Board if selected by sortition, volunteering, or attending general meetings; and
+. Has consented to participate in governance activities, including attending general meetings and volunteering; and
 . Is a natural person (i.e., not a company, trust, or other body corporate).
 
 There are no exceptions to the Featherston Ward residency requirement for Voting Membership. Ordinary Membership remains open to anyone with a demonstrable connection to the area (see clause 3.1).
@@ -126,6 +126,20 @@ The Featherston Ward boundary is a statutory boundary defined by the Local Gover
 *Design rationale:* Voting rights are restricted to genuine Featherston Ward residents because this Society exists to serve that community specifically. There are no exceptions — if you do not live in the Ward, you cannot vote. This is a hard line, not a guideline. Ordinary Membership is deliberately broader (open to anyone with a connection to the area), but voting power belongs only to those who actually live here. This prevents the most common attack on community organisations: importing voters from outside the community to capture governance.
 
 The Ward boundary was chosen over alternatives (postcodes, Stats NZ urban area, distance radius) because it is statutory, officially mapped, used across multiple NZ government systems, and verifiable without ambiguity. See Appendix E for the full analysis.
+====
+
+==== 3.3 Participant Members
+
+A Participant Member is a Voting Member who has additionally opted in to be eligible for selection to the Custodian Board by sortition.
+
+. Participant Membership requires no additional fee or qualification beyond Voting Membership.
+. Any Voting Member may become a Participant Member by notifying the Secretary in writing (including electronically) of their consent to be included in the sortition pool.
+. A Participant Member may withdraw their consent at any time by notifying the Secretary, upon which they revert to Voting Member status.
+. Only Participant Members are eligible for sortition selection to the Custodian Board (see clause 9.4).
+
+[TIP]
+====
+*Design rationale:* Separating sortition eligibility from voting rights reflects that serving on the Custodian Board is a real commitment — attending meetings, collective decision-making, and legal responsibility. By requiring an explicit opt-in, the Society ensures that everyone in the sortition pool has genuinely consented to that role, not merely to voting or attending AGMs. All Voting Members may still vote; only those who raise their hand can be drawn.
 ====
 
 === 4. How to Become a Member
@@ -198,7 +212,7 @@ On cessation, all rights and privileges of membership cease immediately. The Soc
 
 The Society is governed by a Committee of five persons, known as the **Custodian Board**. The Custodian Board is the sole governing body of the Society, collectively responsible for all governance, operations, and oversight. The Committee also includes Contact Persons as required by law.
 
-. **The Custodian Board** (5 persons) — selected by sortition (random lot) from eligible Voting Members; and
+. **The Custodian Board** (5 persons) — selected by sortition (random lot) from eligible Participant Members; and
 . **Contact Person(s)** (1–3 persons) — appointed by the Committee, responsible for liaising with the Registrar.
 
 [NOTE]
@@ -237,7 +251,7 @@ The Custodian Board may:
 
 ==== 9.2 Selection by Sortition
 
-. The Custodian Board is selected by random lot (sortition) from the pool of eligible Voting Members.
+. The Custodian Board is selected by random lot (sortition) from the pool of eligible Participant Members.
 . Selection occurs at each AGM (or when vacancies arise mid-term under clause 9.6).
 . Each member of the Custodian Board serves a term of one year.
 . No person may serve on the Custodian Board for more than two consecutive terms.
@@ -246,8 +260,8 @@ The Custodian Board may:
 
 The sortition process is as follows:
 
-. At least 30 days before the AGM, the Secretary publishes a call for Custodian Board nominations to all Voting Members.
-. Any eligible Voting Member may put their name forward for sortition selection.
+. At least 30 days before the AGM, the Secretary publishes a call for Custodian Board nominations to all members, noting that only Participant Members are eligible.
+. Any eligible Participant Member may put their name forward for sortition selection.
 . At the AGM (or by a verifiable digital process if the AGM is held online), names are drawn by lot in a transparent manner witnessed by at least two Voting Members who are not standing for selection.
 . The first five names drawn (who are present or have confirmed availability) are appointed to the Custodian Board.
 . If fewer than five nominations are received, the Custodian Board operates with the number available until the next AGM, subject to the minimum quorum requirements in clause 9.5.
@@ -261,7 +275,7 @@ The sortition process is as follows:
 
 A person is eligible for sortition selection to the Custodian Board if they:
 
-. Are a Voting Member; and
+. Are a Participant Member; and
 . Have been a Voting Member for at least 3 months; and
 . Are not currently serving a second consecutive term on the Custodian Board; and
 . Are not otherwise disqualified under the 2022 Act.
@@ -290,7 +304,7 @@ Under s.26(1)(f)(iii) of the 2022 Act, the constitution must specify quorum and 
 
 ==== 9.6 Vacancy
 
-If a position on the Custodian Board becomes vacant between AGMs (by resignation, removal, or incapacity), the remaining Board members shall invite a replacement from among eligible Voting Members by consensus, to serve until the next AGM. If the vacancy reduces the Board to fewer than three members, the Board must call a Special General Meeting within 30 days to conduct a supplementary sortition.
+If a position on the Custodian Board becomes vacant between AGMs (by resignation, removal, or incapacity), the remaining Board members shall invite a replacement from among eligible Participant Members by consensus, to serve until the next AGM. If the vacancy reduces the Board to fewer than three members, the Board must call a Special General Meeting within 30 days to conduct a supplementary sortition.
 
 ---
 
