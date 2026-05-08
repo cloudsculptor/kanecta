@@ -81,16 +81,30 @@ export const WithMentionAndUrl: Story = {
   },
 };
 
-function daysAgo(n: number) {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString();
+function hoursAgo(n: number) {
+  return new Date(Date.now() - n * 3_600_000).toISOString();
 }
 
-export const OneDayOld: Story = {
-  args: { message: { ...base, created_at: daysAgo(1) } },
+function daysAgo(n: number) {
+  return new Date(Date.now() - n * 86_400_000).toISOString();
+}
+
+export const TwoHoursOld: Story = {
+  args: { message: { ...base, created_at: hoursAgo(2) } },
 };
 
-export const ThirtyFourDaysOld: Story = {
-  args: { message: { ...base, created_at: daysAgo(34) } },
+export const ThreeDaysOld: Story = {
+  args: { message: { ...base, created_at: daysAgo(3) } },
+};
+
+export const TwoWeeksOld: Story = {
+  args: { message: { ...base, created_at: daysAgo(14) } },
+};
+
+export const ThreeMonthsOld: Story = {
+  args: { message: { ...base, created_at: daysAgo(90) } },
+};
+
+export const TwoYearsOld: Story = {
+  args: { message: { ...base, created_at: daysAgo(730) } },
 };
