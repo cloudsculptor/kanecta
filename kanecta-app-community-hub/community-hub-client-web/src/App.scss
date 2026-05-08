@@ -2721,9 +2721,11 @@ $bp-tablet: 768px;
     font-size: 15px;
     font-weight: 600;
     border-radius: 8px;
-    text-decoration: none;
+    border: none;
+    cursor: pointer;
     align-self: flex-start;
     transition: opacity 0.15s;
+    font-family: inherit;
 
     &:hover { opacity: 0.88; }
   }
