@@ -35,7 +35,7 @@ router.get("/threads", requireAuth, canAccess, async (req, res) => {
        LEFT JOIN discussions_thread_reads r ON r.thread_id = t.id AND r.user_id = $1
        LEFT JOIN thread_notification_subscriptions tns ON tns.thread_id = t.id AND tns.user_id = $1
        WHERE t.archived_at IS NULL
-       ORDER BY t.sort_order ASC, t.name ASC`,
+       ORDER BY t.sort_order ASC NULLS LAST, t.name ASC`,
       [req.user.id]
     );
     res.json(rows);
