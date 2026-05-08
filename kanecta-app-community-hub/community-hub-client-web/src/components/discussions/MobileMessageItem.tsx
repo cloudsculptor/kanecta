@@ -21,6 +21,13 @@ function avatar(name: string) {
   return name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
 }
 
+function formatTooltip(iso: string) {
+  return new Date(iso).toLocaleString("en-NZ", {
+    weekday: "long", day: "numeric", month: "long", year: "numeric",
+    hour: "numeric", minute: "2-digit",
+  });
+}
+
 function formatTime(iso: string) {
   const d = new Date(iso);
   const time = d.toLocaleTimeString("en-NZ", { hour: "numeric", minute: "2-digit" });
@@ -126,7 +133,7 @@ export default function MobileMessageItem({
         <div className="discussions-message__body">
           <div className="discussions-message__meta">
             <span className="discussions-message__author">{message.user_name}</span>
-            <span className="discussions-message__time">{formatTime(message.created_at)}</span>
+            <span className="discussions-message__time" title={formatTooltip(message.created_at)}>{formatTime(message.created_at)}</span>
             {message.edited_at && <span className="discussions-message__edited">(edited)</span>}
           </div>
 
