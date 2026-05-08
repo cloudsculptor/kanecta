@@ -21,7 +21,15 @@ router.get("/transactions", requireAuth, wrap(async (req, res) => {
   if (from) { params.push(from); conditions.push(`date >= $${params.length}`); }
   if (to)   { params.push(to);   conditions.push(`date <= $${params.length}`); }
   if (conditions.length) query += " WHERE " + conditions.join(" AND ");
-  query += " ORDER BY date ASC, sort_order ASC, id ASC";
+  query = `
+    SELECT t.*, COUNT(tf.file_id)::int AS file_count
+    FROM (${query}) t
+    LEFT JOIN finances_transaction_files tf ON tf.transaction_id = t.id
+    GROUP BY t.id, t.date, t.description, t.amount, t.type, t.category,
+             t.reference, t.sort_order, t.created_by_id, t.created_by_name,
+             t.created_at, t.updated_at, t.uuid
+    ORDER BY t.date ASC, t.sort_order ASC, t.id ASC
+  `;
   const { rows } = await pool.query(query, params);
   res.json(rows);
 }));

@@ -2961,6 +2961,29 @@ $bp-tablet: 768px;
     opacity: 0.4;
     font-style: italic;
   }
+
+  &__files { width: 32px; text-align: center; }
+
+  &__file-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text);
+    opacity: 0.45;
+    padding: 2px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-family: inherit;
+    border-radius: 4px;
+    &:hover { opacity: 1; color: var(--accent); }
+  }
+
+  &__file-count {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+  }
 }
 // ── End finances ──────────────────────────────────────────────────────────────
 
