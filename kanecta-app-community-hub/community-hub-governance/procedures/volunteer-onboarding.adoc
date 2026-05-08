@@ -1,0 +1,40 @@
+= Volunteer Onboarding
+:doctype: article
+
+This procedure covers how new volunteers are welcomed and given the access they need to contribute effectively.
+
+== Before they start
+
+. Confirm the person is a current Voting Member (contribution of NZ$5+ in the past 12 months).
+. Ask them what they'd like to work on and what skills they're bringing.
+. Assign a point of contact from the existing volunteer team — someone who will check in with them in their first few weeks.
+
+== Granting access
+
+Access should be granted based on what the volunteer actually needs. Do not grant more access than required.
+
+. *Site content access* — provided to all volunteers via the site's contributor tools.
+. *Code repository access* — granted to volunteers working on the codebase.
+. *Shared documents and task tracking* — granted to all volunteers.
+. *Social media or communication channels* — granted to volunteers taking on communication responsibilities.
+. *Financial systems* — granted only to the Treasurer and with Custodian Board approval.
+
+All access grants must be logged with the volunteer's name, the access level granted, and the date.
+
+== First week
+
+. The point of contact introduces the new volunteer to the rest of the team.
+. The new volunteer is given a brief tour of active work in progress and any relevant context.
+. The volunteer starts with something small and well-defined — a task they can complete and see the result of quickly.
+
+== Ongoing
+
+. There is no formal probation period. Volunteers are trusted from the start.
+. The point of contact checks in informally after two weeks and again after a month.
+. If a volunteer is struggling or unsure, the expectation is that they ask — and that the team responds helpfully.
+
+== If a volunteer steps back
+
+. The volunteer notifies the team and agrees a reasonable handover timeline.
+. All access is revoked promptly after handover is complete.
+. Access revocations are logged.

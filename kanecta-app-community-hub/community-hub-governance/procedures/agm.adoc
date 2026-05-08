@@ -1,0 +1,52 @@
+= Annual General Meeting (AGM)
+:doctype: article
+
+This procedure covers how the AGM is planned, run, and recorded. The AGM is the Society's primary democratic event and must be conducted properly.
+
+== Legal requirements
+
+Under the Incorporated Societies Act 2022, the Society must hold an AGM within six months of the end of each financial year. The AGM must:
+
+* Receive the annual financial statements
+* Receive the Custodian Board's report on the year
+* Conduct sortition to select the incoming Custodian Board
+* Appoint officers for the coming year (Secretary, Treasurer, Contact Persons)
+* Transact any other business of which proper notice has been given
+
+== Timeline
+
+[cols="1,3"]
+|===
+| 8 weeks before | Set the date and book a venue (physical or online)
+| 6 weeks before | Publish notice of the AGM to all Voting Members
+| 4 weeks before | Publish the agenda, financial statements, and Board report
+| 30 days before | Open nominations for Custodian Board sortition pool
+| 7 days before | Close nominations; confirm sortition pool
+| AGM day | Run the meeting per the agenda below
+| 14 days after | Publish minutes to all members
+|===
+
+== Running the meeting
+
+. Open the meeting and confirm quorum (at least the number of Voting Members required by the constitution for a valid AGM).
+. Confirm the agenda.
+. Receive and note the financial statements.
+. Receive and note the Board's annual report.
+. Conduct sortition — draw five names from the confirmed pool of nominees.
+. Appoint officers for the coming year.
+. Transact any other notified business.
+. Close the meeting.
+
+== Sortition procedure
+
+. The nominations list is read aloud and confirmed.
+. Names are written on identical slips of paper (or a verified digital equivalent) and mixed thoroughly.
+. A member who is not a nominee draws five names.
+. Each drawn name is read aloud and confirmed as willing and available to serve.
+. If a drawn person is unavailable, draw again until five confirmed members are selected.
+
+== Minutes
+
+Minutes must record: who attended, the financial statements received, the results of sortition (names of incoming Board), officers appointed, and any resolutions passed.
+
+Minutes are published to all members within 14 days and retained permanently.
