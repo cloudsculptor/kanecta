@@ -17,12 +17,6 @@
 
 This section is not legally required but provides important context for members, the public, and the Registrar about why this Society exists.
 
-
-[TIP]
-====
-*Design rationale:* Most community websites fade, get taken over, or become captured by whoever controls the hosting account. The purpose of this Society is to make that structurally impossible. Open governance, open finances, open source code, and open data are the four pillars preventing capture.
-====
-
 === Our Kaupapa (Guiding Principles)
 
 The Society is guided by the following principles, which inform every clause of this constitution:
@@ -43,7 +37,7 @@ The Society is guided by the following principles, which inform every clause of 
 The name of the Society is:
 
 ****
-*Featherston Inc*
+*Featherston Inc* (placeholder name)
 ****
 
 [NOTE]
@@ -405,17 +399,13 @@ The five persons named in Schedule 1 are hereby appointed as the founding Custod
 
 The founding Board serves for one year from the date of registration, or until the Society has sufficient Voting Members to hold a valid Annual General Meeting under Clause 14 and conduct a first sortition under Clause 9.3 — whichever comes first. When that threshold is reached, the founding Board must call an AGM within 30 days and conduct the first sortition.
 
-==== 18.3 Year Two (if threshold not reached)
+==== 18.3 Dissolution if Threshold Not Reached by Year One
 
-If, at the end of the first year, the Society has not yet reached the membership threshold required for a valid AGM, the founding Board may collectively appoint a second Custodian Board of five persons to serve for a further year. The second Board need not consist of any members of the founding Board. The second Board is bound by this constitution and assumes full responsibility for the Society's compliance with the 2022 Act.
+If, at the end of the first year, the Society has not yet reached the membership threshold required for a valid AGM, the founding Board must pass a resolution to wind up the Society. The winding up must be conducted in accordance with the 2022 Act, and any surplus assets distributed in accordance with Clause 23.
 
-==== 18.4 Dissolution if Threshold Not Reached by Year Two
+==== 18.4 Legal Responsibility During Bootstrap
 
-If, at the end of the second year, the Society still has not reached the membership threshold required for a valid AGM, the Board then serving must pass a resolution to wind up the Society. The winding up must be conducted in accordance with the 2022 Act, and any surplus assets distributed in accordance with Clause 23.
-
-==== 18.5 Legal Responsibility During Bootstrap
-
-The founding Board members named in Schedule 1 accept collective legal responsibility for the Society's compliance with the 2022 Act for the duration of Year One. Members of any second Board appointed under clause 18.3 accept the same responsibility for Year Two.
+The founding Board members named in Schedule 1 accept collective legal responsibility for the Society's compliance with the 2022 Act for the duration of Year One.
 
 [NOTE]
 ====
@@ -424,7 +414,7 @@ Under s.26 of the 2022 Act, constitutions must specify how the committee is appo
 
 [TIP]
 ====
-*Design rationale:* A sortition-based society cannot sort before it has members. This clause solves that problem honestly and with defined accountability. The two-year sunset with automatic dissolution is intentional: if the Society cannot attract enough engaged community members within two years to hold a valid meeting, it has failed its fundamental purpose and should not continue in legal existence. The domain and other assets would transfer to the Featherston Community Board under Clause 25.
+*Design rationale:* A sortition-based society cannot sort before it has members. This clause solves that problem honestly and with defined accountability. The one-year sunset with automatic dissolution is intentional: if the Society cannot attract enough engaged community members within a year to hold a valid meeting, it has failed its fundamental purpose and should not continue in legal existence. The domain and other assets would transfer to the Featherston Community Board under Clause 25.
 ====
 
 ---
