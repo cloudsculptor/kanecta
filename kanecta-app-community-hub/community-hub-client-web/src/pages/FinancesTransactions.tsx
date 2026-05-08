@@ -10,7 +10,7 @@ const PARENTS = [{ name: "Governance", path: "/governance" }, { name: "Finances"
 
 const EMPTY: TransactionInput = { date: "", description: "", amount: 0, type: "income", category: "membership", reference: "" };
 
-function fmt(amount: string) {
+function fmt(amount: string | number) {
   return new Intl.NumberFormat("en-NZ", { style: "currency", currency: "NZD" }).format(Number(amount));
 }
 
@@ -121,39 +121,54 @@ export default function FinancesTransactions() {
         </form>
       )}
 
-      {loading ? <p>Loading…</p> : (
-        <table className="fin-table">
-          <thead>
-            <tr>
-              <th>Date</th><th>Description</th><th>Category</th><th>Reference</th>
-              <th className="fin-table__amount">Amount</th>
-              {isTreasurer && <th></th>}
-            </tr>
-          </thead>
-          <tbody>
-            {transactions.length === 0 && (
-              <tr><td colSpan={isTreasurer ? 6 : 5} className="fin-table__empty">No transactions recorded yet.</td></tr>
-            )}
-            {transactions.map(t => (
-              <tr key={t.id} className={`fin-table__row fin-table__row--${t.type}`}>
-                <td className="fin-table__date">{t.date.slice(0, 10)}</td>
-                <td>{t.description}</td>
-                <td className="fin-table__cat">{ALL_CATEGORIES[t.category] ?? t.category}</td>
-                <td className="fin-table__ref">{t.reference ?? ""}</td>
-                <td className={`fin-table__amount fin-table__amount--${t.type}`}>
-                  {t.type === "expense" ? "−" : "+"}{fmt(t.amount)}
-                </td>
-                {isTreasurer && (
-                  <td className="fin-table__actions">
-                    <button onClick={() => startEdit(t)} className="fin-table__btn">Edit</button>
-                    <button onClick={() => handleDelete(t.id)} className="fin-table__btn fin-table__btn--del">Delete</button>
-                  </td>
-                )}
+      {loading ? <p>Loading…</p> : (() => {
+        // Calculate running balance oldest→newest, then display newest→oldest
+        const sorted = [...transactions].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.id - b.id);
+        let running = 0;
+        const withBalance = sorted.map(t => {
+          running += t.type === "income" ? Number(t.amount) : -Number(t.amount);
+          return { ...t, balance: running };
+        });
+        const rows = withBalance.slice().reverse();
+        const cols = isTreasurer ? 7 : 6;
+        return (
+          <table className="fin-table">
+            <thead>
+              <tr>
+                <th>Date</th><th>Description</th><th>Category</th><th>Reference</th>
+                <th className="fin-table__amount">Amount</th>
+                <th className="fin-table__amount">Balance</th>
+                {isTreasurer && <th></th>}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+            </thead>
+            <tbody>
+              {rows.length === 0 && (
+                <tr><td colSpan={cols} className="fin-table__empty">No transactions recorded yet.</td></tr>
+              )}
+              {rows.map(t => (
+                <tr key={t.id} className={`fin-table__row fin-table__row--${t.type}`}>
+                  <td className="fin-table__date">{t.date.slice(0, 10)}</td>
+                  <td>{t.description}</td>
+                  <td className="fin-table__cat">{ALL_CATEGORIES[t.category] ?? t.category}</td>
+                  <td className="fin-table__ref">{t.reference ?? ""}</td>
+                  <td className={`fin-table__amount fin-table__amount--${t.type}`}>
+                    {t.type === "expense" ? "−" : "+"}{fmt(t.amount)}
+                  </td>
+                  <td className={`fin-table__amount fin-table__amount--balance ${t.balance < 0 ? "fin-table__amount--deficit" : ""}`}>
+                    {fmt(t.balance)}
+                  </td>
+                  {isTreasurer && (
+                    <td className="fin-table__actions">
+                      <button onClick={() => startEdit(t)} className="fin-table__btn">Edit</button>
+                      <button onClick={() => handleDelete(t.id)} className="fin-table__btn fin-table__btn--del">Delete</button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        );
+      })()}
     </PageLayout>
   );
 }
