@@ -40,6 +40,7 @@ import ProcedureBoardMeeting from "./pages/ProcedureBoardMeeting";
 import ProcedureAgm from "./pages/ProcedureAgm";
 import ProcedureFinancialReporting from "./pages/ProcedureFinancialReporting";
 import ProcedureStatutoryCompliance from "./pages/ProcedureStatutoryCompliance";
+import Volunteering from "./pages/Volunteering";
 import RoleCustodian from "./pages/RoleCustodian";
 import RoleVolunteer from "./pages/RoleVolunteer";
 
@@ -88,6 +89,7 @@ export default function App() {
       <Route path="/governance/procedures/agm" element={<ProcedureAgm />} />
       <Route path="/governance/procedures/financial-reporting" element={<ProcedureFinancialReporting />} />
       <Route path="/governance/procedures/statutory-compliance" element={<ProcedureStatutoryCompliance />} />
+      <Route path="/volunteering" element={<Volunteering />} />
       <Route path="/governance/roles/custodian" element={<RoleCustodian />} />
       <Route path="/governance/roles/volunteer" element={<RoleVolunteer />} />
     </Routes>
