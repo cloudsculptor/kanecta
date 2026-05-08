@@ -2732,6 +2732,236 @@ $bp-tablet: 768px;
 }
 // ── End volunteering page ─────────────────────────────────────────────────────
 
+// ── Finances ──────────────────────────────────────────────────────────────────
+.fin-period {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--text);
+  }
+  input[type="date"] {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 14px;
+    background: var(--bg);
+    color: var(--text-h);
+  }
+}
+
+.fin-report {
+  max-width: 600px;
+
+  &__note {
+    font-size: 13px;
+    color: var(--text);
+    opacity: 0.6;
+    font-style: italic;
+    margin-bottom: 1.5rem;
+  }
+
+  &__section {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-h);
+    margin: 1.5rem 0 0.5rem;
+    padding-bottom: 4px;
+    border-bottom: 2px solid var(--text-h);
+  }
+
+  &__group {
+    margin-bottom: 0.5rem;
+
+    &-label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: var(--text);
+      opacity: 0.45;
+      margin: 0.75rem 0 4px;
+    }
+
+    &--investing { margin-top: 1.25rem; }
+  }
+
+  &__row {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0 5px 16px;
+    font-size: 15px;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+
+    &--empty { opacity: 0.4; font-style: italic; }
+  }
+
+  &__subtotal {
+    display: flex;
+    justify-content: space-between;
+    padding: 7px 0 7px 16px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-h);
+  }
+
+  &__total {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent);
+    border-top: 2px solid var(--accent);
+    margin-top: 0.5rem;
+
+    &--net { margin-top: 1.5rem; }
+    &--deficit { color: #b91c1c; border-top-color: #b91c1c; }
+  }
+}
+
+.fin-form {
+  background: var(--social-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px 22px;
+  margin-bottom: 1.5rem;
+
+  &__heading {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-h);
+    margin: 0 0 14px;
+  }
+
+  &__row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+
+  &__label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    flex: 1;
+    min-width: 120px;
+
+    &--wide { flex: 2; }
+  }
+
+  &__input {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 14px;
+    background: var(--bg);
+    color: var(--text-h);
+    font-family: inherit;
+    &:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  }
+
+  &__actions { display: flex; gap: 10px; margin-top: 4px; }
+
+  &__submit {
+    padding: 8px 18px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    &:disabled { opacity: 0.6; }
+  }
+
+  &__cancel {
+    padding: 8px 14px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--text);
+  }
+}
+
+.fin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  margin-top: 0.5rem;
+
+  th {
+    text-align: left;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text);
+    opacity: 0.5;
+    padding: 6px 10px 6px 0;
+    border-bottom: 2px solid var(--border);
+  }
+
+  &__amount { text-align: right; }
+
+  &__row {
+    border-bottom: 1px solid var(--border);
+    &:hover { background: var(--social-bg); }
+
+    td { padding: 9px 10px 9px 0; vertical-align: top; }
+  }
+
+  &__date { white-space: nowrap; color: var(--text); opacity: 0.7; }
+  &__cat  { font-size: 13px; color: var(--text); opacity: 0.8; }
+  &__ref  { font-size: 13px; color: var(--text); opacity: 0.6; }
+
+  &__amount {
+    text-align: right;
+    font-weight: 600;
+    white-space: nowrap;
+    &--income  { color: var(--accent); }
+    &--expense { color: #b91c1c; }
+  }
+
+  &__actions { white-space: nowrap; text-align: right; }
+
+  &__btn {
+    background: none;
+    border: none;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--accent);
+    padding: 2px 6px;
+    font-family: inherit;
+    &:hover { text-decoration: underline; }
+    &--del { color: #b91c1c; }
+  }
+
+  &__empty {
+    text-align: center;
+    padding: 2rem 0;
+    color: var(--text);
+    opacity: 0.4;
+    font-style: italic;
+  }
+}
+// ── End finances ──────────────────────────────────────────────────────────────
+
 // ── End governance page ───────────────────────────────────────────────────────
 
 // ── Constitution page styles ──────────────────────────────────────────────────
