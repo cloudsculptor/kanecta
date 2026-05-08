@@ -109,14 +109,14 @@ export default function Governance() {
           <span className="gov-links__desc">Bylaws and guidelines for custodians and volunteers</span>
           <span className="gov-links__arrow">→</span>
         </Link>
-        <Link to="/governance/finances" className="gov-links__item">
-          <span className="gov-links__title">Finances</span>
-          <span className="gov-links__desc">Transactions, cash flow, and income & expenditure reports</span>
-          <span className="gov-links__arrow">→</span>
-        </Link>
         <Link to="/governance/procedures" className="gov-links__item">
           <span className="gov-links__title">Procedures</span>
           <span className="gov-links__desc">Step-by-step guides for moderation, IT, meetings, and legal obligations</span>
+          <span className="gov-links__arrow">→</span>
+        </Link>
+        <Link to="/governance/finances" className="gov-links__item">
+          <span className="gov-links__title">Finances</span>
+          <span className="gov-links__desc">Transactions, cash flow, and income & expenditure reports</span>
           <span className="gov-links__arrow">→</span>
         </Link>
       </div>
