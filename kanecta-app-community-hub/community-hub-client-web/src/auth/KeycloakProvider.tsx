@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import keycloak from "./keycloak";
 
 declare global {
@@ -31,6 +31,7 @@ const KeycloakContext = createContext<KeycloakContextValue>({ initialized: false
 export function KeycloakProvider({ children }: { children: ReactNode }) {
   const [initialized, setInitialized] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
+  const refreshInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     keycloak
@@ -43,7 +44,22 @@ export function KeycloakProvider({ children }: { children: ReactNode }) {
         setAuthenticated(auth);
         setInitialized(true);
         reportToAnalytics(auth);
+
+        if (auth) {
+          // Refresh the access token before it expires (refresh if <70s remaining).
+          // The SSO session outlives the short-lived access token, so we need this
+          // loop to stay authenticated across long browsing sessions.
+          refreshInterval.current = setInterval(() => {
+            keycloak.updateToken(70).catch(() => {
+              setAuthenticated(false);
+            });
+          }, 60_000);
+        }
       });
+
+    return () => {
+      if (refreshInterval.current) clearInterval(refreshInterval.current);
+    };
   }, []);
 
   return (
