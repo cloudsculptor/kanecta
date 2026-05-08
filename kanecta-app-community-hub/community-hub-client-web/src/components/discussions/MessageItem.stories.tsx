@@ -80,3 +80,17 @@ export const WithMentionAndUrl: Story = {
     },
   },
 };
+
+function daysAgo(n: number) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString();
+}
+
+export const OneDayOld: Story = {
+  args: { message: { ...base, created_at: daysAgo(1) } },
+};
+
+export const ThirtyFourDaysOld: Story = {
+  args: { message: { ...base, created_at: daysAgo(34) } },
+};
