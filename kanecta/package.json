@@ -1,0 +1,20 @@
+{
+  "name": "kanecta",
+  "version": "0.1.0",
+  "description": "Open source connectivity platform",
+  "main": "index.js",
+  "bin": {
+    "kanecta": "./index.js"
+  },
+  "scripts": {
+    "test": "node index.js --help"
+  },
+  "keywords": ["kanecta", "connectivity", "open-source", "self-host"],
+  "author": "kanecta",
+  "license": "AGPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cloudsculptor/kanecta"
+  },
+  "homepage": "https://kanecta.org"
+}
