@@ -4,7 +4,4 @@ Kanecta is an open-source, self-hosted personal and organisational information r
 
 ## Documentation
 
-- [Repository layout](kanecta-docs/repository-layout.adoc)
-- [Data model](kanecta-docs/data-model.adoc)
-- [Sub-projects](kanecta-docs/sub-projects.adoc)
-- [Architecture](kanecta-docs/architecture.adoc)
+See [kanecta-docs/](kanecta-docs/) for the full documentation.
