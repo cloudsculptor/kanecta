@@ -1,0 +1,23 @@
+= Architecture
+
+== How the pieces fit together
+
+----
+kanecta-client-web  →  /api/items/:id?levels=N  →  kanecta-api  →  kanecta-datastore-sample
+     (React UI)            (Vite proxy)            (Express)          (filesystem)
+
+kanecta-cli  →  kanecta-datastore-sample  →  kanecta.txt
+  (Node.js)         (filesystem)             (plain text)
+----
+
+== Technology summary
+
+[cols="2,3,3"]
+|===
+| Component | Language / Framework | Key dependencies
+
+| API | Node.js + Express | express, jest, supertest
+| CLI | Node.js | —
+| Web UI | React + TypeScript | vite, sass, eslint, prettier, storybook
+| Datastore | Filesystem | —
+|===
