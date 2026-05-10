@@ -1,0 +1,51 @@
+= Volunteer Guidelines
+:doctype: article
+
+These are practical guidelines for volunteers. They are not rules — they reflect what makes contributing here work well. Update them when you find something better.
+
+== Getting started
+
+* Read the kaupapa and the volunteer bylaws before you begin.
+* Have a look at what's already been built and what's in progress. The best way to start is to pick something small and useful and do it.
+* Introduce yourself to existing volunteers. There's no formal onboarding, but people are friendly.
+* Don't wait for permission. If something needs doing and you're able to do it, do it.
+
+== How work gets coordinated
+
+* Work is coordinated openly. Use the shared channels and tools so everyone can see what's in progress.
+* If you're starting something significant, mention it so others know and can weigh in or avoid duplicating effort.
+* There are no deadlines unless you set them. Take on what you can sustain, not what sounds impressive.
+* If you're stuck, ask. If you're blocked by someone else, say so clearly and early.
+
+== Making decisions
+
+* Small decisions: just make them. You don't need sign-off.
+* Bigger decisions that affect others: talk to the other volunteers involved before acting. A brief message is usually enough.
+* If you're genuinely unsure whether something is within your scope, err on the side of discussing it first.
+* Disagreements: talk directly to the person first. Most things resolve quickly that way.
+
+== Communication
+
+* Be direct and kind. Say what you think, and assume good intent from others.
+* Written communication loses tone easily. If a message could be read as critical, add some warmth.
+* Don't let things fester. If something bothers you, name it early and informally before it becomes a bigger deal.
+* Decisions made in conversations should be written down somewhere others can see.
+
+== Raising concerns
+
+* If something feels wrong — a decision, a behaviour, a direction — raise it. You don't have to be certain; you just have to name it.
+* Talk to another volunteer first. Most concerns can be resolved without formal process.
+* If informal resolution doesn't work, you can submit a written complaint to the Custodian Board. They will take it seriously.
+* You will not be penalised for raising concerns in good faith.
+
+== Handing over work
+
+* When you step back from a piece of work, write a short note about where things stand, what's unfinished, and anything the next person needs to know.
+* Make sure access (accounts, files, credentials) is transferred and not left with only you.
+* A clean handover is one of the most valuable things you can do for the organisation.
+
+== Looking after each other
+
+* Notice when someone is burning out. Say something.
+* Celebrate things that go well. It matters.
+* This should be enjoyable. If it stops being enjoyable, that's worth talking about.

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0d2b12"/>
+      <stop offset="60%" stop-color="#1a4d22"/>
+      <stop offset="100%" stop-color="#2d6a35"/>
+    </linearGradient>
+  </defs>
+  <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
+  <text
+    x="51"
+    y="71"
+    font-family="system-ui, -apple-system, sans-serif"
+    font-size="66"
+    font-weight="700"
+    text-anchor="middle"
+    fill="white"
+  >F</text>
+</svg>

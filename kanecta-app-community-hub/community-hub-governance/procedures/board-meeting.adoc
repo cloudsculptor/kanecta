@@ -1,0 +1,36 @@
+= Custodian Board Meeting
+:doctype: article
+
+This procedure covers how a standard Custodian Board meeting is prepared for and run.
+
+== Before the meeting
+
+. *Set the date* — at least five working days before the meeting, confirm the date, time, and location (in person or video call) with all five members.
+. *Draft the agenda* — the facilitator (or the member who called the meeting) drafts the agenda and circulates it at least two days before the meeting. A standard agenda includes:
+.. Conflicts of interest — any member declares interests relevant to agenda items
+.. Minutes of the previous meeting — confirmed as accurate
+.. Matters arising from previous minutes
+.. Financial report (at quarterly meetings)
+.. Substantive items for decision
+.. Complaints or formal matters (if any)
+.. Correspondence
+.. Other business
+.. Date of next meeting
+. *Prepare papers* — any documents members need to read before the meeting are circulated with the agenda.
+
+== Running the meeting
+
+. Open the meeting and confirm all five members are present.
+. Appoint a facilitator by consensus.
+. Ask whether any member has a conflict of interest on any agenda item; record any declarations.
+. Work through the agenda. The facilitator ensures each member has the opportunity to speak on each item.
+. For each decision item, confirm consensus explicitly: "Are we all agreed?" Record the decision.
+. Agree action items: for each, record what is to be done, who is responsible, and by when.
+. Close the meeting and confirm the date of the next meeting.
+
+== After the meeting
+
+. The facilitator (or an assigned member) writes up the minutes within 48 hours of the meeting.
+. Minutes are circulated to all Board members for review.
+. Minutes are published to all Voting Members within 14 days.
+. Action items are followed up by the responsible persons.

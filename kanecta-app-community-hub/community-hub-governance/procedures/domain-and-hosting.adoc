@@ -1,0 +1,42 @@
+= Domain and Hosting Management
+:doctype: article
+
+This procedure covers the ongoing management of featherston.co.nz and all hosting infrastructure. Continuity of the domain is central to the Society's purpose.
+
+== Domain registration
+
+* The domain featherston.co.nz must be registered to the Society, not to any individual.
+* Renewal reminders must be set at least 60 days before expiry.
+* The domain must be renewed promptly. Lapsing the domain is a critical failure — domain squatters monitor for expired domains constantly.
+* Two volunteers must have independent access to the registrar account.
+
+== DNS management
+
+* All DNS changes must be documented before being applied.
+* Changes should be made during low-traffic periods where possible.
+* The current DNS configuration must be kept in the shared documentation.
+
+== Hosting and infrastructure
+
+* Hosting accounts must be held in the Society's name, not an individual's.
+* At least two volunteers must have administrator access to all hosting accounts.
+* Hosting renewal dates must be tracked in the shared infrastructure register.
+* The administrator reviews hosting costs and contracts annually and reports to the Custodian Board.
+
+== Credential management
+
+* All credentials (domain registrar, hosting, DNS, server access) must be stored in the shared password manager.
+* No critical credential may be held only by one person.
+* When a volunteer steps back, their access is revoked and the shared credentials are rotated.
+
+== Annual review
+
+The administrator conducts an annual review of all infrastructure covering:
+
+. Domain registration status and renewal dates
+. Hosting contracts — costs, terms, and whether they remain appropriate
+. All service accounts — which are active, which are no longer needed
+. SSL certificate validity
+. Access audit — confirming who has access to what, and revoking any that is no longer needed
+
+The review is documented and shared with volunteers and the Custodian Board.
