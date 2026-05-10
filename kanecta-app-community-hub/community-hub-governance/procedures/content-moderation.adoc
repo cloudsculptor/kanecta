@@ -1,0 +1,36 @@
+= Content Moderation
+:doctype: article
+
+This procedure covers how reported or problematic content is handled on the site.
+
+== Receiving a report
+
+. Any community member may report content they believe breaches the site's kaupapa or code of conduct using the reporting tool or by contacting a volunteer directly.
+. The volunteer receiving the report acknowledges it within 24 hours.
+. Reports are logged with: date received, content reported, reason given, and reporter's contact (if provided).
+
+== Initial assessment
+
+A volunteer with moderation responsibilities reviews the reported content and determines whether it:
+
+* Clearly breaches the code of conduct (act immediately — see below)
+* Possibly breaches but requires judgment (escalate to a second volunteer)
+* Does not breach (close the report and notify the reporter with a brief explanation)
+
+== Removing content
+
+. If content clearly breaches the code of conduct, a moderating volunteer may remove it immediately without prior approval.
+. The person who posted the content is notified of the removal, the reason, and their right to respond.
+. The removal is logged.
+
+== Disputed removals
+
+. If the poster disputes the removal, they may submit a written request for review within 7 days.
+. A second volunteer (not involved in the original decision) reviews the request.
+. If the second volunteer agrees with the removal, it stands. If they disagree, the content is reinstated and the matter is discussed among volunteers.
+. If volunteers cannot reach consensus, the matter may be referred to the Custodian Board.
+
+== Repeat or serious breaches
+
+. If a member repeatedly breaches the code of conduct, or commits a single serious breach, the matter is referred to the Custodian Board as a formal complaint.
+. The Custodian Board follows the complaint procedure in the bylaws.
