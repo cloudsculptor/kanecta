@@ -1,0 +1,6 @@
+= Kanecta Documentation
+
+* link:repository-layout.adoc[Repository layout] — directory structure of the monorepo
+* link:data-model.adoc[Data model] — item storage format and metadata.json field reference
+* link:sub-projects.adoc[Sub-projects] — setup, endpoints, env vars, and scripts for each component
+* link:architecture.adoc[Architecture] — system diagram and technology summary
