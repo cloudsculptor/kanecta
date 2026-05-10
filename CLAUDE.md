@@ -6,14 +6,18 @@ This is the Kanecta source repository.
 
 ```
 kanecta/
-├── CLAUDE.md                  — this file; project orientation for Claude Code
-├── README.md                  — project overview and sub-project docs
-├── kanecta-specification/     — canonical Kanecta spec (v1.0)
-├── kanecta-datastore-sample/  — sample datastore for development and testing
-├── kanecta-api/               — Node.js/Express HTTP API
-├── kanecta-cli/               — Node.js CLI for text export
-├── kanecta-client-web/        — React/TypeScript web UI
-└── kanecta-roadmap/           — feature list and phased roadmap
+├── CLAUDE.md                       — this file; project orientation for Claude Code
+├── README.md                       — project overview and sub-project docs
+├── kanecta-specification/          — canonical Kanecta spec (v1.0)
+├── kanecta-datastore-sample/       — sample datastore for development and testing
+├── kanecta-api/                    — Node.js/Express HTTP API
+├── kanecta-cli/                    — Node.js CLI for text export
+├── kanecta-client-web/             — React/TypeScript web UI
+├── kanecta-roadmap/                — feature list and phased roadmap
+└── kanecta-app-community-hub/      — Community Hub app (see its own CLAUDE.md)
+    ├── community-hub-api/          — Express + Socket.io backend
+    ├── community-hub-client-web/   — React/TypeScript frontend
+    └── community-hub-governance/   — constitution and governance docs
 ```
 
 ## What is Kanecta?
