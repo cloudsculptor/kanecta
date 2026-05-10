@@ -17,7 +17,8 @@ dist-ssr
 
 kanecta-app-community-hub/community-hub-governance/node_modules/
 
-# Claude Code local settings (machine-specific)
+# Claude Code settings (machine-specific, may contain private data)
+.claude/settings.json
 .claude/settings.local.json
 
 # Editor directories and files
