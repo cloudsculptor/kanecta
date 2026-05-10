@@ -1,0 +1,30 @@
+= Data Model
+
+Items are stored in `.kanecta/data/` using a 16-level sharded UUID directory structure. Each item is a folder containing a `metadata.json` file and optional attached files.
+
+----
+.kanecta/data/a1/b2/c3/d4/e5/f6/ab/cd/ef/12/34/56/78/90/12/34/metadata.json
+----
+
+== metadata.json structure
+
+[source,json]
+----
+{
+  "id": "a1b2c3d4-e5f6-abcd-ef12-345678901234",
+  "parent_id": "uuid or null",
+  "value": "The item's text content",
+  "type": "string | number | text | file | symlink | object",
+  "type_id": "uuid or null",
+  "owner": "user@example.com",
+  "license": "string or null",
+  "sort_order": 0,
+  "cached_at": "ISO8601 or null",
+  "subscribed_at": "ISO8601 or null",
+  "subscription_source": "url or null"
+}
+----
+
+The `.kanecta/` directory also maintains index caches for aliases, types, remotes, backlinks, and search.
+
+The full data model, business rules, and directory specification are in `kanecta-specification/specification.md`.
