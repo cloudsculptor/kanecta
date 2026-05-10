@@ -1,0 +1,16 @@
+= Repository Layout
+
+----
+kanecta/
+├── kanecta-specification/         — Canonical data model spec (v1.0)
+├── kanecta-datastore-sample/      — Sample datastore for development and testing
+├── kanecta-api/                   — Node.js/Express HTTP API
+├── kanecta-cli/                   — Node.js CLI for text export
+├── kanecta-client-web/            — React/TypeScript web UI
+├── kanecta-roadmap/               — Feature list and phased roadmap
+├── kanecta-docs/                  — Documentation (this folder)
+└── kanecta-app-community-hub/     — Community Hub app
+    ├── community-hub-api/         — Express + Socket.io backend
+    ├── community-hub-client-web/  — React/TypeScript frontend
+    └── community-hub-governance/  — Constitution and governance docs
+----
