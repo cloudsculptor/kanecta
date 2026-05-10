@@ -1,0 +1,55 @@
+= Complaint Handling
+:doctype: article
+
+This procedure covers how formal complaints — about member or volunteer conduct — are received, investigated, and resolved by the Custodian Board.
+
+== What this procedure covers
+
+This procedure applies to formal written complaints about:
+
+* Volunteer conduct that may breach the kaupapa or code of conduct
+* Custodian Board member conduct
+* Any other matter affecting the welfare of members or the integrity of the Society
+
+It does not cover content moderation (see the Content Moderation procedure) or operational disagreements between volunteers (which are resolved by volunteers themselves).
+
+== Submitting a complaint
+
+Any member may submit a formal complaint in writing to the Custodian Board via the Secretary. A complaint should include:
+
+* The name of the person the complaint is about
+* A description of the conduct in question
+* Any relevant dates, messages, or evidence
+* What outcome the complainant is seeking
+
+== Acknowledging the complaint
+
+The Board acknowledges receipt of the complaint within five working days.
+
+== Investigation
+
+. The Board appoints one member to coordinate the investigation. That member must have no personal conflict of interest with either party.
+. The person the complaint is about is informed of the complaint and given a written summary of the allegations. They are given at least 10 working days to respond in writing.
+. The Board considers the complaint and the response together. It may speak to other witnesses if necessary.
+. Throughout the process, both parties are treated with fairness and respect.
+
+== Determination
+
+The Board makes its determination by consensus. Possible outcomes include:
+
+* No action — the conduct did not breach the kaupapa or code of conduct
+* Informal resolution — the Board facilitates a conversation between the parties
+* Formal warning
+* Temporary suspension of volunteer responsibilities
+* Removal from a volunteer role
+* Referral to external mediation
+
+Both parties are notified of the determination in writing, with brief reasons.
+
+== Confidentiality
+
+Complaints, investigations, and determinations are confidential to the parties and the Board. Minutes record only that a complaint was received and its outcome — not identifying details — unless both parties consent to fuller disclosure.
+
+== Appeals
+
+A party who believes the process was unfair may raise this with the full Board in writing within 14 days of the determination. The Board reviews the process (not the merits) and determines whether it was conducted fairly.

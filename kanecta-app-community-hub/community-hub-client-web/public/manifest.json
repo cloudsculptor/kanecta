@@ -1,0 +1,17 @@
+{
+  "name": "Featherston",
+  "short_name": "Featherston",
+  "description": "Community hub for Featherston, New Zealand",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d2b12",
+  "theme_color": "#1a4d22",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

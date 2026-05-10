@@ -1,0 +1,47 @@
+= IT Incident Response
+:doctype: article
+
+This procedure covers how the team responds when something goes wrong with the site's technology — outages, security incidents, data issues, or infrastructure failures.
+
+== Severity levels
+
+*P1 — Critical:* Site is down or inaccessible, data breach suspected, account compromise confirmed.
+*P2 — High:* Major feature broken, significant performance degradation, suspected but unconfirmed security issue.
+*P3 — Low:* Minor feature broken, cosmetic issue, non-urgent infrastructure concern.
+
+== Immediate response (P1)
+
+. The person who discovers the issue alerts the administrator and at least one other volunteer immediately, using the fastest available channel.
+. The administrator (or most technically capable available volunteer) begins diagnosis within 30 minutes.
+. A brief status note is posted publicly on the site or via the community's communication channels so people know what is happening.
+. If a data breach is suspected, no further diagnosis is undertaken until the administrator has isolated the affected systems.
+
+== Diagnosis and resolution
+
+. Document what is known before making changes: what symptoms are visible, what changed recently, what the logs show.
+. Make one change at a time and observe the result.
+. Keep a running log of actions taken during the incident.
+
+== Data breach procedure
+
+If a breach of personal data is confirmed or strongly suspected:
+
+. Isolate affected systems immediately.
+. Notify the Custodian Board within 24 hours.
+. Assess what data was affected and how many people are involved.
+. If the breach is notifiable under the Privacy Act 2020, notify the Privacy Commissioner and affected individuals promptly. Take legal advice if unsure.
+. Publish a transparent account of what happened once the immediate incident is resolved.
+
+== Post-incident review
+
+After any P1 or P2 incident:
+
+. Write a brief incident report covering: what happened, how it was discovered, what was done, and what would prevent it happening again.
+. Share the report with all volunteers.
+. Implement any preventive measures identified, with a responsible person and a due date.
+
+== Keeping systems documented
+
+* All credentials must be stored in the shared password manager, not in any individual's personal accounts.
+* Access credentials must be transferred when a volunteer steps back from a role.
+* The administrator maintains a current record of all services, accounts, and renewal dates.

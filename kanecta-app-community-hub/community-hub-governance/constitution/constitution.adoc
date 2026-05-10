@@ -1,0 +1,847 @@
+= Constitution of Featherston Inc
+:doctype: article
+:toc: left
+:toc-title: Table of Contents
+:toclevels: 3
+:sectnums:
+:icons: font
+:tip-caption: 💡 Design Rationale
+:note-caption: 📋 Legal Note
+:important-caption: ⚠️ Important
+:version: 0.1.0 DRAFT
+:date: 8 May 2026
+:status: DRAFT — FOR DISCUSSION ONLY. NOT YET SUBMITTED.
+
+
+== Preamble
+
+This section is not legally required but provides important context for members, the public, and the Registrar about why this Society exists.
+
+=== Our Kaupapa (Guiding Principles)
+
+The Society is guided by the following principles, which inform every clause of this constitution:
+
+. *Openness* — information, money, decisions, and code are all made public by default.
+. *Anti-capture* — no individual, organisation, or funder may gain disproportionate influence over this Society.
+. *Participatory democracy* — power belongs to those who show up and contribute, not those with the most money or the loudest voice.
+. *Sortition as a safeguard* — random selection of certain roles prevents elections from being won by name recognition or campaign spending.
+. *Sustainability* — the Society must be able to survive the departure of any single person, including its founders.
+. *Community first* — the website and Society serve 100% of Featherston's residents, not any subset.
+
+---
+
+== Part 1: Name and Purposes
+
+=== 1. Name
+
+The name of the Society is:
+
+****
+*Featherston Inc* (placeholder name)
+****
+
+[NOTE]
+====
+Under the Incorporated Societies Act 2022, s.11, the name must end with "Incorporated", "Inc", or "Manatōpū". The name must not be misleading as to the Society's purposes, must not be offensive, and must be sufficiently different from existing registered society names.
+====
+
+[TIP]
+====
+*Design rationale:* "Featherston Inc" is the confirmed name. Under s.11 of the 2022 Act, "Inc" is a valid suffix for an incorporated society. The name on the constitution must exactly match the name on the registration application. Before filing, confirm the name is available by searching the Incorporated Societies Register.
+====
+
+=== 2. Purposes
+
+The purposes of the Society are:
+
+. To establish, operate, maintain, and continuously improve a publicly accessible community information website for the town of Featherston and surrounding areas, currently hosted at `featherston.co.nz`.
+
+. To hold, in perpetuity on behalf of the community, the domain name `featherston.co.nz` and any associated digital infrastructure.
+
+. To aggregate and publish information of benefit to Featherston residents, including but not limited to: local events, community notices, business listings, health and welfare resources, environmental and resilience information, local history, and civic information.
+
+. To promote and support community participation in local governance, communication, and decision-making through digital tools.
+
+. To develop and maintain open source software that powers the community website, and to make that software freely available under an approved open source licence (currently the GNU Affero General Public Licence version 3 or later, AGPL-3.0+).
+
+. To publish all community-contributed content under an open data licence (currently Creative Commons Attribution 4.0 International, CC BY 4.0), ensuring that information contributed to the site cannot be locked away.
+
+. To promote digital literacy and capability within the Featherston community, including training, mentoring, and education around web technologies.
+
+. To foster a culture of voluntary contribution, community ownership, and participatory governance.
+
+. To do anything incidental or conducive to attaining the above purposes.
+
+[NOTE]
+====
+Under s.26(1)(b) of the 2022 Act, the constitution must state the Society's purposes. Purposes cannot include financial gain for members (s.6). This list is intentionally broad to avoid the Society being constrained as it grows — specific activities are governed by policy, not the constitution.
+====
+
+[TIP]
+====
+*Design rationale:* Clause 2.6 (open data licensing) and clause 2.5 (open source software) are philosophically central to the kaupapa. They are included as formal purposes — not just aspirations — because they are what prevents the Society's work from being captured or locked away. If you contribute content to this site, it is a gift to the public. If someone forks the software and runs a rival site, that is a feature, not a bug.
+====
+
+---
+
+== Part 2: Membership
+
+=== 3. Categories of Membership
+
+The Society has four categories of membership:
+
+==== 3.1 Ordinary Members
+
+Any individual may become an Ordinary Member if they:
+
+. Reside, work, study, or have a demonstrable connection to Featherston or the surrounding area (currently defined as within the Masterton District, Carterton District, or South Wairarapa District boundaries); and
+. Submit a completed membership application to the Secretary; and
+. Consent in writing (including electronically) to being a member and to abide by this constitution; and
+. Pay the annual membership contribution (see clause 7).
+
+[TIP]
+====
+*Design rationale:* "Demonstrable connection" is deliberately flexible to include people who grew up here, own land here, run a business here, or have family here — not just those currently living in Featherston. The geographic scope is the Wairarapa sub-region rather than the town boundary alone, reflecting that Featherston is a small community embedded in a wider rural area. The Committee may tighten or clarify this definition by policy.
+====
+
+==== 3.2 Voting Members
+
+A Voting Member is an Ordinary Member who additionally:
+
+. Has a residential address within the **Featherston Ward** of the South Wairarapa District, as defined by the Local Government Commission under the Local Government Act 2002 (Representation Plan SO 36000); and
+. Has been an Ordinary Member for at least 30 continuous days; and
+. Has made the minimum annual financial contribution (see clause 7) within the last 12 months; and
+. Has consented to participate in governance activities, including attending general meetings and volunteering; and
+. Is a natural person (i.e., not a company, trust, or other body corporate).
+
+There are no exceptions to the Featherston Ward residency requirement for Voting Membership. Ordinary Membership remains open to anyone with a demonstrable connection to the area (see clause 3.1).
+
+[NOTE]
+====
+The Featherston Ward boundary is a statutory boundary defined by the Local Government Commission and publicly available from the South Wairarapa District Council. Applicants can verify their address falls within the Ward using the Council's ward map or by providing a rates assessment notice. See Appendix E for the research basis for this definition.
+====
+
+[TIP]
+====
+*Design rationale:* Voting rights are restricted to genuine Featherston Ward residents because this Society exists to serve that community specifically. There are no exceptions — if you do not live in the Ward, you cannot vote. This is a hard line, not a guideline. Ordinary Membership is deliberately broader (open to anyone with a connection to the area), but voting power belongs only to those who actually live here. This prevents the most common attack on community organisations: importing voters from outside the community to capture governance.
+
+The Ward boundary was chosen over alternatives (postcodes, Stats NZ urban area, distance radius) because it is statutory, officially mapped, used across multiple NZ government systems, and verifiable without ambiguity. See Appendix E for the full analysis.
+====
+
+==== 3.3 Participant Members
+
+A Participant Member is a Voting Member who has additionally opted in to be eligible for selection to the Custodian Board by sortition.
+
+. Participant Membership requires no additional fee or qualification beyond Voting Membership.
+. Any Voting Member may become a Participant Member by notifying the Secretary in writing (including electronically) of their consent to be included in the sortition pool.
+. A Participant Member may withdraw their consent at any time by notifying the Secretary, upon which they revert to Voting Member status.
+. Only Participant Members are eligible for sortition selection to the Custodian Board (see clause 9.4).
+
+[TIP]
+====
+*Design rationale:* Separating sortition eligibility from voting rights reflects that serving on the Custodian Board is a real commitment — attending meetings, collective decision-making, and legal responsibility. By requiring an explicit opt-in, the Society ensures that everyone in the sortition pool has genuinely consented to that role, not merely to voting or attending AGMs. All Voting Members may still vote; only those who raise their hand can be drawn.
+====
+
+=== 4. How to Become a Member
+
+. A person applies for membership by completing the membership application form provided by the Society (which may be an online form).
+. The application must include: the applicant's full name, contact details, evidence of connection to Featherston (if not self-evident), and consent to the constitution and privacy policy.
+. Membership takes effect when the Secretary (or Committee delegate) accepts the application and the contribution has been received.
+. The Society must not unreasonably refuse a membership application. If an application is declined, the applicant must be given reasons in writing and may appeal to the Committee.
+
+[NOTE]
+====
+The 2022 Act (s.76) requires that the constitution specify how membership is obtained and that members must consent to membership. This clause satisfies that requirement.
+====
+
+=== 5. Cessation of Membership
+
+A person ceases to be a member when they:
+
+. Resign by written notice to the Secretary; or
+. Fail to renew their annual contribution within 60 days of the due date (for Ordinary and Voting Members); or
+. Are expelled under the disciplinary process (see Part 7); or
+. Die; or
+. In the case of a body corporate, are wound up or dissolved.
+
+On cessation, all rights and privileges of membership cease immediately. The Society is not obliged to refund any contribution already paid.
+
+=== 6. Register of Members
+
+. The Society must maintain a register of members in accordance with s.79 of the 2022 Act.
+. The register must record each member's name and contact details, date of joining, membership category, and date of any cessation.
+. The register must be available for inspection by members on request, subject to the Privacy Act 2020.
+. The register must be updated within 20 working days of any change.
+
+[TIP]
+====
+*Design rationale:* The register is also the mechanism for verifying who holds Voting Member status at any given time. Because voting rights depend on current financial contribution and consent to participate, the register needs to be kept up to date — especially before any general meeting or vote.
+====
+
+=== 7. Financial Contributions
+
+==== 7.1 Annual Contribution
+
+. Ordinary and Voting Members are required to pay an annual membership contribution.
+. The current minimum annual contribution is **NZ$5 per person**.
+. The current maximum annual contribution that confers any additional benefit or influence is **NZ$100 per person or body corporate**.
+. Contributions are due annually on the anniversary of a member's joining date, or on 1 July each year if the Society adopts a common renewal date by resolution of the Committee.
+. The minimum and maximum contribution amounts may be adjusted by ordinary resolution at an Annual General Meeting. When considering any increase, the AGM must have regard to the principle that the maximum must not be set so high that any individual or body corporate could gain undue influence over the Society through financial contribution alone.
+
+==== 7.2 Posting is Free
+
+. Posting information to the Society's website, including listing goods and services for sale, adding business listings, or contributing community content, is always free of charge and does not require membership.
+. This clause may not be amended without a special resolution passed by at least 75% of Voting Members at a general meeting.
+
+==== 7.3 Cap on Contributions — Anti-Capture Clause
+
+. The Society will not accept any single contribution from any individual, organisation, or funder exceeding NZ$100 per calendar year.
+. The Society will not accept advertising, sponsorship, or funding arrangements that could allow any contributor to claim editorial influence, naming rights, or preferential treatment.
+. This clause may not be amended without a special resolution passed by at least 75% of Voting Members at a general meeting, and a full explanation of the proposed amendment published to all members at least 30 days in advance.
+
+[TIP]
+====
+*Design rationale:* This is the financial anti-capture clause. It directly implements the principle that "if you are not paying, you are the product" — but its inversion: by capping what anyone can pay, we ensure no one can buy influence. A $100 contribution from a large charity carries exactly the same weight as $100 from a pensioner. The cap is deliberately set at a level that represents genuine participation, not investment. The AGM may adjust amounts over time (for example to keep pace with inflation), but must always apply the anti-capture principle when doing so. The reason both the free posting clause and the cap clause require a 75% supermajority to amend is that these are foundational to the Society's kaupapa — they should not be changed lightly or quietly.
+====
+
+---
+
+== Part 3: The Committee
+
+=== 8. Committee Composition
+
+The Society is governed by a Committee of five persons, known as the **Custodian Board**. The Custodian Board is the sole governing body of the Society, collectively responsible for all governance, operations, and oversight. The Committee also includes Contact Persons as required by law.
+
+. **The Custodian Board** (5 persons) — selected by sortition (random lot) from eligible Participant Members; and
+. **Contact Person(s)** (1–3 persons) — appointed by the Committee, responsible for liaising with the Registrar.
+
+[NOTE]
+====
+Under s.45 of the 2022 Act, the constitution must specify the number of committee members. The Committee consists of the five Custodian Board members. Under s.113, the society must have 1–3 contact persons elected or appointed in accordance with the constitution. The 2022 Act requires that committee members are natural persons aged 18 or over, are not bankrupt, have not been convicted of certain offences, and are not otherwise disqualified under s.47.
+====
+
+[TIP]
+====
+*Design rationale:* The Committee is selected entirely by sortition — like jury duty — because their role is to govern the Society in the whole community's interest. Random selection means the Committee represents a genuine cross-section of the community, cannot be stacked by any interest group, and brings independent perspectives. All five members share governance responsibilities equally; there is no single person in charge. This model is used in citizens' assemblies, sortition-based democracies, and jury systems worldwide.
+====
+
+=== 9. The Custodian Board
+
+==== 9.1 Role and Responsibilities
+
+The Custodian Board is an oversight body, not a management body. The day-to-day work of the Society — operating the website, creating content, coordinating activities, and making operational decisions — is carried out by volunteers (see Part 6). The Custodian Board does not direct or manage volunteers in their positive work.
+
+The Custodian Board's responsibilities are strictly limited to the following. The Board **may not** make positive operational decisions — it cannot direct the content, design, features, or activities of the Society's website or community work. All positive decisions belong to the volunteers.
+
+The Custodian Board may:
+
+. Ensure the Society complies with the Incorporated Societies Act 2022 and this constitution (though volunteers carry out the associated work);
+. Review and approve the annual financial statements before publication;
+. Investigate formal complaints about volunteer conduct;
+. Dismiss a volunteer who has materially breached the Society's kaupapa or code of conduct, after giving the volunteer a fair opportunity to respond;
+. Engage an external mediator, facilitator, or adviser to assist in resolving disputes or conduct matters among volunteers;
+. Call Special General Meetings when required;
+. Represent the Society in formal dealings with the Registrar of Incorporated Societies and other statutory bodies;
+. Report to Voting Members at the AGM on the Society's compliance with its constitution and kaupapa.
+
+[TIP]
+====
+*Design rationale:* The Custodian Board functions like a jury — it exists only to step in when something has gone wrong, not to run the show. Volunteers make all positive decisions: what the website looks like, what features are built, what content is published, how the community organises itself. The Board cannot override any of that. It can only act when volunteers misbehave, and even then its tools are limited: investigate, mediate, bring in outside help, or dismiss. This keeps governance lightweight, respects the autonomy of people doing the actual work, and ensures the Society's energy goes into the community rather than internal politics.
+====
+
+==== 9.2 Selection by Sortition
+
+. The Custodian Board is selected by random lot (sortition) from the pool of eligible Participant Members.
+. Selection occurs at each AGM (or when vacancies arise mid-term under clause 9.6).
+. Each member of the Custodian Board serves a term of one year.
+. No person may serve on the Custodian Board for more than two consecutive terms.
+
+==== 9.3 Sortition Process
+
+The sortition process is as follows:
+
+. At least 30 days before the AGM, the Secretary publishes a call for Custodian Board nominations to all members, noting that only Participant Members are eligible.
+. Any eligible Participant Member may put their name forward for sortition selection.
+. At the AGM (or by a verifiable digital process if the AGM is held online), names are drawn by lot in a transparent manner witnessed by at least two Voting Members who are not standing for selection.
+. The first five names drawn (who are present or have confirmed availability) are appointed to the Custodian Board.
+. If fewer than five nominations are received, the Custodian Board operates with the number available until the next AGM, subject to the minimum quorum requirements in clause 9.5.
+
+[TIP]
+====
+*Design rationale:* The opt-in model (members nominate themselves) is used because: (a) the role requires genuine availability and willingness; (b) it respects members' time and consent. This is similar to how jury pools work in many jurisdictions. If the pool of nominations is very small (fewer than 10), the Society should consider how to encourage wider participation.
+====
+
+==== 9.4 Eligibility for Sortition
+
+A person is eligible for sortition selection to the Custodian Board if they:
+
+. Are a Participant Member; and
+. Have been a Voting Member for at least 3 months; and
+. Are not currently serving a second consecutive term on the Custodian Board; and
+. Are not otherwise disqualified under the 2022 Act.
+
+==== 9.5 Committee Meeting Procedures
+
+. The Custodian Board meets as often as necessary to conduct the Society's business, and at a minimum once per calendar quarter.
+. Meetings may be held in person, by video conference, or by any electronic means that allows all members to participate in real time.
+. Any member of the Custodian Board may call a meeting by giving at least 5 working days' notice to all other members, stating the business to be transacted.
+. **Quorum:** All five members of the Custodian Board must be present for a meeting to proceed. If a member is unable to attend, the meeting must be rescheduled.
+. **Decision-making:** The Custodian Board makes all decisions by consensus. A decision is made by consensus when all members present agree. If consensus cannot be reached after genuine effort, the matter is adjourned to a subsequent meeting. If consensus still cannot be reached at that subsequent meeting, the matter is referred to a Special General Meeting of Voting Members for determination.
+. **Facilitator:** The Custodian Board appoints a meeting facilitator by consensus at the start of each meeting. The role rotates among members. The facilitator has no casting vote; all decisions require consensus of all members present.
+. Minutes of every committee meeting must be recorded and published to all members within 10 working days.
+
+[NOTE]
+====
+Under s.26(1)(f)(ii) of the 2022 Act, the constitution must address the chairperson and casting vote. The Custodian Board appoints a rotating facilitator by consensus at each meeting; there is no casting vote — all decisions require consensus of all five members. This clause satisfies that requirement.
+
+Under s.26(1)(f)(iii) of the 2022 Act, the constitution must specify quorum and procedures for committee meetings. This clause satisfies that requirement.
+====
+
+[TIP]
+====
+*Design rationale:* Requiring full attendance (quorum = 5) and unanimous consensus means no decision can be taken without the agreement of every Custodian Board member. This is intentionally a high bar — it prevents any subset of the Board from acting unilaterally and ensures the Society speaks with a genuine collective voice. If the Board cannot reach consensus, referring the matter to the full membership is the appropriate democratic resolution. The consequence is that Board members must maintain good working relationships and communicate openly — which is itself a governance goal.
+====
+
+==== 9.6 Vacancy
+
+If a position on the Custodian Board becomes vacant between AGMs (by resignation, removal, or incapacity), the remaining Board members shall invite a replacement from among eligible Participant Members by consensus, to serve until the next AGM. If the vacancy reduces the Board to fewer than three members, the Board must call a Special General Meeting within 30 days to conduct a supplementary sortition.
+
+---
+
+== Part 4: Officers and Contact Persons
+
+=== 10. Officers
+
+The officers of the Society are:
+
+. The Secretary (appointed by the Custodian Board from among Voting Members or Board members);
+. The Treasurer (appointed by the Custodian Board from among Voting Members or Board members);
+. Members of the Custodian Board.
+
+[NOTE]
+====
+The 2022 Act (s.46) requires that each officer consent in writing to their appointment and certify that they are not disqualified. Officers have duties under s.50–56 including: acting in good faith, exercising reasonable care and diligence, not creating substantial risk of serious loss to creditors, and disclosing conflicts of interest.
+====
+
+=== 11. Contact Persons
+
+. The Society must have at least one and no more than three contact persons as required by s.113 of the 2022 Act.
+. Contact persons are appointed by the Committee at each AGM.
+. Contact persons are the Society's point of contact with the Registrar of Incorporated Societies.
+. A contact person need not be an officer of the Society.
+
+---
+
+== Part 5: Meetings
+
+=== 12. Annual General Meeting
+
+. The Society must hold an AGM once in each calendar year, not more than 15 months after the previous AGM.
+. The AGM is open to all members, but only Voting Members may vote.
+. The notice of AGM must be provided to all members at least 20 working days before the meeting.
+. The business of the AGM must include:
+.. Receiving the annual report from the volunteers on the Society's activities;
+.. Receiving and approving the financial statements;
+.. The Custodian Board report on compliance;
+.. Sortition selection of the Custodian Board;
+.. Appointment of officers (Secretary, Treasurer, Contact Persons);
+.. Any other business.
+
+=== 13. Special General Meetings
+
+. A Special General Meeting (SGM) may be called by:
+.. The Custodian Board;
+.. A petition of at least 20% of Voting Members submitted to the Secretary.
+. Notice of an SGM must be given at least 10 working days before the meeting.
+. The business of an SGM is limited to the matters specified in the notice.
+
+=== 14. Quorum
+
+. The quorum for a general meeting is 10% of current Voting Members or 5 Voting Members, whichever is greater.
+. If a quorum is not present within 30 minutes of the scheduled start, the meeting is adjourned to the same time and place one week later. At the adjourned meeting, those present constitute a quorum.
+
+=== 15. Voting at General Meetings
+
+. Each Voting Member has one vote.
+. Ordinary resolutions require a simple majority (more than 50%) of votes cast.
+. Special resolutions require a 75% majority of votes cast.
+. Voting may be by show of hands, secret ballot, or by verifiable electronic means.
+. Proxy voting is not permitted.
+
+[TIP]
+====
+*Design rationale:* Proxy voting is prohibited because it allows concentrated interests to accumulate voting power — directly contrary to the anti-capture kaupapa. If you care enough to influence a decision, you should be present (in person or online) to make your case.
+====
+
+---
+
+== Part 6: Volunteers
+
+=== 17. Volunteer Framework
+
+==== 17.1 Volunteers Run This Society
+
+. This Society is volunteer-led. Volunteers are not helpers or support staff — they are the Society.
+. Any person — whether or not they are a member — may volunteer to contribute to the Society's work.
+. Volunteers collectively make all positive operational decisions: what to build, what to publish, how to organise, and how to run the website and its activities. No approval from the Custodian Board is required for positive decisions.
+. Volunteers self-organise. Where volunteers disagree on an operational matter, they resolve it among themselves by discussion and consensus. The Custodian Board does not adjudicate operational disagreements unless a formal complaint is lodged.
+. Volunteer roles are defined and published by volunteers themselves, openly and collaboratively.
+
+==== 17.2 Volunteer Conduct
+
+. Volunteers are trusted to act in accordance with the Society's kaupapa and this constitution.
+. Volunteers are not directed or micromanaged; they are trusted to perform the work they have taken on.
+. The Custodian Board may receive formal complaints about volunteer conduct and investigate if appropriate.
+. If the Custodian Board determines that a volunteer has materially breached the kaupapa or code of conduct, it may dismiss that volunteer after giving them a fair opportunity to respond.
+
+[TIP]
+====
+*Design rationale:* The volunteer-led model inverts the usual community organisation structure. Instead of a committee that decides what to do and delegates tasks to volunteers, this Society has volunteers who decide what to do, with a committee that exists only to prevent harm. This keeps governance lightweight, respects the autonomy of people doing the actual work, and ensures that the Society's energy goes into the community rather than into internal politics. The explicit goal is that volunteering here is genuinely enjoyable and empowering.
+====
+
+=== 18. Initial Board and Bootstrap Period
+
+==== 18.1 Initial Appointment
+
+The five persons named in Schedule 1 are hereby appointed as the founding Custodian Board. They are appointed without sortition because no membership base yet exists from which a random selection could be conducted. They exercise all the powers and responsibilities of the Custodian Board as described in Clause 9 from the date of registration.
+
+==== 18.2 Year One
+
+The founding Board serves for one year from the date of registration, or until the Society has sufficient Voting Members to hold a valid Annual General Meeting under Clause 14 and conduct a first sortition under Clause 9.3 — whichever comes first. When that threshold is reached, the founding Board must call an AGM within 30 days and conduct the first sortition.
+
+==== 18.3 Dissolution if Threshold Not Reached by Year One
+
+If, at the end of the first year, the Society has not yet reached the membership threshold required for a valid AGM, the founding Board must pass a resolution to wind up the Society. The winding up must be conducted in accordance with the 2022 Act, and any surplus assets distributed in accordance with Clause 23.
+
+==== 18.4 Legal Responsibility During Bootstrap
+
+The founding Board members named in Schedule 1 accept collective legal responsibility for the Society's compliance with the 2022 Act for the duration of Year One.
+
+[NOTE]
+====
+Under s.26 of the 2022 Act, constitutions must specify how the committee is appointed. This clause provides a lawful basis for the initial non-sortition appointment by naming the founding members explicitly in Schedule 1, with a defined sunset and succession mechanism.
+====
+
+[TIP]
+====
+*Design rationale:* A sortition-based society cannot sort before it has members. This clause solves that problem honestly and with defined accountability. The one-year sunset with automatic dissolution is intentional: if the Society cannot attract enough engaged community members within a year to hold a valid meeting, it has failed its fundamental purpose and should not continue in legal existence. The domain and other assets would transfer to the Featherston Community Board under Clause 25.
+====
+
+---
+
+== Part 7: Finances
+
+=== 19. Financial Year
+
+The Society's financial year runs from 1 July to 30 June.
+
+=== 20. Financial Management
+
+. The Treasurer is responsible for maintaining accurate financial records.
+. The Society must file annual financial statements with the Registrar in accordance with s.102–105 of the 2022 Act.
+. The financial statements must include: a statement of income and expenditure, a balance sheet, and a list of securities affecting any property of the Society.
+
+=== 21. Open Finances
+
+. All income and expenditure of the Society shall be published online on the Society's website within 30 days of the end of each calendar quarter.
+. Donor and contributor names shall be anonymised in the published accounts unless the contributor has consented to identification.
+. The published accounts shall be in a machine-readable format (e.g., CSV or JSON) as well as human-readable format.
+
+[TIP]
+====
+*Design rationale:* Publishing accounts online quarterly — not just annually — is a higher standard than the law requires. It is intentional. Radical financial transparency is how the community can verify that the anti-capture model is actually working. If the income and expenditure reports show a suspicious pattern — say, a single donor contributing just under the $20 cap repeatedly from different names — Voting Members can see it and raise it with the Custodian Board.
+====
+
+=== 22. Bank Accounts
+
+. The Society must maintain at least one bank account in its name.
+. Withdrawals above NZ$500 require the authorisation of any two of: the Treasurer or a Custodian Board member.
+
+=== 23. Surplus Assets on Dissolution
+
+. If the Society is dissolved or removed from the register, any surplus assets (after paying all debts) shall be transferred to one or more not-for-profit entities with similar purposes.
+. The preferred recipient is the **Featherston Community Board**. If the Featherston Community Board no longer exists at the time of dissolution, the Committee shall select the nearest equivalent community governance body serving the Featherston area.
+. This clause may not be amended without a special resolution.
+
+[NOTE]
+====
+Under s.26(1)(l) of the 2022 Act, the constitution must nominate a not-for-profit entity to receive surplus assets on dissolution. Members cannot receive surplus assets. The Featherston Community Board is a permanent local governance body established under the Local Government Act 2002, making it a suitable and stable recipient.
+====
+
+---
+
+== Part 8: Digital Infrastructure and Open Licences
+
+=== 24. Domain Name and Website
+
+. The Society holds the domain name `featherston.co.nz` and any other domains it acquires on behalf of the community.
+. The domain name(s) are assets of the Society and may not be transferred, sold, or allowed to lapse without a special resolution.
+. The website operated by the Society under this domain is a public resource and must remain freely accessible.
+
+=== 25. Open Source Software
+
+. All software developed by or for the Society to operate its website is released under the GNU Affero General Public Licence version 3 or later (AGPL-3.0+), or another licence approved by the Open Source Initiative.
+. The source code must be published in a publicly accessible repository (currently GitHub at `github.com/cloudsculptor/featherston` or a successor repository).
+. The Committee may by resolution adopt a different approved open source licence, but may not adopt a proprietary or closed licence.
+
+=== 26. Open Data
+
+. All content contributed to the Society's website by members and volunteers is published under the Creative Commons Attribution 4.0 International licence (CC BY 4.0), unless otherwise agreed in writing with the contributor.
+. Contributors retain copyright in their own works but grant the Society and the public a perpetual, irrevocable licence to use, share, and adapt their contributions under the CC BY 4.0 terms.
+. The Society's databases and datasets are published under the Open Database Licence (ODbL) or Creative Commons CC0 (public domain dedication), at the Committee's discretion.
+
+[TIP]
+====
+*Design rationale:* These three clauses — domain, open source, open data — are the technical implementation of the anti-capture model. Even if the Society were somehow dissolved or captured: (a) the domain is an asset of the Society and protected by s.25; (b) the software can be forked and run by anyone; (c) the data can be taken and used elsewhere. No one can lock away what the community has built here.
+====
+
+---
+
+== Part 9: Disputes
+
+=== 27. Dispute Resolution
+
+. This clause applies to disputes between members, between members and the Society, and between members and officers.
+. Any person with a dispute must first attempt to resolve it by direct communication with the other party.
+. If direct communication fails, the dispute may be referred in writing to the Secretary, who will attempt mediation.
+. If mediation fails, the dispute is referred to the Custodian Board for determination.
+. The Custodian Board must give both parties a fair opportunity to be heard before making a determination.
+. The Custodian Board's determination is final and binding on internal matters, subject to any rights under the 2022 Act or general law.
+
+[NOTE]
+====
+Under s.26(1)(k) of the 2022 Act, the constitution must include dispute resolution procedures. This clause satisfies that requirement.
+====
+
+---
+
+== Part 10: Amendments to this Constitution
+
+=== 28. Amendment Process
+
+. This constitution may be amended by special resolution (75% majority) at a general meeting.
+. Proposed amendments must be circulated to all members at least 20 working days before the meeting.
+. Amendments to clauses 7.2 (posting is free), 7.3 (anti-capture cap), 23 (surplus assets), 24 (domain name), 25 (open source), and 26 (open data) require a 75% supermajority AND publication of the proposed amendment to all members at least 30 days in advance.
+. Amendments take effect when filed with the Registrar of Incorporated Societies.
+
+[NOTE]
+====
+Under s.30–29 of the 2022 Act, constitutions may be amended by the process set out in the constitution. The default in the 2022 Act requires a 75% majority — this constitution adopts that as the standard for all amendments.
+====
+
+---
+
+== Part 11: Miscellaneous
+
+=== 29. Common Seal
+
+The Society may adopt a common seal. The common seal, if adopted, may only be used with the authority of the Committee.
+
+=== 30. Indemnity
+
+The Society may indemnify officers and committee members against any liability or costs arising from their good faith performance of their duties, to the extent permitted by the 2022 Act.
+
+=== 31. Interpretation
+
+In this constitution:
+
+* **"2022 Act"** means the Incorporated Societies Act 2022.
+* **"AGM"** means Annual General Meeting.
+* **"Committee"** means the governing body of the Society as described in Part 3, also known as the Custodian Board.
+* **"Custodian Board"** means the sortition-selected oversight body described in clause 9, which is the Committee for the purposes of the 2022 Act.
+* **"Voting Member"** means a member with voting rights as described in clause 3.2.
+* **"Special resolution"** means a resolution passed by at least 75% of votes cast at a general meeting.
+* **"Sortition"** means selection by random lot.
+* **"Working days"** has the meaning given in the Interpretation Act 1999.
+* **"Open source licence"** means a licence approved by the Open Source Initiative (opensource.org).
+
+=== 32. Governing Law
+
+This constitution is governed by the laws of New Zealand.
+
+---
+
+== Signing Page
+
+This constitution was adopted at a general meeting of the founding members of Featherston Inc on:
+
+**Date:** ___________________________
+
+**Signed by at least two founding members:**
+
+[cols="1,1", options="header"]
+|===
+| Name (print)
+| Signature
+
+|
+|
+
+|
+|
+
+|
+|
+|===
+
+---
+
+[appendix]
+== Schedule 1: Founding Custodian Board
+
+The following five persons are appointed as the founding Custodian Board of Featherston Inc under Clause 18.1. Each person confirms by signing below that they consent to this appointment, that they are not disqualified from serving as a committee member under s.47 of the Incorporated Societies Act 2022, and that they accept collective legal responsibility for the Society's compliance with the 2022 Act during Year One.
+
+[cols="1,1,1,1", options="header"]
+|===
+| Role
+| Full Legal Name
+| Signature
+| Date
+
+| Custodian A
+|
+|
+|
+
+| Custodian B
+|
+|
+|
+
+| Custodian C
+|
+|
+|
+
+| Custodian D
+|
+|
+|
+
+| Custodian E
+|
+|
+|
+|===
+
+---
+
+[appendix]
+== Appendix A: Notes for Founding Members — Things to Confirm Before Registration
+
+The following items require decisions by the founding members before this constitution can be finalised and submitted:
+
+. **Society name** — Confirm "Featherston Inc" or choose an alternative.
+. **Surplus assets recipient** (clause 23) — ✅ Confirmed: Featherston Community Board.
+. **Bootstrap model** (clause 18) — ✅ Confirmed: appointed founding board, one-year sunset, dissolution if threshold not reached.
+. **Schedule 1** — Fill in the full legal names of Custodian A–E before submission.
+. **Minimum contribution amount** (clause 7.1) — Confirm NZ$5 or adjust.
+. **Financial year** — Confirm 1 July–28 June or adjust.
+. **Contact persons** — Identify 1–3 people willing to be named as contact persons (may overlap with Schedule 1).
+. **Initial officers** — Identify who will serve as Secretary and Treasurer during Year One (may be Board members).
+. **Code of conduct** — The constitution references a volunteer code of conduct (clauses 9.1, 17.2) as the standard against which dismissal is measured. This must exist before the Society begins operating.
+. **Review by a lawyer** — Strongly recommended before submission, particularly around:
+** The sortition clause (unusual but legal);
+** The volunteer-led / Custodian Board watchdog model (unusual but legal);
+** The anti-capture contribution cap (unusual but legal);
+** Tax status (not-for-profit vs. charitable entity under the Charities Act 2005).
+
+[appendix]
+== Appendix B: Checklist — Incorporated Societies Act 2022 Compliance
+
+This checklist maps each mandatory requirement under s.26 of the 2022 Act to the relevant clause in this constitution.
+
+[cols="1,2,1", options="header"]
+|===
+| Requirement (s.26)
+| Description
+| Clause in this Constitution
+
+| s.26(1)(a)
+| Name of society
+| Clause 1
+
+| s.26(1)(b)
+| Purposes
+| Clause 2
+
+| s.26(1)(c)
+| How a person becomes a member (including consent requirement)
+| Clauses 3, 4
+
+| s.26(1)(d)
+| How a person ceases to be a member
+| Clause 5
+
+| s.26(1)(e)
+| Register of members
+| Clause 6
+
+| s.26(1)(f)
+| Committee composition, roles, functions, powers, procedures
+| Clauses 8–11
+
+| s.26(1)(f)(i)
+| Number of committee members
+| Clause 8
+
+| s.26(1)(f)(ii)
+| How chairperson is elected/appointed; casting vote
+| Clause 9.5 (rotating facilitator by consensus; no casting vote)
+
+| s.26(1)(f)(iii)
+| Quorum and procedure for committee meetings
+| Clause 9.5
+
+| s.26(1)(f)(iv)
+| How contact persons are elected/appointed
+| Clause 11
+
+| s.26(1)(g)
+| Financial controls
+| Clauses 19–23
+
+| s.26(1)(h)
+| General meeting procedures; decision-making; election of officers
+| Clauses 12–16
+
+| s.26(1)(i)
+| Quorum for general meetings
+| Clause 14
+
+| s.26(1)(j)
+| Dispute resolution procedures
+| Clause 27
+
+| s.26(1)(k)
+| How constitution may be amended
+| Clause 28
+
+| s.26(1)(l)
+| Surplus assets on dissolution
+| Clause 23
+|===
+
+[appendix]
+== Appendix C: Governance Model Summary
+
+For non-lawyers and community members, here is a plain-English summary of how this Society works:
+
+=== Who's in charge?
+
+The volunteers. Volunteers make all positive decisions: what the website looks like, what features get built, what content gets published, how the community organises itself. No one tells them what to do.
+
+The Custodian Board — five people chosen randomly from Voting Members, like jury duty — exists only to step in when something goes wrong. They cannot direct the website, override volunteer decisions, or tell people what to build. Their only powers are: investigate bad behaviour, bring in outside help to resolve disputes, and dismiss volunteers who seriously breach the community's values. If the Board is doing its job well, most people will rarely notice it exists.
+
+=== Who can vote?
+
+Anyone with a genuine connection to Featherston who pays $5 a year and agrees to help out if needed. The low cost is deliberate — we want participation to be the barrier, not money.
+
+=== Can a rich person take over?
+
+No. Nobody can contribute more than $20 per year. No advertising, no sponsorship, no donations that carry influence. If you want to shape this site, you show up and participate.
+
+=== What happens to the website if the Society collapses?
+
+The software is open source — anyone can take it and run it. The data is openly licensed — anyone can use it. The domain is a Society asset and would transfer to a nominated community organisation. Nothing can be locked away.
+
+=== Can the constitution be changed?
+
+Yes, but only by a 75% supermajority of Voting Members, with at least 20 days' notice. The most important clauses — free posting, the $20 cap, open source, open data — need 30 days' notice and 75% support. These are hard to change by design.
+
+---
+
+_End of Constitution_
+
+_Document prepared: 8 May 2026_
+_Status: DRAFT v0.1 — for discussion by founding members only_
+_This document is not legal advice. Consult a lawyer before submitting to the Registrar._
+
+---
+
+[appendix]
+== Appendix D: Pre-Registration To-Do List
+
+[IMPORTANT]
+====
+*This appendix is a working document, not part of the constitution.* It will be removed before the final version is submitted to the Registrar. Items are updated as decisions are made.
+====
+
+=== Outstanding decisions
+
+- [ ] Confirm society name — run a name availability search on the https://app.companiesoffice.govt.nz/societies[Incorporated Societies Register] to verify "Featherston Inc" is sufficiently distinct
+- [ ] Confirm membership threshold for formal governance (Clause 18) — currently set at the AGM quorum level; adjust if needed
+- [ ] Confirm minimum annual contribution amount (Clause 7.1) — currently NZ$5
+- [ ] Confirm financial year (Clause 19) — currently 1 July–30 June
+- [ ] Identify and confirm 1–3 contact persons required under s.113 of the 2022 Act (may overlap with Schedule 1)
+- [ ] Identify interim Secretary and Treasurer for Year One (may be Custodian Board members)
+
+=== Documents to draft before operating
+
+- [ ] Volunteer code of conduct — referenced in Clauses 9.1 and 17.2 as the standard against which volunteer dismissal is measured; must exist before the Society begins operating
+- [ ] Privacy policy — referenced in Clause 4 (membership applications)
+
+=== Before filing with the Registrar
+
+- [ ] Fill in full legal names and obtain signatures for Schedule 1 (Custodian A–E)
+- [ ] Remove the DRAFT watermark and version flag from the document header
+- [ ] Get a lawyer to review — particularly the sortition clause, the volunteer-led / Custodian Board watchdog model, and the anti-capture contribution cap
+- [ ] Confirm the surplus assets recipient (Featherston Community Board) is willing to be named
+- [ ] Remove this appendix
+
+---
+
+[appendix]
+== Appendix E: Research Basis — "Local" Definition for Voting Membership
+
+This appendix documents the research behind the Featherston Ward boundary definition used in Clause 3.2. It is a working reference document and does not form part of the constitution.
+
+=== Options considered
+
+Four definitions of "local" were researched and compared:
+
+[cols="1,2,2,2", options="header"]
+|===
+| Option
+| Definition
+| Pros
+| Cons
+
+| Featherston Ward ✅ *adopted*
+| Residential address within the Featherston Ward, South Wairarapa District (LGC Plan SO 36000)
+| Statutory boundary; officially mapped; used across NZ government systems; verifiable without ambiguity
+| Ward covers rural hinterland beyond the town centre — but this is appropriate for a rural community
+
+| Postcodes 5710 / 5740
+| Residential address with NZ Post postcode 5710 or 5740
+| Simple to self-verify
+| Postcodes are not statutory; boundaries can change without notice; NZ Post is not a government body
+
+| Stats NZ Minor Urban Area
+| Address within the Featherston Minor Urban Area (Stats NZ Geographic Standard 2023)
+| Official Stats NZ classification tied to census meshblocks
+| Covers only the town itself (~2,800 people); excludes farms and lifestyle blocks whose residents consider themselves local
+
+| Nearest town (road distance)
+| Featherston is the nearest urban centre from the person's address by road distance
+| Best captures the spirit of "local"
+| No official anchor; open to dispute; not consistently verifiable
+|===
+
+=== Why the Featherston Ward was chosen
+
+The Featherston Ward boundary (Representation Plan SO 36000) is defined by the Local Government Commission under the Local Government Act 2002. It is:
+
+* A statutory boundary with legal force
+* Aligned with Stats NZ meshblock boundaries used for parliamentary electoral purposes
+* Publicly available from the South Wairarapa District Council
+* Verifiable by any member using the Council's published ward map or a rates assessment notice
+* Already used as the basis for electing three SWDC ward councillors
+
+=== Sources
+
+* South Wairarapa District Council — Ward Representation: https://swdc.govt.nz/governance/representation-and-elections/
+* Local Government Commission — Featherston Ward Boundary Plan SO 36000: https://www.lgc.govt.nz/assets/Boundary-Plans/Wellington/South-Wairarapa-District/Wards-South-Wairarapa-District/Featherston-Ward-SO-36000.pdf
+* Stats NZ — Statistical Standard for Geographic Areas 2023: https://www.stats.govt.nz/assets/Methods/Statistical-standard-for-geographic-areas-2023/statistical-standard-for-geographic-areas-2023-updated-december-2023.pdf
+* Stats NZ — Featherston Place Summary (2023 Census): https://tools.summaries.stats.govt.nz/places/SA2/featherston
+* NZ Post — Address and Postcode Finder: https://www.nzpost.co.nz/tools/address-postcode-finder
