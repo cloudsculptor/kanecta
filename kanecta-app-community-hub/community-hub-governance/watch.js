@@ -7,7 +7,7 @@ const ADOC = path.resolve(__dirname, 'constitution/constitution.adoc');
 const SLIDES = path.resolve(__dirname, 'slides/slides.adoc');
 
 browserSync.init({
-  server: __dirname,
+  server: path.resolve(__dirname, 'build'),
   index: 'slides.html',
   open: true,
   notify: true,
