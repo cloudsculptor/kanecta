@@ -91,20 +91,19 @@ Draft purpose & governance model
 
 == Membership
 
-[cols="1,2", options="header"]
-|===
-| Category
-| Who qualifies
+== Associate Member ("Friend of Featherston")
 
-| *Ordinary Member*
-| Anyone with a demonstrable connection to Featherston · $5/year
+A person who lives outside the Wairarapa but feels a connection to Featherston, or who contributes as a volunteer even though they live elsewhere.
 
-| *Voting Member*
-| Must live in the Featherston Ward · $5–$100/year · must consent to help if needed
+[%notitle]
+== Membership
 
-| *Participant Member*
-| A Voting Member who opts in to be eligible for the Custodian Board
-|===
+*Voting Member* — must live in the Featherston Ward · $5–$100/year · must consent to help if needed
+
+[%notitle]
+== Membership
+
+*Participant Member* — a Voting Member who opts in to be eligible for the Custodian Board
 
 == How We're Governed
 
