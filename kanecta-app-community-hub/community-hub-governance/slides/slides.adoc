@@ -99,10 +99,41 @@ A person who lives outside the Wairarapa but feels a connection to Featherston, 
 
 A person who lives within the Featherston Ward. Voting Members get a vote whenever a vote is called. They are not required to be available for sortition to the Custodian Board.
 
-[%notitle]
-== Membership
+== Participant Member ("Guardian", "Custodian")
 
-*Participant Member* — a Voting Member who opts in to be eligible for the Custodian Board
+A Voting Member who opts in to be eligible for sortition to the Custodian Board.
+
+== The two roles
+
+== Volunteers
+
+_The doers_
+
+Volunteers lead the work, decide what gets built and published, and manage themselves. No one tells them what to do. All positive decisions belong to volunteers.
+
+== Custodians
+
+_The guardians_
+
+Five Participant Members chosen by random lot. Their powers are strictly limited to the following.
+
+[%notitle]
+== Custodians
+
+* *Block* — prevent volunteer actions that would breach the constitution
+* *Suspend* — remove volunteers who breach the constitution or who are disruptive
+
+[%notitle]
+== Custodians
+
+* *Protect* — intervene if volunteers are about to put the organisation or committee members in legal jeopardy
+* *Mediate* — call in outside experts to resolve serious conflict among volunteers
+
+== What Custodians cannot do
+
+_Positive decisions always belong to volunteers_
+
+If volunteers disagree on something — even something as simple as which colour the website should be — Custodians can mediate, bring in outside help, or remove someone causing serious disruption. What they cannot do is make the call. They cannot say "we choose blue." Only volunteers make positive decisions. Think of Custodians less like a board of directors and more like a high court: they can block or help resolve, but they cannot direct.
 
 == How We're Governed
 
