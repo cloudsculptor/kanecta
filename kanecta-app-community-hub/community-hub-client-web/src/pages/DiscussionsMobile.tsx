@@ -302,13 +302,13 @@ export default function DiscussionsMobile() {
 
   const currentUserId = keycloak.tokenParsed?.sub || "";
   const canModerate = role === "MODERATOR";
+  const initialHashRef = useRef(window.location.hash.slice(1));
 
   useEffect(() => {
     if (!authenticated) return;
     api.threads.list().then((data) => {
       setThreads(data);
-      const hashId = window.location.hash.slice(1);
-      const initial = data.find((t) => t.id === hashId);
+      const initial = data.find((t) => t.id === initialHashRef.current);
       if (initial) setActiveThread(initial);
     }).finally(() => setLoadingThreads(false));
     api.users.list().then(setTeamUsers).catch(() => {});

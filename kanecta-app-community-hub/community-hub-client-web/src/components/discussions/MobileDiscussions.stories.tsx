@@ -253,3 +253,17 @@ export const ReplyView: Story = {
   ),
   name: "Thread replies (after tapping reply count)",
 };
+
+/**
+ * Deep-link scenario: the user arrived via /discussions#<threadId> for a non-first
+ * thread. The message view should open directly to that thread rather than defaulting
+ * to General. This is the visual outcome of the hash deep-link fix.
+ */
+export const DeepLinkedMessageView: Story = {
+  render: () => (
+    <div style={{ width: 390, height: 700, border: "12px solid #222", borderRadius: 40, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+      <MockMessageView threadName="resilience" onBack={() => {}} onReply={() => {}} />
+    </div>
+  ),
+  name: "Deep-linked — message view opened via URL hash",
+};
