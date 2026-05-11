@@ -46,6 +46,7 @@ export default function Discussions() {
   const [showUnreads, setShowUnreads] = useState(false);
   const [teamUsers, setTeamUsers] = useState<{ id: string; name: string }[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const initialHashRef = useRef(window.location.hash.slice(1));
 
   const activeThread = threads.find((t) => t.id === activeThreadId);
   const currentUserId = keycloak.tokenParsed?.sub || "";
@@ -61,8 +62,7 @@ export default function Discussions() {
     if (!authenticated) return;
     api.threads.list().then((data) => {
       setThreads(data);
-      const hashId = window.location.hash.slice(1);
-      const initial = data.find((t) => t.id === hashId) ?? data[0] ?? null;
+      const initial = data.find((t) => t.id === initialHashRef.current) ?? data[0] ?? null;
       setActiveThreadId(initial?.id ?? null);
     }).finally(() => setLoadingThreads(false));
     api.users.list().then(setTeamUsers).catch(() => {});
