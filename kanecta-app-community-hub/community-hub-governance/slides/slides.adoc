@@ -164,6 +164,8 @@ _Positive decisions always belong to volunteers_
 
 If volunteers disagree on something — even something as simple as which colour the website should be — Custodians can mediate, bring in outside help, or remove someone causing serious disruption. What they cannot do is make the call. They cannot say "we choose blue." Only volunteers make positive decisions. Think of Custodians less like a board of directors and more like a high court: they can block or help resolve, but they cannot direct.
 
+A Custodian cannot also be a volunteer. The conflict of interest is too great.
+
 == The Anti-Capture Design
 
 [%notitle]
@@ -200,7 +202,6 @@ _Even if the Society collapsed, nothing could be locked away._
 
 * *Download* — anyone can download the entire site as a zip file: the open source software, all public data, and your own private contributions; you are never locked in — if you want to leave and start an alternative site, you can
 
-
 == Dark mode
 
 [%notitle]
@@ -215,6 +216,64 @@ _Even if the Society collapsed, nothing could be locked away._
 
 * *Warning* — as either threshold is approached, a banner appears across the site alerting the community
 * *Overlay* — if either threshold is breached, a black semi-transparent overlay covers the entire site; the only thing visible is a link to sign up as a Participant Member, or a link to donate
+
+== Year one
+
+[%notitle]
+== Year one
+
+* *Legal minimums* — the Incorporated Societies Act requires at least 10 members and 3 committee members to form
+* *Committee* — 5 Custodian Board members
+* *Volunteers* — we need at least 5 active volunteers from day one; without them there is no point starting
+
+[%notitle]
+== Year one
+
+* *Roles* — a treasurer, a secretary, and a technical admin are needed; these can be the same person
+* *Outreach* — people willing to go out and talk to businesses and organisations and get them signed up
+* *Operations* — people willing to do moderation, design, and site planning
+
+[%notitle]
+== Year one
+
+* *Grace period* — the dark mode thresholds do not apply in year one; it takes time to build a community
+* *Funding* — a benefactor is covering $1,000–$1,500 for hosting and incorporation fees so the society can get started
+* *Sunset* — if after one year we have not reached 50 Participant Members and a reasonable bank balance, we close down
+
+== Richard's role
+
+[%notitle]
+== Richard's role
+
+* *Handover* — the community must take collective ownership; if Richard remains the key person, this is not a real organisation — it is one person dressed up as a community organisation
+* *Independence* — the organisation must grow strong enough to take collective ownership of featherston.co.nz and all associated assets from Richard
+
+[%notitle]
+== Richard's role
+
+* *Volunteer not custodian* — Richard's skills belong in a volunteer role writing code; a custodian cannot also be a volunteer so he can't be on the custodian board
+* *No control* — for this to be a genuine community organisation, Richard must not hold a position of control
+* *Focus* — his energy goes into building software that works for multiple towns and community groups, not just Featherston
+
+== Relationship to Kanecta
+
+[%notitle]
+== Relationship to Kanecta
+
+* *Platform* — featherston.co.nz is built on Kanecta, an open-source platform Richard has been developing for nearly two decades; building on it is what allowed the site to come together so quickly
+* *Interoperability* — Kanecta is what will allow Featherston to connect and share information with Carterton, Masterton, and other towns in the Wairarapa and across New Zealand
+
+[%notitle]
+== Relationship to Kanecta
+
+* *Social enterprise* — Richard intends to grow Kanecta into a cooperative or social enterprise, based in Featherston but serving community groups and towns around the country and beyond
+* *Hosting* — groups without the technical skills to self-host can pay Kanecta to host for them; that income makes the platform more sustainable
+
+[%notitle]
+== Relationship to Kanecta
+
+* *No conflict* — to avoid a conflict of interest, featherston.co.nz hosts itself; no hosting fees flow to Richard or Kanecta
+* *Broader vision* — the ambition is for Kanecta to be part of a wide cooperative organisation, in the spirit of the Mondragon cooperatives in Spain
 
 == Help make this plan better
 
