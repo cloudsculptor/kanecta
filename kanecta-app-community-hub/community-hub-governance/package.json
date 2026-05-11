@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node watch.js",
     "build": "node build.js",
-    "deploy": "node build.js && rsync -avz --delete index.html slides.html remutaka:/var/www/society-featherston/"
+    "deploy": "node build.js && rsync -avz --delete build/ remutaka:/var/www/society-featherston/"
   },
   "repository": {
     "type": "git",
