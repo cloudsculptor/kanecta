@@ -13,9 +13,54 @@ Draft purpose & governance model
 <style>
 .reveal h1 { font-size: 1.8em; }
 .reveal .small, .reveal .small li, .reveal .small p { font-size: 0.8em; line-height: 1.5; }
+#home-btn {
+  position: fixed;
+  top: 4px;
+  left: 24px;
+  z-index: 9999;
+  line-height: 1;
+}
+#home-btn a {
+  text-decoration: none;
+  color: #3a7d44;
+  display: block;
+}
+#home-btn a:hover { color: #0d2b12; }
 </style>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var btn = document.createElement('div');
+  btn.id = 'home-btn';
+  btn.innerHTML = '<a href="#/_contents" title="Contents"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><polyline points="9 21 9 12 15 12 15 21"/></svg></a>';
+  document.querySelector('.reveal').appendChild(btn);
+});
+</script>
 ++++
 :icons: font
+
+== Contents
+
+++++
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 2em;font-size:0.62em;text-align:left;line-height:2">
+  <div>
+    <a href="#/_what_is_our_purpose">What is our purpose?</a><br>
+    <a href="#/_what_does_that_look_like_in_practice">What does that look like in practice?</a><br>
+    <a href="#/_the_organisation_we_want_to_build">The organisation we want to build</a><br>
+    <a href="#/_how_are_we_structured">How are we structured?</a><br>
+    <a href="#/_membership">Membership</a><br>
+    <a href="#/_the_two_roles">The two roles</a><br>
+    <a href="#/_what_custodians_cannot_do">What Custodians cannot do</a>
+  </div>
+  <div>
+    <a href="#/_the_anti_capture_design">The Anti-Capture Design</a><br>
+    <a href="#/_open_by_default">Open by Default</a><br>
+    <a href="#/_dark_mode">Dark mode</a><br>
+    <a href="#/_year_one">Year one</a><br>
+    <a href="#/_richards_role">Richard's role</a><br>
+    <a href="#/_community_hub_kanecta">Community Hub @ Kanecta</a>
+  </div>
+</div>
+++++
 
 == What is our purpose?
 
@@ -115,12 +160,12 @@ Volunteers lead the work, decide what gets built and published, and manage thems
 == Volunteers
 
 * *Guidelines* — over time volunteers develop shared guidelines so that most day-to-day decisions don't require a formal vote
-* *Small groups* — where fewer than five volunteers are involved, decisions are made by consensus
+* *Small groups* — where ten or fewer volunteers are involved, decisions are made by consensus
 
 [%notitle]
 == Volunteers
 
-* *Larger groups* — where five or more volunteers are involved, decisions require 80% agreement
+* *Larger groups* — where more than ten volunteers are involved, decisions require 80% agreement
 * *Threshold reduction* — the Custodian Board may lower the threshold to a simple majority, but only where there is clear evidence that genuine effort has been made to reach consensus
 
 == The beating heart
@@ -160,11 +205,16 @@ Five Participant Members chosen by random lot. Their powers are strictly limited
 
 == What Custodians cannot do
 
-_Positive decisions always belong to volunteers_
+[%notitle]
+== What Custodians cannot do
 
-If volunteers disagree on something — even something as simple as which colour the website should be — Custodians can mediate, bring in outside help, or remove someone causing serious disruption. What they cannot do is make the call. They cannot say "we choose blue." Only volunteers make positive decisions. Think of Custodians less like a board of directors and more like a high court: they can block or help resolve, but they cannot direct.
+* *No positive decisions* — Custodians cannot direct volunteers or make calls on their behalf; if volunteers disagree on something, even which colour the website should be, Custodians cannot say "we choose blue"
+* *No dual role* — a Custodian cannot also be a volunteer; the conflict of interest is too great
 
-A Custodian cannot also be a volunteer. The conflict of interest is too great.
+[%notitle]
+== What Custodians cannot do
+
+* *Mediate, not decide* — they can bring in outside help or remove someone causing serious disruption, but they cannot make the call themselves
 
 == The Anti-Capture Design
 
@@ -223,15 +273,15 @@ _Even if the Society collapsed, nothing could be locked away._
 == Year one
 
 * *Legal minimums* — the Incorporated Societies Act requires at least 10 members and 3 committee members to form
-* *Committee* — 5 Custodian Board members
-* *Volunteers* — we need at least 5 active volunteers from day one; without them there is no point starting
+* *Committee* — 5 Custodian Board members, chosen by the founding members rather than by sortition this one time
+* *Volunteers* — ideally at least 5 active volunteers from day one
 
 [%notitle]
 == Year one
 
 * *Roles* — a treasurer, a secretary, and a technical admin are needed; these can be the same person
 * *Outreach* — people willing to go out and talk to businesses and organisations and get them signed up
-* *Operations* — people willing to do moderation, design, and site planning
+* *Operations* — people willing to do moderation, design, content, and site planning
 
 [%notitle]
 == Year one
@@ -245,35 +295,107 @@ _Even if the Society collapsed, nothing could be locked away._
 [%notitle]
 == Richard's role
 
-* *Handover* — the community must take collective ownership; if Richard remains the key person, this is not a real organisation — it is one person dressed up as a community organisation
-* *Independence* — the organisation must grow strong enough to take collective ownership of featherston.co.nz and all associated assets from Richard
+* *Handover* — the community needs to take collective ownership; if Richard retains an outsized role, this is not a real community organisation
+* *Now* — the time to start that transition is now
 
 [%notitle]
 == Richard's role
 
 * *Volunteer not custodian* — Richard's skills belong in a volunteer role writing code; a custodian cannot also be a volunteer so he can't be on the custodian board
-* *No control* — for this to be a genuine community organisation, Richard must not hold a position of control
 * *Focus* — his energy goes into building software that works for multiple towns and community groups, not just Featherston
 
-== Relationship to Kanecta
+== Community Hub @ Kanecta
 
 [%notitle]
-== Relationship to Kanecta
+== Community Hub @ Kanecta
 
 * *Platform* — featherston.co.nz is built on Kanecta, an open-source platform Richard has been developing for nearly two decades; building on it is what allowed the site to come together so quickly
-* *Interoperability* — Kanecta is what will allow Featherston to connect and share information with Carterton, Masterton, and other towns in the Wairarapa and across New Zealand
+* *Interoperability* — Kanecta is what will allow Featherston to connect and share information with Carterton, Masterton, Martinborough, and other towns in the Wairarapa and across New Zealand
 
 [%notitle]
-== Relationship to Kanecta
+== Community Hub @ Kanecta
 
 * *Social enterprise* — Richard intends to grow Kanecta into a cooperative or social enterprise, based in Featherston but serving community groups and towns around the country and beyond
 * *Hosting* — groups without the technical skills to self-host can pay Kanecta to host for them; that income makes the platform more sustainable
 
 [%notitle]
-== Relationship to Kanecta
+== Community Hub @ Kanecta
 
 * *No conflict* — to avoid a conflict of interest, featherston.co.nz hosts itself; no hosting fees flow to Richard or Kanecta
 * *Broader vision* — the ambition is for Kanecta to be part of a wide cooperative organisation, in the spirit of the Mondragon cooperatives in Spain
+
+[%notitle]
+== Community Hub @ Kanecta
+
+Want to help build the cooperative enterprise as well?
+
+Reach out.
+
+== How the technology fits together
+
+[%notitle]
+== How the technology fits together
+
+++++
+<svg viewBox="0 0 700 160" width="700" height="160" font-family="sans-serif">
+  <!-- featherston.co.nz -->
+  <a href="https://featherston.co.nz" target="_blank">
+  <rect x="10" y="50" width="190" height="60" rx="8" fill="#edf5ee" stroke="#3a7d44" stroke-width="2"/>
+  <text x="105" y="82" text-anchor="middle" font-size="15" font-weight="600" fill="#0d2b12">featherston.co.nz</text>
+  <text x="105" y="100" text-anchor="middle" font-size="11" fill="#555">community site</text>
+  </a>
+
+  <!-- arrow 1 -->
+  <line x1="200" y1="80" x2="255" y2="80" stroke="#3a7d44" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="228" y="72" text-anchor="middle" font-size="10" fill="#888">built on</text>
+
+  <!-- Community Hub -->
+  <a href="https://communityhub.org.nz" target="_blank">
+  <rect x="255" y="50" width="190" height="60" rx="8" fill="#edf5ee" stroke="#3a7d44" stroke-width="2"/>
+  <text x="350" y="82" text-anchor="middle" font-size="15" font-weight="600" fill="#0d2b12">Community Hub</text>
+  <text x="350" y="100" text-anchor="middle" font-size="11" fill="#555">any town or group</text>
+  </a>
+
+  <!-- arrow 2 -->
+  <line x1="445" y1="80" x2="500" y2="80" stroke="#3a7d44" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="473" y="72" text-anchor="middle" font-size="10" fill="#888">built on</text>
+
+  <!-- Kanecta -->
+  <a href="https://kanecta.org" target="_blank">
+  <rect x="500" y="50" width="190" height="60" rx="8" fill="#edf5ee" stroke="#3a7d44" stroke-width="2"/>
+  <text x="595" y="82" text-anchor="middle" font-size="15" font-weight="600" fill="#0d2b12">Kanecta</text>
+  <text x="595" y="100" text-anchor="middle" font-size="11" fill="#555">open platform</text>
+  </a>
+
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#3a7d44"/>
+    </marker>
+  </defs>
+</svg>
+++++
+
+[%notitle]
+== How the technology fits together
+
+* *featherston.co.nz* — Community Hub skinned to look like a Featherston site; underneath it is the same platform any town or community group can use
+* *Community Hub* — built on Kanecta, so any group running it can share data with any other group on the same platform
+
+[%notitle]
+== How the technology fits together
+
+* *Interoperability* — because all sites share the same foundation, towns can share data with each other easily; other towns in the Wairarapa could have the same platform up and running quickly, and Carterton, Masterton, and Featherston could begin sharing data across the valley straight away
+* *Developer motivation* — software developers are far more motivated to work on a platform used by community groups across the country than to build a single small town's website
+
+[%notitle]
+== How the technology fits together
+
+* *Featherston's advantage* — Richard is an active volunteer in Featherston and will put his energy into the features this community needs
+
+== Find out more
+
+https://communityhub.co.nz[https://communityhub.co.nz] +
+https://kanecta.org[https://kanecta.org]
 
 == Help make this plan better
 
@@ -282,3 +404,7 @@ https://featherston.co.nz/governance[https://featherston.co.nz/governance]
 
 Draft constitution: +
 https://constitution.featherston.co.nz[https://constitution.featherston.co.nz]
+
+++++
+<div style="margin-top:1.5em;font-size:0.6em"><a href="#/_contents">↑ Contents</a></div>
+++++
