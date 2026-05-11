@@ -61,8 +61,8 @@ function buildConstitution() {
     base_dir: __dirname,
     attributes: { 'outfilesuffix': '.html' },
   });
-  fs.writeFileSync(path.resolve(__dirname, 'index.html'), html);
-  console.log('Built → index.html');
+  fs.writeFileSync(path.resolve(__dirname, 'build/constitution.html'), html);
+  console.log('Built → build/constitution.html');
 }
 
 // ── Slides build ──────────────────────────────────────────────────────────
@@ -81,11 +81,19 @@ function buildSlides() {
       revealjs_transition: 'slide',
     },
   });
-  fs.writeFileSync(path.resolve(__dirname, 'slides.html'), html);
-  console.log('Built → slides.html');
+  fs.writeFileSync(path.resolve(__dirname, 'build/slides.html'), html);
+  console.log('Built → build/slides.html');
 }
+
+// ── Build output directory ────────────────────────────────────────────────
+const BUILD_DIR = path.resolve(__dirname, 'build');
+if (!fs.existsSync(BUILD_DIR)) fs.mkdirSync(BUILD_DIR);
 
 buildConstitution();
 buildSlides();
+
+// Copy static index page
+fs.copyFileSync(path.resolve(__dirname, 'index.html'), path.join(BUILD_DIR, 'index.html'));
+console.log('Copied → build/index.html');
 
 module.exports = { buildConstitution, buildSlides };
