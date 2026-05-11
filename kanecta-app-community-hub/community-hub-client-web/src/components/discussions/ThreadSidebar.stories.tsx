@@ -128,3 +128,14 @@ export const AllUnread: Story = {
   ),
   name: "All threads unread",
 };
+
+/**
+ * Deep-link scenario: the user arrived via /discussions#t4. A thread other than
+ * the first one should be highlighted as active. Verifies the sidebar renders the
+ * correct active state when the initial thread is determined by URL hash rather than
+ * defaulting to position 0.
+ */
+export const DeepLinked: Story = {
+  render: () => <MockSidebar threads={ALL_THREADS} activeId="t4" />,
+  name: "Deep-linked — non-first thread active via URL hash",
+};
