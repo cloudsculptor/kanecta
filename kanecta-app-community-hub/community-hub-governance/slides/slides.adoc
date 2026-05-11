@@ -162,30 +162,30 @@ If volunteers disagree on something — even something as simple as which colour
 * *Capped donations* — individual and business donations are kept to a low maximum so that nobody can buy influence
 * *Free to contribute* — posting business listings, events, and community content is always free; we only accept donations, never fees
 
-[%notitle]
-== The Anti-Capture Design
-
-* *Protected* — these rules require a 75% supermajority of Voting Members to change
 
 == Open by Default
 
-Even if the Society collapsed, nothing could be locked away.
+_Even if the Society collapsed, nothing could be locked away._
+
+[%notitle]
+== Open by Default
+
+* *Software* — we build on open source platforms so that if we dissolve, or someone wants to take the data and start elsewhere, they can use the same tools we use
+* *Content* — we strongly encourage contributors to release public page content under an open licence, as Wikipedia does; small exceptions apply (e.g. a council logo that is copyright to the council)
+
+[%notitle]
+== Open by Default
+
+* *Finances* — bank balance, spending, and cash flow are published live; donations and sensitive business details may be kept anonymous but the figures are always public
+* *Statistics* — user numbers, visitor counts, and page traffic are published openly online
+
+[%notitle]
+== Open by Default
+
+* *Download* — anyone can download the entire site as a zip file: the open source software, all public data, and your own private contributions; you are never locked in — if you want to leave and start an alternative site, you can
 
 
-* *Software* — open source (AGPL-3.0+), published on GitHub and freely forkable
-* *Content* — CC BY 4.0 open data licence — contributed content is a gift to the public
-* *Finances* — published online every quarter, not just annually
-* *Domain* — a protected Society asset; transfers to the Featherston Community Board on dissolution
-
-== Changing the Constitution
-
-
-* Requires a *75% supermajority* at a general meeting
-* At least *20 working days' notice* to all members
-* The most important clauses — free posting, the $100 cap, open source, and open data — require *30 days' notice* and 75% support
-* These are *hard to change by design*
-
-== Find Out More
+== Help make this plan better
 
 General governance information: +
 https://featherston.co.nz/governance[https://featherston.co.nz/governance]
