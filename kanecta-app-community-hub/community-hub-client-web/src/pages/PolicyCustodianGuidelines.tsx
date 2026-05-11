@@ -1,5 +1,5 @@
 import PageLayout from "../components/PageLayout";
-import policyHtml from "../../../featherston-governance/policies/custodian-guidelines.adoc";
+import policyHtml from "../../../community-hub-governance/policies/custodian-guidelines.adoc";
 
 const PARENTS = [
   { name: "Governance", path: "/governance" },
