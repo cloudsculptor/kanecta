@@ -57,7 +57,9 @@ document.addEventListener('DOMContentLoaded', function() {
     <a href="#/_dark_mode">Dark mode</a><br>
     <a href="#/_year_one">Year one</a><br>
     <a href="#/_richards_role">Richard's role</a><br>
-    <a href="#/_community_hub_kanecta">Community Hub @ Kanecta</a>
+    <a href="#/_community_hub_kanecta">Community Hub @ Kanecta</a><br>
+    <a href="#/_how_the_technology_fits_together">How the technology fits together</a><br>
+    <a href="#/_help_make_this_plan_better">Help make this plan better</a>
   </div>
 </div>
 ++++
