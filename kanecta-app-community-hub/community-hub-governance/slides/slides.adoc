@@ -95,10 +95,9 @@ Draft purpose & governance model
 
 A person who lives outside the Wairarapa but feels a connection to Featherston, or who contributes as a volunteer even though they live elsewhere.
 
-[%notitle]
-== Membership
+== Voting Member ("Local")
 
-*Voting Member* — must live in the Featherston Ward · $5–$100/year · must consent to help if needed
+A person who lives within the Featherston Ward. Voting Members get a vote whenever a vote is called. They are not required to be available for sortition to the Custodian Board.
 
 [%notitle]
 == Membership
