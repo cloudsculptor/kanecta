@@ -1,5 +1,5 @@
 import PageLayout from "../components/PageLayout";
-import html from "../../../featherston-governance/procedures/complaint-handling.adoc";
+import html from "../../../community-hub-governance/procedures/complaint-handling.adoc";
 
 const PARENTS = [
   { name: "Governance", path: "/governance" },

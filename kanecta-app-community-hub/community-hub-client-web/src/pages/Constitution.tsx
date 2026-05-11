@@ -1,6 +1,6 @@
 import PageLayout from "../components/PageLayout";
 // AsciiDoc import — remove alongside asciidocPlugin in vite.config.ts and asciidoc.d.ts
-import constitutionHtml from "../../../featherston-governance/constitution/constitution.adoc";
+import constitutionHtml from "../../../community-hub-governance/constitution/constitution.adoc";
 
 const kaupapa = [
   { title: "Openness", body: "Information, money, decisions, and code are all made public by default." },
