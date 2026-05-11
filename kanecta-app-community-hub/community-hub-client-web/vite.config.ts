@@ -52,8 +52,9 @@ export default defineConfig({
   },
   plugins: [react(), asciidocPlugin(), {
     name: "copy-index-to-404",
-    closeBundle() {
-      copyFileSync("dist/index.html", "dist/404.html");
+    writeBundle(options) {
+      const outDir = options.dir ?? path.resolve(dirname, 'dist');
+      copyFileSync(path.join(outDir, 'index.html'), path.join(outDir, '404.html'));
     }
   }],
   test: {

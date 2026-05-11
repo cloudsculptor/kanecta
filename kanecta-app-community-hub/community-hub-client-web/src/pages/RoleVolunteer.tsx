@@ -1,5 +1,5 @@
 import PageLayout from "../components/PageLayout";
-import roleHtml from "../../../featherston-governance/roles/volunteer.adoc";
+import roleHtml from "../../../community-hub-governance/roles/volunteer.adoc";
 
 const GOVERNANCE_PARENTS = [
   { name: "Governance", path: "/governance" },
