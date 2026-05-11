@@ -1,5 +1,5 @@
 = featherston.co.nz
-Purpose & potential governance model
+Draft purpose & governance model
 :revnumber: draft
 :revdate: May 2026
 :backend: revealjs
@@ -13,27 +13,37 @@ Purpose & potential governance model
 <style>
 .reveal h1 { font-size: 1.8em; }
 .reveal .small, .reveal .small li, .reveal .small p { font-size: 0.8em; line-height: 1.5; }
-.reveal .columns .column li, .reveal .columns .column p { font-size: 0.85em; line-height: 1.6; }
 </style>
 ++++
 :icons: font
 
-[.columns]
 == What is our purpose?
 
-[.column]
---
-* We own and operate *featherston.co.nz*
-* We hold the domain name *in perpetuity on behalf of the community*
-* We exist to serve *100% of Featherston's residents* — not any subset
---
+[%notitle]
+== What is our purpose?
 
-[.column]
---
-* Operate and improve the community website
-* Publish local events, notices, business listings, health resources, history, and civic info
-* Support community participation in local governance
---
+* *Connections* — draw people, groups, and organisations together across the town
+* *Communication* — a channel for residents to share news, events, and ideas
+* *Collaboration* — a place for community groups to store information, discuss, and work together
+
+[%notitle]
+== What is our purpose?
+
+* *Governance* — connect residents with their elected representatives and encourage participation
+* *Repository* — a trusted store of community information
+* *Directory* — discover events, groups, and local services
+
+[%notitle]
+== What is our purpose?
+
+* *Discovery* — surface hidden physical, human, and community resources people may not know exist
+* *Showcase* — highlight what Featherston has to offer visitors and new locals
+
+[%notitle]
+== What is our purpose?
+
+* *Resilience* — ensure people can access critical information and communicate through good times and bad
+* *Support* — a place where people in need can find help, connect with others, and access resources
 
 == Our Kaupapa
 
