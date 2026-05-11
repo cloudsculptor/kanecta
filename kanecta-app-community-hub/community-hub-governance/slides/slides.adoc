@@ -123,6 +123,22 @@ Volunteers lead the work, decide what gets built and published, and manage thems
 * *Larger groups* — where five or more volunteers are involved, decisions require 80% agreement
 * *Threshold reduction* — the Custodian Board may lower the threshold to a simple majority, but only where there is clear evidence that genuine effort has been made to reach consensus
 
+== The beating heart
+
+[%notitle]
+== The beating heart
+
+* *Energy* — the success or failure of a community organisation rests on the energy among its volunteers
+* *Wellbeing* — volunteers thrive when they feel safe, appreciated, and part of a team with a strong shared purpose
+* *Progress* — a sense of momentum and excitement is what keeps people coming back
+
+[%notitle]
+== The beating heart
+
+* *Autonomy* — the people doing the mahi deserve to make the decisions about what gets done
+* *Not unpaid workers* — nothing kills volunteering faster than a committee that makes all decisions and treats volunteers as unpaid labour
+* *Support* — this organisation is built on volunteers who have genuine autonomy and feel genuinely supported
+
 == Custodians
 
 _The guardians_
@@ -184,6 +200,21 @@ _Even if the Society collapsed, nothing could be locked away._
 
 * *Download* — anyone can download the entire site as a zip file: the open source software, all public data, and your own private contributions; you are never locked in — if you want to leave and start an alternative site, you can
 
+
+== Dark mode
+
+[%notitle]
+== Dark mode
+
+* *Principle* — if we cannot attract enough support to function properly, we close with dignity rather than limp along as a half-hearted site
+* *People* — we need at least 50 Participant Members available for sortition; less than 1% of the community
+* *Money* — we need to maintain a reasonable minimum bank balance
+
+[%notitle]
+== Dark mode
+
+* *Warning* — as either threshold is approached, a banner appears across the site alerting the community
+* *Overlay* — if either threshold is breached, a black semi-transparent overlay covers the entire site; the only thing visible is a link to sign up as a Participant Member, or a link to donate
 
 == Help make this plan better
 
