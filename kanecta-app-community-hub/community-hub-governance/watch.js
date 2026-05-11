@@ -1,14 +1,14 @@
-const { buildConstitution, buildWorkplan } = require('./build');
+const { buildConstitution, buildSlides } = require('./build');
 const chokidar = require('chokidar');
 const browserSync = require('browser-sync').create();
 const path = require('path');
 
 const ADOC = path.resolve(__dirname, 'constitution/constitution.adoc');
-const MD = path.resolve(__dirname, 'WORKPLAN.md');
+const SLIDES = path.resolve(__dirname, 'slides/slides.adoc');
 
 browserSync.init({
   server: __dirname,
-  index: 'index.html',
+  index: 'slides.html',
   open: true,
   notify: true,
   ui: false,
@@ -19,9 +19,9 @@ chokidar.watch(ADOC).on('change', () => {
   browserSync.reload('index.html');
 });
 
-chokidar.watch(MD).on('change', () => {
-  buildWorkplan();
-  browserSync.reload('workplan.html');
+chokidar.watch(SLIDES).on('change', () => {
+  buildSlides();
+  browserSync.reload('slides.html');
 });
 
-console.log('Watching constitution.adoc and WORKPLAN.md — browser will live-reload on changes.');
+console.log('Watching constitution.adoc and slides/slides.adoc — browser will live-reload on changes.');
