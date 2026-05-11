@@ -45,7 +45,21 @@ Draft purpose & governance model
 * *Resilience* — ensure people can access critical information and communicate through good times and bad
 * *Support* — a place where people in need can find help, connect with others, and access resources
 
-== Our Kaupapa
+== What does that look like in practice?
+
+[%notitle]
+== What does that look like in practice?
+
+* *Domain* — we hold the featherston.co.nz domain name on behalf of the community
+* *Web app* — we host and manage a community information and collaboration platform
+
+[%notitle]
+== What does that look like in practice?
+
+* *Data* — we provide a secure place for community groups to store, manage, and share information
+* *Trust* — we build relationships with the community so people feel safe using the platform and contributing to it
+
+== How are we structured?
 
 [%step]
 * *Openness* — information, money, decisions, and code are public by default
