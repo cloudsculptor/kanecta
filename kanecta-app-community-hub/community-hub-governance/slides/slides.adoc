@@ -59,14 +59,34 @@ Draft purpose & governance model
 * *Data* — we provide a secure place for community groups to store, manage, and share information
 * *Trust* — we build relationships with the community so people feel safe using the platform and contributing to it
 
+== The organisation we want to build
+
+[%notitle]
+== The organisation we want to build
+
+* *Community-first* — we exist to serve all of Featherston; no individual, group, or funder can capture or control us
+* *Open* — our decisions, finances, and processes are visible to all; anyone can see how we work and get involved
+
+[%notitle]
+== The organisation we want to build
+
+* *Resilient* — built to last; the organisation survives the departure of any single person or group
+* *Volunteer-led* — run by people who choose what to do and how; governance exists to support volunteers, not direct them
+
 == How are we structured?
 
-[%step]
+[%notitle]
+== How are we structured?
+
 * *Openness* — information, money, decisions, and code are public by default
 * *Anti-capture* — no individual or funder may gain disproportionate influence
 * *Participatory democracy* — power belongs to those who show up and contribute
-* *Sortition as a safeguard* — random selection prevents elections being won by wealth or name recognition
-* *Sustainability* — the Society survives the departure of any single person
+
+[%notitle]
+== How are we structured?
+
+* *Sortition* — random selection of certain roles prevents elections being won by wealth or name recognition
+* *Sustainability* — the organisation survives the departure of any single person
 * *Community first* — we serve all of Featherston, not any subset
 
 == Membership
@@ -90,7 +110,7 @@ Draft purpose & governance model
 
 The *Custodian Board* — five people chosen by *random lot* from Voting Members, like jury duty.
 
-[%step]
+
 * They serve for *one year*, maximum two consecutive terms
 * Their role is *oversight, not management* — they cannot direct the website or override volunteers
 * They step in only when something goes wrong: investigate complaints, resolve disputes, dismiss bad actors
@@ -100,7 +120,7 @@ The *Custodian Board* — five people chosen by *random lot* from Voting Members
 
 No one can buy influence over this Society.
 
-[%step]
+
 * Maximum annual contribution: *$100 per person* — a large charity has the same financial weight as a pensioner
 * No advertising, sponsorship, or funding that carries editorial influence
 * *Posting to the website is always free* — for everyone, forever
@@ -110,7 +130,7 @@ No one can buy influence over this Society.
 
 Even if the Society collapsed, nothing could be locked away.
 
-[%step]
+
 * *Software* — open source (AGPL-3.0+), published on GitHub and freely forkable
 * *Content* — CC BY 4.0 open data licence — contributed content is a gift to the public
 * *Finances* — published online every quarter, not just annually
@@ -118,7 +138,7 @@ Even if the Society collapsed, nothing could be locked away.
 
 == Changing the Constitution
 
-[%step]
+
 * Requires a *75% supermajority* at a general meeting
 * At least *20 working days' notice* to all members
 * The most important clauses — free posting, the $100 cap, open source, and open data — require *30 days' notice* and 75% support
@@ -126,8 +146,8 @@ Even if the Society collapsed, nothing could be locked away.
 
 == Find Out More
 
-Read the full constitution at:
+General governance information: +
+https://featherston.co.nz/governance[https://featherston.co.nz/governance]
 
-*featherston.co.nz*
-
-_Featherston Inc — draft constitution v0.1, May 2026_
+Draft constitution: +
+https://constitution.featherston.co.nz[https://constitution.featherston.co.nz]
