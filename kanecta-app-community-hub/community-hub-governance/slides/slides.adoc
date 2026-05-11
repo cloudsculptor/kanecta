@@ -1,0 +1,109 @@
+= featherston.co.nz
+Purpose & potential governance model
+:revnumber: draft
+:revdate: May 2026
+:backend: revealjs
+:revealjsdir: https://cdn.jsdelivr.net/npm/reveal.js@5
+:revealjs_theme: white
+:revealjs_slideNumber: true
+:revealjs_history: true
+:revealjs_transition: slide
+
+++++
+<style>
+.reveal h1 { font-size: 1.8em; }
+.reveal .small, .reveal .small li, .reveal .small p { font-size: 0.8em; line-height: 1.5; }
+.reveal .columns .column li, .reveal .columns .column p { font-size: 0.85em; line-height: 1.6; }
+</style>
+++++
+:icons: font
+
+[.columns]
+== What is our purpose?
+
+[.column]
+--
+* We own and operate *featherston.co.nz*
+* We hold the domain name *in perpetuity on behalf of the community*
+* We exist to serve *100% of Featherston's residents* — not any subset
+--
+
+[.column]
+--
+* Operate and improve the community website
+* Publish local events, notices, business listings, health resources, history, and civic info
+* Support community participation in local governance
+--
+
+== Our Kaupapa
+
+[%step]
+* *Openness* — information, money, decisions, and code are public by default
+* *Anti-capture* — no individual or funder may gain disproportionate influence
+* *Participatory democracy* — power belongs to those who show up and contribute
+* *Sortition as a safeguard* — random selection prevents elections being won by wealth or name recognition
+* *Sustainability* — the Society survives the departure of any single person
+* *Community first* — we serve all of Featherston, not any subset
+
+== Membership
+
+[cols="1,2", options="header"]
+|===
+| Category
+| Who qualifies
+
+| *Ordinary Member*
+| Anyone with a demonstrable connection to Featherston · $5/year
+
+| *Voting Member*
+| Must live in the Featherston Ward · $5–$100/year · must consent to help if needed
+
+| *Participant Member*
+| A Voting Member who opts in to be eligible for the Custodian Board
+|===
+
+== How We're Governed
+
+The *Custodian Board* — five people chosen by *random lot* from Voting Members, like jury duty.
+
+[%step]
+* They serve for *one year*, maximum two consecutive terms
+* Their role is *oversight, not management* — they cannot direct the website or override volunteers
+* They step in only when something goes wrong: investigate complaints, resolve disputes, dismiss bad actors
+* All *positive decisions* (what to build, what to publish, how to organise) belong to *volunteers*
+
+== The Anti-Capture Design
+
+No one can buy influence over this Society.
+
+[%step]
+* Maximum annual contribution: *$100 per person* — a large charity has the same financial weight as a pensioner
+* No advertising, sponsorship, or funding that carries editorial influence
+* *Posting to the website is always free* — for everyone, forever
+* These protections require *75% of Voting Members* to change — not a simple majority
+
+== Open by Default
+
+Even if the Society collapsed, nothing could be locked away.
+
+[%step]
+* *Software* — open source (AGPL-3.0+), published on GitHub and freely forkable
+* *Content* — CC BY 4.0 open data licence — contributed content is a gift to the public
+* *Finances* — published online every quarter, not just annually
+* *Domain* — a protected Society asset; transfers to the Featherston Community Board on dissolution
+
+== Changing the Constitution
+
+[%step]
+* Requires a *75% supermajority* at a general meeting
+* At least *20 working days' notice* to all members
+* The most important clauses — free posting, the $100 cap, open source, and open data — require *30 days' notice* and 75% support
+* These are *hard to change by design*
+
+== Find Out More
+
+Read the full constitution at:
+
+*featherston.co.nz*
+
+_Featherston Inc — draft constitution v0.1, May 2026_

@@ -1,9 +1,9 @@
 const Asciidoctor = require('@asciidoctor/core')();
-const { marked } = require('marked');
+const AsciidoctorRevealjs = require('@asciidoctor/reveal.js');
 const fs = require('fs');
 const path = require('path');
 
-marked.setOptions({ gfm: true });
+AsciidoctorRevealjs.register();
 
 // ── Clause hyperlink pre-processor ───────────────────────────────────────
 // Runs on the raw .adoc source before Asciidoctor sees it.
@@ -65,48 +65,27 @@ function buildConstitution() {
   console.log('Built → index.html');
 }
 
-// ── Work plan build ───────────────────────────────────────────────────────
-function buildWorkplan() {
-  const md = fs.readFileSync(path.resolve(__dirname, 'WORKPLAN.md'), 'utf8');
-  const body = marked.parse(md);
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Work Plan — Featherston Inc</title>
-<style>
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 860px; margin: 40px auto; padding: 0 24px; color: #24292e; line-height: 1.6; }
-  h1 { border-bottom: 2px solid #e1e4e8; padding-bottom: 12px; }
-  h2 { border-bottom: 1px solid #e1e4e8; padding-bottom: 8px; margin-top: 32px; }
-  h3 { margin-top: 24px; }
-  input[type="checkbox"] { width: 16px; height: 16px; margin-right: 6px; accent-color: #2ea44f; cursor: pointer; }
-  li { margin: 6px 0; }
-  ul { padding-left: 20px; }
-  code { background: #f6f8fa; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
-  hr { border: none; border-top: 1px solid #e1e4e8; margin: 32px 0; }
-  blockquote { border-left: 4px solid #e1e4e8; margin: 0; padding: 0 16px; color: #6a737d; }
-  a { color: #0366d6; }
-  .back { font-size: 0.9em; margin-bottom: 24px; display: block; }
-</style>
-</head>
-<body>
-<a class="back" href="index.html">← Constitution</a>
-${body}
-<script>
-  document.querySelectorAll('input[type="checkbox"]').forEach((cb, i) => {
-    const key = 'wp-cb-' + i;
-    cb.checked = localStorage.getItem(key) === '1';
-    cb.addEventListener('change', () => localStorage.setItem(key, cb.checked ? '1' : '0'));
+// ── Slides build ──────────────────────────────────────────────────────────
+function buildSlides() {
+  const src = fs.readFileSync(path.resolve(__dirname, 'slides/slides.adoc'), 'utf8');
+  const html = Asciidoctor.convert(src, {
+    backend: 'revealjs',
+    safe: 'unsafe',
+    standalone: true,
+    base_dir: path.resolve(__dirname, 'slides'),
+    attributes: {
+      revealjsdir: 'https://cdn.jsdelivr.net/npm/reveal.js@5',
+      revealjs_theme: 'white',
+      revealjs_slideNumber: 'true',
+      revealjs_history: 'true',
+      revealjs_transition: 'slide',
+    },
   });
-</script>
-</body>
-</html>`;
-  fs.writeFileSync(path.resolve(__dirname, 'workplan.html'), html);
-  console.log('Built → workplan.html');
+  fs.writeFileSync(path.resolve(__dirname, 'slides.html'), html);
+  console.log('Built → slides.html');
 }
 
 buildConstitution();
-buildWorkplan();
+buildSlides();
 
-module.exports = { buildConstitution, buildWorkplan };
+module.exports = { buildConstitution, buildSlides };

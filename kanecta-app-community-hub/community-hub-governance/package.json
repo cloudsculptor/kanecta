@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "node watch.js",
-    "build": "node build.js"
+    "build": "node build.js",
+    "deploy": "node build.js && rsync -avz --delete index.html slides.html remutaka:/var/www/society-featherston/"
   },
   "repository": {
     "type": "git",
@@ -20,8 +21,8 @@
   "homepage": "https://github.com/cloudsculptor/featherston-constitution#readme",
   "dependencies": {
     "@asciidoctor/core": "^3.0.4",
+    "@asciidoctor/reveal.js": "^5.2.0",
     "browser-sync": "^3.0.4",
-    "chokidar": "^5.0.0",
-    "marked": "^18.0.3"
+    "chokidar": "^5.0.0"
   }
 }
