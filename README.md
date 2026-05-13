@@ -1,34 +1,35 @@
 # Kanecta
 
-Kanecta is an open-source data storage and sharing protocol. Enter your data once — then view and share it in an almost infinite number of ways. The protocol is frontend-agnostic; the API can power virtually any application, and Kanecta ships a growing collection of apps to show what's possible.
+Kanecta is an open-source data platform designed from the ground up to be the connective tissue between humans, applications, and AI.
 
-See [kanecta-docs/](kanecta-docs/) for full documentation.
+Every piece of information in Kanecta — a paragraph, a decision, a person, an image, a code snippet — is a first-class object with a globally unique ID, an explicit type, rich metadata, and typed relationships to other objects. These objects live as plain JSON files on disk, in a structure any text editor can browse and any AI can reason over directly.
 
-## Install
+## A data platform
 
-Install [Node.js](https://nodejs.org) first, then:
+Your data belongs to you. Kanecta stores everything locally in an open, human-readable format with no lock-in and no central server. Items are uniquely addressable, linked, tagged, and queryable — structured enough to power applications, transparent enough to audit by hand. Because the format is just files, it will be readable decades from now regardless of what software exists.
 
-```bash
+## An AI bridge
+
+Kanecta is built for the age of AI-augmented work. Every item has a stable UUID an agent can reference across sessions. Types and relationships are explicit so AI doesn't have to infer structure from prose. Decision logs capture not just *what* was decided but *why*, with alternatives considered — building institutional memory that compounds in value over time. Pull precisely the context you need into a conversation rather than replaying entire histories.
+
+## An application platform
+
+The same data powering your personal knowledge base can power a community website, a governance system, a team planning tool, or a financial dashboard. Kanecta ships with a growing collection of real-world apps built on the protocol — not demos, but production software used by real organisations. Build your own on top of the API, or extend an existing app.
+
+## Quick start
+
+```
+# Install Node.js from nodejs.org, then:
+
 npm install -g kanecta
 kanecta      # will guide you through setup
 ```
 
-## App Showcase
+## Learn more
 
-Kanecta ships real-world apps that demonstrate what you can build on top of the protocol. These aren't demos — they're production apps used by real communities.
+- [Specification](kanecta-specification/specification.md) — the data model and protocol rules
+- [Vision](kanecta-vision/kanecta-vision.adoc) — philosophy, architecture, and design decisions
+- [Roadmap](kanecta-roadmap/) — what's planned and why
+- [Docs](kanecta-docs/) — full documentation
 
-### Community Hub
-
-Community Hub is a platform for small towns and local organisations to coordinate, communicate, and govern themselves. It's built on top of Kanecta and covers a surprisingly wide surface area:
-
-**Real-time discussions** — Threaded conversations with live message updates, emoji reactions, @mentions with autocomplete, per-thread notifications, and unread tracking across all threads.
-
-**Community content** — Dedicated sections for food and local produce, skill sharing, transport and carpooling, social services, local economy, and community resilience planning.
-
-**Financial management** — Full transaction management, cashflow and profit & loss reports, recurring expense tracking, and categorised income/expenditure (memberships, grants, donations, hosting, events, and more).
-
-**Governance** — A complete governance layer: constitution, custodian and volunteer bylaws, board meeting and AGM procedures, content moderation guidelines, volunteer onboarding, complaint handling, and IT/infrastructure runbooks.
-
-**Role-based access** — Keycloak SSO with fine-grained roles (public, volunteer, moderator, treasurer). Each section is gated appropriately so the right people see the right things.
-
-**Push notifications and mobile** — Web push notification support and a fully responsive mobile layout throughout.
+MIT licensed. Self-hosted. No telemetry.
