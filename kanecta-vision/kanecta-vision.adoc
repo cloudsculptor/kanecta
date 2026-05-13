@@ -1,0 +1,1118 @@
+= Kanecta: Vision, Philosophy, and Architecture
+Richard Thomas <cloudsculptor@github>
+:doctype: book
+:toc: left
+:toclevels: 3
+:sectnums:
+:sectnumlevels: 3
+:source-highlighter: rouge
+:icons: font
+:revnumber: 1.1
+:revdate: 2026-05-14
+:revremark: Comprehensive vision capture
+
+[abstract]
+== Abstract
+
+Kanecta is an open-source, AGPL-licensed data storage and sharing protocol designed
+to serve as a human-AI bridge. It treats every piece of information — whether a
+paragraph, a decision, a person, a code snippet, or an entire document — as a
+first-class object with a globally unique identifier, explicit type, and rich
+semantic relationships.
+
+This document captures the full vision behind Kanecta as developed through
+extended conversations between Richard Thomas (the creator) and Claude (the
+AI assistant). It is written so that another technically capable, AI-savvy
+developer could pick up the project and continue it faithfully if Richard
+were unavailable.
+
+The document is intentionally long. Vision documents that get summarized
+into bullet points lose the reasoning, the rejected alternatives, and the
+human context that make decisions defensible later. Read it in full before
+making architectural changes.
+
+== How to Read This Document
+
+This document is organized to be read either linearly (top to bottom) or by
+jumping to specific sections. The intended reading order is:
+
+. *Origins and Motivation* — Why this project exists at all
+. *Core Philosophy* — The principles that should not be compromised
+. *The Vision* — What Kanecta is and what it is not
+. *Architecture and Specification* — How it works at the file-system level
+. *Strategic Context* — The community group and first real-world deployment
+. *AI Integration* — Why Kanecta is genuinely better than Obsidian for AI
+  workflows
+. *Roadmap* — The phased plan
+. *Decision Log* — Why specific choices were made, with alternatives considered
+
+If you only have time for one section, read *Core Philosophy*. Everything
+else follows from it.
+
+= Part I: Why Kanecta Exists
+
+== Origins and Motivation
+
+=== The Personal Itch
+
+Richard has been thinking about this project for over two decades. He has
+built at least four prior versions over the past four years alone. Each
+attempt ran out of runway because the scope was too large for a single
+developer working in spare time. The arrival of AI-assisted coding
+(specifically Claude Code, GitHub Copilot, and similar tools) has finally
+made the scope tractable.
+
+The original itch is a familiar one to anyone who has accumulated digital
+information over decades:
+
+* Folders of pictures scattered across drives and services
+* To-do lists abandoned when one app stopped working and another took over
+* Notes in three different note-taking apps, each containing fragments of
+  the truth
+* Bookmarks, organizers, databases, web services — each promising to be the
+  one place where everything lives, each eventually abandoned
+
+Over the years, what should have been a steadily accumulating archive of
+personal knowledge instead became fragmented, partially lost, and largely
+inaccessible. Migration is painful; staying put while the tool stagnates
+is worse.
+
+=== The Broader Problem
+
+This is not just a personal problem. Businesses, organizations, and
+individuals all face the same pattern:
+
+* Data gets locked into proprietary formats
+* Software-as-a-Service vendors can change pricing, features, or simply
+  shut down
+* When you move, you lose context, relationships, and structure
+* Even when you stay, you cannot easily query, link, or restructure your
+  own information across the silos you have created
+
+The semantic web (Tim Berners-Lee's vision) addressed something similar at
+a global scale. Microsoft's WinFS — referenced by Bill Gates as one of his
+biggest regrets about what didn't ship — was attempting to solve it at the
+operating-system level. Neither shipped in a form that achieved adoption.
+Kanecta is, in spirit, a much smaller and more practical attempt at the
+same family of problems: treat information as structured, addressable,
+relatable objects rather than opaque files.
+
+=== Why Now
+
+Three things have changed:
+
+. *AI as a force multiplier.* What used to take a team of developers a year
+  can now be built by one motivated person with AI assistance in weeks or
+  months. The scope problem that killed prior attempts is now tractable.
+. *Cognitive overload from AI itself.* Developers and knowledge workers are
+  drowning in AI-generated context — Claude conversations, MCP servers,
+  agent definitions, skills, prompts, generated artifacts. Existing tools
+  (Obsidian, Notion, Jira) were not designed for this. There is a real,
+  acute pain point right now.
+. *Acceleration disrupts traditional planning.* In Richard's workplace, a
+  developer using Claude Code can complete in two days what was planned to
+  span three or four sprints. This breaks SAFe/agile planning processes
+  and creates friction between developers and product owners. Capturing
+  *why* decisions were made (not just *what* was decided) becomes
+  essential institutional knowledge in this new environment.
+
+== The Author's Honesty
+
+Richard has been candid throughout the conversations that produced this
+vision: he is not certain Kanecta has a clear product-market fit. He is
+technically fascinated by the concept and has been since before AI made it
+realistic. He would build it as a hobby regardless of commercial outcome.
+
+This honesty matters because it shapes the project's culture:
+
+* No investors are sought. There is no exit strategy. The license is AGPL
+  specifically to prevent commercial capture.
+* Adoption is treated as a happy bonus, not a requirement.
+* The focus is on doing the technical work *right* rather than rushing to
+  market.
+* If the project succeeds, it succeeds as a public good.
+
+A successor maintainer should preserve this culture. The moment Kanecta
+becomes "a startup," it loses what makes it different from the dozens of
+prior knowledge-management products.
+
+= Part II: Core Philosophy
+
+== Principles That Should Not Be Compromised
+
+These are the principles that have emerged from years of thinking about
+this problem. A successor maintainer is welcome to question them — but
+should do so with full awareness of what each one is trying to prevent.
+
+=== Principle 1: AGPL Open Source, Always
+
+The license is AGPL version 3, not MIT, not BSD, not Apache. This is
+deliberate.
+
+AGPL forces anyone who runs a modified version as a network service to
+share their modifications. It is the strongest copyleft license in
+practical use. The reasoning:
+
+* It prevents a corporate entity from forking Kanecta, hosting it as a
+  closed SaaS, and competing against the open project from a position of
+  hidden improvements.
+* It guarantees that users can always fork the code, host it themselves,
+  and recover their data — even decades from now.
+* It aligns the incentives: contributors benefit each other, not a
+  hidden vendor.
+
+A consequence: any dependency Kanecta pulls in must be AGPL-compatible.
+This is a real constraint and must be applied as a guardrail when
+recommending libraries. If a developer suggests a non-AGPL-compatible
+library, flag it.
+
+=== Principle 2: Data Longevity Over Convenience
+
+The format must be readable in 50 years. This influences every decision:
+
+* Text-based storage (JSON, markdown) over binary databases
+* Files on disk over server-only databases
+* Self-hostable over cloud-only
+* Open formats over proprietary ones
+
+When Richard says "I learned this lesson from Linux," he means it
+literally. The Linux operating system he started using decades ago is
+still usable today because it is open. The same must be true of Kanecta
+data: a file written today should be openable by a human with a text
+editor in 2076.
+
+This is why Kanecta uses a file-system-as-database approach instead of
+something like SQLite or PostgreSQL as the primary store. A SQLite file
+written in 2026 will be readable in 2076 — probably. A folder of JSON
+files will be readable in 2076 — certainly.
+
+=== Principle 3: AI-Native, Not AI-Bolted-On
+
+Kanecta is designed from the ground up to be manipulated by AI directly.
+
+This is different from Obsidian, Notion, Roam, and most other knowledge
+tools. Those tools were designed for humans and had AI features added
+later. Kanecta is designed for AI to read, write, link, and reason over —
+with a user interface added on top for humans.
+
+Concrete consequences:
+
+* Every item has a stable UUID. AI agents can reference items
+  unambiguously across sessions.
+* Every item has an explicit `type`. AI does not have to infer structure
+  from prose.
+* Relationships are typed (depends-on, blocks, enables, contradicts).
+  AI can reason about dependencies, not just text proximity.
+* Metadata is queryable. AI can ask "show me all decisions tagged
+  security-related with confidence=decided" without parsing markdown.
+* The protocol is filesystem-first. AI agents like Claude Code can read
+  and write directly without needing an API layer in the way.
+
+This is the *killer feature* for the current AI moment. It is also the
+strongest argument against the (otherwise reasonable) suggestion to just
+use Obsidian.
+
+=== Principle 4: Human-AI Bridge
+
+Despite being AI-native, Kanecta must remain transparent to humans.
+
+* UUIDs are textual, not binary. A human can grep for them.
+* Files are on disk, in directories, in plain text. A human can browse
+  them.
+* Relationships are stored as JSON, not opaque pointers. A human can
+  audit them.
+* The history folder lets a human see how items have changed over time.
+
+This is the *human-AI bridge*: the AI gets structured data it can reason
+about efficiently; the human gets a system they can verify and trust.
+Most AI tools hide the reasoning. Kanecta makes it visible and
+traceable.
+
+=== Principle 5: Distributed by Design
+
+Kanecta is not a server you connect to. It is a protocol that runs
+locally on each user's machine. Multiple Kanecta instances can connect
+peer-to-peer, share items, subscribe to each other's updates.
+
+This is critical for:
+
+* *Privacy*: Sensitive personal or organizational data never has to
+  leave a user's machine to be useful.
+* *Resilience*: There is no central server to take down. If GitHub
+  disappears, Kanecta still works.
+* *Trust*: Each user owns their data and chooses what to share. The
+  `owner` field on every item makes provenance explicit.
+* *Scaling*: A team of 130 developers does not require central
+  infrastructure. Each runs their own instance and connects to
+  colleagues' instances directly.
+
+=== Principle 6: Eat Your Own Dog Food, Immediately
+
+The first real use of Kanecta should be managing Kanecta's own
+development. The plan, the spec, the decisions, the to-do list — all
+stored in Kanecta from day one.
+
+This is not just a clever marketing line. It is the fastest way to
+discover what works and what doesn't. If the protocol cannot organize
+its own development effectively, it will not work for anyone else.
+
+=== Principle 7: Lean Scope, Iterative Expansion
+
+Richard has tried to build the full vision four times. Each attempt
+failed because the scope was too large. The lesson learned: ship the
+smallest thing that is useful, then expand.
+
+Concrete rule: every feature added must be justified by a real, current
+use case. Speculative features ("we might need X later") are added to
+the roadmap, not the codebase.
+
+= Part III: The Vision
+
+== What Kanecta Is
+
+In one sentence:
+
+____
+Kanecta is a protocol for storing structured, addressable, relatable
+information locally on disk, designed for AI agents to read and write
+directly while remaining auditable by humans.
+____
+
+In a paragraph:
+
+Kanecta treats every piece of information — a paragraph, a person, a
+decision, an image, a code snippet, an annotation — as a first-class
+object with a UUID, an explicit type, ownership, timestamps, optional
+tags, and typed relationships to other objects. These objects live as
+JSON files on disk in a sharded directory structure that scales from
+hundreds of items to millions without changing the addressing scheme.
+On top of this protocol, multiple applications can be built: knowledge
+managers, community websites, AI workflow tools, task trackers,
+document editors, governance systems, and more.
+
+== What Kanecta Is Not
+
+It is important to be precise about what Kanecta is *not*, because the
+adjacent space is crowded with tools that look superficially similar.
+
+* *Kanecta is not Obsidian.* Obsidian stores markdown files for humans
+  to read. Kanecta stores structured items for AI to query and humans
+  to audit. The text-first vs. structure-first distinction is
+  fundamental.
+* *Kanecta is not Notion.* Notion is a hosted SaaS with proprietary
+  data formats. Kanecta is self-hosted with open formats.
+* *Kanecta is not a database.* Databases are tuned for transactional
+  workloads. Kanecta is tuned for human and AI authoring, with eventual
+  consistency between peers.
+* *Kanecta is not a wiki.* Wikis store pages. Kanecta stores arbitrarily
+  fine-grained items — a single paragraph or even a single bullet point
+  can be its own addressable item.
+* *Kanecta is not a knowledge graph database.* Graph databases optimize
+  for query performance. Kanecta optimizes for human readability and
+  durability.
+* *Kanecta is not WordPress.* This was considered as the backing store
+  for the first real-world application (Featherston Community Hub) and
+  rejected. The reasoning is documented later.
+* *Kanecta is not a competitor to Claude or any AI model.* It is a
+  *complement* — a place where AI-generated context can be captured
+  and accumulated over time.
+
+== The Killer Features
+
+If a successor needs to pitch Kanecta to a skeptical audience (developers,
+community groups, organizations), these are the features that matter:
+
+. *Every paragraph has a UUID.* You can link to a specific bullet point
+  from anywhere, in any document or application.
+. *Typed relationships.* Not just "this links to that" but "this depends on
+  that, blocks that, contradicts that, supersedes that." AI can reason
+  about dependencies.
+. *Decision logs with reasoning.* Capture not just *what* was decided but
+  *why*, with alternatives considered. Compounds in value over time.
+. *Token efficiency for AI users.* Pull only the relevant context from
+  Kanecta into a Claude conversation, instead of accumulating long chat
+  histories. Cheaper, faster, smarter.
+. *AGPL guarantee.* Your data is yours forever. No vendor can take it
+  away.
+. *Peer-to-peer team aggregation.* Multiple developers' Kanecta stores
+  can sync with each other, building team-wide institutional memory
+  without central infrastructure.
+. *Self-hostable, no cloud required.* Run it on a laptop. Run it on a
+  VPS. Run it on a Raspberry Pi. Your choice.
+
+= Part IV: Architecture and Specification
+
+== The 30-Second Architecture
+
+Each user has a *datastore* — a folder on their disk containing a hidden
+`.kanecta/` directory with everything Kanecta needs. Inside that:
+
+* `data/` is the source of truth — every item as a JSON file in a sharded
+  folder structure.
+* Several index caches (`types/`, `tags/`, `links/`, `relationships/`,
+  `search/`, `remotes-index/`) speed up common queries.
+* `aliases/` lets humans give memorable names to items.
+* `annotations/` lets people comment on items without modifying them.
+* `history/` preserves snapshots when items change.
+* `remotes/` caches items owned by other users you have synced with.
+* `config/` holds your owner identity and other settings.
+
+Items reference each other in two ways: by embedding `[[uuid]]` syntax in
+text values, or via typed relationships stored separately. A search index
+makes the whole datastore queryable.
+
+That is the entire architecture. Everything else is detail.
+
+== Sharding Strategy: 2 + 2 + Full UUID
+
+This deserves its own section because it has been the subject of careful
+thought.
+
+=== The Problem
+
+If you put one million items in a single directory, the filesystem will
+slow to a crawl. If you put them in a deeply nested tree, traversal
+becomes expensive. The sharding strategy must balance both.
+
+=== The Solution
+
+Kanecta uses UUID version 4 (random) for all item identifiers. UUID v4
+gives 122 bits of randomness — collisions are statistically impossible
+without a central registry.
+
+For sharding, take the UUID (with hyphens stripped for the shard
+computation), take the first 2 characters and the next 2 characters as
+two directory levels, then use the *full UUID* (with hyphens preserved)
+as the third level.
+
+Example:
+
+* UUID: `a1b2c3d4-e5f6-4abc-9def-123456789012`
+* First 2 chars: `a1`
+* Next 2 chars: `b2`
+* Full path: `.kanecta/data/a1/b2/a1b2c3d4-e5f6-4abc-9def-123456789012/`
+
+=== Why This Works
+
+* *Distribution*: 256 × 256 = 65,536 possible shard combinations. Even
+  with millions of items, no single shard directory becomes overwhelmed.
+* *Recoverability*: The full UUID appears in the path. If the index
+  caches are lost or corrupted, the data can be reconstructed by walking
+  the tree.
+* *Performance*: A direct lookup by UUID computes its path in constant
+  time. No tree traversal needed.
+* *Consistency*: The same sharding pattern is used everywhere — `data/`,
+  `types/`, `links/`, `relationships/`, `annotations/`, `history/`,
+  `tags/`, and (with string-based sharding) `aliases/` and
+  `remotes-index/`.
+
+=== Why Not Other Approaches
+
+Alternatives that were considered and rejected:
+
+* *2-char-only sharding throughout the UUID* (16 levels deep): too much
+  filesystem nesting, slow traversal.
+* *3-char-only sharding* (4096 dirs per level): overkill for any
+  realistic scale; less human-readable.
+* *No sharding* (flat directory of UUIDs): falls over at scale on most
+  filesystems.
+* *Sharding by content hash*: defeats the purpose; the UUID is already
+  random and unique.
+* *Sharding by 2 + 2 + remainder (UUID minus first 4 chars)*: rejected
+  because losing the full UUID in the path makes recovery harder.
+
+== The Item Schema
+
+Every item is a JSON file with the following fields. Required fields are
+marked.
+
+[cols="1,1,3"]
+|===
+| Field | Required | Description
+
+| `id`
+| yes
+| UUID v4 of this item
+
+| `parentId`
+| yes (nullable)
+| UUID of parent item, or null for root-level items
+
+| `value`
+| no
+| The item's content — text, a UUID for symlinks, or null
+
+| `type`
+| yes
+| Primitive (`string`, `number`, `text`, `file`, `symlink`) or structured
+  (`object`, `decision`, `annotation`)
+
+| `typeId`
+| conditional
+| For `object` items, UUID of the type definition. Otherwise null.
+
+| `owner`
+| yes
+| Email or domain identifying ownership
+
+| `license`
+| no
+| License identifier (AGPL, MIT, CC-BY, etc.)
+
+| `sortOrder`
+| yes
+| Integer for ordering among siblings
+
+| `confidence`
+| no
+| `experimental`, `exploring`, `decided`, or `locked`
+
+| `tags`
+| no
+| Array of cross-cutting tag strings
+
+| `createdAt`
+| yes
+| ISO8601 timestamp
+
+| `modifiedAt`
+| yes
+| ISO8601 timestamp
+
+| `createdBy`
+| yes
+| Email or domain of creator
+
+| `modifiedBy`
+| yes
+| Email or domain of last modifier
+
+| `cachedAt`
+| conditional
+| For items in `remotes/`, when they were last fetched
+
+| `subscribedAt`
+| no
+| When a subscription to this remote item began
+
+| `subscriptionSource`
+| no
+| URL or identifier of the remote source
+
+|===
+
+== Types: Primitive and Object
+
+=== Primitive Types
+
+* `string` — Short textual value
+* `number` — Numeric value
+* `text` — Longer text content
+* `file` — Item content is a file in the item's folder
+* `symlink` — `value` contains a UUID pointing to another item
+
+=== Object Types
+
+Object types are user- or community-defined schemas. The `type` field is
+`object` and the `typeId` field references another item — a type
+definition — that describes the expected structure.
+
+For example, a "Person" object type might define fields for name, email,
+phone, and notes. Any item of that type is expected (though not strictly
+enforced by the filesystem) to follow the schema.
+
+=== Built-in Structured Types
+
+* `decision` — A decision log entry. The `value` field contains a JSON
+  object capturing the decision, the problem, alternatives considered,
+  trade-offs, reasoning, decider, and timestamp.
+* `annotation` — A comment on another item. Stored in `annotations/`
+  rather than `data/`.
+
+== Indexes and Caches
+
+The following folders inside `.kanecta/` are *derived* from `data/`,
+`history/`, `annotations/`, `aliases/`, `remotes/`, and `config/`. They
+can be rebuilt at any time:
+
+* `types/` — Maps each `typeId` to the items of that type
+* `tags/` — Maps each tag string to the items carrying that tag
+* `links/` — For each item, the items that link *to* it (backlinks)
+* `relationships/` — Typed semantic relationships (depends-on, blocks,
+  etc.) in both directions
+* `search/` — Full-text search index (managed by a search library)
+* `remotes-index/` — Maps each remote owner to the items of theirs you
+  have cached
+
+When a successor maintainer adds a new query pattern, the right answer is
+usually to add another index folder rather than scanning `data/`.
+
+== Multi-User and Remote Items
+
+A user's `.kanecta/data/` contains only items they own. Items owned by
+other users that they have cached locally live in `.kanecta/remotes/`,
+with the same sharding pattern.
+
+`.kanecta/remotes-index/` provides fast lookup by owner: "give me all
+items I have cached from `phil@gmail.com`."
+
+Subscription is the act of asking a remote owner's Kanecta instance to
+notify you when their items change. The `subscriptionSource` field
+records where to fetch updates from.
+
+For very large datastores, an append-only `changelog.jsonl` (planned
+extension) records every create/update/delete so peers can sync
+efficiently without rescanning the whole filesystem.
+
+== Performance Notes
+
+Several performance questions came up during design and are worth
+recording.
+
+=== File-System Read Performance
+
+For typical AI workflows, the filesystem is far faster than the AI
+itself. Reading a JSON metadata file on a modern SSD takes 1-5
+milliseconds. Even with hundreds of items per session, total I/O is
+trivial compared to token processing.
+
+A RAM cache is *not* needed for the MVP. Add it only if profiling shows
+filesystem reads becoming a bottleneck, which is unlikely until you
+reach hundreds of thousands of items being queried frequently.
+
+=== Type Index Scale
+
+If a single type has millions of items, a single `items.json` file
+becomes unwieldy. The solution is to shard the type index in the same
+2 + 2 pattern — store items in `.kanecta/types/[type-uuid]/aa/bb/items.json`
+where `aa/bb` is the shard of the contained item's UUID. This is a
+future optimization, not needed for MVP scale.
+
+=== Backup Strategy
+
+* Small stores (< 10k items): commit `.kanecta/` to git. Simple,
+  versioned, easy.
+* Medium stores (10k - 100k items): use rsync with `--delete` for
+  incremental backups.
+* Large stores (millions of items): the planned `changelog.jsonl`
+  enables backup tools to read only the changes since last backup,
+  avoiding a full filesystem scan.
+
+Index caches (`types/`, `tags/`, `links/`, etc.) do not strictly need
+to be backed up — they can be rebuilt from `data/`. This is an
+important property to preserve.
+
+= Part V: Strategic Context
+
+== The Featherston Community Hub: First Real Use
+
+The first real-world application built on Kanecta is *Community Hub*, a
+platform deployed at https://featherston.co.nz for a small community in
+New Zealand.
+
+=== What Community Hub Does
+
+* *Public website* for the community
+* *Real-time threaded discussions* (Slack-like) for community members
+* Dedicated sections for food, local produce, skill sharing, transport,
+  social services, local economy, and community resilience planning
+* *Financial management*: transactions, cashflow, P&L, recurring
+  expenses, categorized income/expenditure
+* *Governance*: constitution, bylaws, board procedures, AGM workflows,
+  content moderation, volunteer onboarding, complaint handling
+* *Role-based access* via Keycloak SSO
+* *Push notifications* and a fully responsive mobile layout
+
+=== Current State
+
+As of the time of this document, Community Hub is deployed and in use.
+The technology stack is React/TypeScript on the frontend, Node.js /
+Express on the backend, PostgreSQL for data (not yet using Kanecta as
+the backing store), and Keycloak for authentication.
+
+=== Why Not WordPress
+
+The community group could, in principle, use WordPress. This was
+considered carefully and rejected. The reasoning:
+
+* WordPress plugin ecosystem leads to a janky Frankenstein system
+  that requires technical maintenance the community group cannot
+  provide.
+* WordPress is GPL but the plugin ecosystem pushes hard toward paid
+  plugins; the community group does not want paid software.
+* The VPS that hosts Keycloak and Nginx has 2GB of RAM; adding
+  WordPress, MySQL, and PHP-FPM is tight.
+* Keycloak + OAuth integration with WordPress is not native and
+  requires custom plugins.
+* The custom React app is *already deployed* and meets their needs;
+  switching to WordPress now would be a regression.
+
+The honest takeaway: the lock-in concern is not really about
+technology choice. It is about having technical people willing to
+maintain whatever is built. The path forward is to make the React app
+open-source, well-documented, and easy for other developers to
+contribute to — which is exactly what is happening.
+
+=== The Page Editor Gap
+
+The one feature Community Hub does not yet have, which the community
+group most needs, is the ability for non-technical users to create and
+edit public pages without involving Richard. Adding a WYSIWYG editor
+(TipTap, Slate, or similar — all open-source) and storing pages as
+Kanecta items closes this gap.
+
+
+== Peer-to-Peer Sync Across a Network
+
+Real-time team aggregation works by having each developer run a local
+Kanecta server and sync with colleagues over HTTPS on port 443. Each
+instance is reachable directly by its hostname or IP address.
+
+This approach requires no shared infrastructure: no shared drives, no
+central server, no IT provisioning. Each developer owns their store
+and chooses what to share with whom.
+
+The sensitive-data concern is real and must be handled. Sanitization
+rules should be built into the sync layer so that items tagged
+`sensitive` or items with certain `license` values are not shared
+without explicit opt-in.
+
+= Part VI: AI Integration
+
+This part is the most important section for a successor maintainer to
+understand, because it is where Kanecta differs most clearly from its
+alternatives.
+
+== Why Kanecta Beats Obsidian for AI Workflows
+
+Obsidian is a beautiful tool for human note-taking. It stores markdown
+files in folders, links them with `[[note-name]]` syntax, and renders
+them with a clean UI. For humans writing notes, it is excellent.
+
+For AI workflows, it is suboptimal. The reasons:
+
+* Markdown is a *human* format. AI must parse natural language to
+  understand structure. Kanecta gives AI structured types directly.
+* Obsidian links are by note name. Renaming a note can break links.
+  Kanecta links are by UUID and are stable forever.
+* Obsidian has no concept of typed relationships. "Note A links to
+  note B" is the only relationship type. Kanecta has depends-on,
+  blocks, enables, supersedes, contradicts, etc.
+* Obsidian has no concept of confidence levels, decision logs, or
+  reasoning capture. Kanecta does.
+* Obsidian conflates the document with the note. In Kanecta, a single
+  paragraph or bullet point can be its own addressable item.
+
+The deeper point: Obsidian was designed before LLMs existed. Kanecta is
+designed *for* LLM-augmented workflows.
+
+== What Claude Wants (Asked Directly)
+
+When asked what an AI would want from a local data store, the answer
+was:
+
+. *Explicit structure.* Not "here's markdown, infer the meaning." Every
+  piece of data has explicit type information.
+. *Rich, typed linking.* Not just text references. Semantic
+  relationships that can be queried.
+. *Flat addressability.* UUID-per-item means anything can be referenced
+  directly. No need to know which file contains a particular
+  paragraph.
+. *Queryability.* "Show me all decisions about authentication" should
+  be a fast structured query, not a regex search.
+. *Metadata as first-class.* Provenance, ownership, timestamps,
+  confidence — all queryable.
+. *Multi-user native.* Sharing and subscriptions baked in, not bolted
+  on.
+. *Decision logs with reasoning.* Capture *why*, not just *what*. So
+  that when re-visiting decisions months later, the original reasoning
+  is available.
+. *Relationship semantics.* Knowing that A *blocks* B is more useful
+  than just knowing A and B are related.
+
+Kanecta now provides all of these.
+
+== Token Efficiency
+
+A subtle but valuable benefit: Kanecta enables *token-efficient* AI
+workflows.
+
+The naive approach to using Claude (or any LLM) over long conversations
+is to let the chat history grow. Every new message pays for the cost
+of re-sending the entire history. After hours of conversation, the
+token cost per response is substantial.
+
+With Kanecta:
+
+* Important decisions and outputs from each conversation are saved to
+  the local store.
+* New conversations start fresh, but pull *only relevant context* from
+  Kanecta on demand.
+* "Tell me what we decided about authentication for Product A" pulls
+  the relevant decision items (perhaps 5KB) instead of replaying the
+  full conversation history (perhaps 50KB).
+
+Over months of use, this compounds into real cost savings. For
+professional developers on Claude Pro, this matters.
+
+== The Capture Strategies
+
+Several approaches to getting AI-generated content into Kanecta were
+considered. They differ in friction and completeness.
+
+=== Strategy 1: Manual Slash Command
+
+User types `/kanecta save-conversation` in their Claude interface,
+which triggers a save. Low infrastructure, requires user action each
+time. *Recommended for MVP.*
+
+=== Strategy 2: `~/.claude/` Configuration Hook
+
+Add a snippet to the user's local Claude configuration folder that
+tells Claude about Kanecta and instructs it to offer saving naturally
+during conversations. Works for Claude Code and CLI; does *not* work
+for the Claude web app or mobile apps (these do not read the local
+config). *Recommended for the connector npm package.*
+
+=== Strategy 3: MCP Server
+
+Build a Model Context Protocol server that exposes Kanecta operations
+(create item, link items, query, etc.) as tools that Claude Code can
+call directly. Most seamless integration. *Recommended for v2.*
+
+=== Strategy 4: Browser Extension
+
+For users who work primarily in the Claude web app, a browser
+extension can capture conversations and post them to the local Kanecta
+server. *Future work.*
+
+=== Strategy 5: Watcher Script
+
+A small Node.js daemon watches a temp folder for JSON files. Claude (or
+the user) writes session data to that folder; the watcher imports it
+into Kanecta following the spec's business rules. *Useful for batch
+import scenarios.*
+
+= Part VII: Roadmap
+
+The roadmap is organized in phases. Phases earlier in the list must be
+substantially complete before later phases begin.
+
+== Phase 1: MVP Foundation
+
+The minimum viable product that proves the concept and is genuinely
+useful to the developer.
+
+* Define and document the file store specification (this document plus
+  `specification.md`)
+* Implement the sharded UUID folder structure
+* Build the Node.js / Express read API
+** `GET /items/:id`
+** `GET /items/:id/children`
+** Tree traversal from root
+* Build the React / TypeScript frontend with a read-only tree view
+* Populate the data store with the Kanecta planning conversation
+* Use Kanecta to manage Kanecta's own development tasks
+* Testing setup with passing read API tests
+
+== Phase 2: Write Operations
+
+Make the tree editable so humans and AI can add and modify items.
+
+* `POST`, `PUT`, `DELETE` API endpoints
+* Index maintenance on write (types, tags, links, relationships)
+* Editable tree UI: inline editing, add child, delete with backlink
+  warnings, drag-to-reorder
+* OpenAPI spec documenting endpoints and business rules
+
+== Phase 3: Aliases and Links
+
+* Alias creation and management
+* Inline `[[uuid]]` link rendering in the UI
+* Backlinks panel
+* Symlink resolution
+
+== Phase 4: Typed Relationships
+
+* Create, read, update, delete relationships
+* Relationship type browser
+* Dependency graph visualization
+* Warn on delete if blocking relationships exist
+
+== Phase 5: Decision Logs and Annotations
+
+* `decision` type with rich reasoning capture
+* `annotation` type with threaded discussion
+* UI for browsing and adding annotations
+* Confidence level indicators on items
+
+== Phase 6: Search
+
+* AGPL-compatible search library integration (MeiliSearch or similar)
+* Search by content, tags, type, owner, license
+* UI search bar with results in tree context
+
+== Phase 7: Types System
+
+* Built-in primitive types
+* User-definable object types
+* Table/grid view per type
+* Type-constrained item editing
+
+== Phase 8: Multi-User and Remotes
+
+* `remotes/` cache management
+* Manual pull from remote sources
+* Subscription model with push notifications
+* Sanitization rules for sharing
+
+== Phase 9: AI Integration (First-Class)
+
+* `~/.claude/` config snippet shipped with the npm package
+* Optional MCP server for Claude Code
+* Slash command support
+* Token-efficient context retrieval helpers
+* AI-aware decision capture (intermediate reasoning recorded)
+
+== Phase 10: Developer Experience and Distribution
+
+* `npm install -g kanecta` with an interactive setup wizard
+* CLI tools for managing the store
+* Plugin/extension API
+* Migration tools from Obsidian, Notion, markdown
+* Contributor documentation and architecture guides
+
+== Phase 11: Enterprise and Organizational Features
+
+* Permissions model (read/write/admin per item or subtree)
+* Audit log
+* Item-level versioning beyond the `history/` snapshots
+* Conflict resolution for concurrent edits
+* SSO / identity provider integration
+
+== Cross-Cutting Concerns
+
+* Maintain AGPL compatibility for all dependencies
+* All data in open, text-based formats
+* Self-hostable on Linux desktop and server
+* Privacy-first: no telemetry, no required external dependencies
+* Specification versioning kept current in `kanecta-specification/`
+* Eat your own dog food: develop Kanecta inside Kanecta
+
+= Part VIII: Decision Log
+
+These are major decisions made during design, with the alternatives
+considered and reasons for rejection. A successor maintainer should
+update this log when making significant changes.
+
+== Decision: UUID v4 over Other UUID Versions
+
+Decided: 2026-05-14. Confidence: locked.
+
+UUID v4 (random) chosen over v1 (timestamp-based), v6/v7 (time-ordered),
+and v5 (namespace-based).
+
+Reasoning: v4 has no central authority requirement, no information
+leakage (v1 includes MAC address), and is universally supported. The
+122 bits of randomness make collisions effectively impossible.
+
+Alternatives considered:
+
+* *UUID v1*: leaks MAC address; not acceptable for distributed,
+  privacy-focused systems.
+* *UUID v6/v7*: time-ordered, allows efficient indexing by creation
+  time. Tempting, but added complexity and reduced library support.
+  Revisit if time-ordering becomes a critical query pattern.
+* *Snowflake IDs*: require a coordinator. Rejected on principle.
+
+== Decision: 2 + 2 + Full UUID Sharding
+
+Decided: 2026-05-14. Confidence: locked.
+
+The shard path is: `[first 2 chars]/[next 2 chars]/[full UUID with hyphens]/`.
+
+Reasoning: Balances filesystem performance (no directory has more than
+a few thousand items at reasonable scale) with recoverability (the full
+UUID is visible in the path, so if index caches are lost, data can be
+walked and reconstructed).
+
+Alternatives considered and rejected:
+
+* *2-char-only deep nesting (16 levels)*: too slow for traversal.
+* *3-char-only sharding*: overkill, less human-readable.
+* *No sharding*: fails at scale.
+* *2 + 2 + remainder*: loses recoverability.
+
+== Decision: AGPL v3 License
+
+Decided: pre-2026. Confidence: locked.
+
+AGPL chosen over MIT, BSD, Apache, and GPL.
+
+Reasoning: AGPL is the only mainstream license that forces SaaS
+providers running a modified version to share their changes. This
+prevents a competitor from "embracing, extending, and extinguishing"
+the open project.
+
+Alternatives considered:
+
+* *MIT*: too permissive; allows closed-source forks.
+* *GPL*: does not cover SaaS deployment.
+* *SSPL or BSL*: not OSI-approved.
+* *AGPL with CLA to relicense later*: rejected; the no-commercial-capture
+  principle requires no relicensing path.
+
+== Decision: PostgreSQL Backing Store for Community Hub (Temporary)
+
+Decided: pre-2026. Confidence: decided (not locked).
+
+Community Hub currently uses PostgreSQL, not Kanecta, as its backing
+store.
+
+Reasoning: PostgreSQL was already running on the VPS for Keycloak.
+Adding Community Hub to the existing database was pragmatic. Migrating
+Community Hub to use Kanecta as the backing store is planned for a
+future phase, once Kanecta is mature enough.
+
+This is a *transitional* decision and should not become permanent. A
+successor maintainer should plan to migrate Community Hub to Kanecta
+when the protocol can meet its performance and feature needs.
+
+== Decision: No WordPress for Community Hub
+
+Decided: 2026-05-14. Confidence: decided.
+
+WordPress was considered as an alternative to building a custom React
+app. Rejected for the reasons documented in Part V.
+
+Note: this decision is somewhat reversible. If maintaining the custom
+React app becomes infeasible, WordPress with carefully chosen plugins
+remains a fallback option.
+
+
+== Decision: P2P HTTPS on Port 443 for Team Sync
+
+Decided: 2026-05-14. Confidence: experimental.
+
+Each developer runs a local Kanecta server reachable by peers over
+HTTPS on port 443. Peers query each other directly; no shared
+central server is required.
+
+Alternatives considered:
+
+* *Shared network drive*: Requires provisioning shared storage. Friction.
+* *Sync daemon writing to a shared git repo*: Works but requires
+  sanitization to avoid sensitive data leaks into version history.
+* *Bastion host*: Mediates peer connections; more infrastructure but
+  cleaner access control.
+
+The P2P approach is chosen for its simplicity and zero-infrastructure
+requirement. If direct peer connections are impractical in a given
+network environment, fall back to git-based sync or a shared bastion.
+
+== Decision: Markdown Spec, Not Self-Hosted in Kanecta (Yet)
+
+Decided: 2026-05-14. Confidence: decided.
+
+The specification itself is maintained as markdown files in the GitHub
+repo, not as Kanecta items inside a Kanecta datastore.
+
+Reasoning: chicken-and-egg. The spec is needed before the protocol can
+store the spec. Once the protocol is stable, migrating the spec into a
+Kanecta datastore is a worthwhile dog-fooding exercise.
+
+== Decision: Embedded vs. Server Database
+
+Decided: 2026-05-14. Confidence: decided.
+
+For local Kanecta deployments, the filesystem is the database. No
+SQLite, no embedded Postgres.
+
+Reasoning: filesystems are more durable than database formats. A folder
+of JSON files written in 2026 will be readable in 2076. A SQLite
+database might be — but the longevity guarantee is weaker.
+
+For cases that require fast queries (Community Hub running on
+PostgreSQL is the current example), use a separate database alongside
+Kanecta, with Kanecta as the source of truth and the database as a
+query cache.
+
+= Part IX: For the Successor Maintainer
+
+If you are reading this because Richard is no longer leading the
+project, welcome. Here is what you most need to know.
+
+== What Not to Change
+
+* The AGPL license
+* The filesystem-as-database approach for local datastores
+* The UUID v4 + 2 + 2 + full sharding
+* The principle that index caches are derived, not authoritative
+* The no-commercial-capture culture
+* The eat-your-own-dog-food practice
+
+== What You Are Free to Change
+
+* The choice of any specific library (search, web framework, UI
+  framework) — as long as the replacement is AGPL-compatible
+* The specific set of standard relationship types
+* The list of confidence levels
+* The exact roadmap phasing — some phases may be reordered, combined,
+  or skipped based on real-world needs
+* The first-class apps built on Kanecta — Community Hub is one
+  example, others can and should follow
+
+== What You Should Question Carefully
+
+* The peer-to-peer sync approach if a clear better alternative emerges
+  (e.g., a mature CRDT-based protocol)
+* The single-owner model for items if multi-author editing becomes
+  important
+* The lack of strong type enforcement for object types
+
+== How to Make Major Decisions
+
+When facing a significant design choice:
+
+. Read the relevant section of this document and the decision log.
+. If the question is not answered, write down the question, the
+  alternatives, and the reasoning *before* making the decision.
+. Add the decision to the decision log with confidence level.
+. Bias toward reversible decisions when possible.
+. When in doubt, choose the option that preserves data longevity and
+  user control.
+
+== Where to Find Things
+
+* `kanecta-specification/specification.md` — the formal protocol spec
+* `kanecta-roadmap/` — the phased roadmap
+* `kanecta-api/` — the Node.js / Express HTTP API
+* `kanecta-client-web/` — the React / TypeScript web UI
+* `kanecta-cli/` — the CLI tool
+* `kanecta-lib/` — shared library code
+* `kanecta-datastore-sample/` — sample datastore for development and
+  testing
+* `kanecta-docs/` — full documentation
+* `kanecta-app-community-hub/` — the first real-world application built
+  on Kanecta
+* `CLAUDE.md` — project orientation for Claude Code
+* `LICENSE` — the AGPL v3 license
+
+== Final Words
+
+This project began as a personal itch and grew, over decades of
+thinking and four prior attempts, into something with a real chance of
+being useful — not just to one person, but to anyone who has felt the
+frustration of watching their digital information slip through their
+fingers.
+
+It is not finished. It may never be finished. The vision is large and
+the path is long.
+
+But the principles are clear, the architecture is sound, and the
+license is right. Whoever is reading this: you have everything you
+need to continue. The rest is craft.
+
+Build it well.
+
+— Richard Thomas, with deep collaboration from Claude
