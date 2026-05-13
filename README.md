@@ -6,7 +6,7 @@ Every piece of information in Kanecta — a paragraph, a decision, a person, an 
 
 ## A data platform
 
-Your data belongs to you. Kanecta stores everything locally in an open, human-readable format with no lock-in and no central server. Items are uniquely addressable, linked, tagged, and queryable — structured enough to power applications, transparent enough to audit by hand. Because the format is just files, it will be readable decades from now regardless of what software exists.
+Your data belongs to you. Kanecta stores everything locally in an open, human-readable file format (or a database that you control) with no lock-in and no central server. Items are uniquely addressable, linked, tagged, and queryable — structured enough to power applications, transparent enough to audit by hand. Because the format is just files, it will be readable decades from now regardless of what software exists.
 
 ## An AI bridge
 
@@ -22,7 +22,7 @@ The same data powering your personal knowledge base can power a community websit
 # Install Node.js from nodejs.org, then:
 
 npm install -g kanecta
-kanecta      # will guide you through setup
+kanecta      # <-- will guide you through setup
 ```
 
 ## Learn more
@@ -32,4 +32,4 @@ kanecta      # will guide you through setup
 - [Roadmap](kanecta-roadmap/) — what's planned and why
 - [Docs](kanecta-docs/) — full documentation
 
-MIT licensed. Self-hosted. No telemetry.
+MIT licensed. Self-hosted.
