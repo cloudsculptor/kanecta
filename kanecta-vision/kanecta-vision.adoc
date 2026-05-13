@@ -14,7 +14,7 @@ Richard Thomas <cloudsculptor@github>
 [abstract]
 == Abstract
 
-Kanecta is an open-source, AGPL-licensed data storage and sharing protocol designed
+Kanecta is an open-source, MIT-licensed data storage and sharing protocol designed
 to serve as a human-AI bridge. It treats every piece of information — whether a
 paragraph, a decision, a person, a code snippet, or an entire document — as a
 first-class object with a globally unique identifier, explicit type, and rich
@@ -125,8 +125,7 @@ realistic. He would build it as a hobby regardless of commercial outcome.
 
 This honesty matters because it shapes the project's culture:
 
-* No investors are sought. There is no exit strategy. The license is AGPL
-  specifically to prevent commercial capture.
+* No investors are sought. There is no exit strategy. The license is MIT.
 * Adoption is treated as a happy bonus, not a requirement.
 * The focus is on doing the technical work *right* rather than rushing to
   market.
@@ -144,27 +143,24 @@ These are the principles that have emerged from years of thinking about
 this problem. A successor maintainer is welcome to question them — but
 should do so with full awareness of what each one is trying to prevent.
 
-=== Principle 1: AGPL Open Source, Always
+=== Principle 1: MIT Open Source, Always
 
-The license is AGPL version 3, not MIT, not BSD, not Apache. This is
-deliberate.
+The license is MIT. This is deliberate.
 
-AGPL forces anyone who runs a modified version as a network service to
-share their modifications. It is the strongest copyleft license in
-practical use. The reasoning:
+MIT is the most widely understood permissive open-source license. The
+reasoning:
 
-* It prevents a corporate entity from forking Kanecta, hosting it as a
-  closed SaaS, and competing against the open project from a position of
-  hidden improvements.
-* It guarantees that users can always fork the code, host it themselves,
-  and recover their data — even decades from now.
-* It aligns the incentives: contributors benefit each other, not a
-  hidden vendor.
+* Anyone can use, modify, fork, and build on Kanecta without restriction.
+  This maximises adoption and lowers the barrier for individuals,
+  organisations, and businesses to participate.
+* The data format remains open regardless of what is built on top of it.
+  The protocol specification is published; alternative implementations
+  are always possible.
+* MIT is compatible with every other open-source license, so any
+  dependency can be used without licence conflict concerns.
 
-A consequence: any dependency Kanecta pulls in must be AGPL-compatible.
-This is a real constraint and must be applied as a guardrail when
-recommending libraries. If a developer suggests a non-AGPL-compatible
-library, flag it.
+A consequence: Kanecta does not and cannot prevent commercial use. This
+is a deliberate trade-off in favour of adoption and contributor freedom.
 
 === Principle 2: Data Longevity Over Convenience
 
@@ -332,8 +328,8 @@ community groups, organizations), these are the features that matter:
 . *Token efficiency for AI users.* Pull only the relevant context from
   Kanecta into a Claude conversation, instead of accumulating long chat
   histories. Cheaper, faster, smarter.
-. *AGPL guarantee.* Your data is yours forever. No vendor can take it
-  away.
+. *MIT guarantee.* Your data is yours forever. The protocol is open;
+  anyone can build a compatible implementation.
 . *Peer-to-peer team aggregation.* Multiple developers' Kanecta stores
   can sync with each other, building team-wide institutional memory
   without central infrastructure.
@@ -457,7 +453,7 @@ marked.
 
 | `license`
 | no
-| License identifier (AGPL, MIT, CC-BY, etc.)
+| License identifier (MIT, Apache-2.0, CC-BY, etc.)
 
 | `sortOrder`
 | yes
@@ -848,7 +844,7 @@ Make the tree editable so humans and AI can add and modify items.
 
 == Phase 6: Search
 
-* AGPL-compatible search library integration (MeiliSearch or similar)
+* Open-source search library integration (MeiliSearch or similar)
 * Search by content, tags, type, owner, license
 * UI search bar with results in tree context
 
@@ -892,7 +888,7 @@ Make the tree editable so humans and AI can add and modify items.
 
 == Cross-Cutting Concerns
 
-* Maintain AGPL compatibility for all dependencies
+* Use open-source dependencies
 * All data in open, text-based formats
 * Self-hostable on Linux desktop and server
 * Privacy-first: no telemetry, no required external dependencies
@@ -943,24 +939,29 @@ Alternatives considered and rejected:
 * *No sharding*: fails at scale.
 * *2 + 2 + remainder*: loses recoverability.
 
-== Decision: AGPL v3 License
+== Decision: MIT License
 
-Decided: pre-2026. Confidence: locked.
+Decided: 2026-05-14. Confidence: locked.
 
-AGPL chosen over MIT, BSD, Apache, and GPL.
+MIT chosen for its simplicity, wide recognition, and maximum
+permissiveness.
 
-Reasoning: AGPL is the only mainstream license that forces SaaS
-providers running a modified version to share their changes. This
-prevents a competitor from "embracing, extending, and extinguishing"
-the open project.
+Reasoning: MIT is the most widely understood open-source license. It
+places no restrictions on how Kanecta can be used, forked, or built
+upon, which maximises adoption potential and removes friction for
+contributors. The protocol specification is published openly regardless
+— users can always build compatible implementations.
 
 Alternatives considered:
 
-* *MIT*: too permissive; allows closed-source forks.
-* *GPL*: does not cover SaaS deployment.
-* *SSPL or BSL*: not OSI-approved.
-* *AGPL with CLA to relicense later*: rejected; the no-commercial-capture
-  principle requires no relicensing path.
+* *AGPL*: Would require SaaS providers to share modifications, but
+  significantly raises the adoption barrier and complicates dependency
+  selection. Rejected in favour of permissiveness.
+* *GPL*: Copyleft without the SaaS provision. Rejected for the same
+  reasons as AGPL.
+* *Apache 2.0*: A reasonable alternative with an explicit patent grant.
+  Could be revisited if patent concerns arise; MIT is preferred for its
+  simplicity.
 
 == Decision: PostgreSQL Backing Store for Community Hub (Temporary)
 
@@ -1044,17 +1045,16 @@ project, welcome. Here is what you most need to know.
 
 == What Not to Change
 
-* The AGPL license
+* The MIT license
 * The filesystem-as-database approach for local datastores
 * The UUID v4 + 2 + 2 + full sharding
 * The principle that index caches are derived, not authoritative
-* The no-commercial-capture culture
 * The eat-your-own-dog-food practice
 
 == What You Are Free to Change
 
 * The choice of any specific library (search, web framework, UI
-  framework) — as long as the replacement is AGPL-compatible
+  framework) — as long as the replacement is open-source
 * The specific set of standard relationship types
 * The list of confidence levels
 * The exact roadmap phasing — some phases may be reordered, combined,
@@ -1096,7 +1096,7 @@ When facing a significant design choice:
 * `kanecta-app-community-hub/` — the first real-world application built
   on Kanecta
 * `CLAUDE.md` — project orientation for Claude Code
-* `LICENSE` — the AGPL v3 license
+* `LICENSE` — the MIT license
 
 == Final Words
 
