@@ -11,7 +11,7 @@
   },
   "keywords": ["kanecta", "connectivity", "open-source", "self-host"],
   "author": "kanecta",
-  "license": "AGPL-3.0",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/cloudsculptor/kanecta"
