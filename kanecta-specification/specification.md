@@ -98,7 +98,7 @@ Each item folder contains:
 | `type` | yes | Item type. Primitive: `string`, `number`, `text`, `file`, `symlink`. Structured: `object`, `decision`, `annotation` |
 | `typeId` | conditional | If type is `object`, UUID of the type definition. Otherwise null |
 | `owner` | yes | Email or domain of item owner |
-| `license` | no | License identifier (MIT, AGPL, CC-BY, etc.) or null |
+| `license` | no | License identifier (MIT, Apache-2.0, CC-BY, etc.) or null |
 | `sortOrder` | yes | Integer for sibling ordering. Higher numbers appear lower in the tree |
 | `confidence` | no | Confidence/certainty level: `experimental`, `exploring`, `decided`, `locked`, or null |
 | `tags` | no | Array of cross-cutting tags (e.g., `performance-critical`, `security-related`, `technical-debt`) |
