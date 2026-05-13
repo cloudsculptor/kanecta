@@ -1,7 +1,9 @@
 # Kanecta Datastore Specification
 
+**Version:** 1.1
+
 ## Overview
-Kanecta is an open-source, self-hosted personal and organizational information repository. Data is stored as a hierarchical tree structure with globally unique identifiers, enabling flexible organization, linking, and multi-user collaboration.
+Kanecta is an open-source, self-hosted personal and organizational information repository. Data is stored as a hierarchical tree structure with globally unique identifiers, enabling flexible organization, linking, semantic relationships, and multi-user collaboration. The protocol is designed as a human-AI bridge: structured enough for AI to work with efficiently, transparent enough for humans to audit and understand.
 
 ## 1. Directory Structure
 
@@ -11,102 +13,187 @@ When a user initializes Kanecta, they designate a **datastore** location on disk
 ```
 datastore/
 ├── .kanecta/
-│ ├── data/
-│ ├── aliases/
-│ ├── config/
-│ ├── search/
-│ ├── types/
-│ ├── remotes/
-│ ├── remotes-index/
-│ └── links/
+│   ├── data/
+│   ├── aliases/
+│   ├── annotations/
+│   ├── config/
+│   ├── history/
+│   ├── links/
+│   ├── relationships/
+│   ├── remotes/
+│   ├── remotes-index/
+│   ├── search/
+│   ├── tags/
+│   └── types/
 ├── specification.md
 └── README.md
 ```
 
 ### .kanecta/data/ — Source of Truth
-All items in the Kanecta datastore live here in a sharded UUID structure. Every item's files live inside a directory path built by stripping hyphens from the UUID and splitting the resulting 32-character hex string into two-character chunks — all the way through, 16 levels deep.
+
+All items in the Kanecta datastore live here in a sharded UUID structure.
+
+**UUID Standard:** Kanecta uses UUID version 4 (random) for all item identifiers. UUID v4 provides 122 bits of randomness, making collisions effectively impossible across all installations worldwide, with no central authority required for uniqueness.
+
+**Sharding Strategy: 2 + 2 + Full UUID**
+
+The first two pairs of characters from the UUID (after stripping hyphens) form two directory levels. The third level is the **complete UUID** (with hyphens preserved). This approach:
+
+- Distributes items across 65,536 possible shard combinations (256 × 256)
+- Keeps the full UUID in the path for recovery and debugging
+- Avoids filesystem performance issues from too many items in one directory
+- Allows the directory name to be self-identifying
+
+**Example:**
+UUID: `a1b2c3d4-e5f6-4abc-9def-123456789012`
+Stripped first 4 chars: `a1b2`
+Path: `.kanecta/data/a1/b2/a1b2c3d4-e5f6-4abc-9def-123456789012/`
 
 **Structure Example:**
 ```
 .kanecta/data/
 └── a1/
     └── b2/
-        └── c3/
-            └── d4/
-                └── e5/
-                    └── f6/
-                        └── ab/
-                            └── cd/
-                                └── ef/
-                                    └── 12/
-                                        └── 34/
-                                            └── 56/
-                                                └── 78/
-                                                    └── 90/
-                                                        └── 12/
-                                                            └── 34/
-                                                                ├── metadata.json
-                                                                ├── image.png (optional)
-                                                                └── document.txt (optional)
+        └── a1b2c3d4-e5f6-4abc-9def-123456789012/
+            ├── metadata.json
+            ├── image.png (optional)
+            └── document.txt (optional)
 ```
-
-**UUID Sharding:** Strip hyphens from the UUID to get 32 hex characters, then split into 2-character chunks. Every chunk becomes one directory level. Example: UUID `a1b2c3d4-e5f6-abcd-ef12-345678901234` → strip hyphens → `a1b2c3d4e5f6abcdef12345678901234` → `a1/b2/c3/d4/e5/f6/ab/cd/ef/12/34/56/78/90/12/34/metadata.json`.
 
 Each item folder contains:
 - **metadata.json** — Item metadata (required)
-- **Optional files** — Images, code, documents, etc.
+- **Optional files** — Images, code, documents, attachments, etc.
 
 ### metadata.json Schema
 
 ```json
 {
-"id": "string (UUID)",
-"parentId": "string (UUID) or null",
-"value": "string or null",
-"type": "string",
-"typeId": "string (UUID) or null",
-"owner": "string (email or domain)",
-"license": "string or null",
-"sortOrder": "integer",
-"cachedAt": "string (ISO8601) or null",
-"subscribedAt": "string (ISO8601) or null",
-"subscriptionSource": "string or null"
+  "id": "string (UUID v4)",
+  "parentId": "string (UUID v4) or null",
+  "value": "string or null",
+  "type": "string",
+  "typeId": "string (UUID v4) or null",
+  "owner": "string (email or domain)",
+  "license": "string or null",
+  "sortOrder": "integer",
+  "confidence": "string or null",
+  "tags": ["string", "..."],
+  "createdAt": "string (ISO8601)",
+  "modifiedAt": "string (ISO8601)",
+  "createdBy": "string (email or domain)",
+  "modifiedBy": "string (email or domain)",
+  "cachedAt": "string (ISO8601) or null",
+  "subscribedAt": "string (ISO8601) or null",
+  "subscriptionSource": "string or null"
 }
 ```
 
-**Field Definitions:**
+### Field Definitions
 
-- **id** (required): Unique identifier for this item. UUID format.
-- **parentId**: UUID of parent item, or null if root level.
-- **value**: Item content. Can be text string, UUID reference (for symlinks), or null.
-- **type** (required): Item type. Values: "string", "number", "text", "file", "symlink", "object".
-- **typeId**: If type is "object", UUID of the type definition. Otherwise null.
-- **owner** (required): Email or domain of item owner.
-- **license**: License identifier (MIT, AGPL, CC-BY, etc.) or null.
-- **sortOrder** (required): Integer for sibling ordering. Higher numbers appear lower in the tree.
-- **cachedAt**: ISO8601 timestamp when remote item was last cached. Null for local items.
-- **subscribedAt**: ISO8601 timestamp when subscription started. Null if not subscribed.
-- **subscriptionSource**: URL or identifier of remote source for updates.
+| Field | Required | Description |
+|---|---|---|
+| `id` | yes | Unique identifier for this item (UUID v4) |
+| `parentId` | yes (nullable) | UUID of parent item, or null if root level |
+| `value` | no | Item content. Text string, UUID reference (for symlinks), or null |
+| `type` | yes | Item type. Primitive: `string`, `number`, `text`, `file`, `symlink`. Structured: `object`, `decision`, `annotation` |
+| `typeId` | conditional | If type is `object`, UUID of the type definition. Otherwise null |
+| `owner` | yes | Email or domain of item owner |
+| `license` | no | License identifier (MIT, AGPL, CC-BY, etc.) or null |
+| `sortOrder` | yes | Integer for sibling ordering. Higher numbers appear lower in the tree |
+| `confidence` | no | Confidence/certainty level: `experimental`, `exploring`, `decided`, `locked`, or null |
+| `tags` | no | Array of cross-cutting tags (e.g., `performance-critical`, `security-related`, `technical-debt`) |
+| `createdAt` | yes | ISO8601 timestamp of item creation |
+| `modifiedAt` | yes | ISO8601 timestamp of most recent modification |
+| `createdBy` | yes | Email or domain of creator |
+| `modifiedBy` | yes | Email or domain of most recent modifier |
+| `cachedAt` | conditional | ISO8601 timestamp when remote item was last cached. Required for remotes, null for local items |
+| `subscribedAt` | no | ISO8601 timestamp when subscription started. Null if not subscribed |
+| `subscriptionSource` | no | URL or identifier of remote source for updates |
+
+### Confidence Levels
+
+The `confidence` field indicates how settled an item is:
+
+- **experimental** — Speculative, being tried out, may change significantly
+- **exploring** — Actively investigating, alternatives still on the table
+- **decided** — A decision has been made, but could be revisited
+- **locked** — Settled, not expected to change
+
+### Decision Item Type
+
+When `type` is `decision`, the `value` field contains a JSON object capturing the reasoning behind the decision:
+
+```json
+{
+  "decision": "What was decided",
+  "problem": "The problem this decision solves",
+  "alternatives": [
+    {
+      "option": "Alternative considered",
+      "reasoning": "Why it was considered",
+      "rejectedBecause": "Why it was not chosen"
+    }
+  ],
+  "tradeoffs": "Trade-offs accepted with this decision",
+  "reasoning": "Full reasoning narrative",
+  "decidedBy": "email or domain",
+  "decidedAt": "ISO8601 timestamp"
+}
+```
+
+Decision items capture not just *what* was decided, but *why*. They form an institutional memory of reasoning that compounds in value over time.
 
 ### .kanecta/aliases/ — Human-Readable Shortcuts
 
-Stores user-friendly aliases mapping to item UUIDs. Uses identical sharding structure as data/.
+Stores user-friendly aliases mapping to item UUIDs. Uses the same 2 + 2 + full sharding pattern as data/, but sharded by the alias string itself rather than a UUID.
+
+For alias strings, the first two pairs of characters form the directory levels, with the full alias as the third level.
 
 **Structure:**
 ```
 .kanecta/aliases/
-├── d/
-│ ├── r/
-│ │ ├── i/
-│ │ │ └── ll-one.txt
+└── dr/
+    └── il/
+        └── drill-one/
+            └── target.txt
 ```
 
-Each file contains a single line with the target UUID:
+Each `target.txt` contains a single line with the target UUID:
 ```
-a1b2c3d4e5f6...
+a1b2c3d4-e5f6-4abc-9def-123456789012
 ```
 
-**Usage:** Read alias file to get UUID, then look up UUID in data/ folder.
+Multiple aliases may point to the same UUID. Aliases under 4 characters use a single-character padding scheme (implementation choice).
+
+**Usage:** Read the alias file to get the UUID, then look up that UUID in the data/ folder.
+
+### .kanecta/annotations/ — Annotations and Comments
+
+Stores annotations (comments, thoughts, reactions) on items without modifying the items themselves. Uses 2 + 2 + full UUID sharding by the **target item's UUID**.
+
+**Structure:**
+```
+.kanecta/annotations/
+└── a1/
+    └── b2/
+        └── a1b2c3d4-e5f6-4abc-9def-123456789012/
+            ├── annotation-<uuid>.json
+            └── annotation-<uuid>.json
+```
+
+Each annotation file contains:
+```json
+{
+  "id": "annotation UUID v4",
+  "targetId": "UUID of the item being annotated",
+  "author": "email or domain",
+  "content": "the annotation text",
+  "createdAt": "ISO8601 timestamp",
+  "parentAnnotationId": "UUID of parent annotation, or null for top-level"
+}
+```
+
+Annotations are themselves items and can be queried, linked, and tagged. The `parentAnnotationId` field enables threaded discussions on items.
 
 ### .kanecta/config/ — Configuration
 
@@ -115,99 +202,193 @@ Stores configuration as JSON files.
 **config.json:**
 ```json
 {
-"owner": "user@example.com"
+  "owner": "user@example.com",
+  "specVersion": "1.1"
 }
 ```
 
-- **owner**: Email or domain identifying the datastore owner. Used as default owner for new items.
+- **owner**: Email or domain identifying the datastore owner. Used as the default `owner`, `createdBy`, and `modifiedBy` for new items.
+- **specVersion**: Version of the Kanecta specification this datastore conforms to.
 
-### .kanecta/search/ — Search Index Cache
+### .kanecta/history/ — Change History
 
-Output folder for search library (MeiliSearch, Lunr, etc.). Automatically managed. Do not edit manually.
-
-### .kanecta/types/ — Type-to-Items Index Cache
-
-Reverse index mapping type UUIDs to all items of that type. Uses sharded structure by type UUID.
+Stores point-in-time snapshots of items when they are modified or deleted. Uses 2 + 2 + full UUID sharding by item UUID.
 
 **Structure:**
 ```
-.kanecta/types/
+.kanecta/history/
 └── a1/
     └── b2/
-        └── c3/
-            └── d4/
-                └── .../ (16 levels total, one per 2-char UUID chunk)
-                    └── items.json
+        └── a1b2c3d4-e5f6-4abc-9def-123456789012/
+            ├── 2026-05-14T10-30-00.json
+            ├── 2026-05-14T14-22-15.json
+            └── 2026-05-15T09-10-42.json
 ```
 
-**items.json:**
+Each history file contains the complete metadata.json snapshot as it existed before the change, plus:
 ```json
 {
-"items": ["uuid-of-item-1", "uuid-of-item-2", "uuid-of-item-3"]
+  "snapshotAt": "ISO8601 timestamp",
+  "changedBy": "email or domain",
+  "changeType": "create | update | delete"
 }
 ```
 
-### .kanecta/remotes/ — Cached Remote Items
-
-Stores copies of items owned by other users. Uses identical sharding to data/.
-
-Remote items include all standard metadata fields plus:
-- **cachedAt**: Timestamp of last fetch from remote source (required for remotes)
-- **subscribedAt**: Timestamp when subscription started (optional)
-
-### .kanecta/remotes-index/ — Remote Owner Index
-
-Maps owners to their cached items. Uses sharded structure by owner identifier.
-
-**Structure:**
-```
-.kanecta/remotes-index/
-├── u/
-│ ├── s/
-│ │ ├── e/
-│ │ │ ├── r/
-│ │ │ │ ├── at/
-│ │ │ │ │ ├── e/
-│ │ │ │ │ │ ├── x/
-│ │ │ │ │ │ │ ├── a/
-│ │ │ │ │ │ │ │ ├── m/
-│ │ │ │ │ │ │ │ │ ├── p/
-│ │ │ │ │ │ │ │ │ │ ├── le.com/
-│ │ │ │ │ │ │ │ │ │ │ └── items.json
-```
-
-Owner identifier is sharded character by character (one char per level) for consistency.
-
-**items.json:**
-```json
-{
-"items": ["uuid-of-item-1", "uuid-of-item-2"]
-}
-```
+History enables audit trails, undo operations, and understanding how decisions evolved over time.
 
 ### .kanecta/links/ — Backlinks Index Cache
 
-Reverse index mapping items to all items that link to them.
+Reverse index mapping items to all items that link to them. Uses 2 + 2 + full UUID sharding.
 
 **Structure:**
 ```
 .kanecta/links/
 └── a1/
     └── b2/
-        └── c3/
-            └── d4/
-                └── .../ (16 levels total, one per 2-char UUID chunk)
-                    └── backlinks.json
+        └── a1b2c3d4-e5f6-4abc-9def-123456789012/
+            └── backlinks.json
 ```
 
 **backlinks.json:**
 ```json
 {
-"backlinks": ["uuid-of-item-linking-to-this", "uuid-of-another-item"]
+  "backlinks": [
+    "uuid-of-item-linking-to-this",
+    "uuid-of-another-item"
+  ]
 }
 ```
 
-Used to find all references to an item before deletion.
+Used to find all references to an item before deletion and to surface "what links here" in user interfaces.
+
+### .kanecta/relationships/ — Semantic Relationships
+
+Stores typed relationships between items. A relationship is more than a link — it carries semantic meaning about *how* items relate. Uses 2 + 2 + full UUID sharding by the **source item's UUID**.
+
+**Standard Relationship Types:**
+
+| Relationship | Meaning |
+|---|---|
+| `relates-to` | General association, no stronger claim |
+| `depends-on` | Source requires target to exist or be true |
+| `enables` | Source makes target possible |
+| `contradicts` | Source and target are in conflict |
+| `blocks` | Source prevents target from progressing |
+| `blocked-by` | Source is prevented by target |
+| `prerequisite-for` | Source must be completed before target |
+| `derived-from` | Source originated from or was derived from target |
+| `supersedes` | Source replaces or makes target obsolete |
+
+Implementations may define additional relationship types as needed.
+
+**Structure:**
+```
+.kanecta/relationships/
+└── a1/
+    └── b2/
+        └── a1b2c3d4-e5f6-4abc-9def-123456789012/
+            └── relationships.json
+```
+
+**relationships.json:**
+```json
+{
+  "outbound": [
+    {
+      "targetId": "UUID of target item",
+      "type": "depends-on",
+      "createdAt": "ISO8601 timestamp",
+      "createdBy": "email or domain",
+      "note": "Optional context for this relationship"
+    }
+  ]
+}
+```
+
+A parallel inbound index is maintained in `.kanecta/relationships/` under the **target's** UUID path, listing items that have relationships pointing to it.
+
+### .kanecta/remotes/ — Cached Remote Items
+
+Stores copies of items owned by other users. Uses identical 2 + 2 + full UUID sharding to data/.
+
+Remote items use the same metadata schema as local items. The `cachedAt` field is required for items stored in remotes/.
+
+### .kanecta/remotes-index/ — Remote Owner Index
+
+Maps owners to their cached items. Uses the same 2 + 2 + full sharding pattern, but sharded by the owner identifier string.
+
+**Structure:**
+```
+.kanecta/remotes-index/
+└── us/
+    └── er/
+        └── user@example.com/
+            └── items.json
+```
+
+**items.json:**
+```json
+{
+  "items": [
+    "uuid-of-item-1",
+    "uuid-of-item-2"
+  ]
+}
+```
+
+This allows fast lookup of "give me everything cached from this owner" without scanning the full remotes/ tree.
+
+### .kanecta/search/ — Search Index Cache
+
+Output folder for the search library (MeiliSearch, Lunr, custom implementation, etc.). Automatically managed by the indexing tool. Should not be edited manually.
+
+### .kanecta/tags/ — Tag Index Cache
+
+Reverse index mapping tag names to all items carrying that tag. Tags are sharded by tag name using the 2 + 2 + full pattern.
+
+**Structure:**
+```
+.kanecta/tags/
+└── se/
+    └── cu/
+        └── security-related/
+            └── items.json
+```
+
+**items.json:**
+```json
+{
+  "items": [
+    "uuid-of-item-1",
+    "uuid-of-item-2"
+  ]
+}
+```
+
+This enables fast queries like "show me all items tagged `performance-critical`" without scanning the data/ tree.
+
+### .kanecta/types/ — Type-to-Items Index Cache
+
+Reverse index mapping type UUIDs to all items of that type. Uses 2 + 2 + full UUID sharding by type UUID.
+
+**Structure:**
+```
+.kanecta/types/
+└── a1/
+    └── b2/
+        └── a1b2c3d4-e5f6-4abc-9def-123456789012/
+            └── items.json
+```
+
+**items.json:**
+```json
+{
+  "items": [
+    "uuid-of-item-1",
+    "uuid-of-item-2"
+  ]
+}
+```
 
 ---
 
@@ -216,27 +397,29 @@ Used to find all references to an item before deletion.
 Items can reference other items in two ways:
 
 ### Inline Links
+
 Within the `value` field, use double square brackets to create links:
 
 ```
-This is my note about [[uuid-of-another-item]].
+This is my note about [[a1b2c3d4-e5f6-4abc-9def-123456789012]].
 ```
 
 The UI renders this as a clickable link. The UUID can be resolved to its actual content.
 
 ### Symlinks
-Create a "symlink" type item. Set type to "symlink" and value to the target UUID:
+
+Create an item with `type` set to `symlink` and `value` containing the target UUID:
 
 ```json
 {
-"id": "symlink-uuid",
-"type": "symlink",
-"value": "target-uuid",
-"parentId": "parent-uuid"
+  "id": "symlink-uuid",
+  "type": "symlink",
+  "value": "target-uuid",
+  "parentId": "parent-uuid"
 }
 ```
 
-When displayed, the symlink resolves to show the target item's content.
+When displayed, the symlink resolves to show the target item's content while preserving its own position in the tree.
 
 ---
 
@@ -244,94 +427,128 @@ When displayed, the symlink resolves to show the target item's content.
 
 ### Creating Items
 
-1. Generate a new UUID for the item.
-2. Create folder at `.kanecta/data/[shard]/[shard]/[rest-of-uuid]/`.
-3. Create metadata.json with required fields:
-- **id**: The generated UUID
-- **type**: Specify the type (string, object, etc.)
-- **owner**: Use datastore owner from config unless overridden
-- **sortOrder**: Default to 0 or next available order among siblings
-4. Update parent item if parentId is set.
-5. **Index updates**:
-- If type is "object", add item UUID to `.kanecta/types/[type-uuid]/items.json`
-- If owner is different from datastore owner, add to `.kanecta/remotes-index/[owner-shard]/items.json`
-- If item contains `[[uuid]]` in value, add entries to `.kanecta/links/[target-uuid]/backlinks.json`
+1. Generate a new UUID v4 for the item.
+2. Compute the shard path: first 2 chars / next 2 chars / full UUID.
+3. Create folder at `.kanecta/data/[shard1]/[shard2]/[full-uuid]/`.
+4. Create `metadata.json` with required fields populated:
+   - `id`: The generated UUID
+   - `type`: The item's type
+   - `owner`, `createdBy`, `modifiedBy`: Datastore owner from config (unless overridden)
+   - `sortOrder`: Default to 0 or next available among siblings
+   - `createdAt`, `modifiedAt`: Current ISO8601 timestamp
+5. **Index updates:**
+   - If type is `object`, add UUID to `.kanecta/types/[type-uuid]/items.json`
+   - If owner differs from datastore owner, add to `.kanecta/remotes-index/[owner-shard]/items.json`
+   - For each `[[uuid]]` in `value`, add entry to `.kanecta/links/[target-uuid]/backlinks.json`
+   - For each tag, add UUID to `.kanecta/tags/[tag-shard]/items.json`
+6. Update search index via search library.
+7. Snapshot the new metadata to `.kanecta/history/[item-shard]/<timestamp>.json` with `changeType: create`.
 
 ### Updating Items
 
-1. Modify metadata.json in place.
-2. If value field changes:
-- Parse for new `[[uuid]]` links and add backlinks
-- Remove old backlinks for links that no longer exist
-3. If type changes:
-- Remove from old type index in `.kanecta/types/`
-- Add to new type index
-4. If parentId changes:
-- Update parentId in metadata
-- Reorder sortOrder if needed among new siblings
-5. Update search index via search library
+1. Snapshot current metadata to `.kanecta/history/[item-shard]/<timestamp>.json` with `changeType: update` **before** modifying.
+2. Update `modifiedAt` to current timestamp and `modifiedBy` to current actor.
+3. Modify `metadata.json` in place.
+4. **If `value` changes:**
+   - Parse for new `[[uuid]]` links; add to corresponding `backlinks.json`
+   - Remove old backlinks no longer referenced
+5. **If `type` changes:**
+   - Remove UUID from old type's `items.json`
+   - Add to new type's `items.json`
+6. **If `parentId` changes:**
+   - Update parent reference
+   - Recompute `sortOrder` among new siblings if needed
+7. **If `tags` change:**
+   - Remove UUID from removed tags' `items.json`
+   - Add UUID to new tags' `items.json`
+8. Update search index.
 
 ### Deleting Items
 
-1. Check `.kanecta/links/[item-uuid]/backlinks.json` for references.
-2. Warn user if backlinks exist.
-3. Remove folder from `.kanecta/data/`.
-4. **Index cleanup**:
-- Remove from type index (`.kanecta/types/`)
-- Remove from remotes index if remote (`.kanecta/remotes-index/`)
-- Remove all entries in `.kanecta/links/[other-uuid]/backlinks.json` that reference this item
-- Remove entry from search index
+1. Check `.kanecta/links/[item-shard]/backlinks.json` for inbound references.
+2. Check `.kanecta/relationships/[item-shard]/relationships.json` for inbound relationships.
+3. Warn user if any references exist; require explicit confirmation.
+4. Snapshot current metadata to `.kanecta/history/[item-shard]/<timestamp>.json` with `changeType: delete`.
+5. Remove the item's folder from `.kanecta/data/`.
+6. **Index cleanup:**
+   - Remove from type index
+   - Remove from remotes-index if remote
+   - Remove from all tag indexes the item appeared in
+   - Remove all backlinks entries pointing **to** this item
+   - Remove all relationship entries pointing **to** this item
+   - Remove all annotations targeting this item (or orphan them, per implementation)
+   - Remove from search index
 
 ### Reading Items
 
-1. UUID lookup: Compute shard path and read metadata.json directly.
-2. Alias lookup: Read alias file to get UUID, then proceed with UUID lookup.
-3. Query by type: Read `.kanecta/types/[type-uuid]/items.json` for all items of that type.
-4. Query by owner: Read `.kanecta/remotes-index/[owner-shard]/items.json`.
-5. Search: Query search index for text matches.
-6. Backlinks: Read `.kanecta/links/[item-uuid]/backlinks.json` to find items linking to this one.
+1. **UUID lookup:** Compute shard path; read `metadata.json` directly.
+2. **Alias lookup:** Read alias file to get UUID, then perform UUID lookup.
+3. **Query by type:** Read `.kanecta/types/[type-shard]/items.json`.
+4. **Query by tag:** Read `.kanecta/tags/[tag-shard]/items.json`.
+5. **Query by owner:** Read `.kanecta/remotes-index/[owner-shard]/items.json`.
+6. **Search:** Query search index for text matches.
+7. **Backlinks:** Read `.kanecta/links/[item-shard]/backlinks.json`.
+8. **Relationships:** Read `.kanecta/relationships/[item-shard]/relationships.json`.
+9. **History:** List files in `.kanecta/history/[item-shard]/` for change timeline.
+10. **Annotations:** List files in `.kanecta/annotations/[item-shard]/` for comments on an item.
 
 ### Tree Traversal
 
-1. Start at root (parentId = null).
-2. Find all items with parentId matching current item's id.
-3. Sort by sortOrder.
-4. Recursively build tree structure.
+1. Start at root (items where `parentId` is null).
+2. Find all items with `parentId` matching the current item's `id`.
+3. Sort by `sortOrder`.
+4. Recursively build the tree.
+
+### Creating Relationships
+
+1. Append to `.kanecta/relationships/[source-shard]/relationships.json` under `outbound`.
+2. Append the inverse entry to `.kanecta/relationships/[target-shard]/relationships.json` under `inbound`.
+3. Both entries include `createdAt`, `createdBy`, and optional `note`.
+
+### Adding Annotations
+
+1. Generate a new UUID v4 for the annotation.
+2. Create the annotation file at `.kanecta/annotations/[target-shard]/annotation-<uuid>.json`.
+3. Annotations do not modify the target item's `metadata.json`.
+4. Annotations may themselves have annotations (threaded discussion).
 
 ### Caching Remote Items
 
-1. When fetching item from remote owner, store in `.kanecta/remotes/[shard]/[metadata].json`.
-2. Set **cachedAt** to current timestamp.
-3. If subscribing, set **subscribedAt** to current timestamp and **subscriptionSource** to remote URL.
-4. Add item UUID to `.kanecta/remotes-index/[owner-shard]/items.json`.
+1. Fetch the item from the remote owner.
+2. Store at `.kanecta/remotes/[shard]/[full-uuid]/metadata.json`.
+3. Set `cachedAt` to current timestamp.
+4. If subscribing, set `subscribedAt` and `subscriptionSource`.
+5. Add UUID to `.kanecta/remotes-index/[owner-shard]/items.json`.
 
 ### Updating Search Index
 
-Whenever an item is created, updated, or deleted:
-1. Call search library update function.
-2. Index the item's value and all metadata fields.
-3. Search library manages `.kanecta/search/` folder output.
+On every create, update, or delete:
+1. Call the search library's update function.
+2. Index the item's `value`, `tags`, and queryable metadata fields.
+3. The search library manages the `.kanecta/search/` folder.
 
 ---
 
 ## 4. Constraints and Assumptions
 
-- UUIDs are globally unique across all installations.
-- Aliases should be unique within a datastore (not enforced at filesystem level; application should validate).
-- Circular references are allowed but may cause issues in some views.
+- UUIDs are UUID v4 and globally unique across all installations.
+- Aliases should be unique within a datastore (not enforced at the filesystem level; applications should validate).
+- Circular references in `parentId` are not permitted; circular links via `[[uuid]]` and relationships are allowed but should be detected and handled by UIs.
 - Symlinks can point to items owned by other users (via remotes/).
-- File system operations are atomic enough for single-user scenarios; multi-user sync requires additional logic.
+- File system operations are atomic enough for single-user scenarios; multi-user synchronization requires additional logic (changelogs, conflict resolution).
 - Parent-child relationships are enforced in metadata, not filesystem structure.
+- Index caches (`tags/`, `types/`, `links/`, `relationships/`, `remotes-index/`, `search/`) are derivable from `data/` and can be rebuilt at any time. Only `data/`, `history/`, `annotations/`, `aliases/`, `remotes/`, and `config/` are authoritative.
 
 ---
 
 ## 5. Future Extensibility
 
-- **Permissions**: Add read/write/admin permission lists to metadata.
-- **Versioning**: Store item history in `.kanecta/history/`.
-- **Sync**: Add `.kanecta/sync/` for tracking remote changes.
-- **Templates**: Store reusable templates in `.kanecta/templates/`.
-- **Comments**: Add `.kanecta/comments/` for item-level discussions.
+- **Permissions**: Read/write/admin permission lists per item or subtree
+- **Sync**: `.kanecta/sync/` for tracking remote changes and changelogs
+- **Templates**: `.kanecta/templates/` for reusable item templates
+- **Changelog**: Append-only operation log for efficient multi-user sync
+- **Reactions**: Lightweight emoji-style reactions distinct from annotations
+- **Encrypted items**: Per-item encryption for sensitive data within shared datastores
 
 ---
 
@@ -339,4 +556,5 @@ Whenever an item is created, updated, or deleted:
 
 - This specification describes the format at rest and the operations that maintain consistency.
 - Any application reading or writing Kanecta datastores must follow these business rules.
-- The specification is version 1.0 and subject to iteration as the project evolves.
+- The specification is versioned; datastores declare their conformance version in `config.json`.
+- The protocol is intentionally designed to serve as a human-AI bridge: structured enough for machines to reason about, transparent enough for humans to audit.
