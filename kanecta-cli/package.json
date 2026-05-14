@@ -1,13 +1,15 @@
 {
   "name": "kanecta-cli",
-  "version": "0.1.0",
-  "description": "Kanecta command line tool",
+  "version": "1.0.0",
+  "description": "Kanecta filesystem datastore CLI — full CRUD, aliases, annotations, relationships, history, and tree traversal conforming to spec v1.1.0",
   "main": "index.js",
   "bin": {
     "kanecta": "./index.js"
   },
   "scripts": {
-    "kanecta": "node index.js",
     "test": "node --test index.test.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
