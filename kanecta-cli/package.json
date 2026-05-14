@@ -4,7 +4,7 @@
   "description": "Kanecta filesystem datastore CLI — full CRUD, aliases, annotations, relationships, history, and tree traversal conforming to spec v1.1.0",
   "main": "index.js",
   "bin": {
-    "kanecta": "./index.js"
+    "kanecta-cli": "./index.js"
   },
   "scripts": {
     "test": "node --test index.test.js"

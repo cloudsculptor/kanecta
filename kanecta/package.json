@@ -1,20 +1,29 @@
 {
   "name": "kanecta",
-  "version": "0.1.0",
-  "description": "Open source connectivity platform",
+  "version": "1.0.0",
+  "description": "Kanecta — personal knowledge base for Claude. Captures context, decisions, and insights across all sessions.",
   "main": "index.js",
   "bin": {
     "kanecta": "./index.js"
   },
   "scripts": {
-    "test": "node index.js --help"
+    "test": "echo 'Tests live in kanecta-cli — run: cd ../kanecta-cli && npm test'",
+    "prepublishOnly": "node scripts/prepublish.js"
   },
-  "keywords": ["kanecta", "connectivity", "open-source", "self-host"],
-  "author": "kanecta",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/cloudsculptor/kanecta"
+  "files": [
+    "index.js",
+    "lib/",
+    "commands/"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
   },
-  "homepage": "https://kanecta.org"
+  "dependencies": {
+    "kanecta-cli": "file:../kanecta-cli"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": ["claude", "claude-code", "mcp", "knowledge-base", "personal-memory", "notes", "ai", "kanecta"],
+  "license": "MIT"
 }
