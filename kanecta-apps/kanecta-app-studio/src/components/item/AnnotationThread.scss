@@ -1,0 +1,62 @@
+.AnnotationThread {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  &-annotation {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px;
+    border-radius: 6px;
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+  }
+
+  &-annotation-content {
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--color-text);
+    white-space: pre-wrap;
+  }
+
+  &-annotation-meta {
+    font-size: 0.7rem;
+    color: var(--color-text-muted);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  &-reply-btn {
+    border: none;
+    background: none;
+    color: var(--color-primary);
+    cursor: pointer;
+    font-size: 0.7rem;
+    padding: 0;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  &-replies {
+    padding-left: 16px;
+    border-left: 2px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  &-reply-composer {
+    margin-top: 4px;
+  }
+
+  &-empty {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    font-style: italic;
+  }
+}

@@ -1,0 +1,78 @@
+.FilterBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--color-surface-raised);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+
+  &-search {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 4px 8px;
+    min-width: 180px;
+
+    &:focus-within {
+      border-color: var(--color-primary);
+    }
+  }
+
+  &-search-input {
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 0.8rem;
+    color: var(--color-text);
+    width: 120px;
+
+    &::placeholder {
+      color: var(--color-text-muted);
+    }
+  }
+
+  &-select {
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 0.8rem;
+    background: var(--color-surface);
+    color: var(--color-text);
+    outline: none;
+    cursor: pointer;
+
+    &:focus {
+      border-color: var(--color-primary);
+    }
+  }
+
+  &-clear {
+    border: none;
+    background: none;
+    padding: 4px 8px;
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    border-radius: 4px;
+
+    &:hover {
+      background: var(--color-hover);
+      color: var(--color-text);
+    }
+  }
+
+  &-spacer {
+    flex: 1;
+  }
+
+  &-count {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+  }
+}

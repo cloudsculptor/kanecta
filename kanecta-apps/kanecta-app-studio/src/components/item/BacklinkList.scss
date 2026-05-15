@@ -1,0 +1,38 @@
+.BacklinkList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  &-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    color: var(--color-text);
+
+    &:hover {
+      background: var(--color-hover);
+    }
+  }
+
+  &-icon {
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+  }
+
+  &-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+
+  &-empty {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    font-style: italic;
+  }
+}

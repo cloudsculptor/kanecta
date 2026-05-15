@@ -1,0 +1,51 @@
+.BoardView {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+
+  &-controls {
+    flex-shrink: 0;
+  }
+
+  &-group-select {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--color-border);
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+    background: var(--color-surface-raised);
+    flex-shrink: 0;
+
+    select {
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 0.8rem;
+      background: var(--color-surface);
+      color: var(--color-text);
+      outline: none;
+    }
+  }
+
+  &-columns {
+    flex: 1;
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    overflow-x: auto;
+    align-items: flex-start;
+  }
+
+  &-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+    flex: 1;
+  }
+}

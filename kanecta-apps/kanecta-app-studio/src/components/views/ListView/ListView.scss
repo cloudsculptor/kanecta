@@ -1,0 +1,58 @@
+.ListView {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+
+  &-controls {
+    flex-shrink: 0;
+  }
+
+  &-scroll {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  &-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--color-border);
+    cursor: pointer;
+    min-height: 36px;
+
+    &:hover {
+      background: var(--color-hover);
+    }
+
+    &--focused {
+      background: var(--color-primary-muted);
+    }
+  }
+
+  &-value {
+    flex: 1;
+    font-size: 0.875rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text);
+  }
+
+  &-chips {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  &-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+  }
+}
