@@ -31,4 +31,23 @@
   &-status {
     opacity: 0.8;
   }
+
+  &-pause {
+    background: rgba(255, 152, 0, 0.9);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    cursor: pointer;
+    animation: BottomBar-pulse 2s infinite;
+
+    &:hover { background: rgba(255, 152, 0, 1); }
+  }
+}
+
+@keyframes BottomBar-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }

@@ -11,11 +11,16 @@ import { GalleryView } from '../components/views/GalleryView/GalleryView';
 import { ListView } from '../components/views/ListView/ListView';
 import { CalendarView } from '../components/views/CalendarView/CalendarView';
 import { GraphView } from '../components/views/GraphView/GraphView';
+import { MissionControl } from '../components/views/MissionControl/MissionControl';
+import { DigestView } from '../components/views/MissionControl/DigestView';
+import { ReviewConveyor } from '../components/views/MissionControl/ReviewConveyor';
 import { ItemDetail } from '../components/item/ItemDetail';
 import { QuickCapture } from '../components/shared/QuickCapture';
 import { CommandPalette } from '../components/shared/CommandPalette';
+import { SettingsPage } from './SettingsPage';
 import { useWorkspaceStore } from '../store/workspace';
 import { useUiStore } from '../store/ui';
+import { useLiveActivity } from '../hooks/useLiveActivity';
 import { flattenTree } from '../lib/items';
 import type { KanectaItem } from '../types/kanecta';
 
@@ -31,8 +36,12 @@ const theme = createTheme({
 function StudioInner() {
   const [quickCaptureOpen, setQuickCaptureOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const { getApi } = useWorkspaceStore();
   const { setFocusedItem, focusedItemId } = useUiStore();
+
+  useLiveActivity();
 
   const { data: treeData } = useQuery({
     queryKey: ['all-items'],
@@ -62,6 +71,8 @@ function StudioInner() {
       case 'list': return <ListView panelId={panelId} />;
       case 'calendar': return <CalendarView panelId={panelId} />;
       case 'graph': return <GraphView />;
+      case 'mission-control': return <MissionControl />;
+      case 'digest': return <DigestView />;
       default:
         return (
           <div style={{ padding: 24, color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
@@ -75,10 +86,29 @@ function StudioInner() {
     ? allItems.find((i) => i.id === focusedItemId)
     : undefined;
 
+  if (settingsOpen) {
+    return (
+      <QueryClientProvider client={qc}>
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
+          <SettingsPage onClose={() => setSettingsOpen(false)} />
+        </ThemeProvider>
+      </QueryClientProvider>
+    );
+  }
+
+  if (reviewOpen) {
+    return (
+      <ReviewConveyor onClose={() => setReviewOpen(false)} />
+    );
+  }
+
   return (
     <AppShell
       onOpenQuickCapture={() => setQuickCaptureOpen(true)}
       onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+      onOpenSettings={() => setSettingsOpen(true)}
+      onOpenReview={() => setReviewOpen(true)}
       rightPanelTitle={focusedItem?.value}
       rightPanelContent={focusedItemId ? <ItemDetail itemId={focusedItemId} /> : undefined}
     >

@@ -16,6 +16,8 @@ interface AppShellProps {
   commandPaletteNode?: React.ReactNode;
   onOpenQuickCapture?: () => void;
   onOpenCommandPalette?: () => void;
+  onOpenSettings?: () => void;
+  onOpenReview?: () => void;
 }
 
 export function AppShell({
@@ -24,6 +26,8 @@ export function AppShell({
   rightPanelTitle,
   onOpenQuickCapture,
   onOpenCommandPalette,
+  onOpenSettings,
+  onOpenReview,
 }: AppShellProps) {
   const { sidebarState, setSidebarState, rightPanelOpen, setRightPanelOpen, layout, updatePanel } =
     useUiStore();
@@ -62,7 +66,12 @@ export function AppShell({
 
   return (
     <div className="AppShell">
-      <TopBar onQuickCapture={onOpenQuickCapture} onCommandPalette={onOpenCommandPalette} />
+      <TopBar
+        onQuickCapture={onOpenQuickCapture}
+        onCommandPalette={onOpenCommandPalette}
+        onOpenSettings={onOpenSettings}
+        onOpenReview={onOpenReview}
+      />
       <div className="AppShell-body">
         <LeftSidebar
           state={sidebarState}
@@ -79,7 +88,7 @@ export function AppShell({
           {rightPanelContent}
         </RightPanel>
       </div>
-      <BottomBar workspace={workspace} />
+      <BottomBar workspace={workspace} onOpenReview={onOpenReview} />
     </div>
   );
 }
