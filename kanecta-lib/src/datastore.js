@@ -4,8 +4,11 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const VALID_TYPES = ['string', 'number', 'text', 'file', 'symlink', 'object', 'decision', 'annotation'];
-const VALID_CONFIDENCES = ['experimental', 'exploring', 'decided', 'locked'];
+const VALID_TYPES = [
+  'string', 'number', 'text', 'file', 'symlink', 'object', 'decision', 'annotation',
+  'note', 'fact', 'claim', 'question', 'task', 'concept', 'entity', 'event', 'code', 'url', 'image',
+];
+const VALID_CONFIDENCES = ['experimental', 'exploring', 'decided', 'locked', 'low', 'medium', 'high', 'verified'];
 const VALID_REL_TYPES = [
   'relates-to', 'depends-on', 'enables', 'contradicts',
   'blocks', 'blocked-by', 'prerequisite-for', 'derived-from', 'supersedes',

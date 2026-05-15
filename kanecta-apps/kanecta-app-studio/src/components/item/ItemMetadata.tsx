@@ -44,7 +44,8 @@ export function ItemMetadata({ item }: ItemMetadataProps) {
   };
 
   const handleConfidenceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    mutation.mutate({ confidence: e.target.value as KanectaItem['confidence'] });
+    const val = e.target.value;
+    mutation.mutate({ confidence: val === '' ? null : (val as KanectaItem['confidence']) });
   };
 
   const addTag = (tag: string) => {
@@ -102,10 +103,11 @@ export function ItemMetadata({ item }: ItemMetadataProps) {
         <span className="ItemMetadata-label">Confidence</span>
         <select
           className="ItemMetadata-select"
-          value={item.confidence}
+          value={item.confidence ?? ''}
           onChange={handleConfidenceChange}
           aria-label="Confidence level"
         >
+          <option value="">— unset —</option>
           {CONFIDENCE_LEVELS.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
       </div>
