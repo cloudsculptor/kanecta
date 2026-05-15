@@ -439,6 +439,30 @@ class Datastore {
     return this._readJson(f, { items: [] }).items;
   }
 
+  listRelationships() {
+    const results = [];
+    const seen = new Set();
+    const walk = (dir) => {
+      let entries;
+      try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+      for (const e of entries) {
+        if (e.isDirectory()) walk(path.join(dir, e.name));
+        else if (e.name === 'relationships.json') {
+          const sourceId = path.basename(path.dirname(path.join(dir, e.name)));
+          const data = this._readJson(path.join(dir, e.name), { outbound: [], inbound: [] });
+          for (const rel of (data.outbound || [])) {
+            if (!seen.has(rel.id)) {
+              seen.add(rel.id);
+              results.push({ ...rel, sourceId });
+            }
+          }
+        }
+      }
+    };
+    walk(path.join(this.k, 'relationships'));
+    return results;
+  }
+
   // ─── Tree ──────────────────────────────────────────────────────────────────
 
   loadAll() {
