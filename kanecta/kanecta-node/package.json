@@ -7,7 +7,7 @@
     "kanecta": "./index.js"
   },
   "scripts": {
-    "test": "node tests/studio-resolution.test.js"
+    "test": "node tests/studio-resolution.test.js && node tests/update-check.test.js"
   },
   "files": [
     "index.js",

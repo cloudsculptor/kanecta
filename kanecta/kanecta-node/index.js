@@ -5,6 +5,7 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 const { spawnSync, execSync } = require('child_process');
+const { startUpdateCheck, runUpdate } = require('./lib/update-check');
 
 const KANECTA_DIR = path.join(os.homedir(), '.kanecta');
 
@@ -19,9 +20,11 @@ APPS
   cli <command>     Kanecta datastore CLI (@kanecta/cli)
   claude <command>  Claude Code integration (@kanecta/claude)
   studio            Launch the Kanecta Studio web UI (@kanecta/studio)
+  update            Update all installed kanecta packages
 
 EXAMPLES
   kanecta studio
+  kanecta update
   kanecta claude wizard
   kanecta claude capture "decided to use PostgreSQL" --tag decision
   kanecta claude search "postgres"
@@ -67,18 +70,24 @@ function isFirstRun() {
 async function main() {
   const argv = process.argv.slice(2);
 
+  // Start background update check immediately — won't block anything
+  const flushUpdates = startUpdateCheck();
+
   if (argv.length === 0) {
     if (isFirstRun()) {
       const { runSetup } = require('./lib/setup');
       await runSetup();
+      await flushUpdates();
       return;
     }
     process.stdout.write(HELP);
+    await flushUpdates();
     process.exit(0);
   }
 
   if (argv[0] === '--help' || argv[0] === '-h' || argv[0] === 'help') {
     process.stdout.write(HELP);
+    await flushUpdates();
     process.exit(0);
   }
 
@@ -86,9 +95,16 @@ async function main() {
   const rest = argv.slice(1);
 
   switch (app) {
+    case 'update': {
+      await runUpdate();
+      process.exit(0);
+      break;
+    }
     case 'cli': {
       const entry = resolvePackage('@kanecta/cli');
       if (!entry) die('@kanecta/cli not found. Try: npm install -g @kanecta/cli');
+      // For long-running subprocesses (studio) we skip the update notification
+      // to avoid interleaving output. For short commands (cli/claude) we flush after.
       runApp(entry, rest);
       break;
     }
@@ -101,6 +117,8 @@ async function main() {
     case 'studio': {
       const entry = resolvePackage('@kanecta/studio/server');
       if (!entry) die('@kanecta/studio is not installed.\nInstall it: npm install -g @kanecta/studio');
+      // Print update notification before handing off to the long-running studio process
+      await flushUpdates();
       runApp(entry, rest);
       break;
     }
