@@ -18,7 +18,7 @@ function setupMcpServer() {
 
   settings.mcpServers.kanecta = {
     command: 'kanecta',
-    args: ['mcp'],
+    args: ['claude', 'mcp'],
     type: 'stdio',
   };
 

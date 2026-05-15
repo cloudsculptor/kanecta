@@ -1,0 +1,33 @@
+{
+  "name": "kanecta",
+  "version": "1.0.0",
+  "description": "Kanecta — personal knowledge base orchestrator. Manages and routes commands to Kanecta apps.",
+  "main": "index.js",
+  "bin": {
+    "kanecta": "./index.js"
+  },
+  "scripts": {
+    "test": "echo 'No tests for orchestrator'"
+  },
+  "files": [
+    "index.js",
+    "lib/"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@kanecta/cli": "^1.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "kanecta",
+    "claude",
+    "knowledge-base",
+    "personal-memory",
+    "ai"
+  ],
+  "license": "MIT"
+}

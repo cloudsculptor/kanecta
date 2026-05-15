@@ -3,7 +3,7 @@
 // MCP stdio server — run via `kanecta mcp`
 // Implements MCP protocol v2024-11-05 for Claude Code integration
 
-const { Datastore } = require('kanecta-cli/lib/datastore');
+const { Datastore } = require('@kanecta/cli/lib/datastore');
 const { readConfig, getDatastorePath } = require('./config');
 const { detectSecrets } = require('./secrets');
 
