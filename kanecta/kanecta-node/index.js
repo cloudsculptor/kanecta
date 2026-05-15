@@ -8,9 +8,10 @@ const { spawnSync, execSync } = require('child_process');
 const { startUpdateCheck, runUpdate } = require('./lib/update-check');
 
 const KANECTA_DIR = path.join(os.homedir(), '.kanecta');
+const { version } = require('./package.json');
 
 const HELP = `
-kanecta — personal knowledge base orchestrator
+kanecta v${version} — personal knowledge base orchestrator
 
 USAGE
   kanecta <app> <command> [options]

@@ -1,6 +1,6 @@
 {
   "name": "kanecta",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Open source connectivity platform",
   "main": "index.js",
   "bin": {
@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@kanecta/cli": "^1.0.0",
-    "@kanecta/studio": "^0.1.0"
+    "@kanecta/studio": "^0.1.1"
   },
   "optionalDependencies": {
     "@kanecta/claude": "^1.0.0"
