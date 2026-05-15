@@ -1,7 +1,7 @@
 {
   "name": "kanecta",
   "version": "1.0.0",
-  "description": "Kanecta — personal knowledge base orchestrator. Manages and routes commands to Kanecta apps.",
+  "description": "Open source connectivity platform",
   "main": "index.js",
   "bin": {
     "kanecta": "./index.js"
