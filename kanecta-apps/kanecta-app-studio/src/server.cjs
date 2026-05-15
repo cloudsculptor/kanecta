@@ -6,9 +6,11 @@
  *
  * Invoked by `kanecta studio`. Does the following:
  *   1. Finds two free TCP ports (API + UI).
- *   2. Spawns @kanecta/api on the API port (KANECTA_PORT env).
- *   3. If dist/ exists, serves it with sirv on the UI port (production mode).
- *      Otherwise, spawns `vite --port <uiPort>` from this package (dev mode).
+ *   2. Spawns @kanecta/api on the API port.
+ *   3. If dist/ exists, starts an inline HTTP server that:
+ *        - Proxies /api/* requests to the API (strips the /api prefix)
+ *        - Serves dist/ as a single-page app for everything else
+ *      Otherwise, spawns `vite` in dev mode.
  *   4. Opens the browser once the UI server is ready.
  *   5. Forwards SIGINT/SIGTERM to child processes and exits cleanly.
  */
@@ -16,6 +18,8 @@
 const path = require('path');
 const fs = require('fs');
 const net = require('net');
+const http = require('http');
+const os = require('os');
 const { spawn } = require('child_process');
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -25,7 +29,6 @@ function findFreePort(preferred) {
     const server = net.createServer();
     server.unref();
     server.on('error', () => {
-      // Preferred port taken — let OS pick one.
       const s2 = net.createServer();
       s2.unref();
       s2.on('error', reject);
@@ -76,15 +79,26 @@ function resolvePackageEntry(pkgName) {
   }
 }
 
-function resolveBin(pkgName, binName) {
-  try {
-    const pkgJsonPath = require.resolve(`${pkgName}/package.json`);
-    const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'));
-    const binField = pkg.bin;
-    const rel = typeof binField === 'string' ? binField : (binField && binField[binName]);
-    if (rel) return path.resolve(path.dirname(pkgJsonPath), rel);
-  } catch {}
-  return null;
+// Proxy a request to the API server, stripping the /api prefix.
+function proxyToApi(req, res, targetPort) {
+  const targetPath = req.url.replace(/^\/api/, '') || '/';
+  const proxyReq = http.request(
+    {
+      hostname: '127.0.0.1',
+      port: targetPort,
+      path: targetPath,
+      method: req.method,
+      headers: { ...req.headers, host: `127.0.0.1:${targetPort}` },
+    },
+    (proxyRes) => {
+      res.writeHead(proxyRes.statusCode, proxyRes.headers);
+      proxyRes.pipe(res, { end: true });
+    },
+  );
+  req.pipe(proxyReq, { end: true });
+  proxyReq.on('error', () => {
+    if (!res.headersSent) { res.writeHead(502); res.end('Bad Gateway'); }
+  });
 }
 
 // ── main ───────────────────────────────────────────────────────────────────
@@ -95,12 +109,14 @@ async function main() {
     findFreePort(5173),
   ]);
 
-  const children = [];
+  const childProcs = [];
+  let uiServer = null;
 
   function cleanup() {
-    for (const child of children) {
+    for (const child of childProcs) {
       try { child.kill(); } catch {}
     }
+    if (uiServer) try { uiServer.close(); } catch {}
     process.exit(0);
   }
   process.on('SIGINT', cleanup);
@@ -114,11 +130,14 @@ async function main() {
     process.exit(1);
   }
 
+  const defaultDatastore = path.join(os.homedir(), '.kanecta', 'datastore');
+  const datastorePath = process.env.KANECTA_DATASTORE ?? defaultDatastore;
+
   const apiProc = spawn(process.execPath, [apiEntry], {
-    env: { ...process.env, PORT: String(apiPort) },
+    env: { ...process.env, PORT: String(apiPort), KANECTA_DATASTORE: datastorePath },
     stdio: 'inherit',
   });
-  children.push(apiProc);
+  childProcs.push(apiProc);
   apiProc.on('exit', (code) => {
     if (code !== 0 && code !== null) {
       process.stderr.write(`kanecta studio: API process exited with code ${code}\n`);
@@ -135,53 +154,54 @@ async function main() {
   const distDir = path.join(pkgDir, 'dist');
   const hasDist = fs.existsSync(path.join(distDir, 'index.html'));
 
-  let uiProc;
-
   if (hasDist) {
-    // Production: serve dist/ with sirv-cli
-    const bin = resolveBin('sirv-cli', 'sirv');
-    if (!bin) {
-      process.stderr.write('kanecta studio: sirv-cli not found. Try reinstalling: npm install -g kanecta\n');
-      cleanup();
+    // Production: inline server — /api/* proxied to API, static files for everything else.
+    const sirvEntry = resolvePackageEntry('sirv');
+    if (!sirvEntry) {
+      process.stderr.write('kanecta studio: sirv not found. Try reinstalling: npm install -g kanecta\n');
+      cleanup(); return;
     }
+    const sirvHandler = require('sirv')(distDir, { single: true, brotli: false });
 
-    uiProc = spawn(
-      process.execPath,
-      [bin, distDir, '--port', String(uiPort), '--single', '--no-brotli'],
-      { stdio: 'inherit', env: { ...process.env, KANECTA_API_URL: `http://localhost:${apiPort}` } },
-    );
+    uiServer = http.createServer((req, res) => {
+      if (req.url?.startsWith('/api')) {
+        proxyToApi(req, res, apiPort);
+      } else {
+        sirvHandler(req, res, () => { res.statusCode = 404; res.end('Not found'); });
+      }
+    });
+    uiServer.on('error', (err) => {
+      process.stderr.write(`kanecta studio: UI server error: ${err.message}\n`);
+      cleanup();
+    });
+    await new Promise((resolve) => uiServer.listen(uiPort, '127.0.0.1', resolve));
   } else {
-    // Dev: spawn vite
+    // Dev: spawn vite. KANECTA_API_URL (no VITE_ prefix) sets the vite proxy target
+    // without baking the URL into the client bundle.
     const viteBin = path.join(pkgDir, 'node_modules', '.bin', 'vite');
     if (!fs.existsSync(viteBin)) {
       process.stderr.write('kanecta studio: neither dist/ nor vite found.\nBuild first: cd $(npm root -g)/@kanecta/studio && npm run build\n');
-      cleanup();
+      cleanup(); return;
     }
     process.stdout.write('kanecta studio: no dist/ found, starting dev server\n');
-    uiProc = spawn(
+    const uiProc = spawn(
       viteBin,
       ['--port', String(uiPort), '--strictPort'],
       {
         cwd: pkgDir,
         stdio: 'inherit',
-        env: {
-          ...process.env,
-          VITE_KANECTA_API_URL: `http://localhost:${apiPort}`,
-        },
+        env: { ...process.env, KANECTA_API_URL: `http://localhost:${apiPort}` },
       },
     );
+    childProcs.push(uiProc);
+    uiProc.on('exit', (code) => {
+      if (code !== 0 && code !== null) {
+        process.stderr.write(`kanecta studio: UI process exited with code ${code}\n`);
+        cleanup();
+      }
+    });
+    await waitForPort(uiPort, 30_000);
   }
-
-  children.push(uiProc);
-  uiProc.on('exit', (code) => {
-    if (code !== 0 && code !== null) {
-      process.stderr.write(`kanecta studio: UI process exited with code ${code}\n`);
-      cleanup();
-    }
-  });
-
-  process.stdout.write(`kanecta studio: UI starting on http://localhost:${uiPort}\n`);
-  await waitForPort(uiPort, 30_000);
 
   const url = `http://localhost:${uiPort}`;
   process.stdout.write(`kanecta studio: ready at ${url}\n`);
