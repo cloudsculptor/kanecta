@@ -1,0 +1,41 @@
+{
+  "name": "@kanecta/mcp",
+  "version": "1.0.0",
+  "description": "Kanecta MCP server — gives Claude direct access to your personal knowledge base",
+  "main": "src/index.js",
+  "bin": {
+    "kanecta-mcp": "src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "release": "bash scripts/release.sh",
+    "release:minor": "bash scripts/release.sh minor",
+    "release:major": "bash scripts/release.sh major"
+  },
+  "files": [
+    "src/",
+    "scripts/"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@kanecta/lib": "^1.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "kanecta",
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "claude-code",
+    "knowledge-base",
+    "personal-memory",
+    "ai",
+    "notes"
+  ],
+  "author": "Richie Thomas <richardsempire@gmail.com>",
+  "license": "MIT"
+}
