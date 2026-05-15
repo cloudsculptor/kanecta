@@ -18,8 +18,10 @@ USAGE
 APPS
   cli <command>     Kanecta datastore CLI (@kanecta/cli)
   claude <command>  Claude Code integration (@kanecta/claude)
+  studio            Launch the Kanecta Studio web UI (@kanecta/studio)
 
 EXAMPLES
+  kanecta studio
   kanecta claude wizard
   kanecta claude capture "decided to use PostgreSQL" --tag decision
   kanecta claude search "postgres"
@@ -93,6 +95,12 @@ async function main() {
     case 'claude': {
       const entry = resolvePackage('@kanecta/claude');
       if (!entry) die('@kanecta/claude is not installed.\nRun `kanecta` to run first-time setup, or install manually: npm install -g @kanecta/claude');
+      runApp(entry, rest);
+      break;
+    }
+    case 'studio': {
+      const entry = resolvePackage('@kanecta/studio/server');
+      if (!entry) die('@kanecta/studio is not installed.\nInstall it: npm install -g @kanecta/studio');
       runApp(entry, rest);
       break;
     }

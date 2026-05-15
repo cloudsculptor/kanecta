@@ -1,8 +1,14 @@
 {
   "name": "@kanecta/studio",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
+  "exports": {
+    "./server": "./src/server.js"
+  },
+  "files": [
+    "dist/",
+    "src/server.js"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -36,6 +42,7 @@
     "react-force-graph": "^1.48.2",
     "react-resizable-panels": "^2.1.4",
     "react-router-dom": "^6.26.2",
+    "sirv-cli": "^3.0.1",
     "tippy.js": "^6.3.7",
     "zustand": "^5.0.0"
   },
