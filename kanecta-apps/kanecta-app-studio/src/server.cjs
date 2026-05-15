@@ -76,6 +76,17 @@ function resolvePackageEntry(pkgName) {
   }
 }
 
+function resolveBin(pkgName, binName) {
+  try {
+    const pkgJsonPath = require.resolve(`${pkgName}/package.json`);
+    const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'));
+    const binField = pkg.bin;
+    const rel = typeof binField === 'string' ? binField : (binField && binField[binName]);
+    if (rel) return path.resolve(path.dirname(pkgJsonPath), rel);
+  } catch {}
+  return null;
+}
+
 // ── main ───────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -128,12 +139,9 @@ async function main() {
 
   if (hasDist) {
     // Production: serve dist/ with sirv-cli
-    const sirvBin = path.join(pkgDir, 'node_modules', '.bin', 'sirv');
-    const sirvGlobal = resolvePackageEntry('sirv-cli');
-
-    const bin = fs.existsSync(sirvBin) ? sirvBin : (sirvGlobal ? path.dirname(sirvGlobal) + '/sirv' : null);
+    const bin = resolveBin('sirv-cli', 'sirv');
     if (!bin) {
-      process.stderr.write('kanecta studio: sirv-cli not found. Run: npm install -g sirv-cli\n');
+      process.stderr.write('kanecta studio: sirv-cli not found. Try reinstalling: npm install -g kanecta\n');
       cleanup();
     }
 
