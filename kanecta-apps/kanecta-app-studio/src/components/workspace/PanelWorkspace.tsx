@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { PanelContainer } from './PanelContainer';
 import { useUiStore } from '../../store/ui';
@@ -18,16 +19,14 @@ export function PanelWorkspace({ renderView }: PanelWorkspaceProps) {
         onLayout={(sizes) => setPanelSizes(sizes)}
       >
         {panels.map((panel, i) => (
-          <>
-            <Panel key={panel.id} defaultSize={layout.sizes[i] ?? 100 / panels.length}>
+          <Fragment key={panel.id}>
+            <Panel defaultSize={layout.sizes[i] ?? 100 / panels.length}>
               <PanelContainer panel={panel} canClose={panels.length > 1}>
                 {renderView(panel.id, panel.viewType)}
               </PanelContainer>
             </Panel>
-            {i < panels.length - 1 && (
-              <PanelResizeHandle key={`handle-${panel.id}`} />
-            )}
-          </>
+            {i < panels.length - 1 && <PanelResizeHandle />}
+          </Fragment>
         ))}
       </PanelGroup>
     </div>
