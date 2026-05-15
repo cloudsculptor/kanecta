@@ -19,8 +19,12 @@ USAGE
 
 COMMANDS
 
+  setup
+    Quickly register Kanecta as an MCP server in Claude Code (no wizard).
+    Equivalent to: claude mcp add --transport stdio kanecta -- npx -y @kanecta/mcp
+
   wizard
-    Run the setup wizard (first run or re-configure).
+    Run the full setup wizard (first run or re-configure).
 
   capture "<text>" [--tag <t>] [--type text|string|decision]
     Save context to your knowledge base. Claude calls this automatically
@@ -48,6 +52,7 @@ DATASTORE DISCOVERY
   walk up from cwd looking for .kanecta/
 
 EXAMPLES
+  kanecta claude setup
   kanecta claude wizard
   kanecta claude capture "decided to use PostgreSQL" --tag decision
   kanecta claude search "postgres"
@@ -236,6 +241,21 @@ async function cmdSearch(positional, flags) {
   }
 }
 
+async function cmdSetup() {
+  const { setupMcpServer } = require('./lib/mcp-setup');
+  const result = setupMcpServer();
+  if (!result.ok) {
+    process.stderr.write(`kanecta claude: MCP setup failed — ${result.error}\n`);
+    process.exit(1);
+  }
+  if (result.method === 'claude-mcp-add') {
+    console.log('MCP server registered via claude mcp add.');
+  } else {
+    console.log(`MCP server registered in ${result.file}`);
+  }
+  console.log('Restart Claude Code to activate.');
+}
+
 async function cmdMode(positional) {
   const mode = positional[0];
   const validModes = ['always', 'extended', 'ask-at-start', 'manual'];
@@ -296,6 +316,7 @@ async function main() {
   const rest = positional.slice(1);
 
   switch (cmd) {
+    case 'setup':   await cmdSetup(); break;
     case 'wizard':  await cmdWizard(); break;
     case 'capture': await cmdCapture(rest, flags); break;
     case 'recent':  await cmdRecent(rest, flags); break;
