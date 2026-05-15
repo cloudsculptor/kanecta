@@ -1,0 +1,34 @@
+.BottomBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 28px;
+  padding: 0 12px;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+
+  &-workspace {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
+  }
+
+  &-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+
+  &-spacer {
+    flex: 1;
+  }
+
+  &-status {
+    opacity: 0.8;
+  }
+}

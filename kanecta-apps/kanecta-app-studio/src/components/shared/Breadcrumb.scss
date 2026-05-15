@@ -1,0 +1,39 @@
+.Breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  flex-wrap: wrap;
+  padding: 4px 12px;
+
+  &-item {
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 0;
+    color: inherit;
+    font-size: inherit;
+
+    &:hover {
+      color: var(--color-primary);
+      text-decoration: underline;
+    }
+
+    &--current {
+      color: var(--color-text);
+      font-weight: 500;
+      cursor: default;
+
+      &:hover {
+        color: var(--color-text);
+        text-decoration: none;
+      }
+    }
+  }
+
+  &-sep {
+    opacity: 0.4;
+    user-select: none;
+  }
+}
