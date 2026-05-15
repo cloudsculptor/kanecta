@@ -1,11 +1,8 @@
 {
-  "name": "kanecta",
+  "name": "@kanecta/claude",
   "version": "1.0.0",
-  "description": "Kanecta — personal knowledge base for Claude. Captures context, decisions, and insights across all sessions.",
+  "description": "Kanecta Claude integration — captures context, decisions, and insights across all Claude sessions.",
   "main": "index.js",
-  "bin": {
-    "kanecta": "./index.js"
-  },
   "scripts": {
     "test": "echo 'Tests live in kanecta-cli — run: cd ../kanecta-cli && npm test'",
     "prepublishOnly": "node scripts/prepublish.js"
@@ -19,7 +16,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "kanecta-cli": "^1.0.0"
+    "@kanecta/cli": "^1.0.0"
   },
   "publishConfig": {
     "access": "public"

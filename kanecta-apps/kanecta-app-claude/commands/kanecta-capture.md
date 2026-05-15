@@ -4,7 +4,7 @@ $ARGUMENTS
 
 Run this bash command and confirm what was saved:
 ```bash
-kanecta capture "$ARGUMENTS"
+kanecta claude capture "$ARGUMENTS"
 ```
 
 If the user didn't specify a tag, infer a sensible one based on the content (e.g. `--tag decision`, `--tag bug-fix`, `--tag preference`, `--tag architecture`).
