@@ -61,7 +61,7 @@ async function instantiateNode(
   const payload: CreateItemPayload = {
     value: node.value,
     type: node.type,
-    confidence: node.confidence,
+    confidence: node.confidence ?? undefined,
     tags: node.tags,
     parentId,
   };

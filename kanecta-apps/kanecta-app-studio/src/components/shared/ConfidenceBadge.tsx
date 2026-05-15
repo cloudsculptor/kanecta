@@ -10,10 +10,11 @@ const LABELS: Record<Confidence, string> = {
 };
 
 interface ConfidenceBadgeProps {
-  confidence: Confidence;
+  confidence: Confidence | null;
 }
 
 export function ConfidenceBadge({ confidence }: ConfidenceBadgeProps) {
+  if (!confidence) return null;
   return (
     <span className={`ConfidenceBadge ConfidenceBadge--${confidence}`}>
       {LABELS[confidence]}
