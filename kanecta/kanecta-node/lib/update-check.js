@@ -8,12 +8,12 @@ const os = require('os');
 const CACHE_FILE = path.join(os.homedir(), '.kanecta', '.update-check.json');
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-// Packages to track. Each entry: { name, globalFlag }
-// globalFlag is the npm install -g argument to update it.
+// Packages to track. optional=true means "show in not-installed list but don't require".
 const TRACKED = [
-  { name: 'kanecta',          global: true },
-  { name: '@kanecta/studio',  global: true },
-  { name: '@kanecta/cli',     global: true },
+  { name: 'kanecta',          optional: false },
+  { name: '@kanecta/studio',  optional: false },
+  { name: '@kanecta/cli',     optional: false },
+  { name: '@kanecta/claude',  optional: true  },
 ];
 
 // ── registry lookup ────────────────────────────────────────────────────────
@@ -158,7 +158,7 @@ async function runUpdate() {
   );
 
   const toUpdate = results.filter(({ latest, current }) => isNewer(latest, current));
-  const notInstalled = TRACKED.filter(({ name }) => !installedVersion(name));
+  const notInstalled = TRACKED.filter(({ name, optional }) => optional && !installedVersion(name));
 
   if (toUpdate.length === 0) {
     process.stdout.write('All installed kanecta packages are up to date.\n');
@@ -175,7 +175,7 @@ async function runUpdate() {
   }
 
   if (notInstalled.length > 0) {
-    process.stdout.write('\nOptional packages not installed:\n');
+    process.stdout.write('\nOptional add-ons not installed:\n');
     for (const { name } of notInstalled) {
       process.stdout.write(`  ${name}  →  npm install -g ${name}\n`);
     }
