@@ -116,7 +116,7 @@ async function main() {
     }
     case 'studio': {
       const entry = resolvePackage('@kanecta/studio/server');
-      if (!entry) die('@kanecta/studio is not installed.\nInstall it: npm install -g @kanecta/studio');
+      if (!entry) die('@kanecta/studio is not installed.\nTry reinstalling: npm install -g kanecta');
       // Print update notification before handing off to the long-running studio process
       await flushUpdates();
       runApp(entry, rest);
