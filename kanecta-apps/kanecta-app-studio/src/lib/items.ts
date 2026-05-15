@@ -36,7 +36,7 @@ export function sortItems(items: KanectaItem[], sort: SortState): KanectaItem[] 
   return [...items].sort((a, b) => {
     let cmp = 0;
     if (sort.field === 'confidence') {
-      cmp = CONFIDENCE_ORDER.indexOf(a.confidence) - CONFIDENCE_ORDER.indexOf(b.confidence);
+      cmp = CONFIDENCE_ORDER.indexOf(a.confidence ?? '') - CONFIDENCE_ORDER.indexOf(b.confidence ?? '');
     } else if (sort.field === 'value') {
       cmp = a.value.localeCompare(b.value);
     } else if (sort.field === 'sortOrder') {
@@ -64,7 +64,7 @@ export function groupBy<K extends string>(
 }
 
 export function groupByConfidence(items: KanectaItem[]) {
-  return groupBy(items, (i) => i.confidence);
+  return groupBy(items, (i) => i.confidence ?? 'none');
 }
 
 export function groupByType(items: KanectaItem[]) {

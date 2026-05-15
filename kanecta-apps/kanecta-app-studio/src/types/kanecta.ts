@@ -29,7 +29,7 @@ export interface KanectaItem {
   value: string;
   type: ItemType;
   typeId?: string;
-  confidence: Confidence;
+  confidence: Confidence | null;
   parentId?: string;
   sortOrder: number;
   tags: string[];
@@ -95,7 +95,7 @@ export interface UpdateItemPayload {
   value?: string;
   type?: ItemType;
   typeId?: string;
-  confidence?: Confidence;
+  confidence?: Confidence | null;
   parentId?: string;
   sortOrder?: number;
   tags?: string[];

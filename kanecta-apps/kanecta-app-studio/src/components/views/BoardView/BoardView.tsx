@@ -65,7 +65,7 @@ export function BoardView({ panelId }: BoardViewProps) {
 
   if (isLoading) return <div className="BoardView"><div className="BoardView-empty">Loading…</div></div>;
 
-  const groupedByConfidence = groupBy(items, (i) => i.confidence);
+  const groupedByConfidence = groupBy(items, (i) => i.confidence ?? 'none');
   const groupedByType = groupBy(items, (i) => i.type);
 
   const columns = groupField === 'confidence'

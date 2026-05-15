@@ -3,7 +3,7 @@ import ForceGraph2D, { type ForceGraphMethods, type NodeObject } from 'react-for
 import { useQuery } from '@tanstack/react-query';
 import { useWorkspaceStore } from '../../../store/workspace';
 import { useUiStore } from '../../../store/ui';
-import type { KanectaItem, KanectaItemWithChildren, Relationship } from '../../../types/kanecta';
+import type { Confidence, KanectaItem, KanectaItemWithChildren, Relationship } from '../../../types/kanecta';
 import { flattenTree } from '../../../lib/items';
 import { GraphControls } from './GraphControls';
 import './GraphView.scss';
@@ -43,7 +43,7 @@ const TYPE_COLOURS: Record<KanectaItem['type'], string> = {
   file: '#ffc107',
 };
 
-const CONFIDENCE_COLOURS: Record<KanectaItem['confidence'], string> = {
+const CONFIDENCE_COLOURS: Record<Confidence, string> = {
   low: '#f44336',
   medium: '#ff9800',
   high: '#4caf50',
@@ -118,7 +118,7 @@ export function GraphView() {
 
   const nodeColour = useCallback(
     (node: GraphNode) =>
-      colourBy === 'type' ? TYPE_COLOURS[node.type] : CONFIDENCE_COLOURS[node.confidence],
+      colourBy === 'type' ? TYPE_COLOURS[node.type] : (node.confidence ? CONFIDENCE_COLOURS[node.confidence] : '#aaaaaa'),
     [colourBy],
   );
 
