@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import ForceGraph2D, { type ForceGraphMethods } from 'react-force-graph-2d';
+import ForceGraph2D, { type ForceGraphMethods, type NodeObject } from 'react-force-graph-2d';
 import { useQuery } from '@tanstack/react-query';
 import { useWorkspaceStore } from '../../../store/workspace';
 import { useUiStore } from '../../../store/ui';
@@ -52,14 +52,14 @@ const CONFIDENCE_COLOURS: Record<KanectaItem['confidence'], string> = {
 };
 
 export function GraphView() {
-  const { getApi, primaryWorkspace } = useWorkspaceStore();
+  const { getApi, getActiveWorkspace } = useWorkspaceStore();
   const { focusedItemId, setFocusedItem } = useUiStore();
-  const wsId = primaryWorkspace?.id ?? '';
+  const wsId = getActiveWorkspace()?.id ?? '';
 
   const [mode, setMode] = useState<'local' | 'full'>('full');
   const [colourBy, setColourBy] = useState<'type' | 'confidence'>('type');
 
-  const graphRef = useRef<ForceGraphMethods | undefined>(undefined);
+  const graphRef = useRef<ForceGraphMethods<NodeObject<GraphNode>> | undefined>(undefined);
 
   const { data: tree = [] } = useQuery<KanectaItemWithChildren[]>({
     queryKey: ['all-items', wsId],
