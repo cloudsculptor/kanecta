@@ -4,8 +4,7 @@
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
-const { KanectaConnector } = require('@kanecta/lib');
-const { walkDataDir } = require('@kanecta/lib/src/datastore');
+const { Datastore } = require('@kanecta/lib');
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -20,13 +19,12 @@ function writeConfig(cfg) {
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2) + '\n');
 }
 
-function getDatastorePath() {
-  if (process.env.KANECTA_DATASTORE) {
-    return process.env.KANECTA_DATASTORE.replace(/^~/, os.homedir());
-  }
+function openDs() {
   const cfg = readConfig();
-  if (cfg && cfg.datastorePath) return cfg.datastorePath.replace(/^~/, os.homedir());
-  return DEFAULT_DATASTORE_PATH;
+  const p = cfg?.datastorePath
+    ? cfg.datastorePath.replace(/^~/, os.homedir())
+    : (process.env.KANECTA_DATASTORE?.replace(/^~/, os.homedir()) ?? DEFAULT_DATASTORE_PATH);
+  return { ds: new Datastore(p), cfg };
 }
 
 // ─── Secret detection ─────────────────────────────────────────────────────────
@@ -56,6 +54,7 @@ const TOOLS = [
       type: 'object',
       properties: {
         text: { type: 'string', description: 'The content to capture' },
+        tags: { type: 'array', items: { type: 'string' }, description: 'Optional tags (e.g. ["decision", "architecture"])' },
         type: { type: 'string', enum: ['text', 'string', 'decision'], description: 'Item type — defaults to "text"' },
       },
       required: ['text'],
@@ -85,13 +84,13 @@ const TOOLS = [
   },
   {
     name: 'kanecta_get',
-    description: 'Get a specific item from the knowledge base by UUID.',
+    description: 'Get a specific item from the knowledge base by UUID or alias.',
     inputSchema: {
       type: 'object',
       properties: {
-        id: { type: 'string', description: 'Item UUID' },
+        ref: { type: 'string', description: 'Item UUID or alias' },
       },
-      required: ['id'],
+      required: ['ref'],
     },
   },
   {
@@ -110,10 +109,10 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        id: { type: 'string', description: 'Root item UUID' },
+        ref: { type: 'string', description: 'Root item UUID or alias' },
         depth: { type: 'number', description: 'Depth to expand (default: 3)' },
       },
-      required: ['id'],
+      required: ['ref'],
     },
   },
   {
@@ -125,7 +124,7 @@ const TOOLS = [
         value: { type: 'string', description: 'Item value/content' },
         type: { type: 'string', description: 'Item type (string, text, object, etc.)' },
         parentId: { type: 'string', description: 'Parent UUID — omit for root' },
-        sortOrder: { type: 'number', description: 'Sort position (auto-assigned if omitted)' },
+        tags: { type: 'array', items: { type: 'string' }, description: 'Tags' },
       },
     },
   },
@@ -138,6 +137,7 @@ const TOOLS = [
         id: { type: 'string', description: 'Item UUID' },
         value: { type: 'string', description: 'New value/content' },
         type: { type: 'string', description: 'New type' },
+        tags: { type: 'array', items: { type: 'string' }, description: 'Replace tags' },
       },
       required: ['id'],
     },
@@ -149,7 +149,6 @@ const TOOLS = [
       type: 'object',
       properties: {
         id: { type: 'string', description: 'Item UUID' },
-        force: { type: 'boolean', description: 'Delete even if other items link to this one' },
       },
       required: ['id'],
     },
@@ -158,78 +157,80 @@ const TOOLS = [
 
 // ─── Handlers ─────────────────────────────────────────────────────────────────
 
-async function handleCapture(args, connector) {
-  const { text, type = 'text' } = args;
+function ensureDateBucket(ds, cfg) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (cfg?.lastCaptureDate === today && cfg?.lastCaptureDateId) {
+    return cfg.lastCaptureDateId;
+  }
+  const bucket = ds.create({
+    value: today,
+    type: 'string',
+    parentId: cfg?.capturesRootId || null,
+    owner: cfg?.owner || ds.config.owner,
+    tags: ['kanecta-date'],
+  });
+  ds.setAlias(`kanecta-date-${today}`, bucket.id);
+  if (cfg) {
+    cfg.lastCaptureDate = today;
+    cfg.lastCaptureDateId = bucket.id;
+    writeConfig(cfg);
+  }
+  return bucket.id;
+}
 
+function handleCapture(args, ds, cfg) {
+  const { text, tags = [], type = 'text' } = args;
   const secrets = detectSecrets(text);
   if (secrets.length) {
     return { error: `Capture rejected — possible secret detected (${secrets.join(', ')}). Kanecta never stores secrets.` };
   }
-
-  const cfg = readConfig();
-  const today = new Date().toISOString().slice(0, 10);
-
-  let dateBucketId;
-  if (cfg?.lastCaptureDate === today && cfg?.lastCaptureDateId) {
-    dateBucketId = cfg.lastCaptureDateId;
-  } else {
-    const bucket = await connector.addItem({
-      value: today,
-      type: 'string',
-      parentId: cfg?.capturesRootId || null,
-      owner: cfg?.owner || 'kanecta',
-    });
-    dateBucketId = bucket.id;
-    if (cfg) {
-      cfg.lastCaptureDate = today;
-      cfg.lastCaptureDateId = bucket.id;
-      writeConfig(cfg);
-    }
-  }
-
-  const item = await connector.addItem({
+  const dateBucketId = ensureDateBucket(ds, cfg);
+  const allTags = ['kanecta-capture', ...tags.filter(t => !['kanecta-capture', 'kanecta-date', 'kanecta-internal'].includes(t))];
+  const item = ds.create({
     value: text,
     type,
     parentId: dateBucketId,
-    owner: cfg?.owner || 'kanecta',
+    owner: cfg?.owner || ds.config.owner,
+    tags: allTags,
   });
-
-  return { id: item.id, date: today, preview: text.slice(0, 120) };
+  return {
+    id: item.id,
+    date: new Date().toISOString().slice(0, 10),
+    tags: allTags.filter(t => t !== 'kanecta-capture'),
+    preview: text.slice(0, 120),
+  };
 }
 
-async function handleSearch(args, datastorePath) {
+function handleSearch(args, ds) {
   const { query, limit = 10 } = args;
   const q = query.toLowerCase();
-  const all = await walkDataDir(datastorePath);
-  const results = all
+  const results = ds.loadAll()
     .filter(i => i.value && typeof i.value === 'string' && i.value.toLowerCase().includes(q))
-    .sort((a, b) => (b.sortOrder || 0) - (a.sortOrder || 0))
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
     .slice(0, limit)
-    .map(i => ({ id: i.id, type: i.type, parentId: i.parentId, value: i.value }));
+    .map(i => ({
+      id: i.id,
+      type: i.type,
+      tags: (i.tags || []).filter(t => !['kanecta-capture', 'kanecta-date', 'kanecta-internal'].includes(t)),
+      date: (i.createdAt || '').slice(0, 10),
+      value: i.value,
+    }));
   return { query, count: results.length, results };
 }
 
-async function handleRecent(args, datastorePath) {
+function handleRecent(args, ds) {
   const { n = 10 } = args;
-  const all = await walkDataDir(datastorePath);
-
-  // Captures live under date bucket items (value = YYYY-MM-DD)
-  const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-  const dateBuckets = new Map(
-    all.filter(i => typeof i.value === 'string' && datePattern.test(i.value)).map(i => [i.id, i.value])
-  );
-
-  const captures = all
-    .filter(i => i.parentId && dateBuckets.has(i.parentId))
-    .map(i => ({ ...i, _date: dateBuckets.get(i.parentId) }))
-    .sort((a, b) => {
-      if (b._date !== a._date) return b._date.localeCompare(a._date);
-      return (b.sortOrder || 0) - (a.sortOrder || 0);
-    })
+  const items = ds.loadAll()
+    .filter(i => (i.tags || []).includes('kanecta-capture'))
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
     .slice(0, n)
-    .map(({ _date, ...i }) => ({ id: i.id, type: i.type, date: _date, value: i.value }));
-
-  return { count: captures.length, items: captures };
+    .map(i => ({
+      id: i.id,
+      date: (i.createdAt || '').slice(0, 10),
+      tags: (i.tags || []).filter(t => !['kanecta-capture', 'kanecta-date', 'kanecta-internal'].includes(t)),
+      value: i.value,
+    }));
+  return { count: items.length, items };
 }
 
 // ─── MCP protocol ─────────────────────────────────────────────────────────────
@@ -246,17 +247,38 @@ function sendError(id, code, message) {
   send({ jsonrpc: '2.0', id, error: { code, message } });
 }
 
-async function dispatch(name, args, connector, datastorePath) {
+function dispatch(name, args) {
+  const { ds, cfg } = openDs();
   switch (name) {
-    case 'kanecta_capture':      return handleCapture(args, connector);
-    case 'kanecta_search':       return handleSearch(args, datastorePath);
-    case 'kanecta_recent':       return handleRecent(args, datastorePath);
-    case 'kanecta_get':          return connector.getItem(args.id);
-    case 'kanecta_get_children': return connector.getChildren(args.parentId ?? null);
-    case 'kanecta_get_tree':     return connector.getTree(args.id, { depth: args.depth ?? 3 });
-    case 'kanecta_add_item':     return connector.addItem(args);
-    case 'kanecta_update_item':  { const { id, ...updates } = args; return connector.updateItem(id, updates); }
-    case 'kanecta_delete_item':  return connector.deleteItem(args.id, { force: args.force ?? false }).then(() => ({ deleted: args.id }));
+    case 'kanecta_capture':      return handleCapture(args, ds, cfg);
+    case 'kanecta_search':       return handleSearch(args, ds);
+    case 'kanecta_recent':       return handleRecent(args, ds);
+    case 'kanecta_get': {
+      const item = ds.resolve(args.ref);
+      return item || { error: `Not found: ${args.ref}` };
+    }
+    case 'kanecta_get_children':
+      return { items: ds.children(args.parentId ?? null) };
+    case 'kanecta_get_tree': {
+      const root = ds.resolve(args.ref);
+      if (!root) return { error: `Not found: ${args.ref}` };
+      return {
+        count: 0,
+        tree: ds.tree(root.id, args.depth ?? 3).map(({ item, depth }) => ({
+          depth, id: item.id, value: item.value, type: item.type,
+          tags: (item.tags || []).filter(t => t !== 'kanecta-internal'),
+        })),
+      };
+    }
+    case 'kanecta_add_item':
+      return ds.create(args);
+    case 'kanecta_update_item': {
+      const { id, ...changes } = args;
+      return ds.update(id, changes, cfg?.owner);
+    }
+    case 'kanecta_delete_item':
+      ds.delete(args.id, cfg?.owner);
+      return { deleted: args.id };
     default: {
       const err = new Error(`Unknown tool: ${name}`);
       err.code = -32601;
@@ -266,9 +288,6 @@ async function dispatch(name, args, connector, datastorePath) {
 }
 
 function runMcpServer() {
-  const datastorePath = getDatastorePath();
-  const connector = new KanectaConnector({ datastorePath });
-
   let buf = '';
   process.stdin.setEncoding('utf8');
   process.stdin.on('data', chunk => {
@@ -305,23 +324,21 @@ function runMcpServer() {
 
       if (method === 'tools/call') {
         const { name, arguments: args = {} } = params;
-        dispatch(name, args, connector, datastorePath)
-          .then(result => {
-            const text = result.error
-              ? `Error: ${result.error}`
-              : JSON.stringify(result, null, 2);
-            sendResult(id, { content: [{ type: 'text', text }], isError: !!result.error });
-          })
-          .catch(err => {
-            if (err.code === -32601) {
-              sendError(id, -32601, err.message);
-            } else {
-              sendResult(id, {
-                content: [{ type: 'text', text: `Error: ${err.message}` }],
-                isError: true,
-              });
-            }
-          });
+        let result;
+        try {
+          result = dispatch(name, args);
+        } catch (err) {
+          if (err.code === -32601) {
+            sendError(id, -32601, err.message);
+            continue;
+          }
+          sendResult(id, { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true });
+          continue;
+        }
+        const text = result?.error
+          ? `Error: ${result.error}`
+          : JSON.stringify(result, null, 2);
+        sendResult(id, { content: [{ type: 'text', text }], isError: !!result?.error });
         continue;
       }
 
