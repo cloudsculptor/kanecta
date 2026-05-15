@@ -40,6 +40,7 @@
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-force-graph": "^1.48.2",
+    "react-force-graph-2d": "^1.29.1",
     "react-resizable-panels": "^2.1.4",
     "react-router-dom": "^6.26.2",
     "sirv-cli": "^3.0.1",

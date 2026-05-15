@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { diffItems, buildItemMap } from '../activity';
 import type { KanectaItem } from '../../types/kanecta';
 
@@ -24,7 +24,7 @@ describe('diffItems', () => {
   beforeEach(() => {
     vi.spyOn(global, 'crypto', 'get').mockReturnValue({
       randomUUID: () => 'test-uuid',
-    } as Crypto);
+    } as unknown as Crypto);
   });
 
   it('marks new items as created', () => {
