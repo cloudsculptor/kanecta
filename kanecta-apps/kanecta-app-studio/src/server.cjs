@@ -130,7 +130,7 @@ async function main() {
     process.exit(1);
   }
 
-  const defaultDatastore = path.join(os.homedir(), '.kanecta', 'datastore');
+  const defaultDatastore = path.join(os.homedir(), '.kanecta');
   const datastorePath = process.env.KANECTA_DATASTORE ?? defaultDatastore;
 
   const apiProc = spawn(process.execPath, [apiEntry], {
