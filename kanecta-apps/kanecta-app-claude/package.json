@@ -1,6 +1,6 @@
 {
   "name": "@kanecta/claude",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Kanecta Claude integration — captures context, decisions, and insights across all Claude sessions.",
   "main": "index.js",
   "scripts": {
