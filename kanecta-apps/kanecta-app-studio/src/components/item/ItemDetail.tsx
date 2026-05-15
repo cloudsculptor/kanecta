@@ -5,6 +5,7 @@ import { AnnotationThread } from './AnnotationThread';
 import { RelationshipList } from './RelationshipList';
 import { BacklinkList } from './BacklinkList';
 import { HistoryTimeline } from './HistoryTimeline';
+import { BlockEditor } from '../editor/BlockEditor';
 import { useWorkspaceStore } from '../../store/workspace';
 import './ItemDetail.scss';
 
@@ -48,6 +49,11 @@ export function ItemDetail({ itemId }: ItemDetailProps) {
       <Section title="Properties">
         <ItemMetadata item={item} />
       </Section>
+      {item.type === 'text' && (
+        <Section title="Content">
+          <BlockEditor itemId={item.id} initialContent={item.value} />
+        </Section>
+      )}
       <Section title="Annotations" defaultOpen={false}>
         <AnnotationThread itemId={itemId} />
       </Section>
