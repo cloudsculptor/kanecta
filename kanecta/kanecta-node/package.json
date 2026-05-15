@@ -1,6 +1,6 @@
 {
   "name": "kanecta",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Open source connectivity platform",
   "main": "index.js",
   "bin": {
