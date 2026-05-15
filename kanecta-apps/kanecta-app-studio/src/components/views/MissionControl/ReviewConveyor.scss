@@ -1,0 +1,129 @@
+.ReviewConveyor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 24px;
+
+  &-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+
+  &-progress {
+    font-size: 0.875rem;
+    color: var(--mui-palette-text-secondary);
+  }
+
+  &-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--mui-palette-text-secondary);
+    line-height: 1;
+    padding: 0 4px;
+
+    &:hover { color: var(--mui-palette-text-primary); }
+  }
+
+  &-done {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    color: var(--mui-palette-text-secondary);
+
+    button {
+      padding: 8px 24px;
+      border: 1px solid var(--mui-palette-divider);
+      border-radius: 6px;
+      background: transparent;
+      cursor: pointer;
+
+      &:hover { background: var(--mui-palette-action-hover); }
+    }
+  }
+
+  &-card {
+    flex: 1;
+    border: 1px solid var(--mui-palette-divider);
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 24px;
+    background: var(--mui-palette-background-paper);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    &-badges {
+      display: flex;
+      gap: 8px;
+    }
+
+    &-value {
+      font-size: 1.125rem;
+      line-height: 1.5;
+      color: var(--mui-palette-text-primary);
+      margin: 0;
+    }
+
+    &-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    &-meta {
+      font-size: 0.75rem;
+      color: var(--mui-palette-text-secondary);
+      margin: 0;
+    }
+  }
+
+  &-actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  &-action {
+    flex: 1;
+    padding: 10px 8px;
+    border: 1px solid var(--mui-palette-divider);
+    border-radius: 8px;
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.8125rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    transition: background 0.1s;
+
+    kbd {
+      font-size: 0.6875rem;
+      background: var(--mui-palette-action-selected);
+      border-radius: 3px;
+      padding: 1px 5px;
+    }
+
+    &:hover { background: var(--mui-palette-action-hover); }
+
+    &--approve {
+      border-color: rgba(76, 175, 80, 0.4);
+      color: #2e7d32;
+      &:hover { background: rgba(76, 175, 80, 0.08); }
+    }
+
+    &--delete {
+      border-color: rgba(244, 67, 54, 0.4);
+      color: #c62828;
+      &:hover { background: rgba(244, 67, 54, 0.08); }
+    }
+  }
+}

@@ -24,4 +24,18 @@
   &-badge {
     cursor: pointer;
   }
+
+  &-review-badge {
+    background: var(--mui-palette-warning-main);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.1s;
+
+    &:hover { background: var(--mui-palette-warning-dark); }
+  }
 }
