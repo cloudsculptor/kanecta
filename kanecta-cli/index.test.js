@@ -7,7 +7,7 @@ const path = require('node:path');
 const os = require('node:os');
 const { execFileSync } = require('node:child_process');
 
-const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES } = require('./lib/datastore');
+const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES } = require('@kanecta/lib');
 
 const SAMPLE = path.resolve(__dirname, '..', 'kanecta-datastore-sample');
 const CLI = path.resolve(__dirname, 'index.js');

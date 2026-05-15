@@ -4,7 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
-const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE } = require('./lib/datastore');
+const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE } = require('@kanecta/lib');
 
 // ─── Help text ────────────────────────────────────────────────────────────────
 

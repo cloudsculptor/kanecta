@@ -1,6 +1,6 @@
 {
   "name": "@kanecta/cli",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Kanecta filesystem datastore CLI — full CRUD, aliases, annotations, relationships, history, and tree traversal conforming to spec v1.1.0",
   "main": "index.js",
   "bin": {
@@ -11,9 +11,11 @@
   },
   "files": [
     "index.js",
-    "lib/",
     "README.md"
   ],
+  "dependencies": {
+    "@kanecta/lib": "file:../kanecta-lib"
+  },
   "engines": {
     "node": ">=18.0.0"
   },
