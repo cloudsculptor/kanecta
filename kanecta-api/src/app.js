@@ -252,6 +252,13 @@ app.delete('/aliases/:alias', (req, res) => {
 
 // ─── Relationships ────────────────────────────────────────────────────────────
 
+// GET /relationships — list all relationships
+app.get('/relationships', (req, res) => {
+  const ds = openDatastore(res);
+  if (!ds) return;
+  res.json(ds.listRelationships());
+});
+
 // POST /relationships — create relationship { sourceId, type, targetId, note? }
 app.post('/relationships', (req, res) => {
   const ds = openDatastore(res);
