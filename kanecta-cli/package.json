@@ -9,6 +9,11 @@
   "scripts": {
     "test": "node --test index.test.js"
   },
+  "files": [
+    "index.js",
+    "lib/",
+    "README.md"
+  ],
   "engines": {
     "node": ">=18.0.0"
   }
