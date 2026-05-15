@@ -1,6 +1,6 @@
 {
   "name": "@kanecta/studio",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "exports": {
     "./server": "./src/server.cjs"
@@ -23,6 +23,7 @@
     "build-storybook": "storybook build"
   },
   "dependencies": {
+    "@kanecta/api": "^1.0.0",
     "@dnd-kit/core": "^6.1.0",
     "@dnd-kit/sortable": "^8.0.0",
     "@dnd-kit/utilities": "^3.2.2",
