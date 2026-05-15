@@ -1,0 +1,23 @@
+.PanelWorkspace {
+  display: flex;
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
+
+  [data-panel] {
+    overflow: hidden;
+  }
+
+  [data-panel-resize-handle-id] {
+    width: 4px;
+    background: var(--color-border);
+    cursor: col-resize;
+    transition: background 150ms;
+    flex-shrink: 0;
+
+    &:hover,
+    &[data-resize-handle-active] {
+      background: var(--color-primary);
+    }
+  }
+}

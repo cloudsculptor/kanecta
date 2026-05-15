@@ -1,0 +1,45 @@
+import type { ApiClient } from './client';
+import type {
+  KanectaItem,
+  KanectaItemWithChildren,
+  Annotation,
+  Relationship,
+  HistoryEntry,
+  CreateItemPayload,
+  UpdateItemPayload,
+  CreateAnnotationPayload,
+} from '../types/kanecta';
+
+export function itemsApi(client: ApiClient) {
+  return {
+    list: () => client.get<KanectaItem[]>('/items'),
+
+    get: (id: string) => client.get<KanectaItem>(`/items/${id}`),
+
+    create: (payload: CreateItemPayload) => client.post<KanectaItem>('/items', payload),
+
+    update: (id: string, payload: UpdateItemPayload) =>
+      client.put<KanectaItem>(`/items/${id}`, payload),
+
+    delete: (id: string, force = false) =>
+      client.delete<{ deleted: string }>(`/items/${id}${force ? '?force=true' : ''}`),
+
+    children: (id: string) => client.get<KanectaItem[]>(`/items/${id}/children`),
+
+    tree: (id: string, depth?: number) =>
+      client.get<KanectaItemWithChildren>(
+        `/items/${id}/tree${depth != null ? `?depth=${depth}` : ''}`,
+      ),
+
+    annotations: (id: string) => client.get<Annotation[]>(`/items/${id}/annotations`),
+
+    annotate: (id: string, payload: CreateAnnotationPayload) =>
+      client.post<Annotation>(`/items/${id}/annotations`, payload),
+
+    relationships: (id: string) => client.get<Relationship[]>(`/items/${id}/relationships`),
+
+    backlinks: (id: string) => client.get<KanectaItem[]>(`/items/${id}/backlinks`),
+
+    history: (id: string) => client.get<HistoryEntry[]>(`/items/${id}/history`),
+  };
+}
