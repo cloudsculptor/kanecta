@@ -16,7 +16,8 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@kanecta/cli": "^1.0.0"
+    "@kanecta/cli": "^1.0.0",
+    "@kanecta/mcp": "^1.0.0"
   },
   "publishConfig": {
     "access": "public"
