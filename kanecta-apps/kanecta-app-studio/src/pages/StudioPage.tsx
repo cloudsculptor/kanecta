@@ -10,6 +10,7 @@ import { BoardView } from '../components/views/BoardView/BoardView';
 import { GalleryView } from '../components/views/GalleryView/GalleryView';
 import { ListView } from '../components/views/ListView/ListView';
 import { CalendarView } from '../components/views/CalendarView/CalendarView';
+import { GraphView } from '../components/views/GraphView/GraphView';
 import { ItemDetail } from '../components/item/ItemDetail';
 import { QuickCapture } from '../components/shared/QuickCapture';
 import { CommandPalette } from '../components/shared/CommandPalette';
@@ -60,6 +61,7 @@ function StudioInner() {
       case 'gallery': return <GalleryView panelId={panelId} />;
       case 'list': return <ListView panelId={panelId} />;
       case 'calendar': return <CalendarView panelId={panelId} />;
+      case 'graph': return <GraphView />;
       default:
         return (
           <div style={{ padding: 24, color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>

@@ -1,0 +1,50 @@
+.MentionDropdown {
+  background: var(--mui-palette-background-paper);
+  border: 1px solid var(--mui-palette-divider);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  width: 280px;
+  max-height: 240px;
+  overflow-y: auto;
+
+  &-empty {
+    padding: 10px 12px;
+    font-size: 0.8125rem;
+    color: var(--mui-palette-text-secondary);
+  }
+
+  &-item {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 12px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+
+    &:hover,
+    &--selected {
+      background: var(--mui-palette-action-hover);
+    }
+
+    &-type {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--mui-palette-text-secondary);
+      min-width: 48px;
+    }
+
+    &-value {
+      font-size: 0.875rem;
+      color: var(--mui-palette-text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+}
