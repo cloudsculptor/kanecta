@@ -3394,6 +3394,25 @@ $bp-tablet: 768px;
   margin-bottom: 1.5rem;
 }
 
+.pages-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pages-outline-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  &:hover { background: var(--accent-bg); text-decoration: none; }
+}
+
 .pages-new-btn {
   display: inline-flex;
   align-items: center;
