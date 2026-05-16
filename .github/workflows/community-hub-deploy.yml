@@ -4,7 +4,7 @@ on:
   push:
     branches: [master]
     paths:
-      - 'kanecta-apps/kanecta-apps/kanecta-app-community-hub/**'
+      - 'kanecta-apps/kanecta-app-community-hub/**'
 
 jobs:
   deploy:
