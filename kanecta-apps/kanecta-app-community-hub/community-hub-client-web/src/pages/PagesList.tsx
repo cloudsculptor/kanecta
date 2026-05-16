@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Header from "../components/Header";
+import Breadcrumb from "../components/Breadcrumb";
 import Footer from "../components/Footer";
 import { useUserRole } from "../auth/useUserRole";
 import { useKeycloak } from "../auth/KeycloakProvider";
@@ -38,6 +39,7 @@ export default function PagesList() {
   return (
     <>
       <Header />
+      <Breadcrumb pageName="Pages" />
       <main className="page-content">
         <div className="pages-header">
           <h2>Pages</h2>
