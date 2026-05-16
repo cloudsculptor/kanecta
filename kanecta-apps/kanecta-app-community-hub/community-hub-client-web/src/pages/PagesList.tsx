@@ -58,10 +58,9 @@ export default function PagesList() {
             {pages.map((page) => (
               <li key={page.id} className="pages-list__item">
                 <div className="pages-list__info">
-                  <Link to={`/groups/resilience/${page.slug}`} className="pages-list__slug">
-                    {page.slug}
+                  <Link to={`/groups/resilience/${page.slug}`} className="pages-list__title">
+                    {page.title || page.slug}
                   </Link>
-                  {page.title && <span className="pages-list__title">{page.title}</span>}
                   <span className="pages-list__meta">
                     by {page.created_by_name} · {new Date(page.updated_at).toLocaleDateString("en-NZ")}
                   </span>
