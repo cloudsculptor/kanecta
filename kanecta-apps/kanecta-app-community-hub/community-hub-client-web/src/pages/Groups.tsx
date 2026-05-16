@@ -4,7 +4,7 @@ import Footer from "../components/Footer";
 import { NavCard } from "../components/NavCard";
 
 const groups = [
-  { title: "Resilience", blurb: "The community resilience plan — workstreams, survey results, and local action.", path: "/groups/resilience" },
+  { title: "Resilience", blurb: "Local group developing a community resilience plan.", path: "/groups/resilience" },
 ];
 
 export default function Groups() {
