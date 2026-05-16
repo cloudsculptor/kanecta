@@ -14,6 +14,8 @@ const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 
 const requireTeam = requireRole("team", "moderator");
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // Walks a Lexical JSON tree and returns all file UUIDs referenced by image nodes.
 function extractFileIds(contentJson) {
   const ids = new Set();
@@ -24,9 +26,14 @@ function extractFileIds(contentJson) {
     if (!node) return;
     if (node.type === "image" && typeof node.src === "string" && node.src.startsWith(prefix)) {
       const parts = node.src.slice(prefix.length).split("/");
-      const hex = parts[2];
-      if (hex && hex.length === 32) {
-        ids.add(`${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`);
+      const id = parts[2];
+      if (id) {
+        if (UUID_RE.test(id)) {
+          ids.add(id);
+        } else if (id.length === 32) {
+          // Legacy format: UUID with hyphens stripped
+          ids.add(`${id.slice(0,8)}-${id.slice(8,12)}-${id.slice(12,16)}-${id.slice(16,20)}-${id.slice(20)}`);
+        }
       }
     }
     if (Array.isArray(node.children)) node.children.forEach(walk);
