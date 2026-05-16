@@ -7,7 +7,7 @@ const groups = [
 
 export default function Groups() {
   return (
-    <PageLayout pageName="Groups" showComingSoon={false}>
+    <PageLayout pageName="Groups & Organisations" showComingSoon={false}>
       <nav className="nav-grid">
         {groups.map((g) => <NavCard key={g.path} {...g} />)}
       </nav>
