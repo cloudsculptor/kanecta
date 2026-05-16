@@ -100,7 +100,7 @@ export default function PageEdit() {
         <form onSubmit={handleSave} className="page-edit__form">
           <div className="page-edit__field">
             <label className="page-edit__label" htmlFor="pe-slug">
-              Page slug
+              Page path
               <span className="page-edit__hint"> (a–z, 0–9, hyphens)</span>
             </label>
             <div className="page-edit__slug-preview">
