@@ -3524,15 +3524,15 @@ $bp-tablet: 768px;
     font-size: 28px;
     font-weight: 700;
     color: var(--text-h);
-    border: none;
-    border-bottom: 2px solid transparent;
-    background: transparent;
-    padding: 0 0 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    padding: 10px 14px;
     outline: none;
     box-sizing: border-box;
     font-family: inherit;
 
-    &:focus { border-bottom-color: var(--accent); }
+    &:focus { border-color: var(--accent); }
     &::placeholder { color: var(--border); font-weight: 400; }
   }
 
