@@ -38,6 +38,11 @@ document.addEventListener('DOMContentLoaded', function() {
 ++++
 :icons: font
 
+[NOTE.speaker]
+--
+Welcome everyone. This is a draft — the ideas are solid but the details are still being worked through, and your input tonight will shape the final version. We want this to be a genuinely community-owned organisation, so the more people who poke holes in this the better.
+--
+
 == Contents
 
 ++++
@@ -64,7 +69,17 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 ++++
 
+[NOTE.speaker]
+--
+Feel free to jump to any section using these links — this isn't meant to be a linear walkthrough if people have specific questions. We'll try to cover everything but can go out of order if needed.
+--
+
 == What is our purpose?
+
+[NOTE.speaker]
+--
+We identified ten things we're trying to achieve. I'll step through them in groups. Some overlap — that's deliberate, they reinforce each other.
+--
 
 [%notitle]
 == What is our purpose?
@@ -73,6 +88,11 @@ document.addEventListener('DOMContentLoaded', function() {
 * *Communication* — a channel for residents to share news, events, and ideas
 * *Collaboration* — a place for community groups to store information, discuss, and work together
 
+[NOTE.speaker]
+--
+These three C's are the core. Featherston has a lot going on but people don't always know about each other. A lot of community energy is lost because groups work in isolation. This platform is about joining those dots.
+--
+
 [%notitle]
 == What is our purpose?
 
@@ -80,11 +100,21 @@ document.addEventListener('DOMContentLoaded', function() {
 * *Repository* — a trusted store of community information
 * *Directory* — discover events, groups, and local services
 
+[NOTE.speaker]
+--
+Governance here means helping people engage with the council and local bodies — not running those things ourselves. The repository idea is important: community knowledge often lives in one person's head or one organisation's filing cabinet. We want a place where that survives.
+--
+
 [%notitle]
 == What is our purpose?
 
 * *Discovery* — surface hidden physical, human, and community resources people may not know exist
 * *Showcase* — highlight what Featherston has to offer visitors and new locals
+
+[NOTE.speaker]
+--
+Discovery is one of the most exciting parts. There are people in this town with extraordinary skills, spaces, tools, and knowledge that almost nobody knows about. And for people who've just moved here, finding out what's around is genuinely hard. We can fix that.
+--
 
 [%notitle]
 == What is our purpose?
@@ -92,7 +122,17 @@ document.addEventListener('DOMContentLoaded', function() {
 * *Resilience* — ensure people can access critical information and communicate through good times and bad
 * *Support* — a place where people in need can find help, connect with others, and access resources
 
+[NOTE.speaker]
+--
+Resilience is a formal workstream — there are people in Featherston already working on emergency preparedness, and this platform supports that. Support is about making it easy for someone who's struggling to find where to turn without having to know the right person to ask.
+--
+
 == What does that look like in practice?
+
+[NOTE.speaker]
+--
+So that's why we exist. Now, concretely, what do we actually do?
+--
 
 [%notitle]
 == What does that look like in practice?
@@ -100,13 +140,28 @@ document.addEventListener('DOMContentLoaded', function() {
 * *Domain* — we hold the featherston.co.nz domain name on behalf of the community
 * *Web app* — we host and manage a community information and collaboration platform
 
+[NOTE.speaker]
+--
+The domain is important. Right now it's registered to an individual. The society takes ownership so that no single person controls it — if Richard gets hit by a bus, featherston.co.nz doesn't disappear. The web app is the thing people actually use every day.
+--
+
 [%notitle]
 == What does that look like in practice?
 
 * *Data* — we provide a secure place for community groups to store, manage, and share information
 * *Trust* — we build relationships with the community so people feel safe using the platform and contributing to it
 
+[NOTE.speaker]
+--
+Trust is the hardest thing to build and the easiest to lose. Every governance decision we make — about openness, about who controls what — is designed to make it possible for people to trust us. Without that, nothing else works.
+--
+
 == The organisation we want to build
+
+[NOTE.speaker]
+--
+This section is about culture and values — the kind of organisation we want to be, not just what we do.
+--
 
 [%notitle]
 == The organisation we want to build
@@ -114,13 +169,28 @@ document.addEventListener('DOMContentLoaded', function() {
 * *Community-first* — we exist to serve all of Featherston; no individual, group, or funder can capture or control us
 * *Open* — our decisions, finances, and processes are visible to all; anyone can see how we work and get involved
 
+[NOTE.speaker]
+--
+Community-first sounds obvious but it has real teeth — it means we'll turn down money if it comes with conditions. It means no single sponsor gets naming rights or influence. Openness is the mechanism that makes community-first enforceable: if everything is visible, capture is much harder.
+--
+
 [%notitle]
 == The organisation we want to build
 
 * *Resilient* — built to last; the organisation survives the departure of any single person or group
 * *Volunteer-led* — run by people who choose what to do and how; governance exists to support volunteers, not direct them
 
+[NOTE.speaker]
+--
+Resilience is structural — we're designing the organisation so it doesn't depend on any one person staying. Volunteer-led is a deliberate inversion of how most committees work. Usually the committee decides and volunteers execute. We want it the other way around.
+--
+
 == How are we structured?
+
+[NOTE.speaker]
+--
+Now the actual structure. Six principles underpin everything.
+--
 
 [%notitle]
 == How are we structured?
@@ -129,6 +199,11 @@ document.addEventListener('DOMContentLoaded', function() {
 * *Anti-capture* — no individual or funder may gain disproportionate influence
 * *Participatory democracy* — power belongs to those who show up and contribute
 
+[NOTE.speaker]
+--
+Participatory democracy is different from representative democracy. You don't elect someone to make decisions on your behalf — you show up and make them yourself. That's a higher bar, but it means the people with real skin in the game have the real power.
+--
+
 [%notitle]
 == How are we structured?
 
@@ -136,21 +211,51 @@ document.addEventListener('DOMContentLoaded', function() {
 * *Sustainability* — the organisation survives the departure of any single person
 * *Community first* — we serve all of Featherston, not any subset
 
+[NOTE.speaker]
+--
+Sortition is the jury-duty model — random selection from a pool of eligible people. It sounds unusual but it's one of the oldest democratic tools there is. Elections tend to favour people who are well-known or well-funded; sortition doesn't. This is how we pick the Custodian Board.
+--
+
 == Membership
+
+[NOTE.speaker]
+--
+Three types of membership. They're designed to be inclusive — you don't have to live in Featherston to be involved, but governance power is reserved for locals.
+--
 
 == Associate Member ("Friend of Featherston")
 
 A person who lives outside the Wairarapa but feels a connection to Featherston, or who contributes as a volunteer even though they live elsewhere.
 
+[NOTE.speaker]
+--
+This covers former residents, people with family here, developers who want to contribute code from Wellington or Auckland. They can participate fully as volunteers — they just don't get a vote or a place in the Custodian pool, because governance of a local community should belong to locals.
+--
+
 == Voting Member ("Local")
 
 A person who lives within the Featherston Ward. Voting Members get a vote whenever a vote is called. They are not required to be available for sortition to the Custodian Board.
+
+[NOTE.speaker]
+--
+Most members will be Voting Members. You live here, you get a vote. You don't have to put your hand up for anything more than that. If there's ever a major decision — a constitutional change, a significant funding decision — Voting Members are the ones who decide.
+--
 
 == Participant Member ("Guardian", "Custodian")
 
 A Voting Member who opts in to be eligible for sortition to the Custodian Board.
 
+[NOTE.speaker]
+--
+This is the deepest level of commitment. You're saying: if I'm selected randomly, I'll serve on the Custodian Board. It's not a huge time commitment — Custodians are a last resort, not a governing body — but it's an important one. We need at least 50 to make sortition work meaningfully.
+--
+
 == The two roles
+
+[NOTE.speaker]
+--
+Everyone in the organisation plays one of two roles: Volunteer or Custodian. These are deliberately distinct — you can't be both at the same time.
+--
 
 == Volunteers
 
@@ -158,11 +263,21 @@ _The doers_
 
 Volunteers lead the work, decide what gets built and published, and manage themselves. No one tells them what to do. All positive decisions belong to volunteers.
 
+[NOTE.speaker]
+--
+Positive decisions — what to build, what to publish, which direction to go — belong entirely to volunteers. The Custodians have no say in this. This is intentional. The people doing the work get to decide what the work is.
+--
+
 [%notitle]
 == Volunteers
 
 * *Guidelines* — over time volunteers develop shared guidelines so that most day-to-day decisions don't require a formal vote
 * *Small groups* — where ten or fewer volunteers are involved, decisions are made by consensus
+
+[NOTE.speaker]
+--
+In practice, most decisions never need a vote. If five people are working on the events section, they just decide together. Guidelines accumulate over time so that common decisions have a default answer everyone already agreed to.
+--
 
 [%notitle]
 == Volunteers
@@ -170,7 +285,17 @@ Volunteers lead the work, decide what gets built and published, and manage thems
 * *Larger groups* — where more than ten volunteers are involved, decisions require 80% agreement
 * *Threshold reduction* — the Custodian Board may lower the threshold to a simple majority, but only where there is clear evidence that genuine effort has been made to reach consensus
 
+[NOTE.speaker]
+--
+80% is a high bar — it forces real consensus rather than a slim majority running over a large minority. The threshold reduction is a safety valve for situations where consensus genuinely isn't possible and the organisation is stuck. It's not a shortcut; Custodians have to be satisfied genuine effort was made.
+--
+
 == The beating heart
+
+[NOTE.speaker]
+--
+This is probably the most important section in the whole presentation. Everything else is structure. This is the soul of the organisation.
+--
 
 [%notitle]
 == The beating heart
@@ -179,6 +304,11 @@ Volunteers lead the work, decide what gets built and published, and manage thems
 * *Wellbeing* — volunteers thrive when they feel safe, appreciated, and part of a team with a strong shared purpose
 * *Progress* — a sense of momentum and excitement is what keeps people coming back
 
+[NOTE.speaker]
+--
+Think about community organisations you've been involved with. The ones that work have energy — people are excited to show up. The ones that die feel like a chore. Almost every governance decision we've made has been designed to protect this energy.
+--
+
 [%notitle]
 == The beating heart
 
@@ -186,17 +316,32 @@ Volunteers lead the work, decide what gets built and published, and manage thems
 * *Not unpaid workers* — nothing kills volunteering faster than a committee that makes all decisions and treats volunteers as unpaid labour
 * *Support* — this organisation is built on volunteers who have genuine autonomy and feel genuinely supported
 
+[NOTE.speaker]
+--
+The "not unpaid workers" point comes from hard experience watching community organisations collapse. The pattern is always the same: a small committee ends up making all the decisions, volunteers feel like they're just executing orders, and eventually they leave. We've deliberately built a structure that prevents that.
+--
+
 == Custodians
 
 _The guardians_
 
 Five Participant Members chosen by random lot. Their powers are strictly limited to the following.
 
+[NOTE.speaker]
+--
+Five people, chosen randomly from the Participant Member pool, serving a fixed term. Think of it like jury duty. Their job is not to run the organisation — it's to stop things going badly wrong. Everything they can do is a veto or a safeguard, never a direction.
+--
+
 [%notitle]
 == Custodians
 
 * *Block* — prevent volunteer actions that would breach the constitution
 * *Suspend* — remove volunteers who breach the constitution or who are disruptive
+
+[NOTE.speaker]
+--
+Block and suspend are the most visible powers. Block means stopping something before it happens — if volunteers are about to do something the constitution doesn't allow. Suspend is serious and rare — removing someone causing real harm. Both require a majority Custodian vote.
+--
 
 [%notitle]
 == Custodians
@@ -205,7 +350,17 @@ Five Participant Members chosen by random lot. Their powers are strictly limited
 * *Mediate* — call in outside experts to resolve serious conflict among volunteers
 * *Threshold* — lower the volunteer consensus requirement to a simple majority, but only where genuine effort to reach consensus has clearly been made
 
+[NOTE.speaker]
+--
+Protect is about legal risk — if volunteers are about to make a decision that could expose the society to liability. Mediation is for serious interpersonal conflict that volunteers can't resolve themselves. The threshold power is used sparingly — it's there so the organisation doesn't grind to a halt over an irresolvable disagreement.
+--
+
 == What Custodians cannot do
+
+[NOTE.speaker]
+--
+The limits on Custodians are as important as their powers. This is what prevents the Custodian Board from becoming a de facto committee that runs everything.
+--
 
 [%notitle]
 == What Custodians cannot do
@@ -213,12 +368,27 @@ Five Participant Members chosen by random lot. Their powers are strictly limited
 * *No positive decisions* — Custodians cannot direct volunteers or make calls on their behalf; if volunteers disagree on something, even which colour the website should be, Custodians cannot say "we choose blue"
 * *No dual role* — a Custodian cannot also be a volunteer; the conflict of interest is too great
 
+[NOTE.speaker]
+--
+The colour example is deliberate. Custodians have no aesthetic, editorial, or strategic opinion that counts. They are guardians of the rules, not directors of the work. The no-dual-role rule is strict — if you're selected for the Custodian Board, you step back from volunteering for the duration.
+--
+
 [%notitle]
 == What Custodians cannot do
 
 * *Mediate, not decide* — they can bring in outside help or remove someone causing serious disruption, but they cannot make the call themselves
 
+[NOTE.speaker]
+--
+Even in a conflict situation, Custodians don't get to pick a winner. They can bring in a professional mediator, and they can remove someone who is genuinely destructive — but they cannot tell volunteers what to do or how to resolve their disagreement.
+--
+
 == The Anti-Capture Design
+
+[NOTE.speaker]
+--
+Capture is what happens when an organisation that's supposed to serve everyone ends up serving one group. It's extremely common in community organisations. This section is about how we prevent it.
+--
 
 [%notitle]
 == The Anti-Capture Design
@@ -226,16 +396,30 @@ Five Participant Members chosen by random lot. Their powers are strictly limited
 * *No strings* — we do not accept funding that comes with conditions on what we do or how we operate
 * *No advertising* — we do not accept money in exchange for advertising or promotional placement
 
+[NOTE.speaker]
+--
+No strings means we'll turn down money. That's a real commitment. A local business or council offering a large donation with strings attached is a capture attempt, even if well-intentioned. No advertising means the feed is never for sale — what appears on the site is decided by volunteers, not by who paid.
+--
+
 [%notitle]
 == The Anti-Capture Design
 
 * *Capped donations* — individual and business donations are kept to a low maximum so that nobody can buy influence
 * *Free to contribute* — posting business listings, events, and community content is always free; we only accept donations, never fees
 
+[NOTE.speaker]
+--
+The cap on donations means a wealthy individual or large business can't contribute their way to disproportionate influence. Free to contribute is important for small community groups — they should never face a paywall to participate. If we ever need more money, we ask more people, not charge a fee.
+--
 
 == Open by Default
 
 _Even if the Society collapsed, nothing could be locked away._
+
+[NOTE.speaker]
+--
+This is our commitment to the community that we will never hold them hostage. If we fail, if we dissolve, if the volunteers all leave — everything remains accessible. The tagline captures the spirit: even in the worst case, nothing can be locked away.
+--
 
 [%notitle]
 == Open by Default
@@ -243,18 +427,38 @@ _Even if the Society collapsed, nothing could be locked away._
 * *Software* — we build on open source platforms so that if we dissolve, or someone wants to take the data and start elsewhere, they can use the same tools we use
 * *Content* — we strongly encourage contributors to release public page content under an open licence, as Wikipedia does; small exceptions apply (e.g. a council logo that is copyright to the council)
 
+[NOTE.speaker]
+--
+The software being open source means anyone could take the codebase and run their own version. The content licensing follows Wikipedia's model — the knowledge belongs to everyone, not to us. Exceptions exist for things like council logos or copyrighted materials that people have permission to use but not relicense.
+--
+
 [%notitle]
 == Open by Default
 
 * *Finances* — bank balance, spending, and cash flow are published live; donations and sensitive business details may be kept anonymous but the figures are always public
 * *Statistics* — user numbers, visitor counts, and page traffic are published openly online
 
+[NOTE.speaker]
+--
+Live finances is unusual but powerful. Anyone can see at any moment what money is in the bank, what was spent last month, and what's coming in. We protect individual donor privacy but the aggregate numbers are always public. Same with traffic stats — we're not hiding whether the platform is actually being used.
+--
+
 [%notitle]
 == Open by Default
 
 * *Download* — anyone can download the entire site as a zip file: the open source software, all public data, and your own private contributions; you are never locked in — if you want to leave and start an alternative site, you can
 
+[NOTE.speaker]
+--
+This is the ultimate anti-lock-in guarantee. If a group decides they want to start their own version of the site, they can take everything with them. Their data isn't held hostage. This is a genuine commitment — it makes our platform less "sticky" commercially, but it's the right thing to do for a community organisation.
+--
+
 == Dark mode
+
+[NOTE.speaker]
+--
+What happens if the organisation is struggling? We'd rather close with dignity than limp along as a half-hearted service. Dark mode is how we handle that.
+--
 
 [%notitle]
 == Dark mode
@@ -263,13 +467,28 @@ _Even if the Society collapsed, nothing could be locked away._
 * *People* — we need at least 50 Participant Members available for sortition; less than 1% of the community
 * *Money* — we need to maintain a reasonable minimum bank balance
 
+[NOTE.speaker]
+--
+50 Participant Members sounds like a lot but it's under 1% of Featherston's population. If we can't attract that level of commitment, we shouldn't be running a community platform. The financial threshold is about sustainability — running on fumes helps nobody.
+--
+
 [%notitle]
 == Dark mode
 
 * *Warning* — as either threshold is approached, a banner appears across the site alerting the community
 * *Overlay* — if either threshold is breached, a black semi-transparent overlay covers the entire site; the only thing visible is a link to sign up as a Participant Member, or a link to donate
 
+[NOTE.speaker]
+--
+The overlay is dramatic by design. It's a last resort — a clear signal to the community that the platform needs help right now. It's also an opportunity: the only thing you can do is help. Either sign up as a Participant Member, or donate. If that doesn't work, we know the community doesn't want to sustain this, and we close.
+--
+
 == Year one
+
+[NOTE.speaker]
+--
+How do we actually get started? There are legal requirements, practical roles to fill, and a funding question to resolve.
+--
 
 [%notitle]
 == Year one
@@ -278,12 +497,22 @@ _Even if the Society collapsed, nothing could be locked away._
 * *Committee* — 5 Custodian Board members, chosen by the founding members rather than by sortition this one time
 * *Volunteers* — ideally at least 5 active volunteers from day one
 
+[NOTE.speaker]
+--
+The Incorporated Societies Act is the legal framework for community organisations in New Zealand. We need 10 members minimum to incorporate. The first Custodian Board won't be chosen by sortition — the founding group will select them, because there's no pool to draw from yet. That's a one-time exception.
+--
+
 [%notitle]
 == Year one
 
 * *Roles* — a treasurer, a secretary, and a technical admin are needed; these can be the same person
 * *Outreach* — people willing to go out and talk to businesses and organisations and get them signed up
 * *Operations* — people willing to do moderation, design, content, and site planning
+
+[NOTE.speaker]
+--
+These roles can overlap significantly — one person can be treasurer and secretary. The critical need in year one is outreach: someone who'll knock on doors, talk to local businesses, get the sports clubs and community groups signed up. Without that, the platform is empty and the member count won't grow.
+--
 
 [%notitle]
 == Year one
@@ -292,7 +521,17 @@ _Even if the Society collapsed, nothing could be locked away._
 * *Funding* — a benefactor is covering $1,000–$1,500 for hosting and incorporation fees so the society can get started
 * *Sunset* — if after one year we have not reached 50 Participant Members and a reasonable bank balance, we close down
 
+[NOTE.speaker]
+--
+The grace period gives us breathing room — dark mode would kick in immediately otherwise, which isn't fair. The funding covers the practical startup costs. The sunset clause is the honest part: if after a full year of trying we haven't reached viability, we close down cleanly rather than drift on indefinitely.
+--
+
 == Richard's role
+
+[NOTE.speaker]
+--
+This is the section I find hardest to talk about, but it's important to be upfront about.
+--
 
 [%notitle]
 == Richard's role
@@ -300,13 +539,28 @@ _Even if the Society collapsed, nothing could be locked away._
 * *Handover* — the community needs to take collective ownership; if Richard retains an outsized role, this is not a real community organisation
 * *Now* — the time to start that transition is now
 
+[NOTE.speaker]
+--
+I built the site and I care deeply about it. But if I'm still the person running everything in five years, we've failed. A community organisation that depends on one person isn't really community-owned. The transition needs to start from day one, not at some future point when it feels more comfortable.
+--
+
 [%notitle]
 == Richard's role
 
 * *Volunteer not custodian* — Richard's skills belong in a volunteer role writing code; a custodian cannot also be a volunteer so he can't be on the custodian board
 * *Focus* — his energy goes into building software that works for multiple towns and community groups, not just Featherston
 
+[NOTE.speaker]
+--
+I'll stay involved as a volunteer — writing code is where I can add the most value. But I won't sit on the Custodian Board, partly because the rules prevent it and partly because it would be the wrong dynamic. My broader focus is on building the platform so that other towns can use it too — that scales the impact beyond Featherston.
+--
+
 == Community Hub @ Kanecta
+
+[NOTE.speaker]
+--
+Some context on the technology platform that featherston.co.nz is built on — because it affects how we think about the future.
+--
 
 [%notitle]
 == Community Hub @ Kanecta
@@ -314,17 +568,32 @@ _Even if the Society collapsed, nothing could be locked away._
 * *Platform* — featherston.co.nz is built on Kanecta, an open-source platform Richard has been developing for nearly two decades; building on it is what allowed the site to come together so quickly
 * *Interoperability* — Kanecta is what will allow Featherston to connect and share information with Carterton, Masterton, Martinborough, and other towns in the Wairarapa and across New Zealand
 
+[NOTE.speaker]
+--
+Kanecta isn't new — it's been in development for a long time and featherston.co.nz is its first community deployment. Because we're building on an existing platform rather than from scratch, we got a working site in weeks rather than years. The interoperability angle is genuinely exciting — imagine Wairarapa events appearing across all Wairarapa town sites automatically.
+--
+
 [%notitle]
 == Community Hub @ Kanecta
 
 * *Social enterprise* — Richard intends to grow Kanecta into a cooperative or social enterprise, based in Featherston but serving community groups and towns around the country and beyond
 * *Hosting* — groups without the technical skills to self-host can pay Kanecta to host for them; that income makes the platform more sustainable
 
+[NOTE.speaker]
+--
+The social enterprise model means Kanecta is designed to be financially self-sustaining without becoming extractive. Groups that can self-host do. Groups that can't pay a fair hosting fee. That income funds ongoing development of the platform — which benefits everyone using it, including Featherston.
+--
+
 [%notitle]
 == Community Hub @ Kanecta
 
 * *No conflict* — to avoid a conflict of interest, featherston.co.nz hosts itself; no hosting fees flow to Richard or Kanecta
 * *Broader vision* — the ambition is for Kanecta to be part of a wide cooperative organisation, in the spirit of the Mondragon cooperatives in Spain
+
+[NOTE.speaker]
+--
+The no-conflict rule is important: featherston.co.nz will never pay Kanecta for hosting. We self-host. That keeps the relationship clean. The Mondragon reference is aspirational — Mondragon is a network of worker-owned cooperatives in the Basque Country, one of the most successful cooperative movements in the world. That's the spirit, not necessarily the exact model.
+--
 
 [%notitle]
 == Community Hub @ Kanecta
@@ -333,7 +602,17 @@ Want to help build the cooperative enterprise as well?
 
 Reach out.
 
+[NOTE.speaker]
+--
+If anyone in the room is interested in the broader Kanecta project — not just as a Featherston volunteer but as someone who wants to help build something that serves communities across New Zealand — I'd love to talk. Come find me afterwards.
+--
+
 == How the technology fits together
+
+[NOTE.speaker]
+--
+A quick picture of the three layers, for those who want to understand the technical side.
+--
 
 [%notitle]
 == How the technology fits together
@@ -377,11 +656,21 @@ Reach out.
 </svg>
 ++++
 
+[NOTE.speaker]
+--
+Three layers. At the bottom, Kanecta — the open-source platform. On top of that, Community Hub — the template that any town or community group can use. On top of that, featherston.co.nz — our specific instance, skinned and configured for Featherston. The arrows go left to right: each layer is built on the one to its right.
+--
+
 [%notitle]
 == How the technology fits together
 
 * *featherston.co.nz* — Community Hub skinned to look like a Featherston site; underneath it is the same platform any town or community group can use
 * *Community Hub* — built on Kanecta, so any group running it can share data with any other group on the same platform
+
+[NOTE.speaker]
+--
+Skinning means featherston.co.nz looks like a Featherston site — green colours, local branding, Featherston content. But the engine underneath is shared. A Carterton community hub running the same platform could share events, directories, and data with us with almost no technical effort.
+--
 
 [%notitle]
 == How the technology fits together
@@ -389,15 +678,30 @@ Reach out.
 * *Interoperability* — because all sites share the same foundation, towns can share data with each other easily; other towns in the Wairarapa could have the same platform up and running quickly, and Carterton, Masterton, and Featherston could begin sharing data across the valley straight away
 * *Developer motivation* — software developers are far more motivated to work on a platform used by community groups across the country than to build a single small town's website
 
+[NOTE.speaker]
+--
+The developer motivation point is real. It's hard to recruit volunteers to build software for a single small town. It's much easier when the same code serves dozens of communities. Featherston benefits from being first — features built here get contributed back to a platform that others use too.
+--
+
 [%notitle]
 == How the technology fits together
 
 * *Featherston's advantage* — Richard is an active volunteer in Featherston and will put his energy into the features this community needs
 
+[NOTE.speaker]
+--
+Being the first deployment means Featherston gets attention that later towns won't. The features you ask for get built first. That's a real advantage worth naming.
+--
+
 == Find out more
 
 https://communityhub.org.nz[https://communityhub.org.nz] +
 https://kanecta.org[https://kanecta.org]
+
+[NOTE.speaker]
+--
+Both sites are live. communityhub.org.nz has more detail about the platform itself. kanecta.org is the broader project. Neither is finished — they're works in progress, like this governance model.
+--
 
 == Help make this plan better
 
@@ -410,3 +714,8 @@ https://constitution.featherston.co.nz[https://constitution.featherston.co.nz]
 ++++
 <div style="margin-top:1.5em;font-size:0.6em"><a href="#/_contents">↑ Contents</a></div>
 ++++
+
+[NOTE.speaker]
+--
+This is a draft and we genuinely want feedback. The governance page has a summary of everything we've covered tonight. The constitution site has the full legal draft — it's detailed and a bit dry, but it's where the specifics are. If you spot something that doesn't make sense, something missing, or something you disagree with — please say so. That's exactly why we're here.
+--
