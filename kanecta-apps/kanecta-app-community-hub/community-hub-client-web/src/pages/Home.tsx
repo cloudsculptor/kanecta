@@ -167,6 +167,12 @@ export default function Home() {
           <>
             <NavCard
               featured
+              title="Groups"
+              blurb="Community groups working across kai, transport, skills, resilience, and more."
+              path="/groups"
+            />
+            <NavCard
+              featured
               title="Discussions"
               blurb="Share ideas, ask questions, and connect with others in the Featherston community."
               path="/discussions"
