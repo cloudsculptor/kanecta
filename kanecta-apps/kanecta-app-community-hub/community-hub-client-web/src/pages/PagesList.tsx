@@ -67,7 +67,7 @@ export default function PagesList() {
                   </span>
                 </div>
                 <div className="pages-list__actions">
-                  <Link to={`/pages/${page.slug}/edit`} className="pages-list__btn">Edit</Link>
+                  <Link to={`/groups/resilience/${page.slug}/edit`} className="pages-list__btn">Edit</Link>
                   <button
                     type="button"
                     className="pages-list__btn pages-list__btn--del"
