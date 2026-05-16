@@ -166,11 +166,6 @@ export default function Home() {
         {isTeam ? (
           <>
             <NavCard
-              title="Groups"
-              blurb="Community groups working across kai, transport, skills, resilience, and more."
-              path="/groups"
-            />
-            <NavCard
               featured
               title="Discussions"
               blurb="Share ideas, ask questions, and connect with others in the Featherston community."
@@ -186,6 +181,11 @@ export default function Home() {
               title="Pages"
               blurb="Create and share pages with the team — documents, guides, and resources for the Featherston community."
               path="/pages"
+            />
+            <NavCard
+              title="Groups"
+              blurb="Community groups working across kai, transport, skills, resilience, and more."
+              path="/groups"
             />
             {localItems.map((item) => <NavCard key={item.title} {...item} />)}
           </>
