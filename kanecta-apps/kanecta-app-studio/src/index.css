@@ -34,6 +34,16 @@
   }
 }
 
+.MuiSvgIcon-root {
+  font-size: 36px !important;
+  width: 36px !important;
+  height: 36px !important;
+}
+
+html {
+  font-size: 150%;
+}
+
 html,
 body,
 #root {

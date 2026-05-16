@@ -12,7 +12,7 @@
   }
 
   &--icons {
-    width: 52px;
+    width: 64px;
   }
 
   &--expanded {
@@ -31,7 +31,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px;
+    padding: 8px 8px 8px 12px;
     border-radius: 6px;
     cursor: pointer;
     color: var(--color-text-secondary);
@@ -54,10 +54,16 @@
   }
 
   &-item-label {
-    font-size: 0.875rem;
+    font-size: 0.8rem;
     font-weight: 500;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .MuiSvgIcon-root {
+    font-size: 32px !important;
+    width: 32px !important;
+    height: 32px !important;
   }
 
   &-toggle {

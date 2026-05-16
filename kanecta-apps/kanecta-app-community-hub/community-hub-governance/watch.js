@@ -8,6 +8,7 @@ const SLIDES = path.resolve(__dirname, 'slides/slides.adoc');
 
 browserSync.init({
   server: path.resolve(__dirname, 'build'),
+  port: 3001,
   index: 'slides.html',
   open: true,
   notify: true,

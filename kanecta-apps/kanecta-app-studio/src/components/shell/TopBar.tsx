@@ -18,17 +18,23 @@ export function TopBar({ onQuickCapture, onCommandPalette, onOpenSettings, onOpe
 
   return (
     <header className="TopBar">
-      <span className="TopBar-logo">kanecta</span>
+      <img src="/logo.svg" alt="Kanecta" className="TopBar-logo-img" />
+      <span className="TopBar-logo">Kanecta</span>
       <div className="TopBar-spacer" />
-      {unreviewedCount > 0 && (
-        <Tooltip title={`${unreviewedCount} items to review`}>
-          <button className="TopBar-review-badge" onClick={onOpenReview} aria-label="Open review">
-            {unreviewedCount}
-          </button>
-        </Tooltip>
-      )}
+      <div
+        className="TopBar-search"
+        onClick={onCommandPalette}
+        onKeyDown={(e) => e.key === 'Enter' && onCommandPalette?.()}
+        role="button"
+        tabIndex={0}
+        aria-label="Search (Ctrl+K)"
+      >
+        <SearchIcon className="TopBar-search-icon" />
+        <span className="TopBar-search-placeholder">Search…</span>
+        <span className="TopBar-search-shortcut">Ctrl+K</span>
+      </div>
       <Tooltip title="Command palette (Ctrl+K)">
-        <IconButton size="small" onClick={onCommandPalette} aria-label="Command palette">
+        <IconButton size="small" onClick={onCommandPalette} aria-label="Command palette" className="TopBar-search-btn">
           <SearchIcon fontSize="small" />
         </IconButton>
       </Tooltip>
@@ -42,6 +48,13 @@ export function TopBar({ onQuickCapture, onCommandPalette, onOpenSettings, onOpe
           <SettingsIcon fontSize="small" />
         </IconButton>
       </Tooltip>
+      {unreviewedCount > 0 && (
+        <Tooltip title={`${unreviewedCount} items to review`}>
+          <button className="TopBar-review-badge" onClick={onOpenReview} aria-label="Open review">
+            {unreviewedCount}
+          </button>
+        </Tooltip>
+      )}
     </header>
   );
 }

@@ -4,51 +4,6 @@
   height: 100%;
   overflow: hidden;
 
-  &-header {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 8px;
-    background: var(--color-surface-raised);
-    border-bottom: 1px solid var(--color-border);
-    flex-shrink: 0;
-    min-height: 36px;
-  }
-
-  &-view-tabs {
-    display: flex;
-    gap: 2px;
-  }
-
-  &-view-tab {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 8px;
-    border-radius: 4px;
-    border: none;
-    background: none;
-    cursor: pointer;
-    font-size: 0.75rem;
-    color: var(--color-text-secondary);
-    white-space: nowrap;
-
-    &:hover {
-      background: var(--color-hover);
-      color: var(--color-text);
-    }
-
-    &--active {
-      background: var(--color-primary-muted);
-      color: var(--color-primary);
-      font-weight: 500;
-    }
-  }
-
-  &-spacer {
-    flex: 1;
-  }
-
   &-content {
     flex: 1;
     overflow: hidden;
