@@ -33,7 +33,7 @@ export default function PageView() {
       <Header />
       <Breadcrumb
         pageName={page?.title || slug || ""}
-        parents={[{ name: "Groups", path: "/groups" }, { name: "Resilience", path: "/resilience" }]}
+        parents={[{ name: "Groups", path: "/groups" }, { name: "Resilience", path: "/groups/resilience" }]}
       />
       <main className="page-content page-view">
         {loading && <p>Loading…</p>}
