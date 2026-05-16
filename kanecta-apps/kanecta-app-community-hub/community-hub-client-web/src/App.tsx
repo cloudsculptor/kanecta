@@ -49,6 +49,9 @@ import FinancesProfitLoss from "./pages/FinancesProfitLoss";
 import FinancesExpenses from "./pages/FinancesExpenses";
 import RoleCustodian from "./pages/RoleCustodian";
 import RoleVolunteer from "./pages/RoleVolunteer";
+import PagesList from "./pages/PagesList";
+import PageEdit from "./pages/PageEdit";
+import PageView from "./pages/PageView";
 
 export default function App() {
   const { initialized } = useKeycloak();
@@ -75,6 +78,10 @@ export default function App() {
       <Route path="/discussions/team-required" element={<TeamRequired />} />
       <Route path="/roadmap" element={<Roadmap />} />
       <Route path="/volunteering" element={<Volunteering />} />
+      <Route path="/groups/resilience/:slug" element={<PageView />} />
+      <Route path="/pages" element={<PagesList />} />
+      <Route path="/pages/new" element={<PageEdit />} />
+      <Route path="/pages/:slug/edit" element={<PageEdit />} />
 
       {/* Governance — team members only */}
       <Route element={<RequireTeam />}>

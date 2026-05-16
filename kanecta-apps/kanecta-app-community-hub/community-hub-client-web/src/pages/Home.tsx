@@ -176,6 +176,12 @@ export default function Home() {
                 url: "https://commons.wikimedia.org/wiki/File:OSCAL_2017_-_meetups_and_communities_09.jpg",
               }}
             />
+            <NavCard
+              featured
+              title="Pages"
+              blurb="Create and share pages with the team — documents, guides, and resources for the Featherston community."
+              path="/pages"
+            />
             {localItems.map((item) => <NavCard key={item.title} {...item} />)}
           </>
         ) : (
