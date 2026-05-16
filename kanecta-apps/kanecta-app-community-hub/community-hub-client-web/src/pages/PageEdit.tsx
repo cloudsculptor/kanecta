@@ -94,7 +94,7 @@ export default function PageEdit() {
     <>
       <Header />
       <main className="page-content page-edit">
-        <h2>{isNew ? "New page" : `Editing ${originalSlugRef.current}`}</h2>
+        <h2>{isNew ? "New page" : title}</h2>
         {error && <p className="pages-error">{error}</p>}
         {uploadError && <p className="pages-error">{uploadError} <button type="button" onClick={() => setUploadError("")}>✕</button></p>}
         <form onSubmit={handleSave} className="page-edit__form">

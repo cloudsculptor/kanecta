@@ -45,7 +45,7 @@ export default function PageView() {
                 {page.title && <h2 className="page-view__title">{page.title}</h2>}
               </div>
               {isTeam && (
-                <Link to={`/pages/${page.slug}/edit`} className="page-view__edit-btn">
+                <Link to={`/groups/resilience/${page.slug}/edit`} className="page-view__edit-btn">
                   Edit
                 </Link>
               )}
