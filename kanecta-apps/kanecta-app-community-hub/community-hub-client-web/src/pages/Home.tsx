@@ -109,7 +109,7 @@ export default function Home() {
             />
             <NavCard
               accent
-              title="Groups & Organisations"
+              title="Groups"
               blurb="Discover local community groups, and organisations near you."
               path="/groups"
             />
