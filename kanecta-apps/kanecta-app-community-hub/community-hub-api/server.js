@@ -4,6 +4,7 @@ import { Server as SocketIO } from "socket.io";
 import discussionsRouter from "./routes/discussions.js";
 import pushRouter from "./routes/push.js";
 import financesRouter from "./routes/finances.js";
+import pagesRouter from "./routes/pages.js";
 import { setupDiscussionsSocket } from "./socket/discussions.js";
 
 const app = express();
@@ -30,6 +31,7 @@ app.get("/health", (req, res) => res.json({ ok: true }));
 app.use("/api/discussions", discussionsRouter);
 app.use("/api/push", pushRouter);
 app.use("/api/finances", financesRouter);
+app.use("/api/pages", pagesRouter);
 
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
