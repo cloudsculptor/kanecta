@@ -43,7 +43,10 @@ export default function PagesList() {
       <main className="page-content">
         <div className="pages-header">
           <h2>Resilience</h2>
-          <Link to="/pages/new" className="pages-new-btn">+ New page</Link>
+          <div className="pages-header__actions">
+            <Link to="/pages/new" className="pages-new-btn">+ New page</Link>
+            <Link to="/discussions" className="pages-outline-btn">Discussions</Link>
+          </div>
         </div>
         {error && <p className="pages-error">{error}</p>}
         {loading ? (
