@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
+import Breadcrumb from "../components/Breadcrumb";
 import Footer from "../components/Footer";
 import { useUserRole } from "../auth/useUserRole";
 import { useKeycloak } from "../auth/KeycloakProvider";
@@ -30,6 +31,10 @@ export default function PageView() {
   return (
     <>
       <Header />
+      <Breadcrumb
+        pageName={page?.title || slug || ""}
+        parents={[{ name: "Resilience", path: "/resilience" }]}
+      />
       <main className="page-content page-view">
         {loading && <p>Loading…</p>}
         {error && <p className="pages-error">{error}</p>}
