@@ -1,7 +1,6 @@
-import { Link } from "react-router-dom";
-import Tooltip from "@mui/material/Tooltip";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
+import { NavCard, ComingCard } from "../components/NavCard";
 import { useUserRole } from "../auth/useUserRole";
 import { usePageMeta } from "../hooks/usePageMeta";
 
@@ -85,74 +84,6 @@ const localItems = [
   },
 ];
 
-interface Attribution {
-  label: string;
-  url: string;
-}
-
-function NavCard({
-  title,
-  blurb,
-  path,
-  image,
-  attribution,
-  featured,
-}: {
-  title: string;
-  blurb: string;
-  path: string;
-  image?: string;
-  attribution?: Attribution;
-  featured?: boolean;
-}) {
-  return (
-    <Link to={path} className={`nav-card${featured ? " nav-card--featured" : ""}`}>
-      <Tooltip
-        title={
-          attribution ? (
-            <a
-              href={attribution.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              style={{ color: "inherit", textDecoration: "underline" }}
-            >
-              {attribution.label}
-            </a>
-          ) : ""
-        }
-        enterDelay={1500}
-        enterNextDelay={1500}
-        disableHoverListener={!attribution}
-      >
-        <div
-          className="nav-card__image"
-          style={
-            image
-              ? { backgroundImage: `url(${image})`, backgroundSize: "cover", backgroundPosition: "center" }
-              : undefined
-          }
-        />
-      </Tooltip>
-      <div className="nav-card__content">
-        <h2 className="nav-card__title">{title}</h2>
-        <p className="nav-card__blurb">{blurb}</p>
-      </div>
-    </Link>
-  );
-}
-
-function ComingCard({ title, blurb }: { title: string; blurb: string }) {
-  return (
-    <div className="nav-card nav-card--coming">
-      <div className="nav-card__image" />
-      <div className="nav-card__content">
-        <h2 className="nav-card__title">{title}</h2>
-        <p className="nav-card__blurb">{blurb}</p>
-      </div>
-    </div>
-  );
-}
 
 export default function Home() {
   usePageMeta("Featherston", "Community information and connection for the town of Featherston, New Zealand — events, organisations, skills, transport, resilience and more.");
@@ -175,12 +106,6 @@ export default function Home() {
                 label: "Photo: Andis Rado / CC BY-SA 4.0",
                 url: "https://commons.wikimedia.org/wiki/File:OSCAL_2017_-_meetups_and_communities_09.jpg",
               }}
-            />
-            <NavCard
-              featured
-              title="Pages"
-              blurb="Create and share pages with the team — documents, guides, and resources for the Featherston community."
-              path="/pages"
             />
             <NavCard
               title="Groups"

@@ -1,22 +1,16 @@
-import { Link } from "react-router-dom";
 import PageLayout from "../components/PageLayout";
+import { NavCard } from "../components/NavCard";
 
 const groups = [
-  { title: "Resilience Hui", blurb: "The community resilience plan — workstreams, survey results, and local action.", path: "/resilience" },
+  { title: "Resilience Hui", blurb: "The community resilience plan — workstreams, survey results, and local action.", path: "/groups/resilience" },
 ];
 
 export default function Groups() {
   return (
     <PageLayout pageName="Groups" showComingSoon={false}>
-      <div className="gov-links">
-        {groups.map(({ title, blurb, path }) => (
-          <Link key={path} to={path} className="gov-links__item">
-            <span className="gov-links__title">{title}</span>
-            <span className="gov-links__desc">{blurb}</span>
-            <span className="gov-links__arrow">→</span>
-          </Link>
-        ))}
-      </div>
+      <nav className="nav-grid">
+        {groups.map((g) => <NavCard key={g.path} {...g} />)}
+      </nav>
     </PageLayout>
   );
 }
