@@ -258,6 +258,27 @@ $bp-tablet: 768px;
     letter-spacing: -0.2px;
   }
 
+  &--accent {
+    background: linear-gradient(120deg, #fdf0d0 0%, #f7e0a8 100%);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.10), 0 4px 20px rgba(0,0,0,0.07);
+
+    &:hover {
+      box-shadow: 0 6px 24px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .nav-card__image {
+      background: rgba(180,130,40,0.15);
+    }
+
+    .nav-card__title {
+      color: #5c3d0e;
+    }
+
+    .nav-card__blurb {
+      color: #7a5220;
+    }
+  }
+
   &--coming {
     opacity: 0.4;
     cursor: default;
