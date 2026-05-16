@@ -84,6 +84,7 @@ export default function App() {
       <Route path="/groups/resilience/:slug" element={<PageView />} />
       <Route path="/pages" element={<PagesList />} />
       <Route path="/pages/new" element={<PageEdit />} />
+      <Route path="/groups/resilience/new" element={<PageEdit />} />
       <Route path="/pages/:slug/edit" element={<PageEdit />} />
 
       {/* Governance — team members only */}
