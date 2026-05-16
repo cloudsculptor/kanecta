@@ -184,7 +184,7 @@ export default function Home() {
             />
             <NavCard
               title="Groups"
-              blurb="Community groups working across kai, transport, skills, resilience, and more."
+              blurb="Local community groups working together in Featherston."
               path="/groups"
             />
             {localItems.map((item) => <NavCard key={item.title} {...item} />)}
