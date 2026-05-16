@@ -1,6 +1,6 @@
 # Kanecta Datastore Specification
 
-**Version:** 1.1.0
+**Version:** 1.2.0
 
 This document is the entry point for the Kanecta Datastore Specification. Two variants are provided — choose the one that matches your implementation target.
 

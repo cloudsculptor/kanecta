@@ -86,3 +86,72 @@ export const AllConfidences: Story = {
     </div>
   ),
 };
+
+// Click-to-edit stories — click the label text to activate inline editing
+export const ClickToEdit: Story = {
+  name: 'Click to edit (click the label)',
+  render: () => {
+    function EditDemo() {
+      const [value, setValue] = useState(baseItem.value);
+      const [focused, setFocused] = useState(false);
+      const [expanded, setExpanded] = useState(false);
+      return (
+        <div>
+          <p style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
+            Click the label text to begin editing. Press Enter, Tab, or click away to commit.
+          </p>
+          <TreeNode
+            item={{ ...baseItem, value }}
+            isExpanded={expanded}
+            hasChildren={true}
+            isFocused={focused}
+            onToggle={() => setExpanded((e) => !e)}
+            onFocus={() => setFocused((f) => !f)}
+            onZoom={() => {}}
+            onAddChild={() => {}}
+            onAddSibling={() => {}}
+            onDelete={() => {}}
+            onEdit={async (v) => setValue(v)}
+            onIndent={() => {}}
+            onOutdent={() => {}}
+          />
+          <p style={{ fontSize: 11, color: '#999', marginTop: 8 }}>Current value: <strong>{value}</strong></p>
+        </div>
+      );
+    }
+    return <EditDemo />;
+  },
+};
+
+export const EditShortItems: Story = {
+  name: 'Click to edit — short labels',
+  render: () => {
+    const items = ['Buy milk', 'Read paper', 'Ship it'];
+    function MultiDemo() {
+      const [values, setValues] = useState(items);
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {values.map((v, i) => (
+            <TreeNode
+              key={i}
+              item={{ ...baseItem, id: String(i), value: v, childCount: 0 }}
+              isExpanded={false}
+              hasChildren={false}
+              isFocused={false}
+              onToggle={() => {}}
+              onFocus={() => {}}
+              onZoom={() => {}}
+              onAddChild={() => {}}
+              onAddSibling={() => {}}
+              onDelete={() => {}}
+              onEdit={async (next) => setValues((vs) => vs.map((x, j) => (j === i ? next : x)))}
+              onIndent={() => {}}
+              onOutdent={() => {}}
+            />
+          ))}
+        </div>
+      );
+    }
+    return <MultiDemo />;
+  },
+};

@@ -1,0 +1,22 @@
+{
+  "id": "fb0c1d0c-65d4-4d54-995a-b9f80d3223c3",
+  "parentId": "00000000-0000-0000-0000-000000000000",
+  "value": "data_root",
+  "type": "data_root",
+  "typeId": null,
+  "owner": "richardsempire@gmail.com",
+  "license": null,
+  "sortOrder": 3,
+  "confidence": null,
+  "tags": [],
+  "createdAt": "2026-05-16T23:51:52.584Z",
+  "modifiedAt": "2026-05-16T23:51:52.584Z",
+  "createdBy": "richardsempire@gmail.com",
+  "modifiedBy": "richardsempire@gmail.com",
+  "cachedAt": null,
+  "subscribedAt": null,
+  "subscriptionSource": null,
+  "snapshotAt": "2026-05-16T23:51:52.584Z",
+  "changedBy": "richardsempire@gmail.com",
+  "changeType": "create"
+}
