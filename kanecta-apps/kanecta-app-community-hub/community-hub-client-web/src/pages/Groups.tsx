@@ -1,16 +1,21 @@
-import PageLayout from "../components/PageLayout";
+import Header from "../components/Header";
+import Breadcrumb from "../components/Breadcrumb";
+import Footer from "../components/Footer";
 import { NavCard } from "../components/NavCard";
 
 const groups = [
-  { title: "Resilience Hui", blurb: "The community resilience plan — workstreams, survey results, and local action.", path: "/groups/resilience" },
+  { title: "Resilience", blurb: "The community resilience plan — workstreams, survey results, and local action.", path: "/groups/resilience" },
 ];
 
 export default function Groups() {
   return (
-    <PageLayout pageName="Groups & Organisations" showComingSoon={false}>
+    <>
+      <Header />
+      <Breadcrumb pageName="Groups" />
       <nav className="nav-grid">
         {groups.map((g) => <NavCard key={g.path} {...g} />)}
       </nav>
-    </PageLayout>
+      <Footer />
+    </>
   );
 }
