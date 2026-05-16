@@ -8,11 +8,42 @@ const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
+const PUBLIC_URL = process.env.SPACES_PUBLIC_URL;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 
 const requireTeam = requireRole("team", "moderator");
 
+// Walks a Lexical JSON tree and returns all file UUIDs referenced by image nodes.
+function extractFileIds(contentJson) {
+  const ids = new Set();
+  if (!PUBLIC_URL || !contentJson?.root) return ids;
+  const prefix = PUBLIC_URL + "/";
+
+  function walk(node) {
+    if (!node) return;
+    if (node.type === "image" && typeof node.src === "string" && node.src.startsWith(prefix)) {
+      const id = node.src.slice(prefix.length).split("/")[2];
+      if (id && UUID_RE.test(id)) ids.add(id);
+    }
+    if (Array.isArray(node.children)) node.children.forEach(walk);
+  }
+
+  walk(contentJson.root);
+  return ids;
+}
+
+// Soft-deletes files that were in oldIds but not in newIds.
+async function softDeleteRemovedFiles(client, oldIds, newIds) {
+  const removed = [...oldIds].filter(id => !newIds.has(id));
+  if (removed.length) {
+    await client.query(
+      `UPDATE files SET deleted_at = NOW() WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL`,
+      [removed]
+    );
+  }
+}
 
 // ── List pages ────────────────────────────────────────────────────────────────
 router.get("/", requireAuth, wrap(async (req, res) => {
@@ -65,22 +96,70 @@ router.put("/:slug", requireAuth, requireTeam, wrap(async (req, res) => {
   if (new_slug !== undefined && !SLUG_RE.test(new_slug))
     return res.status(400).json({ error: "Invalid slug" });
 
-  const { rows } = await pool.query(
-    `UPDATE pages SET slug=$1, title=$2, content_json=$3, updated_at=NOW()
-     WHERE slug=$4 RETURNING *`,
-    [targetSlug, title || "", content_json || {}, req.params.slug]
-  );
-  if (!rows.length) return res.status(404).json({ error: "Not found" });
-  res.json(rows[0]);
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const { rows: existing } = await client.query(
+      "SELECT content_json FROM pages WHERE slug = $1", [req.params.slug]
+    );
+    if (!existing.length) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Not found" });
+    }
+
+    const oldFileIds = extractFileIds(existing[0].content_json);
+    const newFileIds = extractFileIds(content_json);
+
+    const { rows } = await client.query(
+      `UPDATE pages SET slug=$1, title=$2, content_json=$3, updated_at=NOW()
+       WHERE slug=$4 RETURNING *`,
+      [targetSlug, title || "", content_json || {}, req.params.slug]
+    );
+
+    await softDeleteRemovedFiles(client, oldFileIds, newFileIds);
+
+    await client.query("COMMIT");
+    res.json(rows[0]);
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }));
 
 // ── Delete page ───────────────────────────────────────────────────────────────
 router.delete("/:slug", requireAuth, requireTeam, wrap(async (req, res) => {
-  const { rows } = await pool.query(
-    "DELETE FROM pages WHERE slug = $1 RETURNING id", [req.params.slug]
-  );
-  if (!rows.length) return res.status(404).json({ error: "Not found" });
-  res.json({ deleted: rows[0].id });
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const { rows: existing } = await client.query(
+      "SELECT id, content_json FROM pages WHERE slug = $1", [req.params.slug]
+    );
+    if (!existing.length) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Not found" });
+    }
+
+    const fileIds = [...extractFileIds(existing[0].content_json)];
+    if (fileIds.length) {
+      await client.query(
+        `UPDATE files SET deleted_at = NOW() WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL`,
+        [fileIds]
+      );
+    }
+
+    await client.query("DELETE FROM pages WHERE slug = $1", [req.params.slug]);
+    await client.query("COMMIT");
+    res.json({ deleted: existing[0].id });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }));
 
 // ── Error handler ─────────────────────────────────────────────────────────────
