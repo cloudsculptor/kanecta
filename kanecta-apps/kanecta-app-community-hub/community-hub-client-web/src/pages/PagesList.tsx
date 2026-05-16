@@ -39,10 +39,10 @@ export default function PagesList() {
   return (
     <>
       <Header />
-      <Breadcrumb pageName="Pages" />
+      <Breadcrumb pageName="Resilience" parents={[{ name: "Groups", path: "/groups" }]} />
       <main className="page-content">
         <div className="pages-header">
-          <h2>Pages</h2>
+          <h2>Resilience</h2>
           <Link to="/pages/new" className="pages-new-btn">+ New page</Link>
         </div>
         {error && <p className="pages-error">{error}</p>}

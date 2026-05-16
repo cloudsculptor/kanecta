@@ -13,11 +13,13 @@ export interface NavCardProps {
   image?: string;
   attribution?: Attribution;
   featured?: boolean;
+  accent?: boolean;
 }
 
-export function NavCard({ title, blurb, path, image, attribution, featured }: NavCardProps) {
+export function NavCard({ title, blurb, path, image, attribution, featured, accent }: NavCardProps) {
+  const cls = ["nav-card", featured && "nav-card--featured", accent && "nav-card--accent"].filter(Boolean).join(" ");
   return (
-    <Link to={path} className={`nav-card${featured ? " nav-card--featured" : ""}`}>
+    <Link to={path} className={cls}>
       <Tooltip
         title={
           attribution ? (
