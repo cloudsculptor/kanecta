@@ -72,7 +72,7 @@ export default function PageEdit() {
           content_json: contentRef.current,
         });
       }
-      navigate("/pages");
+      navigate("/groups/resilience");
     } catch (err) {
       setError((err as Error).message);
     } finally {
