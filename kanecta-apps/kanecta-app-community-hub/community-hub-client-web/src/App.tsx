@@ -83,7 +83,7 @@ export default function App() {
       <Route path="/pages/new" element={<PageEdit />} />
       <Route path="/pages/:slug/edit" element={<PageEdit />} />
 
-      {/* Governance — team members only */}
+      {/* Governance — team members only. */}
       <Route element={<RequireTeam />}>
         <Route path="/governance" element={<Governance />} />
         <Route path="/governance/purpose" element={<Purpose />} />
