@@ -96,4 +96,12 @@ buildSlides();
 fs.copyFileSync(path.resolve(__dirname, 'index.html'), path.join(BUILD_DIR, 'index.html'));
 console.log('Copied → build/index.html');
 
+// Copy images directory
+const IMAGES_SRC = path.resolve(__dirname, 'images');
+const IMAGES_DEST = path.join(BUILD_DIR, 'images');
+if (fs.existsSync(IMAGES_SRC)) {
+  fs.cpSync(IMAGES_SRC, IMAGES_DEST, { recursive: true });
+  console.log('Copied → build/images/');
+}
+
 module.exports = { buildConstitution, buildSlides };
