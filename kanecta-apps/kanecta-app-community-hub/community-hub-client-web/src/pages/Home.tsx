@@ -166,7 +166,6 @@ export default function Home() {
         {isTeam ? (
           <>
             <NavCard
-              featured
               title="Groups"
               blurb="Community groups working across kai, transport, skills, resilience, and more."
               path="/groups"
