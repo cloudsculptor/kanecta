@@ -3519,6 +3519,23 @@ $bp-tablet: 768px;
 .page-edit {
   text-align: left;
 
+  &__title-input {
+    width: 100%;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text-h);
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    padding: 0 0 8px;
+    outline: none;
+    box-sizing: border-box;
+    font-family: inherit;
+
+    &:focus { border-bottom-color: var(--accent); }
+    &::placeholder { color: var(--border); font-weight: 400; }
+  }
+
   &__form {
     display: flex;
     flex-direction: column;
