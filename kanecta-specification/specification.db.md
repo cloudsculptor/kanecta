@@ -1,6 +1,6 @@
 # Kanecta Datastore Specification (Database)
 
-**Version:** 1.1.0
+**Version:** 1.2.0
 
 ## Overview
 Kanecta is an open-source, self-hosted personal and organizational information repository. Data is stored as a hierarchical tree structure with globally unique identifiers, enabling flexible organization, linking, semantic relationships, and multi-user collaboration. The protocol is designed as a human-AI bridge: structured enough for AI to work with efficiently, transparent enough for humans to audit and understand.
@@ -26,6 +26,32 @@ database
 └── files              — binary file attachments (optional; may be stored externally)
 ```
 
+### Well-Known Root Nodes
+
+Every Kanecta datastore contains five reserved items that are auto-created when a datastore is first opened and found to be empty.
+
+| Type | ID | `parent_id` | `value` |
+|---|---|---|---|
+| `root` | `00000000-0000-0000-0000-000000000000` | `00000000-0000-0000-0000-000000000000` (self) | `'root'` |
+| `system_root` | generated UUID v4 | root ID | `'system_root'` |
+| `app_root` | generated UUID v4 | root ID | `'app_root'` |
+| `component_root` | generated UUID v4 | root ID | `'component_root'` |
+| `data_root` | generated UUID v4 | root ID | `'data_root'` |
+
+**Rules:**
+- The `root` ID is fixed and universally known: `00000000-0000-0000-0000-000000000000`.
+- `root` is self-referential: `parent_id = id`. This satisfies the `NOT NULL` constraint.
+- Each well-known type is a **singleton** — enforced at the application layer (no second instance may be created).
+- Well-known nodes are created in order: `root` first, then its four children.
+- User data lives exclusively under `data_root`. Items under `system_root`, `app_root`, and `component_root` are reserved for internal use.
+
+**Singleton enforcement:**
+```sql
+-- Reject duplicate well-known types at the application layer before inserting:
+SELECT COUNT(*) FROM items WHERE type = :well_known_type;
+-- If count > 0, raise an error; do not insert.
+```
+
 ### UUID Convention
 
 Kanecta uses UUID version 4 (random) for all item identifiers. UUID v4 provides 122 bits of randomness, making collisions effectively impossible across all installations worldwide, with no central authority required for uniqueness. UUIDs are stored as `CHAR(36)` with hyphens preserved. Database engines that provide a native `UUID` type may use it instead.
@@ -35,7 +61,7 @@ Kanecta uses UUID version 4 (random) for all item identifiers. UUID v4 provides 
 ```sql
 CREATE TABLE items (
     id                  CHAR(36)     NOT NULL,
-    parent_id           CHAR(36),
+    parent_id           CHAR(36)     NOT NULL,
     value               TEXT,
     type                VARCHAR(50)  NOT NULL,
     type_id             CHAR(36),
@@ -58,7 +84,8 @@ CREATE TABLE items (
         FOREIGN KEY (parent_id) REFERENCES items(id),
     CONSTRAINT chk_items_type CHECK (type IN (
         'string', 'number', 'text', 'file', 'symlink',
-        'object', 'decision', 'annotation'
+        'object', 'decision', 'annotation',
+        'root', 'system_root', 'app_root', 'component_root', 'data_root'
     )),
     CONSTRAINT chk_items_confidence CHECK (
         confidence IS NULL OR confidence IN (
@@ -87,9 +114,9 @@ CREATE INDEX idx_items_siblings ON items(parent_id, sort_order);
 | Column | Required | Description |
 |---|---|---|
 | `id` | yes | Unique identifier for this item (UUID v4) |
-| `parent_id` | yes (nullable) | UUID of parent item, or NULL if root level |
+| `parent_id` | yes | UUID of parent item. Never NULL — the `root` node is self-referential (`parent_id` equals its own `id`) |
 | `value` | no | Item content. Text string, UUID reference (for symlinks), or NULL |
-| `type` | yes | Item type. Primitive: `string`, `number`, `text`, `file`, `symlink`. Structured: `object`, `decision`, `annotation` |
+| `type` | yes | Item type. Primitive: `string`, `number`, `text`, `file`, `symlink`. Structured: `object`, `decision`, `annotation`. Well-known roots: `root`, `system_root`, `app_root`, `component_root`, `data_root` |
 | `type_id` | conditional | If type is `object`, UUID of the type definition. Otherwise NULL |
 | `owner` | yes | Email or domain of item owner |
 | `license` | no | License identifier (MIT, Apache-2.0, CC-BY, etc.) or NULL |
@@ -498,18 +525,46 @@ SELECT * FROM annotations WHERE target_id = :id;
 
 Full-text search is delegated to the database's native FTS engine or an external search service. Index the `value` column, associated tags, and queryable metadata columns.
 
+### Datastore Initialisation
+
+When a lib or CLI opens a datastore for the first time and finds it empty, it must create the well-known root nodes:
+
+```sql
+BEGIN TRANSACTION;
+
+-- 1. root (self-referential)
+INSERT INTO items (id, parent_id, value, type, sort_order, owner, created_at, modified_at, created_by, modified_by, is_remote)
+VALUES ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000',
+        'root', 'root', 0, :owner, :now, :now, :owner, :owner, FALSE);
+
+-- 2. Four children of root
+INSERT INTO items (id, parent_id, value, type, sort_order, owner, created_at, modified_at, created_by, modified_by, is_remote)
+VALUES
+  (:system_root_id,    '00000000-0000-0000-0000-000000000000', 'system_root',    'system_root',    0, :owner, :now, :now, :owner, :owner, FALSE),
+  (:app_root_id,       '00000000-0000-0000-0000-000000000000', 'app_root',       'app_root',       1, :owner, :now, :now, :owner, :owner, FALSE),
+  (:component_root_id, '00000000-0000-0000-0000-000000000000', 'component_root', 'component_root', 2, :owner, :now, :now, :owner, :owner, FALSE),
+  (:data_root_id,      '00000000-0000-0000-0000-000000000000', 'data_root',      'data_root',      3, :owner, :now, :now, :owner, :owner, FALSE);
+
+COMMIT;
+```
+
 ### Tree Traversal
 
 ```sql
--- Root items
-SELECT * FROM items WHERE parent_id IS NULL ORDER BY sort_order;
+-- Navigate directly to root (ID is always known)
+SELECT * FROM items WHERE id = '00000000-0000-0000-0000-000000000000';
+
+-- Find data_root (the user's tree entry point)
+SELECT * FROM items
+WHERE parent_id = '00000000-0000-0000-0000-000000000000'
+  AND type = 'data_root';
 
 -- Children of an item
 SELECT * FROM items WHERE parent_id = :id ORDER BY sort_order;
 
--- Full subtree (recursive CTE — SQL:1999+)
+-- Full user subtree starting from data_root (recursive CTE — SQL:1999+)
 WITH RECURSIVE subtree AS (
-    SELECT * FROM items WHERE id = :root_id
+    SELECT * FROM items WHERE type = 'data_root'
     UNION ALL
     SELECT i.* FROM items i
     JOIN subtree s ON s.id = i.parent_id
@@ -564,8 +619,11 @@ On every create, update, or delete, notify the full-text search engine. Database
 ## 4. Constraints and Assumptions
 
 - UUIDs are UUID v4 and globally unique across all installations. Stored as `CHAR(36)` with hyphens, or as a native UUID type when supported.
+- `parent_id` is `NOT NULL` for every item. The only self-referential item is `root` (`parent_id = id = '00000000-0000-0000-0000-000000000000'`). All other items must have a `parent_id` that resolves to an existing item.
+- The five well-known root types (`root`, `system_root`, `app_root`, `component_root`, `data_root`) are singletons. Each may appear exactly once in a datastore. Implementations must check for existence before inserting and reject duplicates.
+- The `root` ID (`00000000-0000-0000-0000-000000000000`) is reserved. No user-created item may use this ID.
+- Circular `parent_id` chains (other than the root self-reference) are not permitted. Applications must validate before inserting; the database cannot enforce acyclicity with a foreign key alone.
 - Aliases must be unique within a datastore; enforced by the primary key on `aliases.alias`.
-- Circular `parent_id` chains are not permitted. Applications must validate before inserting; the database cannot enforce acyclicity with a foreign key alone.
 - Circular `[[uuid]]` inline links and relationships are allowed but should be detected and handled by UIs.
 - Symlinks may reference remote items (`is_remote = TRUE`).
 - The `history` table carries no foreign key to `items(id)` — history records must outlive the items they describe.

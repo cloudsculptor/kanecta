@@ -34,7 +34,7 @@ test('init creates a valid datastore', () => {
   expect(Datastore.isDatastore(ds.root)).toBe(true);
   const cfg = JSON.parse(fs.readFileSync(path.join(ds.k, 'config', 'config.json'), 'utf8'));
   expect(cfg.owner).toBe('test@example.com');
-  expect(cfg.specVersion).toBe('1.1.0');
+  expect(cfg.specVersion).toBe('1.2.0');
   fs.rmSync(ds.root, { recursive: true });
 });
 
@@ -54,7 +54,7 @@ test('create returns item with valid UUID and correct fields', () => {
   expect(item.type).toBe('string');
   expect(item.tags).toEqual(['x']);
   expect(item.owner).toBe('test@example.com');
-  expect(item.parentId).toBeNull();
+  expect(item.parentId).toMatch(UUID_RE); // defaults to data_root
   expect(item.sortOrder).toBe(0);
   fs.rmSync(ds.root, { recursive: true });
 });
@@ -71,7 +71,7 @@ test('get returns item by UUID, null for unknown', () => {
   const ds = tmpDs();
   const item = ds.create({ value: 'x' });
   expect(ds.get(item.id).id).toBe(item.id);
-  expect(ds.get('00000000-0000-0000-0000-000000000000')).toBeNull();
+  expect(ds.get('ffffffff-ffff-4fff-bfff-ffffffffffff')).toBeNull(); // unknown UUID
   fs.rmSync(ds.root, { recursive: true });
 });
 
@@ -284,7 +284,7 @@ test('sample: root item readable and correct', () => {
   const ds = new Datastore(SAMPLE);
   const item = ds.get(ROOT_ID);
   expect(item.value).toBe('Base Work Process');
-  expect(item.parentId).toBeNull();
+  expect(item.parentId).toMatch(UUID_RE); // reparented to data_root in 1.2.0
 });
 
 test('sample: alias resolves to root UUID', () => {
@@ -292,9 +292,9 @@ test('sample: alias resolves to root UUID', () => {
   expect(ds.resolveAlias('base-work-process')).toBe(ROOT_ID);
 });
 
-test('sample: loadAll returns 35 items', () => {
+test('sample: loadAll returns 40 items', () => {
   const ds = new Datastore(SAMPLE);
-  expect(ds.loadAll()).toHaveLength(35);
+  expect(ds.loadAll()).toHaveLength(40); // 35 user items + 5 well-known root nodes
 });
 
 test('sample: tree from root produces 35 nodes', () => {

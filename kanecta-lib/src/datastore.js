@@ -4,9 +4,14 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+const ROOT_ID = '00000000-0000-0000-0000-000000000000';
+const WELL_KNOWN_TYPES = new Set(['root', 'system_root', 'app_root', 'component_root', 'data_root']);
+const WELL_KNOWN_ORDER = ['system_root', 'app_root', 'component_root', 'data_root'];
+
 const VALID_TYPES = [
   'string', 'number', 'text', 'file', 'symlink', 'object', 'decision', 'annotation',
   'note', 'fact', 'claim', 'question', 'task', 'concept', 'entity', 'event', 'code', 'url', 'image',
+  'root', 'system_root', 'app_root', 'component_root', 'data_root',
 ];
 const VALID_CONFIDENCES = ['experimental', 'exploring', 'decided', 'locked', 'low', 'medium', 'high', 'verified'];
 const VALID_REL_TYPES = [
@@ -21,6 +26,7 @@ class Datastore {
     this.root = path.resolve(root);
     this.k = path.join(this.root, '.kanecta');
     this._config = null;
+    this._roots = null; // { root, system_root, app_root, component_root, data_root } → items
   }
 
   static isDatastore(root) {
@@ -34,12 +40,22 @@ class Datastore {
     ];
     fs.mkdirSync(root, { recursive: true });
     for (const d of dirs) fs.mkdirSync(path.join(root, '.kanecta', d), { recursive: true });
-    const config = { owner, specVersion: '1.1.0' };
+    const config = { owner, specVersion: '1.2.0' };
     fs.writeFileSync(
       path.join(root, '.kanecta', 'config', 'config.json'),
       JSON.stringify(config, null, 2) + '\n',
     );
-    return new Datastore(root);
+    const ds = new Datastore(root);
+    ds._initRoots();
+    return ds;
+  }
+
+  // Open an existing datastore, initialising roots if missing (idempotent migration).
+  static open(root) {
+    const ds = new Datastore(root);
+    if (!ds.config) throw new Error(`Not a Kanecta datastore: ${root}`);
+    ds._initRoots();
+    return ds;
   }
 
   get config() {
@@ -53,15 +69,16 @@ class Datastore {
 
   // ─── Path helpers ──────────────────────────────────────────────────────────
 
-  // 2+2+full_uuid sharding per spec §1
+  // 2+2+full_uuid sharding per spec §1 (mandatory for all keyed folders).
   _itemDir(id) {
     const hex = id.replace(/-/g, '');
     return path.join(this.k, 'data', hex.slice(0, 2), hex.slice(2, 4), id);
   }
 
-  // 2+2+full_key sharding for string keys (aliases, tags, remotes-index)
+  // 2+2+full_key sharding for string-keyed folders (aliases, tags, remotes-index).
+  // Keys shorter than 4 chars are padded with underscores on the right.
   _shardDir(subdir, key) {
-    const padded = key.length >= 4 ? key : key.padEnd(4, key.at(-1) ?? '_');
+    const padded = key.length >= 4 ? key : key.padEnd(4, '_');
     return path.join(this.k, subdir, padded.slice(0, 2), padded.slice(2, 4), key);
   }
 
@@ -164,13 +181,95 @@ class Datastore {
     });
   }
 
+  // ─── Well-known root nodes ─────────────────────────────────────────────────
+
+  // Internal: write a well-known node directly, bypassing user-facing validation.
+  _createWellKnownNode(id, parentId, type, sortOrder) {
+    const now = new Date();
+    const owner = this.config.owner;
+    const item = {
+      id, parentId, value: type, type,
+      typeId: null, owner, license: null, sortOrder,
+      confidence: null, tags: [],
+      createdAt: now.toISOString(), modifiedAt: now.toISOString(),
+      createdBy: owner, modifiedBy: owner,
+      cachedAt: null, subscribedAt: null, subscriptionSource: null,
+    };
+    this._writeJson(path.join(this._itemDir(id), 'metadata.json'), item);
+    this._snapshot(item, 'create', owner, now);
+    return item;
+  }
+
+  // Idempotent: creates well-known nodes if not already present, then caches them.
+  _initRoots() {
+    if (!this.get(ROOT_ID)) {
+      this._createWellKnownNode(ROOT_ID, ROOT_ID, 'root', 0);
+    }
+    const existingChildren = this.children(ROOT_ID).map(c => c.type);
+    WELL_KNOWN_ORDER.forEach((type, i) => {
+      if (!existingChildren.includes(type)) {
+        this._createWellKnownNode(crypto.randomUUID(), ROOT_ID, type, i);
+      }
+    });
+    this._loadRoots();
+  }
+
+  // Loads and caches well-known root items from disk (one read per item, once per process).
+  _loadRoots() {
+    const rootItem = this.get(ROOT_ID);
+    const childItems = this.children(ROOT_ID);
+    this._roots = { root: rootItem };
+    for (const child of childItems) {
+      if (WELL_KNOWN_TYPES.has(child.type)) this._roots[child.type] = child;
+    }
+  }
+
+  _getRoots() {
+    if (!this._roots) this._loadRoots();
+    return this._roots;
+  }
+
+  getRoot() {
+    return this._getRoots().root;
+  }
+
+  getDataRoot() {
+    return this._getRoots().data_root || null;
+  }
+
+  _assertEditable(item, id) {
+    if (!item) throw new Error(`Item not found: ${id}`);
+    // data_root value may be edited; all other well-known nodes are read-only.
+    if (item.type !== 'data_root' && (WELL_KNOWN_TYPES.has(item.type) || item.id === ROOT_ID)) {
+      throw new Error(`Item '${id}' (type: ${item.type}) is a reserved root node and cannot be modified`);
+    }
+  }
+
+  _assertDeletable(item, id) {
+    if (!item) throw new Error(`Item not found: ${id}`);
+    if (WELL_KNOWN_TYPES.has(item.type) || item.id === ROOT_ID) {
+      throw new Error(`Item '${id}' (type: ${item.type}) is a reserved root node and cannot be deleted`);
+    }
+  }
+
   // ─── Item CRUD ─────────────────────────────────────────────────────────────
 
   create({
-    parentId = null, value = null, type = 'string', typeId = null,
+    parentId, value = null, type = 'string', typeId = null,
     owner, license = null, sortOrder, confidence = null, tags = [],
     createdBy,
   } = {}) {
+    if (WELL_KNOWN_TYPES.has(type)) {
+      throw new Error(`Type '${type}' is a well-known root type and cannot be created via create()`);
+    }
+
+    // Default parentId to data_root when not supplied.
+    if (parentId == null) {
+      const dr = this.getDataRoot();
+      if (!dr) throw new Error('Datastore not initialised: data_root not found. Call _initRoots() first.');
+      parentId = dr.id;
+    }
+
     const id = crypto.randomUUID();
     const now = new Date();
     const ownerVal = owner || this.config.owner;
@@ -233,7 +332,7 @@ class Datastore {
 
   update(id, changes, actor) {
     const current = this.get(id);
-    if (!current) throw new Error(`Item not found: ${id}`);
+    this._assertEditable(current, id);
     actor = actor || this.config.owner;
     const now = new Date();
 
@@ -293,7 +392,7 @@ class Datastore {
 
   delete(id, actor) {
     const item = this.get(id);
-    if (!item) throw new Error(`Item not found: ${id}`);
+    this._assertDeletable(item, id);
     actor = actor || this.config.owner;
     const now = new Date();
 
@@ -482,19 +581,28 @@ class Datastore {
     return items;
   }
 
+  // Returns direct children of parentId, excluding any self-referential node.
   children(parentId) {
     return this.loadAll()
-      .filter(i => i.parentId === (parentId ?? null))
+      .filter(i => i.parentId === parentId && i.id !== parentId)
       .sort((a, b) => a.sortOrder - b.sortOrder);
   }
 
+  // Returns the flat traversal list starting from rootId (defaults to data_root).
+  // Excludes the internal root spine (root, system_root, app_root, component_root).
   tree(rootId, maxDepth = Infinity) {
+    if (!rootId) {
+      const dr = this.getDataRoot();
+      rootId = dr ? dr.id : null;
+      if (!rootId) return [];
+    }
+
     const all = this.loadAll();
     const byParent = new Map();
     for (const item of all) {
-      const key = item.parentId ?? '__root__';
-      if (!byParent.has(key)) byParent.set(key, []);
-      byParent.get(key).push(item);
+      if (item.id === item.parentId) continue; // skip self-referential root
+      if (!byParent.has(item.parentId)) byParent.set(item.parentId, []);
+      byParent.get(item.parentId).push(item);
     }
     for (const arr of byParent.values()) arr.sort((a, b) => a.sortOrder - b.sortOrder);
 
@@ -507,11 +615,7 @@ class Datastore {
       for (const child of byParent.get(id) || []) traverse(child.id, depth + 1);
     };
 
-    if (rootId) {
-      traverse(rootId, 0);
-    } else {
-      for (const root of byParent.get('__root__') || []) traverse(root.id, 0);
-    }
+    traverse(rootId, 0);
     return result;
   }
 
@@ -532,4 +636,4 @@ class Datastore {
   }
 }
 
-module.exports = { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE };
+module.exports = { Datastore, ROOT_ID, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE };

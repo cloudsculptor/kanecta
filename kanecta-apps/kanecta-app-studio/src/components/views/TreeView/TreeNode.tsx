@@ -67,7 +67,6 @@ export function TreeNode({
       <div
         className={`TreeNode-row${isFocused ? ' TreeNode-row--focused' : ''}`}
         onClick={onFocus}
-        onDoubleClick={startEdit}
       >
         <button
           className={`TreeNode-toggle${!hasChildren ? ' TreeNode-toggle--leaf' : ''}`}
@@ -97,7 +96,13 @@ export function TreeNode({
             onDeleteEmpty={onDelete}
           />
         ) : (
-          <span className="TreeNode-label" title={item.value}>{item.value}</span>
+          <span
+            className="TreeNode-label"
+            title={item.value}
+            onClick={(e) => { e.stopPropagation(); startEdit(); }}
+          >
+            {item.value}
+          </span>
         )}
 
         <div className="TreeNode-actions">

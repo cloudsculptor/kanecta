@@ -1,6 +1,6 @@
 # Kanecta Datastore Specification (File system)
 
-**Version:** 1.1.0
+**Version:** 1.2.0
 
 ## Overview
 Kanecta is an open-source, self-hosted personal and organizational information repository. Data is stored as a hierarchical tree structure with globally unique identifiers, enabling flexible organization, linking, semantic relationships, and multi-user collaboration. The protocol is designed as a human-AI bridge: structured enough for AI to work with efficiently, transparent enough for humans to audit and understand.
@@ -29,15 +29,36 @@ datastore/
 └── README.md
 ```
 
+### Well-Known Root Nodes
+
+Every Kanecta datastore contains five reserved items that are auto-created when a datastore is first opened and found to be empty. These items anchor the tree and enable consistent navigation by all implementations.
+
+| Type | ID | `parentId` | `value` |
+|---|---|---|---|
+| `root` | `00000000-0000-0000-0000-000000000000` | `00000000-0000-0000-0000-000000000000` (self) | `"root"` |
+| `system_root` | generated UUID v4 | root ID | `"system_root"` |
+| `app_root` | generated UUID v4 | root ID | `"app_root"` |
+| `component_root` | generated UUID v4 | root ID | `"component_root"` |
+| `data_root` | generated UUID v4 | root ID | `"data_root"` |
+
+**Rules:**
+- The `root` ID is fixed and universally known: `00000000-0000-0000-0000-000000000000`. No lookup is required to find it.
+- `root` is self-referential: its `parentId` equals its own `id`. This satisfies the non-nullable `parentId` constraint.
+- Each of these five types is a **singleton** — a datastore must never contain more than one item of each well-known type. Implementations must reject attempts to create duplicates.
+- The `value` of each well-known node equals its type name. The value is cosmetic and carries no semantic weight.
+- Well-known nodes are created in order: `root` first, then its four children.
+
+**Tree navigation:** When serving the user's tree, implementations navigate to root (known ID), find the child with type `data_root`, and return that node's subtree. User data lives exclusively under `data_root`.
+
 ### .kanecta/data/ — Source of Truth
 
 All items in the Kanecta datastore live here in a sharded UUID structure.
 
 **UUID Standard:** Kanecta uses UUID version 4 (random) for all item identifiers. UUID v4 provides 122 bits of randomness, making collisions effectively impossible across all installations worldwide, with no central authority required for uniqueness.
 
-**Sharding Strategy: 2 + 2 + Full UUID**
+**Sharding Strategy: 2 + 2 + Full UUID (mandatory)**
 
-The first two pairs of characters from the UUID (after stripping hyphens) form two directory levels. The third level is the **complete UUID** (with hyphens preserved). This approach:
+The first two pairs of characters from the UUID (after stripping hyphens) form two directory levels. The third level is the **complete UUID** (with hyphens preserved). This sharding strategy is **mandatory** for every keyed folder structure in `.kanecta/` — no alternative layout is permitted. This approach:
 
 - Distributes items across 65,536 possible shard combinations (256 × 256)
 - Keeps the full UUID in the path for recovery and debugging
@@ -93,9 +114,9 @@ Each item folder contains:
 | Field | Required | Description |
 |---|---|---|
 | `id` | yes | Unique identifier for this item (UUID v4) |
-| `parentId` | yes (nullable) | UUID of parent item, or null if root level |
+| `parentId` | yes | UUID of parent item. Never null — the `root` node is self-referential (`parentId` equals its own `id`) |
 | `value` | no | Item content. Text string, UUID reference (for symlinks), or null |
-| `type` | yes | Item type. Primitive: `string`, `number`, `text`, `file`, `symlink`. Structured: `object`, `decision`, `annotation` |
+| `type` | yes | Item type. Primitive: `string`, `number`, `text`, `file`, `symlink`. Structured: `object`, `decision`, `annotation`. Well-known roots: `root`, `system_root`, `app_root`, `component_root`, `data_root` |
 | `typeId` | conditional | If type is `object`, UUID of the type definition. Otherwise null |
 | `owner` | yes | Email or domain of item owner |
 | `license` | no | License identifier (MIT, Apache-2.0, CC-BY, etc.) or null |
@@ -145,9 +166,7 @@ Decision items capture not just *what* was decided, but *why*. They form an inst
 
 ### .kanecta/aliases/ — Human-Readable Shortcuts
 
-Stores user-friendly aliases mapping to item UUIDs. Uses the same 2 + 2 + full sharding pattern as data/, but sharded by the alias string itself rather than a UUID.
-
-For alias strings, the first two pairs of characters form the directory levels, with the full alias as the third level.
+Stores user-friendly aliases mapping to item UUIDs. Uses the mandatory 2 + 2 + full sharding pattern, keyed by the alias string itself rather than a UUID. The first two characters form the first level, the next two form the second, and the full alias string forms the third level.
 
 **Structure:**
 ```
@@ -163,13 +182,13 @@ Each `target.txt` contains a single line with the target UUID:
 a1b2c3d4-e5f6-4abc-9def-123456789012
 ```
 
-Multiple aliases may point to the same UUID. Aliases under 4 characters use a single-character padding scheme (implementation choice).
+Multiple aliases may point to the same UUID. Aliases under 4 characters must be padded with underscores on the right to reach 4 characters before computing shard levels.
 
 **Usage:** Read the alias file to get the UUID, then look up that UUID in the data/ folder.
 
 ### .kanecta/annotations/ — Annotations and Comments
 
-Stores annotations (comments, thoughts, reactions) on items without modifying the items themselves. Uses 2 + 2 + full UUID sharding by the **target item's UUID**.
+Stores annotations (comments, thoughts, reactions) on items without modifying the items themselves. Uses the mandatory 2 + 2 + full UUID sharding, keyed by the **target item's UUID**.
 
 **Structure:**
 ```
@@ -212,7 +231,7 @@ Stores configuration as JSON files.
 
 ### .kanecta/history/ — Change History
 
-Stores point-in-time snapshots of items when they are modified or deleted. Uses 2 + 2 + full UUID sharding by item UUID.
+Stores point-in-time snapshots of items when they are modified or deleted. Uses the mandatory 2 + 2 + full UUID sharding, keyed by item UUID.
 
 **Structure:**
 ```
@@ -238,7 +257,7 @@ History enables audit trails, undo operations, and understanding how decisions e
 
 ### .kanecta/links/ — Backlinks Index Cache
 
-Reverse index mapping items to all items that link to them. Uses 2 + 2 + full UUID sharding.
+Reverse index mapping items to all items that link to them. Uses the mandatory 2 + 2 + full UUID sharding, keyed by the linked item's UUID.
 
 **Structure:**
 ```
@@ -263,7 +282,7 @@ Used to find all references to an item before deletion and to surface "what link
 
 ### .kanecta/relationships/ — Semantic Relationships
 
-Stores typed relationships between items. A relationship is more than a link — it carries semantic meaning about *how* items relate. Uses 2 + 2 + full UUID sharding by the **source item's UUID**.
+Stores typed relationships between items. A relationship is more than a link — it carries semantic meaning about *how* items relate. Uses the mandatory 2 + 2 + full UUID sharding, keyed by the **source item's UUID**.
 
 **Standard Relationship Types:**
 
@@ -315,7 +334,7 @@ Remote items use the same metadata schema as local items. The `cachedAt` field i
 
 ### .kanecta/remotes-index/ — Remote Owner Index
 
-Maps owners to their cached items. Uses the same 2 + 2 + full sharding pattern, but sharded by the owner identifier string.
+Maps owners to their cached items. Uses the mandatory 2 + 2 + full sharding pattern, keyed by the owner identifier string.
 
 **Structure:**
 ```
@@ -344,7 +363,7 @@ Output folder for the search library (MeiliSearch, Lunr, custom implementation, 
 
 ### .kanecta/tags/ — Tag Index Cache
 
-Reverse index mapping tag names to all items carrying that tag. Tags are sharded by tag name using the 2 + 2 + full pattern.
+Reverse index mapping tag names to all items carrying that tag. Uses the mandatory 2 + 2 + full sharding pattern, keyed by tag name.
 
 **Structure:**
 ```
@@ -369,7 +388,7 @@ This enables fast queries like "show me all items tagged `performance-critical`"
 
 ### .kanecta/types/ — Type-to-Items Index Cache
 
-Reverse index mapping type UUIDs to all items of that type. Uses 2 + 2 + full UUID sharding by type UUID.
+Reverse index mapping type UUIDs to all items of that type. Uses the mandatory 2 + 2 + full UUID sharding, keyed by type UUID.
 
 **Structure:**
 ```
@@ -492,12 +511,32 @@ When displayed, the symlink resolves to show the target item's content while pre
 9. **History:** List files in `.kanecta/history/[item-shard]/` for change timeline.
 10. **Annotations:** List files in `.kanecta/annotations/[item-shard]/` for comments on an item.
 
+### Datastore Initialisation
+
+When a lib or CLI opens a datastore for the first time and finds it empty, it must create the well-known root nodes before any user interaction:
+
+1. Create the `root` item:
+   - `id`: `00000000-0000-0000-0000-000000000000`
+   - `parentId`: `00000000-0000-0000-0000-000000000000` (self)
+   - `type`: `root`
+   - `value`: `"root"`
+   - `sortOrder`: 0
+2. Create `system_root`, `app_root`, `component_root`, `data_root` as children of root, in that order:
+   - `parentId`: `00000000-0000-0000-0000-000000000000`
+   - `type`: the respective type name
+   - `value`: the respective type name
+   - `sortOrder`: 0, 1, 2, 3 respectively
+3. Record history entries (`changeType: create`) for each.
+
 ### Tree Traversal
 
-1. Start at root (items where `parentId` is null).
-2. Find all items with `parentId` matching the current item's `id`.
-3. Sort by `sortOrder`.
-4. Recursively build the tree.
+1. Navigate directly to root using its known ID: `00000000-0000-0000-0000-000000000000`.
+2. Find the child of root with `type: data_root`.
+3. Starting from `data_root`, find all items with `parentId` matching the current item's `id`.
+4. Sort siblings by `sortOrder`.
+5. Recursively build the tree.
+
+User data lives exclusively under `data_root`. Items under `system_root`, `app_root`, and `component_root` are reserved for internal use and are not shown in the user-facing tree.
 
 ### Creating Relationships
 
@@ -532,8 +571,13 @@ On every create, update, or delete:
 ## 4. Constraints and Assumptions
 
 - UUIDs are UUID v4 and globally unique across all installations.
+- `parentId` is non-nullable for every item. The only self-referential item is `root` (`parentId` equals its own `id`). All other items must have a `parentId` that resolves to an existing item.
+- Circular `parentId` chains (other than the root self-reference) are not permitted. Applications must validate before inserting.
+- The five well-known root types (`root`, `system_root`, `app_root`, `component_root`, `data_root`) are singletons. Each may appear exactly once in a datastore. Implementations must reject creation of a second instance of any well-known type.
+- The `root` ID (`00000000-0000-0000-0000-000000000000`) is reserved. No user-created item may use this ID.
+- All keyed folder structures in `.kanecta/` use the mandatory 2 + 2 + full sharding pattern. No alternative layout is permitted.
 - Aliases should be unique within a datastore (not enforced at the filesystem level; applications should validate).
-- Circular references in `parentId` are not permitted; circular links via `[[uuid]]` and relationships are allowed but should be detected and handled by UIs.
+- Circular links via `[[uuid]]` and relationships are allowed but should be detected and handled by UIs.
 - Symlinks can point to items owned by other users (via remotes/).
 - File system operations are atomic enough for single-user scenarios; multi-user synchronization requires additional logic (changelogs, conflict resolution).
 - Parent-child relationships are enforced in metadata, not filesystem structure.
