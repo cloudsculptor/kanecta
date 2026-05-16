@@ -25,16 +25,8 @@ function extractFileIds(contentJson) {
   function walk(node) {
     if (!node) return;
     if (node.type === "image" && typeof node.src === "string" && node.src.startsWith(prefix)) {
-      const parts = node.src.slice(prefix.length).split("/");
-      const id = parts[2];
-      if (id) {
-        if (UUID_RE.test(id)) {
-          ids.add(id);
-        } else if (id.length === 32) {
-          // Legacy format: UUID with hyphens stripped
-          ids.add(`${id.slice(0,8)}-${id.slice(8,12)}-${id.slice(12,16)}-${id.slice(16,20)}-${id.slice(20)}`);
-        }
-      }
+      const id = node.src.slice(prefix.length).split("/")[2];
+      if (id && UUID_RE.test(id)) ids.add(id);
     }
     if (Array.isArray(node.children)) node.children.forEach(walk);
   }
