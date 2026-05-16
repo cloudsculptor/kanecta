@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import MobileMessageItem from "../components/discussions/MobileMessageItem";
 import MentionInput from "../components/discussions/MentionInput";
 import CreateThreadModal from "../components/discussions/CreateThreadModal";
@@ -87,6 +87,9 @@ function ThreadsScreen({
           )}
         </div>
       )}
+      <div className="dm-footer">
+        <Link to="/groups/resilience" className="dm-pages-btn">Pages</Link>
+      </div>
     </div>
   );
 }

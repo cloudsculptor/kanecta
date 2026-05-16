@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useMobile } from "../hooks/useMobile";
 import DiscussionsMobile from "./DiscussionsMobile";
 import Header from "../components/Header";
@@ -279,6 +279,9 @@ export default function Discussions() {
               </ul>
             </>
           )}
+          <div className="discussions-sidebar__footer">
+            <Link to="/groups/resilience" className="discussions-sidebar__pages-btn">Pages</Link>
+          </div>
         </aside>
 
         {/* ── Messages Panel ── */}
