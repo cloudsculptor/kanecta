@@ -2,6 +2,9 @@ import { IconButton, Tooltip } from '@mui/material';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban';
+import GridViewIcon from '@mui/icons-material/GridView';
+import ViewListIcon from '@mui/icons-material/ViewList';
+import DateRangeIcon from '@mui/icons-material/DateRange';
 import BubbleChartIcon from '@mui/icons-material/BubbleChart';
 import FlightIcon from '@mui/icons-material/Flight';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -19,6 +22,9 @@ const NAV_ITEMS: NavItem[] = [
   { view: 'tree', label: 'Tree', icon: <AccountTreeIcon fontSize="small" /> },
   { view: 'table', label: 'Table', icon: <TableChartIcon fontSize="small" /> },
   { view: 'board', label: 'Board', icon: <ViewKanbanIcon fontSize="small" /> },
+  { view: 'gallery', label: 'Gallery', icon: <GridViewIcon fontSize="small" /> },
+  { view: 'list', label: 'List', icon: <ViewListIcon fontSize="small" /> },
+  { view: 'calendar', label: 'Calendar', icon: <DateRangeIcon fontSize="small" /> },
   { view: 'graph', label: 'Graph', icon: <BubbleChartIcon fontSize="small" /> },
   { view: 'mission-control', label: 'Mission Control', icon: <FlightIcon fontSize="small" /> },
 ];

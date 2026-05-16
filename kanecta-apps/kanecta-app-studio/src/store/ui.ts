@@ -30,7 +30,7 @@ export const useUiStore = create<UiState>()(
   persist(
     (set) => ({
       layout: { panels: [defaultPanel], sizes: [100] },
-      sidebarState: 'icons',
+      sidebarState: 'expanded',
       rightPanelOpen: false,
       focusedItemId: null,
       filtersByPanel: {},

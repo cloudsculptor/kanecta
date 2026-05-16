@@ -2,19 +2,70 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 48px;
+  flex: 0 0 48px !important;
+  height: 48px !important;
+  min-height: 48px !important;
+  max-height: 48px !important;
+  overflow: hidden;
   padding: 0 16px;
-  background: var(--color-surface-raised);
-  border-bottom: 1px solid var(--color-border);
-  flex-shrink: 0;
+  background: #1f5c38;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.2);
   z-index: 10;
+
+  &-logo-img {
+    height: 30px;
+    width: auto;
+    display: block;
+    flex-shrink: 0;
+  }
 
   &-logo {
     font-weight: 700;
-    font-size: 1rem;
+    font-size: 22px;
     letter-spacing: -0.02em;
-    color: var(--color-primary);
+    color: #ffffff;
     user-select: none;
+  }
+
+  &-search {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    padding: 0 12px;
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    cursor: pointer;
+    color: #666;
+    min-width: 330px;
+    transition: box-shadow 0.15s;
+
+    &:hover {
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.4);
+      color: #333;
+    }
+
+    &-icon { font-size: 18px !important; width: 18px !important; height: 18px !important; flex-shrink: 0; }
+    &-placeholder { font-size: 0.8rem; flex: 1; }
+    &-shortcut { font-size: 0.65rem; opacity: 0.5; background: rgba(0,0,0,0.07); padding: 2px 5px; border-radius: 4px; color: #444; }
+
+    @media (min-width: 768px) { display: flex; }
+  }
+
+  &-search-btn {
+    @media (min-width: 768px) { display: none !important; }
+  }
+
+  .MuiIconButton-root {
+    color: rgba(255, 255, 255, 0.85);
+    &:hover { color: #ffffff; background: rgba(255, 255, 255, 0.1); }
+  }
+
+  .MuiSvgIcon-root {
+    font-size: 32px !important;
+    width: 32px !important;
+    height: 32px !important;
   }
 
   &-spacer {
