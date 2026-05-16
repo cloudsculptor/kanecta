@@ -108,8 +108,9 @@ export default function Home() {
               }}
             />
             <NavCard
-              title="Groups"
-              blurb="Local community groups working together in Featherston."
+              featured
+              title="Groups & Organisations"
+              blurb="Discover local community groups, and organisations near you."
               path="/groups"
             />
             {localItems.map((item) => <NavCard key={item.title} {...item} />)}
