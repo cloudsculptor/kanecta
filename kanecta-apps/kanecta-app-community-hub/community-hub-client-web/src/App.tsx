@@ -50,6 +50,7 @@ import FinancesExpenses from "./pages/FinancesExpenses";
 import RoleCustodian from "./pages/RoleCustodian";
 import RoleVolunteer from "./pages/RoleVolunteer";
 import Groups from "./pages/Groups";
+import ResilienceGroup from "./pages/ResilienceGroup";
 import PagesList from "./pages/PagesList";
 import PageEdit from "./pages/PageEdit";
 import PageView from "./pages/PageView";
@@ -70,6 +71,7 @@ export default function App() {
       <Route path="/social-services" element={<SocialServices />} />
       <Route path="/about" element={<AboutThisSite />} />
       <Route path="/groups" element={<Groups />} />
+      <Route path="/groups/resilience" element={<ResilienceGroup />} />
       <Route path="/resilience" element={<Resilience />} />
       <Route path="/kai" element={<Kai />} />
       <Route path="/transport-and-mobility" element={<TransportAndMobility />} />
