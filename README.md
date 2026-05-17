@@ -32,4 +32,4 @@ kanecta      # <-- will guide you through setup
 - [Roadmap](kanecta-roadmap/) — what's planned and why
 - [Docs](kanecta-docs/) — full documentation
 
-AGPL-3.0 licensed. Self-hosted.
+AGPL-3.0 licensed. Self-hosted. The [`kanecta-specification/`](kanecta-specification/) directory is MIT licensed — see [kanecta-specification/LICENSE](kanecta-specification/LICENSE).
