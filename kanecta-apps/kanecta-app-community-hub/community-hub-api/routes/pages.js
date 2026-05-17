@@ -12,7 +12,7 @@ const PUBLIC_URL = process.env.SPACES_PUBLIC_URL;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // TODO: replace with a proper group-selection UI once multi-group support is built
-const RESILIENCE_GROUP_ID = "11111111-1111-1111-1111-111111111111";
+const RESILIENCE_GROUP_ID = "94a7ad3b-89bb-49c6-a97d-228f8758517a";
 
 const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 
