@@ -28,7 +28,7 @@ afterEach(() => {
 // ─── Items ────────────────────────────────────────────────────────────────────
 
 describe('GET /items', () => {
-  it('returns root items', async () => {
+  it('returns data_root children', async () => {
     ds.create({ value: 'root1' });
     ds.create({ value: 'root2' });
     const child = ds.create({ value: 'root1' });
@@ -36,10 +36,10 @@ describe('GET /items', () => {
     const res = await request(app).get('/items');
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(3);
-    expect(res.body.every(i => i.parentId === null)).toBe(true);
+    expect(res.body.every(i => i.parentId != null)).toBe(true);
   });
 
-  it('returns empty array when datastore is empty', async () => {
+  it('returns empty array when datastore has no user items', async () => {
     const res = await request(app).get('/items');
     expect(res.status).toBe(200);
     expect(res.body).toEqual([]);
@@ -52,7 +52,7 @@ describe('POST /items', () => {
     expect(res.status).toBe(201);
     expect(res.body.value).toBe('hello');
     expect(res.body.type).toBe('string');
-    expect(res.body.parentId).toBeNull();
+    expect(res.body.parentId).toMatch(/^[0-9a-f-]{36}$/); // defaults to data_root
     expect(res.body.id).toMatch(/^[0-9a-f-]{36}$/);
   });
 
@@ -82,7 +82,7 @@ describe('POST /items', () => {
   });
 
   it('returns 404 for unknown parentId', async () => {
-    const res = await request(app).post('/items').send({ parentId: '00000000-0000-0000-0000-000000000000' });
+    const res = await request(app).post('/items').send({ parentId: 'ffffffff-ffff-4fff-bfff-ffffffffffff' });
     expect(res.status).toBe(404);
   });
 });
@@ -97,7 +97,7 @@ describe('GET /items/:id', () => {
   });
 
   it('returns 404 for unknown UUID', async () => {
-    const res = await request(app).get('/items/00000000-0000-0000-0000-000000000000');
+    const res = await request(app).get('/items/ffffffff-ffff-4fff-bfff-ffffffffffff');
     expect(res.status).toBe(404);
     expect(res.body.error).toBe('Item not found');
   });
@@ -140,7 +140,7 @@ describe('PUT /items/:id', () => {
   });
 
   it('returns 404 for unknown item', async () => {
-    const res = await request(app).put('/items/00000000-0000-0000-0000-000000000000').send({ value: 'x' });
+    const res = await request(app).put('/items/ffffffff-ffff-4fff-bfff-ffffffffffff').send({ value: 'x' });
     expect(res.status).toBe(404);
   });
 });
@@ -170,7 +170,7 @@ describe('DELETE /items/:id', () => {
   });
 
   it('returns 404 for unknown item', async () => {
-    const res = await request(app).delete('/items/00000000-0000-0000-0000-000000000000');
+    const res = await request(app).delete('/items/ffffffff-ffff-4fff-bfff-ffffffffffff');
     expect(res.status).toBe(404);
   });
 });
@@ -362,7 +362,7 @@ describe('POST /aliases', () => {
   });
 
   it('returns 404 for unknown targetId', async () => {
-    const res = await request(app).post('/aliases').send({ alias: 'x', targetId: '00000000-0000-0000-0000-000000000000' });
+    const res = await request(app).post('/aliases').send({ alias: 'x', targetId: 'ffffffff-ffff-4fff-bfff-ffffffffffff' });
     expect(res.status).toBe(404);
   });
 });
@@ -440,7 +440,7 @@ describe('POST /rebuild-indexes', () => {
     const res = await request(app).post('/rebuild-indexes');
     expect(res.status).toBe(200);
     expect(res.body.rebuilt).toBe(true);
-    expect(res.body.itemCount).toBe(2);
+    expect(res.body.itemCount).toBeGreaterThanOrEqual(2); // includes well-known root nodes
   });
 });
 
@@ -455,11 +455,11 @@ describe('sample datastore', () => {
     process.env.KANECTA_DATASTORE = tmpRoot;
   });
 
-  it('GET /items returns sorted root items', async () => {
+  it('GET /items returns data_root children', async () => {
     const res = await request(app).get('/items');
     expect(res.status).toBe(200);
     expect(res.body.length).toBeGreaterThan(0);
-    expect(res.body.every(i => i.parentId === null)).toBe(true);
+    expect(res.body.every(i => i.parentId != null)).toBe(true);
   });
 
   it('GET /items/:id returns known item', async () => {

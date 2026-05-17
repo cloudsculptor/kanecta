@@ -23,13 +23,26 @@ function isUuid(str) {
   return UUID_RE.test(str);
 }
 
+function withChildCounts(ds, items) {
+  const all = ds.loadAll();
+  const counts = new Map();
+  for (const item of all) {
+    if (item.id !== item.parentId && item.parentId != null) {
+      counts.set(item.parentId, (counts.get(item.parentId) || 0) + 1);
+    }
+  }
+  return items.map(item => ({ ...item, childCount: counts.get(item.id) || 0 }));
+}
+
 // ─── Items ────────────────────────────────────────────────────────────────────
 
-// GET /items — list root items (no parent)
+// GET /items — list children of data_root (the user's top-level items)
 app.get('/items', (req, res) => {
   const ds = openDatastore(res);
   if (!ds) return;
-  res.json(ds.children(null));
+  const dataRoot = ds.getDataRoot();
+  const items = dataRoot ? ds.children(dataRoot.id) : [];
+  res.json(withChildCounts(ds, items));
 });
 
 // POST /items — create item
@@ -128,7 +141,7 @@ app.get('/items/:id/children', (req, res) => {
   const ds = openDatastore(res);
   if (!ds) return;
   if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
-  res.json(ds.children(id));
+  res.json(withChildCounts(ds, ds.children(id)));
 });
 
 // GET /items/:id/tree — tree rooted at item (?depth=n)
