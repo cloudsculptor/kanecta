@@ -63,6 +63,7 @@ router.get("/", requireAuth, wrap(async (req, res) => {
     `SELECT p.id, p.slug, p.title, p.created_by_name, p.created_at, p.updated_at,
             p.public, p.licence_id, p.version, p.owner_type, p.owner_id
      FROM pages p
+     WHERE p.deleted_at IS NULL
      ORDER BY p.updated_at DESC`
   );
   res.json(rows);
@@ -88,7 +89,7 @@ router.get("/public", wrap(async (req, res) => {
     `SELECT p.id, p.slug, p.title, p.created_by_name, p.created_at, p.updated_at,
             p.public, p.licence_id, p.version, p.owner_type, p.owner_id
      FROM pages p
-     WHERE p.public = TRUE
+     WHERE p.public = TRUE AND p.deleted_at IS NULL
      ORDER BY p.updated_at DESC`
   );
   res.json(rows);
@@ -101,7 +102,7 @@ router.get("/public/:slug", wrap(async (req, res) => {
      FROM pages p
      LEFT JOIN licences l ON l.id = p.licence_id
      LEFT JOIN groups g ON g.id = p.owner_id
-     WHERE p.slug = $1 AND p.public = TRUE`,
+     WHERE p.slug = $1 AND p.public = TRUE AND p.deleted_at IS NULL`,
     [req.params.slug]
   );
   if (!rows.length) return res.status(404).json({ error: "Not found" });
@@ -156,7 +157,7 @@ router.get("/:slug", requireAuth, wrap(async (req, res) => {
      FROM pages p
      LEFT JOIN licences l ON l.id = p.licence_id
      LEFT JOIN groups g ON g.id = p.owner_id
-     WHERE p.slug = $1`,
+     WHERE p.slug = $1 AND p.deleted_at IS NULL`,
     [req.params.slug]
   );
   if (!rows.length) return res.status(404).json({ error: "Not found" });
@@ -275,37 +276,17 @@ router.put("/:slug", requireAuth, requireTeam, wrap(async (req, res) => {
   }
 }));
 
-// ── Delete page ───────────────────────────────────────────────────────────────
+// ── Delete page (soft delete) ─────────────────────────────────────────────────
 router.delete("/:slug", requireAuth, requireTeam, wrap(async (req, res) => {
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
+  const { rows: existing } = await pool.query(
+    "SELECT id FROM pages WHERE slug = $1 AND deleted_at IS NULL", [req.params.slug]
+  );
+  if (!existing.length) return res.status(404).json({ error: "Not found" });
 
-    const { rows: existing } = await client.query(
-      "SELECT id, content_json FROM pages WHERE slug = $1", [req.params.slug]
-    );
-    if (!existing.length) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({ error: "Not found" });
-    }
-
-    const fileIds = [...extractFileIds(existing[0].content_json)];
-    if (fileIds.length) {
-      await client.query(
-        `UPDATE files SET deleted_at = NOW() WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL`,
-        [fileIds]
-      );
-    }
-
-    await client.query("DELETE FROM pages WHERE slug = $1", [req.params.slug]);
-    await client.query("COMMIT");
-    res.json({ deleted: existing[0].id });
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  } finally {
-    client.release();
-  }
+  await pool.query(
+    "UPDATE pages SET deleted_at = NOW() WHERE slug = $1", [req.params.slug]
+  );
+  res.json({ deleted: existing[0].id });
 }));
 
 // ── Error handler ─────────────────────────────────────────────────────────────
