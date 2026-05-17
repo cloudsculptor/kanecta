@@ -11,6 +11,9 @@ const SLUG_RE = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
 const PUBLIC_URL = process.env.SPACES_PUBLIC_URL;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// TODO: replace with a proper group-selection UI once multi-group support is built
+const RESILIENCE_GROUP_ID = "11111111-1111-1111-1111-111111111111";
+
 const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 
 const requireTeam = requireRole("team", "moderator");
@@ -152,8 +155,8 @@ router.post("/", requireAuth, requireTeam, wrap(async (req, res) => {
         slug, title || "", content_json || {},
         req.user.id, req.user.name,
         licence_id || null,
-        owner_type || "private",
-        owner_id || null,
+        owner_type || "group",
+        owner_id || RESILIENCE_GROUP_ID,
       ]
     );
 
