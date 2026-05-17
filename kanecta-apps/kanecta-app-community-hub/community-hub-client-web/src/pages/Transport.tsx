@@ -1,4 +1,5 @@
 import PageLayout from "../components/PageLayout";
+import CC0Notice from "../components/CC0Notice";
 
 export default function Transport() {
   return (
@@ -44,6 +45,7 @@ export default function Transport() {
           — local Facebook group for sharing rides to and from Featherston
         </li>
       </ul>
+      <CC0Notice />
     </PageLayout>
   );
 }
