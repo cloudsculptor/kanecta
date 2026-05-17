@@ -363,7 +363,7 @@ export default function PageEdit() {
           <DialogContentText>
             {pendingPublic
               ? "This page will be visible to anyone visiting the site, including members of the public who are not logged in."
-              : "This page will be hidden from the public. Only logged-in team members will be able to see it."}
+              : "This page will be hidden from the public. Only logged-in members with 'team' permission will be able to see it."}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
