@@ -55,6 +55,8 @@ import PageEdit from "./pages/PageEdit";
 import PageView from "./pages/PageView";
 import PageHistory from "./pages/PageHistory";
 import PageVersion from "./pages/PageVersion";
+import PagesListPublic from "./pages/PagesListPublic";
+import PageViewPublic from "./pages/PageViewPublic";
 
 export default function App() {
   const { initialized } = useKeycloak();
@@ -74,6 +76,8 @@ export default function App() {
       <Route path="/groups" element={<Groups />} />
       <Route path="/groups/resilience" element={<PagesList />} />
       <Route path="/resilience" element={<Resilience />} />
+      <Route path="/resilience/pages" element={<PagesListPublic />} />
+      <Route path="/resilience/pages/:slug" element={<PageViewPublic />} />
       <Route path="/kai" element={<Kai />} />
       <Route path="/transport-and-mobility" element={<TransportAndMobility />} />
       <Route path="/skill-sharing" element={<SkillSharing />} />
