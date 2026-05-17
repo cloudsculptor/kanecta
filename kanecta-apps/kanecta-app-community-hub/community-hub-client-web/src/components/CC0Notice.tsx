@@ -1,6 +1,6 @@
 export default function CC0Notice() {
   return (
-    <p className="cc0-notice" xmlns:cc="http://creativecommons.org/ns#">
+    <p className="cc0-notice">
       Content on this page is marked with{" "}
       <a
         href="https://creativecommons.org/publicdomain/zero/1.0/"
