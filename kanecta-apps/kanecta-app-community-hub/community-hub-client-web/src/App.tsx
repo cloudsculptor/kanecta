@@ -53,6 +53,8 @@ import Groups from "./pages/Groups";
 import PagesList from "./pages/PagesList";
 import PageEdit from "./pages/PageEdit";
 import PageView from "./pages/PageView";
+import PageHistory from "./pages/PageHistory";
+import PageVersion from "./pages/PageVersion";
 
 export default function App() {
   const { initialized } = useKeycloak();
@@ -81,6 +83,8 @@ export default function App() {
       <Route path="/discussions/team-required" element={<TeamRequired />} />
       <Route path="/roadmap" element={<Roadmap />} />
       <Route path="/volunteering" element={<Volunteering />} />
+      <Route path="/groups/resilience/:slug/history" element={<PageHistory />} />
+      <Route path="/groups/resilience/:slug/v/:version" element={<PageVersion />} />
       <Route path="/groups/resilience/:slug" element={<PageView />} />
       <Route path="/pages" element={<PagesList />} />
       <Route path="/pages/new" element={<PageEdit />} />
