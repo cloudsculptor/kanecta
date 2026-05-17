@@ -24,6 +24,9 @@
   "publishConfig": {
     "access": "public"
   },
+  "dependencies": {
+    "@kanecta/filesystem": "file:../kanecta-filesystem"
+  },
   "devDependencies": {
     "jest": "^29.7.0"
   }

@@ -281,23 +281,23 @@ test('rebuildIndexes repopulates indexes from data', () => {
 // ─── Sample datastore (read-only) ────────────────────────────────────────────
 
 test('sample: root item readable and correct', () => {
-  const ds = new Datastore(SAMPLE);
+  const ds = Datastore.open(SAMPLE);
   const item = ds.get(ROOT_ID);
   expect(item.value).toBe('Base Work Process');
   expect(item.parentId).toMatch(UUID_RE); // reparented to data_root in 1.2.0
 });
 
 test('sample: alias resolves to root UUID', () => {
-  const ds = new Datastore(SAMPLE);
+  const ds = Datastore.open(SAMPLE);
   expect(ds.resolveAlias('base-work-process')).toBe(ROOT_ID);
 });
 
 test('sample: loadAll returns 40 items', () => {
-  const ds = new Datastore(SAMPLE);
+  const ds = Datastore.open(SAMPLE);
   expect(ds.loadAll()).toHaveLength(40); // 35 user items + 5 well-known root nodes
 });
 
 test('sample: tree from root produces 35 nodes', () => {
-  const ds = new Datastore(SAMPLE);
+  const ds = Datastore.open(SAMPLE);
   expect(ds.tree(ROOT_ID)).toHaveLength(35);
 });
