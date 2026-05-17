@@ -1,6 +1,7 @@
 # Kanecta Datastore Specification
 
 **Version:** 1.2.0
+**License:** [MIT](LICENSE) — © 2026 Richard Thomas
 
 This document is the entry point for the Kanecta Datastore Specification. Two variants are provided — choose the one that matches your implementation target.
 
