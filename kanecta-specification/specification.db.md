@@ -1,6 +1,7 @@
 # Kanecta Datastore Specification (Database)
 
 **Version:** 1.2.0
+**License:** [MIT](LICENSE) — © 2026 Richard Thomas
 
 ## Overview
 Kanecta is an open-source, self-hosted personal and organizational information repository. Data is stored as a hierarchical tree structure with globally unique identifiers, enabling flexible organization, linking, semantic relationships, and multi-user collaboration. The protocol is designed as a human-AI bridge: structured enough for AI to work with efficiently, transparent enough for humans to audit and understand.

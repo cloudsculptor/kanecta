@@ -2,6 +2,7 @@
 
 **Version:** 1.2.0
 **Base spec:** [specification.db.md](specification.db.md)
+**License:** [MIT](LICENSE) — © 2026 Richard Thomas
 
 This document describes the PostgreSQL-specific implementation of the Kanecta database datastore. It extends the base `specification.db.md` with dialect decisions, type mappings, and postgres-native features. Read the base spec first; this document only records where postgres differs or where a choice must be made explicit.
 
