@@ -1,6 +1,6 @@
 {
   "name": "@kanecta/cli",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Kanecta filesystem datastore CLI — full CRUD, aliases, annotations, relationships, history, and tree traversal conforming to spec v1.1.0",
   "main": "index.js",
   "bin": {
