@@ -8,7 +8,7 @@
     "test": "jest --runInBand"
   },
   "dependencies": {
-    "@kanecta/lib": "1.0.1",
+    "@kanecta/lib": "file:../kanecta-lib",
     "express": "^4.19.2"
   },
   "devDependencies": {

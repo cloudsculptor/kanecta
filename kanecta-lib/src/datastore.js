@@ -24,13 +24,13 @@ const LINK_SOURCE = '\\[\\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9
 class Datastore {
   constructor(root) {
     this.root = path.resolve(root);
-    this.k = path.join(this.root, '.kanecta');
+    this.k = this.root; // the passed directory IS the datastore; caller chooses the name (e.g. ~/.kanecta)
     this._config = null;
     this._roots = null; // { root, system_root, app_root, component_root, data_root } → items
   }
 
   static isDatastore(root) {
-    return fs.existsSync(path.join(root, '.kanecta', 'config', 'config.json'));
+    return fs.existsSync(path.join(root, 'config', 'config.json'));
   }
 
   static init(root, owner) {
@@ -39,10 +39,10 @@ class Datastore {
       'relationships', 'remotes', 'remotes-index', 'search', 'tags', 'types',
     ];
     fs.mkdirSync(root, { recursive: true });
-    for (const d of dirs) fs.mkdirSync(path.join(root, '.kanecta', d), { recursive: true });
+    for (const d of dirs) fs.mkdirSync(path.join(root, d), { recursive: true });
     const config = { owner, specVersion: '1.2.0' };
     fs.writeFileSync(
-      path.join(root, '.kanecta', 'config', 'config.json'),
+      path.join(root, 'config', 'config.json'),
       JSON.stringify(config, null, 2) + '\n',
     );
     const ds = new Datastore(root);
@@ -589,12 +589,15 @@ class Datastore {
   }
 
   // Returns the flat traversal list starting from rootId (defaults to data_root).
-  // Excludes the internal root spine (root, system_root, app_root, component_root).
+  // When called with null, data_root itself is excluded — its children appear at depth 0.
+  // When called with an explicit id, that item is included at depth 0.
   tree(rootId, maxDepth = Infinity) {
+    let implicitRoot = false;
     if (!rootId) {
       const dr = this.getDataRoot();
       rootId = dr ? dr.id : null;
       if (!rootId) return [];
+      implicitRoot = true;
     }
 
     const all = this.loadAll();
@@ -615,7 +618,11 @@ class Datastore {
       for (const child of byParent.get(id) || []) traverse(child.id, depth + 1);
     };
 
-    traverse(rootId, 0);
+    if (implicitRoot) {
+      for (const child of byParent.get(rootId) || []) traverse(child.id, 0);
+    } else {
+      traverse(rootId, 0);
+    }
     return result;
   }
 
