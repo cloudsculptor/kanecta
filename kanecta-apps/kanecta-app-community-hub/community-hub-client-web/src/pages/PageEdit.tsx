@@ -60,7 +60,7 @@ export default function PageEdit() {
   const [slug, setSlug] = useState("");
   const [title, setTitle] = useState("");
   const [initialContent, setInitialContent] = useState<object | null>(null);
-  const [loading, setLoading] = useState(!isNew);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [slugError, setSlugError] = useState("");
@@ -96,7 +96,8 @@ export default function PageEdit() {
           setLicences(list);
           setLicenceId(defaultLicenceId(list));
         })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => setLoading(false));
       return;
     }
 
@@ -327,10 +328,6 @@ export default function PageEdit() {
                 </Link>
               </div>
             )}
-
-            <div className="page-edit__copyright">
-              <p>© {year} {GROUP_NAME}</p>
-            </div>
           </div>
 
           <div className="page-edit__actions">
