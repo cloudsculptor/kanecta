@@ -1,6 +1,6 @@
 {
   "name": "@kanecta/claude",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Kanecta Claude integration — captures context, decisions, and insights across all Claude sessions.",
   "main": "index.js",
   "scripts": {
@@ -16,7 +16,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@kanecta/cli": "^1.0.1",
+    "@kanecta/cli": "^1.0.3",
     "@kanecta/mcp": "^1.0.0"
   },
   "publishConfig": {
