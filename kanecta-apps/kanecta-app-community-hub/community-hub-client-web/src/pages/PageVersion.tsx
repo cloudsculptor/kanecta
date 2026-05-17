@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import AlertTitle from "@mui/material/AlertTitle";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Typography from "@mui/material/Typography";
 import Header from "../components/Header";
@@ -50,30 +49,12 @@ export default function PageVersion() {
       <Header />
       <Breadcrumb pageName={`v${versionParam}`} parents={breadcrumbParents} />
       <main className="page-content">
-        <div className="pages-header">
-          <h2>{data?.title || `Version ${versionParam}`}</h2>
-          <div className="page-version__actions">
-            <Button
-              component={Link}
-              to={`/groups/resilience/${slug}`}
-              variant="contained"
-              color="success"
-              size="small"
-            >
-              View current page
-            </Button>
-            <Link to={`/groups/resilience/${slug}/history`} className="pages-outline-btn">
-              ← History
-            </Link>
-          </div>
-        </div>
-
         {error && <p className="pages-error">{error}</p>}
         {loading && <p>Loading…</p>}
 
         {data && (
           <>
-            <Alert severity="warning" sx={{ mb: 3 }}>
+            <Alert severity="warning" sx={{ mb: 2 }}>
               <AlertTitle>You are viewing a historic version of this page</AlertTitle>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", mt: 0.5 }}>
                 <Chip
@@ -91,6 +72,19 @@ export default function PageVersion() {
                 )}
               </Box>
             </Alert>
+
+            <div className="pages-header">
+              <h2>{data.title}</h2>
+              <div className="page-version__actions">
+                <Link to={`/groups/resilience/${slug}`} className="pages-outline-btn">
+                  View current page
+                </Link>
+                <Link to={`/groups/resilience/${slug}/history`} className="pages-outline-btn">
+                  ← History
+                </Link>
+              </div>
+            </div>
+
             <LexicalEditor
               initialState={data.content_json}
               editable={false}

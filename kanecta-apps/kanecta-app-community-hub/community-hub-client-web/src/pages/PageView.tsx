@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import Chip from "@mui/material/Chip";
 import Header from "../components/Header";
 import Breadcrumb from "../components/Breadcrumb";
 import Footer from "../components/Footer";
@@ -42,12 +41,7 @@ export default function PageView() {
         {page && (
           <>
             <div className="page-view__header">
-              <div className="page-view__title-row">
-                {page.title && <h2 className="page-view__title">{page.title}</h2>}
-                {page.version != null && (
-                  <Chip label={`v${page.version}`} size="small" variant="outlined" sx={{ ml: 1 }} />
-                )}
-              </div>
+              {page.title && <h2 className="page-view__title">{page.title}</h2>}
               {isTeam && (
                 <Link to={`/groups/resilience/${page.slug}/edit`} className="page-view__edit-btn">
                   Edit
@@ -55,6 +49,12 @@ export default function PageView() {
               )}
             </div>
             <LexicalEditor initialState={page.content_json} editable={false} />
+            <div className="page-view__footer">
+              {page.group_name && <span>© {new Date().getFullYear()} {page.group_name}</span>}
+              {page.licence_name && <span>{page.licence_name}</span>}
+              <span>v{page.version}</span>
+              <span>Updated {new Date(page.updated_at).toLocaleDateString("en-NZ", { day: "numeric", month: "long", year: "numeric" })}</span>
+            </div>
           </>
         )}
       </main>

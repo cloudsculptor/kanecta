@@ -3656,14 +3656,8 @@ $bp-tablet: 768px;
     border-bottom: 1px solid var(--border);
   }
 
-  &__title-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
   &__title {
-    margin: 0 0 4px;
+    margin: 0;
   }
 
   &__meta {
@@ -3684,6 +3678,24 @@ $bp-tablet: 768px;
     font-weight: 500;
     text-decoration: none;
     &:hover { background: var(--accent-bg); text-decoration: none; }
+  }
+
+  &__footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text);
+    opacity: 0.55;
+  }
+
+  // Remove editor chrome when displaying read-only page content
+  .lex-editor {
+    border: none;
+    border-radius: 0;
   }
 }
 
