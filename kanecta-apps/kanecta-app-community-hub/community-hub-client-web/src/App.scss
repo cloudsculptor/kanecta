@@ -207,6 +207,7 @@ $bp-tablet: 768px;
 .nav-card {
   display: flex;
   align-items: stretch;
+  min-height: 120px;
   gap: 0;
   padding: 0;
   background: var(--bg);
