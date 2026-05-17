@@ -25,7 +25,7 @@ VALUES
     'https://creativecommons.org/publicdomain/zero/1.0/',
     'Creative Commons public domain dedication. The author waives all copyright and related rights worldwide, to the extent permitted by law.',
     'Functionally identical to Public Domain but more explicit about the waiver process and international applicability.',
-    NULL,
+    'Encouraged',
     2
   ),
   (
@@ -34,7 +34,7 @@ VALUES
     'https://creativecommons.org/licenses/by/4.0/',
     'Attribution required. Others may share, adapt, and use this work commercially, as long as they credit the original author.',
     'Good default for open content. Permits maximum reuse while ensuring the community gets credit for its work.',
-    'Next best',
+    NULL,
     3
   ),
   (
@@ -43,7 +43,7 @@ VALUES
     'https://creativecommons.org/licenses/by-sa/4.0/',
     'Attribution and share-alike required. Others may adapt and use this work commercially, but must use the same licence for derivative works.',
     'Ensures the content and any improvements remain open. Used by Wikipedia. Good when you want a "viral open" effect.',
-    'Next best',
+    NULL,
     4
   ),
   (

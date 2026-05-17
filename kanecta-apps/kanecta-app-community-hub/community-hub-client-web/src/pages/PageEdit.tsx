@@ -9,6 +9,7 @@ import Button from "@mui/material/Button";
 import FormControl from "@mui/material/FormControl";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import InputLabel from "@mui/material/InputLabel";
+import ListSubheader from "@mui/material/ListSubheader";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import Switch from "@mui/material/Switch";
@@ -24,6 +25,7 @@ import LexicalEditor from "../components/pages/LexicalEditor";
 import keycloak from "../auth/keycloak";
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
+const GROUP_NAME = "Resilience Group";
 
 const breadcrumbParents = [{ name: "Groups", path: "/groups" }];
 
@@ -33,20 +35,19 @@ function currentUserName(): string {
   return [p.given_name, p.family_name].filter(Boolean).join(" ") || p.preferred_username || "";
 }
 
-function licenceLabel(licence: Licence, groupName: string | null, userName: string): string {
-  const year = new Date().getFullYear();
-  if (!licence.name.startsWith("CC ")) return licence.name;
-  const parts = [
-    groupName ? `© ${year} ${groupName}` : null,
-    userName ? `© ${year} ${userName}` : null,
-  ].filter(Boolean);
-  return parts.length ? `${licence.name}  ${parts.join("  ")}` : licence.name;
+function defaultLicenceId(list: Licence[]): string {
+  return list.find((l) => !l.name.startsWith("CC "))?.id ?? "";
 }
 
-const BADGE_COLOR: Record<string, "success" | "info"> = {
-  Encouraged: "success",
-  "Next best": "info",
-};
+function compositeFromPage(list: Licence[], licenceId: string | null): string {
+  if (!licenceId) return defaultLicenceId(list);
+  const isCC = list.find((l) => l.id === licenceId)?.name.startsWith("CC ");
+  return isCC ? `${licenceId}:group` : licenceId;
+}
+
+function rawLicenceId(composite: string): string | null {
+  return composite ? composite.split(":")[0] : null;
+}
 
 export default function PageEdit() {
   const { slug: routeSlug } = useParams<{ slug?: string }>();
@@ -64,11 +65,11 @@ export default function PageEdit() {
   const [error, setError] = useState("");
   const [slugError, setSlugError] = useState("");
   const [uploadError, setUploadError] = useState("");
+  const [isDirty, setIsDirty] = useState(false);
 
   const [licences, setLicences] = useState<Licence[]>([]);
   const [licenceId, setLicenceId] = useState<string>("");
   const [isPublic, setIsPublic] = useState(false);
-  const [groupName, setGroupName] = useState<string | null>(null);
   const [ownerType, setOwnerType] = useState<string>("private");
   const [ownerId, setOwnerId] = useState<string | null>(null);
 
@@ -82,33 +83,46 @@ export default function PageEdit() {
   const userName = currentUserName();
   const year = new Date().getFullYear();
 
+  const ccLicences = licences.filter((l) => l.name.startsWith("CC "));
+  const publicDomainLicences = licences.filter((l) => !l.name.startsWith("CC "));
+
   useEffect(() => {
     if (!initialized) return;
     if (!isTeam) { navigate("/", { replace: true }); return; }
 
-    listLicences().then(setLicences).catch(() => {});
+    if (isNew) {
+      listLicences()
+        .then((list) => {
+          setLicences(list);
+          setLicenceId(defaultLicenceId(list));
+        })
+        .catch(() => {});
+      return;
+    }
 
-    if (isNew) return;
-    getPage(routeSlug!)
-      .then((page) => {
+    Promise.all([listLicences(), getPage(routeSlug!)])
+      .then(([list, page]) => {
+        setLicences(list);
         setSlug(page.slug);
         setTitle(page.title);
         setInitialContent(page.content_json);
         contentRef.current = page.content_json;
         originalSlugRef.current = page.slug;
-        setLicenceId(page.licence_id ?? "");
         setIsPublic(page.public);
-        setGroupName(page.group_name);
         setOwnerType(page.owner_type);
         setOwnerId(page.owner_id);
+        setLicenceId(compositeFromPage(list, page.licence_id));
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
   }, [initialized, isTeam, isNew, routeSlug, navigate]);
 
+  function markDirty() { setIsDirty(true); }
+
   function handleSlugChange(value: string) {
     const clean = value.toLowerCase().replace(/[^a-z0-9-]/g, "");
     setSlug(clean);
+    markDirty();
     if (clean && !SLUG_RE.test(clean)) {
       setSlugError("Slugs must start and end with a letter or number");
     } else {
@@ -123,11 +137,18 @@ export default function PageEdit() {
 
   function handleConfirmToggle() {
     setIsPublic(pendingPublic);
+    setIsDirty(true);
     setConfirmOpen(false);
   }
 
   function handleCancelToggle() {
     setConfirmOpen(false);
+  }
+
+  function handleHistoryClick(e: React.MouseEvent) {
+    if (isDirty && !window.confirm("You have unsaved changes. Leave anyway?")) {
+      e.preventDefault();
+    }
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -136,12 +157,13 @@ export default function PageEdit() {
     setSaving(true);
     setError("");
     try {
+      const lid = rawLicenceId(licenceId);
       if (isNew) {
         await createPage({
           slug,
           title,
           content_json: contentRef.current,
-          licence_id: licenceId || null,
+          licence_id: lid,
           owner_type: ownerType,
           owner_id: ownerId,
         });
@@ -150,12 +172,13 @@ export default function PageEdit() {
           slug: slug !== originalSlugRef.current ? slug : undefined,
           title,
           content_json: contentRef.current,
-          licence_id: licenceId || null,
+          licence_id: lid,
           public: isPublic,
           owner_type: ownerType,
           owner_id: ownerId,
         });
       }
+      setIsDirty(false);
       navigate("/groups/resilience");
     } catch (err) {
       setError((err as Error).message);
@@ -187,7 +210,7 @@ export default function PageEdit() {
             className="page-edit__title-input"
             type="text"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => { setTitle(e.target.value); markDirty(); }}
             placeholder="Page title"
           />
 
@@ -215,7 +238,7 @@ export default function PageEdit() {
             <label className="page-edit__label">Content</label>
             <LexicalEditor
               initialState={initialContent}
-              onChange={(state) => { contentRef.current = state; }}
+              onChange={(state) => { contentRef.current = state; markDirty(); }}
               onUploadError={(msg) => setUploadError(msg)}
             />
           </div>
@@ -240,27 +263,53 @@ export default function PageEdit() {
                 labelId="pe-licence-label"
                 value={licenceId}
                 label="Licence"
-                onChange={(e) => setLicenceId(e.target.value)}
-                renderValue={(id) => {
+                onChange={(e) => { setLicenceId(e.target.value); markDirty(); }}
+                renderValue={(val) => {
+                  const [id, ctx] = (val as string).split(":");
                   const l = licences.find((x) => x.id === id);
-                  if (!l) return "No licence selected";
-                  return licenceLabel(l, groupName, userName);
+                  if (!l) return "";
+                  if (ctx === "group") return `${l.name}  © ${year} ${GROUP_NAME}`;
+                  if (ctx === "user") return `${l.name}  © ${year} ${userName}`;
+                  return l.name;
                 }}
               >
-                <MenuItem value=""><em>No licence</em></MenuItem>
-                {licences.map((l) => (
+                <ListSubheader>— Public domain —</ListSubheader>
+                {publicDomainLicences.map((l) => (
                   <MenuItem key={l.id} value={l.id}>
                     <div className="page-edit__licence-option">
                       <div className="page-edit__licence-option-name">
-                        <span>{licenceLabel(l, groupName, userName)}</span>
+                        <span>{l.name}</span>
                         {l.badge && (
-                          <Chip
-                            label={l.badge}
-                            color={BADGE_COLOR[l.badge] ?? "default"}
-                            size="small"
-                            sx={{ ml: 1 }}
-                          />
+                          <Chip label={l.badge} color="success" size="small" sx={{ ml: 1 }} />
                         )}
+                      </div>
+                      {l.public_description && (
+                        <div className="page-edit__licence-option-desc">{l.public_description}</div>
+                      )}
+                    </div>
+                  </MenuItem>
+                ))}
+
+                <ListSubheader>— {GROUP_NAME} —</ListSubheader>
+                {ccLicences.map((l) => (
+                  <MenuItem key={`${l.id}:group`} value={`${l.id}:group`}>
+                    <div className="page-edit__licence-option">
+                      <div className="page-edit__licence-option-name">
+                        <span>{l.name}  © {year} {GROUP_NAME}</span>
+                      </div>
+                      {l.public_description && (
+                        <div className="page-edit__licence-option-desc">{l.public_description}</div>
+                      )}
+                    </div>
+                  </MenuItem>
+                ))}
+
+                <ListSubheader>— {userName} —</ListSubheader>
+                {ccLicences.map((l) => (
+                  <MenuItem key={`${l.id}:user`} value={`${l.id}:user`}>
+                    <div className="page-edit__licence-option">
+                      <div className="page-edit__licence-option-name">
+                        <span>{l.name}  © {year} {userName}</span>
                       </div>
                       {l.public_description && (
                         <div className="page-edit__licence-option-desc">{l.public_description}</div>
@@ -273,13 +322,14 @@ export default function PageEdit() {
 
             {!isNew && (
               <div className="page-edit__history-link">
-                <Link to={`/groups/resilience/${slug}/history`}>View page history</Link>
+                <Link to={`/groups/resilience/${slug}/history`} onClick={handleHistoryClick}>
+                  View page history
+                </Link>
               </div>
             )}
 
             <div className="page-edit__copyright">
-              {groupName && <p>© {year} {groupName}</p>}
-              {userName && <p>© {year} {userName}</p>}
+              <p>© {year} {GROUP_NAME}</p>
             </div>
           </div>
 
