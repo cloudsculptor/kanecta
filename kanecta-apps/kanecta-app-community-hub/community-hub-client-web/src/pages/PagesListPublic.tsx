@@ -7,7 +7,7 @@ import { listPublicPages, type PageSummary } from "../api/pages";
 import { usePageMeta } from "../hooks/usePageMeta";
 
 export default function PagesListPublic() {
-  usePageMeta("Community Documents");
+  usePageMeta("Resilience");
   const [pages, setPages] = useState<PageSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -22,12 +22,9 @@ export default function PagesListPublic() {
   return (
     <>
       <Header />
-      <Breadcrumb pageName="Community Documents" parents={[{ name: "Resilience", path: "/resilience" }]} />
+      <Breadcrumb pageName="Resilience" parents={[{ name: "Groups", path: "/groups" }]} />
       <main className="page-content">
-        <h2>Community Documents</h2>
-        <p className="public-pages-intro">
-          Published documents from the Featherston resilience group — plans, notes, and resources available to the whole community.
-        </p>
+        <h2>Resilience</h2>
         {error && <p className="pages-error">{error}</p>}
         {loading ? (
           <p>Loading…</p>
