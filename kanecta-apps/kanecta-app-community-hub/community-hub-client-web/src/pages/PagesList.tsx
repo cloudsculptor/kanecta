@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import Chip from "@mui/material/Chip";
 import Header from "../components/Header";
 import Breadcrumb from "../components/Breadcrumb";
 import Footer from "../components/Footer";
@@ -58,9 +59,18 @@ export default function PagesList() {
             {pages.map((page) => (
               <li key={page.id} className="pages-list__item">
                 <div className="pages-list__info">
-                  <Link to={`/groups/resilience/${page.slug}`} className="pages-list__title">
-                    {page.title || page.slug}
-                  </Link>
+                  <div className="pages-list__title-row">
+                    <Link to={`/groups/resilience/${page.slug}`} className="pages-list__title">
+                      {page.title || page.slug}
+                    </Link>
+                    <Chip
+                      label={page.public ? "Public" : "Private"}
+                      color={page.public ? "success" : "default"}
+                      variant={page.public ? "filled" : "outlined"}
+                      size="small"
+                      sx={{ ml: 1 }}
+                    />
+                  </div>
                   <span className="pages-list__meta">
                     by {page.created_by_name} · {new Date(page.updated_at).toLocaleDateString("en-NZ")}
                   </span>

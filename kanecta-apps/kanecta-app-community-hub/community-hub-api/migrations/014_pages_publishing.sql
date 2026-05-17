@@ -1,0 +1,6 @@
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS licence_id  UUID    REFERENCES licences(id);
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS public       BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS version      INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS owner_type   TEXT    NOT NULL DEFAULT 'private'
+  CHECK (owner_type IN ('private', 'group', 'business'));
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS owner_id     UUID    REFERENCES groups(id);
