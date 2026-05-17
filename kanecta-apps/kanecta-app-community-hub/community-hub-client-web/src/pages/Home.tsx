@@ -9,7 +9,7 @@ const publicActive = [
     title: "Events",
     blurb: "Find local events, gatherings, and activities happening in Featherston.",
     path: "/events",
-    image: "/events-balloon.jpg",
+    image: "/balloon-160x160.png",
     attribution: {
       label: "Photo: Bryan Kennedy / Public Domain",
       url: "https://commons.wikimedia.org/wiki/File:Balloon_free_image.jpg",
@@ -19,22 +19,32 @@ const publicActive = [
     title: "Transport",
     blurb: "Public transport, carpooling, ride sharing, and transport options in the area.",
     path: "/transport",
-    image: "/featherston-station.jpg",
+    image: "/featherston-station-160x160.png",
     attribution: {
       label: "Photo: Sanciston / CC0",
       url: "https://commons.wikimedia.org/wiki/File:Featherston_station_2025.png",
     },
   },
+  {
+    title: "Community Groups",
+    blurb: "Discover local community groups",
+    path: "/groups",
+    image: "/group-photo-160x160.png",
+    attribution: {
+      label: "Photo: Canva AI",
+      url: "https://www.canva.com/",
+    },
+  },
 ];
 
-const publicComing = [
+const publicComing = [  
   {
-    title: "Groups & Organisations",
-    blurb: "Discover local community groups, and organisations near you.",
+    title: "Local Businesses",
+    blurb: "Support local businesses",
   },
   {
-    title: "Goods & Services",
-    blurb: "Buy, sell, swap, or give away goods and services locally.",
+    title: "Buy, Sell & Swap",
+    blurb: "Buy, sell, swap, or give away items locally.",
   },
   {
     title: "Social Services",
@@ -101,17 +111,22 @@ export default function Home() {
               title="Discussions"
               blurb="Share ideas, ask questions, and connect with others in the Featherston community."
               path="/discussions"
-              image="/discussions-community.jpg"
+              image="/discussions-160x160.png"
               attribution={{
-                label: "Photo: Andis Rado / CC BY-SA 4.0",
-                url: "https://commons.wikimedia.org/wiki/File:OSCAL_2017_-_meetups_and_communities_09.jpg",
+                label: "Photo: Canva AI",
+                url: "https://www.canva.com/",                
               }}
             />
             <NavCard
               accent
-              title="Groups"
-              blurb="Discover local community groups, and organisations near you."
+              title="Community Groups"
+              blurb="Discover local community groups"
               path="/groups"
+              image="/group-photo-160x160.png"
+              attribution={{
+                label: "Photo: Canva AI",
+                url: "https://www.canva.com/",
+              }}
             />
             {localItems.map((item) => <NavCard key={item.title} {...item} />)}
           </>
