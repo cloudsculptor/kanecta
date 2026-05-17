@@ -28,8 +28,8 @@ export default function PageViewPublic() {
       <Breadcrumb
         pageName={page?.title || slug || ""}
         parents={[
-          { name: "Resilience", path: "/resilience" },
-          { name: "Community Documents", path: "/resilience/pages" },
+          { name: "Groups", path: "/groups" },
+          { name: "Resilience", path: "/resilience/pages" },
         ]}
       />
       <main className="page-content page-view">
