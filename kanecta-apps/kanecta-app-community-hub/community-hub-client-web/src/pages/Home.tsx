@@ -35,6 +35,11 @@ const publicActive = [
       url: "https://www.canva.com/",
     },
   },
+  {
+    title: "Communication Networks",
+    blurb: "Stay connected with local networks, groups, and channels.",
+    path: "/communication-networks",
+  },
 ];
 
 const publicComing = [  
@@ -76,11 +81,6 @@ const localItems = [
     title: "Social Services",
     blurb: "Access social support, welfare, and community care services.",
     path: "/social-services",
-  },
-  {
-    title: "Communication Networks",
-    blurb: "Stay connected with local networks, groups, and channels.",
-    path: "/communication-networks",
   },
   {
     title: "Local Economy",
