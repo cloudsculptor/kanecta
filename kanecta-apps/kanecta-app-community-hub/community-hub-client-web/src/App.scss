@@ -335,6 +335,14 @@ $bp-tablet: 768px;
 
   a {
     color: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  img {
+    height: 18px;
+    vertical-align: text-bottom;
   }
 }
 
