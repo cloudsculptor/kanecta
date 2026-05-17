@@ -3670,7 +3670,7 @@ $bp-tablet: 768px;
     align-items: flex-start;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.25rem;
   }
 
   &__title {
@@ -3709,10 +3709,14 @@ $bp-tablet: 768px;
     opacity: 0.55;
   }
 
-  // Remove editor chrome when displaying read-only page content
+  // Remove editor chrome and padding when displaying read-only page content
   .lex-editor {
     border: none;
     border-radius: 0;
+  }
+
+  .lex-content {
+    padding: 0;
   }
 }
 
