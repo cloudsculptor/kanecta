@@ -175,8 +175,6 @@ export default function PageEdit() {
     );
   }
 
-  const selectedLicence = licences.find((l) => l.id === licenceId) ?? null;
-
   return (
     <>
       <Header />
