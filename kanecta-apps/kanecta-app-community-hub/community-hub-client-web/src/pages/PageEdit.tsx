@@ -362,8 +362,8 @@ export default function PageEdit() {
         <DialogContent>
           <DialogContentText>
             {pendingPublic
-              ? "The page will be marked as public in the database. Actual internet visibility is managed separately."
-              : "The page will be marked as private. It will no longer be flagged as public."}
+              ? "This page will be visible to anyone visiting the site, including members of the public who are not logged in."
+              : "This page will be hidden from the public. Only logged-in team members will be able to see it."}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
