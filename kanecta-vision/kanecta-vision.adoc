@@ -336,6 +336,55 @@ community groups, organizations), these are the features that matter:
 . *Self-hostable, no cloud required.* Run it on a laptop. Run it on a
   VPS. Run it on a Raspberry Pi. Your choice.
 
+== The Bootstrapping Property
+
+[quote, Richard Thomas]
+____
+Because it is a totally flexible storage structure, and includes code, you can start using it almost instantly... storing AI context, storing tickets, roadmaps, documentation etc., while coding. As the code items become more prolific they can be used to provide functionality and UI and eventually can become more and more of the functionality, until the major part of the project code fades away and what was originally the Kanecta project just becomes a thin bootstrapping layer that acts as an entrypoint into the tree of data and code.
+____
+
+There is a quality of Kanecta that is easy to miss on first encounter but becomes one of its most compelling properties once seen: _you can start using it before you are ready to commit to it, and the longer you use it, the less you need anything else._
+
+=== Zero Friction to Start
+
+Because Kanecta's storage structure is deliberately simple and flexible — a sharded tree of typed JSON items — there is no schema to define upfront, no data model to commit to, no migration strategy to plan. Install the npm package, run `kanecta`, and within minutes you are dropping in your first items: an AI conversation you don't want to lose, a decision you just made, a ticket you are tracking, a fragment of documentation that keeps getting buried in a README.
+
+This immediate utility is valuable in its own right. But it understates what Kanecta is actually doing.
+
+=== The Accumulation Phase
+
+As development of any project proceeds, Kanecta begins accumulating things that would otherwise live in scattered places:
+
+* Development notes and AI conversations that inform decisions
+* Task lists and roadmap items with typed relationships between them
+* Architecture decisions with reasoning and rejected alternatives
+* Reusable code patterns and snippets
+* Documentation fragments tied directly to the items they describe
+
+At this stage, Kanecta is a rich, queryable store that makes the project's institutional knowledge accessible to both humans and AI. Genuinely useful — but still scaffolding around the real project.
+
+=== The Tipping Point
+
+The shift happens when the items stored in Kanecta begin to represent not just metadata _about_ the project, but the project _itself_ — its behaviour, its UI definitions, its configuration, its business logic.
+
+A content type defined in Kanecta becomes the schema for a UI component. A list of routes stored as items drives the navigation structure. A set of business rules captured as decision items becomes the validation logic. The project stops being a codebase _with data in Kanecta_ and starts being _data in Kanecta with a thin layer of code over it_.
+
+=== The Dissolving Codebase
+
+This is the beautiful paradox at the heart of Kanecta's long-arc value: _the more completely a project grows into Kanecta, the more of the original project code quietly fades away._
+
+Not because the code is deleted, but because its purpose has migrated. What was once imperative logic in files — "if type is article, render thus; if relationship is depends-on, enforce thus" — becomes declarative structure inside the store. The code that remains is interpretation: a thin, generic engine that knows how to read Kanecta items and render, validate, or execute them.
+
+The original project, in its fullest evolution, becomes a _bootstrapper_: an entrypoint that starts up, points itself at a Kanecta datastore, and hands control over to the living tree of typed, related, versioned items within it. What the user experiences as "the application" is no longer a codebase in the traditional sense. It is a self-describing, self-organizing tree of data.
+
+=== Why This Matters
+
+This is not speculative architecture. It is a natural arc that any committed adopter will travel, because each step of it is individually sensible and low-risk. You never have to make a large bet on Kanecta to arrive here. You arrive by continuing to make small, obvious decisions.
+
+It also means that the data _is_ the project. Backing up a Kanecta datastore backs up the knowledge, the decisions, the structure, and — in mature deployments — the behaviour of the application itself. The data longevity principle and the bootstrapping property are, in this sense, the same principle seen from opposite ends of time: one asks "will this still be readable in fifty years?" and the other asks "what is it becoming right now?"
+
+The project that begins by storing a few AI conversations and a roadmap ends as something the original code could never have been on its own — a living system where logic is data, history is auditable, and the original application has dissolved, gracefully, into the fabric of its own store.
+
 = Part IV: Architecture and Specification
 
 == The 30-Second Architecture
