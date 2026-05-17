@@ -126,4 +126,4 @@ Inside a Claude Code session:
 
 ## License
 
-MIT
+AGPL-3.0
