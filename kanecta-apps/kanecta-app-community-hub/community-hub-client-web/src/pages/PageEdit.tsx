@@ -9,6 +9,7 @@ import Button from "@mui/material/Button";
 import FormControl from "@mui/material/FormControl";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import InputLabel from "@mui/material/InputLabel";
+import HistoryIcon from "@mui/icons-material/History";
 import ListSubheader from "@mui/material/ListSubheader";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
@@ -70,6 +71,7 @@ export default function PageEdit() {
   const [licences, setLicences] = useState<Licence[]>([]);
   const [licenceId, setLicenceId] = useState<string>("");
   const [isPublic, setIsPublic] = useState(false);
+  const [version, setVersion] = useState<number | null>(null);
   const [ownerType, setOwnerType] = useState<string>("private");
   const [ownerId, setOwnerId] = useState<string | null>(null);
 
@@ -110,6 +112,7 @@ export default function PageEdit() {
         contentRef.current = page.content_json;
         originalSlugRef.current = page.slug;
         setIsPublic(page.public);
+        setVersion(page.version);
         setOwnerType(page.owner_type);
         setOwnerId(page.owner_id);
         setLicenceId(compositeFromPage(list, page.licence_id));
@@ -322,10 +325,21 @@ export default function PageEdit() {
             </FormControl>
 
             {!isNew && (
-              <div className="page-edit__history-link">
-                <Link to={`/groups/resilience/${slug}/history`} onClick={handleHistoryClick}>
-                  View page history
-                </Link>
+              <div className="page-edit__history-row">
+                {version !== null && (
+                  <Chip label={`v${version}`} size="small" variant="outlined" sx={{ mr: 1 }} />
+                )}
+                <Button
+                  component={Link}
+                  to={`/groups/resilience/${slug}/history`}
+                  onClick={handleHistoryClick}
+                  startIcon={<HistoryIcon />}
+                  variant="outlined"
+                  size="small"
+                  color="inherit"
+                >
+                  Page history
+                </Button>
               </div>
             )}
           </div>
