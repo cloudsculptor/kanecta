@@ -3633,6 +3633,12 @@ $bp-tablet: 768px;
     cursor: pointer;
     &:hover { border-color: var(--accent-border); }
   }
+
+  &__history-row {
+    display: flex;
+    align-items: center;
+    margin-top: 12px;
+  }
 }
 
 // ── Page view ─────────────────────────────────────────────────────────────────
@@ -3648,6 +3654,12 @@ $bp-tablet: 768px;
     margin-bottom: 1.5rem;
     padding-bottom: 1rem;
     border-bottom: 1px solid var(--border);
+  }
+
+  &__title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 
   &__title {

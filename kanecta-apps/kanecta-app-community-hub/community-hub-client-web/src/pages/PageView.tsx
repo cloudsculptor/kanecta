@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import Chip from "@mui/material/Chip";
 import Header from "../components/Header";
 import Breadcrumb from "../components/Breadcrumb";
 import Footer from "../components/Footer";
@@ -41,8 +42,11 @@ export default function PageView() {
         {page && (
           <>
             <div className="page-view__header">
-              <div>
+              <div className="page-view__title-row">
                 {page.title && <h2 className="page-view__title">{page.title}</h2>}
+                {page.version != null && (
+                  <Chip label={`v${page.version}`} size="small" variant="outlined" sx={{ ml: 1 }} />
+                )}
               </div>
               {isTeam && (
                 <Link to={`/groups/resilience/${page.slug}/edit`} className="page-view__edit-btn">
