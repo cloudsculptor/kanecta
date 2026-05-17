@@ -70,6 +70,12 @@ export default function PagesList() {
                       size="small"
                       sx={{ ml: 1 }}
                     />
+                    <Chip
+                      label={`v${page.version}`}
+                      size="small"
+                      variant="outlined"
+                      sx={{ ml: 0.5 }}
+                    />
                   </div>
                   <span className="pages-list__meta">
                     by {page.created_by_name} · {new Date(page.updated_at).toLocaleDateString("en-NZ")}
