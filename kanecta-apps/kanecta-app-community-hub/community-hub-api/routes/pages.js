@@ -82,6 +82,32 @@ router.post("/upload", requireAuth, requireTeam, upload.single("file"), wrap(asy
   res.status(201).json({ id: file.id, url, name: file.name, mime_type: file.mime_type });
 }));
 
+// ── List public pages (no auth) ───────────────────────────────────────────────
+router.get("/public", wrap(async (req, res) => {
+  const { rows } = await pool.query(
+    `SELECT p.id, p.slug, p.title, p.created_by_name, p.created_at, p.updated_at,
+            p.public, p.licence_id, p.version, p.owner_type, p.owner_id
+     FROM pages p
+     WHERE p.public = TRUE
+     ORDER BY p.updated_at DESC`
+  );
+  res.json(rows);
+}));
+
+// ── Get public page by slug (no auth) ─────────────────────────────────────────
+router.get("/public/:slug", wrap(async (req, res) => {
+  const { rows } = await pool.query(
+    `SELECT p.*, l.name AS licence_name, g.name AS group_name
+     FROM pages p
+     LEFT JOIN licences l ON l.id = p.licence_id
+     LEFT JOIN groups g ON g.id = p.owner_id
+     WHERE p.slug = $1 AND p.public = TRUE`,
+    [req.params.slug]
+  );
+  if (!rows.length) return res.status(404).json({ error: "Not found" });
+  res.json(rows[0]);
+}));
+
 // ── Get page history (must come before /:slug) ────────────────────────────────
 router.get("/:slug/history", requireAuth, requireTeam, wrap(async (req, res) => {
   const { rows: pageRows } = await pool.query(

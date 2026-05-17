@@ -80,6 +80,20 @@ export function listPages(): Promise<PageSummary[]> {
   return authFetch("/api/pages");
 }
 
+export function listPublicPages(): Promise<PageSummary[]> {
+  return fetch(`${BASE}/api/pages/public`).then((r) => r.json());
+}
+
+export function getPublicPage(slug: string): Promise<Page> {
+  return fetch(`${BASE}/api/pages/public/${slug}`).then(async (r) => {
+    if (!r.ok) {
+      const body = await r.json().catch(() => ({}));
+      throw new Error((body as { error?: string }).error ?? `${r.status} ${r.statusText}`);
+    }
+    return r.json();
+  });
+}
+
 export function getPage(slug: string): Promise<Page> {
   return authFetch(`/api/pages/${slug}`);
 }
