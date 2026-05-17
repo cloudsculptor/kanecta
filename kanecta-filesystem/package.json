@@ -1,0 +1,25 @@
+{
+  "name": "@kanecta/filesystem",
+  "version": "1.0.0",
+  "description": "Kanecta filesystem adapter — FILE mode storage for items and files",
+  "main": "src/index.js",
+  "files": [
+    "src/"
+  ],
+  "scripts": {
+    "test": "echo \"No standalone tests — tested via kanecta-lib\" && exit 0"
+  },
+  "keywords": [
+    "kanecta",
+    "datastore",
+    "filesystem"
+  ],
+  "author": "Richie Thomas <richardsempire@gmail.com>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
