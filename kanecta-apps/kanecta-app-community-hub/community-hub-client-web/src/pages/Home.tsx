@@ -29,7 +29,7 @@ const publicActive = [
     title: "Community Groups",
     blurb: "Discover local community groups",
     path: "/groups",
-    image: "/notice-boards-160x160.png",
+    image: "/group-photo-160x160.png",
     attribution: {
       label: "Photo: Canva AI",
       url: "https://www.canva.com/",
@@ -39,7 +39,7 @@ const publicActive = [
     title: "Communication Networks",
     blurb: "Stay connected with local networks, groups, and channels.",
     path: "/communication-networks",
-    image: "/group-photo-160x160.png",
+    image: "/notice-boards-160x160.png",
     attribution: {
       label: "Photo: Joseph Barillari",
       url: "https://commons.wikimedia.org/wiki/File:Infinite-corridor-bboard.jpeg",

@@ -1,4 +1,5 @@
 import PageLayout from "../components/PageLayout";
+import CC0Notice from "../components/CC0Notice";
 
 export default function Events() {
   return (
@@ -51,6 +52,7 @@ export default function Events() {
           premier book events
         </li>
       </ul>
+      <CC0Notice />
     </PageLayout>
   );
 }

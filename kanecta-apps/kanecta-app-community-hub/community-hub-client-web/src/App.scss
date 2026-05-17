@@ -325,6 +325,19 @@ $bp-tablet: 768px;
   }
 }
 
+.cc0-notice {
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text);
+  opacity: 0.6;
+
+  a {
+    color: inherit;
+  }
+}
+
 .breadcrumb {
   display: flex;
   align-items: center;

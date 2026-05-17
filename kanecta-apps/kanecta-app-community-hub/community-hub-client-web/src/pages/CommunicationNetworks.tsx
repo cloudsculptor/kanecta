@@ -1,4 +1,5 @@
 import PageLayout from "../components/PageLayout";
+import CC0Notice from "../components/CC0Notice";
 
 export default function CommunicationNetworks() {
   return (
@@ -25,6 +26,7 @@ export default function CommunicationNetworks() {
           Open full map
         </a>
       </p>
+      <CC0Notice />
     </PageLayout>
   );
 }
