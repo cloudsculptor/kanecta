@@ -20,7 +20,7 @@ export default function PagesList() {
 
   useEffect(() => {
     if (!initialized) return;
-    if (!isTeam) { navigate("/", { replace: true }); return; }
+    if (!isTeam) { navigate("/resilience/pages", { replace: true }); return; }
     listPages()
       .then(setPages)
       .catch((err: Error) => setError(err.message))
