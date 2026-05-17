@@ -104,7 +104,7 @@ router.get("/:slug/version/:version", requireAuth, requireTeam, wrap(async (req,
   if (isNaN(version)) return res.status(400).json({ error: "Invalid version" });
 
   const { rows: pageRows } = await pool.query(
-    "SELECT id FROM pages WHERE slug = $1", [req.params.slug]
+    "SELECT id, title FROM pages WHERE slug = $1", [req.params.slug]
   );
   if (!pageRows.length) return res.status(404).json({ error: "Not found" });
 
@@ -117,7 +117,7 @@ router.get("/:slug/version/:version", requireAuth, requireTeam, wrap(async (req,
     [pageRows[0].id, version]
   );
   if (!rows.length) return res.status(404).json({ error: "Version not found" });
-  res.json(rows[0]);
+  res.json({ ...rows[0], title: pageRows[0].title });
 }));
 
 // ── Get page by slug ──────────────────────────────────────────────────────────

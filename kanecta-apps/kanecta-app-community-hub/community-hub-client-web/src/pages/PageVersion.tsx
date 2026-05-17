@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import Alert from "@mui/material/Alert";
+import AlertTitle from "@mui/material/AlertTitle";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
+import Typography from "@mui/material/Typography";
 import Header from "../components/Header";
 import Breadcrumb from "../components/Breadcrumb";
 import Footer from "../components/Footer";
@@ -46,8 +51,21 @@ export default function PageVersion() {
       <Breadcrumb pageName={`v${versionParam}`} parents={breadcrumbParents} />
       <main className="page-content">
         <div className="pages-header">
-          <h2>Version {versionParam}</h2>
-          <Link to={`/groups/resilience/${slug}/history`} className="pages-outline-btn">← History</Link>
+          <h2>{data?.title || `Version ${versionParam}`}</h2>
+          <div className="page-version__actions">
+            <Button
+              component={Link}
+              to={`/groups/resilience/${slug}`}
+              variant="contained"
+              color="success"
+              size="small"
+            >
+              View current page
+            </Button>
+            <Link to={`/groups/resilience/${slug}/history`} className="pages-outline-btn">
+              ← History
+            </Link>
+          </div>
         </div>
 
         {error && <p className="pages-error">{error}</p>}
@@ -55,19 +73,24 @@ export default function PageVersion() {
 
         {data && (
           <>
-            <div className="page-version__meta">
-              <Chip
-                label={data.action}
-                color={ACTION_COLOR[data.action] ?? "default"}
-                size="small"
-              />
-              <span className="page-version__meta-text">
-                by {data.user_name} · {new Date(data.created_at).toLocaleString("en-NZ")}
-              </span>
-              {data.licence_name && (
-                <span className="page-version__meta-text">{data.licence_name}</span>
-              )}
-            </div>
+            <Alert severity="warning" sx={{ mb: 3 }}>
+              <AlertTitle>You are viewing a historic version of this page</AlertTitle>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", mt: 0.5 }}>
+                <Chip
+                  label={data.action}
+                  color={ACTION_COLOR[data.action] ?? "default"}
+                  size="small"
+                />
+                <Typography variant="body2" component="span">
+                  by {data.user_name} · {new Date(data.created_at).toLocaleString("en-NZ")}
+                </Typography>
+                {data.licence_name && (
+                  <Typography variant="body2" component="span">
+                    · {data.licence_name}
+                  </Typography>
+                )}
+              </Box>
+            </Alert>
             <LexicalEditor
               initialState={data.content_json}
               editable={false}
