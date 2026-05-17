@@ -1,0 +1,29 @@
+{
+  "name": "@kanecta/postgres",
+  "version": "0.1.0",
+  "description": "Kanecta postgres adapter — REMOTE mode items storage",
+  "main": "src/index.js",
+  "files": [
+    "src/",
+    "migrations/"
+  ],
+  "scripts": {
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "keywords": [
+    "kanecta",
+    "datastore",
+    "postgres"
+  ],
+  "author": "Richie Thomas <richardsempire@gmail.com>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "pg": ">=8.0.0"
+  }
+}
