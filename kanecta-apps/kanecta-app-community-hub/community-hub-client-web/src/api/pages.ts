@@ -73,6 +73,7 @@ export interface PageVersionData {
   licence_name: string | null;
   user_name: string;
   created_at: string;
+  title: string;
 }
 
 export function listPages(): Promise<PageSummary[]> {

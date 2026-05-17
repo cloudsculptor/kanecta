@@ -3687,6 +3687,17 @@ $bp-tablet: 768px;
   }
 }
 
+// ── Page version ─────────────────────────────────────────────────────────────
+
+.page-version {
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+}
+
 // ── Lexical editor shell ──────────────────────────────────────────────────────
 
 .lex-editor {
