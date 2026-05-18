@@ -101,7 +101,6 @@ export function TreeNode({
         ) : (
           <span
             className="TreeNode-label"
-            title={item.value}
             onClick={(e) => { e.stopPropagation(); startEdit(); }}
           >
             <ItemValue value={item.value} resolveId={resolveId} onNavigate={onZoom} />
