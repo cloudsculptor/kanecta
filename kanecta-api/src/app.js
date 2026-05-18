@@ -16,7 +16,7 @@ function openDatastore(res) {
     res.status(503).json({ error: `Not a Kanecta datastore: ${root}` });
     return null;
   }
-  return new Datastore(root);
+  return Datastore.open(root);
 }
 
 function isUuid(str) {
@@ -34,6 +34,79 @@ function withChildCounts(ds, items) {
   return items.map(item => ({ ...item, childCount: counts.get(item.id) || 0 }));
 }
 
+function getAncestorChain(ds, id) {
+  const ancestors = [];
+  const seen = new Set([id]);
+  let item = ds.get(id);
+  while (item && item.parentId && item.parentId !== item.id && !seen.has(item.parentId)) {
+    seen.add(item.parentId);
+    const parent = ds.get(item.parentId);
+    if (!parent) break;
+    ancestors.unshift({ id: parent.id, value: parent.value, type: parent.type });
+    item = parent;
+  }
+  return ancestors;
+}
+
+function collectSubtreeIds(ds, id) {
+  const ids = [id];
+  for (const child of ds.children(id)) {
+    ids.push(...collectSubtreeIds(ds, child.id));
+  }
+  return ids;
+}
+
+function cloneSubtree(ds, sourceId, targetParentId, actor) {
+  const source = ds.get(sourceId);
+  if (!source) return null;
+  const cloned = ds.create({
+    parentId: targetParentId,
+    value: source.value,
+    type: source.type,
+    typeId: source.typeId || null,
+    tags: source.tags || [],
+    confidence: source.confidence || null,
+    license: source.license || null,
+    owner: actor || source.owner,
+  });
+  for (const child of ds.children(sourceId)) {
+    cloneSubtree(ds, child.id, cloned.id, actor);
+  }
+  return cloned;
+}
+
+// ─── Search ───────────────────────────────────────────────────────────────────
+
+// GET /search?q=&rootId=&limit= — full-text search with optional subtree scope and ancestor breadcrumb
+app.get('/search', (req, res) => {
+  const ds = openDatastore(res);
+  if (!ds) return;
+  const { q, rootId, limit = '10' } = req.query;
+  if (!q) return res.status(400).json({ error: 'q is required' });
+  const maxResults = parseInt(limit, 10);
+  if (isNaN(maxResults) || maxResults < 1)
+    return res.status(400).json({ error: 'limit must be a positive integer' });
+  if (rootId && !isUuid(rootId))
+    return res.status(400).json({ error: 'Invalid UUID format for rootId' });
+  if (rootId && !ds.get(rootId))
+    return res.status(404).json({ error: `rootId not found: ${rootId}` });
+
+  let candidates = ds.loadAll()
+    .filter(i => i.value && typeof i.value === 'string' && i.value.toLowerCase().includes(q.toLowerCase()));
+
+  if (rootId) {
+    const subtreeIds = new Set(collectSubtreeIds(ds, rootId));
+    candidates = candidates.filter(i => subtreeIds.has(i.id));
+  }
+
+  const results = candidates
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+    .slice(0, maxResults)
+    .map(item => ({ ...item, ancestors: getAncestorChain(ds, item.id) }));
+
+  res.json({ query: q, count: results.length, results });
+});
+
 // ─── Items ────────────────────────────────────────────────────────────────────
 
 // GET /items — list children of data_root (the user's top-level items)
@@ -43,6 +116,41 @@ app.get('/items', (req, res) => {
   const dataRoot = ds.getDataRoot();
   const items = dataRoot ? ds.children(dataRoot.id) : [];
   res.json(withChildCounts(ds, items));
+});
+
+// POST /items/bulk — create multiple items in one call
+app.post('/items/bulk', (req, res) => {
+  const ds = openDatastore(res);
+  if (!ds) return;
+  const { items } = req.body;
+  if (!Array.isArray(items) || items.length === 0)
+    return res.status(400).json({ error: 'items must be a non-empty array' });
+
+  const created = [];
+  const errors = [];
+  for (const [i, itemArgs] of items.entries()) {
+    const { parentId = null, value = null, type = 'string', typeId = null,
+      owner, license = null, sortOrder, confidence = null, tags = [],
+      alias, createdBy } = itemArgs;
+    if (!VALID_TYPES.includes(type)) {
+      errors.push({ index: i, error: `Invalid type: ${type}` });
+      continue;
+    }
+    if (confidence && !VALID_CONFIDENCES.includes(confidence)) {
+      errors.push({ index: i, error: `Invalid confidence: ${confidence}` });
+      continue;
+    }
+    try {
+      const item = ds.create({ parentId, value, type, typeId, owner, license, sortOrder, confidence, tags, createdBy });
+      if (alias) ds.setAlias(alias, item.id);
+      created.push(item);
+    } catch (err) {
+      errors.push({ index: i, error: err.message });
+    }
+  }
+
+  const status = errors.length && created.length ? 207 : errors.length ? 400 : 201;
+  res.status(status).json({ created, errors });
 });
 
 // POST /items — create item
@@ -69,6 +177,34 @@ app.post('/items', (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// PATCH /items/bulk — update multiple items in one call
+app.patch('/items/bulk', (req, res) => {
+  const ds = openDatastore(res);
+  if (!ds) return;
+  const { updates } = req.body;
+  if (!Array.isArray(updates) || updates.length === 0)
+    return res.status(400).json({ error: 'updates must be a non-empty array' });
+
+  const updated = [];
+  const errors = [];
+  for (const [i, { id, ...changes }] of updates.entries()) {
+    if (!id) { errors.push({ index: i, error: 'id is required' }); continue; }
+    if (!isUuid(id)) { errors.push({ index: i, error: `Invalid UUID: ${id}` }); continue; }
+    if (!ds.get(id)) { errors.push({ index: i, id, error: 'Not found' }); continue; }
+    if ('type' in changes && !VALID_TYPES.includes(changes.type)) {
+      errors.push({ index: i, id, error: `Invalid type: ${changes.type}` }); continue;
+    }
+    try {
+      updated.push(ds.update(id, changes, req.body.actor));
+    } catch (err) {
+      errors.push({ index: i, id, error: err.message });
+    }
+  }
+
+  const status = errors.length && updated.length ? 207 : errors.length ? 400 : 200;
+  res.status(status).json({ updated, errors });
 });
 
 // GET /items/:id — get item
@@ -117,7 +253,7 @@ app.put('/items/:id', (req, res) => {
   }
 });
 
-// DELETE /items/:id — delete item (?force=true to skip conflict check)
+// DELETE /items/:id — delete item and all descendants (?force=true to skip reference conflict check)
 app.delete('/items/:id', (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
@@ -126,12 +262,17 @@ app.delete('/items/:id', (req, res) => {
   if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
 
   const force = req.query.force === 'true' || req.query.force === '1';
-  const warnings = ds.deleteWarnings(id);
-  if (warnings.length && !force)
-    return res.status(409).json({ error: 'Item has references. Use ?force=true to delete anyway.', warnings });
+  const ids = collectSubtreeIds(ds, id);
 
-  const result = ds.delete(id);
-  res.json({ deleted: id, ...result });
+  if (!force) {
+    const warnings = ids.flatMap(itemId => ds.deleteWarnings(itemId));
+    if (warnings.length)
+      return res.status(409).json({ error: 'Item or descendants have references. Use ?force=true to delete anyway.', warnings });
+  }
+
+  const deleted = ids.reverse();
+  for (const itemId of deleted) ds.delete(itemId);
+  res.json({ deleted });
 });
 
 // GET /items/:id/children — list children of item
@@ -155,6 +296,33 @@ app.get('/items/:id/tree', (req, res) => {
   if (isNaN(maxDepth) || maxDepth < 0)
     return res.status(400).json({ error: 'depth must be a non-negative integer' });
   res.json(ds.tree(id, maxDepth));
+});
+
+// GET /items/:id/ancestors — full path from root down to this item's parent
+app.get('/items/:id/ancestors', (req, res) => {
+  const { id } = req.params;
+  if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
+  const ds = openDatastore(res);
+  if (!ds) return;
+  if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
+  res.json(getAncestorChain(ds, id));
+});
+
+// POST /items/:id/clone — deep-copy item and all descendants under a new parent
+app.post('/items/:id/clone', (req, res) => {
+  const { id } = req.params;
+  if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
+  const ds = openDatastore(res);
+  if (!ds) return;
+  if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
+
+  const { targetParentId, actor } = req.body;
+  if (!targetParentId) return res.status(400).json({ error: 'targetParentId is required' });
+  if (!isUuid(targetParentId)) return res.status(400).json({ error: 'Invalid UUID format for targetParentId' });
+  if (!ds.get(targetParentId)) return res.status(404).json({ error: `Target parent not found: ${targetParentId}` });
+
+  const cloned = cloneSubtree(ds, id, targetParentId, actor);
+  res.status(201).json(cloned);
 });
 
 // GET /items/:id/annotations — list annotations
