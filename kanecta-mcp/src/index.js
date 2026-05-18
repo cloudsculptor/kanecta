@@ -44,6 +44,23 @@ function detectSecrets(text) {
   return SECRET_PATTERNS.filter(({ re }) => re.test(text)).map(({ name }) => name);
 }
 
+// ─── Link resolution ──────────────────────────────────────────────────────────
+
+const WIKILINK_RE = /\[\[([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\]\]/g;
+
+function resolveLinks(ds, value) {
+  if (!value || typeof value !== 'string') return value;
+  return value.replace(WIKILINK_RE, (match, uuid) => {
+    const item = ds.get(uuid);
+    return item ? `[[${item.value}]]` : match;
+  });
+}
+
+function resolveItem(ds, item) {
+  if (!item || typeof item.value !== 'string') return item;
+  return { ...item, value: resolveLinks(ds, item.value) };
+}
+
 // ─── Tree helpers ─────────────────────────────────────────────────────────────
 
 function getAncestorChain(ds, id) {
@@ -439,7 +456,7 @@ function handleSearch(args, ds) {
       type: i.type,
       tags: (i.tags || []).filter(t => !['kanecta-capture', 'kanecta-date', 'kanecta-internal'].includes(t)),
       date: (i.createdAt || '').slice(0, 10),
-      value: i.value,
+      value: resolveLinks(ds, i.value),
       ancestors: getAncestorChain(ds, i.id),
     }));
 
@@ -489,18 +506,18 @@ function dispatch(name, args) {
 
     case 'kanecta_get': {
       const item = ds.resolve(args.ref);
-      return item || { error: `Not found: ${args.ref}` };
+      return item ? resolveItem(ds, item) : { error: `Not found: ${args.ref}` };
     }
 
     case 'kanecta_get_children':
-      return { items: ds.children(args.parentId ?? null) };
+      return { items: ds.children(args.parentId ?? null).map(i => resolveItem(ds, i)) };
 
     case 'kanecta_get_tree': {
       const root = ds.resolve(args.ref);
       if (!root) return { error: `Not found: ${args.ref}` };
       return {
         tree: ds.tree(root.id, args.depth ?? 3).map(({ item, depth }) => ({
-          depth, id: item.id, value: item.value, type: item.type,
+          depth, id: item.id, value: resolveLinks(ds, item.value), type: item.type,
           tags: (item.tags || []).filter(t => t !== 'kanecta-internal'),
         })),
       };
@@ -516,12 +533,12 @@ function dispatch(name, args) {
       const { alias, ...createArgs } = args;
       const item = ds.create(createArgs);
       if (alias) ds.setAlias(alias, item.id);
-      return item;
+      return resolveItem(ds, item);
     }
 
     case 'kanecta_update_item': {
       const { id, ...changes } = args;
-      return ds.update(id, changes, cfg?.owner);
+      return resolveItem(ds, ds.update(id, changes, cfg?.owner));
     }
 
     case 'kanecta_delete_item': {

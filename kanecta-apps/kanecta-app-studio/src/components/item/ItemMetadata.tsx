@@ -1,7 +1,11 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { IconButton, Tooltip } from '@mui/material';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { TagChip } from '../shared/TagChip';
+import { ItemValue } from '../shared/ItemValue';
 import { useWorkspaceStore } from '../../store/workspace';
+import { useItemLookup } from '../../hooks/useItemLookup';
 import { ITEM_TYPES, CONFIDENCE_LEVELS } from '../../lib/constants';
 import type { KanectaItem } from '../../types/kanecta';
 import './ItemMetadata.scss';
@@ -12,9 +16,28 @@ interface ItemMetadataProps {
 
 type EditableField = 'value' | 'type' | 'confidence' | 'tags' | null;
 
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <Tooltip title={copied ? 'Copied!' : 'Copy'}>
+      <IconButton size="small" onClick={handleCopy} className="ItemMetadata-copy">
+        <ContentCopyIcon sx={{ fontSize: 13 }} />
+      </IconButton>
+    </Tooltip>
+  );
+}
+
 export function ItemMetadata({ item }: ItemMetadataProps) {
   const { getApi } = useWorkspaceStore();
   const qc = useQueryClient();
+  const resolveId = useItemLookup();
   const [editingField, setEditingField] = useState<EditableField>(null);
   const [draft, setDraft] = useState('');
   const [tagDraft, setTagDraft] = useState('');
@@ -82,9 +105,10 @@ export function ItemMetadata({ item }: ItemMetadataProps) {
             onClick={() => startEdit('value', item.value)}
             title="Click to edit"
           >
-            {item.value}
+            <ItemValue value={item.value} resolveId={resolveId} />
           </div>
         )}
+        <CopyButton text={item.value} />
       </div>
 
       <div className="ItemMetadata-row">
@@ -140,6 +164,7 @@ export function ItemMetadata({ item }: ItemMetadataProps) {
         <div className="ItemMetadata-value" style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
           {item.id}
         </div>
+        <CopyButton text={item.id} />
       </div>
     </div>
   );

@@ -7,6 +7,19 @@
     display: flex;
     flex-direction: column;
     gap: 3px;
+    position: relative;
+  }
+
+  &-copy {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    opacity: 0;
+    transition: opacity 0.15s;
+
+    .ItemMetadata-row:hover & {
+      opacity: 1;
+    }
   }
 
   &-label {

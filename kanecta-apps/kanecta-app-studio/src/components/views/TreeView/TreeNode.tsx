@@ -6,6 +6,8 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import { TreeNodeEditor } from './TreeNodeEditor';
+import { ItemValue } from '../../shared/ItemValue';
+import { useItemLookup } from '../../../hooks/useItemLookup';
 import type { KanectaItem } from '../../../types/kanecta';
 import './TreeNode.scss';
 
@@ -44,6 +46,7 @@ export function TreeNode({
 }: TreeNodeProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
+  const resolveId = useItemLookup();
 
   const startEdit = () => {
     setDraft(item.value);
@@ -101,7 +104,7 @@ export function TreeNode({
             title={item.value}
             onClick={(e) => { e.stopPropagation(); startEdit(); }}
           >
-            {item.value}
+            <ItemValue value={item.value} resolveId={resolveId} onNavigate={onZoom} />
           </span>
         )}
 
