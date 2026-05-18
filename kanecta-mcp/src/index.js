@@ -52,7 +52,7 @@ function resolveLinks(ds, value) {
   if (!value || typeof value !== 'string') return value;
   return value.replace(WIKILINK_RE, (match, uuid) => {
     const item = ds.get(uuid);
-    return item ? `[[${item.value}]]` : match;
+    return item ? `[[${uuid}|${item.value}]]` : match;
   });
 }
 
