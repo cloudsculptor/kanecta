@@ -4,7 +4,7 @@
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
-const { Datastore } = require('@kanecta/lib');
+const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES } = require('@kanecta/lib');
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -24,7 +24,7 @@ function openDs() {
   const p = cfg?.datastorePath
     ? cfg.datastorePath.replace(/^~/, os.homedir())
     : (process.env.KANECTA_DATASTORE?.replace(/^~/, os.homedir()) ?? DEFAULT_DATASTORE_PATH);
-  return { ds: new Datastore(p), cfg };
+  return { ds: Datastore.open(p), cfg };
 }
 
 // ─── Secret detection ─────────────────────────────────────────────────────────
@@ -44,9 +44,53 @@ function detectSecrets(text) {
   return SECRET_PATTERNS.filter(({ re }) => re.test(text)).map(({ name }) => name);
 }
 
+// ─── Tree helpers ─────────────────────────────────────────────────────────────
+
+function getAncestorChain(ds, id) {
+  const ancestors = [];
+  const seen = new Set([id]);
+  let item = ds.get(id);
+  while (item && item.parentId && item.parentId !== item.id && !seen.has(item.parentId)) {
+    seen.add(item.parentId);
+    const parent = ds.get(item.parentId);
+    if (!parent) break;
+    ancestors.unshift({ id: parent.id, value: parent.value, type: parent.type });
+    item = parent;
+  }
+  return ancestors;
+}
+
+function collectSubtreeIds(ds, id) {
+  const ids = [id];
+  for (const child of ds.children(id)) {
+    ids.push(...collectSubtreeIds(ds, child.id));
+  }
+  return ids;
+}
+
+function cloneSubtree(ds, sourceId, targetParentId, actor) {
+  const source = ds.get(sourceId);
+  if (!source) return null;
+  const cloned = ds.create({
+    parentId: targetParentId,
+    value: source.value,
+    type: source.type,
+    typeId: source.typeId || null,
+    tags: source.tags || [],
+    confidence: source.confidence || null,
+    license: source.license || null,
+    owner: actor || source.owner,
+  });
+  for (const child of ds.children(sourceId)) {
+    cloneSubtree(ds, child.id, cloned.id, actor);
+  }
+  return cloned;
+}
+
 // ─── Tools ────────────────────────────────────────────────────────────────────
 
 const TOOLS = [
+  // ── Capture & search ────────────────────────────────────────────────────────
   {
     name: 'kanecta_capture',
     description: 'Save context, decisions, insights, or facts to the Kanecta knowledge base. Use for anything worth remembering across sessions. Never call this with secrets, API keys, passwords, or tokens.',
@@ -62,11 +106,12 @@ const TOOLS = [
   },
   {
     name: 'kanecta_search',
-    description: 'Search the Kanecta knowledge base for past context, decisions, or facts. Case-insensitive substring match across all item values. Use before starting complex work to check for relevant prior context.',
+    description: 'Search the Kanecta knowledge base for past context, decisions, or facts. Case-insensitive substring match across all item values. Pass rootId to scope the search to a subtree.',
     inputSchema: {
       type: 'object',
       properties: {
         query: { type: 'string', description: 'Search query' },
+        rootId: { type: 'string', description: 'Optional item UUID — restrict results to descendants of this item' },
         limit: { type: 'number', description: 'Maximum results (default: 10)' },
       },
       required: ['query'],
@@ -82,6 +127,8 @@ const TOOLS = [
       },
     },
   },
+
+  // ── Item CRUD ────────────────────────────────────────────────────────────────
   {
     name: 'kanecta_get',
     description: 'Get a specific item from the knowledge base by UUID or alias.',
@@ -116,15 +163,29 @@ const TOOLS = [
     },
   },
   {
+    name: 'kanecta_get_ancestors',
+    description: 'Get the full ancestor chain (path to root) for an item. Returns an array ordered from root down to the immediate parent.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Item UUID' },
+      },
+      required: ['id'],
+    },
+  },
+  {
     name: 'kanecta_add_item',
     description: 'Add a new item to the knowledge base with explicit placement. Use kanecta_capture for saving insights — this is for structured data entry.',
     inputSchema: {
       type: 'object',
       properties: {
         value: { type: 'string', description: 'Item value/content' },
-        type: { type: 'string', description: 'Item type (string, text, object, etc.)' },
+        type: { type: 'string', description: `Item type (${VALID_TYPES.join(', ')})` },
         parentId: { type: 'string', description: 'Parent UUID — omit for root' },
         tags: { type: 'array', items: { type: 'string' }, description: 'Tags' },
+        alias: { type: 'string', description: 'Optional human-readable alias for this item' },
+        sortOrder: { type: 'number', description: 'Sort position among siblings (omit to append)' },
+        confidence: { type: 'string', enum: VALID_CONFIDENCES, description: 'Confidence level' },
       },
     },
   },
@@ -138,19 +199,176 @@ const TOOLS = [
         value: { type: 'string', description: 'New value/content' },
         type: { type: 'string', description: 'New type' },
         tags: { type: 'array', items: { type: 'string' }, description: 'Replace tags' },
+        parentId: { type: 'string', description: 'Move item to a new parent UUID' },
+        sortOrder: { type: 'number', description: 'New sort position among siblings' },
+        confidence: { type: 'string', enum: VALID_CONFIDENCES, description: 'Confidence level' },
       },
       required: ['id'],
     },
   },
   {
     name: 'kanecta_delete_item',
-    description: 'Delete an item from the knowledge base.',
+    description: 'Delete an item and all its descendants from the knowledge base.',
     inputSchema: {
       type: 'object',
       properties: {
         id: { type: 'string', description: 'Item UUID' },
       },
       required: ['id'],
+    },
+  },
+  {
+    name: 'kanecta_bulk_create',
+    description: 'Create multiple items in one call. Items are created in array order — use this for template instantiation instead of 9 sequential kanecta_add_item calls.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        items: {
+          type: 'array',
+          description: 'Items to create',
+          items: {
+            type: 'object',
+            properties: {
+              value: { type: 'string' },
+              type: { type: 'string' },
+              parentId: { type: 'string' },
+              tags: { type: 'array', items: { type: 'string' } },
+              alias: { type: 'string' },
+              sortOrder: { type: 'number' },
+            },
+          },
+        },
+      },
+      required: ['items'],
+    },
+  },
+  {
+    name: 'kanecta_bulk_update',
+    description: 'Update multiple items in one call. Accepts an array of {id, ...changes} objects.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        updates: {
+          type: 'array',
+          description: 'Updates to apply',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              value: { type: 'string' },
+              type: { type: 'string' },
+              tags: { type: 'array', items: { type: 'string' } },
+              parentId: { type: 'string' },
+              sortOrder: { type: 'number' },
+            },
+            required: ['id'],
+          },
+        },
+      },
+      required: ['updates'],
+    },
+  },
+  {
+    name: 'kanecta_clone',
+    description: 'Deep-copy an item and all its descendants under a new parent. Returns the new root item. Use for template instantiation.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        sourceId: { type: 'string', description: 'UUID of the item (and subtree) to clone' },
+        targetParentId: { type: 'string', description: 'UUID of the parent to place the clone under' },
+      },
+      required: ['sourceId', 'targetParentId'],
+    },
+  },
+
+  // ── Aliases ──────────────────────────────────────────────────────────────────
+  {
+    name: 'kanecta_set_alias',
+    description: 'Set a human-readable alias that resolves to an item UUID.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        alias: { type: 'string', description: 'The alias string' },
+        targetId: { type: 'string', description: 'Item UUID the alias points to' },
+      },
+      required: ['alias', 'targetId'],
+    },
+  },
+
+  // ── Relationships ────────────────────────────────────────────────────────────
+  {
+    name: 'kanecta_relate',
+    description: `Create a typed semantic relationship between two items. Valid types: ${VALID_REL_TYPES.join(', ')}.`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        sourceId: { type: 'string', description: 'UUID of the source item' },
+        type: { type: 'string', enum: VALID_REL_TYPES, description: 'Relationship type' },
+        targetId: { type: 'string', description: 'UUID of the target item' },
+        note: { type: 'string', description: 'Optional note about the relationship' },
+      },
+      required: ['sourceId', 'type', 'targetId'],
+    },
+  },
+  {
+    name: 'kanecta_get_relationships',
+    description: 'Get all relationships (inbound and outbound) for an item.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Item UUID' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'kanecta_get_backlinks',
+    description: 'Get all items that contain [[uuid]] inline links pointing to this item.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Item UUID' },
+      },
+      required: ['id'],
+    },
+  },
+
+  // ── Annotations ──────────────────────────────────────────────────────────────
+  {
+    name: 'kanecta_annotate',
+    description: 'Add a threaded comment or annotation to an item without modifying it.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        targetId: { type: 'string', description: 'UUID of the item to annotate' },
+        content: { type: 'string', description: 'Annotation text' },
+        parentAnnotationId: { type: 'string', description: 'UUID of parent annotation for threaded replies' },
+      },
+      required: ['targetId', 'content'],
+    },
+  },
+  {
+    name: 'kanecta_get_annotations',
+    description: 'List all annotations on an item.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        targetId: { type: 'string', description: 'Item UUID' },
+      },
+      required: ['targetId'],
+    },
+  },
+
+  // ── Tag queries ──────────────────────────────────────────────────────────────
+  {
+    name: 'kanecta_by_tag',
+    description: 'List all items carrying a given tag.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        tag: { type: 'string', description: 'Tag name' },
+      },
+      required: ['tag'],
     },
   },
 ];
@@ -202,10 +420,18 @@ function handleCapture(args, ds, cfg) {
 }
 
 function handleSearch(args, ds) {
-  const { query, limit = 10 } = args;
+  const { query, rootId, limit = 10 } = args;
   const q = query.toLowerCase();
-  const results = ds.loadAll()
-    .filter(i => i.value && typeof i.value === 'string' && i.value.toLowerCase().includes(q))
+
+  let candidates = ds.loadAll()
+    .filter(i => i.value && typeof i.value === 'string' && i.value.toLowerCase().includes(q));
+
+  if (rootId) {
+    const subtreeIds = new Set(collectSubtreeIds(ds, rootId));
+    candidates = candidates.filter(i => subtreeIds.has(i.id));
+  }
+
+  const results = candidates
     .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
     .slice(0, limit)
     .map(i => ({
@@ -214,7 +440,9 @@ function handleSearch(args, ds) {
       tags: (i.tags || []).filter(t => !['kanecta-capture', 'kanecta-date', 'kanecta-internal'].includes(t)),
       date: (i.createdAt || '').slice(0, 10),
       value: i.value,
+      ancestors: getAncestorChain(ds, i.id),
     }));
+
   return { query, count: results.length, results };
 }
 
@@ -250,35 +478,135 @@ function sendError(id, code, message) {
 function dispatch(name, args) {
   const { ds, cfg } = openDs();
   switch (name) {
-    case 'kanecta_capture':      return handleCapture(args, ds, cfg);
-    case 'kanecta_search':       return handleSearch(args, ds);
-    case 'kanecta_recent':       return handleRecent(args, ds);
+    case 'kanecta_capture':
+      return handleCapture(args, ds, cfg);
+
+    case 'kanecta_search':
+      return handleSearch(args, ds);
+
+    case 'kanecta_recent':
+      return handleRecent(args, ds);
+
     case 'kanecta_get': {
       const item = ds.resolve(args.ref);
       return item || { error: `Not found: ${args.ref}` };
     }
+
     case 'kanecta_get_children':
       return { items: ds.children(args.parentId ?? null) };
+
     case 'kanecta_get_tree': {
       const root = ds.resolve(args.ref);
       if (!root) return { error: `Not found: ${args.ref}` };
       return {
-        count: 0,
         tree: ds.tree(root.id, args.depth ?? 3).map(({ item, depth }) => ({
           depth, id: item.id, value: item.value, type: item.type,
           tags: (item.tags || []).filter(t => t !== 'kanecta-internal'),
         })),
       };
     }
-    case 'kanecta_add_item':
-      return ds.create(args);
+
+    case 'kanecta_get_ancestors': {
+      const item = ds.get(args.id);
+      if (!item) return { error: `Not found: ${args.id}` };
+      return { ancestors: getAncestorChain(ds, args.id) };
+    }
+
+    case 'kanecta_add_item': {
+      const { alias, ...createArgs } = args;
+      const item = ds.create(createArgs);
+      if (alias) ds.setAlias(alias, item.id);
+      return item;
+    }
+
     case 'kanecta_update_item': {
       const { id, ...changes } = args;
       return ds.update(id, changes, cfg?.owner);
     }
-    case 'kanecta_delete_item':
-      ds.delete(args.id, cfg?.owner);
-      return { deleted: args.id };
+
+    case 'kanecta_delete_item': {
+      const ids = collectSubtreeIds(ds, args.id).reverse();
+      for (const itemId of ids) ds.delete(itemId, cfg?.owner);
+      return { deleted: ids };
+    }
+
+    case 'kanecta_bulk_create': {
+      const created = [];
+      const errors = [];
+      for (const [i, itemArgs] of args.items.entries()) {
+        try {
+          const { alias, ...createArgs } = itemArgs;
+          const item = ds.create(createArgs);
+          if (alias) ds.setAlias(alias, item.id);
+          created.push(item);
+        } catch (err) {
+          errors.push({ index: i, error: err.message });
+        }
+      }
+      return { created, errors };
+    }
+
+    case 'kanecta_bulk_update': {
+      const updated = [];
+      const errors = [];
+      for (const [i, { id, ...changes }] of args.updates.entries()) {
+        try {
+          updated.push(ds.update(id, changes, cfg?.owner));
+        } catch (err) {
+          errors.push({ index: i, id, error: err.message });
+        }
+      }
+      return { updated, errors };
+    }
+
+    case 'kanecta_clone': {
+      const { sourceId, targetParentId } = args;
+      if (!ds.get(sourceId)) return { error: `Not found: ${sourceId}` };
+      if (!ds.get(targetParentId)) return { error: `Target parent not found: ${targetParentId}` };
+      const cloned = cloneSubtree(ds, sourceId, targetParentId, cfg?.owner);
+      return cloned || { error: `Clone failed for: ${sourceId}` };
+    }
+
+    case 'kanecta_set_alias': {
+      const { alias, targetId } = args;
+      if (!ds.get(targetId)) return { error: `Not found: ${targetId}` };
+      ds.setAlias(alias, targetId);
+      return { alias, targetId };
+    }
+
+    case 'kanecta_relate': {
+      const { sourceId, type, targetId, note } = args;
+      if (!VALID_REL_TYPES.includes(type))
+        return { error: `Invalid relationship type: ${type}. Valid: ${VALID_REL_TYPES.join(', ')}` };
+      if (!ds.get(sourceId)) return { error: `Source not found: ${sourceId}` };
+      if (!ds.get(targetId)) return { error: `Target not found: ${targetId}` };
+      return ds.relate(sourceId, type, targetId, { note, createdBy: cfg?.owner });
+    }
+
+    case 'kanecta_get_relationships': {
+      if (!ds.get(args.id)) return { error: `Not found: ${args.id}` };
+      return ds.relationships(args.id);
+    }
+
+    case 'kanecta_get_backlinks': {
+      if (!ds.get(args.id)) return { error: `Not found: ${args.id}` };
+      return ds.backlinks(args.id);
+    }
+
+    case 'kanecta_annotate': {
+      const { targetId, content, parentAnnotationId = null } = args;
+      if (!ds.get(targetId)) return { error: `Not found: ${targetId}` };
+      return ds.annotate(targetId, { content, author: cfg?.owner, parentAnnotationId });
+    }
+
+    case 'kanecta_get_annotations': {
+      if (!ds.get(args.targetId)) return { error: `Not found: ${args.targetId}` };
+      return { annotations: ds.annotations(args.targetId) };
+    }
+
+    case 'kanecta_by_tag':
+      return { tag: args.tag, items: ds.byTag(args.tag) };
+
     default: {
       const err = new Error(`Unknown tool: ${name}`);
       err.code = -32601;
@@ -316,6 +644,11 @@ function runMcpServer() {
       }
 
       if (method === 'notifications/initialized') continue;
+
+      if (method === 'ping') {
+        sendResult(id, {});
+        continue;
+      }
 
       if (method === 'tools/list') {
         sendResult(id, { tools: TOOLS });

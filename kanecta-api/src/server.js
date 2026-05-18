@@ -6,5 +6,5 @@ if (!process.env.KANECTA_DATASTORE) {
   process.env.KANECTA_DATASTORE = path.join(os.homedir(), '.kanecta');
 }
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`kanecta-api listening on port ${PORT}`));

@@ -1,6 +1,6 @@
 # kanecta-api
 
-HTTP API for the Kanecta data store.
+HTTP REST API for the Kanecta datastore.
 
 ## Setup
 
@@ -8,51 +8,82 @@ HTTP API for the Kanecta data store.
 npm install
 ```
 
-## Running in dev mode
+`@kanecta/lib` is referenced as `"file:../kanecta-lib"` — do not change this to a version range for local development.
+
+## Running
 
 ```bash
-npm start
+KANECTA_DATASTORE=~/.kanecta npm start
 ```
 
-The server listens on port 3000 by default. Override with the `PORT` env var:
+The server listens on **port 3001** by default. Override with `PORT`:
 
 ```bash
 PORT=4000 npm start
 ```
 
-By default the API resolves the data store relative to this directory. Point it elsewhere with `KANECTA_DATASTORE`:
-
-```bash
-KANECTA_DATASTORE=/path/to/your/datastore npm start
-```
-
 ## Endpoints
 
-### `GET /:id`
+### Search
 
-Returns the metadata for the item with the given UUID.
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/search?q=&rootId=&limit=` | Full-text search. `rootId` scopes to a subtree. Each result includes an `ancestors` breadcrumb array. |
 
-```
-GET /f1a00002-b45e-4c3d-9e7f-000000000001
-```
+### Items
 
-```json
-{
-  "id": "f1a00002-b45e-4c3d-9e7f-000000000001",
-  "parentId": "f1a00001-b45e-4c3d-9e7f-000000000001",
-  "value": "Clarify",
-  "type": "string",
-  ...
-}
-```
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/items` | List top-level items (children of `data_root`) |
+| `POST` | `/items` | Create item. Accepts `alias` to set a shortcut in the same call. |
+| `POST` | `/items/bulk` | Create multiple items. Returns `{ created, errors }`. |
+| `PATCH` | `/items/bulk` | Update multiple items. Body: `{ updates: [{id, ...changes}] }`. |
+| `GET` | `/items/:id` | Get item by UUID |
+| `PUT` | `/items/:id` | Update item. Accepts `parentId` to move, `sortOrder` to reposition. |
+| `DELETE` | `/items/:id` | Delete item **and all descendants**. Use `?force=true` to skip reference conflict check. |
+| `GET` | `/items/:id/children` | List direct children |
+| `GET` | `/items/:id/tree` | Subtree rooted at item. `?depth=n` limits expansion. |
+| `GET` | `/items/:id/ancestors` | Full path from root down to this item's parent |
+| `POST` | `/items/:id/clone` | Deep-copy item and all descendants. Body: `{ targetParentId }`. |
+| `GET` | `/items/:id/annotations` | List annotations |
+| `POST` | `/items/:id/annotations` | Add annotation. Body: `{ content, author?, parentAnnotationId? }`. |
+| `GET` | `/items/:id/relationships` | List relationships |
+| `GET` | `/items/:id/backlinks` | List items with `[[uuid]]` links pointing here |
+| `GET` | `/items/:id/history` | Change history |
 
-**Responses**
+### Tree
 
-| Status | Meaning |
-|--------|---------|
-| 200 | Item found — body is the metadata JSON |
-| 400 | ID is not a valid UUID |
-| 404 | No item exists with that ID |
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/tree` | Full tree from all roots. `?depth=n` limits expansion. |
+
+### Aliases
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/aliases` | List all aliases |
+| `GET` | `/aliases/:alias` | Resolve alias to UUID |
+| `POST` | `/aliases` | Set alias. Body: `{ alias, targetId }`. |
+| `DELETE` | `/aliases/:alias` | Remove alias |
+
+### Relationships
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/relationships` | List all relationships |
+| `POST` | `/relationships` | Create relationship. Body: `{ sourceId, type, targetId, note? }`. |
+
+### Tags
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/tags/:tag` | List all item IDs carrying this tag |
+
+### Index
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/rebuild-indexes` | Rebuild all index caches from `data/` |
 
 ## Running tests
 
