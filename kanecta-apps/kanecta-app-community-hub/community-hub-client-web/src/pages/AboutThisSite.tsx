@@ -33,8 +33,8 @@ export default function AboutThisSite() {
           title={
             <span style={{ lineHeight: 1.6 }}>
               Software:{" "}
-              <a href="https://en.wikipedia.org/wiki/GNU_Affero_General_Public_License" target="_blank" rel="noopener noreferrer" style={{ color: "inherit" }}>
-                AGPL
+              <a href="https://en.wikipedia.org/wiki/MIT_License" target="_blank" rel="noopener noreferrer" style={{ color: "inherit" }}>
+                MIT
               </a>
               <br />
               Content:{" "}
@@ -49,7 +49,7 @@ export default function AboutThisSite() {
           </span>
         </Tooltip>
         {" "}— free to{" "}
-        <a href="https://github.com/cloudsculptor/featherston" target="_blank" rel="noopener noreferrer">
+        <a href="https://github.com/cloudsculptor/kanecta" target="_blank" rel="noopener noreferrer">
           download
         </a>
         , share, and reuse by anyone, no permission needed. If you ever decide this site isn't for you, your
