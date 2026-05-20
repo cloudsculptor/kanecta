@@ -6,14 +6,15 @@ const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE } = 
 const app = express();
 app.use(express.json());
 
+const path = require('path');
+const DEFAULT_DATASTORE = path.join(process.env.HOME || process.env.USERPROFILE, '.kanecta');
+
 function openDatastore(res) {
-  const root = process.env.KANECTA_DATASTORE;
-  if (!root) {
-    res.status(503).json({ error: 'KANECTA_DATASTORE environment variable not set' });
-    return null;
-  }
+  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
   if (!Datastore.isDatastore(root)) {
-    res.status(503).json({ error: `Not a Kanecta datastore: ${root}` });
+    res.status(503).json({
+      error: `No Kanecta datastore found at ${root}. Run: cd kanecta-cli && npm run cli init --owner you@example.com`,
+    });
     return null;
   }
   return Datastore.open(root);
