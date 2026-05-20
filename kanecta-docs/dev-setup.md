@@ -6,5 +6,3 @@
     npm run dev
 
 Open http://localhost:5173
-
-`npm run dev` will prompt to create a datastore on first run.
