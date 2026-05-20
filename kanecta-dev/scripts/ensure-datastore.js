@@ -17,7 +17,8 @@ function checkSpecVersion() {
     if (!match) return;
     const specVersion = match[1].trim();
     if (config.specVersion !== specVersion) {
-      console.warn(`\nWarning: datastore specVersion (${config.specVersion}) does not match specification (${specVersion})\n`);
+      console.error(`\nError: datastore specVersion (${config.specVersion}) does not match specification (${specVersion})\nUpdate your datastore or check kanecta-specification/specification.md\n`);
+      process.exit(1);
     }
   } catch {
     // non-fatal — missing file or parse error, skip silently
