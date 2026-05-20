@@ -20,8 +20,9 @@ function checkSpecVersion() {
       console.error(`\nError: datastore specVersion (${config.specVersion}) does not match specification (${specVersion})\nUpdate your datastore or check kanecta-specification/specification.md\n`);
       process.exit(1);
     }
-  } catch {
-    // non-fatal — missing file or parse error, skip silently
+  } catch (err) {
+    console.error(`\nError reading spec version: ${err.message}\n`);
+    process.exit(1);
   }
 }
 
