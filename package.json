@@ -2,7 +2,7 @@
   "name": "kanecta",
   "private": true,
   "scripts": {
-    "dev": "concurrently -n api,studio -c cyan,magenta \"npm run dev -w kanecta-api\" \"npm run dev -w kanecta-apps/kanecta-app-studio\"",
+    "dev": "node scripts/ensure-datastore.js && concurrently -n api,studio -c cyan,magenta \"npm run dev -w kanecta-api\" \"npm run dev -w kanecta-apps/kanecta-app-studio\"",
     "help": "cat kanecta-docs/dev-setup.md"
   },
   "workspaces": [
