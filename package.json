@@ -1,0 +1,13 @@
+{
+  "name": "kanecta",
+  "private": true,
+  "workspaces": [
+    "kanecta-filesystem",
+    "kanecta-lib",
+    "kanecta-api",
+    "kanecta-cli",
+    "kanecta-mcp",
+    "kanecta-apps/kanecta-app-studio",
+    "kanecta-apps/kanecta-app-claude"
+  ]
+}

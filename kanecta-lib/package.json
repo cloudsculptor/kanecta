@@ -25,7 +25,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@kanecta/filesystem": "file:../kanecta-filesystem"
+    "@kanecta/filesystem": "^1.0.0"
   },
   "devDependencies": {
     "jest": "^29.7.0"
