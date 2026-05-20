@@ -20,7 +20,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@kanecta/lib": "file:../kanecta-lib"
+    "@kanecta/lib": "^1.0.0"
   },
   "publishConfig": {
     "access": "public"

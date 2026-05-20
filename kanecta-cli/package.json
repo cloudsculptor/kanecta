@@ -15,7 +15,7 @@
     "README.md"
   ],
   "dependencies": {
-    "@kanecta/lib": "file:../kanecta-lib"
+    "@kanecta/lib": "^1.0.0"
   },
   "engines": {
     "node": ">=18.0.0"
