@@ -1,6 +1,9 @@
 {
   "name": "kanecta",
   "private": true,
+  "scripts": {
+    "dev": "concurrently -n api,studio -c cyan,magenta \"npm run start -w kanecta-api\" \"npm run dev -w kanecta-apps/kanecta-app-studio\""
+  },
   "workspaces": [
     "kanecta-filesystem",
     "kanecta-lib",
@@ -9,5 +12,8 @@
     "kanecta-mcp",
     "kanecta-apps/kanecta-app-studio",
     "kanecta-apps/kanecta-app-claude"
-  ]
+  ],
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
 }
