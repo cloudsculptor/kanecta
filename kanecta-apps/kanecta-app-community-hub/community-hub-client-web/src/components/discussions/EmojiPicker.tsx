@@ -14,29 +14,31 @@ interface Props {
 }
 
 export default function EmojiPicker({ onSelect, onClose }: Props) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const outerRef = useRef<HTMLDivElement>(null);
+  const pickerContainerRef = useRef<HTMLDivElement>(null);
   const pickerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
+    const outer = outerRef.current;
+    const el = pickerContainerRef.current;
+    if (!outer || !el) return;
 
     // Pre-calculate position from the trigger's bounding rect BEFORE mounting
     // the picker, so there is no timing dependency on the web component rendering.
-    const parent = el.parentElement;
+    const parent = outer.parentElement;
     if (parent) {
       const r = parent.getBoundingClientRect();
 
       // Not enough space above → open downward instead
       if (r.top < PICKER_HEIGHT + GAP) {
-        el.style.bottom = "auto";
-        el.style.top = `calc(100% + ${GAP}px)`;
+        outer.style.bottom = "auto";
+        outer.style.top = `calc(100% + ${GAP}px)`;
       }
 
       // Right edge would overflow → align picker's right edge with trigger
       if (r.left + PICKER_WIDTH > window.innerWidth) {
-        el.style.left = "auto";
-        el.style.right = "0";
+        outer.style.left = "auto";
+        outer.style.right = "0";
       }
     }
 
@@ -56,14 +58,14 @@ export default function EmojiPicker({ onSelect, onClose }: Props) {
     });
 
     el.appendChild(pickerRef.current);
-    el.style.visibility = "visible";
+    outer.style.visibility = "visible";
 
     return () => { pickerRef.current?.remove(); };
   }, []);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) onClose();
+      if (outerRef.current && !outerRef.current.contains(e.target as Node)) onClose();
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -71,7 +73,7 @@ export default function EmojiPicker({ onSelect, onClose }: Props) {
 
   return (
     <div
-      ref={containerRef}
+      ref={outerRef}
       style={{
         position: "absolute",
         zIndex: 200,
@@ -79,6 +81,18 @@ export default function EmojiPicker({ onSelect, onClose }: Props) {
         left: 0,
         visibility: "hidden",
       }}
-    />
+    >
+      <div ref={pickerContainerRef} />
+      <div style={{ textAlign: "right", paddingTop: 2 }}>
+        <a
+          href="https://fonts.google.com/noto/specimen/Noto+Emoji"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ fontSize: 10, color: "#bbb", textDecoration: "none" }}
+        >
+          Noto Emoji (Apache 2.0)
+        </a>
+      </div>
+    </div>
   );
 }

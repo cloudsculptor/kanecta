@@ -4,8 +4,7 @@ import { Link } from "react-router-dom";
 const ALL_LINKS = [
   { label: "About this site", to: "/about", internal: true },
   { label: "Roadmap", to: "/roadmap", internal: true },
-  { label: "Source code (AGPL)", href: "https://github.com/cloudsculptor/featherston" },
-  { label: "Emoji: Noto Emoji (Apache 2.0)", href: "https://fonts.google.com/noto/specimen/Noto+Emoji" },
+  { label: "Source code (MIT)", href: "https://github.com/cloudsculptor/kanecta" },
 ];
 
 export default function Footer() {
