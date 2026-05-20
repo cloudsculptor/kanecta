@@ -78,7 +78,13 @@ class FilesystemAdapter {
   // Keys shorter than 4 chars are padded with underscores on the right.
   _shardDir(subdir, key) {
     const padded = key.length >= 4 ? key : key.padEnd(4, '_');
-    return path.join(this.k, subdir, padded.slice(0, 2), padded.slice(2, 4), key);
+    const dir = path.join(this.k, subdir, padded.slice(0, 2), padded.slice(2, 4), key);
+    const resolved = path.resolve(dir);
+    const base = path.resolve(this.k) + path.sep;
+    if (!resolved.startsWith(base)) {
+      throw new Error(`Invalid key — path traversal detected: ${key}`);
+    }
+    return dir;
   }
 
   // ─── Low-level I/O ─────────────────────────────────────────────────────────
@@ -145,6 +151,7 @@ class FilesystemAdapter {
   }
 
   _addTypeEntry(typeId, itemId) {
+    if (!UUID_RE.test(typeId)) throw new Error(`Invalid typeId: ${typeId}`);
     const hex = typeId.replace(/-/g, '');
     const f = path.join(this.k, 'types', hex.slice(0, 2), hex.slice(2, 4), typeId, 'items.json');
     const d = this._readJson(f, { items: [] });
@@ -155,6 +162,7 @@ class FilesystemAdapter {
   }
 
   _removeTypeEntry(typeId, itemId) {
+    if (!UUID_RE.test(typeId)) throw new Error(`Invalid typeId: ${typeId}`);
     const hex = typeId.replace(/-/g, '');
     const f = path.join(this.k, 'types', hex.slice(0, 2), hex.slice(2, 4), typeId, 'items.json');
     const d = this._readJson(f, { items: [] });
