@@ -3,7 +3,8 @@
   "private": true,
   "scripts": {
     "dev": "node kanecta-dev/scripts/ensure-datastore.js && concurrently -n api,studio -c cyan,magenta \"npm run dev -w kanecta-api\" \"npm run dev -w kanecta-apps/kanecta-app-studio\"",
-    "help": "cat kanecta-docs/dev-setup.md"
+    "help": "cat kanecta-docs/dev-setup.md",
+    "prepare": "husky"
   },
   "workspaces": [
     "kanecta-filesystem",
@@ -15,6 +16,7 @@
     "kanecta-apps/kanecta-app-claude"
   ],
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "husky": "^9.1.7"
   }
 }
