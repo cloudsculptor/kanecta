@@ -22,7 +22,7 @@ DATASTORE DISCOVERY
 COMMANDS
 
   init [path]
-    Initialize a new Kanecta datastore at <path> (default: current directory).
+    Initialize a new Kanecta datastore at <path> (default: ~/.kanecta).
     --owner <email>       Datastore owner email or domain (required)
 
   get <id|alias>
@@ -55,7 +55,8 @@ COMMANDS
     --sort-order <n>      New sort order
 
   delete <id|alias>
-    Delete an item. Warns and prompts if any items link to or relate to it.
+    Delete an item and its entire subtree. Warns if external items link to or
+    relate to the deleted item(s).
     --force               Skip the confirmation prompt
 
   tree [id|alias]
@@ -108,6 +109,14 @@ COMMANDS
     --ids                 Prefix each line with the item's UUID
     --output <file>       Write to a file instead of stdout
 
+  search <query>
+    Full-text search across all item values.
+    --root <id|alias>     Restrict search to items within this subtree
+    --limit <n>           Maximum number of results (default: 20)
+
+  by-type <typeId>
+    List all items with the given type-definition UUID.
+
   rebuild-indexes
     Rebuild all index caches (links/, tags/, types/) by scanning data/.
     Use after manual edits or a partial import.
@@ -142,6 +151,8 @@ EXAMPLES
   kanecta relate root depends-on f1a00002-b45e-4c3d-9e7f-000000000001 --note "clarify first"
   kanecta export --output kanecta.txt
   kanecta tag list security-related
+  kanecta search "work process" --limit 10
+  kanecta by-type f1a00001-b45e-4c3d-9e7f-000000000002
   kanecta rebuild-indexes
 `.trimStart();
 
@@ -204,12 +215,27 @@ function findDatastore(explicit) {
   return null;
 }
 
-function openDatastore(flags) {
+async function openDatastore(flags) {
   const root = findDatastore(flags['datastore']);
   if (!root) {
-    die('No Kanecta datastore found. Run `kanecta init` or set --datastore.');
+    if (flags['datastore']) {
+      die(`Datastore not found at: ${flags['datastore']}`);
+    }
+    const defaultPath = path.join(process.env.HOME || process.env.USERPROFILE || '~', '.kanecta');
+    console.log('No Kanecta datastore found.');
+    const ok = await confirm(`Create a new datastore at ${defaultPath}?`);
+    if (!ok) {
+      console.log('Aborted. Run `kanecta init [path] --owner <email>` to create a datastore.');
+      process.exit(0);
+    }
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    const owner = await new Promise(resolve => rl.question('Owner email: ', ans => { rl.close(); resolve(ans.trim()); }));
+    if (!owner) die('Owner email is required.');
+    Datastore.init(defaultPath, owner);
+    console.log(`\nInitialized Kanecta datastore at ${defaultPath}\n`);
+    return Datastore.open(defaultPath);
   }
-  return new Datastore(root);
+  return Datastore.open(root);
 }
 
 // ─── Output helpers ───────────────────────────────────────────────────────────
@@ -267,10 +293,21 @@ function confirm(question) {
   });
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function collectSubtreeIds(ds, id) {
+  const ids = [id];
+  for (const child of ds.children(id)) {
+    ids.push(...collectSubtreeIds(ds, child.id));
+  }
+  return ids;
+}
+
 // ─── Command handlers ─────────────────────────────────────────────────────────
 
 async function cmdInit(positional, flags) {
-  const root = path.resolve(positional[0] || '.');
+  const defaultPath = path.join(process.env.HOME || process.env.USERPROFILE || '~', '.kanecta');
+  const root = path.resolve(positional[0] || defaultPath);
   const owner = flags['owner'];
   if (!owner) die('--owner <email> is required for init');
   if (Datastore.isDatastore(root)) die(`Already a Kanecta datastore: ${root}`);
@@ -280,7 +317,7 @@ async function cmdInit(positional, flags) {
 }
 
 async function cmdGet(positional, flags) {
-  const ds = openDatastore(flags);
+  const ds = await openDatastore(flags);
   const ref = positional[0];
   if (!ref) die('Usage: kanecta get <id|alias>');
   const item = ds.resolve(ref);
@@ -293,7 +330,7 @@ async function cmdGet(positional, flags) {
 }
 
 async function cmdCreate(positional, flags) {
-  const ds = openDatastore(flags);
+  const ds = await openDatastore(flags);
 
   const type = flags['type'] || 'string';
   if (!VALID_TYPES.includes(type)) die(`Invalid type: ${type}. Valid: ${VALID_TYPES.join(', ')}`);
@@ -333,7 +370,7 @@ async function cmdCreate(positional, flags) {
 }
 
 async function cmdUpdate(positional, flags) {
-  const ds = openDatastore(flags);
+  const ds = await openDatastore(flags);
   const ref = positional[0];
   if (!ref) die('Usage: kanecta update <id|alias> [options]');
 
@@ -394,30 +431,39 @@ async function cmdUpdate(positional, flags) {
 }
 
 async function cmdDelete(positional, flags) {
-  const ds = openDatastore(flags);
+  const ds = await openDatastore(flags);
   const ref = positional[0];
   if (!ref) die('Usage: kanecta delete <id|alias>');
 
   const item = ds.resolve(ref);
   if (!item) die(`Not found: ${ref}`);
 
-  const warnings = ds.deleteWarnings(item.id);
-  if (warnings.length && !flags['force']) {
-    console.warn('Warning:');
-    for (const w of warnings) console.warn(`  ${w}`);
-    const ok = await confirm(`Delete ${item.id} anyway?`);
+  const subtreeIds = collectSubtreeIds(ds, item.id);
+  const childCount = subtreeIds.length - 1;
+
+  if (!flags['force']) {
+    const warnings = ds.deleteWarnings(item.id);
+    if (warnings.length) {
+      console.warn('Warning:');
+      for (const w of warnings) console.warn(`  ${w}`);
+    }
+    const suffix = childCount > 0 ? ` and ${childCount} child item(s)` : '';
+    const ok = await confirm(`Delete "${item.value ?? item.id}"${suffix}?`);
     if (!ok) {
       console.log('Aborted.');
       process.exit(0);
     }
   }
 
-  ds.delete(item.id);
-  console.log(`Deleted: ${item.id}  "${item.value ?? ''}"`);
+  for (const id of subtreeIds.reverse()) {
+    ds.delete(id);
+  }
+  const suffix = childCount > 0 ? ` (+ ${childCount} children)` : '';
+  console.log(`Deleted: ${item.id}  "${item.value ?? ''}"${suffix}`);
 }
 
 async function cmdTree(positional, flags) {
-  const ds = openDatastore(flags);
+  const ds = await openDatastore(flags);
   let rootId = null;
   if (positional[0]) {
     const item = ds.resolve(positional[0]);
@@ -431,7 +477,7 @@ async function cmdTree(positional, flags) {
 }
 
 async function cmdAlias(positional, flags) {
-  const ds = openDatastore(flags);
+  const ds = await openDatastore(flags);
   const sub = positional[0];
 
   if (sub === 'set') {
@@ -464,7 +510,7 @@ async function cmdAlias(positional, flags) {
 }
 
 async function cmdAnnotate(positional, flags) {
-  const ds = openDatastore(flags);
+  const ds = await openDatastore(flags);
   const ref = positional[0], content = positional.slice(1).join(' ') || flags['content'];
   if (!ref || !content) die('Usage: kanecta annotate <id|alias> <content>');
   const item = ds.resolve(ref);
@@ -483,7 +529,7 @@ async function cmdAnnotate(positional, flags) {
 }
 
 async function cmdAnnotations(positional, flags) {
-  const ds = openDatastore(flags);
+  const ds = await openDatastore(flags);
   const ref = positional[0];
   if (!ref) die('Usage: kanecta annotations <id|alias>');
   const item = ds.resolve(ref);
@@ -498,7 +544,7 @@ async function cmdAnnotations(positional, flags) {
 }
 
 async function cmdRelate(positional, flags) {
-  const ds = openDatastore(flags);
+  const ds = await openDatastore(flags);
   const [srcRef, type, tgtRef] = positional;
   if (!srcRef || !type || !tgtRef) die('Usage: kanecta relate <source> <type> <target> [--note <text>]');
   if (!VALID_REL_TYPES.includes(type)) die(`Invalid relationship type: ${type}\nValid: ${VALID_REL_TYPES.join(', ')}`);
@@ -513,7 +559,7 @@ async function cmdRelate(positional, flags) {
 }
 
 async function cmdRelationships(positional, flags) {
-  const ds = openDatastore(flags);
+  const ds = await openDatastore(flags);
   const ref = positional[0];
   if (!ref) die('Usage: kanecta relationships <id|alias>');
   const item = ds.resolve(ref);
@@ -535,7 +581,7 @@ async function cmdRelationships(positional, flags) {
 }
 
 async function cmdBacklinks(positional, flags) {
-  const ds = openDatastore(flags);
+  const ds = await openDatastore(flags);
   const ref = positional[0];
   if (!ref) die('Usage: kanecta backlinks <id|alias>');
   const item = ds.resolve(ref);
@@ -547,7 +593,7 @@ async function cmdBacklinks(positional, flags) {
 }
 
 async function cmdHistory(positional, flags) {
-  const ds = openDatastore(flags);
+  const ds = await openDatastore(flags);
   const ref = positional[0];
   if (!ref) die('Usage: kanecta history <id|alias>');
   const item = ds.resolve(ref);
@@ -561,7 +607,7 @@ async function cmdHistory(positional, flags) {
 }
 
 async function cmdTagList(positional, flags) {
-  const ds = openDatastore(flags);
+  const ds = await openDatastore(flags);
   const tag = positional[0];
   if (!tag) die('Usage: kanecta tag list <tag>');
   const ids = ds.byTag(tag);
@@ -571,7 +617,7 @@ async function cmdTagList(positional, flags) {
 }
 
 async function cmdExport(positional, flags) {
-  const ds = openDatastore(flags);
+  const ds = await openDatastore(flags);
   let rootId = null;
   if (positional[0]) {
     const item = ds.resolve(positional[0]);
@@ -599,8 +645,50 @@ async function cmdExport(positional, flags) {
   }
 }
 
+async function cmdSearch(positional, flags) {
+  const ds = await openDatastore(flags);
+  const query = positional[0];
+  if (!query) die('Usage: kanecta search <query> [--root <id|alias>] [--limit <n>]');
+
+  const limit = flags['limit'] != null ? parseInt(flags['limit'], 10) : 20;
+  const lower = query.toLowerCase();
+
+  let items;
+  if (flags['root']) {
+    const rootItem = ds.resolve(flags['root']);
+    if (!rootItem) die(`Root not found: ${flags['root']}`);
+    const subtreeIds = new Set(collectSubtreeIds(ds, rootItem.id));
+    items = ds.loadAll().filter(i => subtreeIds.has(i.id));
+  } else {
+    items = ds.loadAll();
+  }
+
+  const results = items
+    .filter(i => i.value && i.value.toLowerCase().includes(lower))
+    .slice(0, limit);
+
+  if (results.length === 0) {
+    console.log(`No results for "${query}"`);
+    return;
+  }
+  console.log(`${results.length} result(s) for "${query}":`);
+  for (const r of results) {
+    console.log(`  ${r.id}  ${r.value}`);
+  }
+}
+
+async function cmdByType(positional, flags) {
+  const ds = await openDatastore(flags);
+  const typeId = positional[0];
+  if (!typeId) die('Usage: kanecta by-type <typeId>');
+  const ids = ds.byType(typeId);
+  if (ids.length === 0) { console.log(`(no items with type-id "${typeId}")`); return; }
+  console.log(`${ids.length} item(s) with type-id "${typeId}":`);
+  for (const id of ids) console.log(`  ${id}`);
+}
+
 async function cmdRebuildIndexes(positional, flags) {
-  const ds = openDatastore(flags);
+  const ds = await openDatastore(flags);
   const count = ds.rebuildIndexes();
   console.log(`Rebuilt indexes from ${count} items.`);
 }
@@ -640,6 +728,8 @@ async function main() {
       else die('Usage: kanecta tag list <tag>');
       break;
     case 'export':         await cmdExport(rest, flags); break;
+    case 'search':         await cmdSearch(rest, flags); break;
+    case 'by-type':        await cmdByType(rest, flags); break;
     case 'rebuild-indexes': await cmdRebuildIndexes(rest, flags); break;
     default:
       die(`Unknown command: ${cmd}\nRun \`kanecta --help\` for usage.`);

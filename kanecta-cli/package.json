@@ -7,6 +7,7 @@
     "kanecta-cli": "./index.js"
   },
   "scripts": {
+    "cli": "node index.js",
     "test": "node --test index.test.js"
   },
   "files": [
@@ -14,7 +15,7 @@
     "README.md"
   ],
   "dependencies": {
-    "@kanecta/lib": "1.0.0"
+    "@kanecta/lib": "file:../kanecta-lib"
   },
   "engines": {
     "node": ">=18.0.0"
