@@ -7,4 +7,5 @@ if (!process.env.KANECTA_DATASTORE) {
 }
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`kanecta-api listening on port ${PORT}`));
+const HOST = process.env.KANECTA_API_HOST || '127.0.0.1';
+app.listen(PORT, HOST, () => console.log(`kanecta-api listening on ${HOST}:${PORT}`));
