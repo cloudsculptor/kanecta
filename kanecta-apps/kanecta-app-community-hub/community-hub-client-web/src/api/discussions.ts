@@ -16,6 +16,19 @@ async function authFetch(path: string, init: RequestInit = {}) {
   return res.json();
 }
 
+async function authFetchNoContentType(path: string, init: RequestInit = {}) {
+  const token = keycloak.token;
+  const res = await fetch(`${BASE}${path}`, {
+    ...init,
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init.headers,
+    },
+  });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.json();
+}
+
 export interface Thread {
   id: string;
   name: string;
@@ -25,6 +38,16 @@ export interface Thread {
   created_at: string;
   has_unread: boolean;
   is_notifications_enabled: boolean;
+}
+
+export interface MessageFile {
+  id: string;
+  file_id: string;
+  name: string;
+  mime_type: string;
+  size_bytes: number;
+  url: string;
+  show_preview: boolean;
 }
 
 export interface Message {
@@ -38,6 +61,7 @@ export interface Message {
   edited_at: string | null;
   deleted_at: string | null;
   reply_count: number;
+  files: MessageFile[];
 }
 
 export interface Reaction {
@@ -101,10 +125,10 @@ export const api = {
   messages: {
     list: (threadId: string) =>
       authFetch(`/api/discussions/threads/${threadId}/messages`) as Promise<Message[]>,
-    post: (threadId: string, content: string) =>
+    post: (threadId: string, content: string, fileIds?: string[]) =>
       authFetch(`/api/discussions/threads/${threadId}/messages`, {
         method: "POST",
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, fileIds }),
       }) as Promise<Message>,
     edit: (id: string, content: string) =>
       authFetch(`/api/discussions/messages/${id}`, {
@@ -115,11 +139,32 @@ export const api = {
       authFetch(`/api/discussions/messages/${id}`, { method: "DELETE" }),
     replies: (id: string) =>
       authFetch(`/api/discussions/messages/${id}/replies`) as Promise<Message[]>,
-    reply: (id: string, content: string) =>
+    reply: (id: string, content: string, fileIds?: string[]) =>
       authFetch(`/api/discussions/messages/${id}/replies`, {
         method: "POST",
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, fileIds }),
       }) as Promise<Message>,
+  },
+  files: {
+    upload: async (file: File): Promise<{ id: string; url: string; name: string; mime_type: string; size_bytes: number }> => {
+      const token = keycloak.token;
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`${BASE}/api/discussions/messages/upload`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      });
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      return res.json();
+    },
+    delete: (fileId: string) =>
+      authFetchNoContentType(`/api/discussions/files/${fileId}`, { method: "DELETE" }),
+    togglePreview: (messageFileId: string, show: boolean) =>
+      authFetch(`/api/discussions/message-files/${messageFileId}/preview`, {
+        method: "PATCH",
+        body: JSON.stringify({ show_preview: show }),
+      }),
   },
   reactions: {
     listForThread: (threadId: string) =>

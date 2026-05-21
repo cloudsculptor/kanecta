@@ -1,5 +1,7 @@
 import { useState, useRef, useCallback, type KeyboardEvent } from "react";
 import data from "@emoji-mart/data";
+import { api } from "../../api/discussions";
+import AttachmentBar, { type PendingFile } from "./AttachmentBar";
 
 interface User {
   id: string;
@@ -8,7 +10,7 @@ interface User {
 
 interface Props {
   placeholder: string;
-  onSend: (content: string) => Promise<void>;
+  onSend: (content: string, fileIds: string[]) => Promise<void>;
   disabled?: boolean;
   users: User[];
 }
@@ -96,7 +98,10 @@ export default function MentionInput({ placeholder, onSend, disabled, users }: P
   const [emojiStart, setEmojiStart] = useState(-1);
   const [emojiIndex, setEmojiIndex] = useState(0);
 
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredMentions = mentionSearch !== null
     ? users.filter((u) => u.name.toLowerCase().includes(mentionSearch.toLowerCase())).slice(0, 6)
@@ -118,11 +123,13 @@ export default function MentionInput({ placeholder, onSend, disabled, users }: P
 
   async function doSend() {
     const content = value.trim();
-    if (!content || sending) return;
+    const readyFiles = pendingFiles.filter(f => f.fileId && !f.uploading);
+    if ((!content && !readyFiles.length) || sending) return;
     setSending(true);
     try {
-      await onSend(content);
+      await onSend(content, readyFiles.map(f => f.fileId!));
       setValue("");
+      setPendingFiles([]);
       clearDropdowns();
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
@@ -131,6 +138,46 @@ export default function MentionInput({ placeholder, onSend, disabled, users }: P
       }
     } finally {
       setSending(false);
+    }
+  }
+
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(e.target.files ?? []);
+    if (!selected.length) return;
+    e.target.value = "";
+
+    const newEntries: PendingFile[] = selected.map(f => ({
+      tempId: crypto.randomUUID(),
+      name: f.name,
+      mime_type: f.type || "application/octet-stream",
+      uploading: true,
+    }));
+    setPendingFiles(prev => [...prev, ...newEntries]);
+
+    for (let i = 0; i < selected.length; i++) {
+      const file = selected[i];
+      const entry = newEntries[i];
+      try {
+        const result = await api.files.upload(file);
+        setPendingFiles(prev => prev.map(p =>
+          p.tempId === entry.tempId
+            ? { ...p, fileId: result.id, url: result.url, size_bytes: result.size_bytes, uploading: false }
+            : p
+        ));
+      } catch {
+        setPendingFiles(prev => prev.map(p =>
+          p.tempId === entry.tempId ? { ...p, uploading: false, error: "Upload failed" } : p
+        ));
+      }
+    }
+  }
+
+  async function handleRemoveFile(tempId: string) {
+    const entry = pendingFiles.find(f => f.tempId === tempId);
+    if (!entry) return;
+    setPendingFiles(prev => prev.filter(f => f.tempId !== tempId));
+    if (entry.fileId) {
+      try { await api.files.delete(entry.fileId); } catch { /* best effort */ }
     }
   }
 
@@ -214,6 +261,9 @@ export default function MentionInput({ placeholder, onSend, disabled, users }: P
     }
   }
 
+  const hasReadyFiles = pendingFiles.some(f => f.fileId && !f.uploading);
+  const canSend = (!!value.trim() || hasReadyFiles) && !sending;
+
   return (
     <div className="discussions-input" style={{ position: "relative" }}>
       {mentionSearch !== null && filteredMentions.length > 0 && (
@@ -247,7 +297,27 @@ export default function MentionInput({ placeholder, onSend, disabled, users }: P
           ))}
         </div>
       )}
+      <AttachmentBar files={pendingFiles} onRemove={handleRemoveFile} />
       <div className="discussions-input__row">
+        <button
+          className="discussions-input__attach"
+          type="button"
+          title="Attach file"
+          aria-label="Attach file"
+          disabled={disabled || sending}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.41 17.41a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+          </svg>
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          style={{ display: "none" }}
+          onChange={handleFileSelect}
+        />
         <textarea
           ref={textareaRef}
           className="discussions-input__field"
@@ -261,7 +331,7 @@ export default function MentionInput({ placeholder, onSend, disabled, users }: P
         <button
           className="discussions-input__send"
           onClick={doSend}
-          disabled={!value.trim() || sending}
+          disabled={!canSend}
           aria-label="Send message"
           title="Send (Enter)"
         >

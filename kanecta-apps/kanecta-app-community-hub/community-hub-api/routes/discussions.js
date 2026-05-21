@@ -1,10 +1,96 @@
 import { Router } from "express";
+import multer from "multer";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import pool from "../db.js";
 import { notifyThreadSubscribers } from "./push.js";
+import { uploadFile, deleteFile } from "../lib/spaces.js";
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+const PUBLIC_URL = process.env.SPACES_PUBLIC_URL;
 
 const router = Router();
 const canAccess = requireRole("team", "moderator");
+
+async function attachFilesToMessage(messageId, fileIds, uploaderId) {
+  if (!fileIds?.length) return;
+  await pool.query(
+    `INSERT INTO discussions_message_files (message_id, file_id)
+     SELECT $1, id FROM files
+     WHERE id = ANY($2::uuid[]) AND uploaded_by_id = $3
+     ON CONFLICT DO NOTHING`,
+    [messageId, fileIds, uploaderId]
+  );
+}
+
+async function fetchMessageFiles(messageId) {
+  if (!PUBLIC_URL) return [];
+  const { rows } = await pool.query(
+    `SELECT dmf.id, f.id AS file_id, f.name, f.mime_type, f.size_bytes, f.storage_key, dmf.show_preview
+     FROM discussions_message_files dmf
+     JOIN files f ON f.id = dmf.file_id
+     WHERE dmf.message_id = $1
+     ORDER BY dmf.created_at`,
+    [messageId]
+  );
+  return rows.map(f => ({ ...f, url: `${PUBLIC_URL}/${f.storage_key}` }));
+}
+
+// ── File upload / delete / preview toggle ─────────────────────────────────────
+
+router.post("/messages/upload", requireAuth, canAccess, upload.single("file"), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "No file provided" });
+  try {
+    const { file, url } = await uploadFile({
+      buffer: req.file.buffer,
+      mimeType: req.file.mimetype,
+      originalName: req.file.originalname,
+      uploadedById: req.user.id,
+      uploadedByName: req.user.name,
+      pool,
+    });
+    res.status(201).json({ id: file.id, url, name: file.name, mime_type: file.mime_type, size_bytes: file.size_bytes });
+  } catch (err) {
+    res.status(500).json({ error: "Upload failed" });
+  }
+});
+
+router.delete("/files/:fileId", requireAuth, canAccess, async (req, res) => {
+  const isModerator = req.user.roles.includes("moderator");
+  try {
+    const { rows } = await pool.query(
+      "SELECT id, storage_key, uploaded_by_id FROM files WHERE id = $1",
+      [req.params.fileId]
+    );
+    if (!rows.length) return res.status(404).json({ error: "File not found" });
+    const file = rows[0];
+    if (!isModerator && file.uploaded_by_id !== req.user.id) {
+      return res.status(403).json({ error: "Not authorised to delete this file" });
+    }
+    await deleteFile({ storageKey: file.storage_key, fileId: file.id, pool });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to delete file" });
+  }
+});
+
+router.patch("/message-files/:id/preview", requireAuth, canAccess, async (req, res) => {
+  const { show_preview } = req.body;
+  if (typeof show_preview !== "boolean") return res.status(400).json({ error: "show_preview must be boolean" });
+  try {
+    const { rows } = await pool.query(
+      `UPDATE discussions_message_files dmf
+       SET show_preview = $1
+       FROM discussions_messages m
+       WHERE dmf.id = $2 AND dmf.message_id = m.id AND m.user_id = $3
+       RETURNING dmf.id`,
+      [show_preview, req.params.id, req.user.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: "Not found or not authorised" });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to update preview" });
+  }
+});
 
 // ── Threads ──────────────────────────────────────────────────────────────────
 
@@ -107,8 +193,19 @@ router.get("/threads/:threadId/messages", requireAuth, canAccess, async (req, re
   const before = req.query.before;
   try {
     const { rows } = await pool.query(
-      `SELECT id, thread_id, user_id, user_name, content, created_at, edited_at, deleted_at,
-              (SELECT COUNT(*) FROM discussions_messages r WHERE r.parent_message_id = m.id)::int AS reply_count
+      `SELECT m.id, m.thread_id, m.user_id, m.user_name, m.content, m.created_at, m.edited_at, m.deleted_at,
+              (SELECT COUNT(*) FROM discussions_messages r WHERE r.parent_message_id = m.id)::int AS reply_count,
+              COALESCE(
+                (SELECT json_agg(json_build_object(
+                  'id', dmf.id, 'file_id', f.id, 'name', f.name,
+                  'mime_type', f.mime_type, 'size_bytes', f.size_bytes,
+                  'storage_key', f.storage_key, 'show_preview', dmf.show_preview
+                ) ORDER BY dmf.created_at)
+                FROM discussions_message_files dmf
+                JOIN files f ON f.id = dmf.file_id
+                WHERE dmf.message_id = m.id),
+                '[]'::json
+              ) AS files
        FROM discussions_messages m
        WHERE thread_id = $1
          AND parent_message_id IS NULL
@@ -117,7 +214,11 @@ router.get("/threads/:threadId/messages", requireAuth, canAccess, async (req, re
        LIMIT $2`,
       before ? [threadId, limit, before] : [threadId, limit]
     );
-    res.json(rows);
+    const publicUrl = PUBLIC_URL || "";
+    res.json(rows.map(m => ({
+      ...m,
+      files: (m.files || []).map(f => ({ ...f, url: `${publicUrl}/${f.storage_key}` })),
+    })));
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch messages" });
   }
@@ -125,15 +226,16 @@ router.get("/threads/:threadId/messages", requireAuth, canAccess, async (req, re
 
 router.post("/threads/:threadId/messages", requireAuth, canAccess, async (req, res) => {
   const { threadId } = req.params;
-  const { content } = req.body;
-  if (!content?.trim()) return res.status(400).json({ error: "Content is required" });
+  const { content, fileIds } = req.body;
+  if (!content?.trim() && !fileIds?.length) return res.status(400).json({ error: "Content or a file is required" });
   try {
     const { rows } = await pool.query(
       `INSERT INTO discussions_messages (thread_id, user_id, user_name, content)
        VALUES ($1, $2, $3, $4) RETURNING *, 0 AS reply_count`,
-      [threadId, req.user.id, req.user.name, content.trim()]
+      [threadId, req.user.id, req.user.name, content?.trim() ?? ""]
     );
     const message = rows[0];
+    await attachFilesToMessage(message.id, fileIds, req.user.id);
     await pool.query(
       "UPDATE discussions_threads SET latest_message_at = $1 WHERE id = $2",
       [message.created_at, threadId]
@@ -145,7 +247,8 @@ router.post("/threads/:threadId/messages", requireAuth, canAccess, async (req, r
        WHERE EXCLUDED.last_read_at > discussions_thread_reads.last_read_at`,
       [req.user.id, threadId, message.created_at]
     );
-    req.io?.to(`thread:${threadId}`).emit("message:new", message);
+    const files = await fetchMessageFiles(message.id);
+    req.io?.to(`thread:${threadId}`).emit("message:new", { ...message, files });
     req.io?.emit("thread:activity", { thread_id: threadId });
     ;(async () => {
       const { rows: tr } = await pool.query("SELECT name FROM discussions_threads WHERE id = $1", [threadId]);
@@ -155,7 +258,7 @@ router.post("/threads/:threadId/messages", requireAuth, canAccess, async (req, r
         url: `/discussions#${threadId}`,
       });
     })().catch(() => {});
-    res.status(201).json(message);
+    res.status(201).json({ ...message, files });
   } catch (err) {
     res.status(500).json({ error: "Failed to post message" });
   }
@@ -205,21 +308,37 @@ router.delete("/messages/:id", requireAuth, canAccess, async (req, res) => {
 router.get("/messages/:id/replies", requireAuth, canAccess, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT id, thread_id, parent_message_id, user_id, user_name, content, created_at, edited_at, deleted_at
-       FROM discussions_messages
+      `SELECT m.id, m.thread_id, m.parent_message_id, m.user_id, m.user_name, m.content,
+              m.created_at, m.edited_at, m.deleted_at,
+              COALESCE(
+                (SELECT json_agg(json_build_object(
+                  'id', dmf.id, 'file_id', f.id, 'name', f.name,
+                  'mime_type', f.mime_type, 'size_bytes', f.size_bytes,
+                  'storage_key', f.storage_key, 'show_preview', dmf.show_preview
+                ) ORDER BY dmf.created_at)
+                FROM discussions_message_files dmf
+                JOIN files f ON f.id = dmf.file_id
+                WHERE dmf.message_id = m.id),
+                '[]'::json
+              ) AS files
+       FROM discussions_messages m
        WHERE parent_message_id = $1
        ORDER BY created_at ASC`,
       [req.params.id]
     );
-    res.json(rows);
+    const publicUrl = PUBLIC_URL || "";
+    res.json(rows.map(m => ({
+      ...m,
+      files: (m.files || []).map(f => ({ ...f, url: `${publicUrl}/${f.storage_key}` })),
+    })));
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch replies" });
   }
 });
 
 router.post("/messages/:id/replies", requireAuth, canAccess, async (req, res) => {
-  const { content } = req.body;
-  if (!content?.trim()) return res.status(400).json({ error: "Content is required" });
+  const { content, fileIds } = req.body;
+  if (!content?.trim() && !fileIds?.length) return res.status(400).json({ error: "Content or a file is required" });
   try {
     const parent = await pool.query(
       "SELECT id, thread_id FROM discussions_messages WHERE id = $1 AND parent_message_id IS NULL",
@@ -230,9 +349,10 @@ router.post("/messages/:id/replies", requireAuth, canAccess, async (req, res) =>
     const { rows } = await pool.query(
       `INSERT INTO discussions_messages (thread_id, parent_message_id, user_id, user_name, content)
        VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [thread_id, req.params.id, req.user.id, req.user.name, content.trim()]
+      [thread_id, req.params.id, req.user.id, req.user.name, content?.trim() ?? ""]
     );
     const reply = rows[0];
+    await attachFilesToMessage(reply.id, fileIds, req.user.id);
     await pool.query(
       "UPDATE discussions_threads SET latest_message_at = $1 WHERE id = $2",
       [reply.created_at, thread_id]
@@ -244,7 +364,8 @@ router.post("/messages/:id/replies", requireAuth, canAccess, async (req, res) =>
        WHERE EXCLUDED.last_read_at > discussions_thread_reads.last_read_at`,
       [req.user.id, thread_id, reply.created_at]
     );
-    req.io?.to(`replies:${req.params.id}`).emit("reply:new", reply);
+    const files = await fetchMessageFiles(reply.id);
+    req.io?.to(`replies:${req.params.id}`).emit("reply:new", { ...reply, files });
     req.io?.to(`thread:${thread_id}`).emit("message:reply_count", { message_id: req.params.id });
     req.io?.emit("thread:activity", { thread_id });
     ;(async () => {
@@ -255,7 +376,7 @@ router.post("/messages/:id/replies", requireAuth, canAccess, async (req, res) =>
         url: `/discussions#${thread_id}`,
       });
     })().catch(() => {});
-    res.status(201).json(reply);
+    res.status(201).json({ ...reply, files });
   } catch (err) {
     res.status(500).json({ error: "Failed to post reply" });
   }
