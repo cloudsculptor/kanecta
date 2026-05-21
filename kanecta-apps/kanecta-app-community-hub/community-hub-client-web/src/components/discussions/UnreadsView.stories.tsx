@@ -15,7 +15,7 @@ function msg(id: string, threadId: string, name: string, content: string, create
     user_id: `u-${name.split(" ")[0].toLowerCase()}`,
     user_name: name, content,
     created_at: createdAt, edited_at: null, deleted_at: null,
-    reply_count: replyCount,
+    reply_count: replyCount, files: [],
   };
 }
 
