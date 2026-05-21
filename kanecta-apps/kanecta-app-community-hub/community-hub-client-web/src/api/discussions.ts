@@ -165,6 +165,22 @@ export const api = {
         method: "PATCH",
         body: JSON.stringify({ show_preview: show }),
       }),
+    download: async (fileId: string, fileName: string) => {
+      const token = keycloak.token;
+      const res = await fetch(`${BASE}/api/discussions/files/${fileId}/download`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error(`${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    },
   },
   reactions: {
     listForThread: (threadId: string) =>
