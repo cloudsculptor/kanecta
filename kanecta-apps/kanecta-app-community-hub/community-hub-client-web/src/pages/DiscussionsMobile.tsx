@@ -108,7 +108,7 @@ function MessagesScreen({
   canModerate: boolean;
   users: { id: string; name: string }[];
   onBack: () => void;
-  onSend: (content: string) => Promise<void>;
+  onSend: (content: string, fileIds: string[]) => Promise<void>;
   onEdit: (id: string, content: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onReact: (id: string, emoji: string) => Promise<unknown>;
@@ -216,8 +216,8 @@ function RepliesScreen({
     },
   });
 
-  async function sendReply(content: string) {
-    const reply = await api.messages.reply(parentMessage.id, content);
+  async function sendReply(content: string, fileIds: string[]) {
+    const reply = await api.messages.reply(parentMessage.id, content, fileIds);
     setReplies((prev) => prev.some((r) => r.id === reply.id) ? prev : [...prev, reply]);
     onReplied(parentMessage.id);
   }
@@ -395,9 +395,9 @@ export default function DiscussionsMobile() {
     "thread:archived": (data) => handleThreadArchived((data as { id: string }).id),
   });
 
-  async function sendMessage(content: string) {
+  async function sendMessage(content: string, fileIds: string[]) {
     if (!activeThread) return;
-    const msg = await api.messages.post(activeThread.id, content);
+    const msg = await api.messages.post(activeThread.id, content, fileIds);
     setMessages((prev) => prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]);
   }
   async function editMessage(id: string, content: string) {
