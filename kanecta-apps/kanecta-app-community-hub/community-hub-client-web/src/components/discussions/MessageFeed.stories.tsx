@@ -19,6 +19,7 @@ function makeMessage(content: string, userId = "user-1", userName = "Jane Smith"
     edited_at: null,
     deleted_at: null,
     reply_count: 0,
+    files: [],
   };
 }
 
@@ -48,7 +49,7 @@ function MessageFeed({
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const noop = async () => {};
 
-  async function handleSend(content: string) {
+  async function handleSend(content: string, _fileIds: string[]) {
     if (simulateSlowApi) await new Promise((r) => setTimeout(r, 1200));
     const msg = makeMessage(content, currentUserId, currentUserName);
     setMessages((prev) => [...prev, msg]);
