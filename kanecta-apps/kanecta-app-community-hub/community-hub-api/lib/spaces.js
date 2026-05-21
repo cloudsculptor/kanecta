@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { randomUUID } from "crypto";
 import { uuidToStorageKey } from "./storage.js";
 
@@ -44,4 +44,9 @@ export async function uploadFile({ buffer, mimeType, originalName, uploadedById,
 export async function deleteFile({ storageKey, fileId, pool }) {
   await client.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: storageKey }));
   await pool.query("DELETE FROM files WHERE id = $1", [fileId]);
+}
+
+export async function getFileStream({ storageKey }) {
+  const response = await client.send(new GetObjectCommand({ Bucket: BUCKET, Key: storageKey }));
+  return response;
 }

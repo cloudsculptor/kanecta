@@ -141,6 +141,8 @@ export default function MentionInput({ placeholder, onSend, disabled, users }: P
     }
   }
 
+  const MAX_FILE_BYTES = 10 * 1024 * 1024;
+
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(e.target.files ?? []);
     if (!selected.length) return;
@@ -150,13 +152,16 @@ export default function MentionInput({ placeholder, onSend, disabled, users }: P
       tempId: crypto.randomUUID(),
       name: f.name,
       mime_type: f.type || "application/octet-stream",
-      uploading: true,
+      size_bytes: f.size,
+      uploading: f.size <= MAX_FILE_BYTES,
+      error: f.size > MAX_FILE_BYTES ? "Exceeds 10 MB limit" : undefined,
     }));
     setPendingFiles(prev => [...prev, ...newEntries]);
 
     for (let i = 0; i < selected.length; i++) {
       const file = selected[i];
       const entry = newEntries[i];
+      if (entry.error) continue;
       try {
         const result = await api.files.upload(file);
         setPendingFiles(prev => prev.map(p =>

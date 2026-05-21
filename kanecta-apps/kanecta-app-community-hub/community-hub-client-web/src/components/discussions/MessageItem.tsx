@@ -98,6 +98,10 @@ function MessageAttachments({
     } catch { /* ignore */ }
   }
 
+  async function handleDownload(fileId: string, fileName: string) {
+    try { await api.files.download(fileId, fileName); } catch { /* ignore */ }
+  }
+
   async function handleTogglePreview(mf: MessageFile) {
     try {
       await api.files.togglePreview(mf.id, !mf.show_preview);
@@ -154,9 +158,13 @@ function MessageAttachments({
                   <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
                   <polyline points="13 2 13 9 20 9" />
                 </svg>
-                <a href={f.url} target="_blank" rel="noopener noreferrer" className="discussions-message-file__chip-name">
+                <button
+                  className="discussions-message-file__chip-name"
+                  onClick={() => handleDownload(f.file_id, f.name)}
+                  title={`Download ${f.name}`}
+                >
                   {f.name}
-                </a>
+                </button>
                 <span className="discussions-message-file__chip-size">{formatFileSize(f.size_bytes)}</span>
                 {canDelete && (
                   <button

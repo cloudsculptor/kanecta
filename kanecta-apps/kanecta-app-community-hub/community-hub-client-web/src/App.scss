@@ -2360,15 +2360,15 @@ $bp-tablet: 768px;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 6px 10px 0;
+  padding: 6px 10px;
 }
 
 .discussions-attachment-item {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: var(--accent-bg);
-  border: 1px solid var(--accent-border);
+  background: rgba(0,0,0,0.04);
+  border: 1px solid rgba(0,0,0,0.1);
   border-radius: 6px;
   padding: 4px 6px 4px 4px;
   max-width: 220px;
@@ -2498,8 +2498,8 @@ $bp-tablet: 768px;
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: var(--accent-bg);
-    border: 1px solid var(--accent-border);
+    background: rgba(0,0,0,0.04);
+    border: 1px solid rgba(0,0,0,0.1);
     border-radius: 6px;
     padding: 5px 8px;
     max-width: 360px;

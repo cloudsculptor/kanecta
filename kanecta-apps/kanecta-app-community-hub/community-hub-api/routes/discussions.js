@@ -3,9 +3,9 @@ import multer from "multer";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import pool from "../db.js";
 import { notifyThreadSubscribers } from "./push.js";
-import { uploadFile, deleteFile } from "../lib/spaces.js";
+import { uploadFile, deleteFile, getFileStream } from "../lib/spaces.js";
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 const PUBLIC_URL = process.env.SPACES_PUBLIC_URL;
 
 const router = Router();
@@ -51,6 +51,24 @@ router.post("/messages/upload", requireAuth, canAccess, upload.single("file"), a
     res.status(201).json({ id: file.id, url, name: file.name, mime_type: file.mime_type, size_bytes: file.size_bytes });
   } catch (err) {
     res.status(500).json({ error: "Upload failed" });
+  }
+});
+
+router.get("/files/:fileId/download", requireAuth, canAccess, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      "SELECT name, storage_key, mime_type FROM files WHERE id = $1",
+      [req.params.fileId]
+    );
+    if (!rows.length) return res.status(404).json({ error: "File not found" });
+    const { name, storage_key, mime_type } = rows[0];
+    const { Body } = await getFileStream({ storageKey: storage_key });
+    const encoded = encodeURIComponent(name);
+    res.setHeader("Content-Type", mime_type);
+    res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encoded}`);
+    Body.pipe(res);
+  } catch (err) {
+    res.status(500).json({ error: "Download failed" });
   }
 });
 
