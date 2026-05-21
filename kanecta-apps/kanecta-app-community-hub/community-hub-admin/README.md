@@ -7,14 +7,14 @@
 `backup.sh` uses `pg_dump --format=custom` — PostgreSQL's native binary backup format. It captures all tables (schema + data) in a single compressed file. The dump is then wrapped in a `.zip` file named:
 
 ```
-Featherston-db-YYYY-MM-DD-HH.MM.zip
+community-hub-db-YYYY-MM-DD-HH.MM.zip
 ```
 
 The inner `.dump` file is what `pg_restore` uses for restoration.
 
 ### PostgreSQL version
 
-The production database runs on **DigitalOcean Managed PostgreSQL** (port 25060, SSL required). At the time of writing the Postgres major version is **16** — confirm with:
+The production database runs PostgreSQL **16** — confirm with:
 
 ```bash
 PGSSLMODE=require psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c "SELECT version();"
@@ -38,12 +38,6 @@ The `~/.pgpass` file is PostgreSQL's native credential store. It lives in your h
 
    ```
    hostname:port:database:username:password
-   ```
-
-   Example:
-
-   ```
-   db-featherston-xxxx.db.ondigitalocean.com:25060:featherston:featherston_user:yourpassword
    ```
 
 2. Lock down permissions (required — Postgres ignores the file otherwise):
@@ -89,14 +83,14 @@ Backups are saved to `backups/` (gitignored). They are never committed.
 ### 1. Unzip
 
 ```bash
-unzip Featherston-db-2026-12-31-13.56.zip -d restore/
-# produces: restore/Featherston-db-2026-12-31-13.56.dump
+unzip community-hub-db-2026-12-31-13.56.zip -d restore/
+# produces: restore/community-hub-db-2026-12-31-13.56.dump
 ```
 
 ### 2. Create the target database (if it doesn't exist)
 
 ```bash
-createdb -h <host> -p <port> -U <user> featherston_restore
+createdb -h <host> -p <port> -U <user> community_hub_restore
 ```
 
 ### 3. Restore
@@ -106,9 +100,9 @@ pg_restore \
   --host=<host> \
   --port=<port> \
   --username=<user> \
-  --dbname=featherston_restore \
+  --dbname=community_hub_restore \
   --verbose \
-  restore/Featherston-db-2026-12-31-13.56.dump
+  restore/community-hub-db-2026-12-31-13.56.dump
 ```
 
 ### Restore to the same database (overwrite)
@@ -119,11 +113,11 @@ pg_restore \
   --host=<host> \
   --port=<port> \
   --username=<user> \
-  --dbname=featherston \
+  --dbname=<dbname> \
   --clean \
   --if-exists \
   --verbose \
-  restore/Featherston-db-2026-12-31-13.56.dump
+  restore/community-hub-db-2026-12-31-13.56.dump
 ```
 
 ### Restore a single table
@@ -133,9 +127,9 @@ pg_restore \
   --host=<host> \
   --port=<port> \
   --username=<user> \
-  --dbname=featherston \
+  --dbname=<dbname> \
   --table=discussions_messages \
-  restore/Featherston-db-2026-12-31-13.56.dump
+  restore/community-hub-db-2026-12-31-13.56.dump
 ```
 
 ---
