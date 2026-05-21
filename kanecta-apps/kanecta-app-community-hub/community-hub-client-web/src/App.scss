@@ -2367,7 +2367,7 @@ $bp-tablet: 768px;
   display: flex;
   align-items: center;
   gap: 6px;
-  background: rgba(0,0,0,0.04);
+  background: var(--bg);
   border: 1px solid rgba(0,0,0,0.1);
   border-radius: 6px;
   padding: 4px 6px 4px 4px;
@@ -2392,7 +2392,8 @@ $bp-tablet: 768px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--accent);
+    color: var(--text);
+    opacity: 0.45;
     flex-shrink: 0;
   }
 
@@ -2491,35 +2492,43 @@ $bp-tablet: 768px;
 
     &:hover { background: rgba(0, 0, 0, 0.75); }
 
-    &--delete { background: rgba(180, 30, 30, 0.7); &:hover { background: rgba(180, 30, 30, 0.9); } }
+    &--delete { background: rgba(0,0,0,0.12); &:hover { background: rgba(0,0,0,0.22); } }
   }
 
   &__chip {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: rgba(0,0,0,0.04);
+    background: var(--bg);
     border: 1px solid rgba(0,0,0,0.1);
     border-radius: 6px;
     padding: 5px 8px;
-    max-width: 360px;
+    max-width: 480px;
     font-size: 13px;
   }
 
   &__chip-icon {
     flex-shrink: 0;
-    color: var(--accent);
-    opacity: 0.8;
+    color: var(--text);
+    opacity: 0.45;
   }
 
   &__chip-name {
+    flex: 1;
+    min-width: 0;
     color: var(--text-h);
     font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 200px;
     text-decoration: none;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-size: inherit;
+    font-family: inherit;
+    text-align: left;
     &:hover { text-decoration: underline; color: var(--accent); }
   }
 
