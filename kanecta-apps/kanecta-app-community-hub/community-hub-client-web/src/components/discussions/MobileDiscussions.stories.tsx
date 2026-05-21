@@ -14,9 +14,9 @@ const THREADS = [
 ];
 
 const MESSAGES: Message[] = [
-  { id: "m1", thread_id: "t1", parent_message_id: null, user_id: "u2", user_name: "Aroha Tane", content: "Morning everyone! Hope you all have a great day.", created_at: new Date(Date.now() - 3600000).toISOString(), edited_at: null, deleted_at: null, reply_count: 2 },
-  { id: "m2", thread_id: "t1", parent_message_id: null, user_id: "u3", user_name: "Mike Robinson", content: "Anyone know if the library is open today?", created_at: new Date(Date.now() - 2400000).toISOString(), edited_at: null, deleted_at: null, reply_count: 0 },
-  { id: "m3", thread_id: "t1", parent_message_id: null, user_id: "u4", user_name: "Sarah King", content: "Yes, opens at 10 I think.", created_at: new Date(Date.now() - 1200000).toISOString(), edited_at: null, deleted_at: null, reply_count: 0 },
+  { id: "m1", thread_id: "t1", parent_message_id: null, user_id: "u2", user_name: "Aroha Tane", content: "Morning everyone! Hope you all have a great day.", created_at: new Date(Date.now() - 3600000).toISOString(), edited_at: null, deleted_at: null, reply_count: 2, files: [] },
+  { id: "m2", thread_id: "t1", parent_message_id: null, user_id: "u3", user_name: "Mike Robinson", content: "Anyone know if the library is open today?", created_at: new Date(Date.now() - 2400000).toISOString(), edited_at: null, deleted_at: null, reply_count: 0, files: [] },
+  { id: "m3", thread_id: "t1", parent_message_id: null, user_id: "u4", user_name: "Sarah King", content: "Yes, opens at 10 I think.", created_at: new Date(Date.now() - 1200000).toISOString(), edited_at: null, deleted_at: null, reply_count: 0, files: [] },
 ];
 
 function BackArrow() {
