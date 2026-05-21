@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import type { Message, Reaction } from "../../api/discussions";
 import { parseContent } from "./MentionInput";
+import MessageAttachments from "./MessageAttachments";
 
 const QUICK_EMOJI = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 const LONG_PRESS_MS = 500;
@@ -155,20 +156,30 @@ export default function MobileMessageItem({
               </div>
             </div>
           ) : (
-            <p className="discussions-message__text">
-              {parseContent(message.content).map((seg, i) => {
-                if (seg.type === "mention")
-                  return <span key={i} className="discussions-mention-pill">@{seg.value}</span>;
-                if (seg.type === "url")
-                  return (
-                    <a key={i} href={seg.value} target="_blank" rel="noopener noreferrer"
-                      className="discussions-message__link" onClick={(e) => e.stopPropagation()}>
-                      {seg.value}
-                    </a>
-                  );
-                return <span key={i}>{seg.value}</span>;
-              })}
-            </p>
+            message.content && (
+              <p className="discussions-message__text">
+                {parseContent(message.content).map((seg, i) => {
+                  if (seg.type === "mention")
+                    return <span key={i} className="discussions-mention-pill">@{seg.value}</span>;
+                  if (seg.type === "url")
+                    return (
+                      <a key={i} href={seg.value} target="_blank" rel="noopener noreferrer"
+                        className="discussions-message__link" onClick={(e) => e.stopPropagation()}>
+                        {seg.value}
+                      </a>
+                    );
+                  return <span key={i}>{seg.value}</span>;
+                })}
+              </p>
+            )
+          )}
+          {message.files?.length > 0 && (
+            <div onClick={(e) => e.stopPropagation()}>
+              <MessageAttachments
+                files={message.files}
+                canDelete={isOwn || canModerate}
+              />
+            </div>
           )}
 
           {reactions.length > 0 && !editing && (
