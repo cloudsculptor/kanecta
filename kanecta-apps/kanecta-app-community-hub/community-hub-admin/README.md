@@ -14,7 +14,7 @@ The inner `.dump` file is what `pg_restore` uses for restoration.
 
 ### PostgreSQL version
 
-The production database runs PostgreSQL **16** — confirm with:
+The production database runs PostgreSQL **18** — confirm with:
 
 ```bash
 PGSSLMODE=require psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c "SELECT version();"
@@ -23,7 +23,7 @@ PGSSLMODE=require psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c "SELEC
 Use a matching or newer `pg_dump`/`pg_restore` version locally. On Ubuntu/Debian:
 
 ```bash
-sudo apt install postgresql-client-16
+sudo apt install postgresql-client-18
 ```
 
 ---

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BACKUP_DIR="$SCRIPT_DIR/backups"
+BACKUP_DIR="${BACKUP_DIR:-$SCRIPT_DIR/backups}"
 
 # Load .env if present — used when ~/.pgpass is not set up
 if [[ -f "$SCRIPT_DIR/.env" ]]; then
