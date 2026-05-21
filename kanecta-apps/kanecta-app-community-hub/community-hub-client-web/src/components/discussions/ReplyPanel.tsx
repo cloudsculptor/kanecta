@@ -48,8 +48,8 @@ export default function ReplyPanel({
     },
   });
 
-  async function sendReply(content: string) {
-    const reply = await api.messages.reply(parentMessage.id, content);
+  async function sendReply(content: string, fileIds: string[]) {
+    const reply = await api.messages.reply(parentMessage.id, content, fileIds);
     setReplies((prev) => prev.some((r) => r.id === reply.id) ? prev : [...prev, reply]);
     onReplied(parentMessage.id);
   }

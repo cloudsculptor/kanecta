@@ -161,9 +161,9 @@ export default function Discussions() {
     "thread:archived": handleThreadArchived,
   });
 
-  async function sendMessage(content: string) {
+  async function sendMessage(content: string, fileIds: string[]) {
     if (!activeThreadId) return;
-    const message = await api.messages.post(activeThreadId, content);
+    const message = await api.messages.post(activeThreadId, content, fileIds);
     setMessages((prev) => prev.some((m) => m.id === message.id) ? prev : [...prev, message]);
   }
 
