@@ -6,11 +6,14 @@ import type { Message, Reaction } from "../../api/discussions";
 
 // ── Shared data ───────────────────────────────────────────────────────────────
 
+const PLACEHOLDER_IMAGE = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMjAiIGhlaWdodD0iMjAwIj48cmVjdCB3aWR0aD0iMzIwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzNhN2Q0NCIvPjwvc3ZnPg==";
+
 const parentMessage: Message = {
   id: "m1", thread_id: "t1", parent_message_id: null,
   user_id: "user-1", user_name: "Jane Smith",
   content: "What's the plan for the weekend market?",
   created_at: new Date().toISOString(), edited_at: null, deleted_at: null, reply_count: 2,
+  files: [],
 };
 
 const replies: Message[] = [
@@ -19,12 +22,28 @@ const replies: Message[] = [
     user_id: "user-2", user_name: "Mike Robinson",
     content: "I can bring the trestle tables.",
     created_at: new Date().toISOString(), edited_at: null, deleted_at: null, reply_count: 0,
+    files: [],
   },
   {
     id: "r2", thread_id: "t1", parent_message_id: "m1",
     user_id: "user-3", user_name: "Aroha Tane",
     content: "Happy to help with setup from 8am.",
     created_at: new Date().toISOString(), edited_at: null, deleted_at: null, reply_count: 0,
+    files: [],
+  },
+];
+
+const repliesWithAttachment: Message[] = [
+  {
+    ...replies[0],
+    id: "ra1",
+    content: "Here's a photo of the tables:",
+    files: [{ id: "mf1", file_id: "f1", name: "tables.jpg", mime_type: "image/jpeg", size_bytes: 95_000, url: PLACEHOLDER_IMAGE, show_preview: true }],
+  },
+  {
+    ...replies[1],
+    id: "ra2",
+    files: [],
   },
 ];
 
@@ -42,10 +61,12 @@ const seedReactions: Record<string, Reaction[]> = {
 
 function ReplyPanelDemo({
   initialReactions = {},
+  initialReplies = replies,
   currentUserId = "user-1",
   canModerate = false,
 }: {
   initialReactions?: Record<string, Reaction[]>;
+  initialReplies?: Message[];
   currentUserId?: string;
   canModerate?: boolean;
 }) {
@@ -98,7 +119,7 @@ function ReplyPanelDemo({
       </div>
 
       <div className="discussions-reply-panel__replies">
-        {replies.map((r) => (
+        {initialReplies.map((r) => (
           <MessageItem
             key={r.id}
             message={r}
@@ -155,4 +176,9 @@ export const WithReactions: Story = {
 /** Moderator sees delete controls on all messages. */
 export const ModeratorView: Story = {
   args: { currentUserId: "user-2", canModerate: true, initialReactions: seedReactions },
+};
+
+/** A reply contains an image attachment — verifies the image renders inside a thread panel. */
+export const ReplyWithAttachment: Story = {
+  args: { initialReplies: repliesWithAttachment },
 };

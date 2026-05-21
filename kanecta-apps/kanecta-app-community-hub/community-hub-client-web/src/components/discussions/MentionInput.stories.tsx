@@ -13,7 +13,7 @@ const meta: Meta<typeof MentionInput> = {
   decorators: [(Story) => <div style={{ padding: 20, maxWidth: 600 }}><Story /></div>],
   args: {
     placeholder: "Message #general",
-    onSend: async (content) => { console.log("sent:", content); },
+    onSend: async (content, fileIds) => { console.log("sent:", content, fileIds); },
     users,
   },
 };
@@ -43,4 +43,22 @@ export const ManyUsers: Story = {
       { id: "u8", name: "Hemi Parata" },
     ],
   },
+};
+
+/**
+ * File attach button — the paperclip is visible on the left of the textarea.
+ * Clicking it opens a file picker. In Storybook, the upload will fail gracefully
+ * (no real API) and show "Upload failed" in the attachment bar.
+ */
+export const WithAttachButton: Story = {
+  name: "With attach button (paperclip visible)",
+};
+
+/**
+ * Disabled state with attach button — both the textarea and attach button
+ * should be greyed out and non-interactive.
+ */
+export const DisabledWithAttach: Story = {
+  args: { disabled: true },
+  name: "Disabled — textarea and attach both greyed out",
 };
