@@ -35,7 +35,7 @@ fi
 mkdir -p "$BACKUP_DIR"
 
 TIMESTAMP=$(date '+%Y-%m-%d-%H.%M')
-FILENAME="Featherston-db-${TIMESTAMP}"
+FILENAME="community-hub-db-${TIMESTAMP}"
 DUMP_FILE="$BACKUP_DIR/${FILENAME}.dump"
 ZIP_FILE="$BACKUP_DIR/${FILENAME}.zip"
 
