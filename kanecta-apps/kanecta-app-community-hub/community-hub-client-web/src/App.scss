@@ -4243,3 +4243,60 @@ $bp-tablet: 768px;
   font-size: 0.9rem;
 }
 
+// ── Download page ─────────────────────────────────────────────────────────────
+
+.download-gate {
+  max-width: 480px;
+
+  p { margin-bottom: 0.75rem; }
+
+  &__signup { font-size: 0.9rem; color: var(--text); }
+}
+
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: inherit;
+  text-decoration: underline;
+
+  &:hover { color: var(--text-h); }
+}
+
+.download-panel {
+  max-width: 480px;
+}
+
+.download-options {
+  margin-bottom: 1.25rem;
+}
+
+.download-preparing {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.download-ready {
+  &__filename {
+    font-size: 0.95rem;
+    margin-bottom: 0.75rem;
+    color: var(--text);
+  }
+
+  &__expiry {
+    margin-top: 0.6rem;
+    font-size: 0.8rem;
+    color: var(--text);
+    opacity: 0.65;
+  }
+}
+
+.download-error {
+  max-width: 480px;
+}
+
