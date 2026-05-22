@@ -60,3 +60,4 @@ export async function adminFetch(path, options = {}) {
   if (res.status === 204) return null;
   return res.json();
 }
+
