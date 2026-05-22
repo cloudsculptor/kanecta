@@ -40,9 +40,6 @@ router.get("/", requireAuth, requireAdmin, wrap(async (req, res) => {
     })
   );
 
-  // Sort: by creation time ascending
-  members.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
-
   res.json(members);
 }));
 
