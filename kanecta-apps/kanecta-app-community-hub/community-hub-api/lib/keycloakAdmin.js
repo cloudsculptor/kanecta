@@ -18,7 +18,7 @@ async function getAdminToken() {
   }
 
   const res = await fetch(
-    `${KEYCLOAK_URL}/realms/${REALM}/protocol/openid-connect/token`,
+    `${KEYCLOAK_INTERNAL_URL}/realms/${REALM}/protocol/openid-connect/token`,
     {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
