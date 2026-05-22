@@ -1,4 +1,5 @@
 const KEYCLOAK_URL = process.env.KEYCLOAK_URL || "https://auth.featherston.co.nz";
+const KEYCLOAK_INTERNAL_URL = process.env.KEYCLOAK_INTERNAL_URL || "http://localhost:8080";
 const REALM = process.env.KEYCLOAK_REALM || "featherston";
 
 let cachedToken = null;
@@ -42,7 +43,7 @@ async function getAdminToken() {
 
 export async function adminFetch(path, options = {}) {
   const token = await getAdminToken();
-  const res = await fetch(`${KEYCLOAK_URL}/admin/realms/${REALM}${path}`, {
+  const res = await fetch(`${KEYCLOAK_INTERNAL_URL}/admin/realms/${REALM}${path}`, {
     ...options,
     headers: {
       Authorization: `Bearer ${token}`,
