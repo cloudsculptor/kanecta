@@ -17,6 +17,7 @@ const ROLE_LABEL: Record<UserRole, string> = {
   RESILIENCE: "Resilience",
   MODERATOR: "Moderator",
   TREASURER: "Treasurer",
+  ADMIN: "Admin",
 };
 
 function displayName(profile: Record<string, unknown> | undefined): string {
@@ -79,6 +80,11 @@ export default function Header() {
                 </div>
               </MenuItem>
               <Divider />
+              {role === "ADMIN" && (
+                <MenuItem onClick={() => { setMenuAnchor(null); navigate("/governance/membership"); }}>
+                  Membership
+                </MenuItem>
+              )}
               <MenuItem onClick={() => { setMenuAnchor(null); keycloak.logout({ redirectUri: window.location.origin }); }}>
                 Sign out
               </MenuItem>
