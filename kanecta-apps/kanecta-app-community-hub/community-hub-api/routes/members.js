@@ -13,12 +13,12 @@ const SYSTEM_ROLES = new Set([
   `default-roles-${REALM}`,
 ]);
 
-const APP_ROLES = ["team", "moderator", "treasurer", "resilience"];
+const APP_ROLES = ["admin", "team", "moderator", "treasurer", "resilience"];
 
-const requireModerator = requireRole("moderator");
+const requireAdmin = requireRole("admin");
 
 // GET /api/members — list all realm users with their app roles
-router.get("/", requireAuth, requireModerator, wrap(async (req, res) => {
+router.get("/", requireAuth, requireAdmin, wrap(async (req, res) => {
   const users = await adminFetch("/users?max=1000&briefRepresentation=false");
 
   const members = await Promise.all(
@@ -47,7 +47,7 @@ router.get("/", requireAuth, requireModerator, wrap(async (req, res) => {
 }));
 
 // POST /api/members/:userId/roles/team — assign the team role to a user
-router.post("/:userId/roles/team", requireAuth, requireModerator, wrap(async (req, res) => {
+router.post("/:userId/roles/team", requireAuth, requireAdmin, wrap(async (req, res) => {
   const { userId } = req.params;
 
   // Validate the user exists
