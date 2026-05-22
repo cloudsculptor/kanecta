@@ -5,7 +5,7 @@ import Footer from "./Footer";
 
 export default function RequireTeam() {
   const role = useUserRole();
-  if (role === "TEAM" || role === "MODERATOR" || role === "TREASURER") {
+  if (role === "TEAM" || role === "MODERATOR" || role === "TREASURER" || role === "ADMIN") {
     return <Outlet />;
   }
   return (

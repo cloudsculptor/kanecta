@@ -1,11 +1,12 @@
 import { useKeycloak } from "./KeycloakProvider";
 import keycloak from "./keycloak";
 
-export type UserRole = "PUBLIC" | "GUEST" | "TEAM" | "RESILIENCE" | "MODERATOR" | "TREASURER";
+export type UserRole = "PUBLIC" | "GUEST" | "TEAM" | "RESILIENCE" | "MODERATOR" | "TREASURER" | "ADMIN";
 
 export function useUserRole(): UserRole {
   const { authenticated } = useKeycloak();
   if (!authenticated) return "PUBLIC";
+  if (keycloak.hasRealmRole("admin")) return "ADMIN";
   if (keycloak.hasRealmRole("moderator")) return "MODERATOR";
   if (keycloak.hasRealmRole("treasurer")) return "TREASURER";
   if (keycloak.hasRealmRole("team")) return "TEAM";

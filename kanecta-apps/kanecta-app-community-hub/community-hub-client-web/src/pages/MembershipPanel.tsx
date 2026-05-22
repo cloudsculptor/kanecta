@@ -8,6 +8,7 @@ import { getMembers, addToTeam, type Member } from "../api/members";
 const PARENTS = [{ name: "Governance", path: "/governance" }];
 
 const ROLE_LABELS: Record<string, string> = {
+  admin: "Admin",
   team: "Team",
   moderator: "Moderator",
   treasurer: "Treasurer",
@@ -15,6 +16,7 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const ROLE_COLOURS: Record<string, "default" | "primary" | "secondary" | "success" | "warning" | "error" | "info"> = {
+  admin: "warning",
   team: "primary",
   moderator: "error",
   treasurer: "success",
@@ -23,7 +25,7 @@ const ROLE_COLOURS: Record<string, "default" | "primary" | "secondary" | "succes
 
 export default function MembershipPanel() {
   const role = useUserRole();
-  const isModerator = role === "MODERATOR";
+  const isAdmin = role === "ADMIN";
 
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,14 +33,14 @@ export default function MembershipPanel() {
   const [promoting, setPromoting] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isModerator) return;
+    if (!isAdmin) return;
     getMembers()
       .then(setMembers)
       .catch((err: Error) => setError(`Failed to load members: ${err.message}`))
       .finally(() => setLoading(false));
-  }, [isModerator]);
+  }, [isAdmin]);
 
-  if (!isModerator) {
+  if (!isAdmin) {
     return (
       <PageLayout pageName="Membership" showComingSoon={false} parents={PARENTS}>
         <p>You don't have permission to view this page.</p>
