@@ -58,6 +58,7 @@ import PageHistory from "./pages/PageHistory";
 import PageVersion from "./pages/PageVersion";
 import PagesListPublic from "./pages/PagesListPublic";
 import PageViewPublic from "./pages/PageViewPublic";
+import Download from "./pages/Download";
 
 export default function App() {
   const { initialized } = useKeycloak();
@@ -74,6 +75,7 @@ export default function App() {
       <Route path="/goods-and-services" element={<GoodsAndServices />} />
       <Route path="/social-services" element={<SocialServices />} />
       <Route path="/about" element={<AboutThisSite />} />
+      <Route path="/download" element={<Download />} />
       <Route path="/groups" element={<Groups />} />
       <Route path="/groups/resilience" element={<PagesList />} />
       <Route path="/resilience" element={<Resilience />} />
