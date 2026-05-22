@@ -9,11 +9,11 @@ async function getAdminToken() {
     return cachedToken;
   }
 
-  const clientId = process.env.KEYCLOAK_ADMIN_CLIENT_ID;
-  const clientSecret = process.env.KEYCLOAK_ADMIN_CLIENT_SECRET;
+  const clientId = process.env.KEYCLOAK_MEMBERS_CLIENT_ID;
+  const clientSecret = process.env.KEYCLOAK_MEMBERS_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
-    throw new Error("KEYCLOAK_ADMIN_CLIENT_ID and KEYCLOAK_ADMIN_CLIENT_SECRET must be set");
+    throw new Error("KEYCLOAK_MEMBERS_CLIENT_ID and KEYCLOAK_MEMBERS_CLIENT_SECRET must be set");
   }
 
   const res = await fetch(
