@@ -50,6 +50,7 @@ import FinancesExpenses from "./pages/FinancesExpenses";
 import RoleCustodian from "./pages/RoleCustodian";
 import RoleVolunteer from "./pages/RoleVolunteer";
 import Groups from "./pages/Groups";
+import MembershipPanel from "./pages/MembershipPanel";
 import PagesList from "./pages/PagesList";
 import PageEdit from "./pages/PageEdit";
 import PageView from "./pages/PageView";
@@ -126,6 +127,7 @@ export default function App() {
         <Route path="/governance/finances/cashflow" element={<FinancesCashflow />} />
         <Route path="/governance/finances/profit-and-loss" element={<FinancesProfitLoss />} />
         <Route path="/governance/finances/expenses" element={<FinancesExpenses />} />
+        <Route path="/governance/membership" element={<MembershipPanel />} />
       </Route>
     </Routes>
   );

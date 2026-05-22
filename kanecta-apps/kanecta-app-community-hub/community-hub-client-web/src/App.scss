@@ -4154,3 +4154,92 @@ $bp-tablet: 768px;
   display: block;
 }
 
+// ── Membership Panel ──────────────────────────────────────────────────────────
+
+.membership-section {
+  margin-bottom: 2.5rem;
+
+  h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-h);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+}
+
+.membership-count {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border: 1px solid var(--accent-border);
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 1px 7px;
+}
+
+.membership-table-wrap {
+  overflow-x: auto;
+}
+
+.membership-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+
+  th, td {
+    text-align: left;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  th {
+    color: var(--text);
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: var(--bg);
+  }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+
+  tr:hover td {
+    background: var(--accent-bg);
+  }
+}
+
+.membership-roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.membership-no-roles {
+  color: var(--text);
+  opacity: 0.45;
+  font-size: 0.85rem;
+}
+
+.membership-empty {
+  color: var(--text);
+  opacity: 0.6;
+  font-size: 0.9rem;
+}
+
+.membership-error {
+  color: #d32f2f;
+  background: #fdecea;
+  border: 1px solid #f5c6c6;
+  border-radius: 6px;
+  padding: 0.6rem 1rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+}
+
