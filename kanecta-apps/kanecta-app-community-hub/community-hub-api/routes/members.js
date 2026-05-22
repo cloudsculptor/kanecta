@@ -23,7 +23,7 @@ router.get("/", requireAuth, requireAdmin, wrap(async (req, res) => {
 
   const members = await Promise.all(
     users.map(async (user) => {
-      const roleMappings = await adminFetch(`/users/${user.id}/role-mappings/realm`);
+      const roleMappings = await adminFetch(`/users/${user.id}/role-mappings/realm/composite`);
       const roles = roleMappings
         .map(r => r.name)
         .filter(name => APP_ROLES.includes(name));
