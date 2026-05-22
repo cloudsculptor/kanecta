@@ -46,20 +46,21 @@ router.get("/", requireAuth, requireAdmin, wrap(async (req, res) => {
   res.json(members);
 }));
 
-// POST /api/members/:userId/roles/team — assign the team role to a user
+// POST /api/members/:userId/roles/team — add user to the group that carries the team role
 router.post("/:userId/roles/team", requireAuth, requireAdmin, wrap(async (req, res) => {
   const { userId } = req.params;
 
   // Validate the user exists
   await adminFetch(`/users/${userId}`);
 
-  // Fetch the team role representation (we need the role id)
-  const teamRole = await adminFetch("/roles/team");
+  // Find the group(s) that carry the team realm role
+  const groups = await adminFetch("/roles/team/groups");
+  if (!groups || groups.length === 0) {
+    return res.status(500).json({ error: "No group found for the team role" });
+  }
 
-  await adminFetch(`/users/${userId}/role-mappings/realm`, {
-    method: "POST",
-    body: JSON.stringify([{ id: teamRole.id, name: teamRole.name }]),
-  });
+  // Add the user to the team group
+  await adminFetch(`/users/${userId}/groups/${groups[0].id}`, { method: "PUT" });
 
   res.status(204).end();
 }));
