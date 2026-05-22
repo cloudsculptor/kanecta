@@ -48,8 +48,9 @@ export default function MembershipPanel() {
     );
   }
 
-  const pending = members.filter(m => m.roles.length === 0);
-  const active = members.filter(m => m.roles.length > 0);
+  const byName = (a: Member, b: Member) => (a.name || a.username).localeCompare(b.name || b.username);
+  const pending = members.filter(m => m.roles.length === 0).sort(byName);
+  const active = members.filter(m => m.roles.length > 0).sort(byName);
 
   async function handleAddToTeam(member: Member) {
     setPromoting(member.id);
@@ -128,6 +129,7 @@ function MemberTable({ members, promoting, onAddToTeam, showAddToTeam }: MemberT
           <tr>
             <th>Name</th>
             <th>Email</th>
+            <th>Joined</th>
             <th>Groups</th>
             <th></th>
           </tr>
@@ -137,6 +139,11 @@ function MemberTable({ members, promoting, onAddToTeam, showAddToTeam }: MemberT
             <tr key={member.id}>
               <td>{member.name || member.username}</td>
               <td>{member.email || "—"}</td>
+              <td style={{ whiteSpace: "nowrap", fontSize: "0.85rem", color: "var(--text)" }}>
+                {member.createdTimestamp
+                  ? new Date(member.createdTimestamp).toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" })
+                  : "—"}
+              </td>
               <td>
                 <span className="membership-roles">
                   {member.roles.length === 0 ? (
