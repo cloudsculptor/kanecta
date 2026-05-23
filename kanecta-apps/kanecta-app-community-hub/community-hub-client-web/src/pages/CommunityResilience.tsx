@@ -48,7 +48,7 @@ export default function CommunityResilience() {
       </p>
       <ul>
         <li>
-          <Link to="/groups/resilience">Resilience Group pages</Link>
+          <Link to="/resilience/pages/about">Resilience Group</Link>
           {" "}— working documents, research, and resources developed by the group
         </li>
       </ul>
