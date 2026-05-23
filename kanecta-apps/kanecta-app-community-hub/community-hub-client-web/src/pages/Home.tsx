@@ -74,11 +74,6 @@ const localItems = [
     path: "/kai",
   },
   {
-    title: "Skill Sharing",
-    blurb: "Share your skills or find someone with the expertise you need.",
-    path: "/skill-sharing",
-  },
-  {
     title: "Local Economy",
     blurb: "Support and grow the local economy of Featherston.",
     path: "/local-economy",
