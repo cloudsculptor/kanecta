@@ -58,6 +58,7 @@ import PageVersion from "./pages/PageVersion";
 import PagesListPublic from "./pages/PagesListPublic";
 import PageViewPublic from "./pages/PageViewPublic";
 import Download from "./pages/Download";
+import Settings from "./pages/Settings";
 
 export default function App() {
   const { initialized } = useKeycloak();
@@ -83,6 +84,7 @@ export default function App() {
       <Route path="/communication-networks" element={<CommunicationNetworks />} />
       <Route path="/local-businesses" element={<LocalBusinesses />} />
       <Route path="/local-government" element={<LocalGovernment />} />
+      <Route path="/settings" element={<Settings />} />
       <Route path="/discussions" element={<Discussions />} />
       <Route path="/discussions/team-required" element={<TeamRequired />} />
       <Route path="/roadmap" element={<Roadmap />} />

@@ -85,6 +85,9 @@ export default function Header() {
                   Membership
                 </MenuItem>
               )}
+              <MenuItem onClick={() => { setMenuAnchor(null); navigate("/settings"); }}>
+                Settings
+              </MenuItem>
               <MenuItem onClick={() => { setMenuAnchor(null); keycloak.logout({ redirectUri: window.location.origin }); }}>
                 Sign out
               </MenuItem>
