@@ -79,6 +79,9 @@ export default function Home() {
       <nav className="nav-grid">
         {isTeam && (
           <>
+            <div className="nav-divider">
+              <span>Visible to team members only</span>
+            </div>
             <NavCard
               featured
               title="Discussions"
@@ -100,12 +103,20 @@ export default function Home() {
                 label: "Photo: Canva AI",
                 url: "https://www.canva.com/",
               }}
-            />
+            />            
+            <NavCard
+              accent
+              title="Site Governance"
+              blurb="Documents and tools related to managing this site"
+              path="/governance"
+              image="/group-photo-160x160.png"
+              attribution={{
+                label: "Photo: Canva AI",
+                url: "https://www.canva.com/",
+              }}
+            />            
             <div className="nav-divider">
-              <span>Visible to team members only</span>
-            </div>
-            <div className="nav-divider">
-              <span>Available to everyone</span>
+              <span>Visible to the public</span>
             </div>
           </>
         )}
