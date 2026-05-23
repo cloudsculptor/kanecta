@@ -83,6 +83,7 @@ export default function Home() {
               <span>Visible to team members only</span>
             </div>
             <NavCard
+              accent
               title="Discussions"
               blurb="Share ideas, ask questions, and connect with others in the Featherston community."
               path="/discussions"
