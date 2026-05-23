@@ -68,10 +68,6 @@ const publicComing = [
   },
 ];
 
-const localItems = [
-];
-
-
 export default function Home() {
   usePageMeta("Featherston", "Community information and connection for the town of Featherston, New Zealand — events, organisations, skills, transport, resilience and more.");
   const roles = useUserRoles();
@@ -105,7 +101,6 @@ export default function Home() {
                 url: "https://www.canva.com/",
               }}
             />
-            {localItems.map((item) => <NavCard key={item.title} {...item} />)}
           </>
         ) : (
           <>
