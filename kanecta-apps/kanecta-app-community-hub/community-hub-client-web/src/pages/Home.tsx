@@ -78,6 +78,50 @@ const publicActive = [
 
 const publicComing = [
   {
+    title: "Health & Wellbeing",
+    blurb: "GPs, pharmacy, dentist, mental health, and healthcare access in Featherston.",
+  },
+  {
+    title: "Education",
+    blurb: "Schools, early childhood centres, library, and adult learning.",
+  },
+  {
+    title: "Sport & Recreation",
+    blurb: "Sports clubs, facilities, courts, and fitness groups.",
+  },
+  {
+    title: "Environment & Outdoors",
+    blurb: "Remutaka Rail Trail, Lake Wairarapa, conservation, and local walks.",
+  },
+  {
+    title: "Arts & Culture",
+    blurb: "Local artists, galleries, Booktown festival, and performances.",
+  },
+  {
+    title: "Food & Drink",
+    blurb: "Cafes, restaurants, local producers, and farmers markets.",
+  },
+  {
+    title: "Jobs & Volunteering",
+    blurb: "Local employment opportunities and ways to contribute your skills.",
+  },
+  {
+    title: "Property & Housing",
+    blurb: "Rentals, real estate, and local housing information.",
+  },
+  {
+    title: "Youth",
+    blurb: "Services, activities, and resources for young people in Featherston.",
+  },
+  {
+    title: "Seniors",
+    blurb: "Services, activities, and support for older residents.",
+  },
+  {
+    title: "Pets & Animals",
+    blurb: "Vets, lost pets, and animal services in the area.",
+  },
+  {
     title: "Buy, Sell & Swap",
     blurb: "Buy, sell, swap, or give away items locally.",
   },
