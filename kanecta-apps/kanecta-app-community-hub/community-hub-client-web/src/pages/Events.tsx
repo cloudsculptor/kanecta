@@ -3,10 +3,12 @@ import {
   Divider, Typography, Alert, CircularProgress, Box, Chip, Button,
 } from "@mui/material";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import PageLayout from "../components/PageLayout";
 import CC0Notice from "../components/CC0Notice";
 import EventCard from "../components/events/EventCard";
 import EventInlineForm from "../components/events/EventInlineForm";
+import EventEditDialog from "../components/events/EventEditDialog";
 import { getEvents, getMyEvents, deleteEvent, type Event, type MyEvent } from "../api/events";
 import { useKeycloak } from "../auth/KeycloakProvider";
 import keycloak from "../auth/keycloak";
@@ -74,11 +76,10 @@ function groupByMonth(events: Event[]): { label: string; events: Event[] }[] {
   return Array.from(groups.entries()).map(([label, events]) => ({ label, events }));
 }
 
-function MyEventRow({ event, onDeleted }: { event: MyEvent; onDeleted: () => void }) {
+function MyEventRow({ event, onDeleted, onEdit }: { event: MyEvent; onDeleted: () => void; onEdit: () => void }) {
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const chip = STATUS_CHIP[event.status];
-  const canDelete = true;
 
   async function handleDelete() {
     if (!confirmDelete) { setConfirmDelete(true); return; }
@@ -105,18 +106,24 @@ function MyEventRow({ event, onDeleted }: { event: MyEvent; onDeleted: () => voi
             {event.decline_reason}
           </Typography>
         )}
-        {canDelete && (
-          <Button
-            size="small"
-            color="error"
-            startIcon={<DeleteOutlineIcon fontSize="small" />}
-            onClick={handleDelete}
-            disabled={deleting}
-            sx={{ ml: 1 }}
-          >
-            {confirmDelete ? "Confirm delete" : "Delete"}
-          </Button>
-        )}
+        <Button
+          size="small"
+          startIcon={<EditOutlinedIcon fontSize="small" />}
+          onClick={onEdit}
+          sx={{ ml: 1 }}
+        >
+          Edit
+        </Button>
+        <Button
+          size="small"
+          color="error"
+          startIcon={<DeleteOutlineIcon fontSize="small" />}
+          onClick={handleDelete}
+          disabled={deleting}
+          sx={{ ml: 0.5 }}
+        >
+          {confirmDelete ? "Confirm delete" : "Delete"}
+        </Button>
         {confirmDelete && !deleting && (
           <Button size="small" onClick={() => setConfirmDelete(false)} sx={{ ml: 0.5 }}>
             Cancel
@@ -133,6 +140,7 @@ export default function Events() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [myEvents, setMyEvents] = useState<MyEvent[]>([]);
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const emailVerified = keycloak.tokenParsed?.email_verified === true;
 
   const loadEvents = useCallback(() => {
@@ -212,6 +220,7 @@ export default function Events() {
               <MyEventRow
                 key={event.id}
                 event={event}
+                onEdit={() => setEditingEventId(event.id)}
                 onDeleted={() => {
                   setMyEvents((prev) => prev.filter((e) => e.id !== event.id));
                   loadEvents();
@@ -230,6 +239,12 @@ export default function Events() {
       />
 
       <CC0Notice />
+
+      <EventEditDialog
+        eventId={editingEventId}
+        onClose={() => setEditingEventId(null)}
+        onSaved={() => { loadEvents(); loadMyEvents(); }}
+      />
     </PageLayout>
   );
 }

@@ -106,13 +106,36 @@ router.delete("/:id", requireAuth, wrap(async (req, res) => {
 router.get("/pending", requireAuth, requireModerator, wrap(async (req, res) => {
   const { rows } = await pool.query(
     `SELECT id, title, description, start_date, start_time, end_date, end_time,
-            address, lat, lng, website, phone, email, submitted_by_name, submitted_at
+            address, lat, lng, website, phone, email,
+            organiser_name, organiser_email, organiser_phone,
+            submitted_by_name, submitted_at
      FROM events
      WHERE status = 'pending'
      ORDER BY submitted_at ASC`
   );
   const events = await attachFiles(rows);
   res.json(events);
+}));
+
+// ── GET /api/events/:id ───────────────────────────────────────────────────────
+// Auth + owner or moderator. Returns full event data including files.
+
+router.get("/:id", requireAuth, wrap(async (req, res) => {
+  const { rows } = await pool.query(
+    `SELECT id, title, description, start_date, start_time, end_date, end_time,
+            address, lat, lng, website, phone, email, status,
+            organiser_name, organiser_email, organiser_phone,
+            submitted_by_id, submitted_at
+     FROM events WHERE id = $1`,
+    [req.params.id]
+  );
+  if (!rows.length) return res.status(404).json({ error: "Event not found" });
+  const isModerator = req.user.roles.includes("moderator") || req.user.roles.includes("admin");
+  if (rows[0].submitted_by_id !== req.user.id && !isModerator) {
+    return res.status(403).json({ error: "Not your event" });
+  }
+  const [event] = await attachFiles(rows);
+  res.json(event);
 }));
 
 // ── POST /api/events ───────────────────────────────────────────────────────────
@@ -123,31 +146,30 @@ router.post("/", requireAuth, wrap(async (req, res) => {
     return res.status(403).json({ error: "Email address not verified" });
   }
   const { title, description, start_date, start_time, end_date, end_time,
-          address, lat, lng, website, phone, email } = req.body;
+          address, lat, lng, website, phone, email,
+          organiser_name, organiser_email, organiser_phone } = req.body;
   if (!title?.trim()) return res.status(400).json({ error: "Title is required" });
   if (!start_date) return res.status(400).json({ error: "Start date is required" });
+  const desc = description?.trim() || "";
+  if (desc.length < 50) return res.status(400).json({ error: "Description must be at least 50 characters" });
+  if (desc.length > 1000) return res.status(400).json({ error: "Description must be 1000 characters or fewer" });
 
   const { rows } = await pool.query(
     `INSERT INTO events
        (title, description, start_date, start_time, end_date, end_time,
-        address, lat, lng, website, phone, email, submitted_by_id, submitted_by_name)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+        address, lat, lng, website, phone, email,
+        organiser_name, organiser_email, organiser_phone,
+        submitted_by_id, submitted_by_name)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
      RETURNING id`,
     [
-      title.trim(),
-      description?.trim() || null,
-      start_date,
-      start_time || null,
-      end_date || null,
-      end_time || null,
+      title.trim(), desc,
+      start_date, start_time || null, end_date || null, end_time || null,
       address?.trim() || null,
-      lat != null ? parseFloat(lat) : null,
-      lng != null ? parseFloat(lng) : null,
-      website?.trim() || null,
-      phone?.trim() || null,
-      email?.trim() || null,
-      req.user.id,
-      req.user.name,
+      lat != null ? parseFloat(lat) : null, lng != null ? parseFloat(lng) : null,
+      website?.trim() || null, phone?.trim() || null, email?.trim() || null,
+      organiser_name?.trim() || null, organiser_email?.trim() || null, organiser_phone?.trim() || null,
+      req.user.id, req.user.name,
     ]
   );
   res.status(201).json({ id: rows[0].id });
@@ -177,9 +199,6 @@ router.post(
     const isModerator = req.user.roles.includes("moderator") || req.user.roles.includes("admin");
     if (eventRows[0].submitted_by_id !== req.user.id && !isModerator) {
       return res.status(403).json({ error: "Not your event" });
-    }
-    if (eventRows[0].status === "approved") {
-      return res.status(400).json({ error: "Cannot modify an approved event" });
     }
 
     if (!req.file) return res.status(400).json({ error: "No image provided" });
@@ -228,6 +247,9 @@ router.post(
         "INSERT INTO event_files (event_id, file_id, role, position) VALUES ($1,$2,$3,$4)",
         [id, fileRow.id, role, parseInt(position, 10)]
       );
+      if (eventRows[0].status === "approved") {
+        await client.query("UPDATE events SET status = 'pending' WHERE id = $1", [id]);
+      }
       await client.query("COMMIT");
       res.status(201).json({ file_id: fileRow.id, url });
     } catch (err) {
@@ -255,9 +277,6 @@ router.delete("/:id/images/:fileId", requireAuth, wrap(async (req, res) => {
   if (eventRows[0].submitted_by_id !== req.user.id && !isModerator) {
     return res.status(403).json({ error: "Not your event" });
   }
-  if (eventRows[0].status === "approved") {
-    return res.status(400).json({ error: "Cannot modify an approved event" });
-  }
 
   const { rows: efRows } = await pool.query(
     "SELECT ef.file_id, f.storage_key FROM event_files ef JOIN files f ON f.id = ef.file_id WHERE ef.event_id = $1 AND ef.file_id = $2",
@@ -267,7 +286,54 @@ router.delete("/:id/images/:fileId", requireAuth, wrap(async (req, res) => {
 
   await deleteFile({ storageKey: efRows[0].storage_key, fileId: efRows[0].file_id, pool });
   await pool.query("DELETE FROM event_files WHERE event_id = $1 AND file_id = $2", [id, fileId]);
+  if (eventRows[0].status === "approved") {
+    await pool.query("UPDATE events SET status = 'pending' WHERE id = $1", [id]);
+  }
   res.json({ ok: true });
+}));
+
+// ── PATCH /api/events/:id ─────────────────────────────────────────────────────
+// Auth + owner or moderator. Updates event fields. Resets approved → pending.
+
+router.patch("/:id", requireAuth, wrap(async (req, res) => {
+  const { rows: existing } = await pool.query(
+    "SELECT submitted_by_id, status FROM events WHERE id = $1",
+    [req.params.id]
+  );
+  if (!existing.length) return res.status(404).json({ error: "Event not found" });
+  const isModerator = req.user.roles.includes("moderator") || req.user.roles.includes("admin");
+  if (existing[0].submitted_by_id !== req.user.id && !isModerator) {
+    return res.status(403).json({ error: "Not your event" });
+  }
+
+  const { title, description, start_date, start_time, end_date, end_time,
+          address, lat, lng, website, phone, email,
+          organiser_name, organiser_email, organiser_phone } = req.body;
+  if (!title?.trim()) return res.status(400).json({ error: "Title is required" });
+  if (!start_date) return res.status(400).json({ error: "Start date is required" });
+
+  const newStatus = existing[0].status === "approved" ? "pending" : existing[0].status;
+
+  const { rows } = await pool.query(
+    `UPDATE events
+     SET title=$1, description=$2, start_date=$3, start_time=$4,
+         end_date=$5, end_time=$6, address=$7, lat=$8, lng=$9,
+         website=$10, phone=$11, email=$12,
+         organiser_name=$13, organiser_email=$14, organiser_phone=$15,
+         status=$16
+     WHERE id=$17
+     RETURNING id, status`,
+    [
+      title.trim(), description?.trim() || null,
+      start_date, start_time || null, end_date || null, end_time || null,
+      address?.trim() || null,
+      lat != null ? parseFloat(lat) : null, lng != null ? parseFloat(lng) : null,
+      website?.trim() || null, phone?.trim() || null, email?.trim() || null,
+      organiser_name?.trim() || null, organiser_email?.trim() || null, organiser_phone?.trim() || null,
+      newStatus, req.params.id,
+    ]
+  );
+  res.json({ ok: true, status: rows[0].status });
 }));
 
 // ── PATCH /api/events/:id/approve ─────────────────────────────────────────────
