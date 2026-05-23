@@ -92,7 +92,7 @@ export default function Events() {
       {/* ── External links accordion ────────────────────────────────────── */}
       <Accordion disableGutters elevation={0} sx={{ border: "1px solid var(--border)", borderRadius: "6px !important", mb: 3 }}>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography fontWeight={500}>Find events on other websites</Typography>
+          <Typography sx={{ fontWeight: 500 }}>Find events on other websites</Typography>
         </AccordionSummary>
         <AccordionDetails sx={{ pt: 0 }}>
           <ul>
@@ -108,7 +108,7 @@ export default function Events() {
 
       {/* ── Event listing ───────────────────────────────────────────────── */}
       {loading && (
-        <Box display="flex" justifyContent="center" py={4}>
+        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
           <CircularProgress size={28} />
         </Box>
       )}
@@ -128,7 +128,7 @@ export default function Events() {
       {!loading && !loadError && groups.map(({ label, events: groupEvents }) => (
         <section key={label} className="events-month">
           <Divider sx={{ mb: 2 }}>
-            <Typography variant="body2" color="text.secondary" fontWeight={500}>
+            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
               {label}
             </Typography>
           </Divider>
@@ -141,7 +141,7 @@ export default function Events() {
       ))}
 
       {/* ── Submit CTA ──────────────────────────────────────────────────── */}
-      <Box className="events-submit-cta" mt={4} mb={2}>
+      <Box className="events-submit-cta" sx={{ mt: 4, mb: 2 }}>
         {!authenticated && (
           <Box className="events-submit-cta__prompt">
             <Typography variant="body2" color="text.secondary" gutterBottom>

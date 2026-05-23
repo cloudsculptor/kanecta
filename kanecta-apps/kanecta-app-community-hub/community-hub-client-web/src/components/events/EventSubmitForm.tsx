@@ -172,13 +172,13 @@ export default function EventSubmitForm({ open, onClose, onSubmitted }: Props) {
 
       <DialogContent dividers>
         {done ? (
-          <Box py={2}>
+          <Box sx={{ py: 2 }}>
             <Alert severity="success">
               Your event has been submitted for review. It will appear on this page once a moderator approves it.
             </Alert>
           </Box>
         ) : (
-          <Stack spacing={2} pt={1}>
+          <Stack spacing={2} sx={{ pt: 1 }}>
             {error && <Alert severity="error">{error}</Alert>}
 
             <TextField
@@ -205,7 +205,7 @@ export default function EventSubmitForm({ open, onClose, onSubmitted }: Props) {
                 required
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                slotProps={{ inputLabel: { shrink: true } }}
                 fullWidth
               />
               <TextField
@@ -213,7 +213,7 @@ export default function EventSubmitForm({ open, onClose, onSubmitted }: Props) {
                 type="time"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                slotProps={{ inputLabel: { shrink: true } }}
                 fullWidth
               />
             </Stack>
@@ -224,7 +224,7 @@ export default function EventSubmitForm({ open, onClose, onSubmitted }: Props) {
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                slotProps={{ inputLabel: { shrink: true } }}
                 fullWidth
               />
               <TextField
@@ -232,7 +232,7 @@ export default function EventSubmitForm({ open, onClose, onSubmitted }: Props) {
                 type="time"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                slotProps={{ inputLabel: { shrink: true } }}
                 fullWidth
               />
             </Stack>

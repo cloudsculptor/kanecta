@@ -55,8 +55,8 @@ function EventReviewCard({ event, onResolved }: { event: Event; onResolved: () =
   return (
     <Accordion disableGutters elevation={0} sx={{ border: "1px solid var(--border)", borderRadius: "6px !important", mb: 2 }}>
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-        <Stack direction="row" spacing={2} alignItems="center" sx={{ width: "100%" }}>
-          <Typography fontWeight={500} sx={{ flex: 1 }}>{event.title}</Typography>
+        <Stack direction="row" spacing={2} sx={{ alignItems: "center", width: "100%" }}>
+          <Typography sx={{ fontWeight: 500, flex: 1 }}>{event.title}</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ display: { xs: "none", sm: "block" } }}>
             {new Date(event.start_date + "T00:00:00").toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" })}
           </Typography>
@@ -113,7 +113,7 @@ function EventReviewCard({ event, onResolved }: { event: Event; onResolved: () =
           {event.gallery_images.length > 0 && (
             <Box>
               <Typography variant="body2" color="text.secondary" gutterBottom>Gallery</Typography>
-              <Stack direction="row" spacing={1} flexWrap="wrap">
+              <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
                 {event.gallery_images.map((img) => (
                   <img
                     key={img.file_id}
@@ -204,7 +204,7 @@ export default function GovernanceApprovals() {
       </Typography>
 
       {loading && (
-        <Box display="flex" justifyContent="center" py={4}>
+        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
           <CircularProgress size={28} />
         </Box>
       )}
