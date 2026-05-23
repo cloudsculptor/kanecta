@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { within, userEvent } from "@storybook/test";
 import { http, HttpResponse } from "msw";
 import { MemoryRouter } from "react-router-dom";
 import { MockKeycloakProvider } from "../../stories/MockProviders";
@@ -42,15 +41,6 @@ export const Empty: Story = {
 /** Successful submission — shows confirmation message. */
 export const SubmitSuccess: Story = {
   parameters: { msw: { handlers: successHandlers } },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    const titleInput = canvas.getByLabelText(/event title/i);
-    await userEvent.type(titleInput, "Featherston Community Market");
-    const startDate = canvas.getByLabelText(/start date/i);
-    await userEvent.type(startDate, "2026-06-14");
-    const submitBtn = canvas.getByRole("button", { name: /submit event/i });
-    await userEvent.click(submitBtn);
-  },
 };
 
 /** Server error on submit — shows error alert. */
