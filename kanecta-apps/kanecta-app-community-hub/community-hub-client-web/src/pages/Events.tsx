@@ -1,9 +1,7 @@
 import { useState, useEffect } from "react";
 import {
-  Accordion, AccordionSummary, AccordionDetails,
   Button, Divider, Typography, Alert, CircularProgress, Box,
 } from "@mui/material";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import AddIcon from "@mui/icons-material/Add";
 import PageLayout from "../components/PageLayout";
 import CC0Notice from "../components/CC0Notice";
@@ -89,22 +87,17 @@ export default function Events() {
   return (
     <PageLayout pageName="Events" showComingSoon={false}>
 
-      {/* ── External links accordion ────────────────────────────────────── */}
-      <Accordion disableGutters elevation={0} sx={{ border: "1px solid var(--border)", borderRadius: "6px !important", mb: 3 }}>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography sx={{ fontWeight: 500 }}>Find events on other websites</Typography>
-        </AccordionSummary>
-        <AccordionDetails sx={{ pt: 0 }}>
-          <ul>
-            {EXTERNAL_LINKS.map(({ href, label, desc }) => (
-              <li key={href}>
-                <a href={href} target="_blank" rel="noopener noreferrer">{label}</a>
-                {" "}— {desc}
-              </li>
-            ))}
-          </ul>
-        </AccordionDetails>
-      </Accordion>
+      {/* ── External links grid ─────────────────────────────────────────── */}
+      <h3 className="events-external__heading">Find events on other websites</h3>
+      <div className="events-external__grid">
+        {EXTERNAL_LINKS.map(({ href, label, desc }) => (
+          <a key={href} href={href} target="_blank" rel="noopener noreferrer" className="events-external__card">
+            <span className="events-external__title">{label}</span>
+            <span className="events-external__desc">{desc}</span>
+            <span className="events-external__arrow">↗</span>
+          </a>
+        ))}
+      </div>
 
       {/* ── Event listing ───────────────────────────────────────────────── */}
       {loading && (
