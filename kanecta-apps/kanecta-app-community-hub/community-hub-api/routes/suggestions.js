@@ -4,7 +4,7 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 
 const router = Router();
 const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
-const requireTeam = requireRole("team", "moderator", "admin");
+const requireModerator = requireRole("moderator", "admin");
 
 router.post("/", requireAuth, wrap(async (req, res) => {
   const { content } = req.body;
@@ -25,7 +25,7 @@ router.post("/", requireAuth, wrap(async (req, res) => {
   res.status(201).json({ id: rows[0].id });
 }));
 
-router.get("/", requireAuth, requireTeam, wrap(async (req, res) => {
+router.get("/", requireAuth, requireModerator, wrap(async (req, res) => {
   const { rows } = await pool.query(
     `SELECT id, content, submitted_by_name, submitted_at
      FROM suggestions
