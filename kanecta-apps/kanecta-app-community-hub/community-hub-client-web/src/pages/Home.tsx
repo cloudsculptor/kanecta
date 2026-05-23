@@ -99,17 +99,6 @@ export default function Home() {
                 url: "https://www.canva.com/",
               }}
             />
-            <NavCard
-              accent
-              title="Site Governance"
-              blurb="Documents and tools related to managing this site"
-              path="/governance"
-              image="/group-photo-160x160.png"
-              attribution={{
-                label: "Photo: Canva AI",
-                url: "https://www.canva.com/",
-              }}
-            />
             {isModerator && (
               <NavCard
                 accent
@@ -128,6 +117,23 @@ export default function Home() {
           <span>Ideas for the future</span>
         </div>
         {publicComing.map((item) => <ComingCard key={item.title} {...item} />)}
+        {isTeam && (
+          <>
+            <div className="nav-divider">
+              <span>About this site</span>
+            </div>
+            <NavCard
+              title="Site Governance"
+              blurb="Documents and tools related to managing this site"
+              path="/governance"
+              image="/group-photo-160x160.png"
+              attribution={{
+                label: "Photo: Canva AI",
+                url: "https://www.canva.com/",
+              }}
+            />
+          </>
+        )}
       </nav>
       <div className="nav-divider nav-divider--section"><span>Contribute to this site</span></div>
       <ContributeForm authenticated={authenticated} emailVerified={emailVerified} />
