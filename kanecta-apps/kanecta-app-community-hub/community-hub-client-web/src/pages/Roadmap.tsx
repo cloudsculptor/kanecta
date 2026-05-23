@@ -39,13 +39,13 @@ const items: RoadmapItem[] = [
     title: "Download your data",
     description:
       "Discussions will be the first feature to generate real user data. This feature will let you download everything you've contributed — and access the public open-source data uploaded by the community.",
-    status: "planned",
+    status: "in-progress",
   },
   {
     title: "Upload suggested content",
     description:
       "Will allow users to upload text and files to be added to the site. They will need to pick a licence for their contribution ie public/open source or copyright.  Initially they won't be placing it in the actual page, this will be done by the developer after checking with the community.  However future functionality will allow direct page editing for group controlled pages.",
-    status: "planned",
+    status: "in-progress",
   },
   {
     title: "Tree of trust",
