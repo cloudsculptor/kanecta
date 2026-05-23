@@ -4510,10 +4510,10 @@ $bp-tablet: 768px;
 }
 
 .contribute-form {
-  padding: 0 32px 32px;
+  padding: 20px 32px 32px;
 
   @media (max-width: $bp-tablet) {
-    padding: 0 16px 24px;
+    padding: 16px 16px 24px;
   }
 
   &__blurb {
@@ -4521,6 +4521,11 @@ $bp-tablet: 768px;
     color: var(--text);
     line-height: 1.6;
     margin: 0 0 16px;
+    max-width: 70%;
+
+    @media (max-width: $bp-tablet) {
+      max-width: 100%;
+    }
   }
 
   &__wrap {
