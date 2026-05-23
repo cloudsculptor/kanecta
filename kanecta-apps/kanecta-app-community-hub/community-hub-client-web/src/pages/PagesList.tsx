@@ -19,6 +19,47 @@ export default function PagesList() {
 
   const isTeam = hasRole(roles, "team");
 
+  function renderSection(items: PageSummary[], label: string) {
+    if (!items.length) return null;
+    return (
+      <>
+        <div className="nav-divider"><span>{label}</span></div>
+        <ul className="pages-list">
+          {items.map((page) => (
+            <li key={page.id} className="pages-list__item">
+              <div className="pages-list__info">
+                <div className="pages-list__title-row">
+                  <Link to={`/groups/resilience/${page.slug}`} className="pages-list__title">
+                    {page.title || page.slug}
+                  </Link>
+                  <Chip
+                    label={`v${page.version}`}
+                    size="small"
+                    variant="outlined"
+                    sx={{ ml: 0.5 }}
+                  />
+                </div>
+                <span className="pages-list__meta">
+                  by {page.created_by_name} · {new Date(page.updated_at).toLocaleDateString("en-NZ")}
+                </span>
+              </div>
+              <div className="pages-list__actions">
+                <Link to={`/groups/resilience/${page.slug}/edit`} className="pages-list__btn">Edit</Link>
+                <button
+                  type="button"
+                  className="pages-list__btn pages-list__btn--del"
+                  onClick={() => handleDelete(page.slug)}
+                >
+                  Delete
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </>
+    );
+  }
+
   useEffect(() => {
     if (!initialized) return;
     if (!isTeam) { navigate("/resilience/pages", { replace: true }); return; }
@@ -60,45 +101,10 @@ export default function PagesList() {
         ) : pages.length === 0 ? (
           <p className="pages-empty">No pages yet. Create the first one.</p>
         ) : (
-          <ul className="pages-list">
-            {pages.map((page) => (
-              <li key={page.id} className="pages-list__item">
-                <div className="pages-list__info">
-                  <div className="pages-list__title-row">
-                    <Link to={`/groups/resilience/${page.slug}`} className="pages-list__title">
-                      {page.title || page.slug}
-                    </Link>
-                    <Chip
-                      label={page.public ? "Public" : "Private"}
-                      color={page.public ? "success" : "default"}
-                      variant={page.public ? "filled" : "outlined"}
-                      size="small"
-                      sx={{ ml: 1 }}
-                    />
-                    <Chip
-                      label={`v${page.version}`}
-                      size="small"
-                      variant="outlined"
-                      sx={{ ml: 0.5 }}
-                    />
-                  </div>
-                  <span className="pages-list__meta">
-                    by {page.created_by_name} · {new Date(page.updated_at).toLocaleDateString("en-NZ")}
-                  </span>
-                </div>
-                <div className="pages-list__actions">
-                  <Link to={`/groups/resilience/${page.slug}/edit`} className="pages-list__btn">Edit</Link>
-                  <button
-                    type="button"
-                    className="pages-list__btn pages-list__btn--del"
-                    onClick={() => handleDelete(page.slug)}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <>
+            {renderSection(pages.filter(p => p.public).sort((a, b) => (a.title || a.slug).localeCompare(b.title || b.slug)), "Visible to the public")}
+            {renderSection(pages.filter(p => !p.public).sort((a, b) => (a.title || a.slug).localeCompare(b.title || b.slug)), "Visible to team members only")}
+          </>
         )}
       </main>
       <Footer />
