@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Accordion, AccordionSummary, AccordionDetails,
   Button, TextField, Typography, Alert, CircularProgress, Box, Chip, Stack, Divider,
@@ -7,6 +8,8 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
 import PageLayout from "../components/PageLayout";
+import { useUserRoles, hasRole } from "../auth/useUserRole";
+import { useKeycloak } from "../auth/KeycloakProvider";
 import { getPendingEvents, approveEvent, declineEvent, type Event } from "../api/events";
 import { getSuggestions, type Suggestion } from "../api/suggestions";
 
@@ -179,12 +182,22 @@ function EventReviewCard({ event, onResolved }: { event: Event; onResolved: () =
 }
 
 export default function GovernanceApprovals() {
+  const navigate = useNavigate();
+  const roles = useUserRoles();
+  const { initialized } = useKeycloak();
+  const isModerator = hasRole(roles, "moderator");
+
   const [events, setEvents] = useState<Event[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [eventsError, setEventsError] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(true);
   const [suggestionsError, setSuggestionsError] = useState(false);
+
+  useEffect(() => {
+    if (!initialized) return;
+    if (!isModerator) { navigate("/governance", { replace: true }); }
+  }, [initialized, isModerator, navigate]);
 
   const loadPending = useCallback(() => {
     setEventsLoading(true);
