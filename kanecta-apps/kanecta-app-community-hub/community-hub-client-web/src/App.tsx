@@ -14,7 +14,6 @@ import GoodsAndServices from "./pages/GoodsAndServices";
 import SocialServices from "./pages/SocialServices";
 import AboutThisSite from "./pages/AboutThisSite";
 import Governance from "./pages/Governance";
-import Resilience from "./pages/Resilience";
 import Kai from "./pages/Kai";
 import TransportAndMobility from "./pages/TransportAndMobility";
 import SkillSharing from "./pages/SkillSharing";
@@ -80,7 +79,6 @@ export default function App() {
       <Route path="/download" element={<Download />} />
       <Route path="/groups" element={<Groups />} />
       <Route path="/groups/resilience" element={<PagesList />} />
-      <Route path="/resilience" element={<Resilience />} />
       <Route path="/resilience/pages" element={<PagesListPublic />} />
       <Route path="/resilience/pages/:slug" element={<PageViewPublic />} />
       <Route path="/kai" element={<Kai />} />
