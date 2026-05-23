@@ -45,6 +45,11 @@ const publicActive = [
       url: "https://commons.wikimedia.org/wiki/File:Infinite-corridor-bboard.jpeg",
     },
   },
+  {
+    title: "Social Services",
+    blurb: "Access social support, welfare, and community care services.",
+    path: "/social-services",
+  },
 ];
 
 const publicComing = [  
@@ -55,10 +60,6 @@ const publicComing = [
   {
     title: "Buy, Sell & Swap",
     blurb: "Buy, sell, swap, or give away items locally.",
-  },
-  {
-    title: "Social Services",
-    blurb: "Access social support, welfare, and community care services.",
   },
   {
     title: "Notice Board",
@@ -76,11 +77,6 @@ const localItems = [
     title: "Skill Sharing",
     blurb: "Share your skills or find someone with the expertise you need.",
     path: "/skill-sharing",
-  },
-  {
-    title: "Social Services",
-    blurb: "Access social support, welfare, and community care services.",
-    path: "/social-services",
   },
   {
     title: "Local Economy",
