@@ -15,8 +15,8 @@ router.post("/", requireAuth, wrap(async (req, res) => {
   if (trimmed.length < 1 || trimmed.length > 2000) {
     return res.status(400).json({ error: "content must be 1–2000 characters" });
   }
-  const userId = req.user.sub;
-  const userName = req.user.name || req.user.preferred_username || null;
+  const userId = req.user.id;
+  const userName = req.user.name || null;
   const { rows } = await pool.query(
     `INSERT INTO suggestions (content, submitted_by_id, submitted_by_name)
      VALUES ($1, $2, $3) RETURNING id`,
