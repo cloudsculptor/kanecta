@@ -30,7 +30,7 @@ export default function LocalGovernment() {
       </p>
       <ul>
         <li>
-          <a href="https://www.facebook.com/search/top?q=featherston%20community%20board" target="_blank" rel="noopener noreferrer">
+          <a href="https://www.facebook.com/FeatherstonCommunityBoard" target="_blank" rel="noopener noreferrer">
             Featherston Community Board — Facebook
           </a>{" "}
           — updates and engagement from your local community board
