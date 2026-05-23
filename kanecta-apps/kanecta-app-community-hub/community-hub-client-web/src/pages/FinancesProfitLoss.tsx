@@ -34,7 +34,7 @@ export default function FinancesProfitLoss() {
   const surplus = totalIncome + totalExpense;
 
   return (
-    <PageLayout pageName="Income & Expenditure" showComingSoon={false} wip parents={PARENTS}>
+    <PageLayout pageName="Income & Expenditure" showComingSoon={false} parents={PARENTS}>
       <p className="fin-report__note">Income and expenditure statement prepared in accordance with NZ reporting standards for small incorporated societies.</p>
 
       <div className="fin-period">
