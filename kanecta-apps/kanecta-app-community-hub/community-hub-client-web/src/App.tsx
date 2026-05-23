@@ -135,7 +135,7 @@ export default function App() {
 
       {/* Governance — moderators only */}
       <Route element={<RequireModerator />}>
-        <Route path="/governance/approvals" element={<GovernanceApprovals />} />
+        <Route path="/approvals" element={<GovernanceApprovals />} />
       </Route>
     </Routes>
   );
