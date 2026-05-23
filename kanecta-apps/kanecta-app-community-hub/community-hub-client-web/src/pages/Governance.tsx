@@ -19,7 +19,7 @@ const principles = [
 
 export default function Governance() {
   return (
-    <PageLayout pageName="Governance" showComingSoon={false}>
+    <PageLayout pageName="Open governance" showComingSoon={false}>
 
       <Alert severity="warning" sx={{ mb: 3, fontSize: "1rem" }}>
         <strong>Work in progress</strong> — this governance model is still being developed.
