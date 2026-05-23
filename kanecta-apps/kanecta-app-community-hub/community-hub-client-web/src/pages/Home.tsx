@@ -6,6 +6,11 @@ import { usePageMeta } from "../hooks/usePageMeta";
 
 const publicActive = [
   {
+    title: "Local Businesses",
+    blurb: "Support and explore local businesses in Featherston and the South Wairarapa.",
+    path: "/local-businesses",
+  },
+  {
     title: "Events",
     blurb: "Find local events, gatherings, and activities happening in Featherston.",
     path: "/events",
@@ -54,10 +59,6 @@ const publicActive = [
 
 const publicComing = [  
   {
-    title: "Local Businesses",
-    blurb: "Support local businesses",
-  },
-  {
     title: "Buy, Sell & Swap",
     blurb: "Buy, sell, swap, or give away items locally.",
   },
@@ -68,11 +69,6 @@ const publicComing = [
 ];
 
 const localItems = [
-  {
-    title: "Local Economy",
-    blurb: "Support and grow the local economy of Featherston.",
-    path: "/local-economy",
-  },
 ];
 
 

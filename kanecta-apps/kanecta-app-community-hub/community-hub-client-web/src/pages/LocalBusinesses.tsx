@@ -1,8 +1,8 @@
 import PageLayout from "../components/PageLayout";
 
-export default function LocalEconomy() {
+export default function LocalBusinesses() {
   return (
-    <PageLayout pageName="Local Economy" showComingSoon={false}>
+    <PageLayout pageName="Local Businesses" showComingSoon={false}>
       <h3>Local Businesses &amp; Services</h3>
       <p>
         Support and explore the local economy of Featherston and the South
