@@ -83,7 +83,6 @@ export default function Home() {
               <span>Visible to team members only</span>
             </div>
             <NavCard
-              featured
               title="Discussions"
               blurb="Share ideas, ask questions, and connect with others in the Featherston community."
               path="/discussions"
@@ -93,17 +92,6 @@ export default function Home() {
                 url: "https://www.canva.com/",
               }}
             />
-            <NavCard
-              accent
-              title="Community Groups"
-              blurb="Discover local community groups"
-              path="/groups"
-              image="/group-photo-160x160.png"
-              attribution={{
-                label: "Photo: Canva AI",
-                url: "https://www.canva.com/",
-              }}
-            />            
             <NavCard
               accent
               title="Site Governance"
