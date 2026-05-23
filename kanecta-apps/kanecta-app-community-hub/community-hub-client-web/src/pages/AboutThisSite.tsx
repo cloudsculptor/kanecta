@@ -5,7 +5,7 @@ import { useUserRole } from "../auth/useUserRole";
 
 export default function AboutThisSite() {
   const role = useUserRole();
-  const canViewGovernance = role === "TEAM" || role === "MODERATOR" || role === "TREASURER";
+  const canViewGovernance = role === "TEAM" || role === "MODERATOR" || role === "TREASURER" || role === "ADMIN";
   return (
     <PageLayout pageName="About this site" showComingSoon={false}>
       <p>

@@ -21,7 +21,7 @@ function fmt(amount: string | number) {
 
 export default function FinancesTransactions() {
   const role = useUserRole();
-  const isTreasurer = role === "TREASURER";
+  const isTreasurer = role === "TREASURER" || role === "ADMIN";
   const canView = role !== "PUBLIC" && role !== "GUEST";
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
