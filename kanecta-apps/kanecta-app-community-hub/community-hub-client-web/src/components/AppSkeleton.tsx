@@ -24,7 +24,7 @@ export default function AppSkeleton() {
           </div>
         </div>
         {/* Regular cards */}
-        {[0, 1, 2, 3, 4].map((i) => (
+        {[0, 1, 2, 3].map((i) => (
           <div key={i} className="app-skeleton__card">
             <div className="app-skeleton__shimmer app-skeleton__card-image" />
             <div className="app-skeleton__card-body">

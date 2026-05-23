@@ -28,7 +28,7 @@ export default function Download() {
   const [size, setSize] = useState(0);
   const [error, setError] = useState("");
 
-  usePageMeta("Download");
+  usePageMeta("All public content");
 
   const canDownload = hasRole(roles, "team");
 
@@ -58,9 +58,9 @@ export default function Download() {
   return (
     <>
       <Header />
-      <Breadcrumb pageName="Download" />
+      <Breadcrumb pageName="All public content" />
       <main className="page-content">
-        <h2>Download</h2>
+        <h2>All public content</h2>
 
         {!authenticated && (
           <div className="download-gate">

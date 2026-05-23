@@ -4510,21 +4510,23 @@ $bp-tablet: 768px;
 }
 
 .contribute-form {
-  padding: 20px 32px 32px;
+  padding: 12px 32px 32px;
 
   @media (max-width: $bp-tablet) {
-    padding: 16px 16px 24px;
+    padding: 8px 16px 24px;
   }
 
   &__blurb {
     font-size: 14px;
     color: var(--text);
     line-height: 1.6;
-    margin: 0 0 16px;
+    margin: 0 auto 16px;
     max-width: 70%;
+    text-align: center;
 
     @media (max-width: $bp-tablet) {
       max-width: 100%;
+      text-align: left;
     }
   }
 

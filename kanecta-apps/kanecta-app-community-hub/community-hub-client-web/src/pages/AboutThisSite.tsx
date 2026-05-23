@@ -87,11 +87,10 @@ export default function AboutThisSite() {
         "If you are not paying, you are the product."
       </blockquote>
       <p>
-        We only accept small donations — up to $20 per year per person or
-        organisation — as a guarantee that no individual, business, or funding
-        body can gain undue influence over this site. There is no advertising,
-        no sponsorship, and no funding arrangements that could allow any group
-        to claim ownership or control.
+        We only accept small donations as a guarantee that no individual,
+        business, or funding body can gain undue influence over this site.
+        There is no advertising, no sponsorship, and no funding arrangements
+        that could allow any group to claim ownership or control.
       </p>
       <p>
         Posting information to the site is always free. That includes listing
@@ -102,9 +101,8 @@ export default function AboutThisSite() {
       <p>
         This also means that larger organisations — charities, businesses,
         funders — cannot buy influence here, no matter their size or budget.
-        A $20 contribution carries exactly the same weight as any other. If
-        you want to shape this site, you do it by participating — not by
-        spending.
+        Every donation carries exactly the same weight. If you want to shape
+        this site, you do it by participating — not by spending.
       </p>
       {canViewGovernance && <p><Link to="/governance" className="roadmap-item__learn-more">See governance →</Link></p>}
       <p><Link to="/volunteering" className="roadmap-item__learn-more">Get involved →</Link></p>
