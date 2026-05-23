@@ -48,6 +48,13 @@ const items: RoadmapItem[] = [
     status: "in-progress",
   },
   {
+    title: "Open governance",
+    description:
+      "Bringing visibility to finances, decisions and actions taken by volunteers, also voting/polling tools to allow users to help volunteers guide the site.",
+    status: "in-progress",
+    to: "/governance",
+  },
+  {
     title: "Tree of trust",
     description:
       "At the moment anybody can sign up for an account, but a technical admin needs to manually grant users a 'team' role before they can interact with the site.  The Tree of Trust will allow community members to show they know and trust someone to allow them to to contribute without the need for technical admin assistance.",
@@ -56,12 +63,6 @@ const items: RoadmapItem[] = [
   {
     title: "Open statistics",
     description: "Showing user counts and page view counts.",
-    status: "planned",
-  },
-  {
-    title: "Open governance",
-    description:
-      "Bringing visibility to finances, decisions and actions taken by volunteers, also voting/polling tools to allow users to help volunteers guide the site.",
     status: "planned",
   },
 ];
@@ -92,6 +93,9 @@ export default function Roadmap() {
             )}
             {item.to === "/discussions" && (
               <Link to={item.to} className="roadmap-item__learn-more">See discussions page →</Link>
+            )}
+            {item.to === "/governance" && (
+              <Link to={item.to} className="roadmap-item__learn-more">See governance →</Link>
             )}
           </div>
         ))}
