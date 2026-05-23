@@ -32,6 +32,8 @@ export default function Header() {
   const { authenticated } = useKeycloak();
   const roles = useUserRoles();
   const profile = keycloak.idTokenParsed;
+  const primary = primaryRole(roles);
+  const roleChipLabel = primary ? ROLE_LABEL[primary] : "Member";
 
   return (
     <header className="site-header">
@@ -71,7 +73,7 @@ export default function Header() {
                 <div>
                   <div style={{ fontSize: 13, marginBottom: 6 }}>{profile?.email}</div>
                   <Chip
-                    label={ROLE_LABEL[primaryRole(roles) ?? ""] ?? "Member"}
+                    label={roleChipLabel}
                     size="small"
                     sx={{ backgroundColor: "#3a7d44", color: "#fff", fontSize: 11, fontWeight: 600 }}
                   />
