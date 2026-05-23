@@ -66,7 +66,7 @@ const publicActive = [
   },
 ];
 
-const publicComing = [  
+const publicComing = [
   {
     title: "Community Notice Board",
     blurb: "Community announcements, lost & found, and local news.",
@@ -74,7 +74,19 @@ const publicComing = [
   {
     title: "Buy, Sell & Swap",
     blurb: "Buy, sell, swap, or give away items locally.",
-  },  
+  },
+  {
+    title: "Local Accommodation",
+    blurb: "Places to stay in and around Featherston.",
+  },
+  {
+    title: "Visitor Activities",
+    blurb: "Things to do and see in Featherston and the South Wairarapa.",
+  },
+  {
+    title: "History",
+    blurb: "The history of Featherston and the surrounding district.",
+  },
 ];
 
 export default function Home() {
