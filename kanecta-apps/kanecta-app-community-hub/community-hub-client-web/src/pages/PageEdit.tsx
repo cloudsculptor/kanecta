@@ -18,7 +18,7 @@ import Chip from "@mui/material/Chip";
 import Header from "../components/Header";
 import Breadcrumb from "../components/Breadcrumb";
 import Footer from "../components/Footer";
-import { useUserRole } from "../auth/useUserRole";
+import { useUserRoles, hasRole } from "../auth/useUserRole";
 import { useKeycloak } from "../auth/KeycloakProvider";
 import { getPage, createPage, updatePage } from "../api/pages";
 import { listLicences, type Licence } from "../api/licences";
@@ -54,7 +54,7 @@ export default function PageEdit() {
   const { slug: routeSlug } = useParams<{ slug?: string }>();
   const isNew = !routeSlug;
 
-  const role = useUserRole();
+  const roles = useUserRoles();
   const { initialized } = useKeycloak();
   const navigate = useNavigate();
 
@@ -81,7 +81,7 @@ export default function PageEdit() {
   const contentRef = useRef<object>({});
   const originalSlugRef = useRef("");
 
-  const isTeam = role === "TEAM" || role === "MODERATOR" || role === "ADMIN";
+  const isTeam = hasRole(roles, "team");
   const userName = currentUserName();
   const year = new Date().getFullYear();
 

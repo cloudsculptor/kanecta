@@ -2,6 +2,8 @@ import { createContext, type ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import type { UserRole } from "../auth/useUserRole";
 
+type MockRole = UserRole | "guest" | "public";
+
 export const MockKeycloakContext = createContext({ initialized: true, authenticated: false });
 
 export function MockKeycloakProvider({ authenticated = false, children }: { authenticated?: boolean; children: ReactNode }) {
@@ -12,10 +14,10 @@ export function MockKeycloakProvider({ authenticated = false, children }: { auth
   );
 }
 
-export function StoryWrapper({ role = "TEAM", children }: { role?: UserRole; children: ReactNode }) {
+export function StoryWrapper({ role = "team", children }: { role?: MockRole; children: ReactNode }) {
   return (
     <MemoryRouter>
-      <MockKeycloakProvider authenticated={role !== "PUBLIC"}>
+      <MockKeycloakProvider authenticated={role !== "public" && role !== "guest"}>
         {children}
       </MockKeycloakProvider>
     </MemoryRouter>

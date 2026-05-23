@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import PageLayout from "../components/PageLayout";
-import { useUserRole } from "../auth/useUserRole";
+import { useUserRoles } from "../auth/useUserRole";
 import { getExpenses, type Expense, EXPENSE_CATEGORIES } from "../api/finances";
 
 const PARENTS = [{ name: "Governance", path: "/governance" }, { name: "Finances", path: "/governance/finances" }];
@@ -15,8 +15,8 @@ function fmtOrig(amount: string, currency: string) {
 }
 
 export default function FinancesExpenses() {
-  const role = useUserRole();
-  const canView = role !== "PUBLIC" && role !== "GUEST";
+  const roles = useUserRoles();
+  const canView = roles.length > 0;
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);

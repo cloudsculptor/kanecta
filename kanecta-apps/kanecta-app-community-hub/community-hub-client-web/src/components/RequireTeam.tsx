@@ -1,11 +1,11 @@
 import { Outlet } from "react-router-dom";
-import { useUserRole } from "../auth/useUserRole";
+import { useUserRoles, hasRole } from "../auth/useUserRole";
 import Header from "./Header";
 import Footer from "./Footer";
 
 export default function RequireTeam() {
-  const role = useUserRole();
-  if (role === "TEAM" || role === "MODERATOR" || role === "TREASURER" || role === "ADMIN") {
+  const roles = useUserRoles();
+  if (hasRole(roles, "team")) {
     return <Outlet />;
   }
   return (

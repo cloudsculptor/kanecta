@@ -6,7 +6,7 @@ import CreateThreadModal from "../components/discussions/CreateThreadModal";
 import ThreadOptionsMenu from "../components/discussions/ThreadOptionsMenu";
 import CopyLinkButton from "../components/discussions/CopyLinkButton";
 import { useKeycloak } from "../auth/KeycloakProvider";
-import { useUserRole } from "../auth/useUserRole";
+import { useUserRoles, hasRole } from "../auth/useUserRole";
 import { useThreadSocket, useRepliesSocket, useGlobalSocket } from "../hooks/useSocket";
 import MobileUnreads from "../components/discussions/MobileUnreads";
 import NotificationBell from "../components/discussions/NotificationBell";
@@ -290,7 +290,7 @@ function RepliesScreen({
 export default function DiscussionsMobile() {
   const navigate = useNavigate();
   const { authenticated } = useKeycloak();
-  const role = useUserRole();
+  const roles = useUserRoles();
 
   const [threads, setThreads] = useState<Thread[]>([]);
   const [loadingThreads, setLoadingThreads] = useState(true);
@@ -304,7 +304,7 @@ export default function DiscussionsMobile() {
   const [teamUsers, setTeamUsers] = useState<{ id: string; name: string }[]>([]);
 
   const currentUserId = keycloak.tokenParsed?.sub || "";
-  const canModerate = role === "MODERATOR" || role === "ADMIN";
+  const canModerate = hasRole(roles, "moderator");
   const initialHashRef = useRef(window.location.hash.slice(1));
 
   useEffect(() => {

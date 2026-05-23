@@ -5,7 +5,7 @@ import FinancesIndex from "./FinancesIndex";
 const meta: Meta<typeof FinancesIndex> = {
   title: "Pages/Finances/Index",
   component: FinancesIndex,
-  decorators: [(Story) => <StoryWrapper role="TEAM"><Story /></StoryWrapper>],
+  decorators: [(Story) => <StoryWrapper role="team"><Story /></StoryWrapper>],
 };
 export default meta;
 type Story = StoryObj<typeof FinancesIndex>;
@@ -13,7 +13,7 @@ type Story = StoryObj<typeof FinancesIndex>;
 export const MemberView: Story = {};
 
 export const GuestView: Story = {
-  decorators: [(Story) => <StoryWrapper role="GUEST"><Story /></StoryWrapper>],
+  decorators: [(Story) => <StoryWrapper role="guest"><Story /></StoryWrapper>],
 };
 
 export const Mobile: Story = {

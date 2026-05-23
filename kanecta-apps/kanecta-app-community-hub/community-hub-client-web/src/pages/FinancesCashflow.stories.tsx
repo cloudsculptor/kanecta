@@ -13,7 +13,7 @@ const SAMPLE_REPORT = [
 const meta: Meta<typeof FinancesCashflow> = {
   title: "Pages/Finances/Cashflow",
   component: FinancesCashflow,
-  decorators: [(Story) => <StoryWrapper role="TEAM"><Story /></StoryWrapper>],
+  decorators: [(Story) => <StoryWrapper role="team"><Story /></StoryWrapper>],
 };
 export default meta;
 type Story = StoryObj<typeof FinancesCashflow>;

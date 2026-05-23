@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import PageLayout from "../components/PageLayout";
-import { useUserRole } from "../auth/useUserRole";
+import { useUserRoles } from "../auth/useUserRole";
 
 const pages = [
   { title: "Transactions", path: "/governance/finances/transactions", description: "All income and expenditure records." },
@@ -10,8 +10,8 @@ const pages = [
 ];
 
 export default function FinancesIndex() {
-  const role = useUserRole();
-  if (role === "PUBLIC" || role === "GUEST") {
+  const roles = useUserRoles();
+  if (roles.length === 0) {
     return (
       <PageLayout pageName="Finances" showComingSoon={false} parents={[{ name: "Governance", path: "/governance" }]}>
         <p>Financial records are available to logged-in members.</p>

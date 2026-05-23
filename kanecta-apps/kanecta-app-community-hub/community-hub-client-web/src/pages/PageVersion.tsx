@@ -8,7 +8,7 @@ import Typography from "@mui/material/Typography";
 import Header from "../components/Header";
 import Breadcrumb from "../components/Breadcrumb";
 import Footer from "../components/Footer";
-import { useUserRole } from "../auth/useUserRole";
+import { useUserRoles, hasRole } from "../auth/useUserRole";
 import { useKeycloak } from "../auth/KeycloakProvider";
 import { getPageVersion, type PageVersionData } from "../api/pages";
 import LexicalEditor from "../components/pages/LexicalEditor";
@@ -25,7 +25,7 @@ const breadcrumbParents = [{ name: "Groups", path: "/groups" }];
 
 export default function PageVersion() {
   const { slug, version: versionParam } = useParams<{ slug: string; version: string }>();
-  const role = useUserRole();
+  const roles = useUserRoles();
   const { initialized } = useKeycloak();
   const navigate = useNavigate();
 
@@ -33,7 +33,7 @@ export default function PageVersion() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const isTeam = role === "TEAM" || role === "MODERATOR" || role === "ADMIN";
+  const isTeam = hasRole(roles, "team");
 
   useEffect(() => {
     if (!initialized) return;
