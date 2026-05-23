@@ -2,6 +2,7 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 import { NavCard, ComingCard } from "../components/NavCard";
 import ContributeForm from "../components/ContributeForm";
+import WelcomeBanner from "../components/WelcomeBanner";
 import { useUserRoles, hasRole } from "../auth/useUserRole";
 import { useKeycloak } from "../auth/KeycloakProvider";
 import keycloak from "../auth/keycloak";
@@ -83,6 +84,7 @@ export default function Home() {
     <>
       <Header />
       <nav className="nav-grid">
+        {!authenticated && <WelcomeBanner />}
         {isTeam && (
           <>
             <div className="nav-divider">

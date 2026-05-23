@@ -166,6 +166,63 @@ $bp-tablet: 768px;
   }
 }
 
+// ── Welcome banner ─────────────────────────────────────────────────────────────
+
+.welcome-banner {
+  grid-column: 1 / -1;
+  position: relative;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 12px;
+  padding: 24px 52px 24px 24px;
+
+  &__close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text);
+    opacity: 0.45;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    border-radius: 4px;
+
+    &:hover { opacity: 1; }
+  }
+
+  &__title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-h);
+    margin: 0 0 12px;
+  }
+
+  &__body {
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--text);
+    margin: 0 0 8px;
+
+    &:last-child { margin-bottom: 0; }
+  }
+
+  &__signup {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: var(--accent);
+    font-size: inherit;
+    font-family: inherit;
+    text-decoration: underline;
+
+    &:hover { opacity: 0.8; }
+  }
+}
+
 // ── Nav grid ───────────────────────────────────────────────────────────────────
 
 .nav-grid {
