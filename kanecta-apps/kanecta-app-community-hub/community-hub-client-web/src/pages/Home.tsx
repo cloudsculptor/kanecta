@@ -92,11 +92,6 @@ const localItems = [
     blurb: "Support and grow the local economy of Featherston.",
     path: "/local-economy",
   },
-  {
-    title: "Resilience",
-    blurb: "The community resilience plan — workstreams, survey results, and local action.",
-    path: "/resilience",
-  },
 ];
 
 
