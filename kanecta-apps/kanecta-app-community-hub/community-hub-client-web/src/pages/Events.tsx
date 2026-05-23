@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Divider, Typography, Alert, CircularProgress, Box, Chip, Button,
 } from "@mui/material";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import PageLayout from "../components/PageLayout";
 import CC0Notice from "../components/CC0Notice";
 import EventCard from "../components/events/EventCard";
