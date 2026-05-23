@@ -14,7 +14,6 @@ import GoodsAndServices from "./pages/GoodsAndServices";
 import SocialServices from "./pages/SocialServices";
 import AboutThisSite from "./pages/AboutThisSite";
 import Governance from "./pages/Governance";
-import Kai from "./pages/Kai";
 import CommunicationNetworks from "./pages/CommunicationNetworks";
 import LocalEconomy from "./pages/LocalEconomy";
 import Discussions from "./pages/Discussions";
@@ -79,7 +78,6 @@ export default function App() {
       <Route path="/groups/resilience" element={<PagesList />} />
       <Route path="/resilience/pages" element={<PagesListPublic />} />
       <Route path="/resilience/pages/:slug" element={<PageViewPublic />} />
-      <Route path="/kai" element={<Kai />} />
       <Route path="/communication-networks" element={<CommunicationNetworks />} />
       <Route path="/local-economy" element={<LocalEconomy />} />
       <Route path="/discussions" element={<Discussions />} />
