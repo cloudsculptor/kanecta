@@ -73,11 +73,6 @@ const localItems = [
     path: "/kai",
   },
   {
-    title: "Transport and Mobility",
-    blurb: "Carpooling, ride sharing, and transport options in the area.",
-    path: "/transport-and-mobility",
-  },
-  {
     title: "Skill Sharing",
     blurb: "Share your skills or find someone with the expertise you need.",
     path: "/skill-sharing",
