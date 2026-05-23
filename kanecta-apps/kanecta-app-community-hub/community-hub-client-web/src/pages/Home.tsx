@@ -103,7 +103,7 @@ const localItems = [
 export default function Home() {
   usePageMeta("Featherston", "Community information and connection for the town of Featherston, New Zealand — events, organisations, skills, transport, resilience and more.");
   const role = useUserRole();
-  const isTeam = role === "TEAM" || role === "MODERATOR";
+  const isTeam = role === "TEAM" || role === "MODERATOR" || role === "TREASURER" || role === "ADMIN";
 
   return (
     <>
