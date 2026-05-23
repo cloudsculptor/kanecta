@@ -61,7 +61,7 @@ const publicActive = [
   },
   {
     title: "Local Government",
-    blurb: "Council, community board, civil defence, and local government services.",
+    blurb: "Local and regional government services for Featherston.",
     path: "/local-government",
   },
 ];
