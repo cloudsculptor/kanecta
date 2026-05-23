@@ -43,6 +43,9 @@ export interface Event {
   start_time: string | null;
   end_date: string | null;
   end_time: string | null;
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
   website: string | null;
   phone: string | null;
   email: string | null;
@@ -59,6 +62,9 @@ export interface EventSubmitPayload {
   start_time?: string;
   end_date?: string;
   end_time?: string;
+  address?: string;
+  lat?: number;
+  lng?: number;
   website?: string;
   phone?: string;
   email?: string;
