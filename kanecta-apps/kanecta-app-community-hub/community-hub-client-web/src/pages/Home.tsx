@@ -117,23 +117,24 @@ export default function Home() {
           <span>Ideas for the future</span>
         </div>
         {publicComing.map((item) => <ComingCard key={item.title} {...item} />)}
-        {isTeam && (
-          <>
-            <div className="nav-divider">
-              <span>About this site</span>
-            </div>
-            <NavCard
-              title="Site Governance"
-              blurb="Documents and tools related to managing this site"
-              path="/governance"
-              image="/group-photo-160x160.png"
-              attribution={{
-                label: "Photo: Canva AI",
-                url: "https://www.canva.com/",
-              }}
-            />
-          </>
-        )}
+        <div className="nav-divider">
+          <span>About this site</span>
+        </div>
+        <NavCard
+          title="About this site"
+          blurb="Our kaupapa, open governance, and how this site works."
+          path="/about"
+        />
+        <NavCard
+          title="Open governance"
+          blurb="Documents and tools related to managing this site"
+          path="/governance"
+          image="/group-photo-160x160.png"
+          attribution={{
+            label: "Photo: Canva AI",
+            url: "https://www.canva.com/",
+          }}
+        />
       </nav>
       <div className="nav-divider nav-divider--section"><span>Contribute to this site</span></div>
       <ContributeForm authenticated={authenticated} emailVerified={emailVerified} />
