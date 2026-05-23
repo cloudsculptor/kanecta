@@ -61,7 +61,7 @@ const publicActive = [
   },
   {
     title: "Local Government",
-    blurb: "SWDC, Featherston Community Board, Greater Wellington Regional Council, civil defence, and healthy homes support.",
+    blurb: "Council, community board, civil defence, and local government services.",
     path: "/local-government",
   },
 ];
