@@ -70,11 +70,30 @@ export interface EventSubmitPayload {
   email?: string;
 }
 
+export interface MyEvent {
+  id: string;
+  title: string;
+  start_date: string;
+  start_time: string | null;
+  end_date: string | null;
+  status: "pending" | "approved" | "declined";
+  decline_reason: string | null;
+  submitted_at: string;
+}
+
 export function getEvents(): Promise<Event[]> {
   return fetch(`${BASE}/api/events`).then((r) => {
     if (!r.ok) throw new Error(`${r.status}`);
     return r.json();
   });
+}
+
+export function getMyEvents(): Promise<MyEvent[]> {
+  return authFetch("/api/events/mine");
+}
+
+export function deleteEvent(id: string): Promise<{ ok: boolean }> {
+  return authFetch(`/api/events/${id}`, { method: "DELETE" });
 }
 
 export function getPendingEvents(): Promise<Event[]> {
