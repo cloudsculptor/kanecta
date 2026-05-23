@@ -13,6 +13,39 @@ function fmtOrig(amount: string, currency: string) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(Number(amount));
 }
 
+function ExpenseTable({ rows }: { rows: Expense[] }) {
+  return (
+    <table className="fin-table">
+      <thead>
+        <tr>
+          <th>Supplier</th>
+          <th>Description</th>
+          <th>Category</th>
+          <th className="fin-table__amount">Amount</th>
+          <th className="fin-table__amount">NZD</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map(e => (
+          <tr key={e.id} className="fin-table__row fin-table__row--expense">
+            <td>{e.supplier}</td>
+            <td>
+              {e.url
+                ? <a href={e.url} target="_blank" rel="noopener noreferrer">{e.description}</a>
+                : e.description}
+            </td>
+            <td className="fin-table__cat">{EXPENSE_CATEGORIES[e.category] ?? e.category}</td>
+            <td className="fin-table__amount fin-table__amount--expense">
+              {fmtOrig(e.amount, e.currency)}{e.currency !== "NZD" && <span className="fin-table__currency"> {e.currency}</span>}
+            </td>
+            <td className="fin-table__amount fin-table__amount--expense">{fmtNZD(e.nzd_amount)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 export default function FinancesExpenses() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,39 +64,6 @@ export default function FinancesExpenses() {
   const monthlyNZD = monthly.reduce((s, e) => s + Number(e.nzd_amount), 0);
   const annualNZD  = annual.reduce((s, e) => s + Number(e.nzd_amount), 0);
   const totalAnnualNZD = monthlyNZD * 12 + annualNZD;
-
-  function ExpenseTable({ rows }: { rows: Expense[] }) {
-    return (
-      <table className="fin-table">
-        <thead>
-          <tr>
-            <th>Supplier</th>
-            <th>Description</th>
-            <th>Category</th>
-            <th className="fin-table__amount">Amount</th>
-            <th className="fin-table__amount">NZD</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(e => (
-            <tr key={e.id} className="fin-table__row fin-table__row--expense">
-              <td>{e.supplier}</td>
-              <td>
-                {e.url
-                  ? <a href={e.url} target="_blank" rel="noopener noreferrer">{e.description}</a>
-                  : e.description}
-              </td>
-              <td className="fin-table__cat">{EXPENSE_CATEGORIES[e.category] ?? e.category}</td>
-              <td className="fin-table__amount fin-table__amount--expense">
-                {fmtOrig(e.amount, e.currency)}{e.currency !== "NZD" && <span className="fin-table__currency"> {e.currency}</span>}
-              </td>
-              <td className="fin-table__amount fin-table__amount--expense">{fmtNZD(e.nzd_amount)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    );
-  }
 
   return (
     <PageLayout pageName="Recurring Expenses" showComingSoon={false} parents={PARENTS}>
