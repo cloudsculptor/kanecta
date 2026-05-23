@@ -15,7 +15,7 @@ import SocialServices from "./pages/SocialServices";
 import AboutThisSite from "./pages/AboutThisSite";
 import Governance from "./pages/Governance";
 import CommunicationNetworks from "./pages/CommunicationNetworks";
-import LocalEconomy from "./pages/LocalEconomy";
+import LocalBusinesses from "./pages/LocalBusinesses";
 import Discussions from "./pages/Discussions";
 import TeamRequired from "./pages/TeamRequired";
 import Roadmap from "./pages/Roadmap";
@@ -79,7 +79,7 @@ export default function App() {
       <Route path="/resilience/pages" element={<PagesListPublic />} />
       <Route path="/resilience/pages/:slug" element={<PageViewPublic />} />
       <Route path="/communication-networks" element={<CommunicationNetworks />} />
-      <Route path="/local-economy" element={<LocalEconomy />} />
+      <Route path="/local-businesses" element={<LocalBusinesses />} />
       <Route path="/discussions" element={<Discussions />} />
       <Route path="/discussions/team-required" element={<TeamRequired />} />
       <Route path="/roadmap" element={<Roadmap />} />
