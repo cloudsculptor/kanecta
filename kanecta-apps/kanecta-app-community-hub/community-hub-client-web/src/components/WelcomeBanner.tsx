@@ -31,8 +31,8 @@ export default function WelcomeBanner() {
       <h2 className="welcome-banner__title">Welcome to Featherston</h2>
       <p className="welcome-banner__body">
         Featherston is a small town nestled at the foot of the Remutaka Range in the South Wairarapa,
-        New Zealand — surrounded by rolling hills, vineyards, and one of the most beautiful rail trails
-        in the country. It's a tight-knit, welcoming community and we're glad you're here.
+        New Zealand — close to Lake Wairarapa, the Remutaka Rail Trail, and the heart of wine country.
+        It's a tight-knit, welcoming community and we're glad you're here.
       </p>
       <p className="welcome-banner__body">
         This site is built and maintained by local volunteers. It's a free, open-source resource for
@@ -44,7 +44,7 @@ export default function WelcomeBanner() {
         <button className="welcome-banner__signup" onClick={() => keycloak.register()}>
           Create a free account
         </button>{" "}
-        and start contributing to your community.
+        and start contributing to this community resource.
       </p>
     </div>
   );
