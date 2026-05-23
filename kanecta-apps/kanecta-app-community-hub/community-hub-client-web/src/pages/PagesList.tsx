@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Chip from "@mui/material/Chip";
+import Alert from "@mui/material/Alert";
 import Header from "../components/Header";
 import Breadcrumb from "../components/Breadcrumb";
 import Footer from "../components/Footer";
@@ -49,6 +50,10 @@ export default function PagesList() {
             <Link to="/groups/resilience/new" className="pages-new-btn">+ New page</Link>
           </div>
         </div>
+        <Alert severity="info" sx={{ mb: 2 }}>
+          You are viewing this page as a logged-in team member. The public view looks different —
+          log out to see what members of the public see.
+        </Alert>
         {error && <p className="pages-error">{error}</p>}
         {loading ? (
           <p>Loading…</p>
