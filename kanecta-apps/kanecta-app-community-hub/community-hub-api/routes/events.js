@@ -49,6 +49,7 @@ router.get("/", wrap(async (req, res) => {
             address, lat, lng, website, phone, email, submitted_at
      FROM events
      WHERE status = 'approved'
+       AND COALESCE(end_date, start_date) + INTERVAL '30 days' > CURRENT_DATE
      ORDER BY start_date ASC`
   );
   const events = await attachFiles(rows);
