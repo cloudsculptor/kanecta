@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 const ALL_LINKS = [
   { label: "About this site", to: "/about", internal: true },
   { label: "Roadmap", to: "/roadmap", internal: true },
-  { label: "All public content", to: "/download", internal: true },
+  { label: "Download site", to: "/download", internal: true },
   { label: "Source code (MIT)", href: "https://github.com/cloudsculptor/kanecta" },
 ];
 
