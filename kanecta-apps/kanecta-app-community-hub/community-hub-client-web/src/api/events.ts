@@ -49,8 +49,12 @@ export interface Event {
   website: string | null;
   phone: string | null;
   email: string | null;
+  organiser_name: string | null;
+  organiser_email: string | null;
+  organiser_phone: string | null;
   submitted_at: string;
   submitted_by_name?: string;
+  status?: "pending" | "approved" | "declined";
   hero_image: EventImage | null;
   gallery_images: EventImage[];
 }
@@ -68,6 +72,9 @@ export interface EventSubmitPayload {
   website?: string;
   phone?: string;
   email?: string;
+  organiser_name?: string;
+  organiser_email?: string;
+  organiser_phone?: string;
 }
 
 export interface MyEvent {
@@ -119,6 +126,14 @@ export function uploadEventImage(
 
 export function deleteEventImage(eventId: string, fileId: string): Promise<{ ok: boolean }> {
   return authFetch(`/api/events/${eventId}/images/${fileId}`, { method: "DELETE" });
+}
+
+export function getEvent(id: string): Promise<Event> {
+  return authFetch(`/api/events/${id}`);
+}
+
+export function updateEvent(id: string, payload: EventSubmitPayload): Promise<{ ok: boolean; status: string }> {
+  return authFetch(`/api/events/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
 }
 
 export function approveEvent(id: string): Promise<{ ok: boolean }> {

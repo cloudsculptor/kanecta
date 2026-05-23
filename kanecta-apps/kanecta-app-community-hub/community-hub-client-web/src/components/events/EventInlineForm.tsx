@@ -1,6 +1,7 @@
 import { useState, useRef, type ChangeEvent } from "react";
 import {
   TextField, Stack, Typography, Button, Alert, Box, IconButton,
+  FormControlLabel, Checkbox,
 } from "@mui/material";
 import AddPhotoAlternateIcon from "@mui/icons-material/AddPhotoAlternate";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -10,7 +11,6 @@ import { submitEvent, uploadEventImage, deleteEventImage } from "../../api/event
 import EventLocationPicker, { type LocationValue } from "./EventLocationPicker";
 import keycloak from "../../auth/keycloak";
 
-// Auto-inserts slashes as user types digits: "14062026" → "14/06/2026"
 function formatDateInput(value: string): string {
   const digits = value.replace(/\D/g, "").slice(0, 8);
   if (digits.length <= 2) return digits;
@@ -18,7 +18,6 @@ function formatDateInput(value: string): string {
   return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
 }
 
-// "dd/mm/yyyy" → "yyyy-mm-dd" for the API; returns "" if incomplete or invalid
 function nzToIso(nz: string): string {
   const match = nz.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   if (!match) return "";
@@ -28,10 +27,8 @@ function nzToIso(nz: string): string {
   return `${y}-${m}-${d}`;
 }
 
-// Returns an error string if the typed value looks complete but is invalid
 function dateError(nz: string): string | undefined {
-  if (!nz) return undefined;
-  if (nz.length < 10) return undefined; // still typing
+  if (!nz || nz.length < 10) return undefined;
   if (!nzToIso(nz)) return "Enter a valid date as DD/MM/YYYY";
   return undefined;
 }
@@ -59,8 +56,12 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
   const [endTime, setEndTime] = useState("");
   const [location, setLocation] = useState<LocationValue | null>(null);
   const [website, setWebsite] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
+  const [publicPhone, setPublicPhone] = useState("");
+  const [publicEmail, setPublicEmail] = useState("");
+  const [organiserName, setOrganiserName] = useState(keycloak.tokenParsed?.name as string ?? "");
+  const [organiserEmail, setOrganiserEmail] = useState(keycloak.tokenParsed?.email as string ?? "");
+  const [organiserPhone, setOrganiserPhone] = useState("");
+  const [permissionConfirmed, setPermissionConfirmed] = useState(false);
   const [hero, setHero] = useState<ImageSlot | null>(null);
   const [gallery, setGallery] = useState<ImageSlot[]>([]);
   const [eventId, setEventId] = useState<string | null>(null);
@@ -75,21 +76,22 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
 
   function reset() {
     setTitle(""); setDescription(""); setStartDate(""); setStartTime("");
-    setEndDate(""); setEndTime(""); setLocation(null); setWebsite(""); setPhone(""); setEmail("");
+    setEndDate(""); setEndTime(""); setLocation(null);
+    setWebsite(""); setPublicPhone(""); setPublicEmail("");
+    setOrganiserName(keycloak.tokenParsed?.name as string ?? "");
+    setOrganiserEmail(keycloak.tokenParsed?.email as string ?? "");
+    setOrganiserPhone("");
+    setPermissionConfirmed(false);
     setHero(null); setGallery([]); setEventId(null);
     setSubmitting(false); setUploadingHero(false); setUploadingGallery(false);
     setError(null); setDone(false);
   }
 
-  async function ensureEventId(): Promise<string> {
-    if (eventId) return eventId;
-    if (!title.trim()) throw new Error("Please enter a title before uploading images.");
-    const isoStart = nzToIso(startDate);
-    if (!isoStart) throw new Error("Please enter a valid start date (DD/MM/YYYY) before uploading images.");
-    const { id } = await submitEvent({
+  function buildPayload() {
+    return {
       title: title.trim(),
       description: description.trim() || undefined,
-      start_date: isoStart,
+      start_date: nzToIso(startDate),
       start_time: startTime || undefined,
       end_date: nzToIso(endDate) || undefined,
       end_time: endTime || undefined,
@@ -97,9 +99,20 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
       lat: location?.lat,
       lng: location?.lng,
       website: website.trim() || undefined,
-      phone: phone.trim() || undefined,
-      email: email.trim() || undefined,
-    });
+      phone: publicPhone.trim() || undefined,
+      email: publicEmail.trim() || undefined,
+      organiser_name: organiserName.trim() || undefined,
+      organiser_email: organiserEmail.trim() || undefined,
+      organiser_phone: organiserPhone.trim() || undefined,
+    };
+  }
+
+  async function ensureEventId(): Promise<string> {
+    if (eventId) return eventId;
+    if (!title.trim()) throw new Error("Please enter a title before uploading images.");
+    const isoStart = nzToIso(startDate);
+    if (!isoStart) throw new Error("Please enter a valid start date (DD/MM/YYYY) before uploading images.");
+    const { id } = await submitEvent(buildPayload());
     setEventId(id);
     return id;
   }
@@ -160,26 +173,20 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
 
   async function handleSubmit() {
     if (!title.trim()) { setError("Title is required"); return; }
+    const desc = description.trim();
+    if (desc.length < 50) { setError("Description must be at least 50 characters"); return; }
+    if (desc.length > 1000) { setError("Description must be 1000 characters or fewer"); return; }
     const isoStart = nzToIso(startDate);
     if (!isoStart) { setError("Start date must be in DD/MM/YYYY format"); return; }
+    if (!organiserName.trim()) { setError("Organiser name is required"); return; }
+    if (!organiserEmail.trim()) { setError("Organiser email is required"); return; }
+    if (!organiserPhone.trim()) { setError("Organiser phone is required"); return; }
+    if (!permissionConfirmed) { setError("Please confirm you have permission to post this event"); return; }
     setError(null);
     setSubmitting(true);
     try {
       if (!eventId) {
-        await submitEvent({
-          title: title.trim(),
-          description: description.trim() || undefined,
-          start_date: isoStart,
-          start_time: startTime || undefined,
-          end_date: nzToIso(endDate) || undefined,
-          end_time: endTime || undefined,
-          address: location?.address || undefined,
-          lat: location?.lat,
-          lng: location?.lng,
-          website: website.trim() || undefined,
-          phone: phone.trim() || undefined,
-          email: email.trim() || undefined,
-        });
+        await submitEvent(buildPayload());
       }
       setDone(true);
     } catch (err) {
@@ -193,6 +200,13 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
     reset();
     onSubmitted();
   }
+
+  const descLen = description.trim().length;
+  const descError = descLen > 0 && descLen < 50
+    ? `At least 50 characters required (${descLen}/50)`
+    : descLen > 1000
+    ? `Too long — ${descLen}/1000`
+    : undefined;
 
   return (
     <div className="event-inline-form">
@@ -255,12 +269,16 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
 
             <TextField
               label="Description"
+              required
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               fullWidth
               multiline
-              minRows={3}
+              minRows={4}
               disabled={locked}
+              error={!!descError}
+              helperText={descError ?? `${descLen}/1000 characters (minimum 50)`}
+              slotProps={{ htmlInput: { maxLength: 1000 } }}
             />
 
             <EventLocationPicker
@@ -316,7 +334,50 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
               />
             </Stack>
 
-            <Typography variant="subtitle2" color="text.secondary">Contact details</Typography>
+            {/* ── Organiser contact (private) ──────────────────────────── */}
+            <Typography variant="subtitle2" color="text.secondary">
+              Organiser contact details
+            </Typography>
+            <Alert severity="info" sx={{ py: 0.5 }}>
+              These details are for moderation purposes only and will not be published.
+            </Alert>
+
+            <TextField
+              label="Your name"
+              required
+              value={organiserName}
+              onChange={(e) => setOrganiserName(e.target.value)}
+              fullWidth
+              disabled={locked}
+            />
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <TextField
+                label="Your email"
+                required
+                type="email"
+                value={organiserEmail}
+                onChange={(e) => setOrganiserEmail(e.target.value)}
+                fullWidth
+                disabled={locked}
+              />
+              <TextField
+                label="Your phone"
+                required
+                type="tel"
+                value={organiserPhone}
+                onChange={(e) => setOrganiserPhone(e.target.value)}
+                fullWidth
+                disabled={locked}
+              />
+            </Stack>
+
+            {/* ── Public contact details ───────────────────────────────── */}
+            <Typography variant="subtitle2" color="text.secondary">
+              Public contact details
+            </Typography>
+            <Alert severity="info" sx={{ py: 0.5 }}>
+              These details will be shown on the public event listing.
+            </Alert>
 
             <TextField
               label="Website (optional)"
@@ -332,24 +393,24 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
               <TextField
                 label="Phone (optional)"
                 type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                value={publicPhone}
+                onChange={(e) => setPublicPhone(e.target.value)}
                 fullWidth
                 disabled={locked}
               />
               <TextField
                 label="Email (optional)"
                 type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={publicEmail}
+                onChange={(e) => setPublicEmail(e.target.value)}
                 fullWidth
                 disabled={locked}
               />
             </Stack>
 
+            {/* ── Photos ───────────────────────────────────────────────── */}
             <Typography variant="subtitle2" color="text.secondary">Photos</Typography>
 
-            {/* Hero image */}
             <Box>
               <Typography variant="body2" gutterBottom>Headline photo</Typography>
               {hero ? (
@@ -381,7 +442,6 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
               <input ref={heroInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleHeroChange} />
             </Box>
 
-            {/* Gallery images */}
             {gallery.length > 0 && (
               <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
                 {gallery.map((img) => (
@@ -414,11 +474,23 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
               </Box>
             )}
 
+            {/* ── Permission checkbox ──────────────────────────────────── */}
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={permissionConfirmed}
+                  onChange={(e) => setPermissionConfirmed(e.target.checked)}
+                  disabled={locked}
+                />
+              }
+              label="I am one of the organisers, or I have the organiser's permission to post this event."
+            />
+
             <Box sx={{ pt: 1 }}>
               <Button
                 variant="contained"
                 onClick={handleSubmit}
-                disabled={locked || submitting}
+                disabled={locked || submitting || !permissionConfirmed}
               >
                 {submitting ? "Submitting…" : "Submit event"}
               </Button>
