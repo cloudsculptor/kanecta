@@ -74,16 +74,17 @@ const publicActive = [
     blurb: "Local and regional government services for Featherston.",
     path: "/local-government",
   },
+  {
+    title: "Education",
+    blurb: "Schools, early childhood services, and learning resources in Featherston.",
+    path: "/education",
+  },
 ];
 
 const publicComing = [
   {
     title: "Health & Wellbeing",
     blurb: "GPs, pharmacy, dentist, mental health, and healthcare access in Featherston.",
-  },
-  {
-    title: "Education",
-    blurb: "Schools, early childhood centres, library, and adult learning.",
   },
   {
     title: "Sport & Recreation",
