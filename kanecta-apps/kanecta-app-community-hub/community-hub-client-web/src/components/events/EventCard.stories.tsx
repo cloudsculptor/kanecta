@@ -14,6 +14,9 @@ const BASE: Event = {
   website: "https://example.com/market",
   phone: "06 308 0000",
   email: "market@example.com",
+  address: "Featherston Domain, Featherston 5710",
+  lat: -41.1167,
+  lng: 175.3333,
   submitted_at: "2026-05-01T00:00:00Z",
   hero_image: { file_id: "f1", url: "https://placehold.co/800x300/3a7d44/fff?text=Market" },
   gallery_images: [
