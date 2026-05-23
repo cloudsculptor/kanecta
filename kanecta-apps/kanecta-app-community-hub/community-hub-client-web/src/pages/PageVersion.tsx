@@ -33,7 +33,7 @@ export default function PageVersion() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const isTeam = role === "TEAM" || role === "MODERATOR" || role === "TREASURER" || role === "ADMIN";
+  const isTeam = role === "TEAM" || role === "MODERATOR" || role === "ADMIN";
 
   useEffect(() => {
     if (!initialized) return;
