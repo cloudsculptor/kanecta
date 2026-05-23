@@ -8,7 +8,7 @@ const roles = [
 
 export default function Roles() {
   return (
-    <PageLayout pageName="Roles" showComingSoon={false} parents={[{ name: "Governance", path: "/governance" }]}>
+    <PageLayout pageName="Roles" showComingSoon={false} wip parents={[{ name: "Governance", path: "/governance" }]}>
       <div className="role-index">
         {roles.map(({ title, path, description }) => (
           <Link key={path} to={path} className="role-index__item">

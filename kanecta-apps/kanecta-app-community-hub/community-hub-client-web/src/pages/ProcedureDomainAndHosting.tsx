@@ -8,7 +8,7 @@ const PARENTS = [
 
 export default function ProcedureDomainAndHosting() {
   return (
-    <PageLayout pageName="Domain and Hosting Management" showComingSoon={false} parents={PARENTS}>
+    <PageLayout pageName="Domain and Hosting Management" showComingSoon={false} wip parents={PARENTS}>
       <div className="adoc-content" dangerouslySetInnerHTML={{ __html: html }} />
     </PageLayout>
   );

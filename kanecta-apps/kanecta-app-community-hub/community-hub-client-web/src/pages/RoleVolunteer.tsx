@@ -8,7 +8,7 @@ const GOVERNANCE_PARENTS = [
 
 export default function RoleVolunteer() {
   return (
-    <PageLayout pageName="Volunteer" showComingSoon={false} parents={GOVERNANCE_PARENTS}>
+    <PageLayout pageName="Volunteer" showComingSoon={false} wip parents={GOVERNANCE_PARENTS}>
       <div className="adoc-content" dangerouslySetInnerHTML={{ __html: roleHtml }} />
     </PageLayout>
   );

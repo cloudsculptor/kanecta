@@ -8,7 +8,7 @@ const PARENTS = [
 
 export default function ProcedureFinancialReporting() {
   return (
-    <PageLayout pageName="Financial Reporting" showComingSoon={false} parents={PARENTS}>
+    <PageLayout pageName="Financial Reporting" showComingSoon={false} wip parents={PARENTS}>
       <div className="adoc-content" dangerouslySetInnerHTML={{ __html: html }} />
     </PageLayout>
   );

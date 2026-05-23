@@ -66,7 +66,7 @@ export default function FinancesExpenses() {
   }
 
   return (
-    <PageLayout pageName="Recurring Expenses" showComingSoon={false} parents={PARENTS}>
+    <PageLayout pageName="Recurring Expenses" showComingSoon={false} wip parents={PARENTS}>
       <p>Expected recurring costs. NZD amounts for USD items use the exchange rate at the time of entry.</p>
 
       {error && <p style={{ color: "red" }}>{error}</p>}

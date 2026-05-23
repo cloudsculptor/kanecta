@@ -1,4 +1,5 @@
 import { type ReactNode } from "react";
+import Alert from "@mui/material/Alert";
 import Header from "./Header";
 import Breadcrumb from "./Breadcrumb";
 import ComingSoon from "./ComingSoon";
@@ -15,6 +16,7 @@ interface PageLayoutProps {
   children?: ReactNode;
   showComingSoon?: boolean;
   parents?: Crumb[];
+  wip?: boolean;
 }
 
 export default function PageLayout({
@@ -22,6 +24,7 @@ export default function PageLayout({
   children,
   showComingSoon = true,
   parents,
+  wip = false,
 }: PageLayoutProps) {
   usePageMeta(pageName);
   return (
@@ -31,6 +34,12 @@ export default function PageLayout({
       <main className="page-content">
         <h2>{pageName}</h2>
         {showComingSoon && <ComingSoon />}
+        {wip && (
+          <Alert severity="warning" sx={{ mb: 3, fontSize: "1rem" }}>
+            <strong>Work in progress</strong> — this governance model is still being developed.
+            Please take it with a grain of salt until this banner is removed.
+          </Alert>
+        )}
         {children}
       </main>
       <Footer />
