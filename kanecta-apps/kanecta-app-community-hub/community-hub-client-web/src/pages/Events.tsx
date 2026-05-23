@@ -78,7 +78,7 @@ function MyEventRow({ event, onDeleted }: { event: MyEvent; onDeleted: () => voi
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const chip = STATUS_CHIP[event.status];
-  const canDelete = event.status === "pending" || event.status === "declined";
+  const canDelete = true;
 
   async function handleDelete() {
     if (!confirmDelete) { setConfirmDelete(true); return; }
