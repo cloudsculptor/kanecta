@@ -69,11 +69,6 @@ const publicComing = [
 
 const localItems = [
   {
-    title: "Kai",
-    blurb: "Food, kai, and local produce from around Featherston.",
-    path: "/kai",
-  },
-  {
     title: "Local Economy",
     blurb: "Support and grow the local economy of Featherston.",
     path: "/local-economy",
