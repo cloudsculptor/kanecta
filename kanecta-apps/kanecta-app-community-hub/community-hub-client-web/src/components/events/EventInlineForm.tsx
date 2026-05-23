@@ -338,9 +338,9 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
             <Typography variant="subtitle2" color="text.secondary">
               Organiser contact details
             </Typography>
-            <Alert severity="info" sx={{ py: 0.5 }}>
-              These details are for moderation purposes only and will not be published.
-            </Alert>
+            <Typography variant="caption" color="text.secondary">
+              These details are in case we need to contact you. They will not be published.
+            </Typography>
 
             <TextField
               label="Your name"
@@ -375,9 +375,9 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
             <Typography variant="subtitle2" color="text.secondary">
               Public contact details
             </Typography>
-            <Alert severity="info" sx={{ py: 0.5 }}>
+            <Typography variant="caption" color="text.secondary">
               These details will be shown on the public event listing.
-            </Alert>
+            </Typography>
 
             <TextField
               label="Website (optional)"
