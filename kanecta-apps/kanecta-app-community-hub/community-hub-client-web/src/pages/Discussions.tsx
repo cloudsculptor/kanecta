@@ -206,7 +206,7 @@ export default function Discussions() {
     setReplyTarget(null);
   }
 
-  if (role !== "TEAM" && role !== "MODERATOR" && role !== "TREASURER" && role !== "ADMIN") return null;
+  if (role !== "TEAM" && role !== "MODERATOR" && role !== "ADMIN") return null;
   if (isMobile) return <DiscussionsMobile />;
 
   const inThread = !!activeThreadId;
