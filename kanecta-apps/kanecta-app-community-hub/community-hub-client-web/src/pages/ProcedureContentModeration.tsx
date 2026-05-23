@@ -8,7 +8,7 @@ const PARENTS = [
 
 export default function ProcedureContentModeration() {
   return (
-    <PageLayout pageName="Content Moderation" showComingSoon={false} parents={PARENTS}>
+    <PageLayout pageName="Content Moderation" showComingSoon={false} wip parents={PARENTS}>
       <div className="adoc-content" dangerouslySetInnerHTML={{ __html: html }} />
     </PageLayout>
   );

@@ -8,7 +8,7 @@ const PARENTS = [
 
 export default function ProcedureAgm() {
   return (
-    <PageLayout pageName="Annual General Meeting" showComingSoon={false} parents={PARENTS}>
+    <PageLayout pageName="Annual General Meeting" showComingSoon={false} wip parents={PARENTS}>
       <div className="adoc-content" dangerouslySetInnerHTML={{ __html: html }} />
     </PageLayout>
   );

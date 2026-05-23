@@ -8,7 +8,7 @@ const PARENTS = [
 
 export default function ProcedureItIncidentResponse() {
   return (
-    <PageLayout pageName="IT Incident Response" showComingSoon={false} parents={PARENTS}>
+    <PageLayout pageName="IT Incident Response" showComingSoon={false} wip parents={PARENTS}>
       <div className="adoc-content" dangerouslySetInnerHTML={{ __html: html }} />
     </PageLayout>
   );

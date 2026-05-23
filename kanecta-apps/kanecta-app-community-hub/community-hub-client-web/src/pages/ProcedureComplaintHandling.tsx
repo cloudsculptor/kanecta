@@ -8,7 +8,7 @@ const PARENTS = [
 
 export default function ProcedureComplaintHandling() {
   return (
-    <PageLayout pageName="Complaint Handling" showComingSoon={false} parents={PARENTS}>
+    <PageLayout pageName="Complaint Handling" showComingSoon={false} wip parents={PARENTS}>
       <div className="adoc-content" dangerouslySetInnerHTML={{ __html: html }} />
     </PageLayout>
   );

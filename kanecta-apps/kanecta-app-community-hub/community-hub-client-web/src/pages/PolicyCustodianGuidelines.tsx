@@ -8,7 +8,7 @@ const PARENTS = [
 
 export default function PolicyCustodianGuidelines() {
   return (
-    <PageLayout pageName="Custodian Board Guidelines" showComingSoon={false} parents={PARENTS}>
+    <PageLayout pageName="Custodian Board Guidelines" showComingSoon={false} wip parents={PARENTS}>
       <div className="adoc-content" dangerouslySetInnerHTML={{ __html: policyHtml }} />
     </PageLayout>
   );

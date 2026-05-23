@@ -41,7 +41,7 @@ const values = [
 
 export default function Values() {
   return (
-    <PageLayout pageName="Values" showComingSoon={false} parents={[{ name: "Governance", path: "/governance" }]}>
+    <PageLayout pageName="Values" showComingSoon={false} wip parents={[{ name: "Governance", path: "/governance" }]}>
       <div className="values-list">
         {values.map(({ title, body }) => (
           <div key={title} className="values-list__item">

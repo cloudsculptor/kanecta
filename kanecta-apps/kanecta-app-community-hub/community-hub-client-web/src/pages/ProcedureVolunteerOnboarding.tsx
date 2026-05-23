@@ -8,7 +8,7 @@ const PARENTS = [
 
 export default function ProcedureVolunteerOnboarding() {
   return (
-    <PageLayout pageName="Volunteer Onboarding" showComingSoon={false} parents={PARENTS}>
+    <PageLayout pageName="Volunteer Onboarding" showComingSoon={false} wip parents={PARENTS}>
       <div className="adoc-content" dangerouslySetInnerHTML={{ __html: html }} />
     </PageLayout>
   );

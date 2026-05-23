@@ -8,7 +8,7 @@ const GOVERNANCE_PARENTS = [
 
 export default function RoleCustodian() {
   return (
-    <PageLayout pageName="Custodian" showComingSoon={false} parents={GOVERNANCE_PARENTS}>
+    <PageLayout pageName="Custodian" showComingSoon={false} wip parents={GOVERNANCE_PARENTS}>
       <div className="adoc-content" dangerouslySetInnerHTML={{ __html: roleHtml }} />
     </PageLayout>
   );

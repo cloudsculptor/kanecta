@@ -34,7 +34,7 @@ export default function FinancesCashflow() {
   const netOperating = totalIncome + totalExpense;
 
   return (
-    <PageLayout pageName="Cash Flow" showComingSoon={false} parents={PARENTS}>
+    <PageLayout pageName="Cash Flow" showComingSoon={false} wip parents={PARENTS}>
       <p className="fin-report__note">Cash flow statement prepared in accordance with NZ reporting standards for small incorporated societies.</p>
 
       <div className="fin-period">

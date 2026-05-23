@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import Alert from "@mui/material/Alert";
 import PageLayout from "../components/PageLayout";
 
 const principles = [
@@ -19,12 +18,7 @@ const principles = [
 
 export default function Governance() {
   return (
-    <PageLayout pageName="Open governance" showComingSoon={false}>
-
-      <Alert severity="warning" sx={{ mb: 3, fontSize: "1rem" }}>
-        <strong>Work in progress</strong> — this governance model is still being developed.
-        Please take it with a grain of salt until this banner is removed.
-      </Alert>
+    <PageLayout pageName="Open governance" showComingSoon={false} wip>
 
       <p className="gov-lead">
         This is a volunteer-led organisation. The people who show up and do the work should be the people who lead it.

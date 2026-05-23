@@ -8,7 +8,7 @@ const PARENTS = [
 
 export default function ProcedureBoardMeeting() {
   return (
-    <PageLayout pageName="Custodian Board Meeting" showComingSoon={false} parents={PARENTS}>
+    <PageLayout pageName="Custodian Board Meeting" showComingSoon={false} wip parents={PARENTS}>
       <div className="adoc-content" dangerouslySetInnerHTML={{ __html: html }} />
     </PageLayout>
   );

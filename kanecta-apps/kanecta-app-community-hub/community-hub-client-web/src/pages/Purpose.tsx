@@ -29,7 +29,7 @@ const purposes = [
 
 export default function Purpose() {
   return (
-    <PageLayout pageName="Purpose" showComingSoon={false} parents={[{ name: "Governance", path: "/governance" }]}>
+    <PageLayout pageName="Purpose" showComingSoon={false} wip parents={[{ name: "Governance", path: "/governance" }]}>
       <h3>Mission</h3>
       <p className="gov-lead">A community-owned digital platform, holding featherston.co.nz in permanent trust for all residents of Featherston.</p>
 

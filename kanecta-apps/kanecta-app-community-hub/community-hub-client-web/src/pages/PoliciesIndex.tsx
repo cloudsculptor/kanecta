@@ -20,7 +20,7 @@ const policies = [
 
 export default function PoliciesIndex() {
   return (
-    <PageLayout pageName="Policies" showComingSoon={false} parents={[{ name: "Governance", path: "/governance" }]}>
+    <PageLayout pageName="Policies" showComingSoon={false} wip parents={[{ name: "Governance", path: "/governance" }]}>
       {policies.map(({ group, items }) => (
         <div key={group} className="policy-group">
           <h3 className="policy-group__heading">{group}</h3>

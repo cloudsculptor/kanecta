@@ -31,7 +31,7 @@ const procedures = [
 
 export default function ProceduresIndex() {
   return (
-    <PageLayout pageName="Procedures" showComingSoon={false} parents={[{ name: "Governance", path: "/governance" }]}>
+    <PageLayout pageName="Procedures" showComingSoon={false} wip parents={[{ name: "Governance", path: "/governance" }]}>
       {procedures.map(({ group, items }) => (
         <div key={group} className="policy-group">
           <h3 className="policy-group__heading">{group}</h3>
