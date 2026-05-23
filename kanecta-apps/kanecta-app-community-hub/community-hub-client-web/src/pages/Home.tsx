@@ -30,9 +30,9 @@ const publicActive = [
     },
   },
   {
-    title: "Local Businesses",
-    blurb: "Support and explore local businesses in Featherston and the South Wairarapa.",
-    path: "/local-businesses",
+    title: "Community Notice Board",
+    blurb: "Community announcements, lost & found, and local news.",
+    path: "/notice-board",
   },
   {
     title: "Community Groups",
@@ -45,9 +45,19 @@ const publicActive = [
     },
   },
   {
+    title: "Local Businesses",
+    blurb: "Support and explore local businesses in Featherston and the South Wairarapa.",
+    path: "/local-businesses",
+  },
+  {
     title: "Social Services",
     blurb: "Access social support, welfare, and community care services.",
     path: "/social-services",
+  },
+  {
+    title: "Community Resilience",
+    blurb: "Resources and networks for when things get tough.",
+    path: "/community-resilience",
   },
   {
     title: "Communication Networks",
@@ -63,16 +73,6 @@ const publicActive = [
     title: "Local Government",
     blurb: "Local and regional government services for Featherston.",
     path: "/local-government",
-  },
-  {
-    title: "Community Notice Board",
-    blurb: "Community announcements, lost & found, and local news.",
-    path: "/notice-board",
-  },
-  {
-    title: "Community Resilience",
-    blurb: "Resources and networks for when things get tough.",
-    path: "/community-resilience",
   },
 ];
 
