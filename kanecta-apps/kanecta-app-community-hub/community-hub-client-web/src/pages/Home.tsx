@@ -1,7 +1,7 @@
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import { NavCard, ComingCard } from "../components/NavCard";
-import { useUserRole } from "../auth/useUserRole";
+import { useUserRoles, hasRole } from "../auth/useUserRole";
 import { usePageMeta } from "../hooks/usePageMeta";
 
 const publicActive = [
@@ -102,8 +102,8 @@ const localItems = [
 
 export default function Home() {
   usePageMeta("Featherston", "Community information and connection for the town of Featherston, New Zealand — events, organisations, skills, transport, resilience and more.");
-  const role = useUserRole();
-  const isTeam = role === "TEAM" || role === "MODERATOR" || role === "ADMIN";
+  const roles = useUserRoles();
+  const isTeam = hasRole(roles, "team");
 
   return (
     <>

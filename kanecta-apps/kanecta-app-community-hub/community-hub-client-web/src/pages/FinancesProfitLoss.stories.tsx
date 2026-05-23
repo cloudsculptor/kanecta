@@ -15,7 +15,7 @@ const SAMPLE_REPORT = [
 const meta: Meta<typeof FinancesProfitLoss> = {
   title: "Pages/Finances/ProfitLoss",
   component: FinancesProfitLoss,
-  decorators: [(Story) => <StoryWrapper role="TEAM"><Story /></StoryWrapper>],
+  decorators: [(Story) => <StoryWrapper role="team"><Story /></StoryWrapper>],
 };
 export default meta;
 type Story = StoryObj<typeof FinancesProfitLoss>;

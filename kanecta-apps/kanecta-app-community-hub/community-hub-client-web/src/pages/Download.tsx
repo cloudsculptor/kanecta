@@ -7,7 +7,7 @@ import Header from "../components/Header";
 import Breadcrumb from "../components/Breadcrumb";
 import Footer from "../components/Footer";
 import { useKeycloak } from "../auth/KeycloakProvider";
-import { useUserRole } from "../auth/useUserRole";
+import { useUserRoles, hasRole } from "../auth/useUserRole";
 import keycloak from "../auth/keycloak";
 import { prepareDownload, downloadZip } from "../api/download";
 import { usePageMeta } from "../hooks/usePageMeta";
@@ -22,7 +22,7 @@ function formatSize(bytes: number): string {
 
 export default function Download() {
   const { authenticated } = useKeycloak();
-  const role = useUserRole();
+  const roles = useUserRoles();
   const [status, setStatus] = useState<Status>("idle");
   const [token, setToken] = useState("");
   const [size, setSize] = useState(0);
@@ -30,8 +30,7 @@ export default function Download() {
 
   usePageMeta("Download");
 
-  const canDownload =
-    role === "TEAM" || role === "MODERATOR" || role === "TREASURER" || role === "ADMIN";
+  const canDownload = hasRole(roles, "team");
 
   async function handlePrepare() {
     setStatus("preparing");

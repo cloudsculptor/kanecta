@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import Chip from "@mui/material/Chip";
 import Button from "@mui/material/Button";
 import PageLayout from "../components/PageLayout";
-import { useUserRole } from "../auth/useUserRole";
+import { useUserRoles } from "../auth/useUserRole";
 import { getMembers, addToTeam, type Member } from "../api/members";
 
 const PARENTS = [{ name: "Governance", path: "/governance" }];
@@ -24,8 +24,8 @@ const ROLE_COLOURS: Record<string, "default" | "primary" | "secondary" | "succes
 };
 
 export default function MembershipPanel() {
-  const role = useUserRole();
-  const isAdmin = role === "ADMIN";
+  const roles = useUserRoles();
+  const isAdmin = roles.includes("admin");
 
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);

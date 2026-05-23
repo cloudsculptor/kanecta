@@ -4,19 +4,19 @@ import Chip from "@mui/material/Chip";
 import Header from "../components/Header";
 import Breadcrumb from "../components/Breadcrumb";
 import Footer from "../components/Footer";
-import { useUserRole } from "../auth/useUserRole";
+import { useUserRoles, hasRole } from "../auth/useUserRole";
 import { useKeycloak } from "../auth/KeycloakProvider";
 import { listPages, deletePage, type PageSummary } from "../api/pages";
 
 export default function PagesList() {
-  const role = useUserRole();
+  const roles = useUserRoles();
   const { initialized } = useKeycloak();
   const navigate = useNavigate();
   const [pages, setPages] = useState<PageSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const isTeam = role === "TEAM" || role === "MODERATOR" || role === "ADMIN";
+  const isTeam = hasRole(roles, "team");
 
   useEffect(() => {
     if (!initialized) return;

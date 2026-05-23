@@ -5,7 +5,7 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Button from "@mui/material/Button";
 import PageLayout from "../components/PageLayout";
-import { useUserRole } from "../auth/useUserRole";
+import { useUserRoles, hasRole } from "../auth/useUserRole";
 import {
   getTransactions, createTransaction, updateTransaction, deleteTransaction,
   type Transaction, type TransactionInput, INCOME_CATEGORIES, EXPENSE_CATEGORIES, ALL_CATEGORIES,
@@ -20,9 +20,9 @@ function fmt(amount: string | number) {
 }
 
 export default function FinancesTransactions() {
-  const role = useUserRole();
-  const isTreasurer = role === "TREASURER" || role === "ADMIN";
-  const canView = role !== "PUBLIC" && role !== "GUEST";
+  const roles = useUserRoles();
+  const isTreasurer = hasRole(roles, "treasurer");
+  const canView = roles.length > 0;
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);

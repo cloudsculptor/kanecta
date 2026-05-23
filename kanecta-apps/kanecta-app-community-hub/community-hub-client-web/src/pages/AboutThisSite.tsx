@@ -1,11 +1,11 @@
 import { Link } from "react-router-dom";
 import Tooltip from "@mui/material/Tooltip";
 import PageLayout from "../components/PageLayout";
-import { useUserRole } from "../auth/useUserRole";
+import { useUserRoles, hasRole } from "../auth/useUserRole";
 
 export default function AboutThisSite() {
-  const role = useUserRole();
-  const canViewGovernance = role === "TEAM" || role === "MODERATOR" || role === "ADMIN";
+  const roles = useUserRoles();
+  const canViewGovernance = hasRole(roles, "team");
   return (
     <PageLayout pageName="About this site" showComingSoon={false}>
       <p>

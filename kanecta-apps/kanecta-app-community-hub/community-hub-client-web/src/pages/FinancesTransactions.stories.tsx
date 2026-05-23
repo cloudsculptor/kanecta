@@ -17,7 +17,7 @@ const withTransactions = [
 const meta: Meta<typeof FinancesTransactions> = {
   title: "Pages/Finances/Transactions",
   component: FinancesTransactions,
-  decorators: [(Story) => <StoryWrapper role="TEAM"><Story /></StoryWrapper>],
+  decorators: [(Story) => <StoryWrapper role="team"><Story /></StoryWrapper>],
 };
 export default meta;
 type Story = StoryObj<typeof FinancesTransactions>;
@@ -35,7 +35,7 @@ export const Loading: Story = {
 };
 
 export const GuestBlocked: Story = {
-  decorators: [(Story) => <StoryWrapper role="GUEST"><Story /></StoryWrapper>],
+  decorators: [(Story) => <StoryWrapper role="guest"><Story /></StoryWrapper>],
 };
 
 export const Mobile: Story = {

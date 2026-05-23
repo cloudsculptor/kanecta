@@ -11,7 +11,7 @@ import UnreadsView from "../components/discussions/UnreadsView";
 import NotificationBell from "../components/discussions/NotificationBell";
 import ThreadOptionsMenu from "../components/discussions/ThreadOptionsMenu";
 import CopyLinkButton from "../components/discussions/CopyLinkButton";
-import { useUserRole } from "../auth/useUserRole";
+import { useUserRoles, hasRole } from "../auth/useUserRole";
 import { useKeycloak } from "../auth/KeycloakProvider";
 import { useThreadSocket, useGlobalSocket } from "../hooks/useSocket";
 import { api, type Thread, type Message, type Reaction } from "../api/discussions";
@@ -31,7 +31,7 @@ function BackArrow() {
 
 export default function Discussions() {
   const isMobile = useMobile();
-  const role = useUserRole();
+  const roles = useUserRoles();
   const { authenticated, initialized } = useKeycloak();
   const navigate = useNavigate();
 
@@ -50,13 +50,13 @@ export default function Discussions() {
 
   const activeThread = threads.find((t) => t.id === activeThreadId);
   const currentUserId = keycloak.tokenParsed?.sub || "";
-  const canModerate = role === "MODERATOR" || role === "ADMIN";
+  const canModerate = hasRole(roles, "moderator");
 
   useEffect(() => {
     if (!initialized) return;
-    if (role === "PUBLIC") navigate("/", { replace: true });
-    else if (role === "GUEST" || role === "RESILIENCE") navigate("/discussions/team-required", { replace: true });
-  }, [initialized, role, navigate]);
+    if (!authenticated) navigate("/", { replace: true });
+    else if (!hasRole(roles, "team")) navigate("/discussions/team-required", { replace: true });
+  }, [initialized, authenticated, roles, navigate]);
 
   useEffect(() => {
     if (!authenticated) return;
@@ -206,7 +206,7 @@ export default function Discussions() {
     setReplyTarget(null);
   }
 
-  if (role !== "TEAM" && role !== "MODERATOR" && role !== "ADMIN") return null;
+  if (!hasRole(roles, "team")) return null;
   if (isMobile) return <DiscussionsMobile />;
 
   const inThread = !!activeThreadId;

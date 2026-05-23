@@ -7,17 +7,15 @@ import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import LandscapeIcon from "@mui/icons-material/Landscape";
 import { useKeycloak } from "../auth/KeycloakProvider";
-import { useUserRole, type UserRole } from "../auth/useUserRole";
+import { useUserRoles, primaryRole, type UserRole } from "../auth/useUserRole";
 import keycloak from "../auth/keycloak";
 
 const ROLE_LABEL: Record<UserRole, string> = {
-  PUBLIC: "Public",
-  GUEST: "Guest",
-  TEAM: "Team",
-  RESILIENCE: "Resilience",
-  MODERATOR: "Moderator",
-  TREASURER: "Treasurer",
-  ADMIN: "Admin",
+  admin: "Admin",
+  moderator: "Moderator",
+  treasurer: "Treasurer",
+  team: "Team",
+  resilience: "Resilience",
 };
 
 function displayName(profile: Record<string, unknown> | undefined): string {
@@ -32,7 +30,7 @@ export default function Header() {
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const navigate = useNavigate();
   const { authenticated } = useKeycloak();
-  const role = useUserRole();
+  const roles = useUserRoles();
   const profile = keycloak.idTokenParsed;
 
   return (
@@ -73,14 +71,14 @@ export default function Header() {
                 <div>
                   <div style={{ fontSize: 13, marginBottom: 6 }}>{profile?.email}</div>
                   <Chip
-                    label={ROLE_LABEL[role]}
+                    label={ROLE_LABEL[primaryRole(roles) ?? ""] ?? "Member"}
                     size="small"
                     sx={{ backgroundColor: "#3a7d44", color: "#fff", fontSize: 11, fontWeight: 600 }}
                   />
                 </div>
               </MenuItem>
               <Divider />
-              {role === "ADMIN" && (
+              {roles.includes("admin") && (
                 <MenuItem onClick={() => { setMenuAnchor(null); navigate("/governance/membership"); }}>
                   Membership
                 </MenuItem>
