@@ -173,7 +173,7 @@ export default function Home() {
                 accent
                 title="Approvals"
                 blurb="Review and approve community-submitted events and suggestions"
-                path="/governance/approvals"
+                path="/approvals"
               />
             )}
             <div className="nav-divider">
