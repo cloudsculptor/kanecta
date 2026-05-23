@@ -169,15 +169,14 @@ $bp-tablet: 768px;
 // ── Welcome banner ─────────────────────────────────────────────────────────────
 
 .welcome-banner {
+  display: none;
   grid-column: 1 / -1;
   position: relative;
-  background:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.055'/%3E%3C/svg%3E") repeat,
-    linear-gradient(120deg, #fdf0d0 0%, #f7e0a8 100%);
-  border: 1px solid rgba(180, 130, 40, 0.35);
+  background: #fff;
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 24px 52px 24px 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.10), 0 4px 20px rgba(0,0,0,0.07);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 
   &__close {
     position: absolute;
@@ -186,8 +185,8 @@ $bp-tablet: 768px;
     background: none;
     border: none;
     cursor: pointer;
-    color: #7a5220;
-    opacity: 0.55;
+    color: var(--text);
+    opacity: 0.45;
     padding: 4px;
     display: flex;
     align-items: center;
@@ -197,34 +196,32 @@ $bp-tablet: 768px;
   }
 
   &__title {
-    font-size: 22px;
+    font-size: 20px;
     font-weight: 700;
-    letter-spacing: -0.2px;
-    color: #5c3d0e;
+    color: var(--text-h);
     margin: 0 0 12px;
   }
 
   &__body {
     font-size: 15px;
     line-height: 1.65;
-    color: #7a5220;
+    color: var(--text);
     margin: 0 0 8px;
 
     &:last-child { margin-bottom: 0; }
   }
 
   &__signup {
-    background: rgba(92, 61, 14, 0.1);
-    border: 1px solid rgba(92, 61, 14, 0.25);
-    border-radius: 6px;
-    padding: 2px 12px;
+    background: none;
+    border: none;
+    padding: 0;
     cursor: pointer;
-    color: #5c3d0e;
+    color: var(--accent);
     font-size: inherit;
     font-family: inherit;
-    font-weight: 600;
+    text-decoration: underline;
 
-    &:hover { background: rgba(92, 61, 14, 0.18); }
+    &:hover { opacity: 0.8; }
   }
 }
 
