@@ -15,15 +15,6 @@ export default function AppSkeleton() {
       </div>
 
       <div className="app-skeleton__grid">
-        {/* Featured wide card */}
-        <div className="app-skeleton__card app-skeleton__card--wide">
-          <div className="app-skeleton__shimmer app-skeleton__card-image" />
-          <div className="app-skeleton__card-body">
-            <div className="app-skeleton__shimmer app-skeleton__line app-skeleton__line--title" />
-            <div className="app-skeleton__shimmer app-skeleton__line" />
-          </div>
-        </div>
-        {/* Regular cards */}
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className="app-skeleton__card">
             <div className="app-skeleton__shimmer app-skeleton__card-image" />
