@@ -46,7 +46,7 @@ async function attachFiles(events) {
 router.get("/", wrap(async (req, res) => {
   const { rows } = await pool.query(
     `SELECT id, title, description, start_date, start_time, end_date, end_time,
-            website, phone, email, submitted_at
+            address, lat, lng, website, phone, email, submitted_at
      FROM events
      WHERE status = 'approved'
        AND COALESCE(end_date, start_date) + INTERVAL '30 days' > CURRENT_DATE
@@ -62,7 +62,7 @@ router.get("/", wrap(async (req, res) => {
 router.get("/pending", requireAuth, requireModerator, wrap(async (req, res) => {
   const { rows } = await pool.query(
     `SELECT id, title, description, start_date, start_time, end_date, end_time,
-            website, phone, email, submitted_by_name, submitted_at
+            address, lat, lng, website, phone, email, submitted_by_name, submitted_at
      FROM events
      WHERE status = 'pending'
      ORDER BY submitted_at ASC`
@@ -78,15 +78,16 @@ router.post("/", requireAuth, wrap(async (req, res) => {
   if (!req.user.email_verified) {
     return res.status(403).json({ error: "Email address not verified" });
   }
-  const { title, description, start_date, start_time, end_date, end_time, website, phone, email } = req.body;
+  const { title, description, start_date, start_time, end_date, end_time,
+          address, lat, lng, website, phone, email } = req.body;
   if (!title?.trim()) return res.status(400).json({ error: "Title is required" });
   if (!start_date) return res.status(400).json({ error: "Start date is required" });
 
   const { rows } = await pool.query(
     `INSERT INTO events
        (title, description, start_date, start_time, end_date, end_time,
-        website, phone, email, submitted_by_id, submitted_by_name)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+        address, lat, lng, website, phone, email, submitted_by_id, submitted_by_name)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
      RETURNING id`,
     [
       title.trim(),
@@ -95,6 +96,9 @@ router.post("/", requireAuth, wrap(async (req, res) => {
       start_time || null,
       end_date || null,
       end_time || null,
+      address?.trim() || null,
+      lat != null ? parseFloat(lat) : null,
+      lng != null ? parseFloat(lng) : null,
       website?.trim() || null,
       phone?.trim() || null,
       email?.trim() || null,

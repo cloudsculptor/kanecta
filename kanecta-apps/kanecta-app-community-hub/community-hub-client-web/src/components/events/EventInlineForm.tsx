@@ -7,6 +7,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import MarkEmailReadOutlinedIcon from "@mui/icons-material/MarkEmailReadOutlined";
 import { submitEvent, uploadEventImage, deleteEventImage } from "../../api/events";
+import EventLocationPicker, { type LocationValue } from "./EventLocationPicker";
 import keycloak from "../../auth/keycloak";
 
 // Auto-inserts slashes as user types digits: "14062026" → "14/06/2026"
@@ -45,6 +46,7 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
   const [startTime, setStartTime] = useState("");
   const [endDate, setEndDate] = useState("");
   const [endTime, setEndTime] = useState("");
+  const [location, setLocation] = useState<LocationValue | null>(null);
   const [website, setWebsite] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -62,7 +64,7 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
 
   function reset() {
     setTitle(""); setDescription(""); setStartDate(""); setStartTime("");
-    setEndDate(""); setEndTime(""); setWebsite(""); setPhone(""); setEmail("");
+    setEndDate(""); setEndTime(""); setLocation(null); setWebsite(""); setPhone(""); setEmail("");
     setHero(null); setGallery([]); setEventId(null);
     setSubmitting(false); setUploadingHero(false); setUploadingGallery(false);
     setError(null); setDone(false);
@@ -80,6 +82,9 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
       start_time: startTime || undefined,
       end_date: nzToIso(endDate) || undefined,
       end_time: endTime || undefined,
+      address: location?.address || undefined,
+      lat: location?.lat,
+      lng: location?.lng,
       website: website.trim() || undefined,
       phone: phone.trim() || undefined,
       email: email.trim() || undefined,
@@ -157,6 +162,9 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
           start_time: startTime || undefined,
           end_date: nzToIso(endDate) || undefined,
           end_time: endTime || undefined,
+          address: location?.address || undefined,
+          lat: location?.lat,
+          lng: location?.lng,
           website: website.trim() || undefined,
           phone: phone.trim() || undefined,
           email: email.trim() || undefined,
@@ -241,6 +249,12 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
               fullWidth
               multiline
               minRows={3}
+              disabled={locked}
+            />
+
+            <EventLocationPicker
+              value={location}
+              onChange={setLocation}
               disabled={locked}
             />
 

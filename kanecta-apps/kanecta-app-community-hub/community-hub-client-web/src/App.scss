@@ -4375,6 +4375,12 @@ $bp-tablet: 768px;
   gap: 16px;
 }
 
+.event-location-picker {
+  &__map {
+    margin-top: 10px;
+  }
+}
+
 .event-inline-form {
   margin-top: 40px;
   padding-top: 32px;
@@ -4486,6 +4492,16 @@ $bp-tablet: 768px;
     line-height: 1.65;
     margin: 0 0 12px;
     white-space: pre-wrap;
+  }
+
+  &__address {
+    font-size: 14px;
+    color: var(--text);
+    margin: 0 0 10px;
+
+    a {
+      color: var(--accent);
+    }
   }
 
   &__contact {

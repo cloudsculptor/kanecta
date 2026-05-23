@@ -42,6 +42,20 @@ export default function EventCard({ event, past = false }: Props) {
         <p className="event-card__date">{formatDateRange(event)}</p>
         {event.description && <p className="event-card__desc">{event.description}</p>}
 
+        {event.address && (
+          <p className="event-card__address">
+            {event.lat && event.lng ? (
+              <a
+                href={`https://www.openstreetmap.org/?mlat=${event.lat}&mlon=${event.lng}&zoom=16`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {event.address}
+              </a>
+            ) : event.address}
+          </p>
+        )}
+
         {(event.website || event.phone || event.email) && (
           <ul className="event-card__contact">
             {event.website && (
