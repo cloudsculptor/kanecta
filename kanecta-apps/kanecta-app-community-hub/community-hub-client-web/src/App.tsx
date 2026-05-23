@@ -2,6 +2,8 @@ import { Routes, Route } from "react-router-dom";
 import { useKeycloak } from "./auth/KeycloakProvider";
 import AppSkeleton from "./components/AppSkeleton";
 import RequireTeam from "./components/RequireTeam";
+import RequireModerator from "./components/RequireModerator";
+import GovernanceApprovals from "./pages/GovernanceApprovals";
 import Home from "./pages/Home";
 import Events from "./pages/Events";
 import Skills from "./pages/Skills";
@@ -130,6 +132,11 @@ export default function App() {
         <Route path="/governance/finances/profit-and-loss" element={<FinancesProfitLoss />} />
         <Route path="/governance/finances/expenses" element={<FinancesExpenses />} />
         <Route path="/governance/membership" element={<MembershipPanel />} />
+      </Route>
+
+      {/* Governance — moderators only */}
+      <Route element={<RequireModerator />}>
+        <Route path="/governance/approvals" element={<GovernanceApprovals />} />
       </Route>
     </Routes>
   );
