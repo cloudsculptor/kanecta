@@ -25,7 +25,7 @@ router.post("/", requireAuth, wrap(async (req, res) => {
   res.status(201).json({ id: rows[0].id });
 }));
 
-router.get("/", requireTeam, wrap(async (req, res) => {
+router.get("/", requireAuth, requireTeam, wrap(async (req, res) => {
   const { rows } = await pool.query(
     `SELECT id, content, submitted_by_name, submitted_at
      FROM suggestions
