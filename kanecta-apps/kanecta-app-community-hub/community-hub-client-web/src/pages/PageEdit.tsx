@@ -81,7 +81,7 @@ export default function PageEdit() {
   const contentRef = useRef<object>({});
   const originalSlugRef = useRef("");
 
-  const isTeam = role === "TEAM" || role === "MODERATOR";
+  const isTeam = role === "TEAM" || role === "MODERATOR" || role === "TREASURER" || role === "ADMIN";
   const userName = currentUserName();
   const year = new Date().getFullYear();
 

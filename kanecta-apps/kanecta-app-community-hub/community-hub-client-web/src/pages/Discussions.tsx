@@ -50,7 +50,7 @@ export default function Discussions() {
 
   const activeThread = threads.find((t) => t.id === activeThreadId);
   const currentUserId = keycloak.tokenParsed?.sub || "";
-  const canModerate = role === "MODERATOR";
+  const canModerate = role === "MODERATOR" || role === "ADMIN";
 
   useEffect(() => {
     if (!initialized) return;
@@ -206,7 +206,7 @@ export default function Discussions() {
     setReplyTarget(null);
   }
 
-  if (role !== "TEAM" && role !== "MODERATOR") return null;
+  if (role !== "TEAM" && role !== "MODERATOR" && role !== "TREASURER" && role !== "ADMIN") return null;
   if (isMobile) return <DiscussionsMobile />;
 
   const inThread = !!activeThreadId;

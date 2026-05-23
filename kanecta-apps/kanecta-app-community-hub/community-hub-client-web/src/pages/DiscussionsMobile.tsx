@@ -304,7 +304,7 @@ export default function DiscussionsMobile() {
   const [teamUsers, setTeamUsers] = useState<{ id: string; name: string }[]>([]);
 
   const currentUserId = keycloak.tokenParsed?.sub || "";
-  const canModerate = role === "MODERATOR";
+  const canModerate = role === "MODERATOR" || role === "ADMIN";
   const initialHashRef = useRef(window.location.hash.slice(1));
 
   useEffect(() => {
