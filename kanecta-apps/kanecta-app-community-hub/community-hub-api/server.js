@@ -7,6 +7,7 @@ import financesRouter from "./routes/finances.js";
 import pagesRouter from "./routes/pages.js";
 import licencesRouter from "./routes/licences.js";
 import membersRouter from "./routes/members.js";
+import downloadRouter from "./routes/download.js";
 import { setupDiscussionsSocket } from "./socket/discussions.js";
 
 const app = express();
@@ -36,6 +37,7 @@ app.use("/api/finances", financesRouter);
 app.use("/api/pages", pagesRouter);
 app.use("/api/licences", licencesRouter);
 app.use("/api/members", membersRouter);
+app.use("/api/download", downloadRouter);
 
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
