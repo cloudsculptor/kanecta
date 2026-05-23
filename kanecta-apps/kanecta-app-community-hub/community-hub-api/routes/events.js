@@ -49,11 +49,54 @@ router.get("/", wrap(async (req, res) => {
             address, lat, lng, website, phone, email, submitted_at
      FROM events
      WHERE status = 'approved'
-       AND COALESCE(end_date, start_date) + INTERVAL '30 days' > CURRENT_DATE
      ORDER BY start_date ASC`
   );
   const events = await attachFiles(rows);
   res.json(events);
+}));
+
+// ── GET /api/events/mine ──────────────────────────────────────────────────────
+// Auth. Returns all events submitted by the current user.
+
+router.get("/mine", requireAuth, wrap(async (req, res) => {
+  const { rows } = await pool.query(
+    `SELECT id, title, start_date, start_time, end_date, status, decline_reason, submitted_at
+     FROM events
+     WHERE submitted_by_id = $1
+     ORDER BY submitted_at DESC`,
+    [req.user.id]
+  );
+  res.json(rows);
+}));
+
+// ── DELETE /api/events/:id ─────────────────────────────────────────────────────
+// Auth + owner (or moderator). Deletes the event and its files.
+
+router.delete("/:id", requireAuth, wrap(async (req, res) => {
+  const { rows } = await pool.query(
+    "SELECT submitted_by_id FROM events WHERE id = $1",
+    [req.params.id]
+  );
+  if (!rows.length) return res.status(404).json({ error: "Event not found" });
+
+  const isModerator = req.user.roles.includes("moderator") || req.user.roles.includes("admin");
+  if (rows[0].submitted_by_id !== req.user.id && !isModerator) {
+    return res.status(403).json({ error: "Not your event" });
+  }
+
+  // Delete associated files from Spaces
+  const { rows: fileRows } = await pool.query(
+    `SELECT f.id, f.storage_key FROM event_files ef
+     JOIN files f ON f.id = ef.file_id
+     WHERE ef.event_id = $1`,
+    [req.params.id]
+  );
+  for (const f of fileRows) {
+    await deleteFile({ storageKey: f.storage_key, fileId: f.id, pool }).catch(() => {});
+  }
+
+  await pool.query("DELETE FROM events WHERE id = $1", [req.params.id]);
+  res.json({ ok: true });
 }));
 
 // ── GET /api/events/pending ────────────────────────────────────────────────────

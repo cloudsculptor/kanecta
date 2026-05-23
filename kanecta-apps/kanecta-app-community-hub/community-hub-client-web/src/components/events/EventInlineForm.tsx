@@ -18,11 +18,22 @@ function formatDateInput(value: string): string {
   return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
 }
 
-// "dd/mm/yyyy" → "yyyy-mm-dd" for the API; returns "" if incomplete
+// "dd/mm/yyyy" → "yyyy-mm-dd" for the API; returns "" if incomplete or invalid
 function nzToIso(nz: string): string {
-  const [d, m, y] = nz.split("/");
-  if (!d || !m || !y || y.length !== 4) return "";
-  return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  const match = nz.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!match) return "";
+  const [, d, m, y] = match;
+  const date = new Date(`${y}-${m}-${d}`);
+  if (isNaN(date.getTime())) return "";
+  return `${y}-${m}-${d}`;
+}
+
+// Returns an error string if the typed value looks complete but is invalid
+function dateError(nz: string): string | undefined {
+  if (!nz) return undefined;
+  if (nz.length < 10) return undefined; // still typing
+  if (!nzToIso(nz)) return "Enter a valid date as DD/MM/YYYY";
+  return undefined;
 }
 
 interface Props {
@@ -266,6 +277,8 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
                 onChange={(e) => setStartDate(formatDateInput(e.target.value))}
                 placeholder="DD/MM/YYYY"
                 slotProps={{ htmlInput: { maxLength: 10 } }}
+                error={!!dateError(startDate)}
+                helperText={dateError(startDate)}
                 fullWidth
                 disabled={locked}
               />
@@ -287,6 +300,8 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
                 onChange={(e) => setEndDate(formatDateInput(e.target.value))}
                 placeholder="DD/MM/YYYY"
                 slotProps={{ htmlInput: { maxLength: 10 } }}
+                error={!!dateError(endDate)}
+                helperText={dateError(endDate)}
                 fullWidth
                 disabled={locked}
               />
