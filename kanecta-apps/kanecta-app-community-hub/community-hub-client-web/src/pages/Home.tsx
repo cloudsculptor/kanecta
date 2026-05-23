@@ -58,7 +58,12 @@ const publicActive = [
       label: "Photo: Joseph Barillari",
       url: "https://commons.wikimedia.org/wiki/File:Infinite-corridor-bboard.jpeg",
     },
-  },  
+  },
+  {
+    title: "Local Government",
+    blurb: "SWDC, Featherston Community Board, Greater Wellington Regional Council, civil defence, and healthy homes support.",
+    path: "/local-government",
+  },
 ];
 
 const publicComing = [  
