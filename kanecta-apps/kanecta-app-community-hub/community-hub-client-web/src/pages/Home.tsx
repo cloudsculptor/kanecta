@@ -77,7 +77,7 @@ export default function Home() {
     <>
       <Header />
       <nav className="nav-grid">
-        {isTeam ? (
+        {isTeam && (
           <>
             <NavCard
               featured
@@ -87,7 +87,7 @@ export default function Home() {
               image="/discussions-160x160.png"
               attribution={{
                 label: "Photo: Canva AI",
-                url: "https://www.canva.com/",                
+                url: "https://www.canva.com/",
               }}
             />
             <NavCard
@@ -101,16 +101,19 @@ export default function Home() {
                 url: "https://www.canva.com/",
               }}
             />
-          </>
-        ) : (
-          <>
-            {publicActive.map((item) => <NavCard key={item.title} {...item} />)}
             <div className="nav-divider">
-              <span>Ideas for the future</span>
+              <span>Visible to team members only</span>
             </div>
-            {publicComing.map((item) => <ComingCard key={item.title} {...item} />)}
+            <div className="nav-divider">
+              <span>Available to everyone</span>
+            </div>
           </>
         )}
+        {publicActive.map((item) => <NavCard key={item.title} {...item} />)}
+        <div className="nav-divider">
+          <span>Ideas for the future</span>
+        </div>
+        {publicComing.map((item) => <ComingCard key={item.title} {...item} />)}
       </nav>
       <Footer />
     </>
