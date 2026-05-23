@@ -33,6 +33,13 @@ export default function PagesList() {
                     {page.title || page.slug}
                   </Link>
                   <Chip
+                    label={page.public ? "Public" : "Team"}
+                    color={page.public ? "success" : "default"}
+                    variant={page.public ? "filled" : "outlined"}
+                    size="small"
+                    sx={{ ml: 1 }}
+                  />
+                  <Chip
                     label={`v${page.version}`}
                     size="small"
                     variant="outlined"
