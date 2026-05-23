@@ -60,6 +60,7 @@ import PageViewPublic from "./pages/PageViewPublic";
 import Download from "./pages/Download";
 import Settings from "./pages/Settings";
 import NoticeBoard from "./pages/NoticeBoard";
+import CommunityResilience from "./pages/CommunityResilience";
 
 export default function App() {
   const { initialized } = useKeycloak();
@@ -87,6 +88,7 @@ export default function App() {
       <Route path="/local-government" element={<LocalGovernment />} />
       <Route path="/settings" element={<Settings />} />
       <Route path="/notice-board" element={<NoticeBoard />} />
+      <Route path="/community-resilience" element={<CommunityResilience />} />
       <Route path="/discussions" element={<Discussions />} />
       <Route path="/discussions/team-required" element={<TeamRequired />} />
       <Route path="/roadmap" element={<Roadmap />} />

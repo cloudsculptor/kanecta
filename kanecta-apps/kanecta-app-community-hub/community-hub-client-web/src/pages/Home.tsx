@@ -69,6 +69,11 @@ const publicActive = [
     blurb: "Community announcements, lost & found, and local news.",
     path: "/notice-board",
   },
+  {
+    title: "Community Resilience",
+    blurb: "Resources and networks for when things get tough.",
+    path: "/community-resilience",
+  },
 ];
 
 const publicComing = [
