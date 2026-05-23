@@ -31,7 +31,7 @@ export default function FinancesProfitLoss() {
   const expense = rows.filter(r => r.type === "expense");
   const totalIncome  = income.reduce((s, r) => s + Number(r.total), 0);
   const totalExpense = expense.reduce((s, r) => s + Number(r.total), 0);
-  const surplus = totalIncome - totalExpense;
+  const surplus = totalIncome + totalExpense;
 
   return (
     <PageLayout pageName="Income & Expenditure" showComingSoon={false} parents={PARENTS}>
