@@ -1,12 +1,11 @@
 import { useState, useEffect } from "react";
 import {
-  Button, Divider, Typography, Alert, CircularProgress, Box,
+  Divider, Typography, Alert, CircularProgress, Box,
 } from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
 import PageLayout from "../components/PageLayout";
 import CC0Notice from "../components/CC0Notice";
 import EventCard from "../components/events/EventCard";
-import EventSubmitForm from "../components/events/EventSubmitForm";
+import EventInlineForm from "../components/events/EventInlineForm";
 import { getEvents, type Event } from "../api/events";
 import { useKeycloak } from "../auth/KeycloakProvider";
 import keycloak from "../auth/keycloak";
@@ -67,9 +66,7 @@ export default function Events() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const [formOpen, setFormOpen] = useState(false);
-
-  const emailVerified = authenticated && keycloak.tokenParsed?.email_verified === true;
+  const emailVerified = keycloak.tokenParsed?.email_verified === true;
 
   function loadEvents() {
     setLoading(true);
@@ -133,45 +130,11 @@ export default function Events() {
         </section>
       ))}
 
-      {/* ── Submit CTA ──────────────────────────────────────────────────── */}
-      <Box className="events-submit-cta" sx={{ mt: 4, mb: 2 }}>
-        {!authenticated && (
-          <Box className="events-submit-cta__prompt">
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Want to list an event in Featherston?
-            </Typography>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<AddIcon />}
-              onClick={() => keycloak.login()}
-            >
-              Sign in or create a free account
-            </Button>
-          </Box>
-        )}
-
-        {authenticated && !emailVerified && (
-          <Alert severity="info" icon={false} sx={{ display: "inline-flex", alignItems: "center" }}>
-            Please verify your email address before submitting events.
-          </Alert>
-        )}
-
-        {authenticated && emailVerified && (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setFormOpen(true)}
-          >
-            Submit an event
-          </Button>
-        )}
-      </Box>
-
-      <EventSubmitForm
-        open={formOpen}
-        onClose={() => setFormOpen(false)}
-        onSubmitted={() => { setFormOpen(false); loadEvents(); }}
+      {/* ── Inline submit form ──────────────────────────────────────────── */}
+      <EventInlineForm
+        authenticated={authenticated}
+        emailVerified={emailVerified}
+        onSubmitted={loadEvents}
       />
 
       <CC0Notice />
