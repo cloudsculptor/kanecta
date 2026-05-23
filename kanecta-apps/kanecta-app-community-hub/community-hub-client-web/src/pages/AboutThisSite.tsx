@@ -78,10 +78,24 @@ export default function AboutThisSite() {
         </a>
         , giving every community member an equal voice.
       </p>
+      <h4>A better place to build community</h4>
+      <p>
+        Platforms like Facebook are free to use, but that freedom comes at a cost. The product being
+        sold is you — your attention, your data, and your behaviour, packaged up and sold to advertisers.
+        The algorithm is designed to maximise engagement, not wellbeing: it surfaces content that provokes
+        strong reactions, keeps you scrolling, and rewards the loudest voices over the most thoughtful ones.
+      </p>
+      <p>
+        That's not a great foundation for building a real community. Nuanced local discussion gets lost
+        in the noise. Useful information disappears down the feed. The people who show up consistently
+        and contribute meaningfully aren't rewarded — the ones who generate the most clicks are.
+      </p>
+      <p>
+        This site is built differently. There's no advertising, no algorithm trying to keep you addicted,
+        and no outside interest deciding what you see. It's a calm, purposeful space — designed to be
+        genuinely useful, not endlessly engaging.
+      </p>
       <h4>Free to use, free from influence</h4>
-      <blockquote className="about-quote">
-        "If you are not paying, you are the product."
-      </blockquote>
       <p>
         We only accept small donations as a guarantee that no individual,
         business, or funding body can gain undue influence over this site.
