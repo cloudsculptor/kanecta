@@ -21,6 +21,7 @@ const PENDING_EVENTS: Event[] = [
     lng: 175.3333,
     submitted_at: "2026-05-20T08:30:00Z",
     submitted_by_name: "Jane Smith",
+    organiser_name: "Jane Smith", organiser_email: "jane@example.com", organiser_phone: "021 000 0000",
     hero_image: { file_id: "f1", url: "https://placehold.co/600x250/3a7d44/fff?text=Market" },
     gallery_images: [
       { file_id: "f2", url: "https://placehold.co/200x150/5aad68/fff?text=Photo+1", position: 0 },
@@ -42,6 +43,7 @@ const PENDING_EVENTS: Event[] = [
     lng: null,
     submitted_at: "2026-05-21T14:00:00Z",
     submitted_by_name: "Tom Brown",
+    organiser_name: "Tom Brown", organiser_email: "tom@example.com", organiser_phone: "021 111 1111",
     hero_image: null,
     gallery_images: [],
   },

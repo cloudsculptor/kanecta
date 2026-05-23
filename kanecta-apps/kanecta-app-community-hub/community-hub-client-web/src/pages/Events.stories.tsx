@@ -20,6 +20,7 @@ const SAMPLE_EVENTS: Event[] = [
     lat: -41.1167,
     lng: 175.3333,
     submitted_at: "2026-05-01T00:00:00Z",
+    organiser_name: "Jane Smith", organiser_email: "jane@example.com", organiser_phone: "021 000 0000",
     hero_image: { file_id: "f1", url: "https://placehold.co/800x300/3a7d44/fff?text=Market" },
     gallery_images: [],
   },
@@ -38,6 +39,7 @@ const SAMPLE_EVENTS: Event[] = [
     lat: null,
     lng: null,
     submitted_at: "2026-05-10T00:00:00Z",
+    organiser_name: "Tom Brown", organiser_email: "tom@example.com", organiser_phone: "021 111 1111",
     hero_image: { file_id: "f2", url: "https://placehold.co/800x300/1a4d22/fff?text=Booktown" },
     gallery_images: [
       { file_id: "f3", url: "https://placehold.co/200x150/2d6a35/fff?text=Photo+1", position: 0 },
@@ -59,6 +61,7 @@ const SAMPLE_EVENTS: Event[] = [
     lat: null,
     lng: null,
     submitted_at: "2026-05-12T00:00:00Z",
+    organiser_name: "Alice Green", organiser_email: "alice@example.com", organiser_phone: "021 222 2222",
     hero_image: null,
     gallery_images: [],
   },
