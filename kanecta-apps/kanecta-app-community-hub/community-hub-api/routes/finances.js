@@ -13,7 +13,7 @@ const VALID_CATEGORIES = [
 const wrap = fn => (req, res, next) => fn(req, res, next).catch(next);
 
 // ── List transactions (any authenticated user) ────────────────────────────────
-router.get("/transactions", requireAuth, wrap(async (req, res) => {
+router.get("/transactions", wrap(async (req, res) => {
   const { from, to } = req.query;
   let query = "SELECT * FROM finances_transactions";
   const params = [];
@@ -78,7 +78,7 @@ router.delete("/transactions/:id", requireAuth, requireRole("treasurer"), wrap(a
 }));
 
 // ── Aggregated report data ────────────────────────────────────────────────────
-router.get("/reports", requireAuth, wrap(async (req, res) => {
+router.get("/reports", wrap(async (req, res) => {
   const { from, to } = req.query;
   const params = [];
   const conditions = [];
@@ -95,7 +95,7 @@ router.get("/reports", requireAuth, wrap(async (req, res) => {
 }));
 
 // ── Expenses (recurring) ─────────────────────────────────────────────────────
-router.get("/expenses", requireAuth, wrap(async (req, res) => {
+router.get("/expenses", wrap(async (req, res) => {
   const { rows } = await pool.query(
     "SELECT * FROM finances_expenses ORDER BY frequency, supplier, description"
   );

@@ -22,7 +22,6 @@ function fmt(amount: string | number) {
 export default function FinancesTransactions() {
   const roles = useUserRoles();
   const isTreasurer = hasRole(roles, "treasurer");
-  const canView = roles.length > 0;
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,20 +32,11 @@ export default function FinancesTransactions() {
   const [filesOpen, setFilesOpen] = useState(false);
 
   useEffect(() => {
-    if (!canView) return;
     getTransactions()
       .then(setTransactions)
       .catch((err: Error) => setError(`Failed to load transactions: ${err.message}`))
       .finally(() => setLoading(false));
-  }, [canView]);
-
-  if (!canView) {
-    return (
-      <PageLayout pageName="Transactions" showComingSoon={false} parents={PARENTS}>
-        <p>Financial records are available to logged-in members.</p>
-      </PageLayout>
-    );
-  }
+  }, []);
 
   const categoryOptions = form.type === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 

@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import PageLayout from "../components/PageLayout";
-import { useUserRoles } from "../auth/useUserRole";
 
 const pages = [
   { title: "Transactions", path: "/governance/finances/transactions", description: "All income and expenditure records." },
@@ -10,15 +9,6 @@ const pages = [
 ];
 
 export default function FinancesIndex() {
-  const roles = useUserRoles();
-  if (roles.length === 0) {
-    return (
-      <PageLayout pageName="Finances" showComingSoon={false} parents={[{ name: "Governance", path: "/governance" }]}>
-        <p>Financial records are available to logged-in members.</p>
-      </PageLayout>
-    );
-  }
-
   return (
     <PageLayout pageName="Finances" showComingSoon={false} parents={[{ name: "Governance", path: "/governance" }]}>
       <p>Financial records for this organisation, published in accordance with our openness commitments.</p>

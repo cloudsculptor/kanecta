@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import PageLayout from "../components/PageLayout";
-import { useUserRoles } from "../auth/useUserRole";
 import { getReports, type ReportRow, INCOME_CATEGORIES, EXPENSE_CATEGORIES } from "../api/finances";
 
 const PARENTS = [{ name: "Governance", path: "/governance" }, { name: "Finances", path: "/governance/finances" }];
@@ -16,8 +15,6 @@ function currentFinancialYear() {
 }
 
 export default function FinancesProfitLoss() {
-  const roles = useUserRoles();
-  const canView = roles.length > 0;
   const fy = currentFinancialYear();
 
   const [from, setFrom] = useState(fy.from);
@@ -26,18 +23,9 @@ export default function FinancesProfitLoss() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!canView) return;
     setLoading(true);
     getReports(from, to).then(setRows).finally(() => setLoading(false));
-  }, [canView, from, to]);
-
-  if (!canView) {
-    return (
-      <PageLayout pageName="Profit & Loss" showComingSoon={false} parents={PARENTS}>
-        <p>Financial records are available to logged-in members.</p>
-      </PageLayout>
-    );
-  }
+  }, [from, to]);
 
   const income  = rows.filter(r => r.type === "income");
   const expense = rows.filter(r => r.type === "expense");
