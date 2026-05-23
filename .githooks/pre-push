@@ -1,0 +1,5 @@
+#!/bin/sh
+set -e
+cd "$(git rev-parse --show-toplevel)/kanecta-apps/kanecta-app-community-hub/community-hub-client-web"
+echo "Running npm run build..."
+npm run build
