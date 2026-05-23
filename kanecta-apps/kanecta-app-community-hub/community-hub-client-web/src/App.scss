@@ -171,103 +171,56 @@ $bp-tablet: 768px;
 .welcome-banner {
   grid-column: 1 / -1;
   position: relative;
-  background: linear-gradient(135deg, #0a2210 0%, #163b1c 45%, #1f5228 100%);
-  border-radius: 16px;
-  padding: 40px 68px 36px 40px;
-  box-shadow: 0 12px 40px rgba(10, 34, 16, 0.35), 0 2px 8px rgba(0,0,0,0.12);
-  overflow: hidden;
-
-  // radial glow in top-right
-  &::before {
-    content: "";
-    position: absolute;
-    top: -60px;
-    right: -60px;
-    width: 340px;
-    height: 340px;
-    background: radial-gradient(circle, rgba(90, 173, 104, 0.18) 0%, transparent 70%);
-    pointer-events: none;
-  }
-
-  // subtle bottom-left glow
-  &::after {
-    content: "";
-    position: absolute;
-    bottom: -40px;
-    left: -40px;
-    width: 240px;
-    height: 240px;
-    background: radial-gradient(circle, rgba(58, 125, 68, 0.12) 0%, transparent 70%);
-    pointer-events: none;
-  }
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px 52px 24px 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 
   &__close {
     position: absolute;
-    top: 14px;
-    right: 14px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    top: 12px;
+    right: 12px;
+    background: none;
+    border: none;
     cursor: pointer;
-    color: rgba(255, 255, 255, 0.6);
-    padding: 5px;
+    color: var(--text);
+    opacity: 0.45;
+    padding: 4px;
     display: flex;
     align-items: center;
-    border-radius: 6px;
-    transition: background 0.15s, color 0.15s;
-    z-index: 1;
+    border-radius: 4px;
 
-    &:hover {
-      background: rgba(255, 255, 255, 0.16);
-      color: #fff;
-    }
+    &:hover { opacity: 1; }
   }
 
   &__title {
-    font-size: 30px;
-    font-weight: 800;
-    letter-spacing: -0.6px;
-    color: #fff;
-    margin: 0 0 18px;
-    line-height: 1.1;
-    position: relative;
-    z-index: 1;
-
-    @media (max-width: $bp-tablet) {
-      font-size: 22px;
-    }
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-h);
+    margin: 0 0 12px;
   }
 
   &__body {
     font-size: 15px;
-    line-height: 1.75;
-    color: rgba(255, 255, 255, 0.72);
-    margin: 0 0 10px;
-    max-width: 680px;
-    position: relative;
-    z-index: 1;
+    line-height: 1.65;
+    color: var(--text);
+    margin: 0 0 8px;
 
     &:last-child { margin-bottom: 0; }
   }
 
   &__signup {
-    display: inline-block;
-    background: rgba(255, 255, 255, 0.95);
-    color: #163b1c;
+    background: none;
     border: none;
-    border-radius: 8px;
-    padding: 5px 16px;
-    font-size: 14px;
-    font-family: inherit;
-    font-weight: 700;
+    padding: 0;
     cursor: pointer;
-    transition: background 0.15s, transform 0.1s;
-    vertical-align: baseline;
-    letter-spacing: 0.1px;
+    color: var(--accent);
+    font-size: inherit;
+    font-family: inherit;
+    text-decoration: underline;
 
-    &:hover {
-      background: #fff;
-      transform: translateY(-1px);
-    }
+    &:hover { opacity: 0.8; }
   }
 }
 
