@@ -9,6 +9,21 @@ import MarkEmailReadOutlinedIcon from "@mui/icons-material/MarkEmailReadOutlined
 import { submitEvent, uploadEventImage, deleteEventImage } from "../../api/events";
 import keycloak from "../../auth/keycloak";
 
+// Auto-inserts slashes as user types digits: "14062026" → "14/06/2026"
+function formatDateInput(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+// "dd/mm/yyyy" → "yyyy-mm-dd" for the API; returns "" if incomplete
+function nzToIso(nz: string): string {
+  const [d, m, y] = nz.split("/");
+  if (!d || !m || !y || y.length !== 4) return "";
+  return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+}
+
 interface Props {
   authenticated: boolean;
   emailVerified: boolean;
@@ -56,13 +71,14 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
   async function ensureEventId(): Promise<string> {
     if (eventId) return eventId;
     if (!title.trim()) throw new Error("Please enter a title before uploading images.");
-    if (!startDate) throw new Error("Please enter a start date before uploading images.");
+    const isoStart = nzToIso(startDate);
+    if (!isoStart) throw new Error("Please enter a valid start date (DD/MM/YYYY) before uploading images.");
     const { id } = await submitEvent({
       title: title.trim(),
       description: description.trim() || undefined,
-      start_date: startDate,
+      start_date: isoStart,
       start_time: startTime || undefined,
-      end_date: endDate || undefined,
+      end_date: nzToIso(endDate) || undefined,
       end_time: endTime || undefined,
       website: website.trim() || undefined,
       phone: phone.trim() || undefined,
@@ -128,7 +144,8 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
 
   async function handleSubmit() {
     if (!title.trim()) { setError("Title is required"); return; }
-    if (!startDate) { setError("Start date is required"); return; }
+    const isoStart = nzToIso(startDate);
+    if (!isoStart) { setError("Start date must be in DD/MM/YYYY format"); return; }
     setError(null);
     setSubmitting(true);
     try {
@@ -136,9 +153,9 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
         await submitEvent({
           title: title.trim(),
           description: description.trim() || undefined,
-          start_date: startDate,
+          start_date: isoStart,
           start_time: startTime || undefined,
-          end_date: endDate || undefined,
+          end_date: nzToIso(endDate) || undefined,
           end_time: endTime || undefined,
           website: website.trim() || undefined,
           phone: phone.trim() || undefined,
@@ -230,11 +247,11 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
               <TextField
                 label="Start date"
-                type="date"
                 required
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                slotProps={{ inputLabel: { shrink: true } }}
+                onChange={(e) => setStartDate(formatDateInput(e.target.value))}
+                placeholder="DD/MM/YYYY"
+                slotProps={{ htmlInput: { maxLength: 10 } }}
                 fullWidth
                 disabled={locked}
               />
@@ -252,10 +269,10 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
               <TextField
                 label="End date (optional)"
-                type="date"
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                slotProps={{ inputLabel: { shrink: true } }}
+                onChange={(e) => setEndDate(formatDateInput(e.target.value))}
+                placeholder="DD/MM/YYYY"
+                slotProps={{ htmlInput: { maxLength: 10 } }}
                 fullWidth
                 disabled={locked}
               />
