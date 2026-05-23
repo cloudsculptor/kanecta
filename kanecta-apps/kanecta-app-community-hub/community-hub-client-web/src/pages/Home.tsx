@@ -1,7 +1,10 @@
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import { NavCard, ComingCard } from "../components/NavCard";
+import ContributeForm from "../components/ContributeForm";
 import { useUserRoles, hasRole } from "../auth/useUserRole";
+import { useKeycloak } from "../auth/KeycloakProvider";
+import keycloak from "../auth/keycloak";
 import { usePageMeta } from "../hooks/usePageMeta";
 
 const publicActive = [
@@ -59,19 +62,21 @@ const publicActive = [
 
 const publicComing = [  
   {
-    title: "Buy, Sell & Swap",
-    blurb: "Buy, sell, swap, or give away items locally.",
-  },
-  {
-    title: "Notice Board",
+    title: "Community Notice Board",
     blurb: "Community announcements, lost & found, and local news.",
   },
+  {
+    title: "Buy, Sell & Swap",
+    blurb: "Buy, sell, swap, or give away items locally.",
+  },  
 ];
 
 export default function Home() {
   usePageMeta("Featherston", "Community information and connection for the town of Featherston, New Zealand — events, organisations, skills, transport, resilience and more.");
   const roles = useUserRoles();
   const isTeam = hasRole(roles, "team");
+  const { authenticated } = useKeycloak();
+  const emailVerified = keycloak.tokenParsed?.email_verified === true;
 
   return (
     <>
@@ -103,7 +108,7 @@ export default function Home() {
                 label: "Photo: Canva AI",
                 url: "https://www.canva.com/",
               }}
-            />            
+            />
             <div className="nav-divider">
               <span>Visible to the public</span>
             </div>
@@ -115,6 +120,8 @@ export default function Home() {
         </div>
         {publicComing.map((item) => <ComingCard key={item.title} {...item} />)}
       </nav>
+      <div className="nav-divider nav-divider--section"><span>Contribute to this site</span></div>
+      <ContributeForm authenticated={authenticated} emailVerified={emailVerified} />
       <Footer />
     </>
   );
