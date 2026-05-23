@@ -64,13 +64,14 @@ const publicActive = [
     blurb: "Local and regional government services for Featherston.",
     path: "/local-government",
   },
-];
-
-const publicComing = [
   {
     title: "Community Notice Board",
     blurb: "Community announcements, lost & found, and local news.",
+    path: "/notice-board",
   },
+];
+
+const publicComing = [
   {
     title: "Buy, Sell & Swap",
     blurb: "Buy, sell, swap, or give away items locally.",
