@@ -1,11 +1,11 @@
 import { Routes, Route } from "react-router-dom";
 import { useKeycloak } from "./auth/KeycloakProvider";
 import AppSkeleton from "./components/AppSkeleton";
-import RequireTeam from "./components/RequireTeam";
 import RequireModerator from "./components/RequireModerator";
 import GovernanceApprovals from "./pages/GovernanceApprovals";
 import Home from "./pages/Home";
 import Events from "./pages/Events";
+import EventsOther from "./pages/EventsOther";
 import Skills from "./pages/Skills";
 import Transport from "./pages/Transport";
 import Needs from "./pages/Needs";
@@ -66,6 +66,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/events" element={<Events />} />
+      <Route path="/events/other" element={<EventsOther />} />
       <Route path="/skills" element={<Skills />} />
       <Route path="/transport" element={<Transport />} />
       <Route path="/needs" element={<Needs />} />
@@ -93,38 +94,36 @@ export default function App() {
       <Route path="/pages/:slug/edit" element={<PageEdit />} />
       <Route path="/groups/resilience/:slug/edit" element={<PageEdit />} />
 
-      {/* Governance — team members only */}
-      <Route element={<RequireTeam />}>
-        <Route path="/governance" element={<Governance />} />
-        <Route path="/governance/purpose" element={<Purpose />} />
-        <Route path="/governance/values" element={<Values />} />
-        <Route path="/governance/roles" element={<Roles />} />
-        <Route path="/governance/roles/custodian" element={<RoleCustodian />} />
-        <Route path="/governance/roles/volunteer" element={<RoleVolunteer />} />
-        <Route path="/governance/constitution" element={<Constitution />} />
-        <Route path="/governance/policies" element={<PoliciesIndex />} />
-        <Route path="/governance/policies/custodian-bylaws" element={<PolicyCustodianBylaws />} />
-        <Route path="/governance/policies/custodian-guidelines" element={<PolicyCustodianGuidelines />} />
-        <Route path="/governance/policies/volunteer-bylaws" element={<PolicyVolunteerBylaws />} />
-        <Route path="/governance/policies/volunteer-guidelines" element={<PolicyVolunteerGuidelines />} />
-        <Route path="/governance/procedures" element={<ProceduresIndex />} />
-        <Route path="/governance/procedures/content-moderation" element={<ProcedureContentModeration />} />
-        <Route path="/governance/procedures/volunteer-onboarding" element={<ProcedureVolunteerOnboarding />} />
-        <Route path="/governance/procedures/complaint-handling" element={<ProcedureComplaintHandling />} />
-        <Route path="/governance/procedures/it-incident-response" element={<ProcedureItIncidentResponse />} />
-        <Route path="/governance/procedures/domain-and-hosting" element={<ProcedureDomainAndHosting />} />
-        <Route path="/governance/procedures/backup-and-recovery" element={<ProcedureBackupAndRecovery />} />
-        <Route path="/governance/procedures/board-meeting" element={<ProcedureBoardMeeting />} />
-        <Route path="/governance/procedures/agm" element={<ProcedureAgm />} />
-        <Route path="/governance/procedures/financial-reporting" element={<ProcedureFinancialReporting />} />
-        <Route path="/governance/procedures/statutory-compliance" element={<ProcedureStatutoryCompliance />} />
-        <Route path="/governance/finances" element={<FinancesIndex />} />
-        <Route path="/governance/finances/transactions" element={<FinancesTransactions />} />
-        <Route path="/governance/finances/cashflow" element={<FinancesCashflow />} />
-        <Route path="/governance/finances/profit-and-loss" element={<FinancesProfitLoss />} />
-        <Route path="/governance/finances/expenses" element={<FinancesExpenses />} />
-        <Route path="/governance/membership" element={<MembershipPanel />} />
-      </Route>
+      {/* Governance — public */}
+      <Route path="/governance" element={<Governance />} />
+      <Route path="/governance/purpose" element={<Purpose />} />
+      <Route path="/governance/values" element={<Values />} />
+      <Route path="/governance/roles" element={<Roles />} />
+      <Route path="/governance/roles/custodian" element={<RoleCustodian />} />
+      <Route path="/governance/roles/volunteer" element={<RoleVolunteer />} />
+      <Route path="/governance/constitution" element={<Constitution />} />
+      <Route path="/governance/policies" element={<PoliciesIndex />} />
+      <Route path="/governance/policies/custodian-bylaws" element={<PolicyCustodianBylaws />} />
+      <Route path="/governance/policies/custodian-guidelines" element={<PolicyCustodianGuidelines />} />
+      <Route path="/governance/policies/volunteer-bylaws" element={<PolicyVolunteerBylaws />} />
+      <Route path="/governance/policies/volunteer-guidelines" element={<PolicyVolunteerGuidelines />} />
+      <Route path="/governance/procedures" element={<ProceduresIndex />} />
+      <Route path="/governance/procedures/content-moderation" element={<ProcedureContentModeration />} />
+      <Route path="/governance/procedures/volunteer-onboarding" element={<ProcedureVolunteerOnboarding />} />
+      <Route path="/governance/procedures/complaint-handling" element={<ProcedureComplaintHandling />} />
+      <Route path="/governance/procedures/it-incident-response" element={<ProcedureItIncidentResponse />} />
+      <Route path="/governance/procedures/domain-and-hosting" element={<ProcedureDomainAndHosting />} />
+      <Route path="/governance/procedures/backup-and-recovery" element={<ProcedureBackupAndRecovery />} />
+      <Route path="/governance/procedures/board-meeting" element={<ProcedureBoardMeeting />} />
+      <Route path="/governance/procedures/agm" element={<ProcedureAgm />} />
+      <Route path="/governance/procedures/financial-reporting" element={<ProcedureFinancialReporting />} />
+      <Route path="/governance/procedures/statutory-compliance" element={<ProcedureStatutoryCompliance />} />
+      <Route path="/governance/finances" element={<FinancesIndex />} />
+      <Route path="/governance/finances/transactions" element={<FinancesTransactions />} />
+      <Route path="/governance/finances/cashflow" element={<FinancesCashflow />} />
+      <Route path="/governance/finances/profit-and-loss" element={<FinancesProfitLoss />} />
+      <Route path="/governance/finances/expenses" element={<FinancesExpenses />} />
+      <Route path="/governance/membership" element={<MembershipPanel />} />
 
       {/* Governance — moderators only */}
       <Route element={<RequireModerator />}>

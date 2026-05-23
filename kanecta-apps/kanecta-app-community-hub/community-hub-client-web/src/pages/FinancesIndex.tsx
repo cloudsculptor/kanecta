@@ -10,7 +10,7 @@ const pages = [
 
 export default function FinancesIndex() {
   return (
-    <PageLayout pageName="Finances" showComingSoon={false} wip parents={[{ name: "Governance", path: "/governance" }]}>
+    <PageLayout pageName="Finances" showComingSoon={false} parents={[{ name: "Governance", path: "/governance" }]}>
       <p>Financial records for this organisation, published in accordance with our openness commitments.</p>
       <div className="role-index" style={{ marginTop: "1rem" }}>
         {pages.map(({ title, path, description }) => (

@@ -77,7 +77,7 @@ export default function FinancesTransactions() {
   }
 
   return (
-    <PageLayout pageName="Transactions" showComingSoon={false} wip parents={PARENTS}>
+    <PageLayout pageName="Transactions" showComingSoon={false} parents={PARENTS}>
       {error && <p style={{ color: "red" }}>{error}</p>}
 
       {isTreasurer && (

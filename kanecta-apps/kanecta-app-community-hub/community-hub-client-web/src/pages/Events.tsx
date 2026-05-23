@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import {
   Divider, Typography, Alert, CircularProgress, Box, Chip, Button,
 } from "@mui/material";
@@ -13,38 +14,27 @@ import { getEvents, getMyEvents, deleteEvent, type Event, type MyEvent } from ".
 import { useKeycloak } from "../auth/KeycloakProvider";
 import keycloak from "../auth/keycloak";
 
-const EXTERNAL_LINKS = [
-  {
-    href: "https://featherstoninfo.nz/",
-    label: "Featherston Info",
-    desc: "local information site with news and upcoming events",
-  },
-  {
-    href: "https://featherston.org.nz/events/",
-    label: "Featherston NZ — Events",
-    desc: "community-run listing of local events and activities",
-  },
-  {
-    href: "https://www.eventfinda.co.nz/whatson/events/featherston",
-    label: "Eventfinda — Featherston",
-    desc: "searchable event listings for Featherston and the region",
-  },
-  {
-    href: "https://www.waieventhub.co.nz/",
-    label: "Wairarapa Event Hub",
-    desc: "regional events aggregator covering the wider Wairarapa",
-  },
-  {
-    href: "https://www.facebook.com/featherston.wairarapa/",
-    label: "Featherston, Wairarapa (Facebook)",
-    desc: "local Facebook page with community news and events",
-  },
-  {
-    href: "https://www.booktown.org.nz/",
-    label: "Featherston Booktown Karukatea Festival",
-    desc: "annual literary festival held each May, one of New Zealand's premier book events",
-  },
-];
+const SAMPLE_EVENT: Event = {
+  id: "sample",
+  title: "Community Working Bee",
+  description: "Join us for a morning of working together on community projects around town. All welcome — just turn up and lend a hand.",
+  start_date: "2026-06-14",
+  start_time: "09:00:00",
+  end_date: null,
+  end_time: null,
+  address: "Featherston Domain, Featherston",
+  lat: -41.1167,
+  lng: 175.3333,
+  website: "https://featherston.co.nz",
+  phone: null,
+  email: null,
+  organiser_name: null,
+  organiser_email: null,
+  organiser_phone: null,
+  submitted_at: "2026-05-01T00:00:00Z",
+  hero_image: null,
+  gallery_images: [],
+};
 
 const STATUS_CHIP: Record<MyEvent["status"], { label: string; color: "warning" | "success" | "error" }> = {
   pending:  { label: "Pending review", color: "warning" },
@@ -165,17 +155,12 @@ export default function Events() {
   return (
     <PageLayout pageName="Events" showComingSoon={false}>
 
-      {/* ── External links grid ─────────────────────────────────────────── */}
-      <h3 className="events-external__heading">Find events on other websites</h3>
-      <div className="events-external__grid">
-        {EXTERNAL_LINKS.map(({ href, label, desc }) => (
-          <a key={href} href={href} target="_blank" rel="noopener noreferrer" className="events-external__card">
-            <span className="events-external__title">{label}</span>
-            <span className="events-external__desc">{desc}</span>
-            <span className="events-external__arrow">↗</span>
-          </a>
-        ))}
-      </div>
+      {/* ── External links card ─────────────────────────────────────────── */}
+      <Link to="/events/other" className="events-external__card events-external__card--solo">
+        <span className="events-external__title">Find events on other websites</span>
+        <span className="events-external__desc">Featherston Info, Eventfinda, Wairarapa Event Hub, and more</span>
+        <span className="events-external__arrow">→</span>
+      </Link>
 
       {/* ── Event listing ───────────────────────────────────────────────── */}
       {loading && (
@@ -191,9 +176,15 @@ export default function Events() {
       )}
 
       {!loading && !loadError && events.length === 0 && (
-        <Typography color="text.secondary" sx={{ mb: 3 }}>
-          No upcoming events listed yet.
-        </Typography>
+        <>
+          <Typography color="text.secondary" sx={{ mb: 3 }}>
+            No upcoming events listed yet. Here is an example of what an event looks like:
+          </Typography>
+          <div className="event-sample-wrap">
+            <EventCard event={SAMPLE_EVENT} />
+            <div className="event-sample-wrap__label">SAMPLE</div>
+          </div>
+        </>
       )}
 
       {!loading && !loadError && groups.map(({ label, events: groupEvents }) => (

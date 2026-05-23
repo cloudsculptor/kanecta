@@ -4303,12 +4303,53 @@ $bp-tablet: 768px;
 
 // ── Events ────────────────────────────────────────────────────────────────────
 
+.event-sample-wrap {
+  position: relative;
+  margin-bottom: 24px;
+
+  &__label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 72px;
+    font-weight: 900;
+    letter-spacing: 0.15em;
+    color: rgba(180, 0, 0, 0.18);
+    transform: rotate(-25deg);
+    pointer-events: none;
+    z-index: 5;
+    user-select: none;
+  }
+}
+
 .events-external {
   &__heading {
     font-size: 17px;
     font-weight: 600;
     color: var(--text-h);
     margin: 0 0 12px;
+  }
+
+  &__card--solo {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    align-items: center;
+    padding: 14px 18px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    margin-bottom: 28px;
+
+    &:hover {
+      border-color: var(--accent-border);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.09);
+    }
   }
 
   &__grid {
