@@ -6,11 +6,6 @@ import { usePageMeta } from "../hooks/usePageMeta";
 
 const publicActive = [
   {
-    title: "Local Businesses",
-    blurb: "Support and explore local businesses in Featherston and the South Wairarapa.",
-    path: "/local-businesses",
-  },
-  {
     title: "Events",
     blurb: "Find local events, gatherings, and activities happening in Featherston.",
     path: "/events",
@@ -31,6 +26,11 @@ const publicActive = [
     },
   },
   {
+    title: "Local Businesses",
+    blurb: "Support and explore local businesses in Featherston and the South Wairarapa.",
+    path: "/local-businesses",
+  },
+  {
     title: "Community Groups",
     blurb: "Discover local community groups",
     path: "/groups",
@@ -41,6 +41,11 @@ const publicActive = [
     },
   },
   {
+    title: "Social Services",
+    blurb: "Access social support, welfare, and community care services.",
+    path: "/social-services",
+  },
+  {
     title: "Communication Networks",
     blurb: "Stay connected with local networks, groups, and channels.",
     path: "/communication-networks",
@@ -49,12 +54,7 @@ const publicActive = [
       label: "Photo: Joseph Barillari",
       url: "https://commons.wikimedia.org/wiki/File:Infinite-corridor-bboard.jpeg",
     },
-  },
-  {
-    title: "Social Services",
-    blurb: "Access social support, welfare, and community care services.",
-    path: "/social-services",
-  },
+  },  
 ];
 
 const publicComing = [  
