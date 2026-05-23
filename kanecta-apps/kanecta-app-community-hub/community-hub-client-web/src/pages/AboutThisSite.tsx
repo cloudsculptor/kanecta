@@ -1,11 +1,7 @@
-import { Link } from "react-router-dom";
 import Tooltip from "@mui/material/Tooltip";
 import PageLayout from "../components/PageLayout";
-import { useUserRoles, hasRole } from "../auth/useUserRole";
 
 export default function AboutThisSite() {
-  const roles = useUserRoles();
-  const canViewGovernance = hasRole(roles, "team");
   return (
     <PageLayout pageName="About this site" showComingSoon={false}>
       <p>
@@ -104,8 +100,6 @@ export default function AboutThisSite() {
         Every donation carries exactly the same weight. If you want to shape
         this site, you do it by participating — not by spending.
       </p>
-      {canViewGovernance && <p><Link to="/governance" className="roadmap-item__learn-more">See governance →</Link></p>}
-      <p><Link to="/volunteering" className="roadmap-item__learn-more">Get involved →</Link></p>
     </PageLayout>
   );
 }
