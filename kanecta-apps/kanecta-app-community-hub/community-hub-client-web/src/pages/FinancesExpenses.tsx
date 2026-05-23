@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import PageLayout from "../components/PageLayout";
-import { useUserRoles } from "../auth/useUserRole";
 import { getExpenses, type Expense, EXPENSE_CATEGORIES } from "../api/finances";
 
 const PARENTS = [{ name: "Governance", path: "/governance" }, { name: "Finances", path: "/governance/finances" }];
@@ -15,28 +14,16 @@ function fmtOrig(amount: string, currency: string) {
 }
 
 export default function FinancesExpenses() {
-  const roles = useUserRoles();
-  const canView = roles.length > 0;
-
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!canView) return;
     getExpenses()
       .then(setExpenses)
       .catch((err: Error) => setError(`Failed to load: ${err.message}`))
       .finally(() => setLoading(false));
-  }, [canView]);
-
-  if (!canView) {
-    return (
-      <PageLayout pageName="Recurring Expenses" showComingSoon={false} parents={PARENTS}>
-        <p>Financial records are available to logged-in members.</p>
-      </PageLayout>
-    );
-  }
+  }, []);
 
   const monthly = expenses.filter(e => e.frequency === "monthly");
   const annual  = expenses.filter(e => e.frequency === "annual");

@@ -75,6 +75,7 @@ export default function Home() {
   usePageMeta("Featherston", "Community information and connection for the town of Featherston, New Zealand — events, organisations, skills, transport, resilience and more.");
   const roles = useUserRoles();
   const isTeam = hasRole(roles, "team");
+  const isModerator = hasRole(roles, "moderator");
   const { authenticated } = useKeycloak();
   const emailVerified = keycloak.tokenParsed?.email_verified === true;
 
@@ -109,6 +110,14 @@ export default function Home() {
                 url: "https://www.canva.com/",
               }}
             />
+            {isModerator && (
+              <NavCard
+                accent
+                title="Approvals"
+                blurb="Review and approve community-submitted events and suggestions"
+                path="/governance/approvals"
+              />
+            )}
             <div className="nav-divider">
               <span>Visible to the public</span>
             </div>
