@@ -177,9 +177,6 @@ export default function Events() {
 
       {!loading && !loadError && events.length === 0 && (
         <>
-          <Typography color="text.secondary" sx={{ mb: 3 }}>
-            No upcoming events listed yet. Here is an example of what an event looks like:
-          </Typography>
           <div className="event-sample-wrap">
             <EventCard event={SAMPLE_EVENT} />
             <div className="event-sample-wrap__label">SAMPLE</div>
