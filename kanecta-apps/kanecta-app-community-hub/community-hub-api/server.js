@@ -9,6 +9,7 @@ import licencesRouter from "./routes/licences.js";
 import membersRouter from "./routes/members.js";
 import downloadRouter from "./routes/download.js";
 import eventsRouter from "./routes/events.js";
+import suggestionsRouter from "./routes/suggestions.js";
 import { setupDiscussionsSocket } from "./socket/discussions.js";
 
 const app = express();
@@ -40,6 +41,7 @@ app.use("/api/licences", licencesRouter);
 app.use("/api/members", membersRouter);
 app.use("/api/download", downloadRouter);
 app.use("/api/events", eventsRouter);
+app.use("/api/suggestions", suggestionsRouter);
 
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {

@@ -8,6 +8,7 @@ import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
 import PageLayout from "../components/PageLayout";
 import { getPendingEvents, approveEvent, declineEvent, type Event } from "../api/events";
+import { getSuggestions, type Suggestion } from "../api/suggestions";
 
 function formatDate(date: string, time: string | null): string {
   const d = new Date(date + (time ? `T${time}` : "T00:00:00"));
@@ -179,19 +180,29 @@ function EventReviewCard({ event, onResolved }: { event: Event; onResolved: () =
 
 export default function GovernanceApprovals() {
   const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
+  const [eventsLoading, setEventsLoading] = useState(true);
+  const [eventsError, setEventsError] = useState(false);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(true);
+  const [suggestionsError, setSuggestionsError] = useState(false);
 
   const loadPending = useCallback(() => {
-    setLoading(true);
-    setLoadError(false);
+    setEventsLoading(true);
+    setEventsError(false);
     getPendingEvents()
       .then(setEvents)
-      .catch(() => setLoadError(true))
-      .finally(() => setLoading(false));
+      .catch(() => setEventsError(true))
+      .finally(() => setEventsLoading(false));
   }, []);
 
   useEffect(() => { loadPending(); }, [loadPending]);
+
+  useEffect(() => {
+    getSuggestions()
+      .then(setSuggestions)
+      .catch(() => setSuggestionsError(true))
+      .finally(() => setSuggestionsLoading(false));
+  }, []);
 
   return (
     <PageLayout
@@ -199,32 +210,73 @@ export default function GovernanceApprovals() {
       showComingSoon={false}
       parents={[{ name: "Governance", path: "/governance" }]}
     >
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-        Review events submitted by community members. Approved events are displayed publicly on the Events page.
+      <Typography variant="h6" sx={{ mb: 1 }}>Pending events</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        Approved events are displayed publicly on the Events page.
       </Typography>
 
-      {loading && (
+      {eventsLoading && (
         <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
           <CircularProgress size={28} />
         </Box>
       )}
 
-      {loadError && (
+      {eventsError && (
         <Alert severity="error" sx={{ mb: 2 }}>
           Could not load pending events. Please try again later.
         </Alert>
       )}
 
-      {!loading && !loadError && events.length === 0 && (
-        <Alert severity="info">No events pending review.</Alert>
+      {!eventsLoading && !eventsError && events.length === 0 && (
+        <Alert severity="info" sx={{ mb: 2 }}>No events pending review.</Alert>
       )}
 
-      {!loading && !loadError && events.map((event) => (
+      {!eventsLoading && !eventsError && events.map((event) => (
         <EventReviewCard
           key={event.id}
           event={event}
           onResolved={() => setEvents((prev) => prev.filter((e) => e.id !== event.id))}
         />
+      ))}
+
+      <Divider sx={{ my: 4 }} />
+
+      <Typography variant="h6" sx={{ mb: 1 }}>Suggestions from the community</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        Messages submitted via the "Contribute to this site" form on the home page.
+      </Typography>
+
+      {suggestionsLoading && (
+        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+          <CircularProgress size={28} />
+        </Box>
+      )}
+
+      {suggestionsError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          Could not load suggestions. Please try again later.
+        </Alert>
+      )}
+
+      {!suggestionsLoading && !suggestionsError && suggestions.length === 0 && (
+        <Alert severity="info">No suggestions yet.</Alert>
+      )}
+
+      {!suggestionsLoading && !suggestionsError && suggestions.map((s) => (
+        <Box
+          key={s.id}
+          sx={{
+            border: "1px solid var(--border)",
+            borderRadius: "6px",
+            p: 2,
+            mb: 2,
+          }}
+        >
+          <Typography variant="body1" sx={{ whiteSpace: "pre-wrap", mb: 1 }}>{s.content}</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {s.submitted_by_name ?? "Anonymous"} · {new Date(s.submitted_at).toLocaleString("en-NZ")}
+          </Typography>
+        </Box>
       ))}
     </PageLayout>
   );
