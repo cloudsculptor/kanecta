@@ -32,6 +32,7 @@ export function requireAuth(req, res, next) {
       id: decoded.sub,
       name: [decoded.given_name, decoded.family_name].filter(Boolean).join(" ") || decoded.preferred_username,
       roles: decoded.realm_access?.roles || [],
+      email_verified: decoded.email_verified === true,
     };
     next();
   });

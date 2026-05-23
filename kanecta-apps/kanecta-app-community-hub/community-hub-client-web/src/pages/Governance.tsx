@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import PageLayout from "../components/PageLayout";
+import { useUserRoles, hasRole } from "../auth/useUserRole";
 
 const principles = [
   {
@@ -17,6 +18,9 @@ const principles = [
 ];
 
 export default function Governance() {
+  const roles = useUserRoles();
+  const isModerator = hasRole(roles, "moderator");
+
   return (
     <PageLayout pageName="Governance" showComingSoon={false}>
 
@@ -119,6 +123,13 @@ export default function Governance() {
           <span className="gov-links__desc">Transactions, cash flow, and income & expenditure reports</span>
           <span className="gov-links__arrow">→</span>
         </Link>
+        {isModerator && (
+          <Link to="/governance/approvals" className="gov-links__item">
+            <span className="gov-links__title">Content approvals</span>
+            <span className="gov-links__desc">Review and approve community-submitted events</span>
+            <span className="gov-links__arrow">→</span>
+          </Link>
+        )}
       </div>
 
     </PageLayout>
