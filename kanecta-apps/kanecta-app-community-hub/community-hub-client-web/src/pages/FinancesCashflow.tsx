@@ -31,7 +31,7 @@ export default function FinancesCashflow() {
   const expense = rows.filter(r => r.type === "expense");
   const totalIncome  = income.reduce((s, r) => s + Number(r.total), 0);
   const totalExpense = expense.reduce((s, r) => s + Number(r.total), 0);
-  const netOperating = totalIncome - totalExpense;
+  const netOperating = totalIncome + totalExpense;
 
   return (
     <PageLayout pageName="Cash Flow" showComingSoon={false} parents={PARENTS}>
@@ -76,23 +76,6 @@ export default function FinancesCashflow() {
 
           <div className={`fin-report__total ${netOperating < 0 ? "fin-report__total--deficit" : ""}`}>
             <span>Net cash from operating activities</span>
-            <span>{netOperating < 0 ? `(${fmt(Math.abs(netOperating))})` : fmt(netOperating)}</span>
-          </div>
-
-          <div className="fin-report__group fin-report__group--investing">
-            <p className="fin-report__group-label">Cash flows from investing activities</p>
-            <div className="fin-report__row fin-report__row--empty"><span>No investing activities</span><span>{fmt(0)}</span></div>
-            <div className="fin-report__subtotal"><span>Net cash from investing activities</span><span>{fmt(0)}</span></div>
-          </div>
-
-          <div className="fin-report__group fin-report__group--investing">
-            <p className="fin-report__group-label">Cash flows from financing activities</p>
-            <div className="fin-report__row fin-report__row--empty"><span>No financing activities</span><span>{fmt(0)}</span></div>
-            <div className="fin-report__subtotal"><span>Net cash from financing activities</span><span>{fmt(0)}</span></div>
-          </div>
-
-          <div className={`fin-report__total fin-report__total--net ${netOperating < 0 ? "fin-report__total--deficit" : ""}`}>
-            <span>Net increase / (decrease) in cash held</span>
             <span>{netOperating < 0 ? `(${fmt(Math.abs(netOperating))})` : fmt(netOperating)}</span>
           </div>
         </div>
