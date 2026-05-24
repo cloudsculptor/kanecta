@@ -7,7 +7,7 @@ const config: CapacitorConfig = {
   server: {
     url: "https://featherston.co.nz",
     cleartext: false,
-    allowNavigation: ["auth.featherston.co.nz"],
+    allowNavigation: ["auth.featherston.co.nz", "localhost"],
   },
   plugins: {
     StatusBar: {
