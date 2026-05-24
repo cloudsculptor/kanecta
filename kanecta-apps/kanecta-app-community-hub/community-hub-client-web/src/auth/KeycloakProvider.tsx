@@ -34,7 +34,9 @@ export function KeycloakProvider({ children }: { children: ReactNode }) {
   const refreshInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    const isNativeApp = typeof (window as unknown as { Capacitor?: unknown }).Capacitor !== "undefined";
+    const isNativeApp =
+      typeof (window as unknown as { Capacitor?: unknown }).Capacitor !== "undefined" ||
+      window.location.origin === "http://localhost";
     if (isNativeApp) {
       // Android WebView clears sessionStorage when navigating to an external domain and back.
       // Keycloak stores PKCE code_verifier and state in sessionStorage before the login
