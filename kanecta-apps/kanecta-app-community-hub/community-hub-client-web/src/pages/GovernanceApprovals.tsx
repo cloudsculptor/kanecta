@@ -221,7 +221,6 @@ export default function GovernanceApprovals() {
     <PageLayout
       pageName="Content approvals"
       showComingSoon={false}
-      parents={[{ name: "Governance", path: "/governance" }]}
     >
       <Typography variant="h6" sx={{ mb: 1 }}>Pending events</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
