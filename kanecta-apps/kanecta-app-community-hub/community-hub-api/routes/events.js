@@ -4,6 +4,7 @@ import pool from "../db.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { uploadFile, deleteFile } from "../lib/spaces.js";
 import { broadcastFcm } from "../lib/fcm.js";
+import { notify } from "../lib/notification-templates.js";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -174,11 +175,10 @@ router.post("/", requireAuth, wrap(async (req, res) => {
     ]
   );
   ;(async () => {
-    await broadcastFcm("events", req.user.id, {
-      title: "New event: " + title.trim(),
-      body: desc.slice(0, 100),
-      url: "/events",
-    });
+    await broadcastFcm("events", req.user.id, notify.eventCreated({
+      title: title.trim(),
+      description: desc,
+    }));
   })().catch(() => {});
   res.status(201).json({ id: rows[0].id });
 }));
