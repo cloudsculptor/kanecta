@@ -17,6 +17,7 @@
     "@capacitor/app": "^8.1.0",
     "@capacitor/browser": "^8.0.3",
     "@capacitor/core": "^8.3.4",
+    "@capacitor/push-notifications": "^8.1.1",
     "@emoji-mart/data": "^1.2.1",
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.1",

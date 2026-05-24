@@ -1,5 +1,9 @@
 import { useState, useEffect } from "react";
+import { Capacitor } from "@capacitor/core";
 import { pushApi } from "../api/push";
+import { useNativePush } from "./useNativePush";
+
+export type PushDeviceStatus = "unsupported" | "denied" | "subscribed" | "unsubscribed";
 
 function urlBase64ToUint8Array(base64: string): Uint8Array {
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);
@@ -8,9 +12,7 @@ function urlBase64ToUint8Array(base64: string): Uint8Array {
   return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
 }
 
-export type PushDeviceStatus = "unsupported" | "denied" | "subscribed" | "unsubscribed";
-
-export function usePushDevice() {
+function useWebPush(): { status: PushDeviceStatus; subscribe: () => Promise<void>; unsubscribe: () => Promise<void> } {
   const [status, setStatus] = useState<PushDeviceStatus>("unsubscribed");
 
   useEffect(() => {
@@ -49,4 +51,10 @@ export function usePushDevice() {
   }
 
   return { status, subscribe, unsubscribe };
+}
+
+export function usePushDevice() {
+  const native = useNativePush();
+  const web = useWebPush();
+  return Capacitor.isNativePlatform() ? native : web;
 }
