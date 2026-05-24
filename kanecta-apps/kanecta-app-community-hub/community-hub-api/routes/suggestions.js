@@ -2,6 +2,7 @@ import { Router } from "express";
 import pool from "../db.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { broadcastFcm } from "../lib/fcm.js";
+import { notify } from "../lib/notification-templates.js";
 
 const router = Router();
 const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
@@ -24,11 +25,10 @@ router.post("/", requireAuth, wrap(async (req, res) => {
     [trimmed, userId, userName]
   );
   ;(async () => {
-    await broadcastFcm("suggestions", req.user.id, {
-      title: "New suggestion from " + (userName || "a member"),
-      body: trimmed.slice(0, 100),
-      url: "/governance/suggestions",
-    });
+    await broadcastFcm("suggestions", req.user.id, notify.suggestionCreated({
+      authorName: userName,
+      content: trimmed,
+    }));
   })().catch(() => {});
   res.status(201).json({ id: rows[0].id });
 }));

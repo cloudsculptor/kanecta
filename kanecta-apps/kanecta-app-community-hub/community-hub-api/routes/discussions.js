@@ -4,6 +4,7 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import pool from "../db.js";
 import { notifyThreadSubscribers } from "./push.js";
 import { broadcastFcm, notifyThreadSubscribersFcm } from "../lib/fcm.js";
+import { notify } from "../lib/notification-templates.js";
 import { uploadFile, deleteFile, getFileStream } from "../lib/spaces.js";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -171,11 +172,12 @@ router.post("/threads", requireAuth, canAccess, async (req, res) => {
     const thread = rows[0];
     req.io?.emit("thread:new", thread);
     ;(async () => {
-      await broadcastFcm("discussions", req.user.id, {
-        title: "New thread: " + thread.name,
-        body: req.user.name + (thread.description ? ": " + thread.description.slice(0, 80) : ""),
-        url: "/discussions#" + thread.id,
-      });
+      await broadcastFcm("discussions", req.user.id, notify.discussionThreadCreated({
+        threadName: thread.name,
+        authorName: req.user.name,
+        description: thread.description,
+        threadId: thread.id,
+      }));
     })().catch(() => {});
     res.status(201).json(thread);
   } catch (err) {
@@ -278,11 +280,12 @@ router.post("/threads/:threadId/messages", requireAuth, canAccess, async (req, r
     req.io?.emit("thread:activity", { thread_id: threadId });
     ;(async () => {
       const { rows: tr } = await pool.query("SELECT name FROM discussions_threads WHERE id = $1", [threadId]);
-      const notifPayload = {
-        title: `#${tr[0]?.name ?? "Featherston"}`,
-        body: `${req.user.name}: ${message.content.slice(0, 100)}`,
-        url: `/discussions#${threadId}`,
-      };
+      const notifPayload = notify.discussionMessage({
+        threadName: tr[0]?.name ?? "Featherston",
+        authorName: req.user.name,
+        content: message.content,
+        threadId,
+      });
       await notifyThreadSubscribers(threadId, req.user.id, notifPayload);
       await notifyThreadSubscribersFcm(threadId, req.user.id, notifPayload);
     })().catch(() => {});
