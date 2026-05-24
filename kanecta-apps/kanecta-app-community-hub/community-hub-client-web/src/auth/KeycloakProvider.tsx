@@ -41,10 +41,16 @@ export function KeycloakProvider({ children }: { children: ReactNode }) {
       .init({
         pkceMethod: "S256",
         checkLoginIframe: false,
-        ...(Capacitor.isNativePlatform() ? {} : {
-          onLoad: "check-sso",
-          silentCheckSsoRedirectUri: window.location.origin + "/silent-check-sso.html",
-        }),
+        // Force the default adapter in the native app: Capacitor sets window.Cordova
+        // which makes keycloak-js pick its Cordova adapter, whose getCordovaRedirectUri()
+        // hardcodes 'http://localhost' and ignores any redirectUri option we pass.
+        // The default adapter respects options.redirectUri so our custom scheme works.
+        ...(Capacitor.isNativePlatform()
+          ? { adapter: "default" }
+          : {
+              onLoad: "check-sso",
+              silentCheckSsoRedirectUri: window.location.origin + "/silent-check-sso.html",
+            }),
       })
       .then((auth) => {
         setAuthenticated(auth);
