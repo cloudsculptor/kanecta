@@ -99,4 +99,73 @@ export async function notifyThreadSubscribers(threadId, authorUserId, payload) {
   );
 }
 
+// ── FCM token management (Android native push) ────────────────────────────────
+
+router.post("/fcm-token", requireAuth, async (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ error: "token required" });
+  try {
+    await pool.query(
+      `INSERT INTO fcm_tokens (user_id, token)
+       VALUES ($1, $2)
+       ON CONFLICT (user_id, token) DO NOTHING`,
+      [req.user.id, token]
+    );
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: "Failed to save FCM token" });
+  }
+});
+
+router.delete("/fcm-token", requireAuth, async (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ error: "token required" });
+  try {
+    await pool.query(
+      "DELETE FROM fcm_tokens WHERE user_id = $1 AND token = $2",
+      [req.user.id, token]
+    );
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: "Failed to remove FCM token" });
+  }
+});
+
+// ── Notification preferences ──────────────────────────────────────────────────
+
+router.get("/preferences", requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      "SELECT category, enabled FROM notification_preferences WHERE user_id = $1",
+      [req.user.id]
+    );
+    const defaults = { events: true, discussions: true, suggestions: true, pages: true };
+    for (const row of rows) defaults[row.category] = row.enabled;
+    res.json(defaults);
+  } catch {
+    res.status(500).json({ error: "Failed to load preferences" });
+  }
+});
+
+router.put("/preferences", requireAuth, async (req, res) => {
+  const categories = ["events", "discussions", "suggestions", "pages"];
+  const updates = categories.filter((c) => typeof req.body[c] === "boolean");
+  if (!updates.length) return res.status(400).json({ error: "No valid preferences" });
+  try {
+    await Promise.all(
+      updates.map((category) =>
+        pool.query(
+          `INSERT INTO notification_preferences (user_id, category, enabled)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (user_id, category) DO UPDATE SET enabled = EXCLUDED.enabled`,
+          [req.user.id, category, req.body[category]]
+        )
+      )
+    );
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: "Failed to save preferences" });
+  }
+});
+
 export default router;
