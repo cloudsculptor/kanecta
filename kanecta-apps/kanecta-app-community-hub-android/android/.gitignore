@@ -89,6 +89,9 @@ lint/tmp/
 # Android Profiling
 *.hprof
 
+# Baseline profile build artifacts (regenerated on each release build)
+app/release/baselineProfiles/
+
 # Cordova plugins for Capacitor
 capacitor-cordova-android-plugins
 
