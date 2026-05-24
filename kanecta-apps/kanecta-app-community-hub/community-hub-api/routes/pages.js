@@ -3,6 +3,7 @@ import multer from "multer";
 import pool from "../db.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { uploadFile } from "../lib/spaces.js";
+import { broadcastFcm } from "../lib/fcm.js";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
@@ -267,6 +268,15 @@ router.put("/:slug", requireAuth, requireTeam, wrap(async (req, res) => {
     });
 
     await client.query("COMMIT");
+    if (action === "Published") {
+      ;(async () => {
+        await broadcastFcm("pages", req.user.id, {
+          title: "New page: " + (title || rows[0].title || "Untitled"),
+          body: "Published by " + req.user.name,
+          url: "/pages/" + rows[0].slug,
+        });
+      })().catch(() => {});
+    }
     res.json(rows[0]);
   } catch (err) {
     await client.query("ROLLBACK");

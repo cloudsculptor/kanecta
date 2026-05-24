@@ -3,6 +3,7 @@ import multer from "multer";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import pool from "../db.js";
 import { notifyThreadSubscribers } from "./push.js";
+import { broadcastFcm, notifyThreadSubscribersFcm } from "../lib/fcm.js";
 import { uploadFile, deleteFile, getFileStream } from "../lib/spaces.js";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -169,6 +170,13 @@ router.post("/threads", requireAuth, canAccess, async (req, res) => {
     );
     const thread = rows[0];
     req.io?.emit("thread:new", thread);
+    ;(async () => {
+      await broadcastFcm("discussions", req.user.id, {
+        title: "New thread: " + thread.name,
+        body: req.user.name + (thread.description ? ": " + thread.description.slice(0, 80) : ""),
+        url: "/discussions#" + thread.id,
+      });
+    })().catch(() => {});
     res.status(201).json(thread);
   } catch (err) {
     res.status(500).json({ error: "Failed to create thread" });
@@ -270,11 +278,13 @@ router.post("/threads/:threadId/messages", requireAuth, canAccess, async (req, r
     req.io?.emit("thread:activity", { thread_id: threadId });
     ;(async () => {
       const { rows: tr } = await pool.query("SELECT name FROM discussions_threads WHERE id = $1", [threadId]);
-      await notifyThreadSubscribers(threadId, req.user.id, {
+      const notifPayload = {
         title: `#${tr[0]?.name ?? "Featherston"}`,
         body: `${req.user.name}: ${message.content.slice(0, 100)}`,
         url: `/discussions#${threadId}`,
-      });
+      };
+      await notifyThreadSubscribers(threadId, req.user.id, notifPayload);
+      await notifyThreadSubscribersFcm(threadId, req.user.id, notifPayload);
     })().catch(() => {});
     res.status(201).json({ ...message, files });
   } catch (err) {

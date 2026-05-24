@@ -3,6 +3,7 @@ import multer from "multer";
 import pool from "../db.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { uploadFile, deleteFile } from "../lib/spaces.js";
+import { broadcastFcm } from "../lib/fcm.js";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -172,6 +173,13 @@ router.post("/", requireAuth, wrap(async (req, res) => {
       req.user.id, req.user.name,
     ]
   );
+  ;(async () => {
+    await broadcastFcm("events", req.user.id, {
+      title: "New event: " + title.trim(),
+      body: desc.slice(0, 100),
+      url: "/events",
+    });
+  })().catch(() => {});
   res.status(201).json({ id: rows[0].id });
 }));
 
