@@ -25,4 +25,12 @@ export const pushApi = {
     authFetch(`/api/discussions/threads/${threadId}/notifications`, { method: "POST" }),
   unsubscribeThread: (threadId: string) =>
     authFetch(`/api/discussions/threads/${threadId}/notifications`, { method: "DELETE" }),
+  saveFcmToken: (token: string) =>
+    authFetch("/api/push/fcm-token", { method: "POST", body: JSON.stringify({ token }) }),
+  removeFcmToken: (token: string) =>
+    authFetch("/api/push/fcm-token", { method: "DELETE", body: JSON.stringify({ token }) }),
+  getPreferences: () =>
+    authFetch("/api/push/preferences"),
+  savePreferences: (prefs: Record<string, boolean>) =>
+    authFetch("/api/push/preferences", { method: "PUT", body: JSON.stringify(prefs) }),
 };
