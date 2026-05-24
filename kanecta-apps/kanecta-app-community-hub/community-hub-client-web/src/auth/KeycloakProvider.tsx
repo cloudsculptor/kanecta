@@ -37,10 +37,12 @@ export function KeycloakProvider({ children }: { children: ReactNode }) {
     const isNativeApp = window.location.origin === "http://localhost";
     keycloak
       .init({
-        onLoad: "check-sso",
         pkceMethod: "S256",
         checkLoginIframe: false,
-        ...(isNativeApp ? {} : { silentCheckSsoRedirectUri: window.location.origin + "/silent-check-sso.html" }),
+        ...(isNativeApp ? {} : {
+          onLoad: "check-sso",
+          silentCheckSsoRedirectUri: window.location.origin + "/silent-check-sso.html",
+        }),
       })
       .then((auth) => {
         setAuthenticated(auth);
