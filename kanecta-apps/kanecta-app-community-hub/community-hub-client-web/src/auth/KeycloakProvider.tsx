@@ -34,11 +34,13 @@ export function KeycloakProvider({ children }: { children: ReactNode }) {
   const refreshInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
+    const isNativeApp = window.location.origin === "http://localhost";
     keycloak
       .init({
         onLoad: "check-sso",
-        silentCheckSsoRedirectUri: window.location.origin + "/silent-check-sso.html",
         pkceMethod: "S256",
+        checkLoginIframe: false,
+        ...(isNativeApp ? {} : { silentCheckSsoRedirectUri: window.location.origin + "/silent-check-sso.html" }),
       })
       .then((auth) => {
         setAuthenticated(auth);
@@ -55,6 +57,9 @@ export function KeycloakProvider({ children }: { children: ReactNode }) {
             });
           }, 60_000);
         }
+      })
+      .catch(() => {
+        setInitialized(true);
       });
 
     return () => {
