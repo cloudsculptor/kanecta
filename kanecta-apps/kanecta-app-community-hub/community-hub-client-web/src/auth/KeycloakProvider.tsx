@@ -37,6 +37,7 @@ export function KeycloakProvider({ children }: { children: ReactNode }) {
     const isNativeApp =
       typeof (window as unknown as { Capacitor?: unknown }).Capacitor !== "undefined" ||
       window.location.origin === "http://localhost";
+
     keycloak
       .init({
         pkceMethod: "S256",
@@ -65,6 +66,22 @@ export function KeycloakProvider({ children }: { children: ReactNode }) {
       .catch(() => {
         setInitialized(true);
       });
+
+    if (isNativeApp) {
+      // After the user authenticates in Chrome Custom Tab, Keycloak redirects to
+      // nz.co.featherston://auth#code=...&state=... which fires appUrlOpen.
+      // We reload the WebView to http://localhost/#<fragment> so keycloak.init()
+      // on the fresh page load can process the auth code.
+      type Cap = { Plugins?: { App?: { addListener: (e: string, h: (d: { url: string }) => void) => void }; Browser?: { close: () => Promise<void> } } };
+      const Cap = (window as unknown as { Capacitor?: Cap }).Capacitor;
+      Cap?.Plugins?.App?.addListener("appUrlOpen", async ({ url }) => {
+        if (!url.startsWith("nz.co.featherston://auth")) return;
+        try { await Cap?.Plugins?.Browser?.close(); } catch (_) {}
+        const fragment = url.includes("#") ? url.split("#").slice(1).join("#") : "";
+        history.replaceState(null, "", "#" + fragment);
+        window.location.reload();
+      });
+    }
 
     return () => {
       if (refreshInterval.current) clearInterval(refreshInterval.current);
