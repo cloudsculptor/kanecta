@@ -180,6 +180,7 @@ export default function Home() {
                 accent
                 title="Approvals"
                 blurb="Review and approve community-submitted events and suggestions"
+                image="/approve-160x160.jpg"
                 path="/approvals"
               />
             )}
@@ -199,6 +200,7 @@ export default function Home() {
         <NavCard
           title="About this site"
           blurb="Our kaupapa, open governance, and how this site works."
+          image="/site-160x160.jpg"
           path="/about"
         />
         <NavCard
