@@ -32,7 +32,7 @@ const SAMPLE_EVENT: Event = {
   organiser_email: null,
   organiser_phone: null,
   submitted_at: "2026-05-01T00:00:00Z",
-  hero_image: { file_id: "sample-hero", url: "/group-photo-160x160.png" },
+  hero_image: { file_id: "sample-hero", url: "/communiy-working-bee-sample.jpg" },
   gallery_images: [],
 };
 
