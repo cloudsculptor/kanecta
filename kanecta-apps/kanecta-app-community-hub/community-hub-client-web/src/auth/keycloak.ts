@@ -26,7 +26,7 @@ if (typeof window !== "undefined" && window.location.origin === "http://localhos
       window as unknown as { Capacitor?: { Plugins?: { Browser?: { open: (o: { url: string }) => Promise<void> } } } }
     ).Capacitor?.Plugins?.Browser;
     if (!Browser) return originalLogin(options);
-    const authUrl = (keycloak as unknown as { createLoginUrl: (o: unknown) => string }).createLoginUrl({
+    const authUrl = await (keycloak as unknown as { createLoginUrl: (o: unknown) => Promise<string> }).createLoginUrl({
       ...options,
       redirectUri: "nz.co.featherston://auth",
     });
