@@ -10,6 +10,9 @@ const config: CapacitorConfig = {
     allowNavigation: ["auth.featherston.co.nz", "localhost"],
   },
   plugins: {
+    PushNotifications: {
+      presentationOptions: ["badge", "sound", "alert"],
+    },
     StatusBar: {
       style: "dark",
       backgroundColor: "#0d2b12",
