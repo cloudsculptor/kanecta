@@ -34,7 +34,7 @@ export function KeycloakProvider({ children }: { children: ReactNode }) {
   const refreshInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    const isNativeApp = window.location.origin === "http://localhost";
+    const isNativeApp = typeof (window as unknown as { Capacitor?: unknown }).Capacitor !== "undefined";
     keycloak
       .init({
         pkceMethod: "S256",
