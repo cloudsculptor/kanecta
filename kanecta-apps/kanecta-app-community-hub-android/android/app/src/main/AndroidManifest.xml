@@ -31,6 +31,14 @@
                 <data android:scheme="https" android:host="featherston.co.nz" />
             </intent-filter>
 
+            <!-- OAuth2 callback: Keycloak redirects here after Chrome Custom Tab login -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="nz.co.featherston" android:host="auth" />
+            </intent-filter>
+
         </activity>
 
         <provider
