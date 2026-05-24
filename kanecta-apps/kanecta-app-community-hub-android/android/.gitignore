@@ -92,6 +92,9 @@ lint/tmp/
 # Baseline profile build artifacts (regenerated on each release build)
 app/release/baselineProfiles/
 
+# Release build output
+app/release/app-release/
+
 # Cordova plugins for Capacitor
 capacitor-cordova-android-plugins
 
