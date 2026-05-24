@@ -1,4 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { Capacitor } from "@capacitor/core";
+import { App } from "@capacitor/app";
+import { Browser } from "@capacitor/browser";
 import keycloak from "./keycloak";
 
 declare global {
@@ -34,15 +37,11 @@ export function KeycloakProvider({ children }: { children: ReactNode }) {
   const refreshInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    const isNativeApp =
-      typeof (window as unknown as { Capacitor?: unknown }).Capacitor !== "undefined" ||
-      window.location.origin === "http://localhost";
-
     keycloak
       .init({
         pkceMethod: "S256",
         checkLoginIframe: false,
-        ...(isNativeApp ? {} : {
+        ...(Capacitor.isNativePlatform() ? {} : {
           onLoad: "check-sso",
           silentCheckSsoRedirectUri: window.location.origin + "/silent-check-sso.html",
         }),
@@ -67,16 +66,14 @@ export function KeycloakProvider({ children }: { children: ReactNode }) {
         setInitialized(true);
       });
 
-    if (isNativeApp) {
+    if (Capacitor.isNativePlatform()) {
       // After the user authenticates in Chrome Custom Tab, Keycloak redirects to
       // nz.co.featherston://auth#code=...&state=... which fires appUrlOpen.
-      // We reload the WebView to http://localhost/#<fragment> so keycloak.init()
+      // We reload the WebView with the auth fragment so keycloak.init()
       // on the fresh page load can process the auth code.
-      type Cap = { Plugins?: { App?: { addListener: (e: string, h: (d: { url: string }) => void) => void }; Browser?: { close: () => Promise<void> } } };
-      const Cap = (window as unknown as { Capacitor?: Cap }).Capacitor;
-      Cap?.Plugins?.App?.addListener("appUrlOpen", async ({ url }) => {
+      App.addListener("appUrlOpen", async ({ url }) => {
         if (!url.startsWith("nz.co.featherston://auth")) return;
-        try { await Cap?.Plugins?.Browser?.close(); } catch (_) {}
+        await Browser.close().catch(() => {});
         const fragment = url.includes("#") ? url.split("#").slice(1).join("#") : "";
         history.replaceState(null, "", "#" + fragment);
         window.location.reload();

@@ -1,4 +1,6 @@
 import Keycloak from "keycloak-js";
+import { Capacitor } from "@capacitor/core";
+import { Browser } from "@capacitor/browser";
 
 // Android WebView clears sessionStorage on cross-origin navigation; redirect it to
 // localStorage so PKCE state/verifier survives the Keycloak redirect and back.
@@ -14,18 +16,13 @@ const keycloak = new Keycloak({
   clientId: import.meta.env.VITE_KEYCLOAK_CLIENT_ID,
 });
 
-// In the Android app (Capacitor WebView), intercept keycloak.login() to open Keycloak
-// in a Chrome Custom Tab instead. This avoids Google's WebView OAuth block and the
-// ERR_CONNECTION_REFUSED when Keycloak tries to redirect back to http://localhost.
-// The custom scheme nz.co.featherston://auth is declared in AndroidManifest.xml and
-// triggers appUrlOpen when the Keycloak redirect lands after authentication.
-if (typeof window !== "undefined" && window.location.origin === "http://localhost") {
-  const originalLogin = keycloak.login.bind(keycloak);
+// In the Android app, intercept keycloak.login() to open Keycloak in a Chrome Custom
+// Tab instead of navigating in the WebView. This avoids Google's WebView OAuth block
+// and ERR_CONNECTION_REFUSED when Keycloak redirects back to http://localhost.
+// The custom scheme nz.co.featherston://auth (declared in AndroidManifest.xml)
+// triggers appUrlOpen after authentication completes.
+if (Capacitor.isNativePlatform()) {
   keycloak.login = async (options) => {
-    const Browser = (
-      window as unknown as { Capacitor?: { Plugins?: { Browser?: { open: (o: { url: string }) => Promise<void> } } } }
-    ).Capacitor?.Plugins?.Browser;
-    if (!Browser) return originalLogin(options);
     const authUrl = await (keycloak as unknown as { createLoginUrl: (o: unknown) => Promise<string> }).createLoginUrl({
       ...options,
       redirectUri: "nz.co.featherston://auth",
