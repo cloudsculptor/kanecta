@@ -1,0 +1,1 @@
+ALTER TABLE notices ADD COLUMN deleted_at TIMESTAMPTZ;

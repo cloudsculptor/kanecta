@@ -7,26 +7,26 @@ const requireModerator = requireRole("moderator", "admin");
 const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 
 // ── GET /api/notices ───────────────────────────────────────────────────────────
-// Public. Returns approved notices, newest first.
+// Public. Returns approved non-deleted notices, newest first.
 
 router.get("/", wrap(async (req, res) => {
   const { rows } = await pool.query(
     `SELECT id, heading, body, notice_date, submitted_by_name, submitted_at
      FROM notices
-     WHERE status = 'approved'
+     WHERE status = 'approved' AND deleted_at IS NULL
      ORDER BY submitted_at DESC`
   );
   res.json(rows);
 }));
 
 // ── GET /api/notices/mine ──────────────────────────────────────────────────────
-// Auth. Returns all notices submitted by the current user.
+// Auth. Returns current user's non-deleted notices.
 
 router.get("/mine", requireAuth, wrap(async (req, res) => {
   const { rows } = await pool.query(
     `SELECT id, heading, notice_date, status, decline_reason, submitted_at
      FROM notices
-     WHERE submitted_by_id = $1
+     WHERE submitted_by_id = $1 AND deleted_at IS NULL
      ORDER BY submitted_at DESC`,
     [req.user.id]
   );
@@ -34,13 +34,13 @@ router.get("/mine", requireAuth, wrap(async (req, res) => {
 }));
 
 // ── GET /api/notices/pending ───────────────────────────────────────────────────
-// Moderator only. Returns all pending notices.
+// Moderator only. Returns all pending non-deleted notices.
 
 router.get("/pending", requireAuth, requireModerator, wrap(async (req, res) => {
   const { rows } = await pool.query(
     `SELECT id, heading, body, notice_date, submitted_by_name, submitted_at
      FROM notices
-     WHERE status = 'pending'
+     WHERE status = 'pending' AND deleted_at IS NULL
      ORDER BY submitted_at ASC`
   );
   res.json(rows);
@@ -69,13 +69,29 @@ router.post("/", requireAuth, wrap(async (req, res) => {
   res.status(201).json({ id: rows[0].id });
 }));
 
+// ── DELETE /api/notices/:id ────────────────────────────────────────────────────
+// Auth + owner. Soft-deletes the notice.
+
+router.delete("/:id", requireAuth, wrap(async (req, res) => {
+  const { rows } = await pool.query(
+    "SELECT submitted_by_id FROM notices WHERE id = $1 AND deleted_at IS NULL",
+    [req.params.id]
+  );
+  if (!rows.length) return res.status(404).json({ error: "Notice not found" });
+  if (rows[0].submitted_by_id !== req.user.id) {
+    return res.status(403).json({ error: "Not your notice" });
+  }
+  await pool.query("UPDATE notices SET deleted_at = NOW() WHERE id = $1", [req.params.id]);
+  res.json({ ok: true });
+}));
+
 // ── PATCH /api/notices/:id/approve ────────────────────────────────────────────
 
 router.patch("/:id/approve", requireAuth, requireModerator, wrap(async (req, res) => {
   const { rows } = await pool.query(
     `UPDATE notices
      SET status = 'approved', reviewed_by_id = $1, reviewed_by_name = $2, reviewed_at = NOW()
-     WHERE id = $3 AND status = 'pending'
+     WHERE id = $3 AND status = 'pending' AND deleted_at IS NULL
      RETURNING id`,
     [req.user.id, req.user.name, req.params.id]
   );
@@ -91,7 +107,7 @@ router.patch("/:id/decline", requireAuth, requireModerator, wrap(async (req, res
     `UPDATE notices
      SET status = 'declined', decline_reason = $1,
          reviewed_by_id = $2, reviewed_by_name = $3, reviewed_at = NOW()
-     WHERE id = $4 AND status = 'pending'
+     WHERE id = $4 AND status = 'pending' AND deleted_at IS NULL
      RETURNING id`,
     [decline_reason?.trim() || null, req.user.id, req.user.name, req.params.id]
   );
