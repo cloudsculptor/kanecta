@@ -5,8 +5,6 @@ import Breadcrumb from "./Breadcrumb";
 import ComingSoon from "./ComingSoon";
 import Footer from "./Footer";
 import { usePageMeta } from "../hooks/usePageMeta";
-import { useKeycloak } from "../auth/KeycloakProvider";
-import { useUserRoles } from "../auth/useUserRole";
 
 interface Crumb {
   name: string;
@@ -29,22 +27,10 @@ export default function PageLayout({
   wip = false,
 }: PageLayoutProps) {
   usePageMeta(pageName);
-  const { authenticated } = useKeycloak();
-  const roles = useUserRoles();
-  const isGuest = authenticated && roles.length === 0;
 
   return (
     <>
       <Header />
-      {isGuest && (
-        <div className="guest-banner">
-          <strong>Welcome!</strong> Your membership request has been submitted and one of our moderators will approve it soon.
-          In the meantime you can submit feedback, post events, and post community notices.
-          Once approved, you'll get access to the community discussion threads.
-          If you don't hear back shortly, contact us at{" "}
-          <a href="mailto:hello@featherston.co.nz">hello@featherston.co.nz</a>.
-        </div>
-      )}
       <Breadcrumb pageName={pageName} parents={parents} />
       <main className="page-content">
         <h2>{pageName}</h2>
