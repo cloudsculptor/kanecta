@@ -2,13 +2,13 @@ import { useState, useEffect, useRef, type ChangeEvent } from "react";
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, Stack, Typography, Button, Alert, Box, IconButton,
-  CircularProgress, Divider,
+  CircularProgress, Divider, FormControl, InputLabel, Select, MenuItem,
 } from "@mui/material";
 import AddPhotoAlternateIcon from "@mui/icons-material/AddPhotoAlternate";
 import DeleteIcon from "@mui/icons-material/Delete";
 import {
   getEvent, updateEvent, uploadEventImage, deleteEventImage,
-  type Event, type EventSubmitPayload,
+  AREAS, type Event, type EventSubmitPayload,
 } from "../../api/events";
 import EventLocationPicker, { type LocationValue } from "./EventLocationPicker";
 import { isoToNzInput } from "../../utils/dates";
@@ -57,6 +57,7 @@ export default function EventEditDialog({ eventId, onClose, onSaved }: Props) {
   const [wasApproved, setWasApproved] = useState(false);
 
   const [title, setTitle] = useState("");
+  const [area, setArea] = useState("Featherston");
   const [description, setDescription] = useState("");
   const [startDate, setStartDate] = useState("");
   const [startTime, setStartTime] = useState("");
@@ -84,6 +85,7 @@ export default function EventEditDialog({ eventId, onClose, onSaved }: Props) {
     getEvent(eventId)
       .then((ev: Event) => {
         setTitle(ev.title);
+        setArea(ev.area ?? "Featherston");
         setDescription(ev.description ?? "");
         setStartDate(isoToNzInput(ev.start_date));
         setStartTime(ev.start_time ?? "");
@@ -170,6 +172,7 @@ export default function EventEditDialog({ eventId, onClose, onSaved }: Props) {
     try {
       const payload: EventSubmitPayload = {
         title: title.trim(),
+        area,
         description: description.trim() || undefined,
         start_date: isoStart,
         start_time: startTime || undefined,
@@ -216,6 +219,12 @@ export default function EventEditDialog({ eventId, onClose, onSaved }: Props) {
               label="Event title" required value={title}
               onChange={(e) => setTitle(e.target.value)} fullWidth
             />
+            <FormControl fullWidth>
+              <InputLabel>Area</InputLabel>
+              <Select value={area} label="Area" onChange={(e) => setArea(e.target.value)}>
+                {AREAS.map((a) => <MenuItem key={a} value={a}>{a}</MenuItem>)}
+              </Select>
+            </FormControl>
             <TextField
               label="Description" value={description}
               onChange={(e) => setDescription(e.target.value)}

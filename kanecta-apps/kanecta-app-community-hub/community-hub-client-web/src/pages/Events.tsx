@@ -10,7 +10,7 @@ import CC0Notice from "../components/CC0Notice";
 import EventCard from "../components/events/EventCard";
 import EventInlineForm from "../components/events/EventInlineForm";
 import EventEditDialog from "../components/events/EventEditDialog";
-import { getEvents, getMyEvents, deleteEvent, type Event, type MyEvent } from "../api/events";
+import { getEvents, getMyEvents, deleteEvent, AREAS, type Event, type MyEvent } from "../api/events";
 import { useKeycloak } from "../auth/KeycloakProvider";
 import keycloak from "../auth/keycloak";
 import { formatNZDate, parseNZDate } from "../utils/dates";
@@ -29,6 +29,7 @@ const SAMPLE_EVENT: Event = {
   website: "https://featherston.co.nz",
   phone: null,
   email: null,
+  area: "Featherston",
   organiser_name: null,
   organiser_email: null,
   organiser_phone: null,
@@ -51,7 +52,8 @@ function isEventPast(event: Event): boolean {
 
 function groupByMonth(events: Event[]): { label: string; events: Event[] }[] {
   const groups = new Map<string, Event[]>();
-  for (const event of events) {
+  const sorted = [...events].sort((a, b) => a.start_date.localeCompare(b.start_date));
+  for (const event of sorted) {
     const label = parseNZDate(event.start_date).toLocaleDateString("en-NZ", { month: "long", year: "numeric" });
     if (!groups.has(label)) groups.set(label, []);
     groups.get(label)!.push(event);
@@ -143,7 +145,19 @@ export default function Events() {
   useEffect(() => { loadEvents(); }, [loadEvents]);
   useEffect(() => { loadMyEvents(); }, [loadMyEvents]);
 
-  const groups = groupByMonth(events);
+  const [selectedAreas, setSelectedAreas] = useState<string[]>(["Featherston"]);
+
+  function toggleArea(area: string) {
+    setSelectedAreas((prev) =>
+      prev.includes(area) ? prev.filter((a) => a !== area) : [...prev, area]
+    );
+  }
+
+  const filteredEvents = selectedAreas.length === 0
+    ? events
+    : events.filter((e) => selectedAreas.includes(e.area));
+
+  const groups = groupByMonth(filteredEvents);
 
   return (
     <PageLayout pageName="Events" showComingSoon={false}>
@@ -154,6 +168,20 @@ export default function Events() {
         <span className="events-external__desc">Featherston Info, Eventfinda, Wairarapa Event Hub, and more</span>
         <span className="events-external__arrow">→</span>
       </Link>
+
+      {/* ── Area filter ─────────────────────────────────────────────────── */}
+      <div className="events-area-filter">
+        {AREAS.map((area) => (
+          <Chip
+            key={area}
+            label={area}
+            onClick={() => toggleArea(area)}
+            color={selectedAreas.includes(area) ? "primary" : "default"}
+            variant={selectedAreas.includes(area) ? "filled" : "outlined"}
+            size="small"
+          />
+        ))}
+      </div>
 
       {/* ── Event listing ───────────────────────────────────────────────── */}
       {loading && (
@@ -177,10 +205,10 @@ export default function Events() {
         </>
       )}
 
-      {!loading && !loadError && groups.map(({ label, events: groupEvents }) => (
+      {!loading && !loadError && filteredEvents.length > 0 && groups.map(({ label, events: groupEvents }) => (
         <section key={label} className="events-month">
           <Divider sx={{ mb: 2 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500, my: 0, lineHeight: 1 }}>
               {label}
             </Typography>
           </Divider>
@@ -191,6 +219,12 @@ export default function Events() {
           </div>
         </section>
       ))}
+
+      {!loading && !loadError && events.length > 0 && filteredEvents.length === 0 && (
+        <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: "center" }}>
+          No events in the selected areas.
+        </Typography>
+      )}
 
       {/* ── Your submitted events ───────────────────────────────────────── */}
       {authenticated && myEvents.length > 0 && (

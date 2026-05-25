@@ -48,7 +48,7 @@ async function attachFiles(events) {
 router.get("/", wrap(async (req, res) => {
   const { rows } = await pool.query(
     `SELECT id, title, description, start_date, start_time, end_date, end_time,
-            address, lat, lng, website, phone, email, submitted_at
+            address, lat, lng, website, phone, email, area, submitted_at
      FROM events
      WHERE status = 'approved'
        AND COALESCE(end_date, start_date) + INTERVAL '30 days' > CURRENT_DATE
@@ -108,7 +108,7 @@ router.delete("/:id", requireAuth, wrap(async (req, res) => {
 router.get("/pending", requireAuth, requireModerator, wrap(async (req, res) => {
   const { rows } = await pool.query(
     `SELECT id, title, description, start_date, start_time, end_date, end_time,
-            address, lat, lng, website, phone, email,
+            address, lat, lng, website, phone, email, area,
             organiser_name, organiser_email, organiser_phone,
             submitted_by_name, submitted_at
      FROM events
@@ -125,7 +125,7 @@ router.get("/pending", requireAuth, requireModerator, wrap(async (req, res) => {
 router.get("/:id", requireAuth, wrap(async (req, res) => {
   const { rows } = await pool.query(
     `SELECT id, title, description, start_date, start_time, end_date, end_time,
-            address, lat, lng, website, phone, email, status,
+            address, lat, lng, website, phone, email, area, status,
             organiser_name, organiser_email, organiser_phone,
             submitted_by_id, submitted_at
      FROM events WHERE id = $1`,
@@ -149,20 +149,21 @@ router.post("/", requireAuth, wrap(async (req, res) => {
   }
   const { title, description, start_date, start_time, end_date, end_time,
           address, lat, lng, website, phone, email,
-          organiser_name, organiser_email, organiser_phone } = req.body;
+          organiser_name, organiser_email, organiser_phone, area } = req.body;
   if (!title?.trim()) return res.status(400).json({ error: "Title is required" });
   if (!start_date) return res.status(400).json({ error: "Start date is required" });
   const desc = description?.trim() || "";
   if (desc.length < 50) return res.status(400).json({ error: "Description must be at least 50 characters" });
   if (desc.length > 1000) return res.status(400).json({ error: "Description must be 1000 characters or fewer" });
+  const eventArea = area?.trim() || "Featherston";
 
   const { rows } = await pool.query(
     `INSERT INTO events
        (title, description, start_date, start_time, end_date, end_time,
         address, lat, lng, website, phone, email,
-        organiser_name, organiser_email, organiser_phone,
+        organiser_name, organiser_email, organiser_phone, area,
         submitted_by_id, submitted_by_name)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
      RETURNING id`,
     [
       title.trim(), desc,
@@ -171,7 +172,7 @@ router.post("/", requireAuth, wrap(async (req, res) => {
       lat != null ? parseFloat(lat) : null, lng != null ? parseFloat(lng) : null,
       website?.trim() || null, phone?.trim() || null, email?.trim() || null,
       organiser_name?.trim() || null, organiser_email?.trim() || null, organiser_phone?.trim() || null,
-      req.user.id, req.user.name,
+      eventArea, req.user.id, req.user.name,
     ]
   );
   ;(async () => {
@@ -316,9 +317,10 @@ router.patch("/:id", requireAuth, wrap(async (req, res) => {
 
   const { title, description, start_date, start_time, end_date, end_time,
           address, lat, lng, website, phone, email,
-          organiser_name, organiser_email, organiser_phone } = req.body;
+          organiser_name, organiser_email, organiser_phone, area } = req.body;
   if (!title?.trim()) return res.status(400).json({ error: "Title is required" });
   if (!start_date) return res.status(400).json({ error: "Start date is required" });
+  const eventArea = area?.trim() || "Featherston";
 
   const newStatus = existing[0].status === "approved" ? "pending" : existing[0].status;
 
@@ -328,8 +330,8 @@ router.patch("/:id", requireAuth, wrap(async (req, res) => {
          end_date=$5, end_time=$6, address=$7, lat=$8, lng=$9,
          website=$10, phone=$11, email=$12,
          organiser_name=$13, organiser_email=$14, organiser_phone=$15,
-         status=$16
-     WHERE id=$17
+         area=$16, status=$17
+     WHERE id=$18
      RETURNING id, status`,
     [
       title.trim(), description?.trim() || null,
@@ -338,7 +340,7 @@ router.patch("/:id", requireAuth, wrap(async (req, res) => {
       lat != null ? parseFloat(lat) : null, lng != null ? parseFloat(lng) : null,
       website?.trim() || null, phone?.trim() || null, email?.trim() || null,
       organiser_name?.trim() || null, organiser_email?.trim() || null, organiser_phone?.trim() || null,
-      newStatus, req.params.id,
+      eventArea, newStatus, req.params.id,
     ]
   );
   res.json({ ok: true, status: rows[0].status });

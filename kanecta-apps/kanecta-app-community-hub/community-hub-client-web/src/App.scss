@@ -4465,6 +4465,13 @@ $bp-tablet: 768px;
 }
 
 
+.events-area-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
 .events-month {
   margin-bottom: 32px;
 }

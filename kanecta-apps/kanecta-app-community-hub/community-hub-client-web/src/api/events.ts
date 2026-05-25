@@ -35,6 +35,13 @@ export interface EventImage {
   position?: number;
 }
 
+export const AREAS = [
+  "Featherston", "Greytown", "Carterton", "Martinborough",
+  "Masterton", "South Wairarapa", "Wairarapa",
+] as const;
+
+export type Area = typeof AREAS[number];
+
 export interface Event {
   id: string;
   title: string;
@@ -49,6 +56,7 @@ export interface Event {
   website: string | null;
   phone: string | null;
   email: string | null;
+  area: string;
   organiser_name: string | null;
   organiser_email: string | null;
   organiser_phone: string | null;
@@ -72,6 +80,7 @@ export interface EventSubmitPayload {
   website?: string;
   phone?: string;
   email?: string;
+  area?: string;
   organiser_name?: string;
   organiser_email?: string;
   organiser_phone?: string;
