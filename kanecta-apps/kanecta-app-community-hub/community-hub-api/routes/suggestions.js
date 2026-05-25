@@ -37,9 +37,30 @@ router.get("/", requireAuth, requireModerator, wrap(async (req, res) => {
   const { rows } = await pool.query(
     `SELECT id, content, submitted_by_name, submitted_at
      FROM suggestions
+     WHERE archived_at IS NULL
      ORDER BY submitted_at DESC`
   );
   res.json(rows);
+}));
+
+router.get("/archived", requireAuth, requireModerator, wrap(async (req, res) => {
+  const { rows } = await pool.query(
+    `SELECT id, content, submitted_by_name, submitted_at, archived_at, archived_by_id
+     FROM suggestions
+     WHERE archived_at IS NOT NULL
+     ORDER BY archived_at DESC`
+  );
+  res.json(rows);
+}));
+
+router.patch("/:id/archive", requireAuth, requireModerator, wrap(async (req, res) => {
+  const { rowCount } = await pool.query(
+    `UPDATE suggestions SET archived_at = NOW(), archived_by_id = $1
+     WHERE id = $2 AND archived_at IS NULL`,
+    [req.user.id, req.params.id]
+  );
+  if (rowCount === 0) return res.status(404).json({ error: "Not found or already archived" });
+  res.json({ ok: true });
 }));
 
 export default router;

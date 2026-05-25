@@ -23,10 +23,23 @@ export interface Suggestion {
   submitted_at: string;
 }
 
+export interface ArchivedSuggestion extends Suggestion {
+  archived_at: string;
+  archived_by_id: string;
+}
+
 export function submitSuggestion(content: string): Promise<{ id: string }> {
   return authFetch("/api/suggestions", { method: "POST", body: JSON.stringify({ content }) });
 }
 
 export function getSuggestions(): Promise<Suggestion[]> {
   return authFetch("/api/suggestions");
+}
+
+export function getArchivedSuggestions(): Promise<ArchivedSuggestion[]> {
+  return authFetch("/api/suggestions/archived");
+}
+
+export function archiveSuggestion(id: string): Promise<{ ok: boolean }> {
+  return authFetch(`/api/suggestions/${id}/archive`, { method: "PATCH" });
 }
