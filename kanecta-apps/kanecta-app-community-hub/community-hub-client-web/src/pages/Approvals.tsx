@@ -413,37 +413,6 @@ export default function Approvals() {
         </Link>
       )}
 
-      <Typography variant="h6" sx={{ mb: 1 }}>Pending events</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Approved events are displayed publicly on the Events page.
-      </Typography>
-
-      {eventsLoading && (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-          <CircularProgress size={28} />
-        </Box>
-      )}
-
-      {eventsError && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          Could not load pending events. Please try again later.
-        </Alert>
-      )}
-
-      {!eventsLoading && !eventsError && events.length === 0 && (
-        <Alert severity="info" sx={{ mb: 2 }}>No events pending review.</Alert>
-      )}
-
-      {!eventsLoading && !eventsError && events.map((event) => (
-        <EventReviewCard
-          key={event.id}
-          event={event}
-          onResolved={() => setEvents((prev) => prev.filter((e) => e.id !== event.id))}
-        />
-      ))}
-
-      <Divider sx={{ my: 4 }} />
-
       <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 1 }}>
         <Typography variant="h6">Suggestions from the community</Typography>
         <Link to="/suggestions/archive" style={{ fontSize: 14 }}>Archived →</Link>
@@ -488,6 +457,37 @@ export default function Approvals() {
             </Button>
           </Stack>
         </Box>
+      ))}
+
+      <Divider sx={{ my: 4 }} />
+
+      <Typography variant="h6" sx={{ mb: 1 }}>Pending events</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        Approved events are displayed publicly on the Events page.
+      </Typography>
+
+      {eventsLoading && (
+        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+          <CircularProgress size={28} />
+        </Box>
+      )}
+
+      {eventsError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          Could not load pending events. Please try again later.
+        </Alert>
+      )}
+
+      {!eventsLoading && !eventsError && events.length === 0 && (
+        <Alert severity="info" sx={{ mb: 2 }}>No events pending review.</Alert>
+      )}
+
+      {!eventsLoading && !eventsError && events.map((event) => (
+        <EventReviewCard
+          key={event.id}
+          event={event}
+          onResolved={() => setEvents((prev) => prev.filter((e) => e.id !== event.id))}
+        />
       ))}
 
       <Divider sx={{ my: 4 }} />
