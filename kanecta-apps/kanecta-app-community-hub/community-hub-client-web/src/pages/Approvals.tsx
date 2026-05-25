@@ -320,7 +320,7 @@ function ArchiveDialog({
       <DialogContent>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <DialogContentText>
-          Please confirm you have already shared this suggestion with everyone who might have an interest — team members, relevant stakeholders, or the board — before archiving.
+          Please confirm you have already shared this suggestion with everyone who might have an interest — team members and relevant stakeholders — before archiving.
         </DialogContentText>
         <DialogContentText sx={{ mt: 1 }}>
           Archived suggestions are removed from the active queue but remain accessible at the suggestions archive.
