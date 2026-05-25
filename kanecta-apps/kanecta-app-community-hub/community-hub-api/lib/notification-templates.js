@@ -27,7 +27,7 @@ export const notify = {
   }),
 
   // Fired when a team member posts a message in a thread.
-  // Recipients: all opted-in users (category: discussions), excluding the poster.
+  // Recipients: users who have the bell enabled for that thread, excluding the poster.
   discussionMessage: ({ threadName, authorName, content, threadId }) => ({
     title: `#${threadName}`,
     body: `${authorName}: ${content.slice(0, 100)}`,
