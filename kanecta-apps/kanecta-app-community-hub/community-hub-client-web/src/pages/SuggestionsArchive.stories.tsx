@@ -11,6 +11,7 @@ const ARCHIVED = [
     submitted_at: "2026-05-19T11:00:00Z",
     archived_at: "2026-05-21T09:15:00Z",
     archived_by_id: "user-mod-1",
+    archived_by_name: "Alice Moderator",
   },
   {
     id: "s2",
@@ -19,6 +20,7 @@ const ARCHIVED = [
     submitted_at: "2026-05-18T09:30:00Z",
     archived_at: "2026-05-20T14:00:00Z",
     archived_by_id: "user-mod-1",
+    archived_by_name: "Alice Moderator",
   },
   {
     id: "s3",
@@ -27,6 +29,7 @@ const ARCHIVED = [
     submitted_at: "2026-05-10T08:00:00Z",
     archived_at: "2026-05-12T10:30:00Z",
     archived_by_id: "user-mod-2",
+    archived_by_name: null,
   },
 ];
 

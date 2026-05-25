@@ -62,7 +62,7 @@ export default function SuggestionsArchive() {
               {s.submitted_by_name ?? "Anonymous"} · {formatNZDateTime(s.submitted_at)}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Archived {formatNZDateTime(s.archived_at)}
+              Archived by {s.archived_by_name ?? "moderator"} · {formatNZDateTime(s.archived_at)}
             </Typography>
           </Stack>
         </Box>

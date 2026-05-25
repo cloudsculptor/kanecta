@@ -26,6 +26,7 @@ export interface Suggestion {
 export interface ArchivedSuggestion extends Suggestion {
   archived_at: string;
   archived_by_id: string;
+  archived_by_name: string | null;
 }
 
 export function submitSuggestion(content: string): Promise<{ id: string }> {
