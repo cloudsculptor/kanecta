@@ -85,6 +85,9 @@ export default function Header() {
                   Membership
                 </MenuItem>
               )}
+              <MenuItem onClick={() => { setMenuAnchor(null); navigate("/profile"); }}>
+                Profile
+              </MenuItem>
               <MenuItem onClick={() => { setMenuAnchor(null); navigate("/settings"); }}>
                 Settings
               </MenuItem>

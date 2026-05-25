@@ -61,6 +61,7 @@ import PageViewPublic from "./pages/PageViewPublic";
 import Download from "./pages/Download";
 import Settings from "./pages/Settings";
 import NoticeBoard from "./pages/NoticeBoard";
+import Profile from "./pages/Profile";
 import CommunityResilience from "./pages/CommunityResilience";
 import Education from "./pages/Education";
 
@@ -90,6 +91,7 @@ export default function App() {
       <Route path="/local-government" element={<LocalGovernment />} />
       <Route path="/settings" element={<Settings />} />
       <Route path="/notice-board" element={<NoticeBoard />} />
+      <Route path="/profile" element={<Profile />} />
       <Route path="/community-resilience" element={<CommunityResilience />} />
       <Route path="/education" element={<Education />} />
       <Route path="/discussions" element={<Discussions />} />
