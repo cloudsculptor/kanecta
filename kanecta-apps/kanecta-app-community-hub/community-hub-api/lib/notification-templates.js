@@ -27,7 +27,7 @@ export const notify = {
   }),
 
   // Fired when a team member posts a message in a thread.
-  // Recipients: users who have subscribed to that thread's notifications, excluding the poster.
+  // Recipients: all opted-in users (category: discussions), excluding the poster.
   discussionMessage: ({ threadName, authorName, content, threadId }) => ({
     title: `#${threadName}`,
     body: `${authorName}: ${content.slice(0, 100)}`,
