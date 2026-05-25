@@ -18,6 +18,7 @@ const BASE: Event = {
   lat: -41.1167,
   lng: 175.3333,
   submitted_at: "2026-05-01T00:00:00Z",
+  area: "Featherston",
   organiser_name: "Jane Smith", organiser_email: "jane@example.com", organiser_phone: "021 000 0000",
   hero_image: { file_id: "f1", url: "https://placehold.co/800x300/3a7d44/fff?text=Market" },
   gallery_images: [
