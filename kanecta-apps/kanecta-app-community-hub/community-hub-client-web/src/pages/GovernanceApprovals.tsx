@@ -13,31 +13,7 @@ import { useKeycloak } from "../auth/KeycloakProvider";
 import { getPendingEvents, approveEvent, declineEvent, type Event } from "../api/events";
 import { getSuggestions, type Suggestion } from "../api/suggestions";
 import { getPendingNotices, approveNotice, declineNotice, type Notice } from "../api/notices";
-
-function parseNZDate(isoDate: string): Date {
-  const [y, m, d] = isoDate.substring(0, 10).split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function formatNZDate(isoDate: string): string {
-  return parseNZDate(isoDate).toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" });
-}
-
-function formatNZDateTime(ts: string): string {
-  return new Date(ts).toLocaleString("en-NZ", {
-    timeZone: "Pacific/Auckland",
-    day: "numeric", month: "short", year: "numeric",
-    hour: "numeric", minute: "2-digit",
-  });
-}
-
-function formatDate(date: string, time: string | null): string {
-  const d = new Date(date + (time ? `T${time}` : "T00:00:00"));
-  const dateStr = d.toLocaleDateString("en-NZ", { weekday: "short", day: "numeric", month: "long", year: "numeric" });
-  if (!time) return dateStr;
-  const timeStr = d.toLocaleTimeString("en-NZ", { hour: "numeric", minute: "2-digit", hour12: true });
-  return `${dateStr} · ${timeStr}`;
-}
+import { formatNZDate, formatEventDate, formatNZDateTime } from "../utils/dates";
 
 function EventReviewCard({ event, onResolved }: { event: Event; onResolved: () => void }) {
   const [declineReason, setDeclineReason] = useState("");
@@ -71,8 +47,8 @@ function EventReviewCard({ event, onResolved }: { event: Event; onResolved: () =
   }
 
   const dateLabel = event.end_date
-    ? `${formatDate(event.start_date, event.start_time)} – ${formatDate(event.end_date, event.end_time)}`
-    : formatDate(event.start_date, event.start_time);
+    ? `${formatEventDate(event.start_date, event.start_time)} – ${formatEventDate(event.end_date, event.end_time)}`
+    : formatEventDate(event.start_date, event.start_time);
 
   return (
     <Accordion disableGutters elevation={0} sx={{ border: "1px solid var(--border)", borderRadius: "6px !important", mb: 2 }}>
@@ -80,7 +56,7 @@ function EventReviewCard({ event, onResolved }: { event: Event; onResolved: () =
         <Stack direction="row" spacing={2} sx={{ alignItems: "center", width: "100%" }}>
           <Typography sx={{ fontWeight: 500, flex: 1 }}>{event.title}</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ display: { xs: "none", sm: "block" } }}>
-            {new Date(event.start_date + "T00:00:00").toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" })}
+            {formatNZDate(event.start_date, { day: "numeric", month: "short", year: "numeric" })}
           </Typography>
           <Chip label="Pending" size="small" color="warning" />
         </Stack>
@@ -150,7 +126,7 @@ function EventReviewCard({ event, onResolved }: { event: Event; onResolved: () =
 
           <Box>
             <Typography variant="body2" color="text.secondary">
-              Submitted by {event.submitted_by_name} · {new Date(event.submitted_at).toLocaleString("en-NZ")}
+              Submitted by {event.submitted_by_name} · {formatNZDateTime(event.submitted_at)}
             </Typography>
           </Box>
 
@@ -421,7 +397,7 @@ export default function GovernanceApprovals() {
         >
           <Typography variant="body1" sx={{ whiteSpace: "pre-wrap", mb: 1 }}>{s.content}</Typography>
           <Typography variant="body2" color="text.secondary">
-            {s.submitted_by_name ?? "Anonymous"} · {new Date(s.submitted_at).toLocaleString("en-NZ")}
+            {s.submitted_by_name ?? "Anonymous"} · {formatNZDateTime(s.submitted_at)}
           </Typography>
         </Box>
       ))}

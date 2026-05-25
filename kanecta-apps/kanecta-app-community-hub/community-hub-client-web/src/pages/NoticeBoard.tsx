@@ -9,6 +9,7 @@ import NoticeBoardInlineForm from "../components/notices/NoticeBoardInlineForm";
 import { getNotices, getMyNotices, deleteNotice, type Notice, type MyNotice } from "../api/notices";
 import { useKeycloak } from "../auth/KeycloakProvider";
 import keycloak from "../auth/keycloak";
+import { formatNZDate } from "../utils/dates";
 
 const STATUS_CHIP: Record<MyNotice["status"], { label: string; color: "warning" | "success" | "error" }> = {
   pending:  { label: "Pending review", color: "warning" },
@@ -16,16 +17,6 @@ const STATUS_CHIP: Record<MyNotice["status"], { label: string; color: "warning" 
   declined: { label: "Declined",       color: "error"   },
 };
 
-function parseNZDate(isoDate: string): Date {
-  const [y, m, d] = isoDate.substring(0, 10).split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function formatNZDate(isoDate: string): string {
-  return parseNZDate(isoDate).toLocaleDateString("en-NZ", {
-    day: "numeric", month: "short", year: "numeric",
-  });
-}
 
 function MyNoticeRow({ notice, onDeleted }: { notice: MyNotice; onDeleted: () => void }) {
   const chip = STATUS_CHIP[notice.status];
@@ -49,7 +40,7 @@ function MyNoticeRow({ notice, onDeleted }: { notice: MyNotice; onDeleted: () =>
       <div className="my-notice-row__main">
         <span className="my-notice-row__title">{notice.heading}</span>
         {notice.notice_date && (
-          <span className="my-notice-row__date">{formatNZDate(notice.notice_date)}</span>
+          <span className="my-notice-row__date">{formatNZDate(notice.notice_date, { day: "numeric", month: "short", year: "numeric" })}</span>
         )}
       </div>
       <div className="my-notice-row__actions">

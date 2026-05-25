@@ -11,6 +11,7 @@ import {
   type Event, type EventSubmitPayload,
 } from "../../api/events";
 import EventLocationPicker, { type LocationValue } from "./EventLocationPicker";
+import { isoToNzInput } from "../../utils/dates";
 
 function formatDateInput(value: string): string {
   const digits = value.replace(/\D/g, "").slice(0, 8);
@@ -28,11 +29,6 @@ function nzToIso(nz: string): string {
   return `${y}-${m}-${d}`;
 }
 
-function isoToNz(iso: string | null | undefined): string {
-  if (!iso) return "";
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
-}
 
 function dateError(nz: string): string | undefined {
   if (!nz || nz.length < 10) return undefined;
@@ -89,9 +85,9 @@ export default function EventEditDialog({ eventId, onClose, onSaved }: Props) {
       .then((ev: Event) => {
         setTitle(ev.title);
         setDescription(ev.description ?? "");
-        setStartDate(isoToNz(ev.start_date));
+        setStartDate(isoToNzInput(ev.start_date));
         setStartTime(ev.start_time ?? "");
-        setEndDate(isoToNz(ev.end_date));
+        setEndDate(isoToNzInput(ev.end_date));
         setEndTime(ev.end_time ?? "");
         setLocation(
           ev.lat != null && ev.lng != null && ev.address
