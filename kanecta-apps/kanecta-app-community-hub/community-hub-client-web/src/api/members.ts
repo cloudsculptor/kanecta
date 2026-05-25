@@ -7,11 +7,19 @@ export type AppRole = "team" | "moderator" | "treasurer" | "resilience";
 export interface Member {
   id: string;
   name: string;
-  email: string;
+  email?: string;
   username: string;
   roles: AppRole[];
   enabled: boolean;
   createdTimestamp: number;
+}
+
+export interface TrustPayload {
+  know_personally: boolean;
+  trusted_by_someone: boolean;
+  resilience_hui: boolean;
+  other_reason: string | null;
+  locality: "local" | "supporter";
 }
 
 async function authFetch(path: string, init: RequestInit = {}) {
@@ -33,6 +41,17 @@ export function getMembers(): Promise<Member[]> {
   return authFetch("/api/members");
 }
 
-export function addToTeam(userId: string): Promise<null> {
-  return authFetch(`/api/members/${userId}/roles/team`, { method: "POST" });
+export function getPendingMembers(): Promise<Member[]> {
+  return authFetch("/api/members/pending");
+}
+
+export function getActiveMembers(): Promise<Member[]> {
+  return authFetch("/api/members/active");
+}
+
+export function addToTeam(userId: string, trust: TrustPayload): Promise<null> {
+  return authFetch(`/api/members/${userId}/roles/team`, {
+    method: "POST",
+    body: JSON.stringify(trust),
+  });
 }
