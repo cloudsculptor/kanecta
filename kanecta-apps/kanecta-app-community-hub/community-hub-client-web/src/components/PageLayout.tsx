@@ -40,6 +40,7 @@ export default function PageLayout({
         <div className="guest-banner">
           <strong>Welcome!</strong> Your membership request has been submitted and one of our moderators will approve it soon.
           In the meantime you can submit feedback, post events, and post community notices.
+          Once approved, you'll get access to the community discussion threads.
           If you don't hear back shortly, contact us at{" "}
           <a href="mailto:hello@featherston.co.nz">hello@featherston.co.nz</a>.
         </div>
