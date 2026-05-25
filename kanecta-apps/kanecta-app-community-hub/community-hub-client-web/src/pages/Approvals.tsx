@@ -401,7 +401,7 @@ export default function Approvals() {
   return (
     <PageLayout pageName="Content approvals" showComingSoon={false}>
       {pendingMemberCount > 0 && (
-        <Link to="/membership" style={{ textDecoration: "none" }}>
+        <Link to="/governance/membership" style={{ textDecoration: "none" }}>
           <div className="approvals-members-banner">
             <strong>
               {pendingMemberCount === 1
