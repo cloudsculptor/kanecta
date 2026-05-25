@@ -2,7 +2,8 @@ import { Routes, Route } from "react-router-dom";
 import { useKeycloak } from "./auth/KeycloakProvider";
 import AppSkeleton from "./components/AppSkeleton";
 import RequireModerator from "./components/RequireModerator";
-import GovernanceApprovals from "./pages/GovernanceApprovals";
+import Approvals from "./pages/Approvals";
+import SuggestionsArchive from "./pages/SuggestionsArchive";
 import Home from "./pages/Home";
 import Events from "./pages/Events";
 import EventsOther from "./pages/EventsOther";
@@ -135,9 +136,10 @@ export default function App() {
       <Route path="/governance/finances/expenses" element={<FinancesExpenses />} />
       <Route path="/governance/membership" element={<MembershipPanel />} />
 
-      {/* Governance — moderators only */}
+      {/* Moderators only */}
       <Route element={<RequireModerator />}>
-        <Route path="/approvals" element={<GovernanceApprovals />} />
+        <Route path="/approvals" element={<Approvals />} />
+        <Route path="/suggestions/archive" element={<SuggestionsArchive />} />
       </Route>
     </Routes>
   );
