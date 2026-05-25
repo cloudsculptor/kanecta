@@ -43,13 +43,13 @@ function TrustDialog({ member, onClose, onConfirmed }: TrustDialogProps) {
   const [resilienceHui, setResilienceHui] = useState(false);
   const [other, setOther] = useState(false);
   const [otherReason, setOtherReason] = useState("");
-  const [locality, setLocality] = useState<"local" | "supporter" | "">("");
+  const [locality, setLocality] = useState<"local" | "supporter" | "">("local");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function reset() {
     setKnowPersonally(false); setTrustedBySomeone(false); setResilienceHui(false);
-    setOther(false); setOtherReason(""); setLocality(""); setBusy(false); setError(null);
+    setOther(false); setOtherReason(""); setLocality("local"); setBusy(false); setError(null);
   }
 
   function handleClose() {
@@ -110,10 +110,9 @@ function TrustDialog({ member, onClose, onConfirmed }: TrustDialogProps) {
                 label="Please describe"
                 value={otherReason}
                 onChange={(e) => setOtherReason(e.target.value)}
-                fullWidth
                 multiline
-                minRows={2}
-                sx={{ mt: 1, ml: 4 }}
+                minRows={4}
+                sx={{ mt: 1, ml: 4, width: "60%" }}
                 autoFocus
               />
             )}
