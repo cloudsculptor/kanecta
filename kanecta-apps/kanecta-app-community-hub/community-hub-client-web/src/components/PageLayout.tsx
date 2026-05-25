@@ -37,11 +37,12 @@ export default function PageLayout({
     <>
       <Header />
       {isGuest && (
-        <Alert severity="warning" sx={{ borderRadius: 0, fontSize: "0.95rem" }}>
+        <div className="guest-banner">
           <strong>Welcome!</strong> Your membership request has been submitted and one of our moderators will approve it soon.
-          If you don't hear back shortly, please contact us at{" "}
+          In the meantime you can submit feedback, post events, and post community notices.
+          If you don't hear back shortly, contact us at{" "}
           <a href="mailto:hello@featherston.co.nz">hello@featherston.co.nz</a>.
-        </Alert>
+        </div>
       )}
       <Breadcrumb pageName={pageName} parents={parents} />
       <main className="page-content">
