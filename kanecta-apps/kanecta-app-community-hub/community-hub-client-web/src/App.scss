@@ -476,6 +476,33 @@ $bp-tablet: 768px;
   }
 }
 
+.approvals-members-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: linear-gradient(120deg, #fdf0d0 0%, #f7e0a8 100%);
+  border: 1px solid #e8c97a;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 28px;
+  color: #5c3d0e;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: box-shadow 0.15s;
+
+  &:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+  }
+
+  &__cta {
+    font-size: 0.9rem;
+    color: #7a5220;
+    white-space: nowrap;
+  }
+}
+
 .guest-banner {
   background: linear-gradient(120deg, #fdf0d0 0%, #f7e0a8 100%);
   color: #7a5220;
