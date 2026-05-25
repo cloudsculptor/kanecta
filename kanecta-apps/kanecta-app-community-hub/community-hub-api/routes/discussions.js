@@ -3,7 +3,7 @@ import multer from "multer";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import pool from "../db.js";
 import { notifyThreadSubscribers } from "./push.js";
-import { broadcastFcm } from "../lib/fcm.js";
+import { broadcastFcm, notifyThreadSubscribersFcm } from "../lib/fcm.js";
 import { notify } from "../lib/notification-templates.js";
 import { uploadFile, deleteFile, getFileStream } from "../lib/spaces.js";
 
@@ -287,7 +287,7 @@ router.post("/threads/:threadId/messages", requireAuth, canAccess, async (req, r
         threadId,
       });
       await notifyThreadSubscribers(threadId, req.user.id, notifPayload);
-      await broadcastFcm("discussions", req.user.id, notifPayload);
+      await notifyThreadSubscribersFcm(threadId, req.user.id, notifPayload);
     })().catch(() => {});
     res.status(201).json({ ...message, files });
   } catch (err) {
