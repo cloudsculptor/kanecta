@@ -15,6 +15,7 @@ import { useKeycloak } from "../auth/KeycloakProvider";
 import { getPendingEvents, approveEvent, declineEvent, type Event } from "../api/events";
 import { getSuggestions, archiveSuggestion, type Suggestion } from "../api/suggestions";
 import { getPendingNotices, approveNotice, declineNotice, type Notice } from "../api/notices";
+import { getPendingMembers } from "../api/members";
 import { formatNZDate, formatEventDate, formatNZDateTime } from "../utils/dates";
 
 function EventReviewCard({ event, onResolved }: { event: Event; onResolved: () => void }) {
@@ -357,6 +358,7 @@ export default function Approvals() {
   const [noticesLoading, setNoticesLoading] = useState(true);
   const [noticesError, setNoticesError] = useState(false);
   const [archivingId, setArchivingId] = useState<string | null>(null);
+  const [pendingMemberCount, setPendingMemberCount] = useState(0);
 
   useEffect(() => {
     if (!initialized) return;
@@ -388,10 +390,29 @@ export default function Approvals() {
       .finally(() => setNoticesLoading(false));
   }, []);
 
+  useEffect(() => {
+    getPendingMembers()
+      .then((members) => setPendingMemberCount(members.length))
+      .catch(() => {});
+  }, []);
+
   const archivingTarget = suggestions.find((s) => s.id === archivingId) ?? null;
 
   return (
     <PageLayout pageName="Content approvals" showComingSoon={false}>
+      {pendingMemberCount > 0 && (
+        <Link to="/membership" style={{ textDecoration: "none" }}>
+          <div className="approvals-members-banner">
+            <strong>
+              {pendingMemberCount === 1
+                ? "1 new sign-up is awaiting membership approval"
+                : `${pendingMemberCount} new sign-ups are awaiting membership approval`}
+            </strong>
+            <span className="approvals-members-banner__cta">Review on Membership page →</span>
+          </div>
+        </Link>
+      )}
+
       <Typography variant="h6" sx={{ mb: 1 }}>Pending events</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         Approved events are displayed publicly on the Events page.
