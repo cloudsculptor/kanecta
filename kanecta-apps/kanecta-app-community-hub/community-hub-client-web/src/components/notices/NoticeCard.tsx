@@ -1,6 +1,13 @@
 import { Typography, Box } from "@mui/material";
 import type { Notice } from "../../api/notices";
-import { formatNZDate, formatNZDateTime } from "../../utils/dates";
+import { formatNZDate } from "../../utils/dates";
+
+function formatNZDateFromTs(ts: string): string {
+  return new Date(ts).toLocaleDateString("en-NZ", {
+    timeZone: "Pacific/Auckland",
+    day: "numeric", month: "short", year: "numeric",
+  });
+}
 
 function linkifyText(text: string): React.ReactNode[] {
   const urlPattern = /https?:\/\/[^\s]+/g;
@@ -23,7 +30,6 @@ function linkifyText(text: string): React.ReactNode[] {
   return parts;
 }
 
-
 export default function NoticeCard({ notice }: { notice: Notice }) {
   return (
     <div className="notice-card">
@@ -40,7 +46,7 @@ export default function NoticeCard({ notice }: { notice: Notice }) {
       </Typography>
       <Box className="notice-card__meta">
         <Typography variant="caption" color="text.secondary">
-          {notice.submitted_by_name ?? "Community member"} · {formatNZDateTime(notice.submitted_at)}
+          {notice.submitted_by_name ?? "Community member"} · {formatNZDateFromTs(notice.submitted_at)}
         </Typography>
       </Box>
     </div>
