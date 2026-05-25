@@ -42,7 +42,7 @@ export default function MembershipPanel() {
 
   if (!isAdmin) {
     return (
-      <PageLayout pageName="Membership" showComingSoon={false} wip parents={PARENTS}>
+      <PageLayout pageName="Membership" showComingSoon={false}parents={PARENTS}>
         <p>You don't have permission to view this page.</p>
       </PageLayout>
     );
@@ -69,7 +69,7 @@ export default function MembershipPanel() {
   }
 
   return (
-    <PageLayout pageName="Membership" showComingSoon={false} wip parents={PARENTS}>
+    <PageLayout pageName="Membership" showComingSoon={false}parents={PARENTS}>
       {error && <p className="membership-error">{error}</p>}
       {loading ? (
         <p>Loading members…</p>
