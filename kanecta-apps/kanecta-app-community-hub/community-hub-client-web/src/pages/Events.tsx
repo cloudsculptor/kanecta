@@ -13,6 +13,7 @@ import EventEditDialog from "../components/events/EventEditDialog";
 import { getEvents, getMyEvents, deleteEvent, type Event, type MyEvent } from "../api/events";
 import { useKeycloak } from "../auth/KeycloakProvider";
 import keycloak from "../auth/keycloak";
+import { formatNZDate, parseNZDate } from "../utils/dates";
 
 const SAMPLE_EVENT: Event = {
   id: "sample",
@@ -42,15 +43,8 @@ const STATUS_CHIP: Record<MyEvent["status"], { label: string; color: "warning" |
   declined: { label: "Declined",       color: "error"   },
 };
 
-function formatNZDate(iso: string): string {
-  return new Date(iso + "T00:00:00").toLocaleDateString("en-NZ", {
-    day: "numeric", month: "short", year: "numeric",
-  });
-}
-
 function isEventPast(event: Event): boolean {
-  const referenceDate = event.end_date ?? event.start_date;
-  const cutoff = new Date(referenceDate + "T00:00:00");
+  const cutoff = parseNZDate(event.end_date ?? event.start_date);
   cutoff.setDate(cutoff.getDate() + 1);
   return cutoff <= new Date();
 }
@@ -58,8 +52,7 @@ function isEventPast(event: Event): boolean {
 function groupByMonth(events: Event[]): { label: string; events: Event[] }[] {
   const groups = new Map<string, Event[]>();
   for (const event of events) {
-    const d = new Date(event.start_date + "T00:00:00");
-    const label = d.toLocaleDateString("en-NZ", { month: "long", year: "numeric" });
+    const label = parseNZDate(event.start_date).toLocaleDateString("en-NZ", { month: "long", year: "numeric" });
     if (!groups.has(label)) groups.set(label, []);
     groups.get(label)!.push(event);
   }
@@ -87,7 +80,7 @@ function MyEventRow({ event, onDeleted, onEdit }: { event: MyEvent; onDeleted: (
     <div className="my-event-row">
       <div className="my-event-row__main">
         <span className="my-event-row__title">{event.title}</span>
-        <span className="my-event-row__date">{formatNZDate(event.start_date)}</span>
+        <span className="my-event-row__date">{formatNZDate(event.start_date, { day: "numeric", month: "short", year: "numeric" })}</span>
       </div>
       <div className="my-event-row__actions">
         <Chip label={chip.label} color={chip.color} size="small" />

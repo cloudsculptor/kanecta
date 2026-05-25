@@ -1,30 +1,19 @@
 import { type Event } from "../../api/events";
+import { formatEventDate, formatNZTime } from "../../utils/dates";
 
 interface Props {
   event: Event;
   past?: boolean;
 }
 
-function formatDate(date: string, time: string | null): string {
-  const d = new Date(date + (time ? `T${time}` : "T00:00:00"));
-  const dateStr = d.toLocaleDateString("en-NZ", { weekday: "short", day: "numeric", month: "long", year: "numeric" });
-  if (!time) return dateStr;
-  const timeStr = d.toLocaleTimeString("en-NZ", { hour: "numeric", minute: "2-digit", hour12: true });
-  return `${dateStr} · ${timeStr}`;
-}
-
 function formatDateRange(event: Event): string {
-  const start = formatDate(event.start_date, event.start_time);
+  const start = formatEventDate(event.start_date, event.start_time);
   if (!event.end_date) return start;
-  const end = formatDate(event.end_date, event.end_time);
   if (event.start_date === event.end_date) {
     if (!event.end_time) return start;
-    const endTime = new Date(`${event.end_date}T${event.end_time}`).toLocaleTimeString("en-NZ", {
-      hour: "numeric", minute: "2-digit", hour12: true,
-    });
-    return `${start} – ${endTime}`;
+    return `${start} – ${formatNZTime(event.end_time)}`;
   }
-  return `${start} – ${end}`;
+  return `${start} – ${formatEventDate(event.end_date, event.end_time)}`;
 }
 
 export default function EventCard({ event, past = false }: Props) {

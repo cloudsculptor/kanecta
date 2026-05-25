@@ -1,5 +1,6 @@
 import { Typography, Box } from "@mui/material";
 import type { Notice } from "../../api/notices";
+import { formatNZDate, formatNZDateTime } from "../../utils/dates";
 
 function linkifyText(text: string): React.ReactNode[] {
   const urlPattern = /https?:\/\/[^\s]+/g;
@@ -22,24 +23,6 @@ function linkifyText(text: string): React.ReactNode[] {
   return parts;
 }
 
-// Parse "YYYY-MM-DD" (or any ISO string) into a local date with no timezone shift.
-function parseNZDate(isoDate: string): Date {
-  const [y, m, d] = isoDate.substring(0, 10).split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function formatNZDate(isoDate: string): string {
-  return parseNZDate(isoDate).toLocaleDateString("en-NZ", {
-    day: "numeric", month: "long", year: "numeric",
-  });
-}
-
-function formatSubmittedAt(ts: string): string {
-  return new Date(ts).toLocaleDateString("en-NZ", {
-    timeZone: "Pacific/Auckland",
-    day: "numeric", month: "short", year: "numeric",
-  });
-}
 
 export default function NoticeCard({ notice }: { notice: Notice }) {
   return (
@@ -57,7 +40,7 @@ export default function NoticeCard({ notice }: { notice: Notice }) {
       </Typography>
       <Box className="notice-card__meta">
         <Typography variant="caption" color="text.secondary">
-          {notice.submitted_by_name ?? "Community member"} · {formatSubmittedAt(notice.submitted_at)}
+          {notice.submitted_by_name ?? "Community member"} · {formatNZDateTime(notice.submitted_at)}
         </Typography>
       </Box>
     </div>
