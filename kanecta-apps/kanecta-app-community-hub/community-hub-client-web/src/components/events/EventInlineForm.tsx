@@ -1,13 +1,13 @@
 import { useState, useRef, type ChangeEvent } from "react";
 import {
   TextField, Stack, Typography, Button, Alert, Box, IconButton,
-  FormControlLabel, Checkbox,
+  FormControlLabel, Checkbox, FormControl, InputLabel, Select, MenuItem,
 } from "@mui/material";
 import AddPhotoAlternateIcon from "@mui/icons-material/AddPhotoAlternate";
 import DeleteIcon from "@mui/icons-material/Delete";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import MarkEmailReadOutlinedIcon from "@mui/icons-material/MarkEmailReadOutlined";
-import { submitEvent, uploadEventImage, deleteEventImage } from "../../api/events";
+import { submitEvent, uploadEventImage, deleteEventImage, AREAS } from "../../api/events";
 import EventLocationPicker, { type LocationValue } from "./EventLocationPicker";
 import keycloak from "../../auth/keycloak";
 
@@ -49,6 +49,7 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
   const locked = !authenticated || !emailVerified;
 
   const [title, setTitle] = useState("");
+  const [area, setArea] = useState("Featherston");
   const [description, setDescription] = useState("");
   const [startDate, setStartDate] = useState("");
   const [startTime, setStartTime] = useState("");
@@ -75,7 +76,7 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   function reset() {
-    setTitle(""); setDescription(""); setStartDate(""); setStartTime("");
+    setTitle(""); setArea("Featherston"); setDescription(""); setStartDate(""); setStartTime("");
     setEndDate(""); setEndTime(""); setLocation(null);
     setWebsite(""); setPublicPhone(""); setPublicEmail("");
     setOrganiserName(keycloak.tokenParsed?.name as string ?? "");
@@ -90,6 +91,7 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
   function buildPayload() {
     return {
       title: title.trim(),
+      area,
       description: description.trim() || undefined,
       start_date: nzToIso(startDate),
       start_time: startTime || undefined,
@@ -266,6 +268,13 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
               fullWidth
               disabled={locked}
             />
+
+            <FormControl fullWidth disabled={locked}>
+              <InputLabel>Area</InputLabel>
+              <Select value={area} label="Area" onChange={(e) => setArea(e.target.value)}>
+                {AREAS.map((a) => <MenuItem key={a} value={a}>{a}</MenuItem>)}
+              </Select>
+            </FormControl>
 
             <TextField
               label="Description"
