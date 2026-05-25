@@ -14,6 +14,23 @@ import { getPendingEvents, approveEvent, declineEvent, type Event } from "../api
 import { getSuggestions, type Suggestion } from "../api/suggestions";
 import { getPendingNotices, approveNotice, declineNotice, type Notice } from "../api/notices";
 
+function parseNZDate(isoDate: string): Date {
+  const [y, m, d] = isoDate.substring(0, 10).split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function formatNZDate(isoDate: string): string {
+  return parseNZDate(isoDate).toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function formatNZDateTime(ts: string): string {
+  return new Date(ts).toLocaleString("en-NZ", {
+    timeZone: "Pacific/Auckland",
+    day: "numeric", month: "short", year: "numeric",
+    hour: "numeric", minute: "2-digit",
+  });
+}
+
 function formatDate(date: string, time: string | null): string {
   const d = new Date(date + (time ? `T${time}` : "T00:00:00"));
   const dateStr = d.toLocaleDateString("en-NZ", { weekday: "short", day: "numeric", month: "long", year: "numeric" });
@@ -220,7 +237,7 @@ function NoticeReviewCard({ notice, onResolved }: { notice: Notice; onResolved: 
           <Typography sx={{ fontWeight: 500, flex: 1 }}>{notice.heading}</Typography>
           {notice.notice_date && (
             <Typography variant="body2" color="text.secondary" sx={{ display: { xs: "none", sm: "block" } }}>
-              {new Date(notice.notice_date + "T00:00:00").toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" })}
+              {formatNZDate(notice.notice_date)}
             </Typography>
           )}
           <Chip label="Pending" size="small" color="warning" />
@@ -240,7 +257,7 @@ function NoticeReviewCard({ notice, onResolved }: { notice: Notice; onResolved: 
 
           <Box>
             <Typography variant="body2" color="text.secondary">
-              Submitted by {notice.submitted_by_name} · {new Date(notice.submitted_at).toLocaleString("en-NZ")}
+              Submitted by {notice.submitted_by_name} · {formatNZDateTime(notice.submitted_at)}
             </Typography>
           </Box>
 

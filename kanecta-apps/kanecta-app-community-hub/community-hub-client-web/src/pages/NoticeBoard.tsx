@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import {
-  Typography, Alert, CircularProgress, Box, Chip,
+  Typography, Alert, CircularProgress, Box, Chip, Button,
 } from "@mui/material";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import PageLayout from "../components/PageLayout";
 import NoticeCard from "../components/notices/NoticeCard";
 import NoticeBoardInlineForm from "../components/notices/NoticeBoardInlineForm";
-import { getNotices, getMyNotices, type Notice, type MyNotice } from "../api/notices";
+import { getNotices, getMyNotices, deleteNotice, type Notice, type MyNotice } from "../api/notices";
 import { useKeycloak } from "../auth/KeycloakProvider";
 import keycloak from "../auth/keycloak";
 
@@ -15,14 +16,34 @@ const STATUS_CHIP: Record<MyNotice["status"], { label: string; color: "warning" 
   declined: { label: "Declined",       color: "error"   },
 };
 
-function formatNZDate(iso: string): string {
-  return new Date(iso + "T00:00:00").toLocaleDateString("en-NZ", {
+function parseNZDate(isoDate: string): Date {
+  const [y, m, d] = isoDate.substring(0, 10).split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function formatNZDate(isoDate: string): string {
+  return parseNZDate(isoDate).toLocaleDateString("en-NZ", {
     day: "numeric", month: "short", year: "numeric",
   });
 }
 
-function MyNoticeRow({ notice }: { notice: MyNotice }) {
+function MyNoticeRow({ notice, onDeleted }: { notice: MyNotice; onDeleted: () => void }) {
   const chip = STATUS_CHIP[notice.status];
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  async function handleDelete() {
+    if (!confirmDelete) { setConfirmDelete(true); return; }
+    setDeleting(true);
+    try {
+      await deleteNotice(notice.id);
+      onDeleted();
+    } catch {
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
+  }
+
   return (
     <div className="my-notice-row">
       <div className="my-notice-row__main">
@@ -37,6 +58,21 @@ function MyNoticeRow({ notice }: { notice: MyNotice }) {
           <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
             {notice.decline_reason}
           </Typography>
+        )}
+        <Button
+          size="small"
+          color="error"
+          startIcon={<DeleteOutlineIcon fontSize="small" />}
+          onClick={handleDelete}
+          disabled={deleting}
+          sx={{ ml: 1 }}
+        >
+          {confirmDelete ? "Confirm delete" : "Delete"}
+        </Button>
+        {confirmDelete && !deleting && (
+          <Button size="small" onClick={() => setConfirmDelete(false)} sx={{ ml: 0.5 }}>
+            Cancel
+          </Button>
         )}
       </div>
     </div>
@@ -103,7 +139,14 @@ export default function NoticeBoard() {
           <h3 className="my-notices__heading">Your submitted notices</h3>
           <div className="my-notices__list">
             {myNotices.map((notice) => (
-              <MyNoticeRow key={notice.id} notice={notice} />
+              <MyNoticeRow
+                key={notice.id}
+                notice={notice}
+                onDeleted={() => {
+                  setMyNotices((prev) => prev.filter((n) => n.id !== notice.id));
+                  loadNotices();
+                }}
+              />
             ))}
           </div>
         </section>

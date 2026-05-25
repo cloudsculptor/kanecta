@@ -69,3 +69,7 @@ export function declineNotice(id: string, decline_reason?: string): Promise<{ ok
     body: JSON.stringify({ decline_reason }),
   });
 }
+
+export function deleteNotice(id: string): Promise<{ ok: boolean }> {
+  return authFetch(`/api/notices/${id}`, { method: "DELETE" });
+}

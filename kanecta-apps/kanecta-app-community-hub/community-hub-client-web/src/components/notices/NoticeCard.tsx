@@ -22,9 +22,22 @@ function linkifyText(text: string): React.ReactNode[] {
   return parts;
 }
 
-function formatNZDate(iso: string): string {
-  return new Date(iso + "T00:00:00").toLocaleDateString("en-NZ", {
+// Parse "YYYY-MM-DD" (or any ISO string) into a local date with no timezone shift.
+function parseNZDate(isoDate: string): Date {
+  const [y, m, d] = isoDate.substring(0, 10).split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function formatNZDate(isoDate: string): string {
+  return parseNZDate(isoDate).toLocaleDateString("en-NZ", {
     day: "numeric", month: "long", year: "numeric",
+  });
+}
+
+function formatSubmittedAt(ts: string): string {
+  return new Date(ts).toLocaleDateString("en-NZ", {
+    timeZone: "Pacific/Auckland",
+    day: "numeric", month: "short", year: "numeric",
   });
 }
 
@@ -44,10 +57,7 @@ export default function NoticeCard({ notice }: { notice: Notice }) {
       </Typography>
       <Box className="notice-card__meta">
         <Typography variant="caption" color="text.secondary">
-          {notice.submitted_by_name ?? "Community member"} ·{" "}
-          {new Date(notice.submitted_at).toLocaleDateString("en-NZ", {
-            day: "numeric", month: "short", year: "numeric",
-          })}
+          {notice.submitted_by_name ?? "Community member"} · {formatSubmittedAt(notice.submitted_at)}
         </Typography>
       </Box>
     </div>
