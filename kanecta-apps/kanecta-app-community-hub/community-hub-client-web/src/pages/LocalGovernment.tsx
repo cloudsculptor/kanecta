@@ -21,6 +21,12 @@ export default function LocalGovernment() {
           </a>{" "}
           — news and updates from the council
         </li>
+        <li>
+          <a href="https://swdc.govt.nz/services/antenno/" target="_blank" rel="noopener noreferrer">
+            Antenno
+          </a>{" "}
+          — report issues and receive local council notifications via the Antenno app
+        </li>
       </ul>
 
       <h3>Featherston Community Board</h3>
