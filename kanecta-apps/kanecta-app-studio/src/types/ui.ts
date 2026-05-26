@@ -12,7 +12,9 @@ export type ViewType =
   | 'list'
   | 'calendar'
   | 'graph'
-  | 'mission-control';
+  | 'mission-control'
+  | 'ai-instructions'
+  | 'sync';
 
 export interface PanelConfig {
   id: string;

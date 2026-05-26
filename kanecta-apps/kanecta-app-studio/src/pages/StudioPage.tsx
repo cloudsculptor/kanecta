@@ -12,6 +12,7 @@ import { ListView } from '../components/views/ListView/ListView';
 import { CalendarView } from '../components/views/CalendarView/CalendarView';
 import { GraphView } from '../components/views/GraphView/GraphView';
 import { MissionControl } from '../components/views/MissionControl/MissionControl';
+import { TemplatesView } from '../components/views/TemplatesView/TemplatesView';
 import { DigestView } from '../components/views/MissionControl/DigestView';
 import { ReviewConveyor } from '../components/views/MissionControl/ReviewConveyor';
 import { ItemDetail } from '../components/item/ItemDetail';
@@ -66,6 +67,7 @@ function StudioInner() {
     switch (viewType) {
       case 'tree': return <TreeView panelId={panelId} />;
       case 'table': return <TableView panelId={panelId} />;
+      case 'templates': return <TemplatesView />;
       case 'board': return <BoardView panelId={panelId} />;
       case 'gallery': return <GalleryView panelId={panelId} />;
       case 'list': return <ListView panelId={panelId} />;

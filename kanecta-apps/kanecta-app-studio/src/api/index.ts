@@ -4,9 +4,11 @@ import { aliasesApi } from './aliases';
 import { relationshipsApi } from './relationships';
 import { tagsApi } from './tags';
 import { treeApi } from './tree';
+import { typesApi } from './types';
 
 export { ApiError } from './client';
 export type { AliasEntry } from './aliases';
+export type { TypeDefinition } from './types';
 
 export function createApi(baseUrl: string) {
   const client = makeClient(baseUrl);
@@ -16,6 +18,7 @@ export function createApi(baseUrl: string) {
     relationships: relationshipsApi(client),
     tags: tagsApi(client),
     tree: treeApi(client),
+    types: typesApi(client),
   };
 }
 
