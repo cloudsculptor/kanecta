@@ -115,7 +115,7 @@ export function TreeNode({
           )}
         </button>
 
-        {(() => { const Icon = TYPE_ICONS[item.type]; return Icon ? <Icon className="TreeNode-bullet" sx={{ fontSize: 14 }} /> : <span className="TreeNode-bullet" />; })()}
+        {(() => { const Icon = TYPE_ICONS[item.type]; return Icon ? <Icon className="TreeNode-bullet" sx={{ fontSize: 16, width: 16, height: 16, display: 'block' }} /> : <span className="TreeNode-bullet" />; })()}
 
         {editing ? (
           <TreeNodeEditor
