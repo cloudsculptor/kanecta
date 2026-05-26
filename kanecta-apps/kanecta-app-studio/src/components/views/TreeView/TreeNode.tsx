@@ -13,7 +13,7 @@ import StickyNote2Icon from '@mui/icons-material/StickyNote2';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import PersonIcon from '@mui/icons-material/Person';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import TextFieldsIcon from '@mui/icons-material/TextFields';
+import StopRoundedIcon from '@mui/icons-material/StopRounded';
 import CodeIcon from '@mui/icons-material/Code';
 import LinkIcon from '@mui/icons-material/Link';
 import ImageIcon from '@mui/icons-material/Image';
@@ -34,7 +34,7 @@ const TYPE_ICONS: Record<ItemType, SvgIconComponent> = {
   concept: LightbulbIcon,
   entity: PersonIcon,
   event: CalendarTodayIcon,
-  text: TextFieldsIcon,
+  text: StopRoundedIcon,
   code: CodeIcon,
   url: LinkIcon,
   image: ImageIcon,
