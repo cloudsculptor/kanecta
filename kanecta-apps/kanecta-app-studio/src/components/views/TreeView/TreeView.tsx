@@ -125,7 +125,7 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
 
   const createMutation = useMutation({
     mutationFn: (payload: { value: string; parentId?: string }) =>
-      api.items.create({ value: payload.value, type: 'note', parentId: payload.parentId }),
+      api.items.create({ value: payload.value, type: 'text', parentId: payload.parentId }),
     onSuccess: (_, vars) => invalidate(vars.parentId ?? null),
   });
 
