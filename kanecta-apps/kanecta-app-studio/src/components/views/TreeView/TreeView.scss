@@ -45,25 +45,4 @@
     border-radius: 6px;
     margin: 8px;
   }
-
-  &-add-root {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 8px;
-    border-radius: 4px;
-    cursor: pointer;
-    border: 1px dashed var(--color-border);
-    background: none;
-    color: var(--color-text-muted);
-    font-size: 0.875rem;
-    width: 100%;
-    margin-top: 4px;
-
-    &:hover {
-      border-color: var(--color-primary);
-      color: var(--color-primary);
-      background: var(--color-primary-muted);
-    }
-  }
 }
