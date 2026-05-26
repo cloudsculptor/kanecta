@@ -387,9 +387,18 @@ Reverse index mapping tag names to all items carrying that tag. Uses the mandato
 
 This enables fast queries like "show me all items tagged `performance-critical`" without scanning the data/ tree.
 
-### .kanecta/types/ — Type-to-Items Index Cache
+### .kanecta/types/ — Type Definitions and Index Cache
 
-Reverse index mapping type UUIDs to all items of that type. Uses the mandatory 2 + 2 + full UUID sharding, keyed by type UUID.
+The `types/` folder serves two purposes:
+
+1. **Type definitions** — each custom type has a `metadata.json` and a `type.json` describing its schema
+2. **Type-to-items index cache** — reverse index mapping type UUIDs to all items of that type
+
+Both use the mandatory 2 + 2 + full UUID sharding, keyed by type UUID.
+
+#### Type Definitions
+
+Each custom type is stored as a pair of files under its UUID shard path.
 
 **Structure:**
 ```
@@ -397,8 +406,68 @@ Reverse index mapping type UUIDs to all items of that type. Uses the mandatory 2
 └── a1/
     └── b2/
         └── a1b2c3d4-e5f6-4abc-9def-123456789012/
-            └── items.json
+            ├── metadata.json
+            ├── type.json
+            └── items.json      ← index cache (see below)
 ```
+
+**metadata.json** — same schema as a data item `metadata.json`, but with `type` set to `"type"` and `value` set to the capitalised type name (e.g. `"Person"`):
+```json
+{
+  "id": "a1b2c3d4-e5f6-4abc-9def-123456789012",
+  "parentId": "...",
+  "value": "Person",
+  "type": "type",
+  "owner": "user@example.com",
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "modifiedAt": "2026-01-01T00:00:00.000Z"
+}
+```
+
+**type.json** — the type definition, containing display metadata under `meta` and a JSON Schema under `jsonSchema`:
+```json
+{
+  "meta": {
+    "icon": "Person",
+    "description": "A human individual as a biographical fact.",
+    "details": "Longer description of this type, when to use it, and how it relates to other types.",
+    "ai-instructions": {
+      "claude": "Use this type for any individual human being."
+    },
+    "keywords": "human individual biography name",
+    "tags": "people,biography,individual"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://kanecta.org/types/person",
+    "title": "Person",
+    "type": "object",
+    "properties": {
+      "name": { "type": "string", "description": "Full name" }
+    },
+    "required": ["name"]
+  }
+}
+```
+
+**meta fields:**
+
+| Field | Description |
+|---|---|
+| `icon` | MUI icon key (e.g. `"Person"`) for display in the UI |
+| `description` | One-sentence summary shown in type lists |
+| `details` | Longer description: when to use this type and how it relates to others |
+| `ai-instructions.claude` | Guidance for Claude on when and how to use this type |
+| `keywords` | Space-separated keywords for search and filtering |
+| `tags` | Comma-separated tags for grouping |
+
+The `$id` in `jsonSchema` should follow the pattern `https://kanecta.org/types/{slug}`.
+
+When a data item uses a custom type, its `metadata.json` sets `type: "object"` and `typeId` to the type definition UUID.
+
+#### Type-to-Items Index Cache
+
+Reverse index mapping type UUIDs to all items of that type. Lives alongside `metadata.json` and `type.json` in the same shard folder.
 
 **items.json:**
 ```json
