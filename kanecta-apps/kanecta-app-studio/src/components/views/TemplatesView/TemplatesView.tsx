@@ -286,6 +286,7 @@ export function TemplatesView() {
   const [selectedType, setSelectedType] = useState<TypeDefinition | null>(null);
   const [schema, setSchema] = useState<string>('');
   const [filter, setFilter] = useState('');
+  const [detailed, setDetailed] = useState(false);
 
   const { data: types = [], isLoading } = useQuery({
     queryKey: ['types'],
@@ -317,6 +318,14 @@ export function TemplatesView() {
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
+          <label className="TemplatesView-toggle">
+            <input
+              type="checkbox"
+              checked={detailed}
+              onChange={(e) => setDetailed(e.target.checked)}
+            />
+            Detailed view
+          </label>
         </div>
         {isLoading ? (
           <div className="TemplatesView-empty">Loading…</div>
@@ -332,9 +341,9 @@ export function TemplatesView() {
               <TypeIcon name={t.icon} />
               <span className="TemplatesView-name">{t.value}</span>
               <div className="TemplatesView-item-sub">
-                {t.description && <span className="TemplatesView-description">{t.description}</span>}
-                {t.keywords && <span className="TemplatesView-keywords">{t.keywords}</span>}
-                {t.tags && <span className="TemplatesView-tags">{t.tags}</span>}
+                {detailed && t.description && <span className="TemplatesView-description">{t.description}</span>}
+                {detailed && t.keywords && <span className="TemplatesView-keywords">{t.keywords}</span>}
+                {detailed && t.tags && <span className="TemplatesView-tags">{t.tags}</span>}
                 <div className="TemplatesView-uuid-row">
                   <span className="TemplatesView-id">{t.id}</span>
                   <button
