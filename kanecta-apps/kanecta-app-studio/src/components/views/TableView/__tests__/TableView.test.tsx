@@ -11,7 +11,7 @@ const theme = createTheme();
 
 const ITEMS: KanectaItem[] = [
   {
-    id: '1', value: 'The speed of light is constant', type: 'fact', confidence: 'verified',
+    id: '1', value: 'The speed of light is constant', type: 'note', confidence: 'verified',
     sortOrder: 0, tags: ['physics'], createdAt: '2024-01-01T00:00:00Z', modifiedAt: '2024-01-01T00:00:00Z',
   },
   {

@@ -44,7 +44,7 @@ export function QuickCapture({ open, onClose, onSubmit }: QuickCaptureProps) {
         <input
           ref={inputRef}
           className="QuickCapture-input"
-          placeholder="Capture a note, fact, task, idea…"
+          placeholder="Capture a note, task, idea…"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {

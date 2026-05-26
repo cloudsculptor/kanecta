@@ -50,7 +50,7 @@ describe('flattenTree', () => {
 
 describe('filterItems', () => {
   const items = [
-    makeItem({ value: 'apple fact', type: 'fact', confidence: 'high', tags: ['fruit'] }),
+    makeItem({ value: 'apple note', type: 'note', confidence: 'high', tags: ['fruit'] }),
     makeItem({ value: 'banana claim', type: 'claim', confidence: 'low', tags: ['fruit', 'food'] }),
     makeItem({ value: 'orange note', type: 'note', confidence: 'high', tags: ['citrus'] }),
   ];
@@ -60,9 +60,9 @@ describe('filterItems', () => {
   });
 
   it('filters by type', () => {
-    const result = filterItems(items, { type: 'fact' });
+    const result = filterItems(items, { type: 'note' });
     expect(result).toHaveLength(1);
-    expect(result[0].type).toBe('fact');
+    expect(result[0].type).toBe('note');
   });
 
   it('filters by confidence', () => {
@@ -82,9 +82,9 @@ describe('filterItems', () => {
   });
 
   it('combines multiple filter criteria with AND logic', () => {
-    const result = filterItems(items, { type: 'fact', confidence: 'high' });
+    const result = filterItems(items, { type: 'note', confidence: 'high' });
     expect(result).toHaveLength(1);
-    expect(result[0].value).toBe('apple fact');
+    expect(result[0].value).toBe('apple note');
   });
 });
 
@@ -124,14 +124,14 @@ describe('sortItems', () => {
 
 describe('groupBy', () => {
   const items = [
-    makeItem({ type: 'fact', confidence: 'high' }),
-    makeItem({ type: 'fact', confidence: 'low' }),
+    makeItem({ type: 'note', confidence: 'high' }),
+    makeItem({ type: 'note', confidence: 'low' }),
     makeItem({ type: 'claim', confidence: 'high' }),
   ];
 
   it('groups items by a key function', () => {
     const grouped = groupBy(items, (i) => i.type);
-    expect(grouped.get('fact')).toHaveLength(2);
+    expect(grouped.get('note')).toHaveLength(2);
     expect(grouped.get('claim')).toHaveLength(1);
   });
 

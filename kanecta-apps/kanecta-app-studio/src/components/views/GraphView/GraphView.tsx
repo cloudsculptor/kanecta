@@ -28,7 +28,6 @@ interface GraphData {
 }
 
 const TYPE_COLOURS: Record<KanectaItem['type'], string> = {
-  fact: '#4caf50',
   claim: '#ff9800',
   question: '#2196f3',
   task: '#9c27b0',
