@@ -1,6 +1,12 @@
 import { IconButton, Tooltip } from '@mui/material';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import TableChartIcon from '@mui/icons-material/TableChart';
+import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
+import MergeTypeIcon from '@mui/icons-material/MergeType';
+import ManageSearchIcon from '@mui/icons-material/ManageSearch';
+import StorefrontIcon from '@mui/icons-material/Storefront';
+import InboxIcon from '@mui/icons-material/Inbox';
+import IosShareIcon from '@mui/icons-material/IosShare';
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban';
 import GridViewIcon from '@mui/icons-material/GridView';
 import ViewListIcon from '@mui/icons-material/ViewList';
@@ -21,6 +27,12 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { view: 'tree', label: 'Tree', icon: <AccountTreeIcon fontSize="small" /> },
   { view: 'table', label: 'Table', icon: <TableChartIcon fontSize="small" /> },
+  { view: 'templates', label: 'Templates', icon: <DashboardCustomizeIcon fontSize="small" /> },
+  { view: 'combinator', label: 'Combinator', icon: <MergeTypeIcon fontSize="small" /> },
+  { view: 'query', label: 'Query', icon: <ManageSearchIcon fontSize="small" /> },
+  { view: 'marketplace', label: 'Marketplace', icon: <StorefrontIcon fontSize="small" /> },
+  { view: 'inbox', label: 'Inbox', icon: <InboxIcon fontSize="small" /> },
+  { view: 'export', label: 'Export', icon: <IosShareIcon fontSize="small" /> },
   { view: 'board', label: 'Board', icon: <ViewKanbanIcon fontSize="small" /> },
   { view: 'gallery', label: 'Gallery', icon: <GridViewIcon fontSize="small" /> },
   { view: 'list', label: 'List', icon: <ViewListIcon fontSize="small" /> },

@@ -1,6 +1,12 @@
 export type ViewType =
   | 'tree'
   | 'table'
+  | 'templates'
+  | 'combinator'
+  | 'query'
+  | 'marketplace'
+  | 'inbox'
+  | 'export'
   | 'board'
   | 'gallery'
   | 'list'
