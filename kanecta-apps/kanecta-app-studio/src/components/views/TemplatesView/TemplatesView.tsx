@@ -296,7 +296,12 @@ export function TemplatesView() {
   const filtered = filter.trim()
     ? types.filter((t) => {
         const q = filter.toLowerCase();
-        return t.value.toLowerCase().includes(q) || (t.description ?? '').toLowerCase().includes(q);
+        return (
+          t.value.toLowerCase().includes(q) ||
+          (t.description ?? '').toLowerCase().includes(q) ||
+          (t.keywords ?? '').toLowerCase().includes(q) ||
+          (t.tags ?? '').toLowerCase().includes(q)
+        );
       })
     : types;
 
