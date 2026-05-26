@@ -115,7 +115,7 @@ export function TreeNode({
           )}
         </button>
 
-        {(() => { const Icon = TYPE_ICONS[item.type]; return Icon ? <Icon className="TreeNode-bullet" /> : <span className="TreeNode-bullet" />; })()}
+        {(() => { const Icon = TYPE_ICONS[item.type]; return Icon ? <Icon className="TreeNode-bullet" onClick={(e) => { e.stopPropagation(); onZoom(); }} /> : <span className="TreeNode-bullet" />; })()}
 
         {editing ? (
           <TreeNodeEditor
