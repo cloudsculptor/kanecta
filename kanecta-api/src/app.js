@@ -493,8 +493,10 @@ app.get('/types', (req, res) => {
             if (fs.existsSync(typePath)) {
               const typeDef = JSON.parse(fs.readFileSync(typePath, 'utf8'));
               if (typeDef.meta) {
-                meta.icon = typeDef.meta.icon ?? null;
+                meta.icon        = typeDef.meta.icon ?? null;
                 meta.description = typeDef.meta.description ?? null;
+                meta.keywords    = typeDef.meta.keywords ?? null;
+                meta.tags        = typeDef.meta.tags ?? null;
               }
             }
             results.push(meta);

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { IconButton, Tooltip } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { TagChip } from '../shared/TagChip';
@@ -9,6 +9,9 @@ import { useItemLookup } from '../../hooks/useItemLookup';
 import { ITEM_TYPES, CONFIDENCE_LEVELS } from '../../lib/constants';
 import type { KanectaItem } from '../../types/kanecta';
 import './ItemMetadata.scss';
+
+const TOP_TYPES = ['text', 'number', 'heading', 'file', 'image'];
+const OTHER_TYPES = ITEM_TYPES.filter((t) => !TOP_TYPES.includes(t));
 
 interface ItemMetadataProps {
   item: KanectaItem;
@@ -42,6 +45,11 @@ export function ItemMetadata({ item }: ItemMetadataProps) {
   const [draft, setDraft] = useState('');
   const [tagDraft, setTagDraft] = useState('');
 
+  const { data: customTypes = [] } = useQuery({
+    queryKey: ['types'],
+    queryFn: () => getApi().types.list(),
+  });
+
   const mutation = useMutation({
     mutationFn: (changes: Partial<KanectaItem>) => getApi().items.update(item.id, changes),
     onSuccess: () => {
@@ -63,8 +71,17 @@ export function ItemMetadata({ item }: ItemMetadataProps) {
   };
 
   const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    mutation.mutate({ type: e.target.value as KanectaItem['type'] });
+    const val = e.target.value;
+    if (val.startsWith('custom:')) {
+      mutation.mutate({ typeId: val.slice(7) });
+    } else {
+      mutation.mutate({ type: val as KanectaItem['type'], typeId: null });
+    }
   };
+
+  const typeSelectValue = item.typeId && customTypes.find((t) => t.id === item.typeId)
+    ? `custom:${item.typeId}`
+    : item.type;
 
   const handleConfidenceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
@@ -115,11 +132,23 @@ export function ItemMetadata({ item }: ItemMetadataProps) {
         <span className="ItemMetadata-label">Type</span>
         <select
           className="ItemMetadata-select"
-          value={item.type}
+          value={typeSelectValue}
           onChange={handleTypeChange}
           aria-label="Item type"
         >
-          {ITEM_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          <optgroup label="Common">
+            {TOP_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </optgroup>
+          <optgroup label="Built-in">
+            {OTHER_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </optgroup>
+          {customTypes.length > 0 && (
+            <optgroup label="Custom types">
+              {[...customTypes].sort((a, b) => a.value.localeCompare(b.value)).map((t) => (
+                <option key={t.id} value={`custom:${t.id}`}>{t.value}</option>
+              ))}
+            </optgroup>
+          )}
         </select>
       </div>
 

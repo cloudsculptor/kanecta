@@ -333,6 +333,8 @@ export function TemplatesView() {
               <span className="TemplatesView-name">{t.value}</span>
               <div className="TemplatesView-item-sub">
                 {t.description && <span className="TemplatesView-description">{t.description}</span>}
+                {t.keywords && <span className="TemplatesView-keywords">{t.keywords}</span>}
+                {t.tags && <span className="TemplatesView-tags">{t.tags}</span>}
                 <div className="TemplatesView-uuid-row">
                   <span className="TemplatesView-id">{t.id}</span>
                   <button

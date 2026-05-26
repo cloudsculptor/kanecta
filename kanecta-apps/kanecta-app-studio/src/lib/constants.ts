@@ -2,7 +2,7 @@ import type { ItemType, Confidence, RelationshipType } from '../types/kanecta';
 
 export const ITEM_TYPES: ItemType[] = [
   'number', 'claim', 'question', 'task', 'note', 'concept',
-  'entity', 'event', 'text', 'code', 'url', 'image', 'file',
+  'entity', 'event', 'text', 'heading', 'code', 'url', 'image', 'file',
 ];
 
 export const CONFIDENCE_LEVELS: Confidence[] = [

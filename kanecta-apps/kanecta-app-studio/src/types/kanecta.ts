@@ -8,6 +8,7 @@ export type ItemType =
   | 'entity'
   | 'event'
   | 'text'
+  | 'heading'
   | 'code'
   | 'url'
   | 'image'
