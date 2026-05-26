@@ -9,6 +9,8 @@ export interface TypeDefinition {
   owner: string;
   icon?: string | null;
   description?: string | null;
+  keywords?: string | null;
+  tags?: string | null;
 }
 
 export function typesApi(client: ApiClient) {

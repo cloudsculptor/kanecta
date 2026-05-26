@@ -117,7 +117,7 @@ Each item folder contains:
 | `id` | yes | Unique identifier for this item (UUID v4) |
 | `parentId` | yes | UUID of parent item. Never null — the `root` node is self-referential (`parentId` equals its own `id`) |
 | `value` | no | Item content. Text string, UUID reference (for symlinks), or null |
-| `type` | yes | Item type. Primitive: `string`, `number`, `text`, `file`, `symlink`. Structured: `object`, `decision`, `annotation`. Well-known roots: `root`, `system_root`, `app_root`, `component_root`, `data_root` |
+| `type` | yes | Item type. Primitive: `string`, `number`, `text`, `heading`, `file`, `symlink`. Structured: `object`, `decision`, `annotation`. Well-known roots: `root`, `system_root`, `app_root`, `component_root`, `data_root` |
 | `typeId` | conditional | If type is `object`, UUID of the type definition. Otherwise null |
 | `owner` | yes | Email or domain of item owner |
 | `license` | no | License identifier (MIT, Apache-2.0, CC-BY, etc.) or null |

@@ -9,7 +9,7 @@ const WELL_KNOWN_TYPES = new Set(['root', 'system_root', 'app_root', 'component_
 const WELL_KNOWN_ORDER = ['system_root', 'app_root', 'component_root', 'data_root'];
 
 const VALID_TYPES = [
-  'string', 'number', 'text', 'file', 'symlink', 'object', 'decision', 'annotation',
+  'string', 'number', 'text', 'heading', 'file', 'symlink', 'object', 'decision', 'annotation',
   'note', 'fact', 'claim', 'question', 'task', 'concept', 'entity', 'event', 'code', 'url', 'image',
   'root', 'system_root', 'app_root', 'component_root', 'data_root',
 ];
