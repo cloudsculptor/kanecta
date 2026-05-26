@@ -13,6 +13,8 @@ import ViewListIcon from '@mui/icons-material/ViewList';
 import DateRangeIcon from '@mui/icons-material/DateRange';
 import BubbleChartIcon from '@mui/icons-material/BubbleChart';
 import FlightIcon from '@mui/icons-material/Flight';
+import PsychologyIcon from '@mui/icons-material/Psychology';
+import SyncIcon from '@mui/icons-material/Sync';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import type { SidebarState, ViewType } from '../../types/ui';
@@ -26,9 +28,10 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { view: 'tree', label: 'Tree', icon: <AccountTreeIcon fontSize="small" /> },
-  { view: 'table', label: 'Table', icon: <TableChartIcon fontSize="small" /> },
   { view: 'templates', label: 'Templates', icon: <DashboardCustomizeIcon fontSize="small" /> },
   { view: 'combinator', label: 'Combinator', icon: <MergeTypeIcon fontSize="small" /> },
+  { view: 'table', label: 'Table', icon: <TableChartIcon fontSize="small" /> },
+  { view: 'ai-instructions', label: 'AI Instructions', icon: <PsychologyIcon fontSize="small" /> },
   { view: 'query', label: 'Query', icon: <ManageSearchIcon fontSize="small" /> },
   { view: 'marketplace', label: 'Marketplace', icon: <StorefrontIcon fontSize="small" /> },
   { view: 'inbox', label: 'Inbox', icon: <InboxIcon fontSize="small" /> },
@@ -39,6 +42,7 @@ const NAV_ITEMS: NavItem[] = [
   { view: 'calendar', label: 'Calendar', icon: <DateRangeIcon fontSize="small" /> },
   { view: 'graph', label: 'Graph', icon: <BubbleChartIcon fontSize="small" /> },
   { view: 'mission-control', label: 'Mission Control', icon: <FlightIcon fontSize="small" /> },
+  { view: 'sync', label: 'Sync', icon: <SyncIcon fontSize="small" /> },
 ];
 
 interface LeftSidebarProps {
