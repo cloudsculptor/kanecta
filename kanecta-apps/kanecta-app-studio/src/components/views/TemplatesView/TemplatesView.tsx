@@ -1,10 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import * as MuiIcons from '@mui/icons-material';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { useWorkspaceStore } from '../../../store/workspace';
 import type { TypeDefinition } from '../../../api/types';
 import './TemplatesView.scss';
 
-type Tab = 'view' | 'meta' | 'meta-edit' | 'schema' | 'edit' | 'icons';
+function TypeIcon({ name }: { name?: string | null }) {
+  if (!name) return null;
+  const Icon = (MuiIcons as Record<string, React.ElementType>)[name];
+  return Icon ? <Icon fontSize="inherit" className="TemplatesView-icon" /> : null;
+}
+
+type Tab = 'view' | 'meta' | 'meta-edit' | 'schema' | 'edit';
 
 const ICONS_URL = 'https://mui.com/material-ui/material-icons/';
 
@@ -12,6 +20,8 @@ interface MetaFields {
   icon: string;
   description: string;
   details: string;
+  keywords: string;
+  tags: string;
   claude: string;
 }
 
@@ -23,10 +33,12 @@ function parseMeta(schema: string): MetaFields {
       icon:        m.icon ?? '',
       description: m.description ?? '',
       details:     m.details ?? '',
+      keywords:    m.keywords ?? '',
+      tags:        m.tags ?? '',
       claude:      m['ai-instructions']?.claude ?? '',
     };
   } catch {
-    return { icon: '', description: '', details: '', claude: '' };
+    return { icon: '', description: '', details: '', keywords: '', tags: '', claude: '' };
   }
 }
 
@@ -77,9 +89,11 @@ function MetaEditor({ typeId, schema, onSchemaChange }: MetaEditorProps) {
       const updated = {
         ...current,
         meta: {
-          icon:             fields.icon,
-          description:      fields.description,
-          details:          fields.details,
+          icon:              fields.icon,
+          description:       fields.description,
+          details:           fields.details,
+          keywords:          fields.keywords,
+          tags:              fields.tags,
           'ai-instructions': { claude: fields.claude },
         },
       };
@@ -104,7 +118,9 @@ function MetaEditor({ typeId, schema, onSchemaChange }: MetaEditorProps) {
             placeholder="e.g. TaskAlt"
             spellCheck={false}
           />
-          <span className="TemplatesView-hint">MUI icon key — see Icons ↗ tab</span>
+          <span className="TemplatesView-hint">
+            MUI icon key — <a href={ICONS_URL} target="_blank" rel="noreferrer" className="TemplatesView-hint-link">browse icons ↗</a>
+          </span>
         </div>
         <div className="TemplatesView-field">
           <label className="TemplatesView-label">Description</label>
@@ -123,6 +139,26 @@ function MetaEditor({ typeId, schema, onSchemaChange }: MetaEditorProps) {
             onChange={set('details')}
             rows={5}
             placeholder="Longer description of this type, when to use it, and how it relates to other types"
+          />
+        </div>
+        <div className="TemplatesView-field">
+          <label className="TemplatesView-label">Keywords</label>
+          <input
+            className="TemplatesView-input"
+            value={fields.keywords}
+            onChange={set('keywords')}
+            placeholder="Space-separated keywords for search"
+            spellCheck={false}
+          />
+        </div>
+        <div className="TemplatesView-field">
+          <label className="TemplatesView-label">Tags</label>
+          <input
+            className="TemplatesView-input"
+            value={fields.tags}
+            onChange={set('tags')}
+            placeholder="Comma-separated tags"
+            spellCheck={false}
           />
         </div>
         <div className="TemplatesView-field">
@@ -186,17 +222,17 @@ function DetailPane({ type, schema, onSchemaChange }: DetailPaneProps) {
   };
 
   const TAB_LABELS: Record<Tab, string> = {
-    view: 'View', meta: 'Meta', 'meta-edit': 'Meta Edit', schema: 'Schema', edit: 'Edit', icons: 'Icons ↗',
+    view: 'View', meta: 'Meta', 'meta-edit': 'Meta Edit', schema: 'Schema', edit: 'Edit',
   };
 
   return (
     <div className="TemplatesView-detail">
       <div className="TemplatesView-tabs">
-        {(['view', 'meta', 'meta-edit', 'schema', 'edit', 'icons'] as Tab[]).map((t) => (
+        {(['view', 'meta', 'meta-edit', 'schema', 'edit'] as Tab[]).map((t) => (
           <button
             key={t}
             className={`TemplatesView-tab${tab === t ? ' TemplatesView-tab--active' : ''}`}
-            onClick={() => { if (t === 'icons') { window.open(ICONS_URL, '_blank'); return; } setTab(t); }}
+            onClick={() => setTab(t)}
           >
             {TAB_LABELS[t]}
           </button>
@@ -249,11 +285,19 @@ export function TemplatesView() {
   const { getApi } = useWorkspaceStore();
   const [selectedType, setSelectedType] = useState<TypeDefinition | null>(null);
   const [schema, setSchema] = useState<string>('');
+  const [filter, setFilter] = useState('');
 
   const { data: types = [], isLoading } = useQuery({
     queryKey: ['types'],
     queryFn: () => getApi().types.list(),
   });
+
+  const filtered = filter.trim()
+    ? types.filter((t) => {
+        const q = filter.toLowerCase();
+        return t.value.toLowerCase().includes(q) || (t.description ?? '').toLowerCase().includes(q);
+      })
+    : types;
 
   const handleSelect = async (t: TypeDefinition) => {
     setSelectedType(t);
@@ -266,19 +310,40 @@ export function TemplatesView() {
   return (
     <div className="TemplatesView">
       <div className="TemplatesView-list">
+        <div className="TemplatesView-filter">
+          <input
+            className="TemplatesView-filterinput"
+            placeholder="Filter types…"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          />
+        </div>
         {isLoading ? (
           <div className="TemplatesView-empty">Loading…</div>
-        ) : types.length === 0 ? (
-          <div className="TemplatesView-empty">No types found</div>
+        ) : filtered.length === 0 ? (
+          <div className="TemplatesView-empty">{types.length === 0 ? 'No types found' : 'No matches'}</div>
         ) : (
-          types.map((t) => (
+          filtered.map((t) => (
             <button
               key={t.id}
               className={`TemplatesView-item${selectedType?.id === t.id ? ' TemplatesView-item--active' : ''}`}
               onClick={() => handleSelect(t)}
             >
+              <TypeIcon name={t.icon} />
               <span className="TemplatesView-name">{t.value}</span>
-              <span className="TemplatesView-id">{t.id}</span>
+              <div className="TemplatesView-item-sub">
+                {t.description && <span className="TemplatesView-description">{t.description}</span>}
+                <div className="TemplatesView-uuid-row">
+                  <span className="TemplatesView-id">{t.id}</span>
+                  <button
+                    className="TemplatesView-copy"
+                    onClick={(e) => { e.stopPropagation(); void navigator.clipboard.writeText(t.id); }}
+                    aria-label="Copy UUID"
+                  >
+                    <ContentCopyIcon className="TemplatesView-copy-icon" />
+                  </button>
+                </div>
+              </div>
             </button>
           ))
         )}

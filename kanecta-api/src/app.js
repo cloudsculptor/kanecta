@@ -489,6 +489,14 @@ app.get('/types', (req, res) => {
           if (!fs.existsSync(metaPath)) continue;
           try {
             const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+            const typePath = path.join(s2, id, 'type.json');
+            if (fs.existsSync(typePath)) {
+              const typeDef = JSON.parse(fs.readFileSync(typePath, 'utf8'));
+              if (typeDef.meta) {
+                meta.icon = typeDef.meta.icon ?? null;
+                meta.description = typeDef.meta.description ?? null;
+              }
+            }
             results.push(meta);
           } catch (_) { /* skip malformed */ }
         }
