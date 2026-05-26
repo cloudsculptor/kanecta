@@ -52,6 +52,7 @@ interface TreeNodeProps {
   onAddSibling: () => void;
   onDelete: () => void;
   onZoom: () => void;
+  onNavigateToId: (id: string) => void;
   onIndent: () => void;
   onOutdent: () => void;
   onFocus: () => void;
@@ -69,6 +70,7 @@ export function TreeNode({
   onAddSibling,
   onDelete,
   onZoom,
+  onNavigateToId,
   onIndent,
   onOutdent,
   onFocus,
@@ -133,7 +135,7 @@ export function TreeNode({
             className="TreeNode-label"
             onClick={(e) => { e.stopPropagation(); startEdit(); }}
           >
-            <ItemValue value={item.value} resolveId={resolveId} onNavigate={onZoom} />
+            <ItemValue value={item.value} resolveId={resolveId} onNavigate={onNavigateToId} />
           </span>
         )}
 
