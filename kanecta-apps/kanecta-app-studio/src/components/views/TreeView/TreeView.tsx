@@ -1,6 +1,5 @@
 import { useCallback, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import AddIcon from '@mui/icons-material/Add';
 import { TreeNode } from './TreeNode';
 import { Breadcrumb } from '../../shared/Breadcrumb';
 import type { BreadcrumbItem } from '../../shared/Breadcrumb';
@@ -261,13 +260,6 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
           <TreeBranch parentId={rootId} {...branchProps} />
         )}
 
-        <button
-          className="TreeView-add-root"
-          onClick={() => createMutation.mutate({ value: 'New item', parentId: rootId ?? undefined })}
-        >
-          <AddIcon sx={{ fontSize: 14 }} />
-          Add item
-        </button>
       </div>
     </div>
   );
