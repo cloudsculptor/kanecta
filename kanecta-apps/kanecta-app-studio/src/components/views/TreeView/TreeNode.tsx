@@ -5,6 +5,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
+import NumbersIcon from '@mui/icons-material/Numbers';
 import RecordVoiceOverIcon from '@mui/icons-material/RecordVoiceOver';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
@@ -25,6 +26,7 @@ import type { KanectaItem, ItemType } from '../../../types/kanecta';
 import './TreeNode.scss';
 
 const TYPE_ICONS: Record<ItemType, SvgIconComponent> = {
+  number: NumbersIcon,
   claim: RecordVoiceOverIcon,
   question: HelpOutlineIcon,
   task: TaskAltIcon,

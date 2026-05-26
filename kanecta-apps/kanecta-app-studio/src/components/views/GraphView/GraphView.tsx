@@ -28,6 +28,7 @@ interface GraphData {
 }
 
 const TYPE_COLOURS: Record<KanectaItem['type'], string> = {
+  number: '#78909c',
   claim: '#ff9800',
   question: '#2196f3',
   task: '#9c27b0',

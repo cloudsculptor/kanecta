@@ -1,4 +1,5 @@
 export type ItemType =
+  | 'number'
   | 'claim'
   | 'question'
   | 'task'

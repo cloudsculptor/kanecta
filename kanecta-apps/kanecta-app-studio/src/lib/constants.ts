@@ -1,7 +1,7 @@
 import type { ItemType, Confidence, RelationshipType } from '../types/kanecta';
 
 export const ITEM_TYPES: ItemType[] = [
-  'claim', 'question', 'task', 'note', 'concept',
+  'number', 'claim', 'question', 'task', 'note', 'concept',
   'entity', 'event', 'text', 'code', 'url', 'image', 'file',
 ];
 

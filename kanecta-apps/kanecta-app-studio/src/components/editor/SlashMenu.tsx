@@ -17,6 +17,7 @@ const SLASH_ITEMS: SlashMenuItem[] = ITEM_TYPES.map((type) => ({
 
 function slashDescription(type: ItemType): string {
   const map: Record<ItemType, string> = {
+    number: 'A numeric value',
     claim: 'An assertion to be evaluated',
     question: 'An open question to explore',
     task: 'An action item or to-do',
