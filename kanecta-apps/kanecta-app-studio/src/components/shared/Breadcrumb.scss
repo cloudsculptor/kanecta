@@ -1,11 +1,23 @@
 .Breadcrumb {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 0.8rem;
+  gap: 0;
+  font-size: 0.875rem;
   color: var(--color-text-secondary);
   flex-wrap: wrap;
-  padding: 4px 12px;
+  padding: 4px 8px 4px 16px;
+
+  &-fragment {
+    display: flex;
+    align-items: center;
+  }
+
+  &-home-icon {
+    width: 24px !important;
+    height: 24px !important;
+    font-size: 24px !important;
+    opacity: 0.5;
+  }
 
   &-item {
     cursor: pointer;
@@ -14,6 +26,8 @@
     padding: 0;
     color: inherit;
     font-size: inherit;
+    display: flex;
+    align-items: center;
 
     &:hover {
       color: var(--color-primary);
@@ -35,5 +49,8 @@
   &-sep {
     opacity: 0.4;
     user-select: none;
+    display: flex;
+    align-items: center;
+    margin: 0 2px;
   }
 }
