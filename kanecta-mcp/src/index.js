@@ -21,10 +21,10 @@ function writeConfig(cfg) {
 
 function openDs() {
   const cfg = readConfig();
-  const p = cfg?.datastorePath
+  const datastorePath = cfg?.datastorePath
     ? cfg.datastorePath.replace(/^~/, os.homedir())
     : (process.env.KANECTA_DATASTORE?.replace(/^~/, os.homedir()) ?? DEFAULT_DATASTORE_PATH);
-  return { ds: Datastore.open(p), cfg };
+  return { ds: Datastore.open(datastorePath), cfg, datastorePath };
 }
 
 // ─── Secret detection ─────────────────────────────────────────────────────────
@@ -376,6 +376,39 @@ const TOOLS = [
     },
   },
 
+  // ── Type definitions ─────────────────────────────────────────────────────────
+  {
+    name: 'kanecta_list_types',
+    description: 'List all custom type definitions in the Kanecta datastore. Returns metadata including icon, description, keywords, and tags for each type.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
+    name: 'kanecta_get_type_schema',
+    description: 'Get the full type definition (type.json) for a custom type by UUID. Returns the meta and jsonSchema fields.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Type definition UUID' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'kanecta_update_type_schema',
+    description: 'Update the type definition (type.json) for a custom type. Pass the full updated definition including meta and jsonSchema.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Type definition UUID' },
+        schema: { type: 'object', description: 'Full type definition object with meta and jsonSchema fields' },
+      },
+      required: ['id', 'schema'],
+    },
+  },
+
   // ── Tag queries ──────────────────────────────────────────────────────────────
   {
     name: 'kanecta_by_tag',
@@ -478,6 +511,77 @@ function handleRecent(args, ds) {
   return { count: items.length, items };
 }
 
+// ─── Type definition helpers ──────────────────────────────────────────────────
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function typesDir(datastorePath) {
+  return path.join(datastorePath, 'types');
+}
+
+function typeShardPath(datastorePath, id) {
+  return path.join(typesDir(datastorePath), id.slice(0, 2), id.slice(2, 4), id);
+}
+
+function handleListTypes(datastorePath) {
+  const dir = typesDir(datastorePath);
+  if (!fs.existsSync(dir)) return { types: [] };
+  const results = [];
+  for (const s1 of fs.readdirSync(dir)) {
+    const p1 = path.join(dir, s1);
+    if (!fs.statSync(p1).isDirectory()) continue;
+    for (const s2 of fs.readdirSync(p1)) {
+      const p2 = path.join(p1, s2);
+      if (!fs.statSync(p2).isDirectory()) continue;
+      for (const id of fs.readdirSync(p2)) {
+        const metaPath = path.join(p2, id, 'metadata.json');
+        if (!fs.existsSync(metaPath)) continue;
+        try {
+          const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+          const typePath = path.join(p2, id, 'type.json');
+          if (fs.existsSync(typePath)) {
+            const typeDef = JSON.parse(fs.readFileSync(typePath, 'utf8'));
+            if (typeDef.meta) {
+              meta.icon        = typeDef.meta.icon ?? null;
+              meta.description = typeDef.meta.description ?? null;
+              meta.keywords    = typeDef.meta.keywords ?? null;
+              meta.tags        = typeDef.meta.tags ?? null;
+            }
+          }
+          results.push(meta);
+        } catch (_) { /* skip malformed */ }
+      }
+    }
+  }
+  results.sort((a, b) => (a.value || '').localeCompare(b.value || ''));
+  return { types: results };
+}
+
+function handleGetTypeSchema(datastorePath, id) {
+  if (!UUID_RE.test(id)) return { error: 'Invalid UUID format' };
+  const schemaPath = path.join(typeShardPath(datastorePath, id), 'type.json');
+  if (!fs.existsSync(schemaPath)) return { error: `Type schema not found: ${id}` };
+  try {
+    return JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
+  } catch (err) {
+    return { error: err.message };
+  }
+}
+
+function handleUpdateTypeSchema(datastorePath, id, schema) {
+  if (!UUID_RE.test(id)) return { error: 'Invalid UUID format' };
+  if (typeof schema !== 'object' || schema === null || Array.isArray(schema))
+    return { error: 'Schema must be a JSON object' };
+  const schemaPath = path.join(typeShardPath(datastorePath, id), 'type.json');
+  if (!fs.existsSync(schemaPath)) return { error: `Type schema not found: ${id}` };
+  try {
+    fs.writeFileSync(schemaPath, JSON.stringify(schema, null, 2));
+    return schema;
+  } catch (err) {
+    return { error: err.message };
+  }
+}
+
 // ─── MCP protocol ─────────────────────────────────────────────────────────────
 
 function send(msg) {
@@ -493,7 +597,7 @@ function sendError(id, code, message) {
 }
 
 function dispatch(name, args) {
-  const { ds, cfg } = openDs();
+  const { ds, cfg, datastorePath } = openDs();
   switch (name) {
     case 'kanecta_capture':
       return handleCapture(args, ds, cfg);
@@ -623,6 +727,15 @@ function dispatch(name, args) {
 
     case 'kanecta_by_tag':
       return { tag: args.tag, items: ds.byTag(args.tag) };
+
+    case 'kanecta_list_types':
+      return handleListTypes(datastorePath);
+
+    case 'kanecta_get_type_schema':
+      return handleGetTypeSchema(datastorePath, args.id);
+
+    case 'kanecta_update_type_schema':
+      return handleUpdateTypeSchema(datastorePath, args.id, args.schema);
 
     default: {
       const err = new Error(`Unknown tool: ${name}`);
