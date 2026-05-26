@@ -1,8 +1,10 @@
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import './Breadcrumb.scss';
 
 export interface BreadcrumbItem {
   id: string;
   label: string;
+  icon?: React.ReactNode;
 }
 
 interface BreadcrumbProps {
@@ -19,14 +21,19 @@ export function Breadcrumb({ items, onNavigate }: BreadcrumbProps) {
         const isCurrent = i === items.length - 1;
         return (
           <span key={item.id} className="Breadcrumb-fragment">
-            {i > 0 && <span className="Breadcrumb-sep" aria-hidden>›</span>}
+            {i > 0 && (
+              <span className="Breadcrumb-sep" aria-hidden>
+                <ChevronRightIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+              </span>
+            )}
             <button
               className={`Breadcrumb-item${isCurrent ? ' Breadcrumb-item--current' : ''}`}
               onClick={() => !isCurrent && onNavigate?.(item.id)}
               aria-current={isCurrent ? 'page' : undefined}
+              aria-label={item.icon ? item.label : undefined}
               disabled={isCurrent}
             >
-              {item.label}
+              {item.icon ?? item.label}
             </button>
           </span>
         );

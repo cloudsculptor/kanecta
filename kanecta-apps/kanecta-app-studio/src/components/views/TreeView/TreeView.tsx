@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import HomeIcon from '@mui/icons-material/Home';
 import { TreeNode } from './TreeNode';
 import { Breadcrumb } from '../../shared/Breadcrumb';
 import type { BreadcrumbItem } from '../../shared/Breadcrumb';
@@ -214,9 +215,10 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
     [],
   );
 
-  const breadcrumb: BreadcrumbItem[] = zoomStack.length > 0
-    ? [{ id: 'root', label: 'Home' }, ...zoomStack]
-    : [];
+  const breadcrumb: BreadcrumbItem[] = [
+    { id: 'root', label: 'Home', icon: <HomeIcon className="Breadcrumb-home-icon" /> },
+    ...zoomStack,
+  ];
 
   const branchProps = {
     workspaceId: activeWorkspaceId,
@@ -235,17 +237,15 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
 
   return (
     <div className="TreeView" data-testid={`tree-view-${panelId}`}>
-      {breadcrumb.length > 0 && (
-        <div className="TreeView-breadcrumb">
-          <Breadcrumb
-            items={breadcrumb}
-            onNavigate={(id) => {
-              if (id === 'root') setZoomStack([]);
-              else handleBreadcrumbNav(id);
-            }}
-          />
-        </div>
-      )}
+      <div className="TreeView-breadcrumb">
+        <Breadcrumb
+          items={breadcrumb}
+          onNavigate={(id) => {
+            if (id === 'root') setZoomStack([]);
+            else handleBreadcrumbNav(id);
+          }}
+        />
+      </div>
 
       <div className="TreeView-content">
         {isLoading && <div className="TreeView-loading">Loading…</div>}
