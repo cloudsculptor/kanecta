@@ -109,9 +109,9 @@ export function TreeNode({
           tabIndex={-1}
         >
           {hasChildren ? (
-            isExpanded ? <ExpandMoreIcon sx={{ fontSize: 14 }} /> : <ChevronRightIcon sx={{ fontSize: 14 }} />
+            isExpanded ? <ExpandMoreIcon sx={{ fontSize: '24px', width: '24px', height: '24px' }} /> : <ChevronRightIcon sx={{ fontSize: '24px', width: '24px', height: '24px' }} />
           ) : (
-            <ExpandMoreIcon sx={{ fontSize: 14 }} />
+            <ExpandMoreIcon sx={{ fontSize: '24px', width: '24px', height: '24px' }} />
           )}
         </button>
 
@@ -140,17 +140,17 @@ export function TreeNode({
         <div className="TreeNode-actions">
           <Tooltip title="Zoom in">
             <IconButton size="small" onClick={(e) => { e.stopPropagation(); onZoom(); }}>
-              <ZoomInIcon sx={{ fontSize: 14 }} />
+              <ZoomInIcon sx={{ fontSize: '24px', width: '24px', height: '24px' }} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Add child">
             <IconButton size="small" onClick={(e) => { e.stopPropagation(); onAddChild(); }}>
-              <AddIcon sx={{ fontSize: 14 }} />
+              <AddIcon sx={{ fontSize: '24px', width: '24px', height: '24px' }} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Delete">
             <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDelete(); }}>
-              <DeleteIcon sx={{ fontSize: 14 }} />
+              <DeleteIcon sx={{ fontSize: '24px', width: '24px', height: '24px' }} />
             </IconButton>
           </Tooltip>
         </div>
