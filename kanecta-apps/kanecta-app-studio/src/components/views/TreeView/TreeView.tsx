@@ -237,15 +237,17 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
 
   return (
     <div className="TreeView" data-testid={`tree-view-${panelId}`}>
-      <div className="TreeView-breadcrumb">
-        <Breadcrumb
-          items={breadcrumb}
-          onNavigate={(id) => {
-            if (id === 'root') setZoomStack([]);
-            else handleBreadcrumbNav(id);
-          }}
-        />
-      </div>
+      {zoomStack.length > 0 && (
+        <div className="TreeView-breadcrumb">
+          <Breadcrumb
+            items={breadcrumb}
+            onNavigate={(id) => {
+              if (id === 'root') setZoomStack([]);
+              else handleBreadcrumbNav(id);
+            }}
+          />
+        </div>
+      )}
 
       <div className="TreeView-heading">
         {breadcrumb[breadcrumb.length - 1].label}
