@@ -37,6 +37,7 @@ interface TreeBranchProps {
   onEdit: (item: KanectaItem, value: string) => Promise<void>;
   onIndent: (item: KanectaItem) => void;
   onOutdent: (item: KanectaItem) => void;
+  onNavigateToId: (id: string) => void;
 }
 
 function TreeBranch({
@@ -53,6 +54,7 @@ function TreeBranch({
   onEdit,
   onIndent,
   onOutdent,
+  onNavigateToId,
 }: TreeBranchProps) {
   const { data: items = [], isLoading, error } = useTreeData(parentId, workspaceId);
 
@@ -71,6 +73,7 @@ function TreeBranch({
           onToggle={() => onToggle(item.id)}
           onFocus={() => onFocus(item)}
           onZoom={() => onZoom(item)}
+          onNavigateToId={onNavigateToId}
           onAddSibling={() => onAddSibling(item)}
           onAddChild={() => onAddChild(item)}
           onDelete={() => onDelete(item)}
@@ -93,6 +96,7 @@ function TreeBranch({
               onEdit={onEdit}
               onIndent={onIndent}
               onOutdent={onOutdent}
+              onNavigateToId={onNavigateToId}
             />
           )}
         </TreeNode>
@@ -156,6 +160,12 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
     setZoomStack((prev) => [...prev, { id: item.id, label: item.value }]);
     setExpandedIds(new Set());
   }, []);
+
+  const handleNavigateToId = useCallback(async (id: string) => {
+    const item = await api.items.get(id);
+    setZoomStack((prev) => [...prev, { id, label: item.value }]);
+    setExpandedIds(new Set());
+  }, [api]);
 
   const handleBreadcrumbNav = useCallback(
     (id: string) => {
@@ -233,6 +243,7 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
     onEdit: handleEdit,
     onIndent: handleIndent,
     onOutdent: handleOutdent,
+    onNavigateToId: handleNavigateToId,
   };
 
   return (
