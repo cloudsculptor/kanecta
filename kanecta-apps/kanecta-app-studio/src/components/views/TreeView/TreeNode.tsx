@@ -5,11 +5,41 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
+import FactCheckIcon from '@mui/icons-material/FactCheck';
+import RecordVoiceOverIcon from '@mui/icons-material/RecordVoiceOver';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import TaskAltIcon from '@mui/icons-material/TaskAlt';
+import StickyNote2Icon from '@mui/icons-material/StickyNote2';
+import LightbulbIcon from '@mui/icons-material/Lightbulb';
+import PersonIcon from '@mui/icons-material/Person';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import TextFieldsIcon from '@mui/icons-material/TextFields';
+import CodeIcon from '@mui/icons-material/Code';
+import LinkIcon from '@mui/icons-material/Link';
+import ImageIcon from '@mui/icons-material/Image';
+import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
+import type { SvgIconComponent } from '@mui/icons-material';
 import { TreeNodeEditor } from './TreeNodeEditor';
 import { ItemValue } from '../../shared/ItemValue';
 import { useItemLookup } from '../../../hooks/useItemLookup';
-import type { KanectaItem } from '../../../types/kanecta';
+import type { KanectaItem, ItemType } from '../../../types/kanecta';
 import './TreeNode.scss';
+
+const TYPE_ICONS: Record<ItemType, SvgIconComponent> = {
+  fact: FactCheckIcon,
+  claim: RecordVoiceOverIcon,
+  question: HelpOutlineIcon,
+  task: TaskAltIcon,
+  note: StickyNote2Icon,
+  concept: LightbulbIcon,
+  entity: PersonIcon,
+  event: CalendarTodayIcon,
+  text: TextFieldsIcon,
+  code: CodeIcon,
+  url: LinkIcon,
+  image: ImageIcon,
+  file: InsertDriveFileIcon,
+};
 
 interface TreeNodeProps {
   item: KanectaItem;
@@ -85,7 +115,7 @@ export function TreeNode({
           )}
         </button>
 
-        <span className="TreeNode-bullet" />
+        {(() => { const Icon = TYPE_ICONS[item.type]; return Icon ? <Icon className="TreeNode-bullet" sx={{ fontSize: 14 }} /> : <span className="TreeNode-bullet" />; })()}
 
         {editing ? (
           <TreeNodeEditor
