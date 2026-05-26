@@ -7,6 +7,17 @@
     padding: 0 3px;
   }
 
+  &-url {
+    color: var(--color-primary, #1976d2);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    word-break: break-all;
+
+    &:hover {
+      opacity: 0.8;
+    }
+  }
+
   &-link {
     color: var(--color-primary, #1976d2);
     cursor: pointer;
