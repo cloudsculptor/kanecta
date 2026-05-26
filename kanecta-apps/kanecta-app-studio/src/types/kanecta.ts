@@ -1,5 +1,4 @@
 export type ItemType =
-  | 'fact'
   | 'claim'
   | 'question'
   | 'task'

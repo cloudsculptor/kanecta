@@ -6,7 +6,7 @@ import { MentionDropdown, type MentionDropdownHandle } from '../MentionDropdown'
 import type { KanectaItem } from '../../../types/kanecta';
 
 const items: KanectaItem[] = [
-  { id: '1', value: 'Alpha item', type: 'fact', confidence: 'high', sortOrder: 0, tags: [], createdAt: '', modifiedAt: '' },
+  { id: '1', value: 'Alpha item', type: 'note', confidence: 'high', sortOrder: 0, tags: [], createdAt: '', modifiedAt: '' },
   { id: '2', value: 'Beta item', type: 'claim', confidence: 'low', sortOrder: 1, tags: [], createdAt: '', modifiedAt: '' },
   { id: '3', value: 'Gamma item', type: 'note', confidence: 'medium', sortOrder: 2, tags: [], createdAt: '', modifiedAt: '' },
 ];

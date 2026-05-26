@@ -24,7 +24,7 @@ function Demo({ initialFilter }: { initialFilter?: FilterState }) {
 }
 
 export const Empty: Story = { render: () => <Demo /> };
-export const WithTypeFilter: Story = { render: () => <Demo initialFilter={{ type: 'fact' }} /> };
+export const WithTypeFilter: Story = { render: () => <Demo initialFilter={{ type: 'note' }} /> };
 export const WithSearch: Story = { render: () => <Demo initialFilter={{ search: 'quantum' }} /> };
 export const AllFilters: Story = {
   render: () => <Demo initialFilter={{ search: 'test', type: 'claim', confidence: 'high' }} />,

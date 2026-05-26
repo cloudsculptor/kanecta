@@ -96,7 +96,7 @@ describe('instantiateTemplate', () => {
 
   it('instantiates children with correct parentId', async () => {
     const parentItem = { id: 'p', value: 'Parent', type: 'note', confidence: 'medium', sortOrder: 0, tags: [], createdAt: '', modifiedAt: '' };
-    const childItem = { id: 'c', value: 'Child', type: 'fact', confidence: 'high', sortOrder: 0, tags: [], createdAt: '', modifiedAt: '' };
+    const childItem = { id: 'c', value: 'Child', type: 'note', confidence: 'high', sortOrder: 0, tags: [], createdAt: '', modifiedAt: '' };
 
     const mockCreate = vi.fn()
       .mockResolvedValueOnce(parentItem)
@@ -106,7 +106,7 @@ describe('instantiateTemplate', () => {
 
     const root = makeTree({
       value: 'Parent',
-      children: [makeTree({ id: 'child', value: 'Child', type: 'fact', confidence: 'high', tags: [], children: [] })],
+      children: [makeTree({ id: 'child', value: 'Child', type: 'note', confidence: 'high', tags: [], children: [] })],
     });
     const tpl = saveTemplate('Nested', root);
     await instantiateTemplate(api, tpl);

@@ -6,7 +6,7 @@ import type { KanectaItem } from '../../types/kanecta';
 
 const MOCK_ITEMS: KanectaItem[] = [
   { id: '1', value: 'The nature of consciousness', type: 'concept', confidence: 'high', sortOrder: 0, tags: [], createdAt: '', modifiedAt: '' },
-  { id: '2', value: 'Quantum entanglement basics', type: 'fact', confidence: 'verified', sortOrder: 1, tags: [], createdAt: '', modifiedAt: '' },
+  { id: '2', value: 'Quantum entanglement basics', type: 'note', confidence: 'verified', sortOrder: 1, tags: [], createdAt: '', modifiedAt: '' },
   { id: '3', value: 'Read Gödel Escher Bach', type: 'task', confidence: 'medium', sortOrder: 2, tags: [], createdAt: '', modifiedAt: '' },
 ];
 

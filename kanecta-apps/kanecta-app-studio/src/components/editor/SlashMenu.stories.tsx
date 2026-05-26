@@ -25,7 +25,7 @@ export const AllItems: Story = {
 
 export const Filtered: Story = {
   args: {
-    items: SLASH_ITEMS.filter((i) => ['fact', 'claim', 'question'].includes(i.type)),
+    items: SLASH_ITEMS.filter((i) => ['note', 'claim', 'question'].includes(i.type)),
     command: (item) => alert(`Selected: ${item.type}`),
   },
 };

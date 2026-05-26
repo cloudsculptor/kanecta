@@ -70,8 +70,8 @@ describe('useUiStore', () => {
   });
 
   it('setPanelFilter stores filter per panel', () => {
-    getStore().setPanelFilter('panel-1', { type: 'fact' });
-    expect(getStore().filtersByPanel['panel-1']).toEqual({ type: 'fact' });
+    getStore().setPanelFilter('panel-1', { type: 'note' });
+    expect(getStore().filtersByPanel['panel-1']).toEqual({ type: 'note' });
   });
 
   it('setPanelSort stores sort per panel', () => {
