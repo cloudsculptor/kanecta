@@ -247,6 +247,10 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
         />
       </div>
 
+      <div className="TreeView-heading">
+        {breadcrumb[breadcrumb.length - 1].label}
+      </div>
+
       <div className="TreeView-content">
         {isLoading && <div className="TreeView-loading">Loading…</div>}
         {error && <div className="TreeView-error">Failed to load items</div>}
