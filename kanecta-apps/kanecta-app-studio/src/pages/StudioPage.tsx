@@ -52,7 +52,7 @@ function StudioInner() {
 
   const handleQuickCapture = (value: string) => {
     const api = getApi();
-    void api.items.create({ value, type: 'note' }).then(() => {
+    void api.items.create({ value, type: 'text' }).then(() => {
       void qc.invalidateQueries({ queryKey: ['tree-children', null] });
       void qc.invalidateQueries({ queryKey: ['all-items'] });
     });
