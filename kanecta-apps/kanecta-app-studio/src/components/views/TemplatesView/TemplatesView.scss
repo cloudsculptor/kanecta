@@ -12,10 +12,35 @@
     flex-direction: column;
   }
 
+  &-filter {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--color-border);
+    flex-shrink: 0;
+  }
+
+  &-filterinput {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-size: 0.8125rem;
+    font-family: inherit;
+    outline: none;
+    box-sizing: border-box;
+
+    &:focus {
+      border-color: var(--color-primary, #1976d2);
+    }
+  }
+
   &-item {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+    column-gap: 10px;
+    row-gap: 3px;
     padding: 10px 16px;
     border: none;
     border-bottom: 1px solid var(--color-border);
@@ -31,15 +56,80 @@
     &--active {
       background: var(--color-primary-muted);
     }
+
+    &-sub {
+      grid-column: 2;
+      grid-row: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+  }
+
+  &-uuid-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 8px;
+  }
+
+  &-copy-icon.MuiSvgIcon-root {
+    width: calc(0.6rem + 2px) !important;
+    height: calc(0.6rem + 2px) !important;
+    font-size: calc(0.6rem + 2px) !important;
+  }
+
+  &-copy {
+    display: flex;
+    align-items: center;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s;
+
+    .TemplatesView-item:hover & {
+      opacity: 0.6;
+    }
+
+    &:hover {
+      opacity: 1 !important;
+    }
+  }
+
+  &-icon {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: center;
+    color: var(--color-text-muted);
+    opacity: 0.5;
+    font-size: 0.75rem !important;
   }
 
   &-name {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
     font-size: 0.875rem;
     font-weight: 500;
   }
 
+  &-description {
+    font-size: 0.75rem;
+    color: var(--color-text);
+    opacity: 0.75;
+    line-height: 1.4;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
   &-id {
-    font-size: 0.7rem;
+    font-size: 0.6rem;
     color: var(--color-text-muted);
     font-family: monospace;
     overflow: hidden;
@@ -197,6 +287,15 @@
     font-size: 0.7rem;
     color: var(--color-text-muted);
     margin-top: 2px;
+
+    &-link {
+      color: var(--color-primary, #1976d2);
+      text-decoration: none;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
   }
 
   &-input {

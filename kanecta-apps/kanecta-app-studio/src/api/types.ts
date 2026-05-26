@@ -7,6 +7,8 @@ export interface TypeDefinition {
   createdAt: string;
   modifiedAt: string;
   owner: string;
+  icon?: string | null;
+  description?: string | null;
 }
 
 export function typesApi(client: ApiClient) {
