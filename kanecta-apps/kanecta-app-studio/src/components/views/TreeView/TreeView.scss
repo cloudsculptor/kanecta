@@ -9,6 +9,14 @@
     border-bottom: 1px solid var(--color-border);
   }
 
+  &-heading {
+    flex-shrink: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text);
+    padding: 16px 16px 4px;
+  }
+
   &-content {
     flex: 1;
     overflow-y: auto;
