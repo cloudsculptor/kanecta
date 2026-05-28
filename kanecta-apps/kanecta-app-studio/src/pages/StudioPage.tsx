@@ -15,6 +15,7 @@ import { MissionControl } from '../components/views/MissionControl/MissionContro
 import { QualityControlView } from '../components/views/QualityControlView/QualityControlView';
 import { HistoryView } from '../components/views/HistoryView/HistoryView';
 import { TemplatesView } from '../components/views/TemplatesView/TemplatesView';
+import { StarredView } from '../components/views/StarredView/StarredView';
 import { DigestView } from '../components/views/MissionControl/DigestView';
 import { ReviewConveyor } from '../components/views/MissionControl/ReviewConveyor';
 import { ItemDetail } from '../components/item/ItemDetail';
@@ -78,6 +79,7 @@ function StudioInner() {
       case 'mission-control': return <MissionControl />;
       case 'quality-control': return <QualityControlView />;
       case 'history': return <HistoryView />;
+      case 'starred': return <StarredView />;
       case 'digest': return <DigestView />;
       default:
         return (
