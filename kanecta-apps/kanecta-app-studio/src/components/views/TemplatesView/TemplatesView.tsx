@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Ajv from 'ajv';
+import typeSpecRaw from '../../../../../../kanecta-specification/types/kanecta-type-specification-v1.json?raw';
 import * as MuiIcons from '@mui/icons-material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { useWorkspaceStore } from '../../../store/workspace';
@@ -13,7 +14,7 @@ function TypeIcon({ name }: { name?: string | null }) {
   return Icon ? <Icon fontSize="inherit" className="TemplatesView-icon" /> : null;
 }
 
-type Tab = 'item' | 'view' | 'meta' | 'meta-edit' | 'schema' | 'edit';
+type Tab = 'item' | 'view' | 'meta' | 'meta-edit' | 'schema' | 'edit' | 'reference';
 
 const ICONS_URL = 'https://mui.com/material-ui/material-icons/';
 
@@ -272,13 +273,13 @@ function DetailPane({ type, schema, onSchemaChange, initialTab = 'view' }: Detai
   };
 
   const TAB_LABELS: Record<Tab, string> = {
-    item: 'Item', view: 'View', meta: 'Meta', 'meta-edit': 'Meta Edit', schema: 'Schema', edit: 'Edit',
+    item: 'Item', view: 'View', meta: 'Meta', 'meta-edit': 'Meta Edit', schema: 'Schema', edit: 'Edit', reference: 'Reference',
   };
 
   return (
     <div className="TemplatesView-detail">
       <div className="TemplatesView-tabs">
-        {(['view', 'item', 'meta', 'meta-edit', 'schema', 'edit'] as Tab[]).map((t) => (
+        {(['view', 'item', 'meta', 'meta-edit', 'schema', 'edit', 'reference'] as Tab[]).map((t) => (
           <button
             key={t}
             className={`TemplatesView-tab${tab === t ? ' TemplatesView-tab--active' : ''}`}
@@ -308,6 +309,10 @@ function DetailPane({ type, schema, onSchemaChange, initialTab = 'view' }: Detai
 
         {tab === 'schema' && (
           <textarea className="TemplatesView-schema" value={extractSection(schema, 'jsonSchema')} readOnly spellCheck={false} />
+        )}
+
+        {tab === 'reference' && (
+          <textarea className="TemplatesView-schema" value={typeSpecRaw} readOnly spellCheck={false} />
         )}
 
         {tab === 'edit' && (
