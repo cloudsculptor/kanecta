@@ -7,11 +7,13 @@ import { treeApi } from './tree';
 import { typesApi } from './types';
 import { breadcrumbApi } from './breadcrumb';
 import { starredApi } from './starred';
+import { skillsApi } from './skills';
 
 export { ApiError } from './client';
 export type { AliasEntry } from './aliases';
 export type { TypeDefinition } from './types';
 export type { ClipboardEntry } from './breadcrumb';
+export type { SkillFile, SkillFileWithContent } from './skills';
 
 export function createApi(baseUrl: string) {
   const client = makeClient(baseUrl);
@@ -24,6 +26,7 @@ export function createApi(baseUrl: string) {
     types: typesApi(client),
     breadcrumb: breadcrumbApi(client),
     starred: starredApi(client),
+    skills: skillsApi(client),
   };
 }
 

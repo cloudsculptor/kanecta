@@ -885,6 +885,62 @@ app.delete('/app/studio/starred/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+// ─── Skills ──────────────────────────────────────────────────────────────────
+
+const SKILLS_DIR = process.env.KANECTA_SKILLS_PATH || path.join(__dirname, '../../kanecta-skills');
+
+function extractSkillTitle(content) {
+  const match = content.match(/^#\s+(.+)$/m);
+  return match ? match[1].trim() : null;
+}
+
+function safeSkillId(id) {
+  return typeof id === 'string' && id.endsWith('.md') && !id.includes('/') && !id.includes('..');
+}
+
+// GET /skills — list all .md files sorted by title
+app.get('/skills', (req, res) => {
+  try {
+    const files = fs.readdirSync(SKILLS_DIR).filter(f => f.endsWith('.md'));
+    const skills = files.map(filename => {
+      const content = fs.readFileSync(path.join(SKILLS_DIR, filename), 'utf8');
+      const title = extractSkillTitle(content) ?? filename.replace(/\.md$/, '');
+      return { id: filename, title, filename };
+    }).sort((a, b) => a.title.localeCompare(b.title));
+    res.json(skills);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to read skills directory' });
+  }
+});
+
+// GET /skills/:id — get a single skill file with content
+app.get('/skills/:id', (req, res) => {
+  const { id } = req.params;
+  if (!safeSkillId(id)) return res.status(400).json({ error: 'Invalid skill id' });
+  try {
+    const content = fs.readFileSync(path.join(SKILLS_DIR, id), 'utf8');
+    const title = extractSkillTitle(content) ?? id.replace(/\.md$/, '');
+    res.json({ id, title, filename: id, content });
+  } catch (err) {
+    res.status(404).json({ error: 'Skill not found' });
+  }
+});
+
+// PUT /skills/:id — update a skill file
+app.put('/skills/:id', (req, res) => {
+  const { id } = req.params;
+  const { content } = req.body;
+  if (!safeSkillId(id)) return res.status(400).json({ error: 'Invalid skill id' });
+  if (typeof content !== 'string') return res.status(400).json({ error: 'content must be a string' });
+  try {
+    fs.writeFileSync(path.join(SKILLS_DIR, id), content, 'utf8');
+    const title = extractSkillTitle(content) ?? id.replace(/\.md$/, '');
+    res.json({ id, title, filename: id });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to write skill file' });
+  }
+});
+
 // ─── Index ────────────────────────────────────────────────────────────────────
 
 // POST /rebuild-indexes — rebuild all index caches from data/
