@@ -94,6 +94,8 @@ These IDs are ephemeral — never store or reference them across sessions.
 
 Call `kanecta_update_item` with the item UUID and updated `objectData`. The API overwrites `object.json`; synthetic children refresh automatically on the next read.
 
+> **Converting a freeform item to a typed object?** See the dedicated skill: `convert-freeform-item-to-typed-object.md`
+
 ---
 
 ## Gotchas
