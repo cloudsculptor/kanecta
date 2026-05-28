@@ -35,8 +35,15 @@
     }
   }
 
+  &-filterrow {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
   &-filterinput {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
     padding: 6px 10px;
     border: 1px solid var(--color-border);
     border-radius: 4px;
@@ -244,6 +251,24 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+  }
+
+  &-validate {
+    flex-shrink: 0;
+    border-top: 1px solid var(--color-border);
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: var(--color-bg-secondary, var(--color-bg));
+  }
+
+  &-validate-item {
+    font-size: 0.775rem;
+    font-family: monospace;
+
+    &--ok { color: #4caf50; }
+    &--error { color: #f44336; }
   }
 
   &-toolbar {
