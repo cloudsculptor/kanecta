@@ -209,6 +209,51 @@ app.patch('/items/bulk', (req, res) => {
   res.status(status).json({ updated, errors });
 });
 
+// GET /items/stats — type counts and quality score across all items (excludes *_root types)
+app.get('/items/stats', (req, res) => {
+  const ds = openDatastore(res);
+  if (!ds) return;
+  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+
+  // Build UUID → type name map from types directory
+  const typeNames = {};
+  const typesDir = path.join(root, 'types');
+  if (fs.existsSync(typesDir)) {
+    for (const s1 of fs.readdirSync(typesDir)) {
+      const d1 = path.join(typesDir, s1);
+      if (!fs.statSync(d1).isDirectory()) continue;
+      for (const s2 of fs.readdirSync(d1)) {
+        const d2 = path.join(d1, s2);
+        if (!fs.statSync(d2).isDirectory()) continue;
+        for (const id of fs.readdirSync(d2)) {
+          const metaPath = path.join(d2, id, 'metadata.json');
+          if (!fs.existsSync(metaPath)) continue;
+          try {
+            const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+            if (meta.value) typeNames[id] = meta.value;
+          } catch (_) {}
+        }
+      }
+    }
+  }
+
+  const ROOT_TYPES = new Set(['root', 'data_root', 'app_root', 'component_root', 'system_root']);
+  const typeCounts = {};
+  let total = 0;
+  let typedCount = 0;
+
+  for (const item of ds.loadAll()) {
+    const raw = item.type;
+    if (!raw || ROOT_TYPES.has(raw)) continue;
+    total++;
+    const label = UUID_RE.test(raw) ? (typeNames[raw] ?? raw) : raw;
+    typeCounts[label] = (typeCounts[label] || 0) + 1;
+    if (label !== 'unknown') typedCount++;
+  }
+
+  res.json({ total, typedCount, typeCounts });
+});
+
 // GET /items/root — get the data_root item
 app.get('/items/root', (req, res) => {
   const ds = openDatastore(res);

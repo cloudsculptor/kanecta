@@ -16,6 +16,8 @@ export function itemsApi(client: ApiClient) {
 
     root: () => client.get<KanectaItem>('/items/root'),
 
+    stats: () => client.get<{ total: number; typedCount: number; typeCounts: Record<string, number> }>('/items/stats'),
+
     get: (id: string) => client.get<KanectaItem>(`/items/${id}`),
 
     create: (payload: CreateItemPayload) => client.post<KanectaItem>('/items', payload),

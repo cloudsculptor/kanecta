@@ -12,6 +12,7 @@ import { ListView } from '../components/views/ListView/ListView';
 import { CalendarView } from '../components/views/CalendarView/CalendarView';
 import { GraphView } from '../components/views/GraphView/GraphView';
 import { MissionControl } from '../components/views/MissionControl/MissionControl';
+import { QualityControlView } from '../components/views/QualityControlView/QualityControlView';
 import { TemplatesView } from '../components/views/TemplatesView/TemplatesView';
 import { DigestView } from '../components/views/MissionControl/DigestView';
 import { ReviewConveyor } from '../components/views/MissionControl/ReviewConveyor';
@@ -74,6 +75,7 @@ function StudioInner() {
       case 'calendar': return <CalendarView panelId={panelId} />;
       case 'graph': return <GraphView />;
       case 'mission-control': return <MissionControl />;
+      case 'quality-control': return <QualityControlView />;
       case 'digest': return <DigestView />;
       default:
         return (
