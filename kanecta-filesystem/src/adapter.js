@@ -717,7 +717,13 @@ class FilesystemAdapter {
         if (e.isDirectory()) walk(path.join(dir, e.name));
         else if (e.name === 'metadata.json') {
           const item = this._readJson(path.join(dir, e.name), null);
-          if (item) items.push(item);
+          if (item) {
+            if (item.type === 'object') {
+              const metaExtra = this._readJson(path.join(dir, 'meta.json'), null);
+              if (metaExtra?.icon) item.icon = metaExtra.icon;
+            }
+            items.push(item);
+          }
         }
       }
     };
