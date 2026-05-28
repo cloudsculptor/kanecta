@@ -99,6 +99,7 @@ Each item folder contains:
   "license": "string or null",
   "sortOrder": "integer",
   "confidence": "string or null",
+  "status": "string or null",
   "tags": ["string", "..."],
   "createdAt": "string (ISO8601)",
   "modifiedAt": "string (ISO8601)",
@@ -123,6 +124,7 @@ Each item folder contains:
 | `license` | no | License identifier (MIT, Apache-2.0, CC-BY, etc.) or null |
 | `sortOrder` | yes | Integer for sibling ordering. Higher numbers appear lower in the tree |
 | `confidence` | no | Confidence/certainty level: `experimental`, `exploring`, `decided`, `locked`, or null |
+| `status` | no | Arbitrary status string (e.g. `"active"`, `"archived"`, `"draft"`) or null |
 | `tags` | no | Array of cross-cutting tags (e.g., `performance-critical`, `security-related`, `technical-debt`) |
 | `createdAt` | yes | ISO8601 timestamp of item creation |
 | `modifiedAt` | yes | ISO8601 timestamp of most recent modification |
