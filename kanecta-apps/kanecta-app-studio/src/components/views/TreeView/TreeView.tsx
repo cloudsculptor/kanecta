@@ -120,6 +120,12 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
     queryFn: () => (rootId ? api.items.children(rootId) : api.items.list()),
   });
 
+  const { data: dataRoot } = useQuery({
+    queryKey: ['data-root', activeWorkspaceId],
+    queryFn: () => api.items.root(),
+    enabled: rootId === null,
+  });
+
   const invalidate = useCallback(
     (parentId?: string | null) => {
       void qc.invalidateQueries({ queryKey: ['tree-children', parentId ?? null] });
@@ -261,7 +267,9 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
       )}
 
       <div className="TreeView-heading">
-        {breadcrumb[breadcrumb.length - 1].label}
+        {rootId === null
+          ? (dataRoot?.value ?? 'Home')
+          : breadcrumb[breadcrumb.length - 1].label}
       </div>
 
       <div className="TreeView-content">
