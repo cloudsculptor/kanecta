@@ -27,7 +27,7 @@ export function Breadcrumb({ items, onNavigate }: BreadcrumbProps) {
               </span>
             )}
             <button
-              className={`Breadcrumb-item${isCurrent ? ' Breadcrumb-item--current' : ''}`}
+              className={`Breadcrumb-item${isCurrent ? ' Breadcrumb-item--current' : ''}${item.icon ? ' Breadcrumb-item--icon' : ''}`}
               onClick={() => !isCurrent && onNavigate?.(item.id)}
               aria-current={isCurrent ? 'page' : undefined}
               aria-label={item.icon ? item.label : undefined}
