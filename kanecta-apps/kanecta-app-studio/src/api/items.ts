@@ -46,6 +46,9 @@ export function itemsApi(client: ApiClient) {
 
     history: (id: string) => client.get<HistoryEntry[]>(`/items/${id}/history`),
 
+    getObject: (id: string) =>
+      client.get<Record<string, unknown>>(`/items/${id}/object`),
+
     saveObject: (id: string, data: Record<string, unknown>) =>
       client.put<{ ok: boolean }>(`/items/${id}/object`, data),
   };
