@@ -15,6 +15,7 @@ export type ViewType =
   | 'mission-control'
   | 'quality-control'
   | 'ai-instructions'
+  | 'history'
   | 'sync';
 
 export interface PanelConfig {
