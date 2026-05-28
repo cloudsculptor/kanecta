@@ -29,6 +29,15 @@ export function TypeList({ selectedTypeId, onSelect, headerActions, extraControl
     queryFn: () => getApi().types.list(),
   });
 
+  const { data: stats } = useQuery({
+    queryKey: ['items-stats'],
+    queryFn: () => getApi().items.stats(),
+  });
+
+  const countByTypeId = new Map<string, number>(
+    (stats?.structured ?? []).map(({ typeId, count }) => [typeId, count])
+  );
+
   const filtered = filter.trim()
     ? types.filter((t) => {
         const q = filter.toLowerCase();
@@ -73,6 +82,9 @@ export function TypeList({ selectedTypeId, onSelect, headerActions, extraControl
             >
               <TypeIcon name={t.icon} />
               <span className="TypeList-name">{t.value}</span>
+              {countByTypeId.get(t.id) !== undefined && (
+                <span className="TypeList-count">{countByTypeId.get(t.id)}</span>
+              )}
               <div className="TypeList-sub">
                 {detailed && t.description && <span className="TypeList-description">{t.description}</span>}
                 {detailed && t.keywords && <span className="TypeList-keywords">{t.keywords}</span>}

@@ -58,7 +58,7 @@
 
   &-item {
     display: grid;
-    grid-template-columns: auto 1fr;
+    grid-template-columns: auto 1fr auto;
     grid-template-rows: auto auto;
     column-gap: 10px;
     row-gap: 3px;
@@ -97,6 +97,21 @@
     align-self: center;
     font-size: 0.875rem;
     font-weight: 500;
+  }
+
+  &-count {
+    grid-column: 3;
+    grid-row: 1 / 3;
+    align-self: center;
+    background: var(--color-primary-muted, rgba(25, 118, 210, 0.12));
+    color: var(--color-text-muted);
+    font-size: 0.7rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 8px 20px 6px 20px;
+    border-radius: 60px;
+    min-width: 20px;
+    text-align: center;
   }
 
   &-sub {
