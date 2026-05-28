@@ -785,10 +785,24 @@ class FilesystemAdapter {
     const result = [];
     const traverse = (id, depth) => {
       if (depth > maxDepth) return;
+      if (this._isSyntheticId(id)) {
+        const item = this.get(id);
+        if (!item) return;
+        result.push({ item, depth });
+        if (depth < maxDepth) {
+          for (const child of this.children(id)) traverse(child.id, depth + 1);
+        }
+        return;
+      }
       const item = all.find(i => i.id === id);
       if (!item) return;
       result.push({ item, depth });
+      if (depth >= maxDepth) return;
       for (const child of byParent.get(id) || []) traverse(child.id, depth + 1);
+      const obj = this.readObjectJson(id);
+      if (obj) {
+        for (const synChild of this._buildSyntheticChildren(id, obj, id)) traverse(synChild.id, depth + 1);
+      }
     };
 
     if (implicitRoot) {
