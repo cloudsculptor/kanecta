@@ -18,5 +18,7 @@ export function typesApi(client: ApiClient) {
     list: () => client.get<TypeDefinition[]>('/types'),
     schema: (id: string) => client.get<unknown>(`/types/${id}/schema`),
     saveSchema: (id: string, schema: unknown) => client.put<unknown>(`/types/${id}/schema`, schema),
+    create: (value: string) => client.post<TypeDefinition>('/types', { value }),
+    metadata: (id: string) => client.get<unknown>(`/types/${id}`),
   };
 }
