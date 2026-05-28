@@ -30,24 +30,29 @@ interface NavItem {
   disabled?: boolean;
 }
 
-const NAV_ITEMS: NavItem[] = [
+type NavEntry = NavItem | { divider: true };
+
+const NAV_ITEMS: NavEntry[] = [
   { view: 'tree', label: 'Tree', icon: <AccountTreeIcon fontSize="small" /> },
   { view: 'templates', label: 'Templates', icon: <DashboardCustomizeIcon fontSize="small" /> },
   { view: 'table', label: 'Table', icon: <TableChartIcon fontSize="small" /> },
-  { view: 'list', label: 'List', icon: <ViewListIcon fontSize="small" /> },
   { view: 'combinator', label: 'Combinator', icon: <MergeTypeIcon fontSize="small" /> },
-  { view: 'query', label: 'Query', icon: <ManageSearchIcon fontSize="small" /> },
   { view: 'ai-instructions', label: 'AI Instructions', icon: <PsychologyIcon fontSize="small" /> },
   { view: 'history', label: 'History', icon: <HistoryIcon fontSize="small" /> },
   { view: 'starred', label: 'Starred', icon: <StarIcon fontSize="small" /> },
-  { view: 'inbox', label: 'Inbox', icon: <InboxIcon fontSize="small" /> },
-  { view: 'export', label: 'Export', icon: <IosShareIcon fontSize="small" /> },
+  { view: 'graph', label: 'Graph', icon: <BubbleChartIcon fontSize="small" /> },
+  { view: 'quality-control', label: 'Quality Control', icon: <FactCheckIcon fontSize="small" /> },
+  { divider: true },
+  { view: 'list', label: 'List', icon: <ViewListIcon fontSize="small" /> },
   { view: 'board', label: 'Board', icon: <ViewKanbanIcon fontSize="small" /> },
   { view: 'gallery', label: 'Gallery', icon: <GridViewIcon fontSize="small" /> },
   { view: 'calendar', label: 'Calendar', icon: <DateRangeIcon fontSize="small" /> },
-  { view: 'graph', label: 'Graph', icon: <BubbleChartIcon fontSize="small" /> },
   { view: 'mission-control', label: 'Mission Control', icon: <FlightIcon fontSize="small" /> },
-  { view: 'quality-control', label: 'Quality Control', icon: <FactCheckIcon fontSize="small" /> },
+  { divider: true },
+  { view: 'query', label: 'Query', icon: <ManageSearchIcon fontSize="small" />, disabled: true },
+  { view: 'inbox', label: 'Inbox', icon: <InboxIcon fontSize="small" />, disabled: true },
+  { view: 'export', label: 'Export', icon: <IosShareIcon fontSize="small" />, disabled: true },
+  { divider: true },
   { view: 'marketplace', label: 'Marketplace', icon: <StorefrontIcon fontSize="small" />, disabled: true },
   { view: 'sync', label: 'Sync', icon: <SyncIcon fontSize="small" />, disabled: true },
 ];
@@ -65,7 +70,11 @@ export function LeftSidebar({ state, activeView, onViewSelect, onToggle }: LeftS
   return (
     <aside className={`LeftSidebar LeftSidebar--${state}`}>
       <nav className="LeftSidebar-nav">
-        {NAV_ITEMS.map(({ view, label, icon, disabled }) => {
+        {NAV_ITEMS.map((entry, i) => {
+          if ('divider' in entry) {
+            return <hr key={`divider-${i}`} className="LeftSidebar-divider" />;
+          }
+          const { view, label, icon, disabled } = entry;
           const button = (
             <button
               key={view}
