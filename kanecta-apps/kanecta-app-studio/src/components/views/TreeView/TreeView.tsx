@@ -1,12 +1,24 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { IconButton, Tooltip } from '@mui/material';
+import { IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
-import FingerprintIcon from '@mui/icons-material/Fingerprint';
 import LinkIcon from '@mui/icons-material/Link';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import DifferenceOutlinedIcon from '@mui/icons-material/DifferenceOutlined';
+import CategoryIcon from '@mui/icons-material/Category';
+import DataObjectIcon from '@mui/icons-material/DataObject';
+import FileCopyOutlinedIcon from '@mui/icons-material/FileCopyOutlined';
+import LooksTwoIcon from '@mui/icons-material/LooksTwo';
+import Looks3Icon from '@mui/icons-material/Looks3';
+import Looks4Icon from '@mui/icons-material/Looks4';
+import Looks5Icon from '@mui/icons-material/Looks5';
+import AddBoxIcon from '@mui/icons-material/AddBox';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { TreeNode } from './TreeNode';
+import { CopyAsDialog } from './CopyAsDialog';
 import { Breadcrumb } from '../../shared/Breadcrumb';
 import type { BreadcrumbItem } from '../../shared/Breadcrumb';
 import type { KanectaItem } from '../../../types/kanecta';
@@ -47,6 +59,7 @@ interface TreeBranchProps {
   onRecordClipboard: (item: KanectaItem, type: string, typeId: string) => void;
   onRecordViewed: (item: KanectaItem, type: string, typeId: string) => void;
   onCopyObject: (item: KanectaItem) => Promise<void>;
+  onCopyAs: (item: KanectaItem) => void;
 }
 
 function TreeBranch({
@@ -68,6 +81,7 @@ function TreeBranch({
   onRecordClipboard,
   onRecordViewed,
   onCopyObject,
+  onCopyAs,
 }: TreeBranchProps) {
   const { data: items = [], isLoading, error } = useTreeData(parentId, workspaceId);
 
@@ -97,6 +111,7 @@ function TreeBranch({
           onRecordClipboard={(type, typeId) => onRecordClipboard(item, type, typeId)}
           onRecordViewed={(type, typeId) => onRecordViewed(item, type, typeId)}
           onCopyObject={item._hasObject ? () => onCopyObject(item) : undefined}
+          onCopyAs={() => onCopyAs(item)}
         >
           {expandedIds.has(item.id) && (
             <TreeBranch
@@ -118,6 +133,7 @@ function TreeBranch({
               onRecordClipboard={onRecordClipboard}
               onRecordViewed={onRecordViewed}
               onCopyObject={onCopyObject}
+              onCopyAs={onCopyAs}
             />
           )}
         </TreeNode>
@@ -134,6 +150,8 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [zoomStack, setZoomStack] = useState<BreadcrumbItem[]>([]);
+  const [copyAsItem, setCopyAsItem] = useState<KanectaItem | null>(null);
+  const [confirmDeleteRoot, setConfirmDeleteRoot] = useState(false);
   const rootId = zoomedItemId ?? zoomStack[zoomStack.length - 1]?.id ?? null;
 
   const { data: starredList = [] } = useQuery({
@@ -191,6 +209,12 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
     queryKey: ['data-root', activeWorkspaceId],
     queryFn: () => api.items.root(),
     enabled: rootId === null,
+  });
+
+  const { data: rootItem } = useQuery({
+    queryKey: ['item', rootId, activeWorkspaceId],
+    queryFn: () => api.items.get(rootId!),
+    enabled: rootId !== null,
   });
 
   const invalidate = useCallback(
@@ -320,6 +344,15 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
     [api],
   );
 
+  const handleCopyAs = useCallback((item: KanectaItem) => {
+    setCopyAsItem(item);
+  }, []);
+
+  const fetchTreeForDialog = useCallback(
+    (id: string) => api.items.tree(id),
+    [api],
+  );
+
   const handleExpandToDepth = useCallback(
     async (item: KanectaItem, depth: number | 'all') => {
       const maxDepth = depth === 'all' ? undefined : depth;
@@ -355,9 +388,11 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
     onRecordClipboard: handleRecordClipboard,
     onRecordViewed: handleRecordViewed,
     onCopyObject: handleCopyObject,
+    onCopyAs: handleCopyAs,
   };
 
   return (
+    <>
     <div className="TreeView" data-testid={`tree-view-${panelId}`}>
       {zoomStack.length > 0 && (
         <div className="TreeView-breadcrumb">
@@ -376,7 +411,7 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
             </Tooltip>
             <Tooltip title="Copy ID">
               <IconButton size="small" className="TreeView-breadcrumb-btn" onClick={handleCopyId}>
-                <FingerprintIcon sx={{ fontSize: 16 }} />
+                <ContentCopyIcon sx={{ fontSize: 16 }} />
               </IconButton>
             </Tooltip>
             <Tooltip title="Copy URL">
@@ -389,10 +424,79 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
       )}
 
       <div className="TreeView-heading">
-        {rootId === null
-          ? (dataRoot?.value ?? 'Home')
-          : breadcrumb[breadcrumb.length - 1].label}
+        <span className="TreeView-heading-label">
+          {rootId === null ? (dataRoot?.value ?? 'Home') : breadcrumb[breadcrumb.length - 1].label}
+        </span>
+        {rootId !== null && rootItem && (
+          <div className="TreeView-heading-actions TreeNode-actions">
+            <Tooltip title="Copy ID">
+              <IconButton size="small" onClick={() => { void navigator.clipboard.writeText(rootItem.id); void api.breadcrumb.addClipboard(rootItem.id, rootItem.value, rootItem.type, rootItem.typeId ?? ''); }}>
+                <ContentCopyIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Copy value">
+              <IconButton size="small" onClick={() => { void navigator.clipboard.writeText(rootItem.value); }}>
+                <DifferenceOutlinedIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+              </IconButton>
+            </Tooltip>
+            {rootItem.typeId && (
+              <Tooltip title="Copy type ID">
+                <IconButton size="small" onClick={() => { void navigator.clipboard.writeText(rootItem.typeId!); }}>
+                  <CategoryIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+                </IconButton>
+              </Tooltip>
+            )}
+            {rootItem._hasObject && (
+              <Tooltip title="Copy object JSON">
+                <IconButton size="small" onClick={() => { void handleCopyObject(rootItem); }}>
+                  <DataObjectIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+                </IconButton>
+              </Tooltip>
+            )}
+            <Tooltip title="Copy as">
+              <IconButton size="small" onClick={() => handleCopyAs(rootItem)}>
+                <FileCopyOutlinedIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+              </IconButton>
+            </Tooltip>
+            {([
+              { depth: 2, Icon: LooksTwoIcon, label: 'Expand 2 levels' },
+              { depth: 3, Icon: Looks3Icon,   label: 'Expand 3 levels' },
+              { depth: 4, Icon: Looks4Icon,   label: 'Expand 4 levels' },
+              { depth: 5, Icon: Looks5Icon,   label: 'Expand 5 levels' },
+              { depth: 'all' as const, Icon: AddBoxIcon, label: 'Expand all' },
+            ] as const).map(({ depth, Icon, label }) => (
+              <Tooltip key={String(depth)} title={label}>
+                <IconButton size="small" onClick={() => void handleExpandToDepth(rootItem, depth)}>
+                  <Icon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+                </IconButton>
+              </Tooltip>
+            ))}
+            <Tooltip title="Add child">
+              <IconButton size="small" onClick={() => handleAddChild(rootItem)}>
+                <AddIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Delete">
+              <IconButton size="small" onClick={() => setConfirmDeleteRoot(true)}>
+                <DeleteIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+              </IconButton>
+            </Tooltip>
+          </div>
+        )}
       </div>
+
+      <Dialog open={confirmDeleteRoot} onClose={() => setConfirmDeleteRoot(false)}>
+        <DialogTitle>Delete "{rootItem?.value}"?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This will also delete all of its descendants. This cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDeleteRoot(false)}>Cancel</Button>
+          <Button color="error" onClick={() => { setConfirmDeleteRoot(false); if (rootItem) handleDelete(rootItem); }}>Delete</Button>
+        </DialogActions>
+      </Dialog>
 
       <div className="TreeView-content">
         {isLoading && <div className="TreeView-loading">Loading…</div>}
@@ -409,5 +513,13 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
 
       </div>
     </div>
+
+    <CopyAsDialog
+      item={copyAsItem}
+      open={copyAsItem !== null}
+      onClose={() => setCopyAsItem(null)}
+      fetchTree={fetchTreeForDialog}
+    />
+    </>
   );
 }
