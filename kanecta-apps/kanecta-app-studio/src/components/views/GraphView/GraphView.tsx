@@ -143,13 +143,16 @@ export function GraphView() {
         linkColor={() => 'rgba(150,150,150,0.4)'}
         linkDirectionalArrowLength={4}
         linkDirectionalArrowRelPos={1}
+        d3AlphaDecay={0.06}
+        d3VelocityDecay={0.7}
+        cooldownTicks={150}
         onNodeClick={handleNodeClick}
         nodeCanvasObjectMode={() => 'after'}
         nodeCanvasObject={(node, ctx, globalScale) => {
           const n = node as GraphNode & { x?: number; y?: number };
           if (!n.x || !n.y) return;
           // bigger nodes (higher val) get labels sooner; smallest nodes need ~8× zoom
-          const labelThreshold = 32 / n.val;
+          const labelThreshold = 120 / n.val;
           const fadeStart = labelThreshold * 0.7;
           if (globalScale < fadeStart) return;
           const opacity = Math.min(1, (globalScale - fadeStart) / (labelThreshold * 0.6));
