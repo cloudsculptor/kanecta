@@ -40,6 +40,9 @@ export function AppShell({
     (view: ViewType) => {
       const panelId = layout.panels[0]?.id;
       if (panelId) updatePanel(panelId, { viewType: view });
+      if (view !== 'tree') {
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
     },
     [layout.panels, updatePanel],
   );
