@@ -502,6 +502,15 @@ class FilesystemAdapter {
       if (updated.typeId) this._addTypeEntry(updated.typeId, id);
     }
 
+    if (updated.typeId && updated.typeId !== current.typeId) {
+      const typeMeta = this._readJson(path.join(this._typeDir(updated.typeId), 'metadata.json'), null);
+      const typeSpec = this._readJson(path.join(this._typeDir(updated.typeId), 'type.json'), null);
+      if (typeMeta) {
+        const icon = typeSpec?.meta?.icon ?? null;
+        this._writeJson(path.join(this._itemDir(id), 'meta.json'), { ...typeMeta, type: 'object', ...(icon ? { icon } : {}) });
+      }
+    }
+
     if ('parentId' in changes) updated.parentId = changes.parentId;
     if ('sortOrder' in changes) updated.sortOrder = changes.sortOrder;
     if ('confidence' in changes) updated.confidence = changes.confidence;
