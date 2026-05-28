@@ -16,6 +16,7 @@ export type ViewType =
   | 'quality-control'
   | 'ai-instructions'
   | 'history'
+  | 'starred'
   | 'sync';
 
 export interface PanelConfig {

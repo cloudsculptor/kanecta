@@ -773,6 +773,60 @@ app.post('/breadcrumb/viewed', (req, res) => {
   res.json({ ok: true });
 });
 
+// ─── Starred ─────────────────────────────────────────────────────────────────
+
+function starredFilePath() {
+  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const dir = path.join(root, 'app', 'studio');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  return path.join(dir, 'starred.csv');
+}
+
+function readStarred() {
+  const p = starredFilePath();
+  if (!fs.existsSync(p)) return [];
+  const lines = fs.readFileSync(p, 'utf8').trim().split('\n').filter(Boolean);
+  return lines.map((line) => {
+    const parts = line.split(',');
+    return {
+      id: parts[0],
+      name: parts.slice(1, parts.length - 3).join(',') || parts[1],
+      type: parts[parts.length - 3] || '',
+      typeId: parts[parts.length - 2] || '',
+      timestamp: parts[parts.length - 1],
+    };
+  });
+}
+
+function writeStarred(entries) {
+  const csv = entries.map((e) => `${e.id},${e.name},${e.type},${e.typeId},${e.timestamp}`).join('\n');
+  fs.writeFileSync(starredFilePath(), entries.length ? csv + '\n' : '');
+}
+
+// GET /app/studio/starred
+app.get('/app/studio/starred', (_req, res) => {
+  res.json(readStarred().reverse());
+});
+
+// POST /app/studio/starred — upsert { id, name, type?, typeId? }
+app.post('/app/studio/starred', (req, res) => {
+  const { id, name, type = '', typeId = '' } = req.body;
+  if (!id || !name) return res.status(400).json({ error: 'id and name required' });
+  const entries = readStarred().filter((e) => e.id !== id);
+  const safeName = (name || '').replace(/,/g, ' ');
+  entries.push({ id, name: safeName, type, typeId, timestamp: new Date().toISOString() });
+  writeStarred(entries);
+  res.json({ ok: true });
+});
+
+// DELETE /app/studio/starred/:id
+app.delete('/app/studio/starred/:id', (req, res) => {
+  const { id } = req.params;
+  const entries = readStarred().filter((e) => e.id !== id);
+  writeStarred(entries);
+  res.json({ ok: true });
+});
+
 // ─── Index ────────────────────────────────────────────────────────────────────
 
 // POST /rebuild-indexes — rebuild all index caches from data/
