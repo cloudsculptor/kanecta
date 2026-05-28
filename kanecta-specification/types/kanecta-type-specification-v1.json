@@ -1,0 +1,110 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://kanecta.org/specification/kanecta-type-v1",
+  "title": "Kanecta Type Definition",
+  "description": "Schema for a Kanecta custom type definition (type.json). Stored at .kanecta/types/{shard1}/{shard2}/{type-uuid}/type.json",
+  "type": "object",
+  "required": ["meta", "jsonSchema"],
+  "additionalProperties": false,
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["description"],
+      "additionalProperties": false,
+      "properties": {
+        "icon": {
+          "type": "string",
+          "description": "MUI icon component name (e.g. 'Person', 'TaskAlt', 'Place'). Used for display in the studio UI."
+        },
+        "description": {
+          "type": "string",
+          "description": "One-sentence summary of the type. Shown in type lists and pickers."
+        },
+        "details": {
+          "type": "string",
+          "description": "Longer description: when to use this type and how it relates to other types."
+        },
+        "keywords": {
+          "type": "string",
+          "description": "Space-separated keywords for search and filtering (e.g. 'human individual biography')."
+        },
+        "tags": {
+          "type": "string",
+          "description": "Comma-separated tags for grouping types (e.g. 'people,biography,individual')."
+        },
+        "ai-instructions": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "claude": {
+              "type": "string",
+              "description": "Guidance for Claude on when and how to use this type."
+            }
+          }
+        }
+      }
+    },
+    "jsonSchema": {
+      "type": "object",
+      "required": ["$schema", "title", "type", "properties"],
+      "description": "JSON Schema Draft-07 definition for items of this type.",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "const": "http://json-schema.org/draft-07/schema#"
+        },
+        "$id": {
+          "type": "string",
+          "description": "Canonical URI for this type schema (e.g. 'https://kanecta.org/types/person').",
+          "format": "uri"
+        },
+        "title": {
+          "type": "string",
+          "description": "Human-readable name of the type."
+        },
+        "type": {
+          "type": "string",
+          "const": "object"
+        },
+        "properties": {
+          "type": "object",
+          "description": "Field definitions for items of this type."
+        },
+        "required": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of required field names."
+        },
+        "additionalProperties": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "meta": {
+        "icon": "Person",
+        "description": "A human individual as a biographical fact.",
+        "details": "Use for any individual human being. Relates to Organisation via membership.",
+        "keywords": "human individual biography name",
+        "tags": "people,biography,individual",
+        "ai-instructions": {
+          "claude": "Use this type for any individual human being."
+        }
+      },
+      "jsonSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "$id": "https://kanecta.org/types/person",
+        "title": "Person",
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "description": "Full name" },
+          "born": { "type": "string", "format": "date", "description": "Date of birth" },
+          "died": { "type": "string", "format": "date", "description": "Date of death" }
+        },
+        "required": ["name"]
+      }
+    }
+  ]
+}
