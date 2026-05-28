@@ -587,8 +587,23 @@ app.post('/types', (req, res) => {
     const metadata = { id, parentId: null, value: value.trim(), type: 'type', owner, createdAt: now, modifiedAt: now };
     fs.writeFileSync(path.join(typeDir, 'metadata.json'), JSON.stringify(metadata, null, 2));
     const initialSchema = {
-      meta: { description: '' },
-      jsonSchema: { '$schema': 'http://json-schema.org/draft-07/schema#', title: value.trim(), type: 'object', properties: {} },
+      meta: {
+        icon: '',
+        description: '',
+        details: '',
+        keywords: '',
+        tags: '',
+        'ai-instructions': { claude: '' },
+      },
+      jsonSchema: {
+        '$schema': 'http://json-schema.org/draft-07/schema#',
+        '$id': '',
+        title: value.trim(),
+        type: 'object',
+        properties: {},
+        required: [],
+        additionalProperties: false,
+      },
     };
     fs.writeFileSync(path.join(typeDir, 'type.json'), JSON.stringify(initialSchema, null, 2));
     res.status(201).json({ ...metadata, icon: null, description: null, keywords: null, tags: null });
