@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { IconButton, Tooltip } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { useWorkspaceStore } from '../../../store/workspace';
+import { useUiStore } from '../../../store/ui';
 import { TYPE_ICONS, FallbackIcon } from '../../../lib/typeIcons';
 import type { ItemType } from '../../../types/kanecta';
 import type { ClipboardEntry } from '../../../api/index';
@@ -29,10 +30,11 @@ function CopyUuidButton({ id }: { id: string }) {
   );
 }
 
-function HistoryList({ queryKey, fetcher, emptyMessage }: {
+function HistoryList({ queryKey, fetcher, emptyMessage, onNavigate }: {
   queryKey: string;
   fetcher: () => Promise<ClipboardEntry[]>;
   emptyMessage: string;
+  onNavigate: (e: React.MouseEvent, id: string) => void;
 }) {
   const { data: entries = [], isLoading, error } = useQuery({
     queryKey: [queryKey],
@@ -49,7 +51,7 @@ function HistoryList({ queryKey, fetcher, emptyMessage }: {
       {entries.map((entry, i) => (
         <div key={i} className="HistoryView-entry">
           <TypeIcon type={entry.type} />
-          <span className="HistoryView-entry-name">{entry.name}</span>
+          <a href={`/#/tree/${entry.id}`} className="HistoryView-entry-name" onClick={(e) => onNavigate(e, entry.id)}>{entry.name}</a>
           <CopyUuidButton id={entry.id} />
           <span className="HistoryView-entry-time">{new Date(entry.timestamp).toLocaleString()}</span>
         </div>
@@ -60,7 +62,15 @@ function HistoryList({ queryKey, fetcher, emptyMessage }: {
 
 export function HistoryView() {
   const { getApi, activeWorkspaceId } = useWorkspaceStore();
+  const { layout, updatePanel } = useUiStore();
   const api = getApi(activeWorkspaceId);
+
+  const handleNavigate = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    window.location.hash = `/tree/${id}`;
+    const panelId = layout.panels[0]?.id;
+    if (panelId) updatePanel(panelId, { viewType: 'tree' });
+  };
 
   return (
     <div className="HistoryView">
@@ -70,6 +80,7 @@ export function HistoryView() {
           queryKey="breadcrumb-clipboard"
           fetcher={() => api.breadcrumb.getClipboard()}
           emptyMessage="No clipboard history yet."
+          onNavigate={handleNavigate}
         />
       </div>
       <div className="HistoryView-divider" />
@@ -79,8 +90,8 @@ export function HistoryView() {
           queryKey="breadcrumb-viewed"
           fetcher={() => api.breadcrumb.getViewed()}
           emptyMessage="No navigation history yet."
+          onNavigate={handleNavigate}
         />
-
       </div>
     </div>
   );
