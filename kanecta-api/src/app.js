@@ -371,7 +371,7 @@ app.put('/items/:id/object', (req, res) => {
 // GET /items/:id/tree — tree rooted at item (?depth=n)
 app.get('/items/:id/tree', (req, res) => {
   const { id } = req.params;
-  if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
+  if (!isValidId(id)) return res.status(400).json({ error: 'Invalid ID format' });
   const ds = openDatastore(res);
   if (!ds) return;
   if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
