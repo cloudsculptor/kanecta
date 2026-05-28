@@ -402,8 +402,10 @@ class FilesystemAdapter {
     // C1 + C2: for typed objects with data, write meta.json and object.json
     if (type === 'object' && typeId && objectData !== null) {
       const typeMeta = this._readJson(path.join(this._typeDir(typeId), 'metadata.json'), null);
+      const typeSpec = this._readJson(path.join(this._typeDir(typeId), 'type.json'), null);
       if (typeMeta) {
-        this._writeJson(path.join(this._itemDir(id), 'meta.json'), { ...typeMeta, type: 'object' });
+        const icon = typeSpec?.meta?.icon ?? null;
+        this._writeJson(path.join(this._itemDir(id), 'meta.json'), { ...typeMeta, type: 'object', ...(icon ? { icon } : {}) });
       }
       this._writeJson(path.join(this._itemDir(id), 'object.json'), objectData);
     }
@@ -448,7 +450,11 @@ class FilesystemAdapter {
       const parentId = parentFieldPath ? `${realId}__${parentFieldPath}` : realId;
       return this._buildSyntheticNode(realId, parentId, key, val, fieldPath, 0);
     }
-    return this._readJson(path.join(this._itemDir(id), 'metadata.json'), null);
+    const item = this._readJson(path.join(this._itemDir(id), 'metadata.json'), null);
+    if (!item) return null;
+    const metaExtra = this._readJson(path.join(this._itemDir(id), 'meta.json'), null);
+    if (metaExtra?.icon) item.icon = metaExtra.icon;
+    return item;
   }
 
   resolveAlias(alias) {

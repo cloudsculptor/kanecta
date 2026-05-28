@@ -36,10 +36,16 @@ export interface KanectaItem {
   sortOrder: number;
   tags: string[];
   license?: string;
+  status?: string | null;
   workspaceId?: string;
-  createdAt: string;
-  modifiedAt: string;
+  createdAt: string | null;
+  modifiedAt: string | null;
   childCount?: number;
+  icon?: string | null;
+  _synthetic?: boolean;
+  _hasObject?: boolean;
+  _fieldPath?: string;
+  _realId?: string;
 }
 
 export interface KanectaItemWithChildren extends KanectaItem {
