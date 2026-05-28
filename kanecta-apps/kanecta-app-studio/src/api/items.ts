@@ -45,5 +45,8 @@ export function itemsApi(client: ApiClient) {
     backlinks: (id: string) => client.get<KanectaItem[]>(`/items/${id}/backlinks`),
 
     history: (id: string) => client.get<HistoryEntry[]>(`/items/${id}/history`),
+
+    saveObject: (id: string, data: Record<string, unknown>) =>
+      client.put<{ ok: boolean }>(`/items/${id}/object`, data),
   };
 }
