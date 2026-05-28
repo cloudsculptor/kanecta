@@ -17,6 +17,7 @@ import DifferenceOutlinedIcon from '@mui/icons-material/DifferenceOutlined';
 import CategoryIcon from '@mui/icons-material/Category';
 import { TreeNodeEditor } from './TreeNodeEditor';
 import { ItemValue } from '../../shared/ItemValue';
+import { DynamicIcon } from '../../shared/DynamicIcon';
 import { useItemLookup } from '../../../hooks/useItemLookup';
 import { TYPE_ICONS } from '../../../lib/typeIcons';
 import type { KanectaItem } from '../../../types/kanecta';
@@ -107,7 +108,10 @@ export function TreeNode({
           )}
         </button>
 
-        {(() => { const Icon = TYPE_ICONS[item._synthetic ? 'text' : item.type]; return Icon ? <Icon className="TreeNode-bullet" onClick={(e) => { e.stopPropagation(); onZoom(); onRecordViewed(item.type, item.typeId ?? ''); }} /> : <span className="TreeNode-bullet" />; })()}
+        {item.icon && !item._synthetic
+          ? <DynamicIcon name={item.icon} className="TreeNode-bullet" onClick={(e) => { e.stopPropagation(); onZoom(); onRecordViewed(item.type, item.typeId ?? ''); }} />
+          : (() => { const Icon = TYPE_ICONS[item._synthetic ? 'text' : item.type]; return Icon ? <Icon className="TreeNode-bullet" onClick={(e) => { e.stopPropagation(); onZoom(); onRecordViewed(item.type, item.typeId ?? ''); }} /> : <span className="TreeNode-bullet" />; })()
+        }
 
         {editing && !isSynthetic ? (
           <TreeNodeEditor
