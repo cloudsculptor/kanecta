@@ -46,6 +46,7 @@ interface TreeBranchProps {
   onExpandToDepth: (item: KanectaItem, depth: number | 'all') => void;
   onRecordClipboard: (item: KanectaItem, type: string, typeId: string) => void;
   onRecordViewed: (item: KanectaItem, type: string, typeId: string) => void;
+  onCopyObject: (item: KanectaItem) => Promise<void>;
 }
 
 function TreeBranch({
@@ -66,6 +67,7 @@ function TreeBranch({
   onExpandToDepth,
   onRecordClipboard,
   onRecordViewed,
+  onCopyObject,
 }: TreeBranchProps) {
   const { data: items = [], isLoading, error } = useTreeData(parentId, workspaceId);
 
@@ -94,6 +96,7 @@ function TreeBranch({
           onExpandToDepth={(depth) => onExpandToDepth(item, depth)}
           onRecordClipboard={(type, typeId) => onRecordClipboard(item, type, typeId)}
           onRecordViewed={(type, typeId) => onRecordViewed(item, type, typeId)}
+          onCopyObject={item._hasObject ? () => onCopyObject(item) : undefined}
         >
           {expandedIds.has(item.id) && (
             <TreeBranch
@@ -114,6 +117,7 @@ function TreeBranch({
               onExpandToDepth={onExpandToDepth}
               onRecordClipboard={onRecordClipboard}
               onRecordViewed={onRecordViewed}
+              onCopyObject={onCopyObject}
             />
           )}
         </TreeNode>
@@ -308,6 +312,14 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
     [api],
   );
 
+  const handleCopyObject = useCallback(
+    async (item: KanectaItem) => {
+      const obj = await api.items.getObject(item.id);
+      await navigator.clipboard.writeText(JSON.stringify(obj, null, 2));
+    },
+    [api],
+  );
+
   const handleExpandToDepth = useCallback(
     async (item: KanectaItem, depth: number | 'all') => {
       const maxDepth = depth === 'all' ? undefined : depth;
@@ -342,6 +354,7 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
     onExpandToDepth: handleExpandToDepth,
     onRecordClipboard: handleRecordClipboard,
     onRecordViewed: handleRecordViewed,
+    onCopyObject: handleCopyObject,
   };
 
   return (

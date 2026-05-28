@@ -41,6 +41,7 @@ interface TreeNodeProps {
   onExpandToDepth: (depth: number | 'all') => void;
   onRecordClipboard: (type: string, typeId: string) => void;
   onRecordViewed: (type: string, typeId: string) => void;
+  onCopyObject?: () => Promise<void>;
   isFocused: boolean;
 }
 
@@ -62,6 +63,7 @@ export function TreeNode({
   onExpandToDepth,
   onRecordClipboard,
   onRecordViewed,
+  onCopyObject,
   isFocused,
 }: TreeNodeProps) {
   const [editing, setEditing] = useState(false);
@@ -148,6 +150,13 @@ export function TreeNode({
             <Tooltip title="Copy type ID">
               <IconButton size="small" onClick={(e) => { e.stopPropagation(); void navigator.clipboard.writeText(item.typeId!); }}>
                 <CategoryIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+              </IconButton>
+            </Tooltip>
+          )}
+          {item._hasObject && onCopyObject && (
+            <Tooltip title="Copy object JSON">
+              <IconButton size="small" onClick={(e) => { e.stopPropagation(); void onCopyObject(); }}>
+                <DataObjectIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
               </IconButton>
             </Tooltip>
           )}
