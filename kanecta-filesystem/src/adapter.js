@@ -103,6 +103,100 @@ class FilesystemAdapter {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2) + '\n');
   }
 
+  // ─── Typed-object helpers (object.json / meta.json / synthetic nodes) ────────
+
+  _typeDir(typeId) {
+    const hex = typeId.replace(/-/g, '');
+    return path.join(this.k, 'types', hex.slice(0, 2), hex.slice(2, 4), typeId);
+  }
+
+  _isSyntheticId(id) {
+    return typeof id === 'string' && id.includes('__');
+  }
+
+  _parseSyntheticId(id) {
+    const sep = id.indexOf('__');
+    return { realId: id.slice(0, sep), fieldPath: id.slice(sep + 2) };
+  }
+
+  _toTitleCase(key) {
+    return key.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase());
+  }
+
+  _buildSyntheticNode(realId, parentId, key, val, fieldPath, sortOrder) {
+    const isObj = val !== null && typeof val === 'object' && !Array.isArray(val);
+    const isNull = val === null || val === undefined;
+    return {
+      id: `${realId}__${fieldPath}`,
+      parentId,
+      value: this._toTitleCase(key),
+      type: 'object',
+      typeId: null,
+      owner: null,
+      license: null,
+      sortOrder,
+      confidence: null,
+      status: null,
+      tags: [],
+      createdAt: null,
+      modifiedAt: null,
+      createdBy: null,
+      modifiedBy: null,
+      cachedAt: null,
+      subscribedAt: null,
+      subscriptionSource: null,
+      _synthetic: true,
+      _fieldPath: fieldPath,
+      _realId: realId,
+      childCount: isNull ? 0 : isObj ? Object.keys(val).length : 1,
+    };
+  }
+
+  _buildValueLeaf(realId, parentFieldPath, val) {
+    const isArr = Array.isArray(val);
+    const parentId = parentFieldPath ? `${realId}__${parentFieldPath}` : realId;
+    return {
+      id: `${realId}__${parentFieldPath}.__`,
+      parentId,
+      value: isArr ? val.join(', ') : String(val ?? ''),
+      type: 'object',
+      typeId: null,
+      owner: null,
+      license: null,
+      sortOrder: 0,
+      confidence: null,
+      status: null,
+      tags: [],
+      createdAt: null,
+      modifiedAt: null,
+      createdBy: null,
+      modifiedBy: null,
+      cachedAt: null,
+      subscribedAt: null,
+      subscriptionSource: null,
+      _synthetic: true,
+      _fieldPath: `${parentFieldPath}.__`,
+      _realId: realId,
+      childCount: 0,
+    };
+  }
+
+  _buildSyntheticChildren(realId, obj, parentId, prefix = '') {
+    return Object.entries(obj).map(([key, val], i) => {
+      const fieldPath = prefix ? `${prefix}.${key}` : key;
+      return this._buildSyntheticNode(realId, parentId, key, val, fieldPath, i);
+    });
+  }
+
+  readObjectJson(id) {
+    if (this._isSyntheticId(id)) return null;
+    return this._readJson(path.join(this._itemDir(id), 'object.json'), null);
+  }
+
+  writeObjectJson(id, data) {
+    this._writeJson(path.join(this._itemDir(id), 'object.json'), data);
+  }
+
   // ─── Link extraction ───────────────────────────────────────────────────────
 
   _parseLinks(value) {
@@ -260,7 +354,7 @@ class FilesystemAdapter {
   create({
     parentId, value = null, type = 'string', typeId = null,
     owner, license = null, sortOrder, confidence = null, status = null, tags = [],
-    createdBy,
+    createdBy, objectData = null,
   } = {}) {
     if (WELL_KNOWN_TYPES.has(type)) {
       throw new Error(`Type '${type}' is a well-known root type and cannot be created via create()`);
@@ -305,6 +399,15 @@ class FilesystemAdapter {
 
     this._writeJson(path.join(this._itemDir(id), 'metadata.json'), item);
 
+    // C1 + C2: for typed objects with data, write meta.json and object.json
+    if (type === 'object' && typeId && objectData !== null) {
+      const typeMeta = this._readJson(path.join(this._typeDir(typeId), 'metadata.json'), null);
+      if (typeMeta) {
+        this._writeJson(path.join(this._itemDir(id), 'meta.json'), { ...typeMeta, type: 'object' });
+      }
+      this._writeJson(path.join(this._itemDir(id), 'object.json'), objectData);
+    }
+
     if (item.typeId) this._addTypeEntry(item.typeId, id);
     for (const link of this._parseLinks(value)) this._addBacklink(link, id);
     for (const tag of tags) this._addTagEntry(tag, id);
@@ -314,6 +417,37 @@ class FilesystemAdapter {
   }
 
   get(id) {
+    if (this._isSyntheticId(id)) {
+      const { realId, fieldPath } = this._parseSyntheticId(id);
+      const obj = this.readObjectJson(realId);
+      if (!obj) return null;
+
+      // Terminal value leaf (e.g. "title.__")
+      if (fieldPath.endsWith('.__')) {
+        const parentPath = fieldPath.slice(0, -3);
+        const parts = parentPath ? parentPath.split('.') : [];
+        let cur = obj;
+        for (const p of parts) {
+          if (!cur || typeof cur !== 'object') return null;
+          cur = cur[p];
+        }
+        if (cur === undefined || cur === null) return null;
+        return this._buildValueLeaf(realId, parentPath, cur);
+      }
+
+      const parts = fieldPath.split('.');
+      let cur = obj;
+      for (const p of parts.slice(0, -1)) {
+        if (!cur || typeof cur !== 'object') return null;
+        cur = cur[p];
+      }
+      const key = parts[parts.length - 1];
+      const val = cur?.[key];
+      if (val === undefined) return null;
+      const parentFieldPath = parts.slice(0, -1).join('.');
+      const parentId = parentFieldPath ? `${realId}__${parentFieldPath}` : realId;
+      return this._buildSyntheticNode(realId, parentId, key, val, fieldPath, 0);
+    }
     return this._readJson(path.join(this._itemDir(id), 'metadata.json'), null);
   }
 
@@ -586,9 +720,36 @@ class FilesystemAdapter {
   }
 
   children(parentId) {
-    return this.loadAll()
+    // C3: synthetic parent — navigate into the nested object field
+    if (this._isSyntheticId(parentId)) {
+      const { realId, fieldPath } = this._parseSyntheticId(parentId);
+
+      // Terminal value leaf — no children
+      if (fieldPath.endsWith('.__')) return [];
+
+      const obj = this.readObjectJson(realId);
+      if (!obj) return [];
+      const parts = fieldPath.split('.');
+      let cur = obj;
+      for (const p of parts) {
+        if (cur === null || typeof cur !== 'object' || Array.isArray(cur)) return [];
+        cur = cur[p];
+      }
+      if (cur === null || cur === undefined) return [];
+      const isPlainObj = typeof cur === 'object' && !Array.isArray(cur);
+      if (isPlainObj) return this._buildSyntheticChildren(realId, cur, parentId, fieldPath);
+      return [this._buildValueLeaf(realId, fieldPath, cur)];
+    }
+
+    const realChildren = this.loadAll()
       .filter(i => i.parentId === parentId && i.id !== parentId)
       .sort((a, b) => a.sortOrder - b.sortOrder);
+
+    // C3: prepend synthetic children from object.json if present
+    const obj = this.readObjectJson(parentId);
+    if (!obj) return realChildren;
+    const synChildren = this._buildSyntheticChildren(parentId, obj, parentId);
+    return [...synChildren, ...realChildren];
   }
 
   tree(rootId, maxDepth = Infinity) {
