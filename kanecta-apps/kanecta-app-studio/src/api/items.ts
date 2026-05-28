@@ -16,7 +16,12 @@ export function itemsApi(client: ApiClient) {
 
     root: () => client.get<KanectaItem>('/items/root'),
 
-    stats: () => client.get<{ total: number; typedCount: number; typeCounts: Record<string, number> }>('/items/stats'),
+    stats: () => client.get<{
+      total: number;
+      typedCount: number;
+      structured: Array<{ typeId: string; name: string; icon: string | null; count: number }>;
+      unstructured: Array<{ type: string; count: number }>;
+    }>('/items/stats'),
 
     get: (id: string) => client.get<KanectaItem>(`/items/${id}`),
 

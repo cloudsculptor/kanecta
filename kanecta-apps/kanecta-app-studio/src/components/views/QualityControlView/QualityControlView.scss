@@ -40,6 +40,31 @@
     margin-bottom: 32px;
   }
 
+  &-section-heading {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-muted);
+    align-self: flex-start;
+    margin-top: 16px;
+    padding: 0 16px;
+  }
+
+  &-type-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &-type-icon {
+    font-size: 21px !important;
+    width: 21px !important;
+    height: 21px !important;
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+  }
+
   &-table {
     border-collapse: collapse;
     min-width: 240px;
