@@ -18,6 +18,7 @@ import CodeIcon from '@mui/icons-material/Code';
 import LinkIcon from '@mui/icons-material/Link';
 import ImageIcon from '@mui/icons-material/Image';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
+import AddBoxRoundedIcon from '@mui/icons-material/AddBoxRounded';
 import type { SvgIconComponent } from '@mui/icons-material';
 import { TreeNodeEditor } from './TreeNodeEditor';
 import { ItemValue } from '../../shared/ItemValue';
@@ -37,6 +38,7 @@ const TYPE_ICONS: Record<ItemType, SvgIconComponent> = {
   text: StopRoundedIcon,
   code: CodeIcon,
   url: LinkIcon,
+  heading: AddBoxRoundedIcon,
   image: ImageIcon,
   file: InsertDriveFileIcon,
 };
