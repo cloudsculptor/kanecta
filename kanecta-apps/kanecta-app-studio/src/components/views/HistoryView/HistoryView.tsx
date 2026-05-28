@@ -30,7 +30,7 @@ function CopyUuidButton({ id }: { id: string }) {
   );
 }
 
-function HistoryList({ queryKey, fetcher, emptyMessage, onNavigate }: {
+export function HistoryList({ queryKey, fetcher, emptyMessage, onNavigate }: {
   queryKey: string;
   fetcher: () => Promise<ClipboardEntry[]>;
   emptyMessage: string;
