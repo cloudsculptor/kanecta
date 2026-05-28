@@ -10,48 +10,17 @@ import Looks3Icon from '@mui/icons-material/Looks3';
 import Looks4Icon from '@mui/icons-material/Looks4';
 import Looks5Icon from '@mui/icons-material/Looks5';
 import AddBoxIcon from '@mui/icons-material/AddBox';
-import NumbersIcon from '@mui/icons-material/Numbers';
-import RecordVoiceOverIcon from '@mui/icons-material/RecordVoiceOver';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
-import TaskAltIcon from '@mui/icons-material/TaskAlt';
-import StickyNote2Icon from '@mui/icons-material/StickyNote2';
-import LightbulbIcon from '@mui/icons-material/Lightbulb';
-import PersonIcon from '@mui/icons-material/Person';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import StopRoundedIcon from '@mui/icons-material/StopRounded';
-import CodeIcon from '@mui/icons-material/Code';
-import LinkIcon from '@mui/icons-material/Link';
-import ImageIcon from '@mui/icons-material/Image';
-import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import AddBoxRoundedIcon from '@mui/icons-material/AddBoxRounded';
 import DataObjectIcon from '@mui/icons-material/DataObject';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import FingerprintIcon from '@mui/icons-material/Fingerprint';
 import CategoryIcon from '@mui/icons-material/Category';
-import type { SvgIconComponent } from '@mui/icons-material';
 import { TreeNodeEditor } from './TreeNodeEditor';
 import { ItemValue } from '../../shared/ItemValue';
 import { useItemLookup } from '../../../hooks/useItemLookup';
-import type { KanectaItem, ItemType } from '../../../types/kanecta';
+import { TYPE_ICONS } from '../../../lib/typeIcons';
+import type { KanectaItem } from '../../../types/kanecta';
 import './TreeNode.scss';
-
-const TYPE_ICONS: Record<ItemType, SvgIconComponent> = {
-  number: NumbersIcon,
-  claim: RecordVoiceOverIcon,
-  question: HelpOutlineIcon,
-  task: TaskAltIcon,
-  note: StickyNote2Icon,
-  concept: LightbulbIcon,
-  entity: PersonIcon,
-  event: CalendarTodayIcon,
-  text: StopRoundedIcon,
-  code: CodeIcon,
-  url: LinkIcon,
-  heading: AddBoxRoundedIcon,
-  image: ImageIcon,
-  file: InsertDriveFileIcon,
-  object: DataObjectIcon,
-};
 
 interface TreeNodeProps {
   item: KanectaItem;
@@ -69,7 +38,8 @@ interface TreeNodeProps {
   onOutdent: () => void;
   onFocus: () => void;
   onExpandToDepth: (depth: number | 'all') => void;
-  onRecordClipboard: () => void;
+  onRecordClipboard: (type: string, typeId: string) => void;
+  onRecordViewed: (type: string, typeId: string) => void;
   isFocused: boolean;
 }
 
@@ -90,6 +60,7 @@ export function TreeNode({
   onFocus,
   onExpandToDepth,
   onRecordClipboard,
+  onRecordViewed,
   isFocused,
 }: TreeNodeProps) {
   const [editing, setEditing] = useState(false);
@@ -134,7 +105,7 @@ export function TreeNode({
           )}
         </button>
 
-        {(() => { const Icon = TYPE_ICONS[item.type]; return Icon ? <Icon className="TreeNode-bullet" onClick={(e) => { e.stopPropagation(); onZoom(); }} /> : <span className="TreeNode-bullet" />; })()}
+        {(() => { const Icon = TYPE_ICONS[item.type]; return Icon ? <Icon className="TreeNode-bullet" onClick={(e) => { e.stopPropagation(); onZoom(); onRecordViewed(item.type, item.typeId ?? ''); }} /> : <span className="TreeNode-bullet" />; })()}
 
         {editing ? (
           <TreeNodeEditor
@@ -163,7 +134,7 @@ export function TreeNode({
             </IconButton>
           </Tooltip>
           <Tooltip title="Copy ID">
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); void navigator.clipboard.writeText(item.id); onRecordClipboard(); }}>
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); void navigator.clipboard.writeText(item.id); onRecordClipboard(item.type, item.typeId ?? ''); }}>
               <FingerprintIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
             </IconButton>
           </Tooltip>
@@ -188,7 +159,7 @@ export function TreeNode({
             </Tooltip>
           ))}
           <Tooltip title="Zoom in">
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onZoom(); }}>
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onZoom(); onRecordViewed(item.type, item.typeId ?? ''); }}>
               <ZoomInIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
             </IconButton>
           </Tooltip>

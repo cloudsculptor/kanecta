@@ -39,7 +39,8 @@ interface TreeBranchProps {
   onOutdent: (item: KanectaItem) => void;
   onNavigateToId: (id: string) => void;
   onExpandToDepth: (item: KanectaItem, depth: number | 'all') => void;
-  onRecordClipboard: (item: KanectaItem) => void;
+  onRecordClipboard: (item: KanectaItem, type: string, typeId: string) => void;
+  onRecordViewed: (item: KanectaItem, type: string, typeId: string) => void;
 }
 
 function TreeBranch({
@@ -59,6 +60,7 @@ function TreeBranch({
   onNavigateToId,
   onExpandToDepth,
   onRecordClipboard,
+  onRecordViewed,
 }: TreeBranchProps) {
   const { data: items = [], isLoading, error } = useTreeData(parentId, workspaceId);
 
@@ -85,7 +87,8 @@ function TreeBranch({
           onIndent={() => onIndent(item)}
           onOutdent={() => onOutdent(item)}
           onExpandToDepth={(depth) => onExpandToDepth(item, depth)}
-          onRecordClipboard={() => onRecordClipboard(item)}
+          onRecordClipboard={(type, typeId) => onRecordClipboard(item, type, typeId)}
+          onRecordViewed={(type, typeId) => onRecordViewed(item, type, typeId)}
         >
           {expandedIds.has(item.id) && (
             <TreeBranch
@@ -105,6 +108,7 @@ function TreeBranch({
               onNavigateToId={onNavigateToId}
               onExpandToDepth={onExpandToDepth}
               onRecordClipboard={onRecordClipboard}
+              onRecordViewed={onRecordViewed}
             />
           )}
         </TreeNode>
@@ -240,8 +244,15 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
   );
 
   const handleRecordClipboard = useCallback(
-    (item: KanectaItem) => {
-      void api.breadcrumb.addClipboard(item.id, item.value);
+    (item: KanectaItem, type: string, typeId: string) => {
+      void api.breadcrumb.addClipboard(item.id, item.value, type, typeId);
+    },
+    [api],
+  );
+
+  const handleRecordViewed = useCallback(
+    (item: KanectaItem, type: string, typeId: string) => {
+      void api.breadcrumb.addViewed(item.id, item.value, type, typeId);
     },
     [api],
   );
@@ -279,6 +290,7 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
     onNavigateToId: handleNavigateToId,
     onExpandToDepth: handleExpandToDepth,
     onRecordClipboard: handleRecordClipboard,
+    onRecordViewed: handleRecordViewed,
   };
 
   return (
