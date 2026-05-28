@@ -230,8 +230,8 @@ app.get('/items/stats', (req, res) => {
   if (!ds) return;
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
 
-  // Build UUID → type name map from types directory
-  const typeNames = {};
+  // Build typeId → { name, icon } from types directory
+  const typeInfo = {};
   const typesDir = path.join(root, 'types');
   if (fs.existsSync(typesDir)) {
     for (const s1 of fs.readdirSync(typesDir)) {
@@ -241,11 +241,12 @@ app.get('/items/stats', (req, res) => {
         const d2 = path.join(d1, s2);
         if (!fs.statSync(d2).isDirectory()) continue;
         for (const id of fs.readdirSync(d2)) {
-          const metaPath = path.join(d2, id, 'metadata.json');
-          if (!fs.existsSync(metaPath)) continue;
           try {
-            const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-            if (meta.value) typeNames[id] = meta.value;
+            const metaPath = path.join(d2, id, 'metadata.json');
+            const specPath = path.join(d2, id, 'type.json');
+            const name = fs.existsSync(metaPath) ? JSON.parse(fs.readFileSync(metaPath, 'utf8')).value : null;
+            const icon = fs.existsSync(specPath) ? (JSON.parse(fs.readFileSync(specPath, 'utf8')).meta?.icon ?? null) : null;
+            if (name) typeInfo[id] = { name, icon };
           } catch (_) {}
         }
       }
@@ -253,20 +254,33 @@ app.get('/items/stats', (req, res) => {
   }
 
   const ROOT_TYPES = new Set(['root', 'data_root', 'app_root', 'component_root', 'system_root']);
-  const typeCounts = {};
+  const structuredMap = {};
+  const unstructuredMap = {};
   let total = 0;
-  let typedCount = 0;
 
   for (const item of ds.loadAll()) {
     const raw = item.type;
     if (!raw || ROOT_TYPES.has(raw)) continue;
     total++;
-    const label = UUID_RE.test(raw) ? (typeNames[raw] ?? raw) : raw;
-    typeCounts[label] = (typeCounts[label] || 0) + 1;
-    if (label !== 'unknown') typedCount++;
+
+    if (raw === 'object' && item.typeId) {
+      const info = typeInfo[item.typeId] ?? { name: item.typeId, icon: null };
+      if (!structuredMap[item.typeId]) {
+        structuredMap[item.typeId] = { typeId: item.typeId, name: info.name, icon: info.icon, count: 0 };
+      }
+      structuredMap[item.typeId].count++;
+    } else {
+      unstructuredMap[raw] = (unstructuredMap[raw] || 0) + 1;
+    }
   }
 
-  res.json({ total, typedCount, typeCounts });
+  const structured = Object.values(structuredMap).sort((a, b) => b.count - a.count);
+  const unstructured = Object.entries(unstructuredMap)
+    .sort((a, b) => b[1] - a[1])
+    .map(([type, count]) => ({ type, count }));
+  const typedCount = structured.reduce((s, r) => s + r.count, 0);
+
+  res.json({ total, typedCount, structured, unstructured });
 });
 
 // GET /items/root — get the data_root item
