@@ -217,6 +217,7 @@ const TOOLS = [
         id: { type: 'string', description: 'Item UUID' },
         value: { type: 'string', description: 'New value/content' },
         type: { type: 'string', description: 'New type' },
+        typeId: { type: 'string', description: 'Type UUID — set when converting an item to a typed object' },
         tags: { type: 'array', items: { type: 'string' }, description: 'Replace tags' },
         parentId: { type: 'string', description: 'Move item to a new parent UUID' },
         sortOrder: { type: 'number', description: 'New sort position among siblings' },
