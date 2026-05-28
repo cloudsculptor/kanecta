@@ -777,9 +777,15 @@ app.post('/breadcrumb/viewed', (req, res) => {
 
 function starredFilePath() {
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
-  const dir = path.join(root, 'app', 'studio');
+  const studioDir = path.join(root, 'app', 'studio');
+  const dir = path.join(studioDir, 'starred');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  return path.join(dir, 'starred.csv');
+  const newPath = path.join(dir, 'starred.csv');
+  const oldPath = path.join(studioDir, 'starred.csv');
+  if (!fs.existsSync(newPath) && fs.existsSync(oldPath)) {
+    fs.renameSync(oldPath, newPath);
+  }
+  return newPath;
 }
 
 function readStarred() {
