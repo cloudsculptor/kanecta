@@ -138,13 +138,13 @@ export function TreeNode({
               <FingerprintIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
             </IconButton>
           </Tooltip>
-          <Tooltip title={item.typeId ? 'Copy type ID' : 'No type ID (primitive type)'}>
-            <span>
-              <IconButton size="small" disabled={!item.typeId} onClick={(e) => { e.stopPropagation(); if (item.typeId) void navigator.clipboard.writeText(item.typeId); }}>
+          {item.typeId && (
+            <Tooltip title="Copy type ID">
+              <IconButton size="small" onClick={(e) => { e.stopPropagation(); void navigator.clipboard.writeText(item.typeId!); }}>
                 <CategoryIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
               </IconButton>
-            </span>
-          </Tooltip>
+            </Tooltip>
+          )}
           {([
             { depth: 2, Icon: LooksTwoIcon, label: 'Expand 2 levels' },
             { depth: 3, Icon: Looks3Icon,   label: 'Expand 3 levels' },
