@@ -70,7 +70,7 @@ function StudioInner() {
   const renderView = (panelId: string, viewType: string) => {
     switch (viewType) {
       case 'tree': return <TreeView panelId={panelId} />;
-      case 'table': return <TableView panelId={panelId} />;
+      case 'table': return <TableView />;
       case 'templates': return <TemplatesView />;
       case 'board': return <BoardView panelId={panelId} />;
       case 'gallery': return <GalleryView panelId={panelId} />;
