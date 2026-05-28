@@ -357,6 +357,17 @@ app.get('/items/:id/children', (req, res) => {
   res.json(withChildCounts(ds, ds.children(id)));
 });
 
+// GET /items/:id/object — read the object.json for a typed object item
+app.get('/items/:id/object', (req, res) => {
+  const { id } = req.params;
+  if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
+  const ds = openDatastore(res);
+  if (!ds) return;
+  const obj = ds.readObjectJson(id);
+  if (!obj) return res.status(404).json({ error: 'No object data for this item' });
+  res.json(obj);
+});
+
 // PUT /items/:id/object — write or replace the object.json for a typed object item
 app.put('/items/:id/object', (req, res) => {
   const { id } = req.params;
