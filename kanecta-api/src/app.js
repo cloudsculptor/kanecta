@@ -333,6 +333,7 @@ app.put('/items/:id', (req, res) => {
 
   try {
     const updated = ds.update(id, changes, body.actor);
+    if (body.objectData !== undefined) ds.writeObjectJson(id, body.objectData);
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
