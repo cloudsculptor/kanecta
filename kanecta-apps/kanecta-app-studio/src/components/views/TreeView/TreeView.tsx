@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import HomeIcon from '@mui/icons-material/Home';
 import { TreeNode } from './TreeNode';
@@ -126,6 +126,23 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [zoomStack, setZoomStack] = useState<BreadcrumbItem[]>([]);
   const rootId = zoomedItemId ?? zoomStack[zoomStack.length - 1]?.id ?? null;
+
+  // Restore zoom state from hash on mount
+  useEffect(() => {
+    const match = window.location.hash.match(/^#\/tree\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
+    if (!match) return;
+    const id = match[1];
+    void getApi().items.get(id)
+      .then((item) => setZoomStack([{ id, label: item.value }]))
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sync rootId → URL hash
+  useEffect(() => {
+    const hash = rootId ? `/tree/${rootId}` : '';
+    history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash ? `#${hash}` : ''}`);
+  }, [rootId]);
 
   const { data: rootItems = [], isLoading, error } = useQuery({
     queryKey: ['tree-children', rootId, activeWorkspaceId],
