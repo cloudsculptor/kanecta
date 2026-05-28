@@ -6,6 +6,7 @@ import { tagsApi } from './tags';
 import { treeApi } from './tree';
 import { typesApi } from './types';
 import { breadcrumbApi } from './breadcrumb';
+import { starredApi } from './starred';
 
 export { ApiError } from './client';
 export type { AliasEntry } from './aliases';
@@ -22,6 +23,7 @@ export function createApi(baseUrl: string) {
     tree: treeApi(client),
     types: typesApi(client),
     breadcrumb: breadcrumbApi(client),
+    starred: starredApi(client),
   };
 }
 

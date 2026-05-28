@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { IconButton, Tooltip } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
+import StarIcon from '@mui/icons-material/Star';
+import StarBorderIcon from '@mui/icons-material/StarBorder';
+import FingerprintIcon from '@mui/icons-material/Fingerprint';
+import LinkIcon from '@mui/icons-material/Link';
 import { TreeNode } from './TreeNode';
 import { Breadcrumb } from '../../shared/Breadcrumb';
 import type { BreadcrumbItem } from '../../shared/Breadcrumb';
@@ -126,6 +131,34 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [zoomStack, setZoomStack] = useState<BreadcrumbItem[]>([]);
   const rootId = zoomedItemId ?? zoomStack[zoomStack.length - 1]?.id ?? null;
+
+  const { data: starredList = [] } = useQuery({
+    queryKey: ['starred'],
+    queryFn: () => api.starred.list(),
+    refetchInterval: 10_000,
+  });
+  const isStarred = rootId ? starredList.some((e) => e.id === rootId) : false;
+  const currentLabel = zoomStack[zoomStack.length - 1]?.label ?? '';
+
+  const handleStar = useCallback(async () => {
+    if (!rootId) return;
+    if (isStarred) {
+      await api.starred.remove(rootId);
+    } else {
+      await api.starred.add(rootId, currentLabel, '', '');
+    }
+    void qc.invalidateQueries({ queryKey: ['starred'] });
+  }, [rootId, isStarred, currentLabel, api, qc]);
+
+  const handleCopyId = useCallback(() => {
+    if (!rootId) return;
+    void navigator.clipboard.writeText(rootId);
+    void api.breadcrumb.addClipboard(rootId, currentLabel, '', '');
+  }, [rootId, currentLabel, api]);
+
+  const handleCopyUrl = useCallback(() => {
+    void navigator.clipboard.writeText(window.location.href);
+  }, []);
 
   // Restore zoom state from hash on mount
   useEffect(() => {
@@ -321,6 +354,23 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
               else handleBreadcrumbNav(id);
             }}
           />
+          <div className="TreeView-breadcrumb-actions">
+            <Tooltip title={isStarred ? 'Unstar' : 'Star'}>
+              <IconButton size="small" className={`TreeView-breadcrumb-btn${isStarred ? ' TreeView-breadcrumb-btn--starred' : ''}`} onClick={() => void handleStar()}>
+                {isStarred ? <StarIcon sx={{ fontSize: 16 }} /> : <StarBorderIcon sx={{ fontSize: 16 }} />}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Copy ID">
+              <IconButton size="small" className="TreeView-breadcrumb-btn" onClick={handleCopyId}>
+                <FingerprintIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Copy URL">
+              <IconButton size="small" className="TreeView-breadcrumb-btn" onClick={handleCopyUrl}>
+                <LinkIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Tooltip>
+          </div>
         </div>
       )}
 
