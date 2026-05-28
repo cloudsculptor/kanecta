@@ -614,6 +614,50 @@ app.get('/types/:id/schema', (req, res) => {
   }
 });
 
+// ─── Breadcrumb ───────────────────────────────────────────────────────────────
+
+const CLIPBOARD_MAX = 100;
+
+function clipboardPath() {
+  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const dir = path.join(root, 'breadcrumb');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  return path.join(dir, 'clipboard.csv');
+}
+
+function readClipboard() {
+  const p = clipboardPath();
+  if (!fs.existsSync(p)) return [];
+  const lines = fs.readFileSync(p, 'utf8').trim().split('\n').filter(Boolean);
+  return lines.map((line) => {
+    const firstComma = line.indexOf(',');
+    const lastComma = line.lastIndexOf(',');
+    return {
+      id: line.slice(0, firstComma),
+      name: line.slice(firstComma + 1, lastComma),
+      timestamp: line.slice(lastComma + 1),
+    };
+  });
+}
+
+// GET /breadcrumb/clipboard
+app.get('/breadcrumb/clipboard', (_req, res) => {
+  res.json(readClipboard().reverse());
+});
+
+// POST /breadcrumb/clipboard — append { id, name }
+app.post('/breadcrumb/clipboard', (req, res) => {
+  const { id, name } = req.body;
+  if (!id || !name) return res.status(400).json({ error: 'id and name required' });
+  const timestamp = new Date().toISOString();
+  let entries = readClipboard();
+  entries.push({ id, name: name.replace(/,/g, ' '), timestamp });
+  if (entries.length > CLIPBOARD_MAX) entries = entries.slice(entries.length - CLIPBOARD_MAX);
+  const csv = entries.map((e) => `${e.id},${e.name},${e.timestamp}`).join('\n');
+  fs.writeFileSync(clipboardPath(), csv + '\n');
+  res.json({ ok: true });
+});
+
 // ─── Index ────────────────────────────────────────────────────────────────────
 
 // POST /rebuild-indexes — rebuild all index caches from data/
