@@ -145,7 +145,8 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
     if (isStarred) {
       await api.starred.remove(rootId);
     } else {
-      await api.starred.add(rootId, currentLabel, '', '');
+      const item = await api.items.get(rootId);
+      await api.starred.add(rootId, currentLabel, item.type, item.typeId ?? '');
     }
     void qc.invalidateQueries({ queryKey: ['starred'] });
   }, [rootId, isStarred, currentLabel, api, qc]);
