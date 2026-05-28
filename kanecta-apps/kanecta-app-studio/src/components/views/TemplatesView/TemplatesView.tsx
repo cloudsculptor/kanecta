@@ -398,8 +398,23 @@ export function TemplatesView() {
       const newType = await getApi().types.create(newName.trim());
       await queryClient.invalidateQueries({ queryKey: ['types'] });
       const initialSchema = JSON.stringify({
-        meta: { description: '' },
-        jsonSchema: { '$schema': 'http://json-schema.org/draft-07/schema#', title: newName.trim(), type: 'object', properties: {} },
+        meta: {
+          icon: '',
+          description: '',
+          details: '',
+          keywords: '',
+          tags: '',
+          'ai-instructions': { claude: '' },
+        },
+        jsonSchema: {
+          '$schema': 'http://json-schema.org/draft-07/schema#',
+          '$id': '',
+          title: newName.trim(),
+          type: 'object',
+          properties: {},
+          required: [],
+          additionalProperties: false,
+        },
       }, null, 2);
       setAdding(false);
       setNewName('');
