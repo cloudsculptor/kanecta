@@ -39,6 +39,7 @@ interface TreeBranchProps {
   onOutdent: (item: KanectaItem) => void;
   onNavigateToId: (id: string) => void;
   onExpandToDepth: (item: KanectaItem, depth: number | 'all') => void;
+  onRecordClipboard: (item: KanectaItem) => void;
 }
 
 function TreeBranch({
@@ -57,6 +58,7 @@ function TreeBranch({
   onOutdent,
   onNavigateToId,
   onExpandToDepth,
+  onRecordClipboard,
 }: TreeBranchProps) {
   const { data: items = [], isLoading, error } = useTreeData(parentId, workspaceId);
 
@@ -83,6 +85,7 @@ function TreeBranch({
           onIndent={() => onIndent(item)}
           onOutdent={() => onOutdent(item)}
           onExpandToDepth={(depth) => onExpandToDepth(item, depth)}
+          onRecordClipboard={() => onRecordClipboard(item)}
         >
           {expandedIds.has(item.id) && (
             <TreeBranch
@@ -101,6 +104,7 @@ function TreeBranch({
               onOutdent={onOutdent}
               onNavigateToId={onNavigateToId}
               onExpandToDepth={onExpandToDepth}
+              onRecordClipboard={onRecordClipboard}
             />
           )}
         </TreeNode>
@@ -235,6 +239,13 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
     [],
   );
 
+  const handleRecordClipboard = useCallback(
+    (item: KanectaItem) => {
+      void api.breadcrumb.addClipboard(item.id, item.value);
+    },
+    [api],
+  );
+
   const handleExpandToDepth = useCallback(
     async (item: KanectaItem, depth: number | 'all') => {
       const maxDepth = depth === 'all' ? undefined : depth;
@@ -267,6 +278,7 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
     onOutdent: handleOutdent,
     onNavigateToId: handleNavigateToId,
     onExpandToDepth: handleExpandToDepth,
+    onRecordClipboard: handleRecordClipboard,
   };
 
   return (

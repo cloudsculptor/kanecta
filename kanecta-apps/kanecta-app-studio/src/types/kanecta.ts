@@ -12,7 +12,8 @@ export type ItemType =
   | 'code'
   | 'url'
   | 'image'
-  | 'file';
+  | 'file'
+  | 'object';
 
 export type Confidence = 'low' | 'medium' | 'high' | 'verified' | 'locked';
 

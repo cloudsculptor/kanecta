@@ -10,7 +10,7 @@ import { ITEM_TYPES, CONFIDENCE_LEVELS } from '../../lib/constants';
 import type { KanectaItem } from '../../types/kanecta';
 import './ItemMetadata.scss';
 
-const TOP_TYPES = ['text', 'number', 'heading', 'file', 'image'];
+const TOP_TYPES = ['text', 'number', 'heading', 'url', 'file', 'image', 'code', 'object'];
 const OTHER_TYPES = ITEM_TYPES.filter((t) => !TOP_TYPES.includes(t));
 
 interface ItemMetadataProps {
@@ -19,13 +19,14 @@ interface ItemMetadataProps {
 
 type EditableField = 'value' | 'type' | 'confidence' | 'tags' | null;
 
-function CopyButton({ text }: { text: string }) {
+function CopyButton({ text, onAfterCopy }: { text: string; onAfterCopy?: () => void }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+    onAfterCopy?.();
   };
 
   return (
@@ -38,7 +39,7 @@ function CopyButton({ text }: { text: string }) {
 }
 
 export function ItemMetadata({ item }: ItemMetadataProps) {
-  const { getApi } = useWorkspaceStore();
+  const { getApi, activeWorkspaceId } = useWorkspaceStore();
   const qc = useQueryClient();
   const resolveId = useItemLookup();
   const [editingField, setEditingField] = useState<EditableField>(null);
@@ -136,10 +137,10 @@ export function ItemMetadata({ item }: ItemMetadataProps) {
           onChange={handleTypeChange}
           aria-label="Item type"
         >
-          <optgroup label="Common">
+          <optgroup label="Primitive">
             {TOP_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
           </optgroup>
-          <optgroup label="Built-in">
+          <optgroup label="AI">
             {OTHER_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
           </optgroup>
           {customTypes.length > 0 && (
@@ -193,7 +194,7 @@ export function ItemMetadata({ item }: ItemMetadataProps) {
         <div className="ItemMetadata-value" style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
           {item.id}
         </div>
-        <CopyButton text={item.id} />
+        <CopyButton text={item.id} onAfterCopy={() => void getApi(activeWorkspaceId).breadcrumb.addClipboard(item.id, item.value)} />
       </div>
     </div>
   );

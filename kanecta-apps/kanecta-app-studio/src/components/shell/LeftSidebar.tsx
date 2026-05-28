@@ -16,6 +16,7 @@ import FlightIcon from '@mui/icons-material/Flight';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import SyncIcon from '@mui/icons-material/Sync';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
+import HistoryIcon from '@mui/icons-material/History';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import type { SidebarState, ViewType } from '../../types/ui';
@@ -36,6 +37,7 @@ const NAV_ITEMS: NavItem[] = [
   { view: 'combinator', label: 'Combinator', icon: <MergeTypeIcon fontSize="small" /> },
   { view: 'query', label: 'Query', icon: <ManageSearchIcon fontSize="small" /> },
   { view: 'ai-instructions', label: 'AI Instructions', icon: <PsychologyIcon fontSize="small" /> },
+  { view: 'history', label: 'History', icon: <HistoryIcon fontSize="small" /> },
   { view: 'inbox', label: 'Inbox', icon: <InboxIcon fontSize="small" /> },
   { view: 'export', label: 'Export', icon: <IosShareIcon fontSize="small" /> },
   { view: 'board', label: 'Board', icon: <ViewKanbanIcon fontSize="small" /> },

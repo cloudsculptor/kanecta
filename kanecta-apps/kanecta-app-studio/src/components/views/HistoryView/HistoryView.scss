@@ -1,0 +1,65 @@
+.HistoryView {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+
+  &-tabs {
+    border-bottom: 1px solid var(--color-border);
+    flex-shrink: 0;
+  }
+
+  &-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+  }
+
+  &-empty {
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+    padding: 24px 0;
+    text-align: center;
+  }
+
+  &-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &-entry {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+
+    &:hover {
+      background: var(--color-hover);
+    }
+  }
+
+  &-entry-name {
+    color: var(--color-text);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &-entry-id {
+    color: var(--color-text-muted);
+    font-family: monospace;
+    font-size: 0.72rem;
+    white-space: nowrap;
+  }
+
+  &-entry-time {
+    color: var(--color-text-muted);
+    font-size: 0.72rem;
+    white-space: nowrap;
+  }
+}

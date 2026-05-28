@@ -5,10 +5,12 @@ import { relationshipsApi } from './relationships';
 import { tagsApi } from './tags';
 import { treeApi } from './tree';
 import { typesApi } from './types';
+import { breadcrumbApi } from './breadcrumb';
 
 export { ApiError } from './client';
 export type { AliasEntry } from './aliases';
 export type { TypeDefinition } from './types';
+export type { ClipboardEntry } from './breadcrumb';
 
 export function createApi(baseUrl: string) {
   const client = makeClient(baseUrl);
@@ -19,6 +21,7 @@ export function createApi(baseUrl: string) {
     tags: tagsApi(client),
     tree: treeApi(client),
     types: typesApi(client),
+    breadcrumb: breadcrumbApi(client),
   };
 }
 

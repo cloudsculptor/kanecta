@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { IconButton, Tooltip } from '@mui/material';
+import { IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import AddIcon from '@mui/icons-material/Add';
@@ -24,6 +24,10 @@ import LinkIcon from '@mui/icons-material/Link';
 import ImageIcon from '@mui/icons-material/Image';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import AddBoxRoundedIcon from '@mui/icons-material/AddBoxRounded';
+import DataObjectIcon from '@mui/icons-material/DataObject';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import FingerprintIcon from '@mui/icons-material/Fingerprint';
+import CategoryIcon from '@mui/icons-material/Category';
 import type { SvgIconComponent } from '@mui/icons-material';
 import { TreeNodeEditor } from './TreeNodeEditor';
 import { ItemValue } from '../../shared/ItemValue';
@@ -46,6 +50,7 @@ const TYPE_ICONS: Record<ItemType, SvgIconComponent> = {
   heading: AddBoxRoundedIcon,
   image: ImageIcon,
   file: InsertDriveFileIcon,
+  object: DataObjectIcon,
 };
 
 interface TreeNodeProps {
@@ -64,6 +69,7 @@ interface TreeNodeProps {
   onOutdent: () => void;
   onFocus: () => void;
   onExpandToDepth: (depth: number | 'all') => void;
+  onRecordClipboard: () => void;
   isFocused: boolean;
 }
 
@@ -83,10 +89,12 @@ export function TreeNode({
   onOutdent,
   onFocus,
   onExpandToDepth,
+  onRecordClipboard,
   isFocused,
 }: TreeNodeProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const resolveId = useItemLookup();
 
   const startEdit = () => {
@@ -149,6 +157,23 @@ export function TreeNode({
         )}
 
         <div className="TreeNode-actions">
+          <Tooltip title="Copy value">
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); void navigator.clipboard.writeText(item.value); }}>
+              <ContentCopyIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Copy ID">
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); void navigator.clipboard.writeText(item.id); onRecordClipboard(); }}>
+              <FingerprintIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={item.typeId ? 'Copy type ID' : 'No type ID (primitive type)'}>
+            <span>
+              <IconButton size="small" disabled={!item.typeId} onClick={(e) => { e.stopPropagation(); if (item.typeId) void navigator.clipboard.writeText(item.typeId); }}>
+                <CategoryIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+              </IconButton>
+            </span>
+          </Tooltip>
           {([
             { depth: 2, Icon: LooksTwoIcon, label: 'Expand 2 levels' },
             { depth: 3, Icon: Looks3Icon,   label: 'Expand 3 levels' },
@@ -173,7 +198,7 @@ export function TreeNode({
             </IconButton>
           </Tooltip>
           <Tooltip title="Delete">
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDelete(); }}>
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); if (hasChildren) setConfirmDelete(true); else onDelete(); }}>
               <DeleteIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
             </IconButton>
           </Tooltip>
@@ -183,6 +208,19 @@ export function TreeNode({
       {isExpanded && hasChildren && (
         <div className="TreeNode-children">{children}</div>
       )}
+
+      <Dialog open={confirmDelete} onClose={() => setConfirmDelete(false)} onClick={(e) => e.stopPropagation()}>
+        <DialogTitle>Delete "{item.value}"?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This item has children. Deleting it will also delete all of its descendants. This cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDelete(false)}>Cancel</Button>
+          <Button color="error" onClick={() => { setConfirmDelete(false); onDelete(); }}>Delete</Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }
