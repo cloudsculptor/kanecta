@@ -14,6 +14,7 @@ import AddBoxRoundedIcon from '@mui/icons-material/AddBoxRounded';
 import DataObjectIcon from '@mui/icons-material/DataObject';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DifferenceOutlinedIcon from '@mui/icons-material/DifferenceOutlined';
+import FileCopyOutlinedIcon from '@mui/icons-material/FileCopyOutlined';
 import CategoryIcon from '@mui/icons-material/Category';
 import { TreeNodeEditor } from './TreeNodeEditor';
 import { ItemValue } from '../../shared/ItemValue';
@@ -42,6 +43,7 @@ interface TreeNodeProps {
   onRecordClipboard: (type: string, typeId: string) => void;
   onRecordViewed: (type: string, typeId: string) => void;
   onCopyObject?: () => Promise<void>;
+  onCopyAs: () => void;
   isFocused: boolean;
 }
 
@@ -64,6 +66,7 @@ export function TreeNode({
   onRecordClipboard,
   onRecordViewed,
   onCopyObject,
+  onCopyAs,
   isFocused,
 }: TreeNodeProps) {
   const [editing, setEditing] = useState(false);
@@ -160,6 +163,11 @@ export function TreeNode({
               </IconButton>
             </Tooltip>
           )}
+          <Tooltip title="Copy as">
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onCopyAs(); }}>
+              <FileCopyOutlinedIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+            </IconButton>
+          </Tooltip>
           {([
             { depth: 2, Icon: LooksTwoIcon, label: 'Expand 2 levels' },
             { depth: 3, Icon: Looks3Icon,   label: 'Expand 3 levels' },
