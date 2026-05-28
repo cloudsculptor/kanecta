@@ -85,8 +85,10 @@ export function TreeNode({
     setDraft(item.value);
   };
 
+  const isSynthetic = item._synthetic || item._hasObject;
+
   return (
-    <div className={`TreeNode TreeNode--confidence-${item.confidence}`}>
+    <div className={`TreeNode TreeNode--confidence-${item.confidence}${isSynthetic ? ' TreeNode--synthetic' : ''}`}>
       <div
         className={`TreeNode-row${isFocused ? ' TreeNode-row--focused' : ''}`}
         onClick={onFocus}
@@ -105,9 +107,9 @@ export function TreeNode({
           )}
         </button>
 
-        {(() => { const Icon = TYPE_ICONS[item.type]; return Icon ? <Icon className="TreeNode-bullet" onClick={(e) => { e.stopPropagation(); onZoom(); onRecordViewed(item.type, item.typeId ?? ''); }} /> : <span className="TreeNode-bullet" />; })()}
+        {(() => { const Icon = TYPE_ICONS[item._synthetic ? 'text' : item.type]; return Icon ? <Icon className="TreeNode-bullet" onClick={(e) => { e.stopPropagation(); onZoom(); onRecordViewed(item.type, item.typeId ?? ''); }} /> : <span className="TreeNode-bullet" />; })()}
 
-        {editing ? (
+        {editing && !isSynthetic ? (
           <TreeNodeEditor
             value={draft}
             onChange={setDraft}
@@ -121,7 +123,7 @@ export function TreeNode({
         ) : (
           <span
             className="TreeNode-label"
-            onClick={(e) => { e.stopPropagation(); startEdit(); }}
+            onClick={(e) => { e.stopPropagation(); if (!isSynthetic) startEdit(); }}
           >
             <ItemValue value={item.value} resolveId={resolveId} onNavigate={onNavigateToId} />
           </span>
@@ -158,21 +160,27 @@ export function TreeNode({
               </IconButton>
             </Tooltip>
           ))}
-          <Tooltip title="Zoom in">
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onZoom(); onRecordViewed(item.type, item.typeId ?? ''); }}>
-              <ZoomInIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Add child">
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); onAddChild(); }}>
-              <AddIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Delete">
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); if (hasChildren) setConfirmDelete(true); else onDelete(); }}>
-              <DeleteIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
-            </IconButton>
-          </Tooltip>
+          {!item._synthetic && (
+            <Tooltip title="Zoom in">
+              <IconButton size="small" onClick={(e) => { e.stopPropagation(); onZoom(); onRecordViewed(item.type, item.typeId ?? ''); }}>
+                <ZoomInIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+              </IconButton>
+            </Tooltip>
+          )}
+          {!isSynthetic && (
+            <>
+              <Tooltip title="Add child">
+                <IconButton size="small" onClick={(e) => { e.stopPropagation(); onAddChild(); }}>
+                  <AddIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Delete">
+                <IconButton size="small" onClick={(e) => { e.stopPropagation(); if (hasChildren) setConfirmDelete(true); else onDelete(); }}>
+                  <DeleteIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+                </IconButton>
+              </Tooltip>
+            </>
+          )}
         </div>
       </div>
 
