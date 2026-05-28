@@ -1,130 +1,96 @@
-import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { FilterBar } from '../../shared/FilterBar';
-import { SortBar } from '../../shared/SortBar';
-import { ConfidenceBadge } from '../../shared/ConfidenceBadge';
-import { TypeBadge } from '../../shared/TypeBadge';
-import { TagChip } from '../../shared/TagChip';
-import { useAllItems } from '../../../hooks/useAllItems';
-import { useUiStore } from '../../../store/ui';
+import { useState, useMemo } from 'react';
+import { AgGridReact } from 'ag-grid-react';
+import { AllCommunityModule, themeQuartz, type ColDef } from 'ag-grid-community';
+import { useQuery } from '@tanstack/react-query';
 import { useWorkspaceStore } from '../../../store/workspace';
-import type { KanectaItem } from '../../../types/kanecta';
+import { useAllItems } from '../../../hooks/useAllItems';
+import { TypeList } from '../../shared/TypeList';
+import type { TypeDefinition } from '../../../api/types';
 import './TableView.scss';
 
-interface TableViewProps {
-  panelId: string;
-}
+const theme = themeQuartz;
 
-function formatDate(iso: string) {
+function schemaToColDefs(schema: unknown): ColDef[] {
   try {
-    return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    const s = schema as {
+      meta?: { primaryField?: string };
+      jsonSchema?: { properties?: Record<string, { title?: string }> };
+    };
+    const props = s?.jsonSchema?.properties;
+    if (!props) return [];
+    const primaryField = s?.meta?.primaryField ?? '';
+    const cols = Object.entries(props).map(([key, def]) => ({
+      field: key,
+      headerName: def.title ?? key,
+      width: 250,
+      sortable: true,
+      filter: true,
+    }));
+    if (primaryField) {
+      const idx = cols.findIndex((c) => c.field === primaryField);
+      if (idx >= 0) {
+        cols[idx] = { ...cols[idx], width: 750 };
+        if (idx > 0) cols.unshift(cols.splice(idx, 1)[0]);
+      }
+    }
+    return cols;
   } catch {
-    return iso;
+    return [];
   }
 }
 
-export function TableView({ panelId }: TableViewProps) {
-  const { items, isLoading, error, filter, sort } = useAllItems(panelId);
-  const { setPanelFilter, setPanelSort, setFocusedItem, focusedItemId } = useUiStore();
+export function TableView() {
+  const [selectedType, setSelectedType] = useState<TypeDefinition | null>(null);
   const { getApi } = useWorkspaceStore();
-  const qc = useQueryClient();
-  const [editCell, setEditCell] = useState<{ id: string; value: string } | null>(null);
+  const { items } = useAllItems('table-view');
 
-  const allItems = items;
+  const typeItems = useMemo(
+    () => (selectedType ? items.filter((item) => item.typeId === selectedType.id) : []),
+    [items, selectedType],
+  );
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, value }: { id: string; value: string }) =>
-      getApi().items.update(id, { value }),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['all-items'] }),
+  const { data: schema } = useQuery({
+    queryKey: ['type-schema', selectedType?.id],
+    queryFn: () => getApi().types.schema(selectedType!.id),
+    enabled: !!selectedType,
   });
 
-  const commitEdit = (item: KanectaItem) => {
-    if (!editCell) return;
-    if (editCell.value !== item.value && editCell.value.trim()) {
-      updateMutation.mutate({ id: item.id, value: editCell.value.trim() });
-    }
-    setEditCell(null);
-  };
+  const columnDefs = useMemo(() => schemaToColDefs(schema), [schema]);
 
-  if (isLoading) return <div className="TableView"><div className="TableView-empty">Loading…</div></div>;
-  if (error) return <div className="TableView"><div className="TableView-empty">Error loading items</div></div>;
+  const { data: rowData = [] } = useQuery({
+    queryKey: ['type-objects', selectedType?.id, typeItems.length],
+    queryFn: async () => {
+      const objects = await Promise.all(
+        typeItems.map((item) => getApi().items.getObject(item.id).catch(() => ({}))),
+      );
+      return objects;
+    },
+    enabled: !!selectedType && typeItems.length > 0,
+  });
 
   return (
-    <div className="TableView" data-testid={`table-view-${panelId}`}>
-      <div className="TableView-controls">
-        <FilterBar
-          filter={filter}
-          onChange={(f) => setPanelFilter(panelId, f)}
-          totalCount={allItems.length}
-          filteredCount={items.length}
-        />
-        <SortBar sort={sort} onChange={(s) => setPanelSort(panelId, s)} />
+    <div className="TableView">
+      <div className="TableView-sidebar">
+        <TypeList selectedTypeId={selectedType?.id ?? null} onSelect={setSelectedType} />
       </div>
-
-      <div className="TableView-scroll">
-        {items.length === 0 ? (
-          <div className="TableView-empty">No items match the current filter</div>
-        ) : (
-          <table className="TableView-table">
-            <thead className="TableView-thead">
-              <tr>
-                <th>Value</th>
-                <th>Type</th>
-                <th>Confidence</th>
-                <th>Tags</th>
-                <th>Created</th>
-                <th>Modified</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => (
-                <tr
-                  key={item.id}
-                  className={`TableView-row${focusedItemId === item.id ? ' TableView-row--focused' : ''}`}
-                  onClick={() => setFocusedItem(item.id)}
-                >
-                  <td>
-                    {editCell?.id === item.id ? (
-                      <div className="TableView-cell-editing">
-                        <input
-                          autoFocus
-                          value={editCell.value}
-                          onChange={(e) => setEditCell({ id: item.id, value: e.target.value })}
-                          onBlur={() => commitEdit(item)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') commitEdit(item);
-                            if (e.key === 'Escape') setEditCell(null);
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          aria-label={`Edit value for ${item.value}`}
-                        />
-                      </div>
-                    ) : (
-                      <span
-                        className="TableView-cell-value"
-                        title={item.value}
-                        onDoubleClick={(e) => {
-                          e.stopPropagation();
-                          setEditCell({ id: item.id, value: item.value });
-                        }}
-                      >
-                        {item.value}
-                      </span>
-                    )}
-                  </td>
-                  <td><TypeBadge type={item.type} /></td>
-                  <td><ConfidenceBadge confidence={item.confidence} /></td>
-                  <td>
-                    <div className="TableView-tags">
-                      {item.tags.map((t) => <TagChip key={t} tag={t} />)}
-                    </div>
-                  </td>
-                  <td>{formatDate(item.createdAt)}</td>
-                  <td>{formatDate(item.modifiedAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <div className="TableView-grid">
+        {!selectedType && (
+          <div className="TableView-empty">Select a type to view its items</div>
+        )}
+        {selectedType && schema && columnDefs.length === 0 && (
+          <div className="TableView-empty">No schema fields defined for this type</div>
+        )}
+        {selectedType && columnDefs.length > 0 && typeItems.length === 0 && (
+          <div className="TableView-empty">No items of this type</div>
+        )}
+        {selectedType && columnDefs.length > 0 && typeItems.length > 0 && (
+          <AgGridReact
+            modules={[AllCommunityModule]}
+            theme={theme}
+            rowData={rowData}
+            columnDefs={columnDefs}
+            defaultColDef={{ resizable: true, minWidth: 200 }}
+          />
         )}
       </div>
     </div>
