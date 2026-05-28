@@ -5,6 +5,11 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
+import LooksTwoIcon from '@mui/icons-material/LooksTwo';
+import Looks3Icon from '@mui/icons-material/Looks3';
+import Looks4Icon from '@mui/icons-material/Looks4';
+import Looks5Icon from '@mui/icons-material/Looks5';
+import AddBoxIcon from '@mui/icons-material/AddBox';
 import NumbersIcon from '@mui/icons-material/Numbers';
 import RecordVoiceOverIcon from '@mui/icons-material/RecordVoiceOver';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
@@ -58,6 +63,7 @@ interface TreeNodeProps {
   onIndent: () => void;
   onOutdent: () => void;
   onFocus: () => void;
+  onExpandToDepth: (depth: number | 'all') => void;
   isFocused: boolean;
 }
 
@@ -76,6 +82,7 @@ export function TreeNode({
   onIndent,
   onOutdent,
   onFocus,
+  onExpandToDepth,
   isFocused,
 }: TreeNodeProps) {
   const [editing, setEditing] = useState(false);
@@ -142,6 +149,19 @@ export function TreeNode({
         )}
 
         <div className="TreeNode-actions">
+          {([
+            { depth: 2, Icon: LooksTwoIcon, label: 'Expand 2 levels' },
+            { depth: 3, Icon: Looks3Icon,   label: 'Expand 3 levels' },
+            { depth: 4, Icon: Looks4Icon,   label: 'Expand 4 levels' },
+            { depth: 5, Icon: Looks5Icon,   label: 'Expand 5 levels' },
+            { depth: 'all' as const, Icon: AddBoxIcon, label: 'Expand all' },
+          ] as const).map(({ depth, Icon, label }) => (
+            <Tooltip key={String(depth)} title={label}>
+              <IconButton size="small" onClick={(e) => { e.stopPropagation(); onExpandToDepth(depth); }}>
+                <Icon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+              </IconButton>
+            </Tooltip>
+          ))}
           <Tooltip title="Zoom in">
             <IconButton size="small" onClick={(e) => { e.stopPropagation(); onZoom(); }}>
               <ZoomInIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />

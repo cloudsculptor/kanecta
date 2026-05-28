@@ -31,7 +31,7 @@ export function itemsApi(client: ApiClient) {
     children: (id: string) => client.get<KanectaItem[]>(`/items/${id}/children`),
 
     tree: (id: string, depth?: number) =>
-      client.get<KanectaItemWithChildren>(
+      client.get<Array<{ item: KanectaItem; depth: number }>>(
         `/items/${id}/tree${depth != null ? `?depth=${depth}` : ''}`,
       ),
 

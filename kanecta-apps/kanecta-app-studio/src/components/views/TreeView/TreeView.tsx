@@ -38,6 +38,7 @@ interface TreeBranchProps {
   onIndent: (item: KanectaItem) => void;
   onOutdent: (item: KanectaItem) => void;
   onNavigateToId: (id: string) => void;
+  onExpandToDepth: (item: KanectaItem, depth: number | 'all') => void;
 }
 
 function TreeBranch({
@@ -55,6 +56,7 @@ function TreeBranch({
   onIndent,
   onOutdent,
   onNavigateToId,
+  onExpandToDepth,
 }: TreeBranchProps) {
   const { data: items = [], isLoading, error } = useTreeData(parentId, workspaceId);
 
@@ -80,6 +82,7 @@ function TreeBranch({
           onEdit={(value) => onEdit(item, value)}
           onIndent={() => onIndent(item)}
           onOutdent={() => onOutdent(item)}
+          onExpandToDepth={(depth) => onExpandToDepth(item, depth)}
         >
           {expandedIds.has(item.id) && (
             <TreeBranch
@@ -97,6 +100,7 @@ function TreeBranch({
               onIndent={onIndent}
               onOutdent={onOutdent}
               onNavigateToId={onNavigateToId}
+              onExpandToDepth={onExpandToDepth}
             />
           )}
         </TreeNode>
@@ -231,6 +235,18 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
     [],
   );
 
+  const handleExpandToDepth = useCallback(
+    async (item: KanectaItem, depth: number | 'all') => {
+      const maxDepth = depth === 'all' ? undefined : depth;
+      const entries = await api.items.tree(item.id, maxDepth);
+      const ids = entries
+        .filter((e) => maxDepth == null || e.depth < maxDepth)
+        .map((e) => e.item.id);
+      setExpandedIds((prev) => new Set([...prev, ...ids]));
+    },
+    [api],
+  );
+
   const breadcrumb: BreadcrumbItem[] = [
     { id: 'root', label: 'Home', icon: <HomeIcon className="Breadcrumb-home-icon" /> },
     ...zoomStack,
@@ -250,6 +266,7 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
     onIndent: handleIndent,
     onOutdent: handleOutdent,
     onNavigateToId: handleNavigateToId,
+    onExpandToDepth: handleExpandToDepth,
   };
 
   return (
