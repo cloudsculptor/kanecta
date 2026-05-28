@@ -204,6 +204,7 @@ const TOOLS = [
         sortOrder: { type: 'number', description: 'Sort position among siblings (omit to append)' },
         confidence: { type: 'string', enum: VALID_CONFIDENCES, description: 'Confidence level' },
         status: { type: 'string', description: 'Arbitrary status string (e.g. "active", "archived", "draft")' },
+        objectData: { type: 'object', description: 'Field values for typed objects (type: "object"). Written to object.json and rendered as synthetic children in the tree.' },
       },
     },
   },
@@ -221,6 +222,7 @@ const TOOLS = [
         sortOrder: { type: 'number', description: 'New sort position among siblings' },
         confidence: { type: 'string', enum: VALID_CONFIDENCES, description: 'Confidence level' },
         status: { type: 'string', description: 'Arbitrary status string (e.g. "active", "archived", "draft")' },
+        objectData: { type: 'object', description: 'Replace the object.json field values for a typed object item.' },
       },
       required: ['id'],
     },
@@ -645,8 +647,10 @@ function dispatch(name, args) {
     }
 
     case 'kanecta_update_item': {
-      const { id, ...changes } = args;
-      return resolveItem(ds, ds.update(id, changes, cfg?.owner));
+      const { id, objectData, ...changes } = args;
+      const updated = ds.update(id, changes, cfg?.owner);
+      if (objectData !== undefined) ds.writeObjectJson(id, objectData);
+      return resolveItem(ds, updated);
     }
 
     case 'kanecta_delete_item': {
