@@ -148,10 +148,15 @@ export function GraphView() {
         nodeCanvasObject={(node, ctx, globalScale) => {
           const n = node as GraphNode & { x?: number; y?: number };
           if (!n.x || !n.y) return;
+          // bigger nodes (higher val) get labels sooner; smallest nodes need ~8× zoom
+          const labelThreshold = 32 / n.val;
+          const fadeStart = labelThreshold * 0.7;
+          if (globalScale < fadeStart) return;
+          const opacity = Math.min(1, (globalScale - fadeStart) / (labelThreshold * 0.6));
           const label = n.label;
           const fontSize = Math.max(8, 12 / globalScale);
           ctx.font = `${fontSize}px sans-serif`;
-          ctx.fillStyle = 'rgba(0,0,0,0.85)';
+          ctx.fillStyle = `rgba(0,0,0,${0.85 * opacity})`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(label, n.x, n.y + 10);
