@@ -23,14 +23,14 @@
   &-breadcrumb-btn {
     opacity: 0.4;
     color: var(--color-text) !important;
-    width: 48px !important;
-    height: 48px !important;
+    width: 41px !important;
+    height: 41px !important;
     padding: 0 !important;
 
     &:hover { opacity: 1; }
     &--starred { opacity: 1; color: var(--mui-palette-warning-main, #ed6c02) !important; }
 
-    &.MuiIconButton-root { width: 48px !important; height: 48px !important; padding: 0 !important; }
+    &.MuiIconButton-root { width: 41px !important; height: 41px !important; padding: 0 !important; }
 
     .MuiSvgIcon-root {
       font-size: 24px !important;
@@ -45,6 +45,22 @@
     font-weight: 600;
     color: var(--color-text);
     padding: 22px 16px 4px 32px;
+    display: flex;
+    align-items: center;
+
+    &-label {
+      flex: 1;
+      min-width: 0;
+    }
+
+    &-actions {
+      visibility: hidden;
+      flex-shrink: 0;
+    }
+
+    &:hover &-actions {
+      visibility: visible;
+    }
   }
 
   &-content {
