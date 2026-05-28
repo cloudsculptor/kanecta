@@ -1,18 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import Ajv from 'ajv';
 import typeSpecRaw from '../../../../../../kanecta-specification/types/kanecta-type-specification-v1.json?raw';
-import * as MuiIcons from '@mui/icons-material';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { useWorkspaceStore } from '../../../store/workspace';
+import { TypeList } from '../../shared/TypeList';
 import type { TypeDefinition } from '../../../api/types';
 import './TemplatesView.scss';
-
-function TypeIcon({ name }: { name?: string | null }) {
-  if (!name) return null;
-  const Icon = (MuiIcons as Record<string, React.ElementType>)[name];
-  return Icon ? <Icon fontSize="inherit" className="TemplatesView-icon" /> : null;
-}
 
 type Tab = 'item' | 'view' | 'meta' | 'meta-edit' | 'schema' | 'edit' | 'reference';
 
@@ -356,29 +349,10 @@ export function TemplatesView() {
   const [selectedType, setSelectedType] = useState<TypeDefinition | null>(null);
   const [selectedInitialTab, setSelectedInitialTab] = useState<Tab>('view');
   const [schema, setSchema] = useState<string>('');
-  const [filter, setFilter] = useState('');
-  const [detailed, setDetailed] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [addError, setAddError] = useState<string | null>(null);
   const addInputRef = useRef<HTMLInputElement>(null);
-
-  const { data: types = [], isLoading } = useQuery({
-    queryKey: ['types'],
-    queryFn: () => getApi().types.list(),
-  });
-
-  const filtered = filter.trim()
-    ? types.filter((t) => {
-        const q = filter.toLowerCase();
-        return (
-          t.value.toLowerCase().includes(q) ||
-          (t.description ?? '').toLowerCase().includes(q) ||
-          (t.keywords ?? '').toLowerCase().includes(q) ||
-          (t.tags ?? '').toLowerCase().includes(q)
-        );
-      })
-    : types;
 
   const handleSelect = async (t: TypeDefinition) => {
     setSelectedType(t);
@@ -434,71 +408,32 @@ export function TemplatesView() {
   return (
     <div className="TemplatesView">
       <div className="TemplatesView-list">
-        <div className="TemplatesView-filter">
-          <div className="TemplatesView-filterrow">
-            <input
-              className="TemplatesView-filterinput"
-              placeholder="Filter types…"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-            />
+        <TypeList
+          selectedTypeId={selectedType?.id ?? null}
+          onSelect={(t) => void handleSelect(t)}
+          headerActions={
             <button className="TemplatesView-btn" onClick={handleStartAdding} title="New type">+</button>
-          </div>
-          {adding && (
-            <div className="TemplatesView-filterrow">
-              <input
-                ref={addInputRef}
-                className="TemplatesView-filterinput"
-                placeholder="Type name…"
-                value={newName}
-                onChange={(e) => { setNewName(e.target.value); setAddError(null); }}
-                onKeyDown={(e) => { if (e.key === 'Enter') void handleCreate(); if (e.key === 'Escape') setAdding(false); }}
-              />
-              <button className="TemplatesView-btn TemplatesView-btn--primary" onClick={() => void handleCreate()}>Create</button>
-              <button className="TemplatesView-btn" onClick={() => setAdding(false)}>✕</button>
-            </div>
-          )}
-          {addError && <span className="TemplatesView-error">{addError}</span>}
-          <label className="TemplatesView-toggle">
-            <input
-              type="checkbox"
-              checked={detailed}
-              onChange={(e) => setDetailed(e.target.checked)}
-            />
-            Detailed view
-          </label>
-        </div>
-        {isLoading ? (
-          <div className="TemplatesView-empty">Loading…</div>
-        ) : filtered.length === 0 ? (
-          <div className="TemplatesView-empty">{types.length === 0 ? 'No types found' : 'No matches'}</div>
-        ) : (
-          filtered.map((t) => (
-            <button
-              key={t.id}
-              className={`TemplatesView-item${selectedType?.id === t.id ? ' TemplatesView-item--active' : ''}`}
-              onClick={() => handleSelect(t)}
-            >
-              <TypeIcon name={t.icon} />
-              <span className="TemplatesView-name">{t.value}</span>
-              <div className="TemplatesView-item-sub">
-                {detailed && t.description && <span className="TemplatesView-description">{t.description}</span>}
-                {detailed && t.keywords && <span className="TemplatesView-keywords">{t.keywords}</span>}
-                {detailed && t.tags && <span className="TemplatesView-tags">{t.tags}</span>}
-                <div className="TemplatesView-uuid-row">
-                  <span className="TemplatesView-id">{t.id}</span>
-                  <button
-                    className="TemplatesView-copy"
-                    onClick={(e) => { e.stopPropagation(); void navigator.clipboard.writeText(t.id); }}
-                    aria-label="Copy UUID"
-                  >
-                    <ContentCopyIcon className="TemplatesView-copy-icon" />
-                  </button>
+          }
+          extraControls={adding || addError ? (
+            <>
+              {adding && (
+                <div className="TemplatesView-filterrow">
+                  <input
+                    ref={addInputRef}
+                    className="TemplatesView-filterinput"
+                    placeholder="Type name…"
+                    value={newName}
+                    onChange={(e) => { setNewName(e.target.value); setAddError(null); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') void handleCreate(); if (e.key === 'Escape') setAdding(false); }}
+                  />
+                  <button className="TemplatesView-btn TemplatesView-btn--primary" onClick={() => void handleCreate()}>Create</button>
+                  <button className="TemplatesView-btn" onClick={() => setAdding(false)}>✕</button>
                 </div>
-              </div>
-            </button>
-          ))
-        )}
+              )}
+              {addError && <span className="TemplatesView-error">{addError}</span>}
+            </>
+          ) : undefined}
+        />
       </div>
       {selectedType ? (
         <DetailPane key={`${selectedType.id}-${selectedInitialTab}`} type={selectedType} schema={schema} onSchemaChange={setSchema} initialTab={selectedInitialTab} />
