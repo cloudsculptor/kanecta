@@ -13,7 +13,7 @@ import AddBoxIcon from '@mui/icons-material/AddBox';
 import AddBoxRoundedIcon from '@mui/icons-material/AddBoxRounded';
 import DataObjectIcon from '@mui/icons-material/DataObject';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import FingerprintIcon from '@mui/icons-material/Fingerprint';
+import DifferenceOutlinedIcon from '@mui/icons-material/DifferenceOutlined';
 import CategoryIcon from '@mui/icons-material/Category';
 import { TreeNodeEditor } from './TreeNodeEditor';
 import { ItemValue } from '../../shared/ItemValue';
@@ -128,14 +128,14 @@ export function TreeNode({
         )}
 
         <div className="TreeNode-actions">
-          <Tooltip title="Copy value">
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); void navigator.clipboard.writeText(item.value); }}>
+          <Tooltip title="Copy ID">
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); void navigator.clipboard.writeText(item.id); onRecordClipboard(item.type, item.typeId ?? ''); }}>
               <ContentCopyIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Copy ID">
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); void navigator.clipboard.writeText(item.id); onRecordClipboard(item.type, item.typeId ?? ''); }}>
-              <FingerprintIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+          <Tooltip title="Copy value">
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); void navigator.clipboard.writeText(item.value); }}>
+              <DifferenceOutlinedIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
             </IconButton>
           </Tooltip>
           {item.typeId && (
