@@ -13,6 +13,7 @@ export type ViewType =
   | 'calendar'
   | 'graph'
   | 'mission-control'
+  | 'quality-control'
   | 'ai-instructions'
   | 'sync';
 

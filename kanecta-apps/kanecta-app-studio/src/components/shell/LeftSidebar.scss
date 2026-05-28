@@ -51,6 +51,16 @@
       background: var(--color-primary-muted);
       color: var(--color-primary);
     }
+
+    &--disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+
+      &:hover {
+        background: none;
+        color: var(--color-text-secondary);
+      }
+    }
   }
 
   &-item-label {
