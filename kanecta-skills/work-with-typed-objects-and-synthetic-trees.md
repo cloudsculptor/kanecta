@@ -1,8 +1,21 @@
+---
+id: 659b5ace-083f-4676-b317-b82dc15374e3
+author: claude
+reviewed-by: richie
+applies-to:
+  - kanecta-filesystem
+  - kanecta-api
+  - kanecta-app-studio
+  - kanecta-mcp
+scenarios:
+  - creating a typed object via the MCP
+  - understanding how synthetic child nodes are generated at read time
+  - adding a new type icon to the Studio registry
+  - updating fields on an existing typed object
+updated: 2026-05-27
+---
+
 # Work with typed objects and synthetic trees
-
-**Kanecta skill** — `659b5ace-083f-4676-b317-b82dc15374e3`
-
-**Trigger phrase:** create typed object, create object from type, add typed item, synthetic tree
 
 ---
 
