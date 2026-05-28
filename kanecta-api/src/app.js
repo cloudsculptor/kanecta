@@ -25,6 +25,14 @@ function isUuid(str) {
   return UUID_RE.test(str);
 }
 
+function isSyntheticId(str) {
+  return typeof str === 'string' && str.includes('__');
+}
+
+function isValidId(str) {
+  return isUuid(str) || isSyntheticId(str);
+}
+
 function withChildCounts(ds, items) {
   const all = ds.loadAll();
   const counts = new Map();
@@ -33,7 +41,13 @@ function withChildCounts(ds, items) {
       counts.set(item.parentId, (counts.get(item.parentId) || 0) + 1);
     }
   }
-  return items.map(item => ({ ...item, childCount: counts.get(item.id) || 0 }));
+  return items.map(item => {
+    if (item._synthetic) return item;
+    const realCount = counts.get(item.id) || 0;
+    const obj = ds.readObjectJson(item.id);
+    const synCount = obj ? Object.keys(obj).length : 0;
+    return { ...item, childCount: realCount + synCount, _hasObject: synCount > 0 };
+  });
 }
 
 function getAncestorChain(ds, id) {
@@ -134,7 +148,7 @@ app.post('/items/bulk', (req, res) => {
   for (const [i, itemArgs] of items.entries()) {
     const { parentId = null, value = null, type = 'string', typeId = null,
       owner, license = null, sortOrder, confidence = null, status = null, tags = [],
-      alias, createdBy } = itemArgs;
+      alias, createdBy, objectData = null } = itemArgs;
     if (!VALID_TYPES.includes(type)) {
       errors.push({ index: i, error: `Invalid type: ${type}` });
       continue;
@@ -144,7 +158,7 @@ app.post('/items/bulk', (req, res) => {
       continue;
     }
     try {
-      const item = ds.create({ parentId, value, type, typeId, owner, license, sortOrder, confidence, status, tags, createdBy });
+      const item = ds.create({ parentId, value, type, typeId, owner, license, sortOrder, confidence, status, tags, createdBy, objectData });
       if (alias) ds.setAlias(alias, item.id);
       created.push(item);
     } catch (err) {
@@ -162,7 +176,7 @@ app.post('/items', (req, res) => {
   if (!ds) return;
   const { parentId = null, value = null, type = 'string', typeId = null,
     owner, license = null, sortOrder, confidence = null, status = null, tags = [],
-    alias, createdBy } = req.body;
+    alias, createdBy, objectData = null } = req.body;
 
   if (!VALID_TYPES.includes(type))
     return res.status(400).json({ error: `Invalid type: ${type}. Valid: ${VALID_TYPES.join(', ')}` });
@@ -174,7 +188,7 @@ app.post('/items', (req, res) => {
     return res.status(404).json({ error: `Parent not found: ${parentId}` });
 
   try {
-    const item = ds.create({ parentId, value, type, typeId, owner, license, sortOrder, confidence, status, tags, createdBy });
+    const item = ds.create({ parentId, value, type, typeId, owner, license, sortOrder, confidence, status, tags, createdBy, objectData });
     if (alias) ds.setAlias(alias, item.id);
     res.status(201).json(item);
   } catch (err) {
@@ -264,10 +278,10 @@ app.get('/items/root', (req, res) => {
   res.json(dataRoot);
 });
 
-// GET /items/:id — get item
+// GET /items/:id — get item (accepts real UUIDs and synthetic IDs)
 app.get('/items/:id', (req, res) => {
   const { id } = req.params;
-  if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
+  if (!isValidId(id)) return res.status(400).json({ error: 'Invalid ID format' });
   const ds = openDatastore(res);
   if (!ds) return;
   const item = ds.get(id);
@@ -333,14 +347,25 @@ app.delete('/items/:id', (req, res) => {
   res.json({ deleted });
 });
 
-// GET /items/:id/children — list children of item
+// GET /items/:id/children — list children of item (accepts real UUIDs and synthetic IDs)
 app.get('/items/:id/children', (req, res) => {
+  const { id } = req.params;
+  if (!isValidId(id)) return res.status(400).json({ error: 'Invalid ID format' });
+  const ds = openDatastore(res);
+  if (!ds) return;
+  if (!isSyntheticId(id) && !ds.get(id)) return res.status(404).json({ error: 'Item not found' });
+  res.json(withChildCounts(ds, ds.children(id)));
+});
+
+// PUT /items/:id/object — write or replace the object.json for a typed object item
+app.put('/items/:id/object', (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const ds = openDatastore(res);
   if (!ds) return;
   if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
-  res.json(withChildCounts(ds, ds.children(id)));
+  ds.writeObjectJson(id, req.body);
+  res.json({ ok: true });
 });
 
 // GET /items/:id/tree — tree rooted at item (?depth=n)
