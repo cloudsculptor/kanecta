@@ -20,6 +20,7 @@ const TAB_LABELS = [
   'Plain text',
   'Compressed text',
   'Tree text',
+  'Markdown — todo',
   'Markdown — headings',
   'Markdown — table',
   'Markdown — nested bullets',
@@ -107,11 +108,18 @@ function jsonView(root: KanectaItem, entries: TreeEntry[]): string {
   return JSON.stringify(rootNode, null, 2);
 }
 
+function markdownTodo(root: KanectaItem, entries: TreeEntry[]): string {
+  return [
+    `- [ ] ${root.value}`,
+    ...entries.map(({ item, depth }) => '  '.repeat(depth) + `- [ ] ${item.value}`),
+  ].join('\n');
+}
+
 function codeBlock(root: KanectaItem, entries: TreeEntry[]): string {
   return `\`\`\`\n${treeText(root, entries)}\n\`\`\``;
 }
 
-const RENDERERS = [plainText, compressedText, treeText, markdownHeadings, markdownTable, markdownBullets, jsonView, codeBlock];
+const RENDERERS = [plainText, compressedText, treeText, markdownTodo, markdownHeadings, markdownTable, markdownBullets, jsonView, codeBlock];
 
 const LEVEL_OPTIONS: Array<{ label: string; value: number | null }> = [
   { label: '1', value: 1 },
