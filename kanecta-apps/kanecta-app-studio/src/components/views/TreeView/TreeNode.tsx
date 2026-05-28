@@ -107,7 +107,7 @@ export function TreeNode({
           )}
         </button>
 
-        {(() => { const Icon = TYPE_ICONS[isSynthetic ? 'text' : item.type]; return Icon ? <Icon className="TreeNode-bullet" onClick={(e) => { e.stopPropagation(); onZoom(); onRecordViewed(item.type, item.typeId ?? ''); }} /> : <span className="TreeNode-bullet" />; })()}
+        {(() => { const Icon = TYPE_ICONS[item._synthetic ? 'text' : item.type]; return Icon ? <Icon className="TreeNode-bullet" onClick={(e) => { e.stopPropagation(); onZoom(); onRecordViewed(item.type, item.typeId ?? ''); }} /> : <span className="TreeNode-bullet" />; })()}
 
         {editing && !isSynthetic ? (
           <TreeNodeEditor
