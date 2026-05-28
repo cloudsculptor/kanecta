@@ -15,6 +15,7 @@ import BubbleChartIcon from '@mui/icons-material/BubbleChart';
 import FlightIcon from '@mui/icons-material/Flight';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import SyncIcon from '@mui/icons-material/Sync';
+import FactCheckIcon from '@mui/icons-material/FactCheck';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import type { SidebarState, ViewType } from '../../types/ui';
@@ -24,25 +25,27 @@ interface NavItem {
   view: ViewType;
   label: string;
   icon: React.ReactNode;
+  disabled?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
   { view: 'tree', label: 'Tree', icon: <AccountTreeIcon fontSize="small" /> },
   { view: 'templates', label: 'Templates', icon: <DashboardCustomizeIcon fontSize="small" /> },
-  { view: 'combinator', label: 'Combinator', icon: <MergeTypeIcon fontSize="small" /> },
   { view: 'table', label: 'Table', icon: <TableChartIcon fontSize="small" /> },
-  { view: 'ai-instructions', label: 'AI Instructions', icon: <PsychologyIcon fontSize="small" /> },
+  { view: 'list', label: 'List', icon: <ViewListIcon fontSize="small" /> },
+  { view: 'combinator', label: 'Combinator', icon: <MergeTypeIcon fontSize="small" /> },
   { view: 'query', label: 'Query', icon: <ManageSearchIcon fontSize="small" /> },
-  { view: 'marketplace', label: 'Marketplace', icon: <StorefrontIcon fontSize="small" /> },
+  { view: 'ai-instructions', label: 'AI Instructions', icon: <PsychologyIcon fontSize="small" /> },
   { view: 'inbox', label: 'Inbox', icon: <InboxIcon fontSize="small" /> },
   { view: 'export', label: 'Export', icon: <IosShareIcon fontSize="small" /> },
   { view: 'board', label: 'Board', icon: <ViewKanbanIcon fontSize="small" /> },
   { view: 'gallery', label: 'Gallery', icon: <GridViewIcon fontSize="small" /> },
-  { view: 'list', label: 'List', icon: <ViewListIcon fontSize="small" /> },
   { view: 'calendar', label: 'Calendar', icon: <DateRangeIcon fontSize="small" /> },
   { view: 'graph', label: 'Graph', icon: <BubbleChartIcon fontSize="small" /> },
   { view: 'mission-control', label: 'Mission Control', icon: <FlightIcon fontSize="small" /> },
-  { view: 'sync', label: 'Sync', icon: <SyncIcon fontSize="small" /> },
+  { view: 'quality-control', label: 'Quality Control', icon: <FactCheckIcon fontSize="small" /> },
+  { view: 'marketplace', label: 'Marketplace', icon: <StorefrontIcon fontSize="small" />, disabled: true },
+  { view: 'sync', label: 'Sync', icon: <SyncIcon fontSize="small" />, disabled: true },
 ];
 
 interface LeftSidebarProps {
@@ -58,14 +61,15 @@ export function LeftSidebar({ state, activeView, onViewSelect, onToggle }: LeftS
   return (
     <aside className={`LeftSidebar LeftSidebar--${state}`}>
       <nav className="LeftSidebar-nav">
-        {NAV_ITEMS.map(({ view, label, icon }) => {
+        {NAV_ITEMS.map(({ view, label, icon, disabled }) => {
           const button = (
             <button
               key={view}
-              className={`LeftSidebar-item${activeView === view ? ' LeftSidebar-item--active' : ''}`}
-              onClick={() => onViewSelect(view)}
+              className={`LeftSidebar-item${activeView === view ? ' LeftSidebar-item--active' : ''}${disabled ? ' LeftSidebar-item--disabled' : ''}`}
+              onClick={() => !disabled && onViewSelect(view)}
               aria-label={label}
               aria-current={activeView === view ? 'page' : undefined}
+              aria-disabled={disabled}
             >
               {icon}
               {isExpanded && <span className="LeftSidebar-item-label">{label}</span>}

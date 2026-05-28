@@ -209,6 +209,15 @@ app.patch('/items/bulk', (req, res) => {
   res.status(status).json({ updated, errors });
 });
 
+// GET /items/root — get the data_root item
+app.get('/items/root', (req, res) => {
+  const ds = openDatastore(res);
+  if (!ds) return;
+  const dataRoot = ds.getDataRoot();
+  if (!dataRoot) return res.status(404).json({ error: 'data_root not found' });
+  res.json(dataRoot);
+});
+
 // GET /items/:id — get item
 app.get('/items/:id', (req, res) => {
   const { id } = req.params;
