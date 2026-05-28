@@ -1,29 +1,56 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Tabs, Tab } from '@mui/material';
+import { IconButton, Tooltip } from '@mui/material';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { useWorkspaceStore } from '../../../store/workspace';
+import { TYPE_ICONS, FallbackIcon } from '../../../lib/typeIcons';
+import type { ItemType } from '../../../types/kanecta';
 import type { ClipboardEntry } from '../../../api/index';
 import './HistoryView.scss';
 
-function ClipboardTab() {
-  const { getApi, activeWorkspaceId } = useWorkspaceStore();
+function TypeIcon({ type }: { type: string }) {
+  const Icon = TYPE_ICONS[type as ItemType] ?? FallbackIcon;
+  return <Icon className="HistoryView-type-icon" />;
+}
 
+function CopyUuidButton({ id }: { id: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    void navigator.clipboard.writeText(id);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+  return (
+    <Tooltip title={copied ? 'Copied!' : 'Copy UUID'}>
+      <IconButton size="small" className="HistoryView-copy" onClick={handleCopy}>
+        <ContentCopyIcon />
+      </IconButton>
+    </Tooltip>
+  );
+}
+
+function HistoryList({ queryKey, fetcher, emptyMessage }: {
+  queryKey: string;
+  fetcher: () => Promise<ClipboardEntry[]>;
+  emptyMessage: string;
+}) {
   const { data: entries = [], isLoading, error } = useQuery({
-    queryKey: ['breadcrumb-clipboard', activeWorkspaceId],
-    queryFn: () => getApi(activeWorkspaceId).breadcrumb.getClipboard(),
+    queryKey: [queryKey],
+    queryFn: fetcher,
     refetchInterval: 5000,
   });
 
   if (isLoading) return <div className="HistoryView-empty">Loading…</div>;
-  if (error) return <div className="HistoryView-empty">Failed to load clipboard history</div>;
-  if (!entries.length) return <div className="HistoryView-empty">No clipboard history yet. Copy an item ID to get started.</div>;
+  if (error) return <div className="HistoryView-empty">Failed to load</div>;
+  if (!entries.length) return <div className="HistoryView-empty">{emptyMessage}</div>;
 
   return (
     <div className="HistoryView-list">
-      {entries.map((entry: ClipboardEntry, i: number) => (
+      {entries.map((entry, i) => (
         <div key={i} className="HistoryView-entry">
+          <TypeIcon type={entry.type} />
           <span className="HistoryView-entry-name">{entry.name}</span>
-          <span className="HistoryView-entry-id">{entry.id}</span>
+          <CopyUuidButton id={entry.id} />
           <span className="HistoryView-entry-time">{new Date(entry.timestamp).toLocaleString()}</span>
         </div>
       ))}
@@ -32,19 +59,28 @@ function ClipboardTab() {
 }
 
 export function HistoryView() {
-  const [tab, setTab] = useState(0);
+  const { getApi, activeWorkspaceId } = useWorkspaceStore();
+  const api = getApi(activeWorkspaceId);
 
   return (
     <div className="HistoryView">
-      <div className="HistoryView-tabs">
-        <Tabs value={tab} onChange={(_, v) => setTab(v)}>
-          <Tab label="Clipboard" />
-          <Tab label="Viewed" />
-        </Tabs>
+      <div className="HistoryView-column">
+        <h2 className="HistoryView-heading">Clipboard History</h2>
+        <HistoryList
+          queryKey="breadcrumb-clipboard"
+          fetcher={() => api.breadcrumb.getClipboard()}
+          emptyMessage="No clipboard history yet."
+        />
       </div>
-      <div className="HistoryView-content">
-        {tab === 0 && <ClipboardTab />}
-        {tab === 1 && <div className="HistoryView-empty">Viewed history coming soon.</div>}
+      <div className="HistoryView-divider" />
+      <div className="HistoryView-column">
+        <h2 className="HistoryView-heading">Navigation History</h2>
+        <HistoryList
+          queryKey="breadcrumb-viewed"
+          fetcher={() => api.breadcrumb.getViewed()}
+          emptyMessage="No navigation history yet."
+        />
+
       </div>
     </div>
   );

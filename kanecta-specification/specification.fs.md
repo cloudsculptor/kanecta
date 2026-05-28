@@ -387,6 +387,45 @@ Reverse index mapping tag names to all items carrying that tag. Uses the mandato
 
 This enables fast queries like "show me all items tagged `performance-critical`" without scanning the data/ tree.
 
+### .kanecta/app/ — Application UI Storage
+
+The `app/` directory is reserved for application-layer UI storage. It is **not** part of the core data specification and does not follow the UUID sharding convention. Each application stores its state under a namespaced subdirectory: `app/<app-name>/`.
+
+This separation keeps UI concerns isolated from datastore data, ensuring the core data directories remain clean and application-agnostic.
+
+#### app/studio/ — kanecta-app-studio
+
+`app/studio/` is the namespace for [kanecta-app-studio](https://github.com/kanecta/kanecta-app-studio). Applications should create their directory and any required files on startup if they do not already exist.
+
+##### app/studio/history/
+
+Stores per-session navigation and clipboard history as CSV files.
+
+```
+.kanecta/app/studio/history/
+├── clipboard.csv
+└── viewed.csv
+```
+
+**clipboard.csv** — items whose UUID the user explicitly copied to the clipboard.  
+**viewed.csv** — items the user navigated into (zoomed).
+
+Both files use the same CSV format with no header row:
+
+```
+id,name,type,typeId,timestamp
+```
+
+| Column | Description |
+|---|---|
+| `id` | UUID v4 of the item |
+| `name` | Display value of the item at time of recording (commas replaced with spaces) |
+| `type` | Primitive type string (e.g. `text`, `note`, `task`) or `object` for custom-typed items |
+| `typeId` | UUID of the type definition if `type` is `object`; empty string otherwise |
+| `timestamp` | ISO8601 timestamp of the event |
+
+Each file is capped at 100 entries. When the cap is exceeded, the oldest entries are removed. Rows are stored oldest-first; UIs should reverse the list for most-recent-first display.
+
 ### .kanecta/types/ — Type Definitions and Index Cache
 
 The `types/` folder serves two purposes:

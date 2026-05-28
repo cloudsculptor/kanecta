@@ -194,7 +194,7 @@ export function ItemMetadata({ item }: ItemMetadataProps) {
         <div className="ItemMetadata-value" style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
           {item.id}
         </div>
-        <CopyButton text={item.id} onAfterCopy={() => void getApi(activeWorkspaceId).breadcrumb.addClipboard(item.id, item.value)} />
+        <CopyButton text={item.id} onAfterCopy={() => void getApi(activeWorkspaceId).breadcrumb.addClipboard(item.id, item.value, item.type, item.typeId ?? '')} />
       </div>
     </div>
   );

@@ -614,47 +614,99 @@ app.get('/types/:id/schema', (req, res) => {
   }
 });
 
-// ─── Breadcrumb ───────────────────────────────────────────────────────────────
+// ─── Breadcrumb / History ─────────────────────────────────────────────────────
 
-const CLIPBOARD_MAX = 100;
+const BREADCRUMB_MAX = 100;
+// CSV columns: id,name,type,typeId,timestamp
+const HISTORY_NAMES = ['clipboard', 'viewed'];
 
-function clipboardPath() {
+function historyDir() {
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
-  const dir = path.join(root, 'breadcrumb');
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  return path.join(dir, 'clipboard.csv');
+  return path.join(root, 'app', 'studio', 'history');
 }
 
-function readClipboard() {
-  const p = clipboardPath();
+function ensureHistoryDir() {
+  const dir = historyDir();
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  for (const name of HISTORY_NAMES) {
+    const p = path.join(dir, `${name}.csv`);
+    if (!fs.existsSync(p)) fs.writeFileSync(p, '');
+  }
+}
+
+function historyFilePath(name) {
+  ensureHistoryDir();
+  return path.join(historyDir(), `${name}.csv`);
+}
+
+function readBreadcrumb(name) {
+  const p = historyFilePath(name);
   if (!fs.existsSync(p)) return [];
   const lines = fs.readFileSync(p, 'utf8').trim().split('\n').filter(Boolean);
   return lines.map((line) => {
+    const parts = line.split(',');
+    // New format: id,name,type,typeId,timestamp (5 parts)
+    // Old format: id,name,timestamp (3 parts) — backward compat
+    if (parts.length >= 5) {
+      return {
+        id: parts[0],
+        name: parts.slice(1, parts.length - 3).join(',') || parts[1],
+        type: parts[parts.length - 3],
+        typeId: parts[parts.length - 2],
+        timestamp: parts[parts.length - 1],
+      };
+    }
+    // Legacy 3-column rows
     const firstComma = line.indexOf(',');
     const lastComma = line.lastIndexOf(',');
     return {
       id: line.slice(0, firstComma),
       name: line.slice(firstComma + 1, lastComma),
+      type: '',
+      typeId: '',
       timestamp: line.slice(lastComma + 1),
     };
   });
 }
 
+function appendBreadcrumb(name, id, itemName, type, typeId) {
+  const timestamp = new Date().toISOString();
+  let entries = readBreadcrumb(name);
+  const safeName = (itemName || '').replace(/,/g, ' ');
+  const safeType = (type || '').replace(/,/g, ' ');
+  const safeTypeId = (typeId || '').replace(/,/g, ' ');
+  entries.push({ id, name: safeName, type: safeType, typeId: safeTypeId, timestamp });
+  if (entries.length > BREADCRUMB_MAX) entries = entries.slice(entries.length - BREADCRUMB_MAX);
+  const csv = entries.map((e) => `${e.id},${e.name},${e.type},${e.typeId},${e.timestamp}`).join('\n');
+  fs.writeFileSync(historyFilePath(name), csv + '\n');
+}
+
+// Ensure history dir exists on startup
+ensureHistoryDir();
+
 // GET /breadcrumb/clipboard
 app.get('/breadcrumb/clipboard', (_req, res) => {
-  res.json(readClipboard().reverse());
+  res.json(readBreadcrumb('clipboard').reverse());
 });
 
-// POST /breadcrumb/clipboard — append { id, name }
+// POST /breadcrumb/clipboard — append { id, name, type, typeId }
 app.post('/breadcrumb/clipboard', (req, res) => {
-  const { id, name } = req.body;
+  const { id, name, type = '', typeId = '' } = req.body;
   if (!id || !name) return res.status(400).json({ error: 'id and name required' });
-  const timestamp = new Date().toISOString();
-  let entries = readClipboard();
-  entries.push({ id, name: name.replace(/,/g, ' '), timestamp });
-  if (entries.length > CLIPBOARD_MAX) entries = entries.slice(entries.length - CLIPBOARD_MAX);
-  const csv = entries.map((e) => `${e.id},${e.name},${e.timestamp}`).join('\n');
-  fs.writeFileSync(clipboardPath(), csv + '\n');
+  appendBreadcrumb('clipboard', id, name, type, typeId);
+  res.json({ ok: true });
+});
+
+// GET /breadcrumb/viewed
+app.get('/breadcrumb/viewed', (_req, res) => {
+  res.json(readBreadcrumb('viewed').reverse());
+});
+
+// POST /breadcrumb/viewed — append { id, name, type, typeId }
+app.post('/breadcrumb/viewed', (req, res) => {
+  const { id, name, type = '', typeId = '' } = req.body;
+  if (!id || !name) return res.status(400).json({ error: 'id and name required' });
+  appendBreadcrumb('viewed', id, name, type, typeId);
   res.json({ ok: true });
 });
 
