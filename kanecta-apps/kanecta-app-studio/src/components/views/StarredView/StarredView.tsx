@@ -4,6 +4,7 @@ import { IconButton, Tooltip } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import StarIcon from '@mui/icons-material/Star';
 import { useWorkspaceStore } from '../../../store/workspace';
+import { useUiStore } from '../../../store/ui';
 import { TYPE_ICONS, FallbackIcon } from '../../../lib/typeIcons';
 import type { ItemType } from '../../../types/kanecta';
 import type { ClipboardEntry } from '../../../api/index';
@@ -16,9 +17,17 @@ function TypeIcon({ type }: { type: string }) {
 
 export function StarredView() {
   const { getApi } = useWorkspaceStore();
+  const { layout, updatePanel } = useUiStore();
   const api = getApi();
   const qc = useQueryClient();
   const [removingId, setRemovingId] = useState<string | null>(null);
+
+  const handleNavigate = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    window.location.hash = `/tree/${id}`;
+    const panelId = layout.panels[0]?.id;
+    if (panelId) updatePanel(panelId, { viewType: 'tree' });
+  };
 
   const { data: entries = [], isLoading, error } = useQuery({
     queryKey: ['starred'],
@@ -53,7 +62,7 @@ export function StarredView() {
           {entries.map((entry: ClipboardEntry, i: number) => (
             <div key={i} className="StarredView-entry">
               <TypeIcon type={entry.type} />
-              <span className="StarredView-entry-name">{entry.name}</span>
+              <a href={`/#/tree/${entry.id}`} className="StarredView-entry-name" onClick={(e) => handleNavigate(e, entry.id)}>{entry.name}</a>
               <Tooltip title="Copy UUID">
                 <IconButton size="small" className="StarredView-action" onClick={() => handleCopy(entry.id)}>
                   <ContentCopyIcon />
