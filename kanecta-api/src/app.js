@@ -566,6 +566,37 @@ app.get('/types', (req, res) => {
   res.json(results);
 });
 
+// POST /types — create a new type definition
+app.post('/types', (req, res) => {
+  const ds = openDatastore(res);
+  if (!ds) return;
+  const { value } = req.body;
+  if (!value || typeof value !== 'string' || !value.trim()) {
+    return res.status(400).json({ error: 'value is required' });
+  }
+  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const { randomUUID } = require('crypto');
+  const id = randomUUID();
+  const now = new Date().toISOString();
+  const owner = ds.config.owner;
+  const shard1 = id.slice(0, 2);
+  const shard2 = id.slice(2, 4);
+  const typeDir = path.join(root, 'types', shard1, shard2, id);
+  try {
+    fs.mkdirSync(typeDir, { recursive: true });
+    const metadata = { id, parentId: null, value: value.trim(), type: 'type', owner, createdAt: now, modifiedAt: now };
+    fs.writeFileSync(path.join(typeDir, 'metadata.json'), JSON.stringify(metadata, null, 2));
+    const initialSchema = {
+      meta: { description: '' },
+      jsonSchema: { '$schema': 'http://json-schema.org/draft-07/schema#', title: value.trim(), type: 'object', properties: {} },
+    };
+    fs.writeFileSync(path.join(typeDir, 'type.json'), JSON.stringify(initialSchema, null, 2));
+    res.status(201).json({ ...metadata, icon: null, description: null, keywords: null, tags: null });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // PUT /types/:id/schema — save updated type.json schema
 app.put('/types/:id/schema', (req, res) => {
   const { id } = req.params;
@@ -591,6 +622,23 @@ app.put('/types/:id/schema', (req, res) => {
   try {
     fs.writeFileSync(schemaPath, JSON.stringify(schema, null, 2));
     res.json(schema);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /types/:id — get the metadata.json for a type
+app.get('/types/:id', (req, res) => {
+  const { id } = req.params;
+  if (!UUID_RE.test(id)) return res.status(400).json({ error: 'Invalid UUID format' });
+  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const typesDir = path.join(root, 'types');
+  const shard1 = id.slice(0, 2);
+  const shard2 = id.slice(2, 4);
+  const metaPath = path.join(typesDir, shard1, shard2, id, 'metadata.json');
+  if (!fs.existsSync(metaPath)) return res.status(404).json({ error: 'Type not found' });
+  try {
+    res.json(JSON.parse(fs.readFileSync(metaPath, 'utf8')));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

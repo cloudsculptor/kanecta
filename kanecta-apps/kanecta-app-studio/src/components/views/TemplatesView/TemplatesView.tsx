@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import Ajv from 'ajv';
 import * as MuiIcons from '@mui/icons-material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { useWorkspaceStore } from '../../../store/workspace';
@@ -12,7 +13,7 @@ function TypeIcon({ name }: { name?: string | null }) {
   return Icon ? <Icon fontSize="inherit" className="TemplatesView-icon" /> : null;
 }
 
-type Tab = 'view' | 'meta' | 'meta-edit' | 'schema' | 'edit';
+type Tab = 'item' | 'view' | 'meta' | 'meta-edit' | 'schema' | 'edit';
 
 const ICONS_URL = 'https://mui.com/material-ui/material-icons/';
 
@@ -189,16 +190,26 @@ interface DetailPaneProps {
   type: TypeDefinition;
   schema: string;
   onSchemaChange: (s: string) => void;
+  initialTab?: Tab;
 }
 
-function DetailPane({ type, schema, onSchemaChange }: DetailPaneProps) {
+function DetailPane({ type, schema, onSchemaChange, initialTab = 'view' }: DetailPaneProps) {
   const { getApi } = useWorkspaceStore();
-  const [tab, setTab] = useState<Tab>('view');
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [editText, setEditText] = useState(schema);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState(false);
+  const [itemMeta, setItemMeta] = useState<string>('');
+  const [validateResults, setValidateResults] = useState<{ ok: boolean; message: string }[]>([]);
 
-  useEffect(() => { setEditText(schema); setSaveError(null); setSaveOk(false); }, [schema, type.id]);
+  useEffect(() => { setEditText(schema); setSaveError(null); setSaveOk(false); setValidateResults([]); }, [schema, type.id]);
+
+  useEffect(() => {
+    if (tab !== 'item') return;
+    getApi().types.metadata(type.id)
+      .then((m) => setItemMeta(JSON.stringify(m, null, 2)))
+      .catch((e: Error) => setItemMeta(`Error: ${e.message}`));
+  }, [tab, type.id]);
 
   const handleSave = async () => {
     setSaveError(null); setSaveOk(false);
@@ -221,14 +232,53 @@ function DetailPane({ type, schema, onSchemaChange }: DetailPaneProps) {
     setEditText(result); setSaveError(null);
   };
 
+  const handleValidate = () => {
+    const results: { ok: boolean; message: string }[] = [];
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(editText);
+      results.push({ ok: true, message: 'Valid JSON' });
+    } catch (e) {
+      results.push({ ok: false, message: `Invalid JSON: ${(e as Error).message}` });
+      setValidateResults(results);
+      return;
+    }
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      results.push({ ok: false, message: 'Root must be a JSON object' });
+      setValidateResults(results);
+      return;
+    }
+    const obj = parsed as Record<string, unknown>;
+    if (obj['meta'] && typeof obj['meta'] === 'object' && !Array.isArray(obj['meta'])) {
+      results.push({ ok: true, message: 'Has "meta" object' });
+    } else {
+      results.push({ ok: false, message: 'Missing required "meta" object' });
+    }
+    if (obj['jsonSchema'] && typeof obj['jsonSchema'] === 'object' && !Array.isArray(obj['jsonSchema'])) {
+      results.push({ ok: true, message: 'Has "jsonSchema" object' });
+      const ajv = new Ajv({ allErrors: true });
+      const valid = ajv.validateSchema(obj['jsonSchema'] as object);
+      if (valid) {
+        results.push({ ok: true, message: '"jsonSchema" is a valid JSON Schema' });
+      } else {
+        for (const err of ajv.errors ?? []) {
+          results.push({ ok: false, message: `jsonSchema${err.instancePath || ''}: ${err.message}` });
+        }
+      }
+    } else {
+      results.push({ ok: false, message: 'Missing required "jsonSchema" object' });
+    }
+    setValidateResults(results);
+  };
+
   const TAB_LABELS: Record<Tab, string> = {
-    view: 'View', meta: 'Meta', 'meta-edit': 'Meta Edit', schema: 'Schema', edit: 'Edit',
+    item: 'Item', view: 'View', meta: 'Meta', 'meta-edit': 'Meta Edit', schema: 'Schema', edit: 'Edit',
   };
 
   return (
     <div className="TemplatesView-detail">
       <div className="TemplatesView-tabs">
-        {(['view', 'meta', 'meta-edit', 'schema', 'edit'] as Tab[]).map((t) => (
+        {(['view', 'item', 'meta', 'meta-edit', 'schema', 'edit'] as Tab[]).map((t) => (
           <button
             key={t}
             className={`TemplatesView-tab${tab === t ? ' TemplatesView-tab--active' : ''}`}
@@ -240,6 +290,10 @@ function DetailPane({ type, schema, onSchemaChange }: DetailPaneProps) {
       </div>
 
       <div className="TemplatesView-tabcontent">
+        {tab === 'item' && (
+          <textarea className="TemplatesView-schema" value={itemMeta} readOnly spellCheck={false} />
+        )}
+
         {tab === 'view' && (
           <textarea className="TemplatesView-schema" value={schema} readOnly spellCheck={false} />
         )}
@@ -261,13 +315,23 @@ function DetailPane({ type, schema, onSchemaChange }: DetailPaneProps) {
             <textarea
               className="TemplatesView-schema TemplatesView-schema--editable"
               value={editText}
-              onChange={(e) => { setEditText(e.target.value); setSaveError(null); setSaveOk(false); }}
+              onChange={(e) => { setEditText(e.target.value); setSaveError(null); setSaveOk(false); setValidateResults([]); }}
               spellCheck={false}
             />
+            {validateResults.length > 0 && (
+              <div className="TemplatesView-validate">
+                {validateResults.map((r, i) => (
+                  <div key={i} className={`TemplatesView-validate-item TemplatesView-validate-item--${r.ok ? 'ok' : 'error'}`}>
+                    {r.ok ? '✓' : '✗'} {r.message}
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="TemplatesView-toolbar">
               {saveError && <span className="TemplatesView-error">{saveError}</span>}
               {saveOk && <span className="TemplatesView-ok">Saved</span>}
               <div className="TemplatesView-toolbar-actions">
+                <button className="TemplatesView-btn" onClick={handleValidate}>Validate Schema</button>
                 <button className="TemplatesView-btn" onClick={handlePrettify}>Prettify</button>
                 <button className="TemplatesView-btn TemplatesView-btn--primary" onClick={handleSave}>Save</button>
               </div>
@@ -283,10 +347,16 @@ function DetailPane({ type, schema, onSchemaChange }: DetailPaneProps) {
 
 export function TemplatesView() {
   const { getApi } = useWorkspaceStore();
+  const queryClient = useQueryClient();
   const [selectedType, setSelectedType] = useState<TypeDefinition | null>(null);
+  const [selectedInitialTab, setSelectedInitialTab] = useState<Tab>('view');
   const [schema, setSchema] = useState<string>('');
   const [filter, setFilter] = useState('');
   const [detailed, setDetailed] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [addError, setAddError] = useState<string | null>(null);
+  const addInputRef = useRef<HTMLInputElement>(null);
 
   const { data: types = [], isLoading } = useQuery({
     queryKey: ['types'],
@@ -307,22 +377,68 @@ export function TemplatesView() {
 
   const handleSelect = async (t: TypeDefinition) => {
     setSelectedType(t);
+    setSelectedInitialTab('view');
     try {
       const s = await getApi().types.schema(t.id);
       setSchema(JSON.stringify(s, null, 2));
     } catch { setSchema(''); }
   };
 
+  const handleStartAdding = () => {
+    setAdding(true);
+    setNewName('');
+    setAddError(null);
+    setTimeout(() => addInputRef.current?.focus(), 0);
+  };
+
+  const handleCreate = async () => {
+    if (!newName.trim()) return;
+    setAddError(null);
+    try {
+      const newType = await getApi().types.create(newName.trim());
+      await queryClient.invalidateQueries({ queryKey: ['types'] });
+      const initialSchema = JSON.stringify({
+        meta: { description: '' },
+        jsonSchema: { '$schema': 'http://json-schema.org/draft-07/schema#', title: newName.trim(), type: 'object', properties: {} },
+      }, null, 2);
+      setAdding(false);
+      setNewName('');
+      setSelectedType(newType);
+      setSelectedInitialTab('edit');
+      setSchema(initialSchema);
+    } catch (e) {
+      setAddError((e as Error).message);
+    }
+  };
+
   return (
     <div className="TemplatesView">
       <div className="TemplatesView-list">
         <div className="TemplatesView-filter">
-          <input
-            className="TemplatesView-filterinput"
-            placeholder="Filter types…"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          />
+          <div className="TemplatesView-filterrow">
+            <input
+              className="TemplatesView-filterinput"
+              placeholder="Filter types…"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            />
+            <button className="TemplatesView-btn" onClick={handleStartAdding} title="New type">+</button>
+          </div>
+          {adding && (
+            <div className="TemplatesView-filterrow">
+              <input
+                ref={addInputRef}
+                className="TemplatesView-filterinput"
+                placeholder="Type name…"
+                value={newName}
+                onChange={(e) => { setNewName(e.target.value); setAddError(null); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') void handleCreate(); if (e.key === 'Escape') setAdding(false); }}
+              />
+              <button className="TemplatesView-btn TemplatesView-btn--primary" onClick={() => void handleCreate()}>Create</button>
+              <button className="TemplatesView-btn" onClick={() => setAdding(false)}>✕</button>
+            </div>
+          )}
+          {addError && <span className="TemplatesView-error">{addError}</span>}
           <label className="TemplatesView-toggle">
             <input
               type="checkbox"
@@ -365,7 +481,7 @@ export function TemplatesView() {
         )}
       </div>
       {selectedType ? (
-        <DetailPane key={selectedType.id} type={selectedType} schema={schema} onSchemaChange={setSchema} />
+        <DetailPane key={`${selectedType.id}-${selectedInitialTab}`} type={selectedType} schema={schema} onSchemaChange={setSchema} initialTab={selectedInitialTab} />
       ) : (
         <div className="TemplatesView-detail TemplatesView-detail--empty">
           <div className="TemplatesView-placeholder">Select a type to view its schema</div>
