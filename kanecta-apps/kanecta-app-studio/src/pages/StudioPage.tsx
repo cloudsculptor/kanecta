@@ -11,6 +11,7 @@ import { GalleryView } from '../components/views/GalleryView/GalleryView';
 import { ListView } from '../components/views/ListView/ListView';
 import { CalendarView } from '../components/views/CalendarView/CalendarView';
 import { GraphView } from '../components/views/GraphView/GraphView';
+import { CombinatorView } from '../components/views/CombinatorView/CombinatorView';
 import { MissionControl } from '../components/views/MissionControl/MissionControl';
 import { QualityControlView } from '../components/views/QualityControlView/QualityControlView';
 import { HistoryView } from '../components/views/HistoryView/HistoryView';
@@ -77,6 +78,7 @@ function StudioInner() {
       case 'list': return <ListView panelId={panelId} />;
       case 'calendar': return <CalendarView panelId={panelId} />;
       case 'graph': return <GraphView />;
+      case 'combinator': return <CombinatorView />;
       case 'mission-control': return <MissionControl />;
       case 'quality-control': return <QualityControlView />;
       case 'history': return <HistoryView />;
