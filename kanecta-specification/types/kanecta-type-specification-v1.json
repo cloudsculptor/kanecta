@@ -32,6 +32,10 @@
           "type": "string",
           "description": "Comma-separated tags for grouping types (e.g. 'people,biography,individual')."
         },
+        "primaryField": {
+          "type": "string",
+          "description": "Dot-separated path to the field in jsonSchema.properties that best represents the item (e.g. 'title', 'name', 'address.street'). Used by UIs to surface the most meaningful value."
+        },
         "ai-instructions": {
           "type": "object",
           "additionalProperties": false,
@@ -89,6 +93,7 @@
         "details": "Use for any individual human being. Relates to Organisation via membership.",
         "keywords": "human individual biography name",
         "tags": "people,biography,individual",
+        "primaryField": "name",
         "ai-instructions": {
           "claude": "Use this type for any individual human being."
         }
