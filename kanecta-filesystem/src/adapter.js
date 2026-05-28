@@ -259,7 +259,7 @@ class FilesystemAdapter {
 
   create({
     parentId, value = null, type = 'string', typeId = null,
-    owner, license = null, sortOrder, confidence = null, tags = [],
+    owner, license = null, sortOrder, confidence = null, status = null, tags = [],
     createdBy,
   } = {}) {
     if (WELL_KNOWN_TYPES.has(type)) {
@@ -292,6 +292,7 @@ class FilesystemAdapter {
       license,
       sortOrder,
       confidence,
+      status,
       tags: [...tags],
       createdAt: now.toISOString(),
       modifiedAt: now.toISOString(),
@@ -364,6 +365,7 @@ class FilesystemAdapter {
     if ('parentId' in changes) updated.parentId = changes.parentId;
     if ('sortOrder' in changes) updated.sortOrder = changes.sortOrder;
     if ('confidence' in changes) updated.confidence = changes.confidence;
+    if ('status' in changes) updated.status = changes.status;
     if ('license' in changes) updated.license = changes.license;
 
     if ('tags' in changes) {

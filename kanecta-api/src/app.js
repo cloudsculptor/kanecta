@@ -68,6 +68,7 @@ function cloneSubtree(ds, sourceId, targetParentId, actor) {
     typeId: source.typeId || null,
     tags: source.tags || [],
     confidence: source.confidence || null,
+    status: source.status || null,
     license: source.license || null,
     owner: actor || source.owner,
   });
@@ -132,7 +133,7 @@ app.post('/items/bulk', (req, res) => {
   const errors = [];
   for (const [i, itemArgs] of items.entries()) {
     const { parentId = null, value = null, type = 'string', typeId = null,
-      owner, license = null, sortOrder, confidence = null, tags = [],
+      owner, license = null, sortOrder, confidence = null, status = null, tags = [],
       alias, createdBy } = itemArgs;
     if (!VALID_TYPES.includes(type)) {
       errors.push({ index: i, error: `Invalid type: ${type}` });
@@ -143,7 +144,7 @@ app.post('/items/bulk', (req, res) => {
       continue;
     }
     try {
-      const item = ds.create({ parentId, value, type, typeId, owner, license, sortOrder, confidence, tags, createdBy });
+      const item = ds.create({ parentId, value, type, typeId, owner, license, sortOrder, confidence, status, tags, createdBy });
       if (alias) ds.setAlias(alias, item.id);
       created.push(item);
     } catch (err) {
@@ -160,7 +161,7 @@ app.post('/items', (req, res) => {
   const ds = openDatastore(res);
   if (!ds) return;
   const { parentId = null, value = null, type = 'string', typeId = null,
-    owner, license = null, sortOrder, confidence = null, tags = [],
+    owner, license = null, sortOrder, confidence = null, status = null, tags = [],
     alias, createdBy } = req.body;
 
   if (!VALID_TYPES.includes(type))
@@ -173,7 +174,7 @@ app.post('/items', (req, res) => {
     return res.status(404).json({ error: `Parent not found: ${parentId}` });
 
   try {
-    const item = ds.create({ parentId, value, type, typeId, owner, license, sortOrder, confidence, tags, createdBy });
+    const item = ds.create({ parentId, value, type, typeId, owner, license, sortOrder, confidence, status, tags, createdBy });
     if (alias) ds.setAlias(alias, item.id);
     res.status(201).json(item);
   } catch (err) {
@@ -299,6 +300,7 @@ app.put('/items/:id', (req, res) => {
     changes.confidence = body.confidence;
   }
   if ('license' in body) changes.license = body.license;
+  if ('status' in body) changes.status = body.status;
   if ('tags' in body) changes.tags = body.tags;
 
   try {
