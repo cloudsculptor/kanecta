@@ -9,6 +9,7 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
+    open: true,
     proxy: {
       '/api': {
         target: process.env.KANECTA_API_URL ?? 'http://localhost:3001',
