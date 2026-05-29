@@ -32,6 +32,7 @@ function readPointer(file) {
 
 function writePointer(datastorePath) {
   const file = POINTER_LOCATIONS[0];
+  const isNew = !fs.existsSync(file);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   let data = readPointer(file) || { default: null, datastores: [] };
   if (!data.datastores.includes(datastorePath)) {
@@ -39,19 +40,32 @@ function writePointer(datastorePath) {
   }
   data.default = datastorePath;
   fs.writeFileSync(file, JSON.stringify(data, null, 2) + '\n', 'utf8');
-  console.log(`✓ Config saved to ${file}`);
+  if (isNew) {
+    console.log(`  → Writing ${file}`);
+    console.log(`    (XDG pointer file — records where your datastore lives so npm start can find it next time)`);
+  } else {
+    console.log(`  → Updated ${file}`);
+  }
 }
 
 function resolveFromEnv() {
   const p = process.env.KANECTA_DATASTORE;
-  return p && Datastore.isDatastore(p) ? p : null;
+  if (!p) return null;
+  console.log(`  checking KANECTA_DATASTORE env → ${p}`);
+  if (Datastore.isDatastore(p)) return p;
+  console.log(`  ✗ not a valid datastore`);
+  return null;
 }
 
 function resolveFromPointers() {
   for (const file of POINTER_LOCATIONS) {
+    console.log(`  checking ${file}`);
     const data = readPointer(file);
-    if (!data) continue;
-    if (data.datastores.length === 0) continue;
+    if (!data || data.datastores.length === 0) {
+      console.log(`  ✗ not found`);
+      continue;
+    }
+    console.log(`  ✓ found (${data.datastores.length} datastore${data.datastores.length > 1 ? 's' : ''})`);
     return { file, data };
   }
   return null;
@@ -60,7 +74,7 @@ function resolveFromPointers() {
 function checkSpecVersion(datastorePath) {
   try {
     const config = JSON.parse(
-      fs.readFileSync(path.join(datastorePath, 'config', 'config.json'), 'utf8'),
+      fs.readFileSync(path.join(datastorePath, '.kanecta', 'config', 'config.json'), 'utf8'),
     );
     const specMd = fs.readFileSync(
       path.join(__dirname, '../../kanecta-specification/specification.md'),
@@ -136,7 +150,7 @@ async function wizard() {
     datastorePath = path.join(expandHome(dir), name);
     fs.mkdirSync(datastorePath, { recursive: true });
     Datastore.init(datastorePath, email);
-    const dsConfigPath = path.join(datastorePath, 'config', 'config.json');
+    const dsConfigPath = path.join(datastorePath, '.kanecta', 'config', 'config.json');
     const dsConfig = JSON.parse(fs.readFileSync(dsConfigPath, 'utf8'));
     dsConfig.name = rootNode;
     fs.writeFileSync(dsConfigPath, JSON.stringify(dsConfig, null, 2) + '\n', 'utf8');
@@ -222,6 +236,8 @@ function launch(datastorePath) {
 }
 
 async function main() {
+  console.log('\nKanecta — locating datastore...');
+
   // 1. Explicit env override
   let datastorePath = resolveFromEnv();
   if (datastorePath) {
