@@ -50,8 +50,8 @@ function writePointer(datastorePath) {
 
 function resolveFromEnv() {
   const p = process.env.KANECTA_DATASTORE;
+  console.log(`  checking KANECTA_DATASTORE env → ${p || '(not set)'}`);
   if (!p) return null;
-  console.log(`  checking KANECTA_DATASTORE env → ${p}`);
   if (Datastore.isDatastore(p)) return p;
   console.log(`  ✗ not a valid datastore`);
   return null;
