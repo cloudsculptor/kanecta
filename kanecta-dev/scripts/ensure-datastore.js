@@ -171,9 +171,16 @@ async function wizard() {
   console.log('  4. Exit\n');
 
   const choice = await ask(rl, 'Choice [1-4]: ');
+
+  // ── Collect all inputs before doing anything ──────────────────────────────
+
   let datastorePath;
+  let zipPath = null;
+  let owner = null;
+  let mode; // 'create' | 'existing' | 'zip'
 
   if (choice === '1') {
+    mode = 'create';
     const dirInput = await ask(rl, 'Datastore parent directory [~/]:');
     const dir = dirInput || '~/';
 
@@ -185,15 +192,13 @@ async function wizard() {
     }
 
     console.log('  (used to mark data ownership — not for communication. Should be globally unique: an email or domain is ideal.)');
-    const email = await ask(rl, 'Owner identifier: ');
-    if (!email) { console.error('Owner identifier required.'); rl.close(); process.exit(1); }
+    owner = await ask(rl, 'Owner identifier: ');
+    if (!owner) { console.error('Owner identifier required.'); rl.close(); process.exit(1); }
 
     datastorePath = path.join(expandHome(dir), name);
-    fs.mkdirSync(datastorePath, { recursive: true });
-    Datastore.init(datastorePath, email);
-    console.log(`\n✓ Created datastore at ${datastorePath}\n`);
 
   } else if (choice === '2') {
+    mode = 'existing';
     const dir = await ask(rl, 'Path to datastore: ');
     datastorePath = expandHome(dir);
     if (!Datastore.isDatastore(datastorePath)) {
@@ -201,18 +206,18 @@ async function wizard() {
       rl.close();
       process.exit(1);
     }
-    console.log(`\n✓ Using datastore at ${datastorePath}\n`);
 
   } else if (choice === '3') {
+    mode = 'zip';
     const zipInput = await ask(rl, 'Path to zip file: ');
-    const zipPath = expandHome(zipInput);
+    zipPath = expandHome(zipInput);
     if (!fs.existsSync(zipPath)) {
       console.error(`File not found: ${zipPath}`);
       rl.close();
       process.exit(1);
     }
 
-    const dirInput = await ask(rl, 'Extract to (parent directory) [~/]: ');
+    const dirInput = await ask(rl, 'Datastore parent directory [~/]: ');
     const dir = dirInput || '~/';
 
     let name;
@@ -223,6 +228,54 @@ async function wizard() {
     }
 
     datastorePath = path.join(expandHome(dir), name);
+
+  } else {
+    rl.close();
+    console.log('Aborted.');
+    process.exit(0);
+  }
+
+  const frontendPortInput = await ask(rl, 'Frontend port [9743]: ');
+  const studioPort = parseInt(frontendPortInput || '9743', 10);
+  const apiPortInput = await ask(rl, `API port [${studioPort + 1}]: `);
+  const apiPort = parseInt(apiPortInput || String(studioPort + 1), 10);
+
+  // ── Summary + confirmation ─────────────────────────────────────────────────
+
+  const summary = {
+    datastore: datastorePath,
+    ...(owner ? { owner } : {}),
+    ...(zipPath ? { importFrom: zipPath } : {}),
+    frontendPort: studioPort,
+    apiPort,
+    pointerFile: POINTER_LOCATIONS[0],
+  };
+
+  console.log('\nReady to set up:\n');
+  console.log(JSON.stringify(summary, null, 2));
+  console.log();
+
+  const action = mode === 'existing'
+    ? `register ${datastorePath} in pointer file`
+    : mode === 'zip'
+    ? `extract zip and create datastore at ${datastorePath}`
+    : `create datastore at ${datastorePath}`;
+
+  const confirm = await ask(rl, `OK to ${action} and write ${POINTER_LOCATIONS[0]}? [Y/n]: `);
+  if (confirm.toLowerCase() === 'n') {
+    rl.close();
+    console.log('Aborted.');
+    process.exit(0);
+  }
+
+  // ── Create ────────────────────────────────────────────────────────────────
+
+  if (mode === 'create') {
+    fs.mkdirSync(datastorePath, { recursive: true });
+    Datastore.init(datastorePath, owner);
+    console.log(`\n✓ Created datastore at ${datastorePath}`);
+
+  } else if (mode === 'zip') {
     fs.mkdirSync(datastorePath, { recursive: true });
     try {
       execSync(`unzip -o "${zipPath}" -d "${datastorePath}"`, { stdio: 'inherit' });
@@ -236,19 +289,8 @@ async function wizard() {
       rl.close();
       process.exit(1);
     }
-    console.log(`\n✓ Imported datastore to ${datastorePath}\n`);
-
-  } else {
-    rl.close();
-    console.log('Aborted.');
-    process.exit(0);
+    console.log(`\n✓ Imported datastore to ${datastorePath}`);
   }
-
-  const frontendPortInput = await ask(rl, 'Frontend port [9743]: ');
-  const studioPort = parseInt(frontendPortInput || '9743', 10);
-  const apiPortInput = await ask(rl, `API port [${studioPort + 1}]: `);
-  const apiPort = parseInt(apiPortInput || String(studioPort + 1), 10);
-  console.log(`  Frontend: ${studioPort}  API: ${apiPort}`);
 
   rl.close();
   writePointer(datastorePath, apiPort, studioPort);
