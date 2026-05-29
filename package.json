@@ -2,6 +2,7 @@
   "name": "kanecta",
   "private": true,
   "scripts": {
+    "prestart": "npm install",
     "start": "node kanecta-dev/scripts/ensure-datastore.js",
     "dev": "node kanecta-dev/scripts/ensure-datastore.js",
     "help": "cat kanecta-docs/dev-setup.md",
