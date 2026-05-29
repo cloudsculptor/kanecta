@@ -15,7 +15,14 @@ import BubbleChartIcon from '@mui/icons-material/BubbleChart';
 import FlightIcon from '@mui/icons-material/Flight';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import SyncIcon from '@mui/icons-material/Sync';
-import SmartToyIcon from '@mui/icons-material/SmartToy';
+function ClaudeIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z" fill="#CC785C" />
+      <path d="M14.5 7.5L10 16.5M9.5 7.5L14 16.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
 import FactCheckIcon from '@mui/icons-material/FactCheck';
 import HistoryIcon from '@mui/icons-material/History';
 import StarIcon from '@mui/icons-material/Star';
@@ -49,7 +56,7 @@ const NAV_ITEMS: NavEntry[] = [
   { view: 'gallery', label: 'Gallery', icon: <GridViewIcon fontSize="small" /> },
   { view: 'calendar', label: 'Calendar', icon: <DateRangeIcon fontSize="small" /> },
   { view: 'mission-control', label: 'Mission Control', icon: <FlightIcon fontSize="small" /> },
-  { view: 'claude', label: 'Claude CLI', icon: <SmartToyIcon fontSize="small" /> },
+  { view: 'claude', label: 'Claude CLI', icon: <ClaudeIcon /> },
   { divider: true },
   { view: 'query', label: 'Query', icon: <ManageSearchIcon fontSize="small" />, disabled: true },
   { view: 'inbox', label: 'Inbox', icon: <InboxIcon fontSize="small" />, disabled: true },

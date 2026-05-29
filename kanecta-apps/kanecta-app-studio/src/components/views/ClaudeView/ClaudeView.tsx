@@ -1,38 +1,47 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Button, IconButton, Tooltip, CircularProgress } from '@mui/material';
-import SmartToyIcon from '@mui/icons-material/SmartToy';
+import { IconButton, Tooltip, CircularProgress } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import StopIcon from '@mui/icons-material/Stop';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import CheckIcon from '@mui/icons-material/Check';
-import CloseIcon from '@mui/icons-material/Close';
 import { useWorkspaceStore } from '../../../store/workspace';
-import type { ApprovalNeededEvent, ClaudeEvent } from '../../../api/claude';
+import type { ClaudeEvent } from '../../../api/claude';
 import './ClaudeView.scss';
 
-// ── Message types displayed in the feed ─────────────────────────────────────
+// ── Claude logo SVG ──────────────────────────────────────────────────────────
 
-interface UserMessage   { kind: 'user';      text: string; }
-interface AssistantMsg  { kind: 'assistant';  text: string; }
-interface ToolCallMsg   { kind: 'tool';       name: string; input: Record<string, unknown>; }
-interface ToolResultMsg { kind: 'tool_result'; text: string; }
-interface StderrMsg     { kind: 'stderr';     text: string; }
-interface ResultMsg     { kind: 'result';     text: string; }
+function ClaudeLogo({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z"
+        fill="#CC785C"
+      />
+      <path
+        d="M14.5 7.5L10 16.5M9.5 7.5L14 16.5"
+        stroke="white"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
 
-type FeedMessage = UserMessage | AssistantMsg | ToolCallMsg | ToolResultMsg | StderrMsg | ResultMsg;
+// ── Message types ────────────────────────────────────────────────────────────
 
-// ── Helper: extract text / tool blocks from a raw assistant message ──────────
+interface UserMessage    { kind: 'user';        text: string; }
+interface AssistantMsg   { kind: 'assistant';   text: string; }
+interface ToolRanMsg     { kind: 'tool_ran';    name: string; input: Record<string, unknown>; }
+interface ToolResultMsg  { kind: 'tool_result'; text: string; }
+interface StderrMsg      { kind: 'stderr';      text: string; }
+interface ResultMsg      { kind: 'result';      text: string; }
+
+type FeedMessage = UserMessage | AssistantMsg | ToolRanMsg | ToolResultMsg | StderrMsg | ResultMsg;
 
 function extractAssistantBlocks(raw: Record<string, unknown>): FeedMessage[] {
   const msg = raw as { message?: { content?: unknown[] } };
   const blocks: FeedMessage[] = [];
   for (const block of msg.message?.content ?? []) {
     const b = block as { type: string; text?: string; name?: string; input?: Record<string, unknown> };
-    if (b.type === 'text' && b.text) {
-      blocks.push({ kind: 'assistant', text: b.text });
-    } else if (b.type === 'tool_use') {
-      blocks.push({ kind: 'tool', name: b.name ?? '', input: b.input ?? {} });
-    }
+    if (b.type === 'text' && b.text) blocks.push({ kind: 'assistant', text: b.text });
   }
   return blocks;
 }
@@ -46,20 +55,17 @@ export function ClaudeView() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [feed, setFeed] = useState<FeedMessage[]>([]);
-  const [pendingApproval, setPendingApproval] = useState<ApprovalNeededEvent | null>(null);
 
   const esRef = useRef<EventSource | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const addMessage = useCallback((msg: FeedMessage) => {
     setFeed(prev => [...prev, msg]);
   }, []);
 
-  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [feed, pendingApproval]);
+  }, [feed]);
 
   const closeStream = useCallback(() => {
     esRef.current?.close();
@@ -78,11 +84,8 @@ export function ClaudeView() {
         }
         break;
       }
-      case 'approval_needed':
-        setPendingApproval(event);
-        break;
-      case 'approval_resolved':
-        setPendingApproval(null);
+      case 'tool_ran':
+        addMessage({ kind: 'tool_ran', name: event.toolName, input: event.toolInput });
         break;
       case 'stderr':
         if (event.text.trim()) addMessage({ kind: 'stderr', text: event.text });
@@ -101,7 +104,6 @@ export function ClaudeView() {
 
     const api = getApi();
     setFeed([]);
-    setPendingApproval(null);
     setPrompt('');
     setRunning(true);
     addMessage({ kind: 'user', text });
@@ -110,28 +112,18 @@ export function ClaudeView() {
       const { id } = await api.claude.createSession(text);
       setSessionId(id);
 
-      const url = api.claude.streamUrl(id);
-      const es = new EventSource(url);
+      const es = new EventSource(api.claude.streamUrl(id));
       esRef.current = es;
 
       es.onmessage = (e: MessageEvent) => {
         try { handleEvent(JSON.parse(e.data as string) as ClaudeEvent); } catch {}
       };
-      es.onerror = () => {
-        setRunning(false);
-        closeStream();
-      };
+      es.onerror = () => { setRunning(false); closeStream(); };
     } catch {
       addMessage({ kind: 'stderr', text: 'Failed to start Claude session.' });
       setRunning(false);
     }
   }, [prompt, running, getApi, addMessage, handleEvent, closeStream]);
-
-  const handleApprove = useCallback(async (approved: boolean) => {
-    if (!sessionId) return;
-    setPendingApproval(null);
-    try { await getApi().claude.respond(sessionId, approved); } catch {}
-  }, [sessionId, getApi]);
 
   const handleCancel = useCallback(async () => {
     if (!sessionId) return;
@@ -141,14 +133,10 @@ export function ClaudeView() {
     setSessionId(null);
   }, [sessionId, getApi, closeStream]);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      void startSession();
-    }
-  }, [startSession]);
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void startSession(); }
+  };
 
-  // Auto-resize textarea
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setPrompt(e.target.value);
     const el = e.target;
@@ -172,10 +160,10 @@ export function ClaudeView() {
             <div className="ClaudeView-msg-bubble">{msg.text}</div>
           </div>
         );
-      case 'tool':
+      case 'tool_ran':
         return (
           <div key={i} className="ClaudeView-msg ClaudeView-msg--tool">
-            <span className="ClaudeView-msg-label">Tool call — {msg.name}</span>
+            <span className="ClaudeView-msg-label">Tool — {msg.name}</span>
             <div className="ClaudeView-msg-bubble">
               <pre>{JSON.stringify(msg.input, null, 2)}</pre>
             </div>
@@ -207,9 +195,8 @@ export function ClaudeView() {
 
   return (
     <div className="ClaudeView">
-      {/* Header */}
       <div className="ClaudeView-header">
-        <SmartToyIcon fontSize="small" />
+        <ClaudeLogo size={20} />
         <h2>Claude CLI</h2>
         {running && (
           <>
@@ -226,12 +213,11 @@ export function ClaudeView() {
         )}
       </div>
 
-      {/* Message feed */}
       {feed.length === 0 && !running ? (
         <div className="ClaudeView-empty">
-          <SmartToyIcon />
+          <ClaudeLogo size={48} />
           <p>Send a prompt to start a Claude session.</p>
-          <p style={{ fontSize: '0.75rem' }}>Claude runs via your local CLI using your Pro subscription.</p>
+          <p style={{ fontSize: '0.75rem' }}>Runs via your local Claude CLI using your Pro subscription.</p>
         </div>
       ) : (
         <div className="ClaudeView-messages">
@@ -240,44 +226,8 @@ export function ClaudeView() {
         </div>
       )}
 
-      {/* Tool approval card */}
-      {pendingApproval && (
-        <div className="ClaudeView-approval">
-          <div className="ClaudeView-approval-header">
-            <WarningAmberIcon />
-            Claude is requesting tool access
-          </div>
-          <div className="ClaudeView-approval-tool">
-            <strong>{pendingApproval.toolName}</strong>
-            <pre>{JSON.stringify(pendingApproval.toolInput, null, 2)}</pre>
-          </div>
-          <div className="ClaudeView-approval-actions">
-            <Button
-              size="small"
-              variant="contained"
-              color="success"
-              startIcon={<CheckIcon />}
-              onClick={() => void handleApprove(true)}
-            >
-              Approve
-            </Button>
-            <Button
-              size="small"
-              variant="outlined"
-              color="error"
-              startIcon={<CloseIcon />}
-              onClick={() => void handleApprove(false)}
-            >
-              Deny
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Prompt input */}
       <div className="ClaudeView-input">
         <textarea
-          ref={textareaRef}
           value={prompt}
           onChange={handleTextareaChange}
           onKeyDown={handleKeyDown}
@@ -287,11 +237,7 @@ export function ClaudeView() {
         />
         <Tooltip title="Send (Enter)">
           <span>
-            <IconButton
-              color="primary"
-              onClick={() => void startSession()}
-              disabled={running || !prompt.trim()}
-            >
+            <IconButton color="primary" onClick={() => void startSession()} disabled={running || !prompt.trim()}>
               <SendIcon />
             </IconButton>
           </span>
