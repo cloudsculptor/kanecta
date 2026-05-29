@@ -482,7 +482,7 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
                 <div className="TreeView-heading-actions TreeNode-actions">
                   <Tooltip title="Rename">
                     <IconButton size="small" onClick={startRootEdit} sx={{ padding: '2px', marginTop: '-4px' }}>
-                      <EditIcon sx={{ width: '24px !important', height: '24px !important' }} />
+                      <EditIcon sx={{ width: '24px !important', height: '24px !important', color: '#999' }} />
                     </IconButton>
                   </Tooltip>
                 </div>
