@@ -164,19 +164,12 @@ async function wizard() {
       console.log('  Invalid name. Use letters, numbers, and hyphens only.');
     }
 
-    const rootNode = await ask(rl, 'Root node name (e.g. your name or organisation): ');
-    if (!rootNode) { console.error('Root node name required.'); rl.close(); process.exit(1); }
-
     const email = await ask(rl, 'Owner email: ');
     if (!email) { console.error('Email required.'); rl.close(); process.exit(1); }
 
     datastorePath = path.join(expandHome(dir), name);
     fs.mkdirSync(datastorePath, { recursive: true });
     Datastore.init(datastorePath, email);
-    const dsConfigPath = path.join(datastorePath, '.kanecta', 'config', 'config.json');
-    const dsConfig = JSON.parse(fs.readFileSync(dsConfigPath, 'utf8'));
-    dsConfig.name = rootNode;
-    fs.writeFileSync(dsConfigPath, JSON.stringify(dsConfig, null, 2) + '\n', 'utf8');
     console.log(`\n✓ Created datastore at ${datastorePath}\n`);
 
   } else if (choice === '2') {
