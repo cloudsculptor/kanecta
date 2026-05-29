@@ -232,7 +232,7 @@ app.get('/items/stats', (req, res) => {
 
   // Build typeId → { name, icon } from types directory
   const typeInfo = {};
-  const typesDir = path.join(root, 'types');
+  const typesDir = path.join(root, '.kanecta', 'types');
   if (fs.existsSync(typesDir)) {
     for (const s1 of fs.readdirSync(typesDir)) {
       const d1 = path.join(typesDir, s1);
@@ -577,10 +577,10 @@ app.get('/tags/:tag', (req, res) => {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-// GET /types — list all type definitions from ~/.kanecta/types/
+// GET /types — list all type definitions from <datastore>/.kanecta/types/
 app.get('/types', (req, res) => {
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
-  const typesDir = path.join(root, 'types');
+  const typesDir = path.join(root, '.kanecta', 'types');
   if (!fs.existsSync(typesDir)) return res.json([]);
 
   const results = [];
@@ -670,7 +670,7 @@ app.put('/types/:id/schema', (req, res) => {
   const { id } = req.params;
   if (!UUID_RE.test(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
-  const typesDir = path.join(root, 'types');
+  const typesDir = path.join(root, '.kanecta', 'types');
   const shard1 = id.slice(0, 2);
   const shard2 = id.slice(2, 4);
   const schemaPath = path.join(typesDir, shard1, shard2, id, 'type.json');
@@ -700,7 +700,7 @@ app.get('/types/:id', (req, res) => {
   const { id } = req.params;
   if (!UUID_RE.test(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
-  const typesDir = path.join(root, 'types');
+  const typesDir = path.join(root, '.kanecta', 'types');
   const shard1 = id.slice(0, 2);
   const shard2 = id.slice(2, 4);
   const metaPath = path.join(typesDir, shard1, shard2, id, 'metadata.json');
@@ -717,7 +717,7 @@ app.get('/types/:id/schema', (req, res) => {
   const { id } = req.params;
   if (!UUID_RE.test(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
-  const typesDir = path.join(root, 'types');
+  const typesDir = path.join(root, '.kanecta', 'types');
   const shard1 = id.slice(0, 2);
   const shard2 = id.slice(2, 4);
   const schemaPath = path.join(typesDir, shard1, shard2, id, 'type.json');

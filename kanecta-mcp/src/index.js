@@ -523,7 +523,7 @@ function handleRecent(args, ds) {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function typesDir(datastorePath) {
-  return path.join(datastorePath, 'types');
+  return path.join(datastorePath, '.kanecta', 'types');
 }
 
 function typeShardPath(datastorePath, id) {

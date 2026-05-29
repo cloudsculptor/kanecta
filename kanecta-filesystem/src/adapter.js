@@ -24,13 +24,13 @@ const LINK_SOURCE = '\\[\\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9
 class FilesystemAdapter {
   constructor(root) {
     this.root = path.resolve(root);
-    this.k = this.root;
+    this.k = path.join(this.root, '.kanecta');
     this._config = null;
     this._roots = null;
   }
 
   static isDatastore(root) {
-    return fs.existsSync(path.join(root, 'config', 'config.json'));
+    return fs.existsSync(path.join(root, '.kanecta', 'config', 'config.json'));
   }
 
   static init(root, owner) {
@@ -38,11 +38,12 @@ class FilesystemAdapter {
       'data', 'aliases', 'annotations', 'config', 'history', 'links',
       'relationships', 'remotes', 'remotes-index', 'search', 'tags', 'types',
     ];
-    fs.mkdirSync(root, { recursive: true });
-    for (const d of dirs) fs.mkdirSync(path.join(root, d), { recursive: true });
+    const k = path.join(root, '.kanecta');
+    fs.mkdirSync(k, { recursive: true });
+    for (const d of dirs) fs.mkdirSync(path.join(k, d), { recursive: true });
     const config = { owner, specVersion: '1.2.0' };
     fs.writeFileSync(
-      path.join(root, 'config', 'config.json'),
+      path.join(k, 'config', 'config.json'),
       JSON.stringify(config, null, 2) + '\n',
     );
     const adapter = new FilesystemAdapter(root);
