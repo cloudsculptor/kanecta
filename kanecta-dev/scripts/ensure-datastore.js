@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const net = require('net');
 const readline = require('readline');
 const { execSync, spawn } = require('child_process');
 const { Datastore } = require('@kanecta/lib');
@@ -17,6 +18,26 @@ const POINTER_LOCATIONS = [
 ];
 
 const NAME_RE = /^[a-zA-Z0-9-]+$/;
+
+function findFreePort(preferred) {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.unref();
+    server.on('error', () => {
+      const s2 = net.createServer();
+      s2.unref();
+      s2.on('error', reject);
+      s2.listen(0, '127.0.0.1', () => {
+        const { port } = s2.address();
+        s2.close(() => resolve(port));
+      });
+    });
+    server.listen(preferred, '127.0.0.1', () => {
+      const { port } = server.address();
+      server.close(() => resolve(port));
+    });
+  });
+}
 
 function expandHome(p) {
   return p.replace(/^~/, HOME);
@@ -212,9 +233,12 @@ async function wizard() {
   return datastorePath;
 }
 
-function launch(datastorePath) {
+async function launch(datastorePath) {
+  const apiPort = await findFreePort(3001);
   const repoRoot = path.resolve(__dirname, '../..');
   const concurrentlyBin = path.join(repoRoot, 'node_modules', '.bin', 'concurrently');
+
+  console.log(`  API port: ${apiPort}`);
 
   const proc = spawn(
     concurrentlyBin,
@@ -227,7 +251,12 @@ function launch(datastorePath) {
     ],
     {
       cwd: repoRoot,
-      env: { ...process.env, KANECTA_DATASTORE: datastorePath },
+      env: {
+        ...process.env,
+        KANECTA_DATASTORE: datastorePath,
+        PORT: String(apiPort),
+        KANECTA_API_URL: `http://localhost:${apiPort}`,
+      },
       stdio: 'inherit',
     },
   );
