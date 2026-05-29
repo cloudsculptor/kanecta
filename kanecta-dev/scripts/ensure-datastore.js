@@ -141,8 +141,7 @@ async function wizard() {
       console.log('  Invalid name. Use letters, numbers, and hyphens only.');
     }
 
-    const rootNode = await ask(rl, 'Root node name (e.g. your name or organisation): ');
-    if (!rootNode) { console.error('Root node name required.'); rl.close(); process.exit(1); }
+    const rootNode = await ask(rl, "Root node name (e.g. your name or organisation) [I don't have a name yet]: ") || "I don't have a name yet";
 
     const email = await ask(rl, 'Owner email: ');
     if (!email) { console.error('Email required.'); rl.close(); process.exit(1); }
