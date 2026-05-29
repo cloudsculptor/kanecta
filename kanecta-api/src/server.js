@@ -3,7 +3,7 @@ const os = require('os');
 const app = require('./app');
 
 if (!process.env.KANECTA_DATASTORE) {
-  process.env.KANECTA_DATASTORE = path.join(os.homedir(), '.kanecta');
+  process.env.KANECTA_DATASTORE = path.join(os.homedir(), 'kanecta');
 }
 
 const PORT = process.env.PORT || 3001;
