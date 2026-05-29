@@ -117,12 +117,12 @@ async function wizard() {
   let datastorePath;
 
   if (choice === '1') {
-    const dir = await ask(rl, 'Parent directory: ');
-    if (!dir) { console.error('Directory required.'); rl.close(); process.exit(1); }
+    const dirInput = await ask(rl, 'Parent directory [~/]: ');
+    const dir = dirInput || '~/';
 
     let name;
     while (true) {
-      name = await ask(rl, 'Datastore name (letters, numbers, hyphens only): ');
+      name = await ask(rl, 'Datastore name (letters, numbers, hyphens only) [kanecta]: ') || 'kanecta';
       if (NAME_RE.test(name)) break;
       console.log('  Invalid name. Use letters, numbers, and hyphens only.');
     }
@@ -161,12 +161,12 @@ async function wizard() {
       process.exit(1);
     }
 
-    const dir = await ask(rl, 'Extract to (parent directory): ');
-    if (!dir) { console.error('Directory required.'); rl.close(); process.exit(1); }
+    const dirInput = await ask(rl, 'Extract to (parent directory) [~/]: ');
+    const dir = dirInput || '~/';
 
     let name;
     while (true) {
-      name = await ask(rl, 'Datastore name (letters, numbers, hyphens only): ');
+      name = await ask(rl, 'Datastore name (letters, numbers, hyphens only) [kanecta]: ') || 'kanecta';
       if (NAME_RE.test(name)) break;
       console.log('  Invalid name. Use letters, numbers, and hyphens only.');
     }
