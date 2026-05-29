@@ -51,15 +51,17 @@ function readPointer(file) {
   return null;
 }
 
-function writePointer(datastorePath) {
+function writePointer(datastorePath, apiPort, studioPort) {
   const file = POINTER_LOCATIONS[0];
   const isNew = !fs.existsSync(file);
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  let data = readPointer(file) || { default: null, datastores: [] };
+  let data = readPointer(file) || { default: null, datastores: [], studioPort: 9743, apiPort: 9744 };
   if (!data.datastores.includes(datastorePath)) {
     data.datastores.push(datastorePath);
   }
   data.default = datastorePath;
+  data.apiPort = apiPort;
+  data.studioPort = studioPort;
   fs.writeFileSync(file, JSON.stringify(data, null, 2) + '\n', 'utf8');
   if (isNew) {
     console.log(`  → Writing ${file}`);
@@ -228,17 +230,27 @@ async function wizard() {
     process.exit(0);
   }
 
+  const basePortInput = await ask(rl, 'Base port [9743]: ');
+  const studioPort = parseInt(basePortInput || '9743', 10);
+  const apiPort = studioPort + 1;
+  console.log(`  Studio: ${studioPort}  API: ${apiPort}`);
+
   rl.close();
-  writePointer(datastorePath);
-  return datastorePath;
+  writePointer(datastorePath, apiPort, studioPort);
+  return { datastorePath, apiPort, studioPort };
 }
 
-async function launch(datastorePath) {
-  const apiPort = await findFreePort(3001);
+async function launch(datastorePath, preferredApiPort, preferredStudioPort) {
+  const [apiPort, studioPort] = await Promise.all([
+    findFreePort(preferredApiPort),
+    findFreePort(preferredStudioPort),
+  ]);
+
   const repoRoot = path.resolve(__dirname, '../..');
   const concurrentlyBin = path.join(repoRoot, 'node_modules', '.bin', 'concurrently');
 
-  console.log(`  API port: ${apiPort}`);
+  console.log(`  API port:    ${apiPort}${apiPort !== preferredApiPort ? ` (${preferredApiPort} was busy)` : ''}`);
+  console.log(`  Studio port: ${studioPort}${studioPort !== preferredStudioPort ? ` (${preferredStudioPort} was busy)` : ''}`);
 
   const proc = spawn(
     concurrentlyBin,
@@ -247,7 +259,7 @@ async function launch(datastorePath) {
       '-c', 'cyan,magenta',
       '--kill-others-on-fail',
       'npm run dev -w kanecta-api',
-      'npm run dev -w kanecta-apps/kanecta-app-studio',
+      `npm run dev -w kanecta-apps/kanecta-app-studio -- -- --port ${studioPort} --strictPort`,
     ],
     {
       cwd: repoRoot,
@@ -272,7 +284,7 @@ async function main() {
   if (datastorePath) {
     console.log(`✓ Datastore: ${datastorePath}`);
     checkSpecVersion(datastorePath);
-    return launch(datastorePath);
+    return launch(datastorePath, 9744, 9743);
   }
 
   // 2. Pointer files
@@ -294,7 +306,7 @@ async function main() {
     }
     console.log(`✓ Datastore: ${datastorePath}`);
     checkSpecVersion(datastorePath);
-    return launch(datastorePath);
+    return launch(datastorePath, data.apiPort ?? 9744, data.studioPort ?? 9743);
   }
 
   // 3. First-run wizard
@@ -302,9 +314,9 @@ async function main() {
     console.error('No datastore configured. Run npm start to set up.');
     process.exit(1);
   }
-  datastorePath = await wizard();
-  checkSpecVersion(datastorePath);
-  launch(datastorePath);
+  const wizardResult = await wizard();
+  checkSpecVersion(wizardResult.datastorePath);
+  launch(wizardResult.datastorePath, wizardResult.apiPort, wizardResult.studioPort);
 }
 
 main().catch((err) => {
