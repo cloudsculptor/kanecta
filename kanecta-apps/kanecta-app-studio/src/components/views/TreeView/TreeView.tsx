@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
@@ -17,6 +17,9 @@ import Looks5Icon from '@mui/icons-material/Looks5';
 import AddBoxIcon from '@mui/icons-material/AddBox';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
+import CheckIcon from '@mui/icons-material/Check';
+import CloseIcon from '@mui/icons-material/Close';
 import { TreeNode } from './TreeNode';
 import { CopyAsDialog } from './CopyAsDialog';
 import { Breadcrumb } from '../../shared/Breadcrumb';
@@ -238,6 +241,27 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
     },
   });
 
+  const [isEditingRoot, setIsEditingRoot] = useState(false);
+  const [editRootValue, setEditRootValue] = useState('');
+  const rootEditRef = useRef<HTMLInputElement>(null);
+
+  const startRootEdit = useCallback(() => {
+    setEditRootValue(dataRoot?.value ?? '');
+    setIsEditingRoot(true);
+  }, [dataRoot]);
+
+  const cancelRootEdit = useCallback(() => {
+    setIsEditingRoot(false);
+    setEditRootValue('');
+  }, []);
+
+  const saveRootEdit = useCallback(async () => {
+    if (!dataRoot || !editRootValue.trim()) { cancelRootEdit(); return; }
+    await updateMutation.mutateAsync({ id: dataRoot.id, value: editRootValue.trim() });
+    void qc.invalidateQueries({ queryKey: ['data-root', activeWorkspaceId] });
+    setIsEditingRoot(false);
+  }, [dataRoot, editRootValue, updateMutation, qc, activeWorkspaceId, cancelRootEdit]);
+
   const deleteMutation = useMutation({
     mutationFn: ({ id }: { id: string; parentId: string | null }) =>
       api.items.delete(id, true),
@@ -424,9 +448,52 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
       )}
 
       <div className="TreeView-heading">
-        <span className="TreeView-heading-label">
-          {rootId === null ? (dataRoot?.value ?? 'Home') : breadcrumb[breadcrumb.length - 1].label}
-        </span>
+        {rootId === null ? (
+          isEditingRoot ? (
+            <>
+              <input
+                ref={rootEditRef}
+                className="TreeView-heading-input"
+                value={editRootValue}
+                autoFocus
+                onChange={e => setEditRootValue(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); void saveRootEdit(); }
+                  if (e.key === 'Escape') cancelRootEdit();
+                }}
+              />
+              <div className="TreeView-heading-actions TreeNode-actions" style={{ visibility: 'visible' }}>
+                <Tooltip title="Save">
+                  <IconButton size="small" onClick={() => void saveRootEdit()}>
+                    <CheckIcon sx={{ fontSize: 16 }} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Cancel">
+                  <IconButton size="small" onClick={cancelRootEdit}>
+                    <CloseIcon sx={{ fontSize: 16 }} />
+                  </IconButton>
+                </Tooltip>
+              </div>
+            </>
+          ) : (
+            <>
+              <span className="TreeView-heading-label">{dataRoot?.value ?? 'Home'}</span>
+              {dataRoot && (
+                <div className="TreeView-heading-actions TreeNode-actions">
+                  <Tooltip title="Rename">
+                    <IconButton size="small" onClick={startRootEdit}>
+                      <EditIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Tooltip>
+                </div>
+              )}
+            </>
+          )
+        ) : (
+          <span className="TreeView-heading-label">
+            {breadcrumb[breadcrumb.length - 1].label}
+          </span>
+        )}
         {rootId !== null && rootItem && (
           <div className="TreeView-heading-actions TreeNode-actions">
             <Tooltip title="Copy ID">
