@@ -19,6 +19,7 @@ import { TemplatesView } from '../components/views/TemplatesView/TemplatesView';
 import { StarredView } from '../components/views/StarredView/StarredView';
 import { DigestView } from '../components/views/MissionControl/DigestView';
 import { AIInstructionsView } from '../components/views/AIInstructionsView/AIInstructionsView';
+import { ClaudeView } from '../components/views/ClaudeView/ClaudeView';
 import { ReviewConveyor } from '../components/views/MissionControl/ReviewConveyor';
 import { ItemDetail } from '../components/item/ItemDetail';
 import { QuickCapture } from '../components/shared/QuickCapture';
@@ -85,6 +86,7 @@ function StudioInner() {
       case 'starred': return <StarredView />;
       case 'digest': return <DigestView />;
       case 'ai-instructions': return <AIInstructionsView />;
+      case 'claude': return <ClaudeView />;
       default:
         return (
           <div style={{ padding: 24, color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>

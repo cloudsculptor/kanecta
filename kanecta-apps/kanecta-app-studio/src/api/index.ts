@@ -8,12 +8,14 @@ import { typesApi } from './types';
 import { breadcrumbApi } from './breadcrumb';
 import { starredApi } from './starred';
 import { skillsApi } from './skills';
+import { claudeApi } from './claude';
 
 export { ApiError } from './client';
 export type { AliasEntry } from './aliases';
 export type { TypeDefinition } from './types';
 export type { ClipboardEntry } from './breadcrumb';
 export type { SkillFile, SkillFileWithContent } from './skills';
+export type { ClaudeEvent, ApprovalNeededEvent } from './claude';
 
 export function createApi(baseUrl: string) {
   const client = makeClient(baseUrl);
@@ -27,6 +29,7 @@ export function createApi(baseUrl: string) {
     breadcrumb: breadcrumbApi(client),
     starred: starredApi(client),
     skills: skillsApi(client),
+    claude: claudeApi(client, baseUrl),
   };
 }
 

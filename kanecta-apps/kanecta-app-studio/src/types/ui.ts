@@ -17,7 +17,8 @@ export type ViewType =
   | 'ai-instructions'
   | 'history'
   | 'starred'
-  | 'sync';
+  | 'sync'
+  | 'claude';
 
 export interface PanelConfig {
   id: string;

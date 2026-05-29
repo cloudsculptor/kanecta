@@ -15,6 +15,7 @@ import BubbleChartIcon from '@mui/icons-material/BubbleChart';
 import FlightIcon from '@mui/icons-material/Flight';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import SyncIcon from '@mui/icons-material/Sync';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
 import HistoryIcon from '@mui/icons-material/History';
 import StarIcon from '@mui/icons-material/Star';
@@ -48,6 +49,7 @@ const NAV_ITEMS: NavEntry[] = [
   { view: 'gallery', label: 'Gallery', icon: <GridViewIcon fontSize="small" /> },
   { view: 'calendar', label: 'Calendar', icon: <DateRangeIcon fontSize="small" /> },
   { view: 'mission-control', label: 'Mission Control', icon: <FlightIcon fontSize="small" /> },
+  { view: 'claude', label: 'Claude CLI', icon: <SmartToyIcon fontSize="small" /> },
   { divider: true },
   { view: 'query', label: 'Query', icon: <ManageSearchIcon fontSize="small" />, disabled: true },
   { view: 'inbox', label: 'Inbox', icon: <InboxIcon fontSize="small" />, disabled: true },
