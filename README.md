@@ -18,12 +18,16 @@ The same data powering your personal knowledge base can power a community websit
 
 ## Quick start
 
-```
-# Install Node.js from nodejs.org, then:
+```bash
+# Install Node.js 18+ from nodejs.org, then:
 
-npm install -g kanecta
-kanecta      # <-- will guide you through setup
+git clone https://github.com/kanecta/kanecta.git
+cd kanecta
+npm install
+npm start
 ```
+
+On first run, `npm start` will guide you through creating or connecting a datastore, then launch the API and Studio in your browser.
 
 ## Learn more
 
