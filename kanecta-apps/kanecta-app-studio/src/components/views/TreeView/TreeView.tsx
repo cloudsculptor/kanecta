@@ -476,18 +476,18 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
               </div>
             </>
           ) : (
-            <>
-              <span className="TreeView-heading-label">{dataRoot?.value ?? 'Home'}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span>{dataRoot?.value ?? 'Home'}</span>
               {dataRoot && (
                 <div className="TreeView-heading-actions TreeNode-actions">
                   <Tooltip title="Rename">
                     <IconButton size="small" onClick={startRootEdit}>
-                      <EditIcon sx={{ fontSize: 16 }} />
+                      <EditIcon sx={{ fontSize: 11 }} />
                     </IconButton>
                   </Tooltip>
                 </div>
               )}
-            </>
+            </div>
           )
         ) : (
           <span className="TreeView-heading-label">
