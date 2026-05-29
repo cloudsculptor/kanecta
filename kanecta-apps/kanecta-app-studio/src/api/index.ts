@@ -15,7 +15,7 @@ export type { AliasEntry } from './aliases';
 export type { TypeDefinition } from './types';
 export type { ClipboardEntry } from './breadcrumb';
 export type { SkillFile, SkillFileWithContent } from './skills';
-export type { ClaudeEvent, ApprovalNeededEvent } from './claude';
+export type { ClaudeEvent, ApprovalNeededEvent, ToolRanEvent } from './claude';
 
 export function createApi(baseUrl: string) {
   const client = makeClient(baseUrl);

@@ -26,18 +26,17 @@ function handleLine(session, line) {
   // Forward raw event to subscribers
   broadcast(session, { type: 'raw', event });
 
-  // Detect tool_use in assistant messages → approval needed
+  // Tool calls run automatically (--dangerously-skip-permissions)
+  // broadcast them so the UI can show what ran
   if (event.type === 'assistant' && event.message?.content) {
     for (const block of event.message.content) {
       if (block.type === 'tool_use') {
-        session.pendingApproval = {
+        broadcast(session, {
+          type: 'tool_ran',
           toolName: block.name,
           toolInput: block.input,
           toolUseId: block.id,
-        };
-        session.proc.stdout.pause();
-        broadcast(session, { type: 'approval_needed', ...session.pendingApproval });
-        return;
+        });
       }
     }
   }
@@ -57,9 +56,11 @@ function createSession(prompt, workingDir) {
     '-p', prompt,
     '--output-format', 'stream-json',
     '--verbose',
+    '--dangerously-skip-permissions',
   ], {
     cwd: workingDir || process.env.HOME,
     env: process.env,
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
 
   const session = {

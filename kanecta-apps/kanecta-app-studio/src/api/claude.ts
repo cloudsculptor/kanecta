@@ -11,6 +11,13 @@ export interface ApprovalNeededEvent {
   toolUseId: string;
 }
 
+export interface ToolRanEvent {
+  type: 'tool_ran';
+  toolName: string;
+  toolInput: Record<string, unknown>;
+  toolUseId: string;
+}
+
 export interface RawEvent {
   type: 'raw';
   event: Record<string, unknown>;
@@ -34,6 +41,7 @@ export interface ApprovalResolvedEvent {
 
 export type ClaudeEvent =
   | ApprovalNeededEvent
+  | ToolRanEvent
   | RawEvent
   | DoneEvent
   | StderrEvent
