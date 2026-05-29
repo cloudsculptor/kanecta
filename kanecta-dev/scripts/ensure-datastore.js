@@ -174,7 +174,7 @@ async function wizard() {
   let datastorePath;
 
   if (choice === '1') {
-    const dirInput = await ask(rl, 'Parent directory [~/]: ');
+    const dirInput = await ask(rl, 'Datastore parent directory [~/]:');
     const dir = dirInput || '~/';
 
     let name;
