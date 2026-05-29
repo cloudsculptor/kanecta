@@ -223,10 +223,11 @@ async function wizard() {
     process.exit(0);
   }
 
-  const basePortInput = await ask(rl, 'Base port [9743]: ');
-  const studioPort = parseInt(basePortInput || '9743', 10);
-  const apiPort = studioPort + 1;
-  console.log(`  Studio: ${studioPort}  API: ${apiPort}`);
+  const frontendPortInput = await ask(rl, 'Frontend port [9743]: ');
+  const studioPort = parseInt(frontendPortInput || '9743', 10);
+  const apiPortInput = await ask(rl, `API port [${studioPort + 1}]: `);
+  const apiPort = parseInt(apiPortInput || String(studioPort + 1), 10);
+  console.log(`  Frontend: ${studioPort}  API: ${apiPort}`);
 
   rl.close();
   writePointer(datastorePath, apiPort, studioPort);
