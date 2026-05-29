@@ -184,7 +184,7 @@ async function wizard() {
       console.log('  Invalid name. Use letters, numbers, and hyphens only.');
     }
 
-    console.log('  (used to mark data ownership — not for communication. An email or domain is fine.)');
+    console.log('  (used to mark data ownership — not for communication. Should be globally unique: an email or domain is ideal.)');
     const email = await ask(rl, 'Owner identifier: ');
     if (!email) { console.error('Owner identifier required.'); rl.close(); process.exit(1); }
 
