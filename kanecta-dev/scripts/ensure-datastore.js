@@ -119,6 +119,26 @@ function checkSpecVersion(datastorePath) {
   }
 }
 
+function pathCompleter(line) {
+  try {
+    const expanded = line.replace(/^~/, HOME);
+    const trailingSlash = expanded.endsWith('/');
+    const dir = trailingSlash || expanded === '' ? (expanded || '.') : path.dirname(expanded) || '.';
+    const base = trailingSlash ? '' : path.basename(expanded);
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    const matches = entries
+      .filter(e => e.name.startsWith(base))
+      .map(e => {
+        const full = dir === '.' ? e.name : path.join(dir, e.name);
+        const display = line.startsWith('~') ? full.replace(HOME, '~') : full;
+        return e.isDirectory() ? display + '/' : display;
+      });
+    return [matches, line];
+  } catch {
+    return [[], line];
+  }
+}
+
 function ask(rl, question) {
   return new Promise((resolve) => rl.question(question, (a) => resolve(a.trim())));
 }
@@ -139,7 +159,7 @@ async function pickDatastore(datastores) {
 }
 
 async function wizard() {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout, completer: pathCompleter });
 
   console.log('\n┌──────────────────────────────────────────┐');
   console.log('│         Kanecta — First Run Setup        │');
@@ -164,8 +184,9 @@ async function wizard() {
       console.log('  Invalid name. Use letters, numbers, and hyphens only.');
     }
 
-    const email = await ask(rl, 'Owner email: ');
-    if (!email) { console.error('Email required.'); rl.close(); process.exit(1); }
+    console.log('  (used to mark data ownership — not for communication. An email or domain is fine.)');
+    const email = await ask(rl, 'Owner identifier: ');
+    if (!email) { console.error('Owner identifier required.'); rl.close(); process.exit(1); }
 
     datastorePath = path.join(expandHome(dir), name);
     fs.mkdirSync(datastorePath, { recursive: true });
