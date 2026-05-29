@@ -2,6 +2,7 @@
 
 const express = require('express');
 const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE } = require('@kanecta/lib');
+const claude = require('./claude');
 
 const app = express();
 app.use(express.json());
@@ -950,6 +951,46 @@ app.post('/rebuild-indexes', (req, res) => {
   if (!ds) return;
   const itemCount = ds.rebuildIndexes();
   res.json({ rebuilt: true, itemCount });
+});
+
+// ─── Claude CLI sessions ──────────────────────────────────────────────────────
+
+app.post('/claude/sessions', (req, res) => {
+  const { prompt, workingDir } = req.body;
+  if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
+    return res.status(400).json({ error: 'prompt is required' });
+  }
+  const id = claude.createSession(prompt.trim(), workingDir);
+  res.status(201).json({ id });
+});
+
+app.get('/claude/sessions/:id/stream', (req, res) => {
+  const { id } = req.params;
+  if (!claude.getSession(id)) return res.status(404).json({ error: 'Session not found' });
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const write = (data) => res.write(data);
+  claude.subscribe(id, write);
+  req.on('close', () => claude.unsubscribe(id, write));
+});
+
+app.post('/claude/sessions/:id/respond', (req, res) => {
+  const { id } = req.params;
+  const { approved } = req.body;
+  if (typeof approved !== 'boolean') return res.status(400).json({ error: 'approved (boolean) is required' });
+  const ok = claude.respond(id, approved);
+  if (!ok) return res.status(404).json({ error: 'Session not found or no pending approval' });
+  res.json({ ok: true });
+});
+
+app.delete('/claude/sessions/:id', (req, res) => {
+  const ok = claude.cancelSession(req.params.id);
+  if (!ok) return res.status(404).json({ error: 'Session not found' });
+  res.json({ ok: true });
 });
 
 module.exports = app;
