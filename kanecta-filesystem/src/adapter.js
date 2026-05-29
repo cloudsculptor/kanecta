@@ -48,6 +48,7 @@ class FilesystemAdapter {
     );
     const adapter = new FilesystemAdapter(root);
     adapter._initRoots();
+    adapter.create({ value: 'Welcome to Kanecta!', type: 'text', owner });
     return adapter;
   }
 
