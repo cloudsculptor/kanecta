@@ -6,7 +6,7 @@ const path = require('path');
 const os = require('os');
 const readline = require('readline');
 const { execSync, spawn } = require('child_process');
-const { Datastore, ROOT_ID } = require('@kanecta/lib');
+const { Datastore } = require('@kanecta/lib');
 
 const HOME = os.homedir();
 const XDG_CONFIG = process.env.XDG_CONFIG_HOME || path.join(HOME, '.config');
@@ -135,8 +135,11 @@ async function wizard() {
 
     datastorePath = path.join(expandHome(dir), name);
     fs.mkdirSync(datastorePath, { recursive: true });
-    const ds = Datastore.init(datastorePath, email);
-    ds.update(ROOT_ID, { value: rootNode }, email);
+    Datastore.init(datastorePath, email);
+    const dsConfigPath = path.join(datastorePath, 'config', 'config.json');
+    const dsConfig = JSON.parse(fs.readFileSync(dsConfigPath, 'utf8'));
+    dsConfig.name = rootNode;
+    fs.writeFileSync(dsConfigPath, JSON.stringify(dsConfig, null, 2) + '\n', 'utf8');
     console.log(`\n✓ Created datastore at ${datastorePath}\n`);
 
   } else if (choice === '2') {
