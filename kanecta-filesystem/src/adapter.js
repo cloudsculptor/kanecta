@@ -289,7 +289,7 @@ class FilesystemAdapter {
     const now = new Date();
     const owner = this.config.owner;
     const item = {
-      id, parentId, value: type, type,
+      id, parentId, value: type === 'data_root' ? "Your name or organisation's name here" : type, type,
       typeId: null, owner, license: null, sortOrder,
       confidence: null, tags: [],
       createdAt: now.toISOString(), modifiedAt: now.toISOString(),
