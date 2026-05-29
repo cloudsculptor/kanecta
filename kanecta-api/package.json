@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@kanecta/lib": "^1.0.0",
-    "express": "^4.19.2"
+    "express": "^5.2.1"
   },
   "devDependencies": {
     "jest": "^29.7.0",
