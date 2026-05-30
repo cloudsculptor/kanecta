@@ -29,7 +29,7 @@ export function AppShell({
   onOpenSettings,
 }: AppShellProps) {
   const { rightPanelOpen, setRightPanelOpen, layout, updatePanel } = useUiStore();
-  const { background, foreground, contentBackground } = useSettingsStore();
+  const { background, foreground, contentBackground, contentForeground } = useSettingsStore();
 
   const activeView = layout.panels[0]?.viewType ?? 'tree';
 
@@ -61,7 +61,7 @@ export function AppShell({
   }, [onOpenQuickCapture, onOpenCommandPalette]);
 
   return (
-    <div className="AppShell" style={{ backgroundColor: background, '--theme-fg': foreground } as React.CSSProperties}>
+    <div className="AppShell" style={{ backgroundColor: background, '--theme-fg': foreground, '--content-bg': contentBackground, '--content-fg': contentForeground } as React.CSSProperties}>
       <TopBar
         onQuickCapture={onOpenQuickCapture}
         onCommandPalette={onOpenCommandPalette}

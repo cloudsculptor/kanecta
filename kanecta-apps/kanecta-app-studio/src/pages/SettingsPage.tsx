@@ -5,9 +5,9 @@ import type { AppSettings } from '../api';
 import './SettingsPage.scss';
 
 export const CONTENT_COLOURS = [
-  { name: 'Light', hex: '#ffffff' },
-  { name: 'Dark', hex: '#1a1a1a' },
-  { name: 'Solarised', hex: '#fdf6e3' },
+  { name: 'Light', hex: '#ffffff', fg: '#1a1a1a' },
+  { name: 'Dark', hex: '#1a1a1a', fg: '#f0f0f0' },
+  { name: 'Solarised', hex: '#fdf6e3', fg: '#657b83' },
 ];
 
 export const THEME_COLOURS = [
@@ -80,31 +80,48 @@ interface SettingsPageProps {
 
 export function SettingsPage({ onClose }: SettingsPageProps) {
   const { getApi } = useWorkspaceStore();
-  const { background, foreground, contentBackground, setTheme } = useSettingsStore();
+  const { background, foreground, contentBackground, contentForeground, setTheme } = useSettingsStore();
 
   const isPreset = THEME_COLOURS.some(c => c.hex === background);
   const [mode, setMode] = useState<'preset' | 'custom'>(isPreset ? 'preset' : 'custom');
   const [customBg, setCustomBg] = useState(background);
   const [customFg, setCustomFg] = useState(foreground);
   const [contentBg, setContentBg] = useState(contentBackground);
+  const [contentFg, setContentFg] = useState(contentForeground);
 
-  const applyTheme = async (bg: string, fg: string, cBg: string = contentBg) => {
-    setTheme(bg, fg, cBg);
-    const settings: AppSettings = { background: bg, foreground: fg, contentBackground: cBg };
+  const applyTheme = async (bg: string, fg: string, cBg: string = contentBg, cFg: string = contentFg) => {
+    setTheme(bg, fg, cBg, cFg);
+    const settings: AppSettings = { background: bg, foreground: fg, contentBackground: cBg, contentForeground: cFg };
     await getApi().settings.save(settings);
   };
 
   const handleContentBgChange = (value: string) => {
     setContentBg(value);
     if (isValidHex(value)) {
-      void applyTheme(background, foreground, value);
+      void applyTheme(background, foreground, value, contentFg);
     }
+  };
+
+  const handleContentFgChange = (value: string) => {
+    setContentFg(value);
+    if (isValidHex(value)) {
+      void applyTheme(background, foreground, contentBg, value);
+    }
+  };
+
+  const handleContentPresetChange = (hex: string) => {
+    const preset = CONTENT_COLOURS.find(c => c.hex === hex);
+    const fg = preset?.fg ?? contrastColor(hex);
+    setContentBg(hex);
+    setContentFg(fg);
+    void applyTheme(background, foreground, hex, fg);
   };
 
   const handlePresetChange = (hex: string) => {
     setMode('preset');
     setContentBg('#ffffff');
-    void applyTheme(hex, contrastColor(hex), '#ffffff');
+    setContentFg('#1a1a1a');
+    void applyTheme(hex, contrastColor(hex), '#ffffff', '#1a1a1a');
   };
 
   const handleCustomBgChange = (value: string) => {
@@ -223,7 +240,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
               <select
                 className="SettingsPage-select"
                 value={CONTENT_COLOURS.some(c => c.hex === contentBg) ? contentBg : ''}
-                onChange={(e) => handleContentBgChange(e.target.value)}
+                onChange={(e) => handleContentPresetChange(e.target.value)}
               >
                 {CONTENT_COLOURS.map(({ name, hex }) => (
                   <option key={hex} value={hex}>{name}</option>
@@ -246,6 +263,26 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
                   spellCheck={false}
                 />
               </div>
+            </div>
+          </label>
+          <label className="SettingsPage-label">
+            Foreground
+            <div className="SettingsPage-colour-row">
+              <input
+                type="color"
+                className="SettingsPage-colour-picker"
+                value={isValidHex(contentFg) ? contentFg : '#1a1a1a'}
+                onChange={(e) => handleContentFgChange(e.target.value)}
+              />
+              <input
+                type="text"
+                className="SettingsPage-hex-input"
+                value={contentFg}
+                onChange={(e) => handleContentFgChange(e.target.value)}
+                placeholder="#rrggbb"
+                maxLength={7}
+                spellCheck={false}
+              />
             </div>
           </label>
         </section>

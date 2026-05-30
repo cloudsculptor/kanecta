@@ -4,6 +4,7 @@ export interface AppSettings {
   background: string;
   foreground: string;
   contentBackground: string;
+  contentForeground: string;
 }
 
 export function settingsApi(client: ApiClient) {

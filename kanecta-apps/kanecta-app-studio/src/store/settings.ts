@@ -5,7 +5,13 @@ interface SettingsState {
   background: string;
   foreground: string;
   contentBackground: string;
-  setTheme: (background: string, foreground: string, contentBackground?: string) => void;
+  contentForeground: string;
+  setTheme: (
+    background: string,
+    foreground: string,
+    contentBackground?: string,
+    contentForeground?: string,
+  ) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -14,8 +20,14 @@ export const useSettingsStore = create<SettingsState>()(
       background: '#ffffff',
       foreground: '#000000',
       contentBackground: '#ffffff',
-      setTheme: (background, foreground, contentBackground) =>
-        set((s) => ({ background, foreground, contentBackground: contentBackground ?? s.contentBackground })),
+      contentForeground: '#1a1a1a',
+      setTheme: (background, foreground, contentBackground, contentForeground) =>
+        set((s) => ({
+          background,
+          foreground,
+          contentBackground: contentBackground ?? s.contentBackground,
+          contentForeground: contentForeground ?? s.contentForeground,
+        })),
     }),
     { name: 'kanecta-settings' },
   ),

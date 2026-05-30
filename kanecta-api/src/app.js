@@ -889,7 +889,7 @@ app.delete('/app/studio/starred/:id', (req, res) => {
 
 // ─── Settings ────────────────────────────────────────────────────────────────
 
-const DEFAULT_SETTINGS = { background: '#ffffff', foreground: '#000000', contentBackground: '#ffffff' };
+const DEFAULT_SETTINGS = { background: '#ffffff', foreground: '#000000', contentBackground: '#ffffff', contentForeground: '#1a1a1a' };
 
 function settingsFilePath() {
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
@@ -916,9 +916,9 @@ app.get('/app/studio/settings', (_req, res) => {
 });
 
 app.post('/app/studio/settings', (req, res) => {
-  const { background, foreground, contentBackground } = req.body;
+  const { background, foreground, contentBackground, contentForeground } = req.body;
   if (!background || !foreground) return res.status(400).json({ error: 'background and foreground required' });
-  fs.writeFileSync(settingsFilePath(), JSON.stringify({ background, foreground, contentBackground: contentBackground ?? '#ffffff' }, null, 2));
+  fs.writeFileSync(settingsFilePath(), JSON.stringify({ background, foreground, contentBackground: contentBackground ?? '#ffffff', contentForeground: contentForeground ?? '#1a1a1a' }, null, 2));
   res.json({ ok: true });
 });
 
