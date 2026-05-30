@@ -7,6 +7,7 @@ import MergeTypeIcon from '@mui/icons-material/MergeType';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import StarIcon from '@mui/icons-material/Star';
 import TableChartIcon from '@mui/icons-material/TableChart';
+import ViewListIcon from '@mui/icons-material/ViewList';
 import type { ViewType } from '../../types/ui';
 import './LeftBar.scss';
 
@@ -27,6 +28,7 @@ const NAV_ITEMS: NavItem[] = [
   { view: 'starred', label: 'Starred', icon: <StarIcon /> },
   { view: 'graph', label: 'Graph', icon: <BubbleChartIcon /> },
   { view: 'quality-control', label: 'Quality', icon: <FactCheckIcon /> },
+  { view: 'list', label: 'List', icon: <ViewListIcon /> },
 ];
 
 interface LeftBarProps {

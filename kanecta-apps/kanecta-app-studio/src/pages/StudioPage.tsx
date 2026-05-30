@@ -26,6 +26,7 @@ import { CommandPalette } from '../components/shared/CommandPalette';
 import { SettingsPage } from './SettingsPage';
 import { useWorkspaceStore } from '../store/workspace';
 import { useUiStore } from '../store/ui';
+import { useSettingsStore } from '../store/settings';
 import { useLiveActivity } from '../hooks/useLiveActivity';
 import { flattenTree } from '../lib/items';
 import type { KanectaItem } from '../types/kanecta';
@@ -43,10 +44,21 @@ function StudioInner() {
   const [quickCaptureOpen, setQuickCaptureOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-const { getApi } = useWorkspaceStore();
+  const { getApi } = useWorkspaceStore();
   const { setFocusedItem, focusedItemId } = useUiStore();
+  const { setTheme } = useSettingsStore();
 
   useLiveActivity();
+
+  useQuery({
+    queryKey: ['app-settings'],
+    queryFn: async () => {
+      const s = await getApi().settings.get();
+      setTheme(s.background, s.foreground, s.contentBackground);
+      return s;
+    },
+    staleTime: Infinity,
+  });
 
   const { data: treeData } = useQuery({
     queryKey: ['all-items'],
@@ -98,17 +110,6 @@ const { getApi } = useWorkspaceStore();
     ? allItems.find((i) => i.id === focusedItemId)
     : undefined;
 
-  if (settingsOpen) {
-    return (
-      <QueryClientProvider client={qc}>
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
-          <SettingsPage onClose={() => setSettingsOpen(false)} />
-        </ThemeProvider>
-      </QueryClientProvider>
-    );
-  }
-
   return (
     <AppShell
       onOpenQuickCapture={() => setQuickCaptureOpen(true)}
@@ -117,7 +118,10 @@ const { getApi } = useWorkspaceStore();
       rightPanelTitle={focusedItem?.value}
       rightPanelContent={focusedItemId ? <ItemDetail itemId={focusedItemId} /> : undefined}
     >
-      <PanelWorkspace renderView={renderView} />
+      {settingsOpen
+        ? <SettingsPage onClose={() => setSettingsOpen(false)} />
+        : <PanelWorkspace renderView={renderView} />
+      }
       <QuickCapture
         open={quickCaptureOpen}
         onClose={() => setQuickCaptureOpen(false)}
