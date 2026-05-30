@@ -6,6 +6,19 @@
   justify-content: center;
   background: transparent;
 
+  &-home {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    border-radius: 8px;
+
+    &:hover { opacity: 0.75; }
+  }
+
   &-logo {
     width: 48px;
     height: 48px;

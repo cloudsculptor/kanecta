@@ -1,9 +1,15 @@
 import './BottomBar.scss';
 
-export function BottomBar() {
+interface BottomBarProps {
+  onHome: () => void;
+}
+
+export function BottomBar({ onHome }: BottomBarProps) {
   return (
     <nav className="BottomBar">
-      <img src="/logo.svg" alt="Kanecta" className="BottomBar-logo" />
+      <button className="BottomBar-home" onClick={onHome} aria-label="Home">
+        <img src="/logo.svg" alt="Kanecta" className="BottomBar-logo" />
+      </button>
     </nav>
   );
 }
