@@ -5,7 +5,7 @@ import type { AppSettings } from '../api';
 import './SettingsPage.scss';
 
 export const CONTENT_COLOURS = [
-  { name: 'Light', hex: '#ffffff', fg: '#1a1a1a' },
+  { name: 'Light', hex: '#ffffff', fg: '#666666' },
   { name: 'Dark', hex: '#1a1a1a', fg: '#f0f0f0' },
   { name: 'Solarised', hex: '#fdf6e3', fg: '#657b83' },
 ];

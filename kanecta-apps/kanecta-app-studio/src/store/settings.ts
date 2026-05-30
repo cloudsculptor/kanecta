@@ -20,7 +20,7 @@ export const useSettingsStore = create<SettingsState>()(
       background: '#ffffff',
       foreground: '#000000',
       contentBackground: '#ffffff',
-      contentForeground: '#1a1a1a',
+      contentForeground: '#666666',
       setTheme: (background, foreground, contentBackground, contentForeground) =>
         set((s) => ({
           background,
