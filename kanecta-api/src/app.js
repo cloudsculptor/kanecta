@@ -739,7 +739,7 @@ const HISTORY_NAMES = ['clipboard', 'viewed'];
 
 function historyDir() {
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
-  return path.join(root, 'app', 'studio', 'history');
+  return path.join(root, '.kanecta', 'app', 'studio', 'history');
 }
 
 function ensureHistoryDir() {
@@ -831,7 +831,7 @@ app.post('/breadcrumb/viewed', (req, res) => {
 
 function starredFilePath() {
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
-  const studioDir = path.join(root, 'app', 'studio');
+  const studioDir = path.join(root, '.kanecta', 'app', 'studio');
   const dir = path.join(studioDir, 'starred');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   const newPath = path.join(dir, 'starred.csv');
@@ -884,6 +884,41 @@ app.delete('/app/studio/starred/:id', (req, res) => {
   const { id } = req.params;
   const entries = readStarred().filter((e) => e.id !== id);
   writeStarred(entries);
+  res.json({ ok: true });
+});
+
+// ─── Settings ────────────────────────────────────────────────────────────────
+
+const DEFAULT_SETTINGS = { background: '#ffffff', foreground: '#000000', contentBackground: '#ffffff' };
+
+function settingsFilePath() {
+  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const dir = path.join(root, '.kanecta', 'app', 'studio', 'settings');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  return path.join(dir, 'settings.json');
+}
+
+function readSettings() {
+  const p = settingsFilePath();
+  if (!fs.existsSync(p)) {
+    fs.writeFileSync(p, JSON.stringify(DEFAULT_SETTINGS, null, 2));
+    return DEFAULT_SETTINGS;
+  }
+  try {
+    return JSON.parse(fs.readFileSync(p, 'utf8'));
+  } catch {
+    return DEFAULT_SETTINGS;
+  }
+}
+
+app.get('/app/studio/settings', (_req, res) => {
+  res.json(readSettings());
+});
+
+app.post('/app/studio/settings', (req, res) => {
+  const { background, foreground, contentBackground } = req.body;
+  if (!background || !foreground) return res.status(400).json({ error: 'background and foreground required' });
+  fs.writeFileSync(settingsFilePath(), JSON.stringify({ background, foreground, contentBackground: contentBackground ?? '#ffffff' }, null, 2));
   res.json({ ok: true });
 });
 

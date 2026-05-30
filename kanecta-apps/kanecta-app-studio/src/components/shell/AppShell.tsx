@@ -5,6 +5,7 @@ import { RightBar } from './RightBar';
 import { RightPanel } from './RightPanel';
 import { BottomBar } from './BottomBar';
 import { useUiStore } from '../../store/ui';
+import { useSettingsStore } from '../../store/settings';
 import type { ViewType } from '../../types/ui';
 import './AppShell.scss';
 
@@ -28,6 +29,7 @@ export function AppShell({
   onOpenSettings,
 }: AppShellProps) {
   const { rightPanelOpen, setRightPanelOpen, layout, updatePanel } = useUiStore();
+  const { background, foreground, contentBackground } = useSettingsStore();
 
   const activeView = layout.panels[0]?.viewType ?? 'tree';
 
@@ -59,14 +61,14 @@ export function AppShell({
   }, [onOpenQuickCapture, onOpenCommandPalette]);
 
   return (
-    <div className="AppShell">
+    <div className="AppShell" style={{ backgroundColor: background, '--theme-fg': foreground } as React.CSSProperties}>
       <TopBar
         onQuickCapture={onOpenQuickCapture}
         onCommandPalette={onOpenCommandPalette}
         onOpenSettings={onOpenSettings}
       />
       <LeftBar activeView={activeView} onViewSelect={handleViewSelect} />
-      <main className="Content">
+      <main className="Content" style={{ background: contentBackground }}>
         <div className="AppShell-main">{children}</div>
         <RightPanel
           open={rightPanelOpen}

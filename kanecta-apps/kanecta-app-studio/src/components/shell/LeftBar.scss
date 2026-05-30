@@ -20,7 +20,7 @@
     border: none;
     background: none;
     cursor: pointer;
-    color: var(--color-text-secondary);
+    color: var(--theme-fg, var(--color-text-secondary));
     border-radius: 6px;
 
     &:hover {
@@ -39,7 +39,7 @@
 
       &:hover {
         background: none;
-        color: var(--color-text-secondary);
+        color: var(--theme-fg, var(--color-text-secondary));
       }
     }
 
