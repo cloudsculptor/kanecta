@@ -54,7 +54,7 @@ function StudioInner() {
     queryKey: ['app-settings'],
     queryFn: async () => {
       const s = await getApi().settings.get();
-      setTheme(s.background, s.foreground, s.contentBackground);
+      setTheme(s.background, s.foreground, s.contentBackground, s.contentForeground);
       return s;
     },
     staleTime: Infinity,

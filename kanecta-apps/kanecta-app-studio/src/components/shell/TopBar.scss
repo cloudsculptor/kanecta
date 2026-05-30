@@ -19,11 +19,12 @@
     background: none;
     cursor: pointer;
     color: var(--theme-fg, var(--color-text-secondary));
+    opacity: 0.5;
     border-radius: 6px;
 
     &:hover {
-      background: var(--color-hover);
-      color: var(--color-text);
+      background: none;
+      opacity: 0.75;
     }
 
     .MuiSvgIcon-root {
