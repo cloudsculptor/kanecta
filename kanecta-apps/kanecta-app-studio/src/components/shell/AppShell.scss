@@ -1,16 +1,28 @@
 .AppShell {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-areas:
+    'top    top    top'
+    'left   body   right'
+    'bottom bottom bottom';
+  grid-template-rows: 80px 1fr 80px;
+  grid-template-columns: 80px 1fr 80px;
   height: 100vh;
   width: 100vw;
   overflow: hidden;
   background: var(--color-surface);
   color: var(--color-text);
 
-  &-body {
+  .TopBar    { grid-area: top; }
+  .BottomBar { grid-area: bottom; }
+  .LeftBar   { grid-area: left; }
+  .RightBar  { grid-area: right; }
+
+  .Content {
+    grid-area: body;
     display: flex;
-    flex: 1;
     overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
   }
 
   &-main {

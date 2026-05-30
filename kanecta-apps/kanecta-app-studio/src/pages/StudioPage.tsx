@@ -20,7 +20,6 @@ import { StarredView } from '../components/views/StarredView/StarredView';
 import { DigestView } from '../components/views/MissionControl/DigestView';
 import { AIInstructionsView } from '../components/views/AIInstructionsView/AIInstructionsView';
 import { ClaudeView } from '../components/views/ClaudeView/ClaudeView';
-import { ReviewConveyor } from '../components/views/MissionControl/ReviewConveyor';
 import { ItemDetail } from '../components/item/ItemDetail';
 import { QuickCapture } from '../components/shared/QuickCapture';
 import { CommandPalette } from '../components/shared/CommandPalette';
@@ -44,8 +43,7 @@ function StudioInner() {
   const [quickCaptureOpen, setQuickCaptureOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [reviewOpen, setReviewOpen] = useState(false);
-  const { getApi } = useWorkspaceStore();
+const { getApi } = useWorkspaceStore();
   const { setFocusedItem, focusedItemId } = useUiStore();
 
   useLiveActivity();
@@ -111,18 +109,11 @@ function StudioInner() {
     );
   }
 
-  if (reviewOpen) {
-    return (
-      <ReviewConveyor onClose={() => setReviewOpen(false)} />
-    );
-  }
-
   return (
     <AppShell
       onOpenQuickCapture={() => setQuickCaptureOpen(true)}
       onOpenCommandPalette={() => setCommandPaletteOpen(true)}
       onOpenSettings={() => setSettingsOpen(true)}
-      onOpenReview={() => setReviewOpen(true)}
       rightPanelTitle={focusedItem?.value}
       rightPanelContent={focusedItemId ? <ItemDetail itemId={focusedItemId} /> : undefined}
     >

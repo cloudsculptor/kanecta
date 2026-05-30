@@ -1,10 +1,10 @@
 import { useCallback, useEffect } from 'react';
 import { TopBar } from './TopBar';
-import { LeftSidebar } from './LeftSidebar';
+import { LeftBar } from './LeftBar';
+import { RightBar } from './RightBar';
 import { RightPanel } from './RightPanel';
 import { BottomBar } from './BottomBar';
 import { useUiStore } from '../../store/ui';
-import { useWorkspaceStore } from '../../store/workspace';
 import type { ViewType } from '../../types/ui';
 import './AppShell.scss';
 
@@ -17,7 +17,6 @@ interface AppShellProps {
   onOpenQuickCapture?: () => void;
   onOpenCommandPalette?: () => void;
   onOpenSettings?: () => void;
-  onOpenReview?: () => void;
 }
 
 export function AppShell({
@@ -27,12 +26,8 @@ export function AppShell({
   onOpenQuickCapture,
   onOpenCommandPalette,
   onOpenSettings,
-  onOpenReview,
 }: AppShellProps) {
-  const { sidebarState, setSidebarState, rightPanelOpen, setRightPanelOpen, layout, updatePanel } =
-    useUiStore();
-  const { getActiveWorkspace } = useWorkspaceStore();
-  const workspace = getActiveWorkspace();
+  const { rightPanelOpen, setRightPanelOpen, layout, updatePanel } = useUiStore();
 
   const activeView = layout.panels[0]?.viewType ?? 'tree';
 
@@ -46,10 +41,6 @@ export function AppShell({
     },
     [layout.panels, updatePanel],
   );
-
-  const handleSidebarToggle = useCallback(() => {
-    setSidebarState(sidebarState === 'expanded' ? 'icons' : 'expanded');
-  }, [sidebarState, setSidebarState]);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -73,16 +64,10 @@ export function AppShell({
         onQuickCapture={onOpenQuickCapture}
         onCommandPalette={onOpenCommandPalette}
         onOpenSettings={onOpenSettings}
-        onOpenReview={onOpenReview}
       />
-      <div className="AppShell-body">
-        <LeftSidebar
-          state={sidebarState}
-          activeView={activeView}
-          onViewSelect={handleViewSelect}
-          onToggle={handleSidebarToggle}
-        />
-        <main className="AppShell-main">{children}</main>
+      <LeftBar activeView={activeView} onViewSelect={handleViewSelect} />
+      <main className="Content">
+        <div className="AppShell-main">{children}</div>
         <RightPanel
           open={rightPanelOpen}
           title={rightPanelTitle}
@@ -90,8 +75,9 @@ export function AppShell({
         >
           {rightPanelContent}
         </RightPanel>
-      </div>
-      <BottomBar workspace={workspace} onOpenReview={onOpenReview} />
+      </main>
+      <RightBar activeView={activeView} onViewSelect={handleViewSelect} />
+      <BottomBar />
     </div>
   );
 }
