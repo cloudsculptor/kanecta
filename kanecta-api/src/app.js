@@ -889,7 +889,7 @@ app.delete('/app/studio/starred/:id', (req, res) => {
 
 // ─── Settings ────────────────────────────────────────────────────────────────
 
-const DEFAULT_SETTINGS = { background: '#ffffff', foreground: '#000000', contentBackground: '#ffffff', contentForeground: '#1a1a1a' };
+const DEFAULT_SETTINGS = { background: '#ffffff', foreground: '#000000', contentBackground: '#ffffff', contentForeground: '#666666' };
 
 function settingsFilePath() {
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
