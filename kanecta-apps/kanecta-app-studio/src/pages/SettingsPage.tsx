@@ -4,6 +4,12 @@ import { useSettingsStore } from '../store/settings';
 import type { AppSettings } from '../api';
 import './SettingsPage.scss';
 
+export const CONTENT_COLOURS = [
+  { name: 'Light', hex: '#ffffff' },
+  { name: 'Dark', hex: '#1a1a1a' },
+  { name: 'Solarised', hex: '#fdf6e3' },
+];
+
 export const THEME_COLOURS = [
   { name: 'White', hex: '#ffffff' },
   { name: 'Light Gray', hex: '#f5f5f5' },
@@ -213,22 +219,33 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
           <h3 className="SettingsPage-section-title">Content</h3>
           <label className="SettingsPage-label">
             Background
-            <div className="SettingsPage-colour-row">
-              <input
-                type="color"
-                className="SettingsPage-colour-picker"
-                value={isValidHex(contentBg) ? contentBg : '#ffffff'}
+            <div className="SettingsPage-content-bg">
+              <select
+                className="SettingsPage-select"
+                value={CONTENT_COLOURS.some(c => c.hex === contentBg) ? contentBg : ''}
                 onChange={(e) => handleContentBgChange(e.target.value)}
-              />
-              <input
-                type="text"
-                className="SettingsPage-hex-input"
-                value={contentBg}
-                onChange={(e) => handleContentBgChange(e.target.value)}
-                placeholder="#rrggbb"
-                maxLength={7}
-                spellCheck={false}
-              />
+              >
+                {CONTENT_COLOURS.map(({ name, hex }) => (
+                  <option key={hex} value={hex}>{name}</option>
+                ))}
+              </select>
+              <div className="SettingsPage-colour-row">
+                <input
+                  type="color"
+                  className="SettingsPage-colour-picker"
+                  value={isValidHex(contentBg) ? contentBg : '#ffffff'}
+                  onChange={(e) => handleContentBgChange(e.target.value)}
+                />
+                <input
+                  type="text"
+                  className="SettingsPage-hex-input"
+                  value={contentBg}
+                  onChange={(e) => handleContentBgChange(e.target.value)}
+                  placeholder="#rrggbb"
+                  maxLength={7}
+                  spellCheck={false}
+                />
+              </div>
             </div>
           </label>
         </section>
