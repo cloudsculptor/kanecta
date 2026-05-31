@@ -40,7 +40,7 @@ function readPointer(file) {
   return null;
 }
 
-function writePointer(datastorePath, apiPort, studioPort, commonTypesDir) {
+function writePointer(datastorePath, apiPort, studioPort, systemItemsDir) {
   const file = POINTER_LOCATIONS[0];
   const isNew = !fs.existsSync(file);
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -51,7 +51,7 @@ function writePointer(datastorePath, apiPort, studioPort, commonTypesDir) {
   data.default = datastorePath;
   data.apiPort = apiPort;
   data.studioPort = studioPort;
-  if (commonTypesDir) data.commonTypesDir = commonTypesDir;
+  if (systemItemsDir) data.systemItemsDir = systemItemsDir;
   fs.writeFileSync(file, JSON.stringify(data, null, 2) + '\n', 'utf8');
   if (isNew) {
     console.log(`  → Writing ${file}`);
@@ -231,9 +231,9 @@ async function wizard() {
   const apiPortInput = await ask(rl, `API port [${studioPort + 1}]: `);
   const apiPort = parseInt(apiPortInput || String(studioPort + 1), 10);
 
-  const defaultCommonTypesDir = path.resolve(__dirname, '../../kanecta-types/types');
-  const commonTypesDirInput = await ask(rl, `Common types directory [${defaultCommonTypesDir}]: `);
-  const commonTypesDir = expandHome(commonTypesDirInput || defaultCommonTypesDir);
+  const defaultCommonTypesDir = path.resolve(__dirname, '../../kanecta-system-items/items');
+  const systemItemsDirInput = await ask(rl, `System items directory [${defaultCommonTypesDir}]: `);
+  const systemItemsDir = expandHome(systemItemsDirInput || defaultCommonTypesDir);
 
   // ── Summary + confirmation ─────────────────────────────────────────────────
 
@@ -243,7 +243,7 @@ async function wizard() {
     ...(zipPath ? { importFrom: zipPath } : {}),
     frontendPort: studioPort,
     apiPort,
-    commonTypesDir,
+    systemItemsDir,
     pointerFile: POINTER_LOCATIONS[0],
   };
 
@@ -289,11 +289,11 @@ async function wizard() {
   }
 
   rl.close();
-  writePointer(datastorePath, apiPort, studioPort, commonTypesDir);
-  return { datastorePath, apiPort, studioPort, commonTypesDir };
+  writePointer(datastorePath, apiPort, studioPort, systemItemsDir);
+  return { datastorePath, apiPort, studioPort, systemItemsDir };
 }
 
-async function launch(datastorePath, apiPort, studioPort, commonTypesDir) {
+async function launch(datastorePath, apiPort, studioPort, systemItemsDir) {
   const [apiFree, studioFree] = await Promise.all([
     checkPortFree(apiPort),
     checkPortFree(studioPort),
@@ -340,7 +340,7 @@ async function launch(datastorePath, apiPort, studioPort, commonTypesDir) {
         KANECTA_DATASTORE: datastorePath,
         PORT: String(apiPort),
         KANECTA_API_URL: `http://localhost:${apiPort}`,
-        ...(commonTypesDir ? { KANECTA_COMMON_TYPES_DIR: commonTypesDir } : {}),
+        ...(systemItemsDir ? { KANECTA_SYSTEM_ITEMS_DIR: systemItemsDir } : {}),
       },
       stdio: 'inherit',
     },
@@ -379,7 +379,7 @@ async function main() {
     }
     console.log(`✓ Datastore: ${datastorePath}`);
     checkSpecVersion(datastorePath);
-    return launch(datastorePath, data.apiPort ?? 9744, data.studioPort ?? 9743, data.commonTypesDir);
+    return launch(datastorePath, data.apiPort ?? 9744, data.studioPort ?? 9743, data.systemItemsDir);
   }
 
   // 3. First-run wizard
@@ -389,7 +389,7 @@ async function main() {
   }
   const wizardResult = await wizard();
   checkSpecVersion(wizardResult.datastorePath);
-  launch(wizardResult.datastorePath, wizardResult.apiPort, wizardResult.studioPort, wizardResult.commonTypesDir);
+  launch(wizardResult.datastorePath, wizardResult.apiPort, wizardResult.studioPort, wizardResult.systemItemsDir);
 }
 
 main().catch((err) => {
