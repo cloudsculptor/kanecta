@@ -4,6 +4,16 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+const { metadata: metadataSpec } = require('@kanecta/specification');
+
+function validateMetadata(obj) {
+  if (typeof obj !== 'object' || obj === null) return 'metadata must be a JSON object';
+  for (const key of metadataSpec.required) {
+    if (obj[key] === undefined) return `${key} is required`;
+  }
+  return null;
+}
+
 const ROOT_ID = '00000000-0000-0000-0000-000000000000';
 const WELL_KNOWN_TYPES = new Set(['root', 'system_root', 'app_root', 'component_root', 'data_root']);
 const WELL_KNOWN_ORDER = ['system_root', 'app_root', 'component_root', 'data_root'];
@@ -103,6 +113,12 @@ class FilesystemAdapter {
   _writeJson(filePath, data) {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2) + '\n');
+  }
+
+  _writeMetadata(filePath, item) {
+    const err = validateMetadata(item);
+    if (err) throw new Error(`Invalid metadata: ${err}`);
+    this._writeJson(filePath, item);
   }
 
   // ─── Typed-object helpers (object.json / meta.json / synthetic nodes) ────────
@@ -297,7 +313,7 @@ class FilesystemAdapter {
       createdBy: owner, modifiedBy: owner,
       cachedAt: null, subscribedAt: null, subscriptionSource: null,
     };
-    this._writeJson(path.join(this._itemDir(id), 'metadata.json'), item);
+    this._writeMetadata(path.join(this._itemDir(id), 'metadata.json'), item);
     this._snapshot(item, 'create', owner, now);
     return item;
   }
@@ -399,7 +415,7 @@ class FilesystemAdapter {
       subscriptionSource: null,
     };
 
-    this._writeJson(path.join(this._itemDir(id), 'metadata.json'), item);
+    this._writeMetadata(path.join(this._itemDir(id), 'metadata.json'), item);
 
     // C1 + C2: for typed objects with data, write meta.json and object.json
     if (type === 'object' && typeId && objectData !== null) {
@@ -530,7 +546,7 @@ class FilesystemAdapter {
     updated.modifiedAt = now.toISOString();
     updated.modifiedBy = actor;
 
-    this._writeJson(path.join(this._itemDir(id), 'metadata.json'), updated);
+    this._writeMetadata(path.join(this._itemDir(id), 'metadata.json'), updated);
     return updated;
   }
 
@@ -570,6 +586,65 @@ class FilesystemAdapter {
     fs.rmSync(this._itemDir(id), { recursive: true });
 
     return { warnings };
+  }
+
+  // ─── Type definitions ─────────────────────────────────────────────────────
+
+  createType(value, { schema, createdBy } = {}) {
+    if (!value || typeof value !== 'string' || !value.trim())
+      throw new Error('value is required');
+
+    const id = crypto.randomUUID();
+    const now = new Date();
+    const owner = this.config.owner;
+    const actor = createdBy || owner;
+
+    const metadata = {
+      id,
+      parentId: null,
+      value: value.trim(),
+      type: 'type',
+      typeId: null,
+      owner,
+      license: null,
+      sortOrder: null,
+      confidence: null,
+      status: null,
+      tags: [],
+      createdAt: now.toISOString(),
+      modifiedAt: now.toISOString(),
+      createdBy: actor,
+      modifiedBy: actor,
+      cachedAt: null,
+      subscribedAt: null,
+      subscriptionSource: null,
+    };
+
+    const resolvedSchema = schema || {
+      meta: {
+        icon: '',
+        description: '',
+        details: '',
+        keywords: '',
+        tags: '',
+        'ai-instructions': { claude: '' },
+      },
+      jsonSchema: {
+        '$schema': 'http://json-schema.org/draft-07/schema#',
+        '$id': '',
+        title: value.trim(),
+        type: 'object',
+        properties: {},
+        required: [],
+        additionalProperties: false,
+      },
+    };
+
+    const typeDir = this._typeDir(id);
+    this._writeMetadata(path.join(typeDir, 'metadata.json'), metadata);
+    this._writeJson(path.join(typeDir, 'type.json'), resolvedSchema);
+
+    return { metadata, schema: resolvedSchema };
   }
 
   // ─── Aliases ───────────────────────────────────────────────────────────────

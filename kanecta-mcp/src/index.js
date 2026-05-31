@@ -385,6 +385,17 @@ const TOOLS = [
 
   // ── Type definitions ─────────────────────────────────────────────────────────
   {
+    name: 'kanecta_create_type',
+    description: 'Create a new custom type definition in the Kanecta datastore. Returns the full metadata record for the new type.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        value: { type: 'string', description: 'Name of the type (e.g. "Person", "Place", "Event")' },
+      },
+      required: ['value'],
+    },
+  },
+  {
     name: 'kanecta_list_types',
     description: 'List all custom type definitions in the Kanecta datastore. Returns metadata including icon, description, keywords, and tags for each type.',
     inputSchema: {
@@ -768,6 +779,11 @@ function dispatch(name, args) {
 
     case 'kanecta_by_tag':
       return { tag: args.tag, items: ds.byTag(args.tag) };
+
+    case 'kanecta_create_type': {
+      const { metadata, schema } = ds.createType(args.value);
+      return { ...metadata, schema };
+    }
 
     case 'kanecta_list_types':
       return handleListTypes(datastorePath);
