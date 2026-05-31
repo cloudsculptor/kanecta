@@ -1,0 +1,53 @@
+.RightBar {
+  grid-area: right;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--sidebar-bg, transparent);
+  padding: 4px 0;
+
+  &-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    width: 100%;
+    padding: 6px 4px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: var(--sidebar-fg);
+    border-radius: 6px;
+
+
+    &--active {
+      background: var(--content-bg, #ffffff);
+      color: var(--sidebar-fg-selected);
+      border-radius: 0;
+    }
+
+    &--disabled {
+      opacity: 0.25;
+      cursor: not-allowed;
+    }
+
+    .MuiSvgIcon-root {
+      font-size: 32px;
+      width: 32px;
+      height: 32px;
+    }
+  }
+
+  &-item-label {
+    font-size: 12px;
+    line-height: 1.2;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 56px;
+  }
+}

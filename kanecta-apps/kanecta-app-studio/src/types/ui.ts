@@ -1,7 +1,7 @@
 export type ViewType =
   | 'tree'
   | 'table'
-  | 'templates'
+  | 'types'
   | 'combinator'
   | 'query'
   | 'marketplace'
@@ -17,7 +17,12 @@ export type ViewType =
   | 'ai-instructions'
   | 'history'
   | 'starred'
-  | 'sync';
+  | 'digest'
+  | 'sync'
+  | 'claude'
+  | 'settings'
+  | 'home'
+  | 'diagram';
 
 export interface PanelConfig {
   id: string;

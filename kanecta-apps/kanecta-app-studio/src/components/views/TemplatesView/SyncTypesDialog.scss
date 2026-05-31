@@ -1,0 +1,175 @@
+.SyncTypesDialog {
+  &-loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    padding: 32px 0;
+  }
+
+  &-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  &-section {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 4px 16px 8px;
+
+    & + & {
+      border-left: 1px solid var(--color-border);
+    }
+  }
+
+  &-section-title {
+    margin: 0 0 10px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &-count {
+    font-size: 0.75rem;
+    font-weight: 400;
+    background: var(--color-border);
+    color: var(--color-text-muted);
+    border-radius: 10px;
+    padding: 1px 7px;
+  }
+
+  &-list-header {
+    display: flex;
+    align-items: center;
+    padding: 4px 0 6px;
+    border-bottom: 1px solid var(--color-border);
+    margin-bottom: 4px;
+    flex-shrink: 0;
+  }
+
+  &-toggle-all {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    user-select: none;
+
+    input[type='checkbox'] {
+      cursor: pointer;
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+    }
+  }
+
+  &-list {
+    list-style: none;
+    margin: 0 0 10px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  &-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 0;
+
+    &:hover .SyncTypesDialog-copy {
+      opacity: 0.5;
+    }
+  }
+
+  &-item-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 2px;
+    cursor: pointer;
+    border-radius: 3px;
+    flex: 1;
+    min-width: 0;
+
+    &:hover {
+      background: var(--color-hover);
+    }
+
+    input[type='checkbox'] {
+      cursor: pointer;
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+    }
+  }
+
+  &-name {
+    font-size: 0.875rem;
+    color: var(--color-text);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &-copy {
+    display: flex;
+    align-items: center;
+    padding: 2px;
+    border: none;
+    background: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    opacity: 0;
+    flex-shrink: 0;
+    border-radius: 3px;
+    transition: opacity 0.15s, color 0.15s;
+
+    &:hover {
+      opacity: 1 !important;
+    }
+
+    &--done {
+      opacity: 1 !important;
+      color: #4caf50;
+    }
+  }
+
+  &-copy-icon.MuiSvgIcon-root {
+    font-size: 0.8rem !important;
+    width: 0.8rem !important;
+    height: 0.8rem !important;
+  }
+
+  &-bulk {
+    display: flex;
+    justify-content: flex-end;
+    flex-shrink: 0;
+    padding-top: 4px;
+  }
+
+  &-empty {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+  }
+
+  &-synced {
+    margin: 0;
+    font-size: 0.875rem;
+    color: #4caf50;
+  }
+}

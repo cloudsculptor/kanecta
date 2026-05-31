@@ -1,4 +1,13 @@
 import { useState, useMemo } from 'react';
+import type { ViewMeta } from '../../../lib/viewMeta';
+import { useViewLocation } from '../../../context/LocationContext';
+
+export const TableViewMeta: ViewMeta = {
+  uuid: 'c4b3d2e1-f5a6-4b7c-8d9e-0f1a2b3c4d5e',
+  name: 'table',
+  label: 'Table',
+  icon: 'TableChart',
+};
 import { AgGridReact } from 'ag-grid-react';
 import { AllCommunityModule, themeQuartz, type ColDef } from 'ag-grid-community';
 import { useQuery } from '@tanstack/react-query';
@@ -40,6 +49,7 @@ function schemaToColDefs(schema: unknown): ColDef[] {
 }
 
 export function TableView() {
+  useViewLocation(TableViewMeta.uuid);
   const [selectedType, setSelectedType] = useState<TypeDefinition | null>(null);
   const { getApi } = useWorkspaceStore();
   const { items } = useAllItems('table-view');
@@ -71,7 +81,11 @@ export function TableView() {
   return (
     <div className="TableView">
       <div className="TableView-sidebar">
-        <TypeList selectedTypeId={selectedType?.id ?? null} onSelect={setSelectedType} />
+        <TypeList
+          selectedTypeId={selectedType?.id ?? null}
+          onSelect={setSelectedType}
+          onCreateItem={(t) => void getApi().items.create({ value: `New ${t.value}`, type: t.value })}
+        />
       </div>
       <div className="TableView-grid">
         {!selectedType && (

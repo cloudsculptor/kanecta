@@ -1,5 +1,6 @@
 {
   "name": "kanecta",
+  "version": "1.2.0",
   "private": true,
   "scripts": {
     "prestart": "npm install",
@@ -9,6 +10,7 @@
     "prepare": "husky || true"
   },
   "workspaces": [
+    "kanecta-specification",
     "kanecta-filesystem",
     "kanecta-lib",
     "kanecta-api",

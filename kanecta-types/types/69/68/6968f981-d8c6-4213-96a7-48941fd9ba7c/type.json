@@ -1,0 +1,191 @@
+{
+  "meta": {
+    "icon": "Assignment",
+    "description": "A human procedure — a named, step-by-step process that people follow to complete a task consistently",
+    "keywords": [
+      "procedure",
+      "process",
+      "SOP",
+      "checklist",
+      "workflow",
+      "runbook"
+    ]
+  },
+  "jsonSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "procedure",
+    "title": "Procedure",
+    "type": "object",
+    "required": [
+      "title",
+      "purpose",
+      "steps"
+    ],
+    "properties": {
+      "title": {
+        "type": "string"
+      },
+      "purpose": {
+        "type": "string",
+        "description": "What this procedure achieves and why it exists"
+      },
+      "owner": {
+        "type": "string",
+        "format": "email",
+        "description": "Person responsible for keeping this procedure up to date"
+      },
+      "team": {
+        "type": "string"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "Draft",
+          "Active",
+          "Under Review",
+          "Deprecated"
+        ]
+      },
+      "version": {
+        "type": "string"
+      },
+      "lastReviewed": {
+        "type": "string",
+        "format": "date"
+      },
+      "nextReview": {
+        "type": "string",
+        "format": "date"
+      },
+      "frequency": {
+        "type": "string",
+        "description": "How often this procedure is performed, e.g. daily, per release, on demand"
+      },
+      "estimatedDuration": {
+        "type": "string",
+        "description": "Typical time to complete, e.g. 30 minutes, 2 hours"
+      },
+      "roles": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "role",
+            "responsibility"
+          ],
+          "properties": {
+            "role": {
+              "type": "string",
+              "description": "Job title or team role"
+            },
+            "responsibility": {
+              "type": "string",
+              "description": "What this role does in the procedure"
+            }
+          }
+        },
+        "description": "People or roles involved and their responsibilities"
+      },
+      "prerequisites": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "What must be in place or completed before starting"
+      },
+      "steps": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "required": [
+            "title",
+            "instructions"
+          ],
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "instructions": {
+              "type": "string",
+              "contentMediaType": "text/markdown"
+            },
+            "role": {
+              "type": "string",
+              "description": "Who performs this step"
+            },
+            "expectedOutcome": {
+              "type": "string"
+            },
+            "warnings": {
+              "type": "string"
+            },
+            "optional": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        }
+      },
+      "decisionPoints": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "condition",
+            "ifYes",
+            "ifNo"
+          ],
+          "properties": {
+            "condition": {
+              "type": "string"
+            },
+            "ifYes": {
+              "type": "string"
+            },
+            "ifNo": {
+              "type": "string"
+            }
+          }
+        },
+        "description": "Branch points where the procedure takes different paths"
+      },
+      "expectedOutcome": {
+        "type": "string",
+        "description": "What a successful completion looks like"
+      },
+      "failureMode": {
+        "type": "string",
+        "contentMediaType": "text/markdown",
+        "description": "What to do if the procedure fails or cannot be completed"
+      },
+      "aiSkill": {
+        "type": "string",
+        "format": "uuid",
+        "description": "UUID of the Kanecta skill item that implements this procedure for AI execution"
+      },
+      "relatedProcedures": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true
+      },
+      "references": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Links to relevant documentation, tools or systems"
+      },
+      "tags": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "uniqueItems": true
+      }
+    }
+  }
+}

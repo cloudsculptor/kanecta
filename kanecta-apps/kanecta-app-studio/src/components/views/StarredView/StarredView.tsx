@@ -1,4 +1,13 @@
 import { useState } from 'react';
+import type { ViewMeta } from '../../../lib/viewMeta';
+import { useViewLocation } from '../../../context/LocationContext';
+
+export const StarredViewMeta: ViewMeta = {
+  uuid: 'b5a4c3d2-e6f7-4a8b-9c0d-1e2f3a4b5c6d',
+  name: 'starred',
+  label: 'Starred',
+  icon: 'Star',
+};
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { IconButton, Tooltip } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -16,6 +25,7 @@ function TypeIcon({ type }: { type: string }) {
 }
 
 export function StarredView() {
+  useViewLocation(StarredViewMeta.uuid);
   const { getApi } = useWorkspaceStore();
   const { layout, updatePanel } = useUiStore();
   const api = getApi();

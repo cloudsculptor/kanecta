@@ -1,60 +1,49 @@
-import { IconButton, Tooltip } from '@mui/material';
+import HomeIcon from '@mui/icons-material/Home';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import SettingsIcon from '@mui/icons-material/Settings';
-import { useReviewStore } from '../../store/review';
+import type { ViewType } from '../../types/ui';
 import './TopBar.scss';
 
 interface TopBarProps {
   onQuickCapture?: () => void;
   onCommandPalette?: () => void;
-  onOpenSettings?: () => void;
-  onOpenReview?: () => void;
+  onViewSelect: (view: ViewType) => void;
+  activeView: ViewType;
 }
 
-export function TopBar({ onQuickCapture, onCommandPalette, onOpenSettings, onOpenReview }: TopBarProps) {
-  const { reviewQueue } = useReviewStore();
-  const unreviewedCount = reviewQueue.length;
+export function TopBar({ onQuickCapture, onCommandPalette, onViewSelect, activeView }: TopBarProps) {
+  const activeClass = (view: ViewType) =>
+    activeView === view ? ' TopBar-item--active' : '';
 
   return (
-    <header className="TopBar">
-      <img src="/logo.svg" alt="Kanecta" className="TopBar-logo-img" />
-      <span className="TopBar-logo">Kanecta</span>
-      <div className="TopBar-spacer" />
-      <div
-        className="TopBar-search"
-        onClick={onCommandPalette}
-        onKeyDown={(e) => e.key === 'Enter' && onCommandPalette?.()}
-        role="button"
-        tabIndex={0}
-        aria-label="Search (Ctrl+K)"
+    <nav className="TopBar">
+      <button
+        className={`TopBar-item${activeClass('home')}`}
+        onClick={() => onViewSelect('home')}
+        aria-label="Home"
+        aria-current={activeView === 'home' ? 'page' : undefined}
       >
-        <SearchIcon className="TopBar-search-icon" />
-        <span className="TopBar-search-placeholder">Search…</span>
-        <span className="TopBar-search-shortcut">Ctrl+K</span>
-      </div>
-      <Tooltip title="Command palette (Ctrl+K)">
-        <IconButton size="small" onClick={onCommandPalette} aria-label="Command palette" className="TopBar-search-btn">
-          <SearchIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-      <Tooltip title="Quick capture (Ctrl+Space)">
-        <IconButton size="small" onClick={onQuickCapture} aria-label="Quick capture">
-          <AddIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-      <Tooltip title="Settings">
-        <IconButton size="small" onClick={onOpenSettings} aria-label="Settings">
-          <SettingsIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-      {unreviewedCount > 0 && (
-        <Tooltip title={`${unreviewedCount} items to review`}>
-          <button className="TopBar-review-badge" onClick={onOpenReview} aria-label="Open review">
-            {unreviewedCount}
-          </button>
-        </Tooltip>
-      )}
-    </header>
+        <HomeIcon />
+        <span className="TopBar-item-label">Home</span>
+      </button>
+      <button className="TopBar-item" onClick={onCommandPalette} aria-label="Search">
+        <SearchIcon />
+        <span className="TopBar-item-label">Search</span>
+      </button>
+      <button className="TopBar-item" onClick={onQuickCapture} aria-label="Capture">
+        <AddIcon />
+        <span className="TopBar-item-label">Capture</span>
+      </button>
+      <button
+        className={`TopBar-item${activeClass('settings')}`}
+        onClick={() => onViewSelect('settings')}
+        aria-label="Settings"
+        aria-current={activeView === 'settings' ? 'page' : undefined}
+      >
+        <SettingsIcon />
+        <span className="TopBar-item-label">Settings</span>
+      </button>
+    </nav>
   );
 }

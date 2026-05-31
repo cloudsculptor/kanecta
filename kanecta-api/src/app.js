@@ -2,6 +2,7 @@
 
 const express = require('express');
 const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE } = require('@kanecta/lib');
+const claude = require('./claude');
 
 const app = express();
 app.use(express.json());
@@ -654,10 +655,13 @@ app.get('/types', (req, res) => {
             if (fs.existsSync(typePath)) {
               const typeDef = JSON.parse(fs.readFileSync(typePath, 'utf8'));
               if (typeDef.meta) {
-                meta.icon        = typeDef.meta.icon ?? null;
-                meta.description = typeDef.meta.description ?? null;
-                meta.keywords    = typeDef.meta.keywords ?? null;
-                meta.tags        = typeDef.meta.tags ?? null;
+                meta.icon           = typeDef.meta.icon ?? null;
+                meta.description    = typeDef.meta.description ?? null;
+                meta.details        = typeDef.meta.details ?? null;
+                meta.keywords       = typeDef.meta.keywords ?? null;
+                meta.tags           = typeDef.meta.tags ?? null;
+                meta.primaryField   = typeDef.meta.primaryField ?? null;
+                meta['ai-instructions'] = typeDef.meta['ai-instructions'] ?? null;
               }
             }
             results.push(meta);
@@ -681,43 +685,42 @@ app.post('/types', (req, res) => {
   if (!value || typeof value !== 'string' || !value.trim()) {
     return res.status(400).json({ error: 'value is required' });
   }
-  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
-  const { randomUUID } = require('crypto');
-  const id = randomUUID();
-  const now = new Date().toISOString();
-  const owner = ds.config.owner;
-  const shard1 = id.slice(0, 2);
-  const shard2 = id.slice(2, 4);
-  const typeDir = path.join(root, 'types', shard1, shard2, id);
   try {
-    fs.mkdirSync(typeDir, { recursive: true });
-    const metadata = { id, parentId: null, value: value.trim(), type: 'type', owner, createdAt: now, modifiedAt: now };
-    fs.writeFileSync(path.join(typeDir, 'metadata.json'), JSON.stringify(metadata, null, 2));
-    const initialSchema = {
-      meta: {
-        icon: '',
-        description: '',
-        details: '',
-        keywords: '',
-        tags: '',
-        'ai-instructions': { claude: '' },
-      },
-      jsonSchema: {
-        '$schema': 'http://json-schema.org/draft-07/schema#',
-        '$id': '',
-        title: value.trim(),
-        type: 'object',
-        properties: {},
-        required: [],
-        additionalProperties: false,
-      },
-    };
-    fs.writeFileSync(path.join(typeDir, 'type.json'), JSON.stringify(initialSchema, null, 2));
-    res.status(201).json({ ...metadata, icon: null, description: null, keywords: null, tags: null });
+    const { metadata } = ds.createType(value.trim());
+    res.status(201).json({ ...metadata, icon: null, description: null, details: null, keywords: null, primaryField: null, 'ai-instructions': null });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
+const { type: typeFileSpec } = require('@kanecta/specification');
+
+function validateTypeSchema(schema) {
+  if (typeof schema !== 'object' || schema === null || Array.isArray(schema))
+    return 'Schema must be a JSON object';
+  for (const key of typeFileSpec.required) {
+    if (!schema[key] || typeof schema[key] !== 'object')
+      return `${key} is required`;
+  }
+  const metaRequired = typeFileSpec.properties.meta.required ?? [];
+  for (const key of metaRequired) {
+    if (typeof schema.meta[key] !== 'string')
+      return `meta.${key} is required and must be a string`;
+  }
+  const jsRequired = typeFileSpec.properties.jsonSchema.required ?? [];
+  const js = schema.jsonSchema;
+  for (const key of jsRequired) {
+    if (js[key] === undefined || js[key] === null)
+      return `jsonSchema.${key} is required`;
+  }
+  if (js['$schema'] !== typeFileSpec.properties.jsonSchema.properties['$schema'].const)
+    return `jsonSchema.$schema must be "${typeFileSpec.properties.jsonSchema.properties['$schema'].const}"`;
+  if (js.type !== typeFileSpec.properties.jsonSchema.properties.type.const)
+    return `jsonSchema.type must be "${typeFileSpec.properties.jsonSchema.properties.type.const}"`;
+  if (!js.properties || typeof js.properties !== 'object')
+    return 'jsonSchema.properties is required';
+  return null;
+}
 
 // PUT /types/:id/schema — save updated type.json schema
 app.put('/types/:id/schema', (req, res) => {
@@ -737,9 +740,8 @@ app.put('/types/:id/schema', (req, res) => {
     return res.status(400).json({ error: 'Invalid JSON' });
   }
 
-  if (typeof schema !== 'object' || schema === null || Array.isArray(schema)) {
-    return res.status(400).json({ error: 'Schema must be a JSON object' });
-  }
+  const validationError = validateTypeSchema(schema);
+  if (validationError) return res.status(400).json({ error: validationError });
 
   try {
     fs.writeFileSync(schemaPath, JSON.stringify(schema, null, 2));
@@ -792,7 +794,7 @@ const HISTORY_NAMES = ['clipboard', 'viewed'];
 
 function historyDir() {
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
-  return path.join(root, 'app', 'studio', 'history');
+  return path.join(root, '.kanecta', 'app', 'studio', 'history');
 }
 
 function ensureHistoryDir() {
@@ -884,7 +886,7 @@ app.post('/breadcrumb/viewed', (req, res) => {
 
 function starredFilePath() {
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
-  const studioDir = path.join(root, 'app', 'studio');
+  const studioDir = path.join(root, '.kanecta', 'app', 'studio');
   const dir = path.join(studioDir, 'starred');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   const newPath = path.join(dir, 'starred.csv');
@@ -937,6 +939,125 @@ app.delete('/app/studio/starred/:id', (req, res) => {
   const { id } = req.params;
   const entries = readStarred().filter((e) => e.id !== id);
   writeStarred(entries);
+  res.json({ ok: true });
+});
+
+// ─── Sync Types ──────────────────────────────────────────────────────────────
+
+app.get('/app/studio/sync-types', (_req, res) => {
+  const commonDir = process.env.KANECTA_COMMON_TYPES_DIR;
+  if (!commonDir || !fs.existsSync(commonDir)) return res.json([]);
+  const results = [];
+  try {
+    for (const s1 of fs.readdirSync(commonDir)) {
+      const d1 = path.join(commonDir, s1);
+      if (!fs.statSync(d1).isDirectory()) continue;
+      for (const s2 of fs.readdirSync(d1)) {
+        const d2 = path.join(d1, s2);
+        if (!fs.statSync(d2).isDirectory()) continue;
+        for (const id of fs.readdirSync(d2)) {
+          const typePath = path.join(d2, id, 'type.json');
+          if (!fs.existsSync(typePath)) continue;
+          try {
+            const schema = JSON.parse(fs.readFileSync(typePath, 'utf8'));
+            const title = schema.jsonSchema?.title || id;
+            results.push({ folderId: id, title, schema });
+          } catch {}
+        }
+      }
+    }
+  } catch (err) { return res.status(500).json({ error: err.message }); }
+  results.sort((a, b) => a.title.localeCompare(b.title));
+  res.json(results);
+});
+
+app.post('/app/studio/sync-types/import', (req, res) => {
+  const commonDir = process.env.KANECTA_COMMON_TYPES_DIR;
+  if (!commonDir) return res.status(400).json({ error: 'KANECTA_COMMON_TYPES_DIR not configured' });
+  const ds = openDatastore(res);
+  if (!ds) return;
+  const { folderIds } = req.body;
+  if (!Array.isArray(folderIds) || folderIds.length === 0) return res.status(400).json({ error: 'folderIds required' });
+  const imported = [];
+  const errors = [];
+  for (const folderId of folderIds) {
+    try {
+      const s1 = folderId.slice(0, 2);
+      const s2 = folderId.slice(2, 4);
+      const typePath = path.join(commonDir, s1, s2, folderId, 'type.json');
+      if (!fs.existsSync(typePath)) { errors.push({ folderId, error: 'type.json not found' }); continue; }
+      const schema = JSON.parse(fs.readFileSync(typePath, 'utf8'));
+      const title = schema.jsonSchema?.title || folderId;
+      const { metadata } = ds.createType(title, { schema });
+      imported.push({ id: metadata.id, value: title });
+    } catch (err) { errors.push({ folderId, error: err.message }); }
+  }
+  res.json({ imported, errors });
+});
+
+app.post('/app/studio/sync-types/export', (req, res) => {
+  const commonDir = process.env.KANECTA_COMMON_TYPES_DIR;
+  if (!commonDir) return res.status(400).json({ error: 'KANECTA_COMMON_TYPES_DIR not configured' });
+  const { typeIds } = req.body;
+  if (!Array.isArray(typeIds) || typeIds.length === 0) return res.status(400).json({ error: 'typeIds required' });
+  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const exported = [];
+  const errors = [];
+  for (const id of typeIds) {
+    try {
+      const shard1 = id.slice(0, 2);
+      const shard2 = id.slice(2, 4);
+      const srcDir = path.join(root, '.kanecta', 'types', shard1, shard2, id);
+      const typePath = path.join(srcDir, 'type.json');
+      if (!fs.existsSync(typePath)) { errors.push({ id, error: 'type.json not found' }); continue; }
+      const schema = JSON.parse(fs.readFileSync(typePath, 'utf8'));
+      const destDir = path.join(commonDir, shard1, shard2, id);
+      fs.mkdirSync(destDir, { recursive: true });
+      fs.writeFileSync(path.join(destDir, 'type.json'), JSON.stringify(schema, null, 2));
+      exported.push({ id });
+    } catch (err) { errors.push({ id, error: err.message }); }
+  }
+  res.json({ exported, errors });
+});
+
+// ─── Settings ────────────────────────────────────────────────────────────────
+
+const DEFAULT_SETTINGS = { themeName: 'Green', sidebarBg: '#20a138', sidebarFg: '#ffffff', sidebarFgSelected: '#5a6a60', contentBg: '#ffffff', contentBorder: '#20a138', showContentBorder: false, locationBorder: '#15712a' };
+
+function settingsFilePath() {
+  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const dir = path.join(root, '.kanecta', 'app', 'studio', 'settings');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  return path.join(dir, 'settings.json');
+}
+
+function readSettings() {
+  const p = settingsFilePath();
+  if (!fs.existsSync(p)) {
+    fs.writeFileSync(p, JSON.stringify(DEFAULT_SETTINGS, null, 2));
+    return DEFAULT_SETTINGS;
+  }
+  try {
+    const stored = JSON.parse(fs.readFileSync(p, 'utf8'));
+    const merged = { ...DEFAULT_SETTINGS, ...stored };
+    if (Object.keys(merged).length !== Object.keys(stored).length ||
+        Object.keys(DEFAULT_SETTINGS).some(k => !(k in stored))) {
+      fs.writeFileSync(p, JSON.stringify(merged, null, 2));
+    }
+    return merged;
+  } catch {
+    return DEFAULT_SETTINGS;
+  }
+}
+
+app.get('/app/studio/settings', (_req, res) => {
+  res.json(readSettings());
+});
+
+app.post('/app/studio/settings', (req, res) => {
+  const { themeName, sidebarBg, sidebarFg, sidebarFgSelected, contentBg, contentBorder, showContentBorder, locationBorder } = req.body;
+  if (!themeName) return res.status(400).json({ error: 'themeName required' });
+  fs.writeFileSync(settingsFilePath(), JSON.stringify({ themeName, sidebarBg, sidebarFg, sidebarFgSelected, contentBg, contentBorder, showContentBorder: showContentBorder ?? true, locationBorder: locationBorder ?? '#cccccc' }, null, 2));
   res.json({ ok: true });
 });
 
@@ -1004,6 +1125,46 @@ app.post('/rebuild-indexes', (req, res) => {
   if (!ds) return;
   const itemCount = ds.rebuildIndexes();
   res.json({ rebuilt: true, itemCount });
+});
+
+// ─── Claude CLI sessions ──────────────────────────────────────────────────────
+
+app.post('/claude/sessions', (req, res) => {
+  const { prompt, workingDir } = req.body;
+  if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
+    return res.status(400).json({ error: 'prompt is required' });
+  }
+  const id = claude.createSession(prompt.trim(), workingDir);
+  res.status(201).json({ id });
+});
+
+app.get('/claude/sessions/:id/stream', (req, res) => {
+  const { id } = req.params;
+  if (!claude.getSession(id)) return res.status(404).json({ error: 'Session not found' });
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const write = (data) => res.write(data);
+  claude.subscribe(id, write);
+  req.on('close', () => claude.unsubscribe(id, write));
+});
+
+app.post('/claude/sessions/:id/respond', (req, res) => {
+  const { id } = req.params;
+  const { approved } = req.body;
+  if (typeof approved !== 'boolean') return res.status(400).json({ error: 'approved (boolean) is required' });
+  const ok = claude.respond(id, approved);
+  if (!ok) return res.status(404).json({ error: 'Session not found or no pending approval' });
+  res.json({ ok: true });
+});
+
+app.delete('/claude/sessions/:id', (req, res) => {
+  const ok = claude.cancelSession(req.params.id);
+  if (!ok) return res.status(404).json({ error: 'Session not found' });
+  res.json({ ok: true });
 });
 
 module.exports = app;

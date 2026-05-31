@@ -390,6 +390,17 @@ const TOOLS = [
 
   // ── Type definitions ─────────────────────────────────────────────────────────
   {
+    name: 'kanecta_create_type',
+    description: 'Create a new custom type definition in the Kanecta datastore. Returns the full metadata record for the new type.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        value: { type: 'string', description: 'Name of the type (e.g. "Person", "Place", "Event")' },
+      },
+      required: ['value'],
+    },
+  },
+  {
     name: 'kanecta_list_types',
     description: 'List all custom type definitions in the Kanecta datastore. Returns metadata including icon, description, keywords, and tags for each type.',
     inputSchema: {
@@ -620,10 +631,13 @@ function handleListTypes(datastorePath) {
           if (fs.existsSync(typePath)) {
             const typeDef = JSON.parse(fs.readFileSync(typePath, 'utf8'));
             if (typeDef.meta) {
-              meta.icon        = typeDef.meta.icon ?? null;
-              meta.description = typeDef.meta.description ?? null;
-              meta.keywords    = typeDef.meta.keywords ?? null;
-              meta.tags        = typeDef.meta.tags ?? null;
+              meta.icon           = typeDef.meta.icon ?? null;
+              meta.description    = typeDef.meta.description ?? null;
+              meta.details        = typeDef.meta.details ?? null;
+              meta.keywords       = typeDef.meta.keywords ?? null;
+              meta.tags           = typeDef.meta.tags ?? null;
+              meta.primaryField   = typeDef.meta.primaryField ?? null;
+              meta['ai-instructions'] = typeDef.meta['ai-instructions'] ?? null;
             }
           }
           results.push(meta);
@@ -646,10 +660,39 @@ function handleGetTypeSchema(datastorePath, id) {
   }
 }
 
+const { type: typeFileSpec } = require('@kanecta/specification');
+
+function validateTypeSchema(schema) {
+  if (typeof schema !== 'object' || schema === null || Array.isArray(schema))
+    return 'Schema must be a JSON object';
+  for (const key of typeFileSpec.required) {
+    if (!schema[key] || typeof schema[key] !== 'object')
+      return `${key} is required`;
+  }
+  const metaRequired = typeFileSpec.properties.meta.required ?? [];
+  for (const key of metaRequired) {
+    if (typeof schema.meta[key] !== 'string')
+      return `meta.${key} is required and must be a string`;
+  }
+  const jsRequired = typeFileSpec.properties.jsonSchema.required ?? [];
+  const js = schema.jsonSchema;
+  for (const key of jsRequired) {
+    if (js[key] === undefined || js[key] === null)
+      return `jsonSchema.${key} is required`;
+  }
+  if (js['$schema'] !== typeFileSpec.properties.jsonSchema.properties['$schema'].const)
+    return `jsonSchema.$schema must be "${typeFileSpec.properties.jsonSchema.properties['$schema'].const}"`;
+  if (js.type !== typeFileSpec.properties.jsonSchema.properties.type.const)
+    return `jsonSchema.type must be "${typeFileSpec.properties.jsonSchema.properties.type.const}"`;
+  if (!js.properties || typeof js.properties !== 'object')
+    return 'jsonSchema.properties is required';
+  return null;
+}
+
 function handleUpdateTypeSchema(datastorePath, id, schema) {
   if (!UUID_RE.test(id)) return { error: 'Invalid UUID format' };
-  if (typeof schema !== 'object' || schema === null || Array.isArray(schema))
-    return { error: 'Schema must be a JSON object' };
+  const validationError = validateTypeSchema(schema);
+  if (validationError) return { error: validationError };
   const schemaPath = path.join(typeShardPath(datastorePath, id), 'type.json');
   if (!fs.existsSync(schemaPath)) return { error: `Type schema not found: ${id}` };
   try {
@@ -811,6 +854,11 @@ function dispatch(name, args) {
     case 'kanecta_query': {
       const items = ds.query(args);
       return { items: items.map(item => resolveItem(ds, item)) };
+    }
+      
+    case 'kanecta_create_type': {
+      const { metadata, schema } = ds.createType(args.value);
+      return { ...metadata, schema };
     }
 
     case 'kanecta_list_types':

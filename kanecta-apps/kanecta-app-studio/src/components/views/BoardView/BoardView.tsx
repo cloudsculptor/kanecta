@@ -1,4 +1,13 @@
 import { useState } from 'react';
+import type { ViewMeta } from '../../../lib/viewMeta';
+import { useViewLocation } from '../../../context/LocationContext';
+
+export const BoardViewMeta: ViewMeta = {
+  uuid: 'e6d5f4a3-b7c8-4d9e-0f1a-2b3c4d5e6f7a',
+  name: 'board',
+  label: 'Board',
+  icon: 'ViewKanban',
+};
 import {
   DndContext,
   closestCenter,
@@ -31,6 +40,7 @@ interface BoardViewProps {
 }
 
 export function BoardView({ panelId }: BoardViewProps) {
+  useViewLocation(BoardViewMeta.uuid);
   const { items, isLoading, filter } = useAllItems(panelId);
   const { setPanelFilter } = useUiStore();
   const { getApi } = useWorkspaceStore();

@@ -7,13 +7,18 @@ import { treeApi } from './tree';
 import { typesApi } from './types';
 import { breadcrumbApi } from './breadcrumb';
 import { starredApi } from './starred';
+import { settingsApi } from './settings';
+import { syncTypesApi } from './syncTypes';
 import { skillsApi } from './skills';
+import { claudeApi } from './claude';
 
 export { ApiError } from './client';
 export type { AliasEntry } from './aliases';
 export type { TypeDefinition } from './types';
 export type { ClipboardEntry } from './breadcrumb';
 export type { SkillFile, SkillFileWithContent } from './skills';
+export type { ClaudeEvent, ApprovalNeededEvent, ToolRanEvent } from './claude';
+export type { AppSettings } from './settings';
 
 export function createApi(baseUrl: string) {
   const client = makeClient(baseUrl);
@@ -27,6 +32,9 @@ export function createApi(baseUrl: string) {
     breadcrumb: breadcrumbApi(client),
     starred: starredApi(client),
     skills: skillsApi(client),
+    claude: claudeApi(client, baseUrl),
+    settings: settingsApi(client),
+    syncTypes: syncTypesApi(client),
   };
 }
 

@@ -1,0 +1,134 @@
+{
+  "meta": {
+    "icon": "Psychology",
+    "description": "A Claude AI skill — a named procedure Claude follows when invoked",
+    "keywords": [
+      "skill",
+      "claude",
+      "AI",
+      "prompt",
+      "procedure",
+      "slash command"
+    ]
+  },
+  "jsonSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "skill",
+    "title": "Skill",
+    "type": "object",
+    "required": [
+      "name",
+      "description",
+      "instructions"
+    ],
+    "properties": {
+      "name": {
+        "type": "string",
+        "description": "Short kebab-case slug used to invoke the skill, e.g. review-pr"
+      },
+      "description": {
+        "type": "string",
+        "description": "One or two sentence summary shown to the user and used by Claude to decide when to trigger the skill"
+      },
+      "triggerConditions": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Phrases, patterns or contexts that should cause Claude to invoke this skill"
+      },
+      "skipConditions": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Conditions where this skill should NOT be triggered despite apparent relevance"
+      },
+      "instructions": {
+        "type": "string",
+        "contentMediaType": "text/markdown",
+        "description": "The full step-by-step procedure Claude follows when the skill is invoked"
+      },
+      "parameters": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "name",
+            "description"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "required": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": {
+              "type": "string"
+            }
+          }
+        },
+        "description": "Arguments the skill accepts when invoked"
+      },
+      "tools": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "uniqueItems": true,
+        "description": "MCP tools or Claude Code tools this skill relies on, e.g. mcp__kanecta__kanecta_get"
+      },
+      "examples": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "invocation"
+          ],
+          "properties": {
+            "invocation": {
+              "type": "string",
+              "description": "How the user triggers this skill"
+            },
+            "notes": {
+              "type": "string",
+              "description": "What Claude should do in this case"
+            }
+          }
+        }
+      },
+      "outputFormat": {
+        "type": "string",
+        "contentMediaType": "text/markdown",
+        "description": "Description of what the skill produces or returns to the user"
+      },
+      "relatedSkills": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "uniqueItems": true,
+        "description": "Names of other skills this one calls or is related to"
+      },
+      "version": {
+        "type": "string"
+      },
+      "author": {
+        "type": "string",
+        "format": "email"
+      },
+      "tags": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "uniqueItems": true
+      }
+    }
+  }
+}

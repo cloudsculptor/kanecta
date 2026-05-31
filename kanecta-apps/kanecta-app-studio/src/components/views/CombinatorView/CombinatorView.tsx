@@ -1,4 +1,13 @@
 import { useState, useMemo } from 'react';
+import type { ViewMeta } from '../../../lib/viewMeta';
+import { useViewLocation } from '../../../context/LocationContext';
+
+export const CombinatorViewMeta: ViewMeta = {
+  uuid: 'd1c0e9f8-a2b3-4c4d-5e6f-7a8b9c0d1e2f',
+  name: 'combinator',
+  label: 'Combinator',
+  icon: 'MergeType',
+};
 import Slider from '@mui/material/Slider';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Checkbox from '@mui/material/Checkbox';
@@ -45,6 +54,7 @@ function buildPrompt(
 }
 
 export function CombinatorView() {
+  useViewLocation(CombinatorViewMeta.uuid);
   const [verbosity, setVerbosity] = useState<number>(50);
   const [includeInputs, setIncludeInputs] = useState(true);
   const [renderTree, setRenderTree] = useState(true);

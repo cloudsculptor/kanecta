@@ -19,23 +19,12 @@ const POINTER_LOCATIONS = [
 
 const NAME_RE = /^[a-zA-Z0-9-]+$/;
 
-function findFreePort(preferred) {
+function checkPortFree(port) {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
     server.unref();
-    server.on('error', () => {
-      const s2 = net.createServer();
-      s2.unref();
-      s2.on('error', reject);
-      s2.listen(0, '127.0.0.1', () => {
-        const { port } = s2.address();
-        s2.close(() => resolve(port));
-      });
-    });
-    server.listen(preferred, '127.0.0.1', () => {
-      const { port } = server.address();
-      server.close(() => resolve(port));
-    });
+    server.on('error', () => resolve(false));
+    server.listen(port, '127.0.0.1', () => server.close(() => resolve(true)));
   });
 }
 
@@ -51,7 +40,7 @@ function readPointer(file) {
   return null;
 }
 
-function writePointer(datastorePath, apiPort, studioPort) {
+function writePointer(datastorePath, apiPort, studioPort, commonTypesDir) {
   const file = POINTER_LOCATIONS[0];
   const isNew = !fs.existsSync(file);
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -62,6 +51,7 @@ function writePointer(datastorePath, apiPort, studioPort) {
   data.default = datastorePath;
   data.apiPort = apiPort;
   data.studioPort = studioPort;
+  if (commonTypesDir) data.commonTypesDir = commonTypesDir;
   fs.writeFileSync(file, JSON.stringify(data, null, 2) + '\n', 'utf8');
   if (isNew) {
     console.log(`  → Writing ${file}`);
@@ -95,26 +85,27 @@ function resolveFromPointers() {
 }
 
 function checkSpecVersion(datastorePath) {
-  try {
-    const config = JSON.parse(
-      fs.readFileSync(path.join(datastorePath, '.kanecta', 'config', 'config.json'), 'utf8'),
+  const rootPkg = JSON.parse(
+    fs.readFileSync(path.join(__dirname, '../../package.json'), 'utf8'),
+  );
+  const expectedVersion = rootPkg.version;
+
+  const configPath = path.join(datastorePath, '.kanecta', 'config', 'config.json');
+  if (!fs.existsSync(configPath)) {
+    console.log(`  spec version check: skipped (no config.json found at ${configPath})`);
+    return;
+  }
+
+  const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  const datastoreVersion = config.specVersion ?? '(not set)';
+
+  if (datastoreVersion === expectedVersion) {
+    console.log(`  spec version check: ✓ ${datastoreVersion}`);
+  } else {
+    console.error(
+      `\n  spec version check: ✗ datastore specVersion (${datastoreVersion}) does not match expected (${expectedVersion})\n` +
+      `  Update config.json specVersion or check kanecta-specification for migration notes.\n`,
     );
-    const specMd = fs.readFileSync(
-      path.join(__dirname, '../../kanecta-specification/specification.md'),
-      'utf8',
-    );
-    const match = specMd.match(/^\*\*Version:\*\*\s*(.+)$/m);
-    if (!match) return;
-    const specVersion = match[1].trim();
-    if (config.specVersion !== specVersion) {
-      console.error(
-        `\nError: datastore specVersion (${config.specVersion}) does not match specification (${specVersion})\n` +
-        `Update your datastore or check kanecta-specification/specification.md\n`,
-      );
-      process.exit(1);
-    }
-  } catch (err) {
-    console.error(`\nError reading spec version: ${err.message}\n`);
     process.exit(1);
   }
 }
@@ -240,6 +231,10 @@ async function wizard() {
   const apiPortInput = await ask(rl, `API port [${studioPort + 1}]: `);
   const apiPort = parseInt(apiPortInput || String(studioPort + 1), 10);
 
+  const defaultCommonTypesDir = path.resolve(__dirname, '../../kanecta-types/types');
+  const commonTypesDirInput = await ask(rl, `Common types directory [${defaultCommonTypesDir}]: `);
+  const commonTypesDir = expandHome(commonTypesDirInput || defaultCommonTypesDir);
+
   // ── Summary + confirmation ─────────────────────────────────────────────────
 
   const summary = {
@@ -248,6 +243,7 @@ async function wizard() {
     ...(zipPath ? { importFrom: zipPath } : {}),
     frontendPort: studioPort,
     apiPort,
+    commonTypesDir,
     pointerFile: POINTER_LOCATIONS[0],
   };
 
@@ -293,21 +289,40 @@ async function wizard() {
   }
 
   rl.close();
-  writePointer(datastorePath, apiPort, studioPort);
-  return { datastorePath, apiPort, studioPort };
+  writePointer(datastorePath, apiPort, studioPort, commonTypesDir);
+  return { datastorePath, apiPort, studioPort, commonTypesDir };
 }
 
-async function launch(datastorePath, preferredApiPort, preferredStudioPort) {
-  const [apiPort, studioPort] = await Promise.all([
-    findFreePort(preferredApiPort),
-    findFreePort(preferredStudioPort),
+async function launch(datastorePath, apiPort, studioPort, commonTypesDir) {
+  const [apiFree, studioFree] = await Promise.all([
+    checkPortFree(apiPort),
+    checkPortFree(studioPort),
   ]);
+
+  function portError(label, port, configKey) {
+    console.error(`\n  ✗ ${label} port ${port} is already in use. Free the port or update ${configKey} in your config.\n`);
+    console.error(`  To kill the process using port ${port}:\n`);
+    console.error(`    Linux / macOS (bash)   fuser -k ${port}/tcp`);
+    console.error(`                           kill $(lsof -ti tcp:${port})`);
+    console.error(`    macOS                  lsof -ti tcp:${port} | xargs kill -9`);
+    console.error(`    Windows (cmd)          for /f "tokens=5" %a in ('netstat -aon ^| findstr :${port}') do taskkill /PID %a /F`);
+    console.error(`    Windows (PowerShell)   Stop-Process -Id (Get-NetTCPConnection -LocalPort ${port}).OwningProcess -Force\n`);
+  }
+
+  if (!apiFree) {
+    portError('API', apiPort, 'apiPort');
+    process.exit(1);
+  }
+  if (!studioFree) {
+    portError('Studio', studioPort, 'studioPort');
+    process.exit(1);
+  }
 
   const repoRoot = path.resolve(__dirname, '../..');
   const concurrentlyBin = path.join(repoRoot, 'node_modules', '.bin', 'concurrently');
 
-  console.log(`  API port:    ${apiPort}${apiPort !== preferredApiPort ? ` (${preferredApiPort} was busy)` : ''}`);
-  console.log(`  Studio port: ${studioPort}${studioPort !== preferredStudioPort ? ` (${preferredStudioPort} was busy)` : ''}`);
+  console.log(`  API port:    ${apiPort}`);
+  console.log(`  Studio port: ${studioPort}`);
 
   const proc = spawn(
     concurrentlyBin,
@@ -325,6 +340,7 @@ async function launch(datastorePath, preferredApiPort, preferredStudioPort) {
         KANECTA_DATASTORE: datastorePath,
         PORT: String(apiPort),
         KANECTA_API_URL: `http://localhost:${apiPort}`,
+        ...(commonTypesDir ? { KANECTA_COMMON_TYPES_DIR: commonTypesDir } : {}),
       },
       stdio: 'inherit',
     },
@@ -363,7 +379,7 @@ async function main() {
     }
     console.log(`✓ Datastore: ${datastorePath}`);
     checkSpecVersion(datastorePath);
-    return launch(datastorePath, data.apiPort ?? 9744, data.studioPort ?? 9743);
+    return launch(datastorePath, data.apiPort ?? 9744, data.studioPort ?? 9743, data.commonTypesDir);
   }
 
   // 3. First-run wizard
@@ -373,7 +389,7 @@ async function main() {
   }
   const wizardResult = await wizard();
   checkSpecVersion(wizardResult.datastorePath);
-  launch(wizardResult.datastorePath, wizardResult.apiPort, wizardResult.studioPort);
+  launch(wizardResult.datastorePath, wizardResult.apiPort, wizardResult.studioPort, wizardResult.commonTypesDir);
 }
 
 main().catch((err) => {

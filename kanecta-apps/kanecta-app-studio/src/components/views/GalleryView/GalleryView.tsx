@@ -1,4 +1,13 @@
+import type { ViewMeta } from '../../../lib/viewMeta';
+import { useViewLocation } from '../../../context/LocationContext';
 import { FilterBar } from '../../shared/FilterBar';
+
+export const GalleryViewMeta: ViewMeta = {
+  uuid: 'f7e6a5b4-c8d9-4e0f-1a2b-3c4d5e6f7a8b',
+  name: 'gallery',
+  label: 'Gallery',
+  icon: 'GridView',
+};
 import { SortBar } from '../../shared/SortBar';
 import { GalleryCard } from './GalleryCard';
 import { useAllItems } from '../../../hooks/useAllItems';
@@ -10,6 +19,7 @@ interface GalleryViewProps {
 }
 
 export function GalleryView({ panelId }: GalleryViewProps) {
+  useViewLocation(GalleryViewMeta.uuid);
   const { items, isLoading, filter, sort } = useAllItems(panelId);
   const { setPanelFilter, setPanelSort } = useUiStore();
 
