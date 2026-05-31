@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { IconButton, Tooltip, CircularProgress } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import StopIcon from '@mui/icons-material/Stop';
+import ReactMarkdown from 'react-markdown';
 import { useWorkspaceStore } from '../../../store/workspace';
 import type { ClaudeEvent } from '../../../api/claude';
 import './ClaudeView.scss';
@@ -32,9 +33,8 @@ interface AssistantMsg   { kind: 'assistant';   text: string; }
 interface ToolRanMsg     { kind: 'tool_ran';    name: string; input: Record<string, unknown>; }
 interface ToolResultMsg  { kind: 'tool_result'; text: string; }
 interface StderrMsg      { kind: 'stderr';      text: string; }
-interface ResultMsg      { kind: 'result';      text: string; }
 
-type FeedMessage = UserMessage | AssistantMsg | ToolRanMsg | ToolResultMsg | StderrMsg | ResultMsg;
+type FeedMessage = UserMessage | AssistantMsg | ToolRanMsg | ToolResultMsg | StderrMsg;
 
 function extractAssistantBlocks(raw: Record<string, unknown>): FeedMessage[] {
   const msg = raw as { message?: { content?: unknown[] } };
@@ -91,7 +91,6 @@ export function ClaudeView() {
         if (event.text.trim()) addMessage({ kind: 'stderr', text: event.text });
         break;
       case 'done':
-        if (event.result) addMessage({ kind: 'result', text: event.result });
         setRunning(false);
         closeStream();
         break;
@@ -157,7 +156,9 @@ export function ClaudeView() {
         return (
           <div key={i} className="ClaudeView-msg ClaudeView-msg--assistant">
             <span className="ClaudeView-msg-label">Claude</span>
-            <div className="ClaudeView-msg-bubble">{msg.text}</div>
+            <div className="ClaudeView-msg-bubble ClaudeView-msg-bubble--markdown">
+              <ReactMarkdown>{msg.text}</ReactMarkdown>
+            </div>
           </div>
         );
       case 'tool_ran':
@@ -180,13 +181,6 @@ export function ClaudeView() {
         return (
           <div key={i} className="ClaudeView-msg ClaudeView-msg--stderr">
             <span className="ClaudeView-msg-label">stderr</span>
-            <div className="ClaudeView-msg-bubble">{msg.text}</div>
-          </div>
-        );
-      case 'result':
-        return (
-          <div key={i} className="ClaudeView-msg ClaudeView-msg--result">
-            <span className="ClaudeView-msg-label">Result</span>
             <div className="ClaudeView-msg-bubble">{msg.text}</div>
           </div>
         );
