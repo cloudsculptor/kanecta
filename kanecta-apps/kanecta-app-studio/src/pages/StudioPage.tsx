@@ -22,17 +22,16 @@ import { AIInstructionsView } from '../components/views/AIInstructionsView/AIIns
 import { ClaudeView } from '../components/views/ClaudeView/ClaudeView';
 import { HomeView } from '../components/views/HomeView/HomeView';
 import { DiagramView } from '../components/views/DiagramView/DiagramView';
-import { ItemDetail } from '../components/item/ItemDetail';
 import { QuickCapture } from '../components/shared/QuickCapture';
 import { CommandPalette } from '../components/shared/CommandPalette';
 import { SettingsPage } from './SettingsPage';
 import { LocationProvider } from '../context/LocationContext';
 import { useWorkspaceStore } from '../store/workspace';
-import { useUiStore } from '../store/ui';
 import { useSettingsStore, THEMES } from '../store/settings';
 import { useLiveActivity } from '../hooks/useLiveActivity';
 import { flattenTree } from '../lib/items';
 import type { KanectaItem } from '../types/kanecta';
+import { useLocation } from '../context/LocationContext';
 
 const qc = new QueryClient({
   defaultOptions: { queries: { staleTime: 10_000, retry: 1 } },
@@ -47,8 +46,8 @@ function StudioInner() {
   const [quickCaptureOpen, setQuickCaptureOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const { getApi } = useWorkspaceStore();
-  const { setFocusedItem, focusedItemId } = useUiStore();
   const { applyTheme } = useSettingsStore();
+  const { setItemId } = useLocation();
 
   useLiveActivity();
 
@@ -79,7 +78,7 @@ function StudioInner() {
   };
 
   const handleSelectItem = (item: KanectaItem) => {
-    setFocusedItem(item.id);
+    setItemId(item.id);
   };
 
   const renderView = (panelId: string, viewType: string) => {
@@ -112,16 +111,10 @@ function StudioInner() {
     }
   };
 
-  const focusedItem = focusedItemId
-    ? allItems.find((i) => i.id === focusedItemId)
-    : undefined;
-
   return (
     <AppShell
       onOpenQuickCapture={() => setQuickCaptureOpen(true)}
       onOpenCommandPalette={() => setCommandPaletteOpen(true)}
-      rightPanelTitle={focusedItem?.value}
-      rightPanelContent={focusedItemId ? <ItemDetail itemId={focusedItemId} /> : undefined}
     >
       <PanelWorkspace renderView={renderView} />
       <QuickCapture

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from '../../../context/LocationContext';
 import { IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -92,12 +93,14 @@ export function TreeNode({
   };
 
   const isSynthetic = item._synthetic || item._hasObject;
+  const { setItemId, openOverlay } = useLocation();
 
   return (
     <div className={`TreeNode TreeNode--confidence-${item.confidence}${isSynthetic ? ' TreeNode--synthetic' : ''}`}>
       <div
         className={`TreeNode-row${isFocused ? ' TreeNode-row--focused' : ''}`}
         onClick={onFocus}
+        onDoubleClick={() => { setItemId(item.id); openOverlay(); }}
       >
         <button
           className={`TreeNode-toggle${!hasChildren ? ' TreeNode-toggle--leaf' : ''}`}
@@ -139,6 +142,11 @@ export function TreeNode({
         )}
 
         <div className="TreeNode-actions">
+          <Tooltip title="Open in overlay">
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); setItemId(item.id); openOverlay(); }}>
+              <img src="/logo.svg" alt="Kanecta" style={{ width: 18, height: 18, display: 'block', objectFit: 'contain' }} />
+            </IconButton>
+          </Tooltip>
           <Tooltip title="Copy ID">
             <IconButton size="small" onClick={(e) => { e.stopPropagation(); void navigator.clipboard.writeText(item.id); onRecordClipboard(item.type, item.typeId ?? ''); }}>
               <ContentCopyIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
