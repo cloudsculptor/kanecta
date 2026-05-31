@@ -20,6 +20,8 @@ Running the app any other way bypasses these checks and can lead to silent data 
 
 == Contributing New Types
 
+See link:../kanecta-types/README.md[kanecta-types/README.md] for how to sync types between your local datastore and the shared library.
+
 Any new Kanecta types you create as part of your work should be contributed back to `kanecta-types`.
 This keeps the shared type library up to date for all consumers of the platform.
 
