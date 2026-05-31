@@ -21,7 +21,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { view: 'tree', label: 'Tree', icon: <AccountTreeIcon /> },
-  { view: 'templates', label: 'Templates', icon: <DashboardCustomizeIcon /> },
+  { view: 'types', label: 'Types', icon: <DashboardCustomizeIcon /> },
   { view: 'table', label: 'Table', icon: <TableChartIcon /> },
   { view: 'diagram', label: 'Diagram', icon: <SchemaIcon /> },
   { view: 'combinator', label: 'Combinator', icon: <MergeTypeIcon /> },

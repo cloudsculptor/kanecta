@@ -15,7 +15,7 @@ import { CombinatorView } from '../components/views/CombinatorView/CombinatorVie
 import { MissionControl } from '../components/views/MissionControl/MissionControl';
 import { QualityControlView } from '../components/views/QualityControlView/QualityControlView';
 import { HistoryView } from '../components/views/HistoryView/HistoryView';
-import { TemplatesView } from '../components/views/TemplatesView/TemplatesView';
+import { TypesView } from '../components/views/TemplatesView/TypesView';
 import { StarredView } from '../components/views/StarredView/StarredView';
 import { DigestView } from '../components/views/MissionControl/DigestView';
 import { AIInstructionsView } from '../components/views/AIInstructionsView/AIInstructionsView';
@@ -85,7 +85,7 @@ function StudioInner() {
     switch (viewType) {
       case 'tree': return <TreeView panelId={panelId} />;
       case 'table': return <TableView />;
-      case 'templates': return <TemplatesView />;
+      case 'types': return <TypesView />;
       case 'board': return <BoardView panelId={panelId} />;
       case 'gallery': return <GalleryView panelId={panelId} />;
       case 'list': return <ListView panelId={panelId} />;
