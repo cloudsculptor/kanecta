@@ -11,7 +11,7 @@ export const TypesViewMeta: ViewMeta = {
 import { useQueryClient } from '@tanstack/react-query';
 import Ajv from 'ajv';
 import SyncIcon from '@mui/icons-material/Sync';
-import typeSpecRaw from '../../../../../../kanecta-specification/types/kanecta-type-specification-v1.json?raw';
+import typeSpecRaw from '../../../../../../kanecta-specification/1.2.0/file-specs/type.json?raw';
 import { useWorkspaceStore } from '../../../store/workspace';
 import { TypeList } from '../../shared/TypeList';
 import { SyncTypesDialog } from './SyncTypesDialog';
