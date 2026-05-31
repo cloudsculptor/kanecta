@@ -824,6 +824,160 @@ class FilesystemAdapter {
     return result;
   }
 
+  _getTypeName(typeId) {
+    if (!typeId) return null;
+    const hex = typeId.replace(/-/g, '');
+    const f = path.join(this.k, 'types', hex.slice(0, 2), hex.slice(2, 4), typeId, 'metadata.json');
+    const meta = this._readJson(f, null);
+    return meta ? meta.value : null;
+  }
+
+  _evaluatePredicate(fieldValue, op, expectedValue) {
+    switch (op) {
+      case '=':
+        return fieldValue === expectedValue;
+      case '!=':
+        return fieldValue !== expectedValue;
+      case 'in':
+        // expectedValue must be an array; non-array silently returns false
+        if (!Array.isArray(expectedValue)) return false;
+        return expectedValue.includes(fieldValue);
+      case 'contains':
+        if (typeof fieldValue === 'string') {
+          if (typeof expectedValue === 'string') {
+            return fieldValue.toLowerCase().includes(expectedValue.toLowerCase());
+          }
+          return false;
+        } else if (Array.isArray(fieldValue)) {
+          return fieldValue.some(val => {
+            if (typeof val === 'string' && typeof expectedValue === 'string') {
+              return val.toLowerCase().includes(expectedValue.toLowerCase());
+            }
+            return val === expectedValue;
+          });
+        }
+        return false;
+      case '>':
+        return fieldValue > expectedValue;
+      case '<':
+        return fieldValue < expectedValue;
+      default:
+        return false;
+    }
+  }
+
+  query({ type, where, rootId, sort, limit } = {}) {
+    let items = this.loadAll();
+
+    // 1. Root ID Scoping (including rootId itself and all descendants)
+    if (rootId) {
+      const parentToChildren = new Map();
+      for (const item of items) {
+        if (item.id === item.parentId) continue;
+        if (!parentToChildren.has(item.parentId)) {
+          parentToChildren.set(item.parentId, []);
+        }
+        parentToChildren.get(item.parentId).push(item.id);
+      }
+
+      const subtreeIds = new Set();
+      const traverse = (id) => {
+        if (subtreeIds.has(id)) return;
+        subtreeIds.add(id);
+        const children = parentToChildren.get(id) || [];
+        for (const childId of children) {
+          traverse(childId);
+        }
+      };
+      traverse(rootId);
+      items = items.filter(item => subtreeIds.has(item.id));
+    }
+
+    // 2. Type Filtering (resolving custom types)
+    if (type) {
+      const typeCache = new Map();
+      const getTypeName = (typeId) => {
+        if (!typeId) return null;
+        if (typeCache.has(typeId)) return typeCache.get(typeId);
+        const name = this._getTypeName(typeId);
+        typeCache.set(typeId, name);
+        return name;
+      };
+
+      items = items.filter(item => {
+        if (item.type === 'object' && item.typeId) {
+          const typeName = getTypeName(item.typeId);
+          return typeName === type;
+        }
+        return item.type === type;
+      });
+    }
+
+    // 3. Where Clause Filter & Attach objectData inline
+    const hasWhere = where && Object.keys(where).length > 0;
+    
+    items = items.map(item => {
+      if (item.type === 'object') {
+        const objectData = this.readObjectJson(item.id);
+        return { ...item, objectData };
+      }
+      return item;
+    });
+
+    if (hasWhere) {
+      items = items.filter(item => {
+        if (item.type !== 'object' || !item.objectData) return false;
+
+        for (const [field, predicate] of Object.entries(where)) {
+          const fieldValue = item.objectData[field];
+
+          let op = '=';
+          let expectedValue = predicate;
+          if (predicate !== null && typeof predicate === 'object' && 'op' in predicate && 'value' in predicate) {
+            op = predicate.op;
+            expectedValue = predicate.value;
+          }
+
+          if (!this._evaluatePredicate(fieldValue, op, expectedValue)) {
+            return false;
+          }
+        }
+        return true;
+      });
+    }
+
+    // 4. Sorting
+    if (sort && sort.field) {
+      const { field, dir = 'asc' } = sort;
+      const isDesc = dir.toLowerCase() === 'desc';
+
+      items.sort((a, b) => {
+        let valA = a[field];
+        let valB = b[field];
+
+        if (valA === undefined && a.objectData) valA = a.objectData[field];
+        if (valB === undefined && b.objectData) valB = b.objectData[field];
+
+        if (valA === undefined || valA === null) return isDesc ? -1 : 1;
+        if (valB === undefined || valB === null) return isDesc ? 1 : -1;
+
+        if (valA < valB) return isDesc ? 1 : -1;
+        if (valA > valB) return isDesc ? -1 : 1;
+        return 0;
+      });
+    }
+
+    // 5. Limit
+    // limit must be a positive integer; 0 or negative is treated as "no limit" (return all).
+    // Callers should pass a positive integer or omit the field to use the default of 50.
+    const finalLimit = (limit !== undefined && Number.isInteger(limit) && limit > 0) ? limit : (limit === undefined ? 50 : 0);
+    if (finalLimit > 0) {
+      items = items.slice(0, finalLimit);
+    }
+
+    return items;
+  }
+
   // ─── Index maintenance ─────────────────────────────────────────────────────
 
   rebuildIndexes() {
