@@ -299,12 +299,22 @@ async function launch(datastorePath, apiPort, studioPort, commonTypesDir) {
     checkPortFree(studioPort),
   ]);
 
+  function portError(label, port, configKey) {
+    console.error(`\n  ✗ ${label} port ${port} is already in use. Free the port or update ${configKey} in your config.\n`);
+    console.error(`  To kill the process using port ${port}:\n`);
+    console.error(`    Linux / macOS (bash)   fuser -k ${port}/tcp`);
+    console.error(`                           kill $(lsof -ti tcp:${port})`);
+    console.error(`    macOS                  lsof -ti tcp:${port} | xargs kill -9`);
+    console.error(`    Windows (cmd)          for /f "tokens=5" %a in ('netstat -aon ^| findstr :${port}') do taskkill /PID %a /F`);
+    console.error(`    Windows (PowerShell)   Stop-Process -Id (Get-NetTCPConnection -LocalPort ${port}).OwningProcess -Force\n`);
+  }
+
   if (!apiFree) {
-    console.error(`\n  ✗ API port ${apiPort} is already in use. Free the port or update apiPort in your config.\n`);
+    portError('API', apiPort, 'apiPort');
     process.exit(1);
   }
   if (!studioFree) {
-    console.error(`\n  ✗ Studio port ${studioPort} is already in use. Free the port or update studioPort in your config.\n`);
+    portError('Studio', studioPort, 'studioPort');
     process.exit(1);
   }
 
