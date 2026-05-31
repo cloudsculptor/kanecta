@@ -25,6 +25,8 @@ This keeps the shared type library up to date for all consumers of the platform.
 
 == Updating the Specification
 
+See link:../kanecta-specification/README.md[kanecta-specification/README.md] for the full specification index.
+
 Changes that affect the shape, semantics, or behaviour of Kanecta objects must be reflected in `kanecta-specification`.
 The specification is the source of truth for all storage and transport layers.
 Failing to update it breaks spec-driven development across the entire platform.
