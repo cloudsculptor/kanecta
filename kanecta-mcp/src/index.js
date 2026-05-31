@@ -549,10 +549,13 @@ function handleListTypes(datastorePath) {
           if (fs.existsSync(typePath)) {
             const typeDef = JSON.parse(fs.readFileSync(typePath, 'utf8'));
             if (typeDef.meta) {
-              meta.icon        = typeDef.meta.icon ?? null;
-              meta.description = typeDef.meta.description ?? null;
-              meta.keywords    = typeDef.meta.keywords ?? null;
-              meta.tags        = typeDef.meta.tags ?? null;
+              meta.icon           = typeDef.meta.icon ?? null;
+              meta.description    = typeDef.meta.description ?? null;
+              meta.details        = typeDef.meta.details ?? null;
+              meta.keywords       = typeDef.meta.keywords ?? null;
+              meta.tags           = typeDef.meta.tags ?? null;
+              meta.primaryField   = typeDef.meta.primaryField ?? null;
+              meta['ai-instructions'] = typeDef.meta['ai-instructions'] ?? null;
             }
           }
           results.push(meta);
@@ -575,10 +578,31 @@ function handleGetTypeSchema(datastorePath, id) {
   }
 }
 
+function validateTypeSchema(schema) {
+  if (typeof schema !== 'object' || schema === null || Array.isArray(schema))
+    return 'Schema must be a JSON object';
+  if (!schema.meta || typeof schema.meta !== 'object')
+    return 'meta is required';
+  if (typeof schema.meta.description !== 'string')
+    return 'meta.description is required and must be a string';
+  if (!schema.jsonSchema || typeof schema.jsonSchema !== 'object')
+    return 'jsonSchema is required';
+  const js = schema.jsonSchema;
+  if (js['$schema'] !== 'http://json-schema.org/draft-07/schema#')
+    return 'jsonSchema.$schema must be "http://json-schema.org/draft-07/schema#"';
+  if (typeof js.title !== 'string' || !js.title)
+    return 'jsonSchema.title is required';
+  if (js.type !== 'object')
+    return 'jsonSchema.type must be "object"';
+  if (!js.properties || typeof js.properties !== 'object')
+    return 'jsonSchema.properties is required';
+  return null;
+}
+
 function handleUpdateTypeSchema(datastorePath, id, schema) {
   if (!UUID_RE.test(id)) return { error: 'Invalid UUID format' };
-  if (typeof schema !== 'object' || schema === null || Array.isArray(schema))
-    return { error: 'Schema must be a JSON object' };
+  const validationError = validateTypeSchema(schema);
+  if (validationError) return { error: validationError };
   const schemaPath = path.join(typeShardPath(datastorePath, id), 'type.json');
   if (!fs.existsSync(schemaPath)) return { error: `Type schema not found: ${id}` };
   try {
