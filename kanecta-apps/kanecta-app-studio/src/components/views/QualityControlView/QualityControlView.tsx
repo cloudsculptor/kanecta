@@ -1,10 +1,20 @@
+import type { ViewMeta } from '../../../lib/viewMeta';
+import { useViewLocation } from '../../../context/LocationContext';
 import { useQuery } from '@tanstack/react-query';
+
+export const QualityControlViewMeta: ViewMeta = {
+  uuid: 'f3e2a1b0-c4d5-4e6f-7a8b-9c0d1e2f3a4b',
+  name: 'quality-control',
+  label: 'Quality',
+  icon: 'FactCheck',
+};
 import { useWorkspaceStore } from '../../../store/workspace';
 import { DynamicIcon } from '../../shared/DynamicIcon';
 import { TYPE_ICONS } from '../../../lib/typeIcons';
 import './QualityControlView.scss';
 
 export function QualityControlView() {
+  useViewLocation(QualityControlViewMeta.uuid);
   const { getApi, activeWorkspaceId } = useWorkspaceStore();
   const api = getApi();
 

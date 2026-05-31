@@ -26,6 +26,7 @@ import { ItemDetail } from '../components/item/ItemDetail';
 import { QuickCapture } from '../components/shared/QuickCapture';
 import { CommandPalette } from '../components/shared/CommandPalette';
 import { SettingsPage } from './SettingsPage';
+import { LocationProvider } from '../context/LocationContext';
 import { useWorkspaceStore } from '../store/workspace';
 import { useUiStore } from '../store/ui';
 import { useSettingsStore, THEMES } from '../store/settings';
@@ -144,7 +145,9 @@ export function StudioPage() {
     <QueryClientProvider client={qc}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <StudioInner />
+        <LocationProvider>
+          <StudioInner />
+        </LocationProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

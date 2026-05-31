@@ -1,9 +1,19 @@
+import type { ViewMeta } from '../lib/viewMeta';
+import { useViewLocation } from '../context/LocationContext';
 import { useWorkspaceStore } from '../store/workspace';
+
+export const SettingsViewMeta: ViewMeta = {
+  uuid: 'e8d7f6a5-b9c0-4d1e-2f3a-4b5c6d7e8f9a',
+  name: 'settings',
+  label: 'Settings',
+  icon: 'Settings',
+};
 import { useSettingsStore, THEMES } from '../store/settings';
 import type { AppSettings } from '../api';
 import './SettingsPage.scss';
 
 export function SettingsPage() {
+  useViewLocation(SettingsViewMeta.uuid);
   const { getApi } = useWorkspaceStore();
   const { themeName, applyTheme } = useSettingsStore();
 

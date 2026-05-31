@@ -1,4 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ViewMeta } from '../../../lib/viewMeta';
+import { useViewLocation } from '../../../context/LocationContext';
+
+export const ClaudeViewMeta: ViewMeta = {
+  uuid: 'd7c6e5f4-a8b9-4c0d-1e2f-3a4b5c6d7e8f',
+  name: 'claude',
+  label: 'Claude',
+  icon: 'AutoAwesome',
+};
 import { IconButton, Tooltip, CircularProgress } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import StopIcon from '@mui/icons-material/Stop';
@@ -49,6 +58,7 @@ function extractAssistantBlocks(raw: Record<string, unknown>): FeedMessage[] {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function ClaudeView() {
+  useViewLocation(ClaudeViewMeta.uuid);
   const { getApi } = useWorkspaceStore();
 
   const [prompt, setPrompt] = useState('');

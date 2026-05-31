@@ -1,4 +1,13 @@
+import type { ViewMeta } from '../../../lib/viewMeta';
+import { useViewLocation } from '../../../context/LocationContext';
 import { FilterBar } from '../../shared/FilterBar';
+
+export const ListViewMeta: ViewMeta = {
+  uuid: 'a8f7b6c5-d9e0-4f1a-2b3c-4d5e6f7a8b9c',
+  name: 'list',
+  label: 'List',
+  icon: 'FormatListBulleted',
+};
 import { SortBar } from '../../shared/SortBar';
 import { ConfidenceBadge } from '../../shared/ConfidenceBadge';
 import { TypeBadge } from '../../shared/TypeBadge';
@@ -12,6 +21,7 @@ interface ListViewProps {
 }
 
 export function ListView({ panelId }: ListViewProps) {
+  useViewLocation(ListViewMeta.uuid);
   const { items, isLoading, filter, sort } = useAllItems(panelId);
   const { setPanelFilter, setPanelSort, setFocusedItem, focusedItemId } = useUiStore();
 

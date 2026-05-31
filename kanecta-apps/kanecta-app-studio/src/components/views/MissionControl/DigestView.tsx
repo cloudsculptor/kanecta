@@ -1,4 +1,13 @@
 import { useMemo, useState } from 'react';
+import type { ViewMeta } from '../../../lib/viewMeta';
+import { useViewLocation } from '../../../context/LocationContext';
+
+export const DigestViewMeta: ViewMeta = {
+  uuid: 'b1a0c9d8-e2f3-4a4b-5c6d-7e8f9a0b1c2d',
+  name: 'digest',
+  label: 'Digest',
+  icon: 'Summarize',
+};
 import { useQuery } from '@tanstack/react-query';
 import { useWorkspaceStore } from '../../../store/workspace';
 import { useReviewStore } from '../../../store/review';
@@ -15,6 +24,7 @@ function formatDate(isoString: string | null): string {
 }
 
 export function DigestView() {
+  useViewLocation(DigestViewMeta.uuid);
   const { workspaces, getApi } = useWorkspaceStore();
   const { activityLog, reviewQueue } = useReviewStore();
   const [tab, setTab] = useState<'digest' | 'conflicts'>('digest');

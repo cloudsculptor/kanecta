@@ -14,83 +14,9 @@
     z-index: 201;
   }
 
-  &-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 200;
-    background: var(--content-bg, #ffffff);
-    display: grid;
-    grid-template-areas:
-      '.       tabs'
-      'sidebar content';
-    grid-template-columns: 10% 1fr;
-    grid-template-rows: auto 1fr;
-    overflow: hidden;
-  }
-
-  &-overlay-tabs {
-    grid-area: tabs;
-    display: flex;
-    border-bottom: 1px solid var(--color-border, #e0e0e0);
-  }
-
-  &-overlay-tab {
-    padding: 12px 24px;
-    border: none;
-    border-bottom: 2px solid transparent;
-    background: none;
-    font-size: 0.9rem;
-    font-weight: 500;
-    cursor: pointer;
-    color: #888;
-    margin-bottom: -1px;
-
-    &:hover { color: #333; }
-    &:first-child { color: #333; border-bottom-color: #333; }
-  }
-
-  &-overlay-sidebar {
-    grid-area: sidebar;
-    border-right: 1px solid var(--color-border, #e0e0e0);
-    display: flex;
-    flex-direction: column;
-    padding: 8px 0;
-    gap: 2px;
-  }
-
-  &-overlay-view-btn {
-    padding: 10px 16px;
-    border: none;
-    background: none;
-    text-align: left;
-    font-size: 0.875rem;
-    cursor: pointer;
-    color: #666;
-    border-radius: 6px;
-    margin: 0 4px;
-
-    &:hover { background: rgba(0, 0, 0, 0.05); color: #333; }
-    &:first-child { color: #333; background: rgba(0, 0, 0, 0.06); }
-  }
-
-  &-overlay-content {
-    grid-area: content;
-  }
-
-  &-overlay-tabs-spacer { flex: 1; }
-
-  &-overlay-close {
-    color: #444444 !important;
-    margin-right: 4px !important;
-
-    &:hover {
-      background: rgba(0, 0, 0, 0.08) !important;
-    }
-  }
-
   &-location {
     flex: 1;
-    max-width: 300px;
+    max-width: 500px;
     background: #ffffff;
     border: 1px solid var(--location-border, #cccccc);
     border-radius: 20px;
