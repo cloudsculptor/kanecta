@@ -1,4 +1,5 @@
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import SchemaIcon from '@mui/icons-material/Schema';
 import BubbleChartIcon from '@mui/icons-material/BubbleChart';
 import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
@@ -22,6 +23,7 @@ const NAV_ITEMS: NavItem[] = [
   { view: 'tree', label: 'Tree', icon: <AccountTreeIcon /> },
   { view: 'templates', label: 'Templates', icon: <DashboardCustomizeIcon /> },
   { view: 'table', label: 'Table', icon: <TableChartIcon /> },
+  { view: 'diagram', label: 'Diagram', icon: <SchemaIcon /> },
   { view: 'combinator', label: 'Combinator', icon: <MergeTypeIcon /> },
   { view: 'ai-instructions', label: 'AI', icon: <PsychologyIcon /> },
   { view: 'history', label: 'History', icon: <HistoryIcon /> },

@@ -20,7 +20,8 @@ export type ViewType =
   | 'sync'
   | 'claude'
   | 'settings'
-  | 'home';
+  | 'home'
+  | 'diagram';
 
 export interface PanelConfig {
   id: string;
