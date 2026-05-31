@@ -9,15 +9,16 @@ export interface ThemeDefinition {
   contentBg: string;
   contentBorder: string;
   showContentBorder: boolean;
+  locationBorder: string;
 }
 
 export const THEMES: ThemeDefinition[] = [
-  { name: 'White',     sidebarBg: '#ffffff', sidebarFg: '#5a6a60', sidebarFgSelected: '#444444', contentBg: '#ffffff', contentBorder: '#e0e0e0', showContentBorder: true },
-  { name: 'Light',     sidebarBg: '#f5f5f5', sidebarFg: '#5a6a60', sidebarFgSelected: '#444444', contentBg: '#ffffff', contentBorder: '#e0e0e0', showContentBorder: true },
-  { name: 'Dark',      sidebarBg: '#535754', sidebarFg: '#ffffff', sidebarFgSelected: '#e0e0e0', contentBg: '#ffffff', contentBorder: '#3a3a3a', showContentBorder: true },
-  { name: 'Solarised', sidebarBg: '#073642', sidebarFg: '#ffffff', sidebarFgSelected: '#93a1a1', contentBg: '#fdf6e3', contentBorder: '#d4c89a', showContentBorder: true },
-  { name: 'Blue',      sidebarBg: '#000080', sidebarFg: '#ffffff', sidebarFgSelected: '#5a6a60', contentBg: '#ffffff', contentBorder: '#b0c8e0', showContentBorder: true },
-  { name: 'Green',     sidebarBg: '#20a138', sidebarFg: '#ffffff', sidebarFgSelected: '#5a6a60', contentBg: '#ffffff', contentBorder: '#20a138', showContentBorder: false },
+  { name: 'White',     sidebarBg: '#ffffff', sidebarFg: '#5a6a60', sidebarFgSelected: '#444444', contentBg: '#ffffff', contentBorder: '#e0e0e0', showContentBorder: true,  locationBorder: '#cccccc' },
+  { name: 'Light',     sidebarBg: '#f5f5f5', sidebarFg: '#5a6a60', sidebarFgSelected: '#444444', contentBg: '#ffffff', contentBorder: '#e0e0e0', showContentBorder: true,  locationBorder: '#cccccc' },
+  { name: 'Dark',      sidebarBg: '#535754', sidebarFg: '#ffffff', sidebarFgSelected: '#e0e0e0', contentBg: '#ffffff', contentBorder: '#3a3a3a', showContentBorder: true,  locationBorder: '#888888' },
+  { name: 'Solarised', sidebarBg: '#073642', sidebarFg: '#ffffff', sidebarFgSelected: '#93a1a1', contentBg: '#fdf6e3', contentBorder: '#d4c89a', showContentBorder: true,  locationBorder: '#93a1a1' },
+  { name: 'Blue',      sidebarBg: '#000080', sidebarFg: '#ffffff', sidebarFgSelected: '#5a6a60', contentBg: '#ffffff', contentBorder: '#b0c8e0', showContentBorder: true,  locationBorder: '#4060a0' },
+  { name: 'Green',     sidebarBg: '#20a138', sidebarFg: '#ffffff', sidebarFgSelected: '#5a6a60', contentBg: '#ffffff', contentBorder: '#20a138', showContentBorder: false, locationBorder: '#15712a' },
 ];
 
 interface SettingsState {
@@ -28,6 +29,7 @@ interface SettingsState {
   contentBg: string;
   contentBorder: string;
   showContentBorder: boolean;
+  locationBorder: string;
   applyTheme: (theme: ThemeDefinition) => void;
 }
 
@@ -45,6 +47,7 @@ export const useSettingsStore = create<SettingsState>()(
           contentBg: theme.contentBg,
           contentBorder: theme.contentBorder,
           showContentBorder: theme.showContentBorder,
+          locationBorder: theme.locationBorder,
         }),
     }),
     { name: 'kanecta-settings' },

@@ -8,6 +8,7 @@ export interface AppSettings {
   contentBg: string;
   contentBorder: string;
   showContentBorder: boolean;
+  locationBorder: string;
 }
 
 export function settingsApi(client: ApiClient) {

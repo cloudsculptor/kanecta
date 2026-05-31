@@ -27,7 +27,7 @@ export function AppShell({
   onOpenCommandPalette,
 }: AppShellProps) {
   const { rightPanelOpen, setRightPanelOpen, layout, updatePanel } = useUiStore();
-  const { sidebarBg, sidebarFg, sidebarFgSelected, contentBg, contentBorder, showContentBorder } = useSettingsStore();
+  const { sidebarBg, sidebarFg, sidebarFgSelected, contentBg, contentBorder, showContentBorder, locationBorder } = useSettingsStore();
 
   const activeView = layout.panels[0]?.viewType ?? 'tree';
 
@@ -59,7 +59,7 @@ export function AppShell({
   }, [onOpenQuickCapture, onOpenCommandPalette]);
 
   return (
-    <div className="AppShell" style={{ '--sidebar-bg': sidebarBg, '--sidebar-fg': sidebarFg, '--sidebar-fg-selected': sidebarFgSelected, '--content-bg': contentBg, '--content-border': contentBorder } as React.CSSProperties}>
+    <div className="AppShell" style={{ '--sidebar-bg': sidebarBg, '--sidebar-fg': sidebarFg, '--sidebar-fg-selected': sidebarFgSelected, '--content-bg': contentBg, '--content-border': contentBorder, '--location-border': locationBorder } as React.CSSProperties}>
       <TopBar
         onQuickCapture={onOpenQuickCapture}
         onCommandPalette={onOpenCommandPalette}
