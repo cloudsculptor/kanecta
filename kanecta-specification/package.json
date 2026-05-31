@@ -1,0 +1,14 @@
+{
+  "name": "@kanecta/specification",
+  "version": "1.2.0",
+  "description": "Kanecta datastore file format specifications and JSON schemas",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "1.2.0/"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}

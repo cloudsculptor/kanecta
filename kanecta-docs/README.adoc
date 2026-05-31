@@ -4,3 +4,4 @@
 * link:data-model.adoc[Data model] — item storage format and metadata.json field reference
 * link:sub-projects.adoc[Sub-projects] — setup, endpoints, env vars, and scripts for each component
 * link:architecture.adoc[Architecture] — system diagram and technology summary
+* link:contributor-guidelines.adoc[Contributor guidelines] — startup script, type contributions, and spec update rules

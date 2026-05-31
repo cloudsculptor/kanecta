@@ -4,7 +4,7 @@ import type { PanelConfig, PanelLayout, SidebarState, FilterState, SortState } f
 
 const defaultPanel: PanelConfig = {
   id: 'default',
-  viewType: 'tree',
+  viewType: 'home',
 };
 
 interface UiState {
@@ -69,7 +69,7 @@ export const useUiStore = create<UiState>()(
       setRightPanelOpen: (rightPanelOpen) => set({ rightPanelOpen }),
 
       setFocusedItem: (focusedItemId) =>
-        set({ focusedItemId, rightPanelOpen: focusedItemId !== null }),
+        set({ focusedItemId }),
 
       setPanelFilter: (panelId, filter) =>
         set((s) => ({ filtersByPanel: { ...s.filtersByPanel, [panelId]: filter } })),

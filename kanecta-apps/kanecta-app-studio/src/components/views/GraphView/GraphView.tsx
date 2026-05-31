@@ -1,4 +1,13 @@
 import { useCallback, useRef, useState } from 'react';
+import type { ViewMeta } from '../../../lib/viewMeta';
+import { useViewLocation } from '../../../context/LocationContext';
+
+export const GraphViewMeta: ViewMeta = {
+  uuid: 'c0b9d8e7-f1a2-4b3c-4d5e-6f7a8b9c0d1e',
+  name: 'graph',
+  label: 'Graph',
+  icon: 'BubbleChart',
+};
 import ForceGraph2D, { type ForceGraphMethods, type NodeObject } from 'react-force-graph-2d';
 import { useQuery } from '@tanstack/react-query';
 import { useWorkspaceStore } from '../../../store/workspace';
@@ -52,6 +61,7 @@ const CONFIDENCE_COLOURS: Record<Confidence, string> = {
 };
 
 export function GraphView() {
+  useViewLocation(GraphViewMeta.uuid);
   const { getApi, getActiveWorkspace } = useWorkspaceStore();
   const { focusedItemId, setFocusedItem } = useUiStore();
   const wsId = getActiveWorkspace()?.id ?? '';

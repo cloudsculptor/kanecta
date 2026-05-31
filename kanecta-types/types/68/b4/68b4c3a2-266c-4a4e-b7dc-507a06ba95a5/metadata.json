@@ -1,0 +1,20 @@
+{
+  "id": "68b4c3a2-266c-4a4e-b7dc-507a06ba95a5",
+  "parentId": null,
+  "value": "Service",
+  "type": "type",
+  "typeId": null,
+  "owner": "RicThomas@linz.govt.nz",
+  "license": null,
+  "sortOrder": 14,
+  "confidence": null,
+  "status": null,
+  "tags": [],
+  "createdAt": "2026-05-28T02:03:35.853Z",
+  "modifiedAt": "2026-05-28T02:03:35.853Z",
+  "createdBy": "RicThomas@linz.govt.nz",
+  "modifiedBy": "RicThomas@linz.govt.nz",
+  "cachedAt": null,
+  "subscribedAt": null,
+  "subscriptionSource": null
+}

@@ -1,0 +1,99 @@
+.ItemOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: var(--content-bg, #ffffff);
+  display: grid;
+  grid-template-areas:
+    'corner  tabs'
+    'sidebar content';
+  grid-template-columns: 10% 1fr;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+
+  &-corner {
+    grid-area: corner;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #444;
+    border-bottom: 1px solid var(--color-border, #e0e0e0);
+    border-right: 1px solid #333;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #fff;
+  }
+
+  &-tabs {
+    grid-area: tabs;
+    display: flex;
+    border-bottom: 1px solid var(--color-border, #e0e0e0);
+  }
+
+  &-tab {
+    padding: 12px 24px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    color: #888;
+    margin-bottom: -1px;
+
+    &:hover { color: #333; }
+    &--active { color: #333; border-bottom-color: #333; }
+  }
+
+  &-tabs-spacer { flex: 1; }
+
+  &-close {
+    color: #444444 !important;
+    margin-right: 4px !important;
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.08) !important;
+    }
+  }
+
+  &-sidebar {
+    grid-area: sidebar;
+    border-right: 1px solid var(--color-border, #e0e0e0);
+    display: flex;
+    flex-direction: column;
+    padding: 8px 0;
+    gap: 2px;
+  }
+
+  &-view-btn {
+    padding: 10px 16px;
+    border: none;
+    background: none;
+    text-align: left;
+    font-size: 0.875rem;
+    cursor: pointer;
+    color: #666;
+    border-radius: 6px;
+    margin: 0 4px;
+
+    &:hover { background: rgba(0, 0, 0, 0.05); color: #333; }
+    &--active { color: #333; background: rgba(0, 0, 0, 0.06); }
+  }
+
+  &-content {
+    grid-area: content;
+    overflow-y: auto;
+  }
+
+  &-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #999;
+    font-size: 0.875rem;
+  }
+
+}

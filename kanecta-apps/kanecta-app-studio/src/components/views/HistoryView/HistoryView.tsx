@@ -1,4 +1,13 @@
 import { useState } from 'react';
+import type { ViewMeta } from '../../../lib/viewMeta';
+import { useViewLocation } from '../../../context/LocationContext';
+
+export const HistoryViewMeta: ViewMeta = {
+  uuid: 'a4f3b2c1-d5e6-4f7a-8b9c-0d1e2f3a4b5c',
+  name: 'history',
+  label: 'History',
+  icon: 'History',
+};
 import { useQuery } from '@tanstack/react-query';
 import { IconButton, Tooltip } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -61,6 +70,7 @@ export function HistoryList({ queryKey, fetcher, emptyMessage, onNavigate }: {
 }
 
 export function HistoryView() {
+  useViewLocation(HistoryViewMeta.uuid);
   const { getApi, activeWorkspaceId } = useWorkspaceStore();
   const { layout, updatePanel } = useUiStore();
   const api = getApi(activeWorkspaceId);

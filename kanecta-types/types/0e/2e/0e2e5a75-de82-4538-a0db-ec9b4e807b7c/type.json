@@ -1,0 +1,188 @@
+{
+  "meta": {
+    "icon": "BookmarkBorderOutlined",
+    "description": "Jira-style ticket for tracking stories, tasks, bugs, spikes and subtasks",
+    "details": "",
+    "keywords": [
+      "ticket",
+      "issue",
+      "story",
+      "task",
+      "bug",
+      "jira"
+    ],
+    "tags": "",
+    "ai-instructions": {
+      "claude": ""
+    }
+  },
+  "jsonSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "ticket",
+    "title": "Ticket",
+    "type": "object",
+    "required": [
+      "title",
+      "issueType",
+      "status",
+      "priority"
+    ],
+    "properties": {
+      "title": {
+        "type": "string"
+      },
+      "key": {
+        "type": "string",
+        "pattern": "^[A-Z]+-[0-9]+$"
+      },
+      "description": {
+        "type": "string",
+        "contentMediaType": "text/markdown"
+      },
+      "issueType": {
+        "type": "string",
+        "enum": [
+          "Story",
+          "Task",
+          "Bug",
+          "Subtask",
+          "Spike"
+        ]
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "Backlog",
+          "To Do",
+          "In Progress",
+          "In Review",
+          "Done",
+          "Cancelled"
+        ]
+      },
+      "priority": {
+        "type": "string",
+        "enum": [
+          "Critical",
+          "High",
+          "Medium",
+          "Low"
+        ]
+      },
+      "resolution": {
+        "type": "string",
+        "enum": [
+          "Done",
+          "Won't Do",
+          "Duplicate",
+          "Cannot Reproduce"
+        ]
+      },
+      "assignee": {
+        "type": "string",
+        "format": "email"
+      },
+      "reporter": {
+        "type": "string",
+        "format": "email"
+      },
+      "team": {
+        "type": "string"
+      },
+      "epic": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "parentTicket": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "sprint": {
+        "type": "string"
+      },
+      "storyPoints": {
+        "type": "number",
+        "minimum": 0
+      },
+      "tShirtSize": {
+        "type": "string",
+        "enum": [
+          "XS",
+          "S",
+          "M",
+          "L",
+          "XL"
+        ]
+      },
+      "acceptanceCriteria": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true
+      },
+      "subtasks": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true
+      },
+      "blockedBy": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true
+      },
+      "blocks": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true
+      },
+      "relatedTo": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true
+      },
+      "labels": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "uniqueItems": true
+      },
+      "components": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "uniqueItems": true
+      },
+      "fixVersions": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "uniqueItems": true
+      },
+      "dueDate": {
+        "type": "string",
+        "format": "date"
+      },
+      "resolvedAt": {
+        "type": "string",
+        "format": "date-time"
+      }
+    }
+  }
+}

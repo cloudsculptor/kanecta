@@ -1,0 +1,214 @@
+{
+  "meta": {
+    "icon": "AutoAwesome",
+    "description": "Future State document capturing use cases, requirements, fields, access levels and open questions for a feature",
+    "keywords": [
+      "future state",
+      "requirements",
+      "use case",
+      "AC",
+      "acceptance criteria"
+    ]
+  },
+  "jsonSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "future-state",
+    "title": "Future State",
+    "type": "object",
+    "required": [
+      "title",
+      "useCases",
+      "documentOwner"
+    ],
+    "properties": {
+      "title": {
+        "type": "string"
+      },
+      "useCases": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "minItems": 1
+      },
+      "documentOwner": {
+        "type": "string"
+      },
+      "designer": {
+        "type": "string"
+      },
+      "techLeads": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "qa": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "figma": {
+        "type": "string",
+        "format": "uri"
+      },
+      "detailedDesign": {
+        "type": "string",
+        "format": "uri"
+      },
+      "currentState": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "businessProcess": {
+        "type": "object",
+        "properties": {
+          "upstream": {
+            "type": "string"
+          },
+          "downstream": {
+            "type": "string"
+          }
+        }
+      },
+      "assumptions": {
+        "type": "string",
+        "contentMediaType": "text/markdown"
+      },
+      "requirements": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "epic"
+          ],
+          "properties": {
+            "epic": {
+              "type": "string"
+            },
+            "epicKey": {
+              "type": "string",
+              "pattern": "^[A-Z]+-[0-9]+$"
+            },
+            "acceptanceCriteria": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "estimate": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        }
+      },
+      "outOfScope": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "accessLevels": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "profile"
+          ],
+          "properties": {
+            "profile": {
+              "type": "string"
+            },
+            "view": {
+              "type": "boolean"
+            },
+            "modify": {
+              "type": "boolean"
+            },
+            "create": {
+              "type": "boolean"
+            },
+            "delete": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "fields": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "dbField": {
+              "type": "string"
+            },
+            "inputType": {
+              "type": "string",
+              "enum": [
+                "Free-text",
+                "Dropdown",
+                "Checkbox",
+                "Multi-choice",
+                "Textarea"
+              ]
+            },
+            "dataType": {
+              "type": "string"
+            },
+            "charLimit": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "requiredForNew": {
+              "type": "boolean"
+            },
+            "mandatory": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "openQuestions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "question"
+          ],
+          "properties": {
+            "question": {
+              "type": "string"
+            },
+            "assignee": {
+              "type": "string"
+            },
+            "answer": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "open",
+                "closed"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,288 @@
+{
+  "meta": {
+    "icon": "Description",
+    "description": "Detailed Design document capturing architecture, API contracts, data structures, delivery plan and open questions for a feature",
+    "keywords": [
+      "detailed design",
+      "DD",
+      "architecture",
+      "API",
+      "design doc"
+    ]
+  },
+  "jsonSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "detailed-design",
+    "title": "Detailed Design",
+    "type": "object",
+    "required": [
+      "title",
+      "author",
+      "status",
+      "purpose"
+    ],
+    "properties": {
+      "title": {
+        "type": "string"
+      },
+      "author": {
+        "type": "string"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "Draft",
+          "In Review",
+          "Approved",
+          "Superseded"
+        ]
+      },
+      "scope": {
+        "type": "string",
+        "enum": [
+          "APPLICATION",
+          "INFRASTRUCTURE",
+          "DATABASE",
+          "INTEGRATION"
+        ]
+      },
+      "outcome": {
+        "type": "string"
+      },
+      "lastReviewed": {
+        "type": "string",
+        "format": "date"
+      },
+      "nextReview": {
+        "type": "string",
+        "format": "date"
+      },
+      "initiative": {
+        "type": "string"
+      },
+      "purpose": {
+        "type": "string"
+      },
+      "references": {
+        "type": "object",
+        "properties": {
+          "currentState": {
+            "type": "string",
+            "format": "uri"
+          },
+          "futureState": {
+            "type": "string",
+            "format": "uri"
+          },
+          "figma": {
+            "type": "string",
+            "format": "uri"
+          },
+          "confluencePage": {
+            "type": "string",
+            "format": "uri"
+          },
+          "epics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "backendRepo": {
+            "type": "string"
+          },
+          "frontendRepo": {
+            "type": "string"
+          },
+          "legacyScreen": {
+            "type": "string"
+          }
+        }
+      },
+      "problemStatement": {
+        "type": "string",
+        "contentMediaType": "text/markdown"
+      },
+      "uiComponents": {
+        "type": "string",
+        "contentMediaType": "text/markdown"
+      },
+      "dataStructures": {
+        "type": "object",
+        "properties": {
+          "tables": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "access"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "access": {
+                  "type": "string",
+                  "enum": [
+                    "R",
+                    "RW",
+                    "W"
+                  ]
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "erd": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      },
+      "backendImplementation": {
+        "type": "object",
+        "properties": {
+          "service": {
+            "type": "string"
+          },
+          "gradleModule": {
+            "type": "string"
+          },
+          "featureToggle": {
+            "type": "string"
+          },
+          "adminActionConstant": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string",
+            "contentMediaType": "text/markdown"
+          }
+        }
+      },
+      "identifiedReuse": {
+        "type": "string",
+        "contentMediaType": "text/markdown"
+      },
+      "businessLogic": {
+        "type": "string",
+        "contentMediaType": "text/markdown"
+      },
+      "accessLevels": {
+        "type": "string",
+        "contentMediaType": "text/markdown"
+      },
+      "deleteBehaviour": {
+        "type": "string",
+        "contentMediaType": "text/markdown"
+      },
+      "validation": {
+        "type": "string",
+        "contentMediaType": "text/markdown"
+      },
+      "apiEndpoints": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "method",
+            "path",
+            "scope"
+          ],
+          "properties": {
+            "method": {
+              "type": "string",
+              "enum": [
+                "GET",
+                "POST",
+                "PUT",
+                "PATCH",
+                "DELETE"
+              ]
+            },
+            "path": {
+              "type": "string"
+            },
+            "scope": {
+              "type": "string"
+            },
+            "isNew": {
+              "type": "boolean"
+            },
+            "notes": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "dbOperations": {
+        "type": "string",
+        "contentMediaType": "text/markdown"
+      },
+      "userAccessMatrix": {
+        "type": "string",
+        "contentMediaType": "text/markdown"
+      },
+      "questions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "question",
+            "status"
+          ],
+          "properties": {
+            "question": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "open",
+                "closed"
+              ]
+            },
+            "resolution": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "deliveryPlan": {
+        "type": "object",
+        "properties": {
+          "tickets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "title"
+              ],
+              "properties": {
+                "ticketKey": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "estimate": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              }
+            }
+          },
+          "sequencingNotes": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

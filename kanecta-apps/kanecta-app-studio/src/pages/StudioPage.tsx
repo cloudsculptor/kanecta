@@ -15,20 +15,23 @@ import { CombinatorView } from '../components/views/CombinatorView/CombinatorVie
 import { MissionControl } from '../components/views/MissionControl/MissionControl';
 import { QualityControlView } from '../components/views/QualityControlView/QualityControlView';
 import { HistoryView } from '../components/views/HistoryView/HistoryView';
-import { TemplatesView } from '../components/views/TemplatesView/TemplatesView';
+import { TypesView } from '../components/views/TemplatesView/TypesView';
 import { StarredView } from '../components/views/StarredView/StarredView';
 import { DigestView } from '../components/views/MissionControl/DigestView';
 import { AIInstructionsView } from '../components/views/AIInstructionsView/AIInstructionsView';
-import { ReviewConveyor } from '../components/views/MissionControl/ReviewConveyor';
-import { ItemDetail } from '../components/item/ItemDetail';
+import { ClaudeView } from '../components/views/ClaudeView/ClaudeView';
+import { HomeView } from '../components/views/HomeView/HomeView';
+import { DiagramView } from '../components/views/DiagramView/DiagramView';
 import { QuickCapture } from '../components/shared/QuickCapture';
 import { CommandPalette } from '../components/shared/CommandPalette';
 import { SettingsPage } from './SettingsPage';
+import { LocationProvider } from '../context/LocationContext';
 import { useWorkspaceStore } from '../store/workspace';
-import { useUiStore } from '../store/ui';
+import { useSettingsStore, THEMES } from '../store/settings';
 import { useLiveActivity } from '../hooks/useLiveActivity';
 import { flattenTree } from '../lib/items';
 import type { KanectaItem } from '../types/kanecta';
+import { useLocation } from '../context/LocationContext';
 
 const qc = new QueryClient({
   defaultOptions: { queries: { staleTime: 10_000, retry: 1 } },
@@ -42,12 +45,22 @@ const theme = createTheme({
 function StudioInner() {
   const [quickCaptureOpen, setQuickCaptureOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [reviewOpen, setReviewOpen] = useState(false);
   const { getApi } = useWorkspaceStore();
-  const { setFocusedItem, focusedItemId } = useUiStore();
+  const { applyTheme } = useSettingsStore();
+  const { setItemId } = useLocation();
 
   useLiveActivity();
+
+  useQuery({
+    queryKey: ['app-settings'],
+    queryFn: async () => {
+      const s = await getApi().settings.get();
+      const theme = THEMES.find(t => t.name === s.themeName) ?? { ...s, name: s.themeName };
+      applyTheme(theme);
+      return s;
+    },
+    staleTime: Infinity,
+  });
 
   const { data: treeData } = useQuery({
     queryKey: ['all-items'],
@@ -65,14 +78,14 @@ function StudioInner() {
   };
 
   const handleSelectItem = (item: KanectaItem) => {
-    setFocusedItem(item.id);
+    setItemId(item.id);
   };
 
   const renderView = (panelId: string, viewType: string) => {
     switch (viewType) {
       case 'tree': return <TreeView panelId={panelId} />;
       case 'table': return <TableView />;
-      case 'templates': return <TemplatesView />;
+      case 'types': return <TypesView />;
       case 'board': return <BoardView panelId={panelId} />;
       case 'gallery': return <GalleryView panelId={panelId} />;
       case 'list': return <ListView panelId={panelId} />;
@@ -85,6 +98,10 @@ function StudioInner() {
       case 'starred': return <StarredView />;
       case 'digest': return <DigestView />;
       case 'ai-instructions': return <AIInstructionsView />;
+      case 'claude': return <ClaudeView />;
+      case 'settings': return <SettingsPage />;
+      case 'home': return <HomeView />;
+      case 'diagram': return <DiagramView />;
       default:
         return (
           <div style={{ padding: 24, color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
@@ -94,35 +111,10 @@ function StudioInner() {
     }
   };
 
-  const focusedItem = focusedItemId
-    ? allItems.find((i) => i.id === focusedItemId)
-    : undefined;
-
-  if (settingsOpen) {
-    return (
-      <QueryClientProvider client={qc}>
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
-          <SettingsPage onClose={() => setSettingsOpen(false)} />
-        </ThemeProvider>
-      </QueryClientProvider>
-    );
-  }
-
-  if (reviewOpen) {
-    return (
-      <ReviewConveyor onClose={() => setReviewOpen(false)} />
-    );
-  }
-
   return (
     <AppShell
       onOpenQuickCapture={() => setQuickCaptureOpen(true)}
       onOpenCommandPalette={() => setCommandPaletteOpen(true)}
-      onOpenSettings={() => setSettingsOpen(true)}
-      onOpenReview={() => setReviewOpen(true)}
-      rightPanelTitle={focusedItem?.value}
-      rightPanelContent={focusedItemId ? <ItemDetail itemId={focusedItemId} /> : undefined}
     >
       <PanelWorkspace renderView={renderView} />
       <QuickCapture
@@ -146,7 +138,9 @@ export function StudioPage() {
     <QueryClientProvider client={qc}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <StudioInner />
+        <LocationProvider>
+          <StudioInner />
+        </LocationProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

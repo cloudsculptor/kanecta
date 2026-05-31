@@ -9,6 +9,9 @@
   "scripts": {
     "test": "echo \"No standalone tests — tested via kanecta-lib\" && exit 0"
   },
+  "dependencies": {
+    "@kanecta/specification": "^1.2.0"
+  },
   "keywords": [
     "kanecta",
     "datastore",
