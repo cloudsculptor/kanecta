@@ -28,4 +28,4 @@ spec.meta      // JSON schema for .kanecta/…/meta.json
 |-----------|-----------|
 | `1.2.0/`  | Current spec |
 
-To cut a new version: create the new directory with updated file specs, then bump `version` in `package.json` to match.
+To cut a new version: copy and paste the latest spec directory and modify the spec files as needed, then bump `version` in `package.json` to match.
