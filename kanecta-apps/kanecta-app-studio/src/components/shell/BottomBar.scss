@@ -1,11 +1,39 @@
 .BottomBar {
   grid-area: bottom;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
+  gap: 12px;
   overflow: hidden;
+  padding: 0 16px;
   background: var(--sidebar-bg, transparent);
+
+  &-location {
+    flex: 1;
+    max-width: 300px;
+    background: #ffffff;
+    border: 1px solid var(--location-border, #cccccc);
+    border-radius: 20px;
+    padding: 6px 14px;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+
+  &-location-input {
+    width: 100%;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 0.8125rem;
+    color: #333;
+    text-align: center;
+
+    &::placeholder {
+      color: #aaa;
+    }
+  }
 
   &-logo {
     width: 100%;
