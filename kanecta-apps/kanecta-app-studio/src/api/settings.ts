@@ -7,6 +7,7 @@ export interface AppSettings {
   sidebarFgSelected: string;
   contentBg: string;
   contentBorder: string;
+  showContentBorder: boolean;
 }
 
 export function settingsApi(client: ApiClient) {

@@ -29,7 +29,7 @@ export function AppShell({
   onOpenSettings,
 }: AppShellProps) {
   const { rightPanelOpen, setRightPanelOpen, layout, updatePanel } = useUiStore();
-  const { sidebarBg, sidebarFg, sidebarFgSelected, contentBg, contentBorder } = useSettingsStore();
+  const { sidebarBg, sidebarFg, sidebarFgSelected, contentBg, contentBorder, showContentBorder } = useSettingsStore();
 
   const activeView = layout.panels[0]?.viewType ?? 'tree';
 
@@ -68,7 +68,7 @@ export function AppShell({
         onOpenSettings={onOpenSettings}
       />
       <LeftBar activeView={activeView} onViewSelect={handleViewSelect} />
-      <main className="Content" style={{ background: contentBg }}>
+      <main className="Content" style={{ background: contentBg, border: showContentBorder ? `1px solid ${contentBorder}` : 'none' }}>
         <div className="AppShell-main">{children}</div>
         <RightPanel
           open={rightPanelOpen}
