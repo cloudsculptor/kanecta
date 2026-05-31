@@ -1,0 +1,124 @@
+{
+  "meta": {
+    "icon": "CheckCircle",
+    "description": "Acceptance Criteria",
+    "keywords": [
+      "acceptance criteria",
+      "AC",
+      "GWT",
+      "given when then",
+      "testing"
+    ]
+  },
+  "jsonSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "acceptance-criteria",
+    "title": "Acceptance Criteria",
+    "type": "object",
+    "required": [
+      "statement",
+      "status"
+    ],
+    "properties": {
+      "statement": {
+        "type": "string"
+      },
+      "format": {
+        "type": "string",
+        "enum": [
+          "GWT",
+          "Checklist",
+          "FreeText"
+        ]
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "Draft",
+          "Agreed",
+          "Verified",
+          "Failed"
+        ]
+      },
+      "given": {
+        "type": "string"
+      },
+      "when": {
+        "type": "string"
+      },
+      "then": {
+        "type": "string"
+      },
+      "priority": {
+        "type": "string",
+        "enum": [
+          "Must",
+          "Should",
+          "Could"
+        ]
+      },
+      "devComplete": {
+        "type": "boolean"
+      },
+      "epic": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "ticket": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "agreedBy": {
+        "type": "string",
+        "format": "email"
+      },
+      "agreedAt": {
+        "type": "string",
+        "format": "date"
+      },
+      "verifiedBy": {
+        "type": "string",
+        "format": "email"
+      },
+      "verifiedAt": {
+        "type": "string",
+        "format": "date"
+      },
+      "testCases": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true
+      },
+      "notes": {
+        "type": "string"
+      },
+      "attachments": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    },
+    "if": {
+      "properties": {
+        "format": {
+          "const": "GWT"
+        }
+      },
+      "required": [
+        "format"
+      ]
+    },
+    "then": {
+      "required": [
+        "given",
+        "when",
+        "then"
+      ]
+    }
+  }
+}
