@@ -20,6 +20,7 @@ import { StarredView } from '../components/views/StarredView/StarredView';
 import { DigestView } from '../components/views/MissionControl/DigestView';
 import { AIInstructionsView } from '../components/views/AIInstructionsView/AIInstructionsView';
 import { ClaudeView } from '../components/views/ClaudeView/ClaudeView';
+import { HomeView } from '../components/views/HomeView/HomeView';
 import { ItemDetail } from '../components/item/ItemDetail';
 import { QuickCapture } from '../components/shared/QuickCapture';
 import { CommandPalette } from '../components/shared/CommandPalette';
@@ -98,6 +99,7 @@ function StudioInner() {
       case 'ai-instructions': return <AIInstructionsView />;
       case 'claude': return <ClaudeView />;
       case 'settings': return <SettingsPage />;
+      case 'home': return <HomeView />;
       default:
         return (
           <div style={{ padding: 24, color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>

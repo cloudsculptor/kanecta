@@ -19,7 +19,8 @@ export type ViewType =
   | 'starred'
   | 'sync'
   | 'claude'
-  | 'settings';
+  | 'settings'
+  | 'home';
 
 export interface PanelConfig {
   id: string;

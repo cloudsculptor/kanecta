@@ -78,7 +78,7 @@ export function AppShell({
         </RightPanel>
       </main>
       <RightBar activeView={activeView} onViewSelect={handleViewSelect} />
-      <BottomBar onHome={() => handleViewSelect('tree')} />
+      <BottomBar onHome={() => handleViewSelect('home')} />
     </div>
   );
 }
