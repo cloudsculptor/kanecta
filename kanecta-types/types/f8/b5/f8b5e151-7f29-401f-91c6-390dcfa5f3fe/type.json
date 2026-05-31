@@ -1,0 +1,142 @@
+{
+  "meta": {
+    "icon": "GitHub",
+    "description": "A GitHub repository",
+    "keywords": [
+      "repository",
+      "repo",
+      "github",
+      "git",
+      "code"
+    ]
+  },
+  "jsonSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "repository",
+    "title": "Repository",
+    "type": "object",
+    "required": [
+      "name",
+      "owner",
+      "url"
+    ],
+    "properties": {
+      "name": {
+        "type": "string",
+        "description": "Repository name, e.g. landonline-admin-portal"
+      },
+      "owner": {
+        "type": "string",
+        "description": "GitHub org or user, e.g. linz"
+      },
+      "url": {
+        "type": "string",
+        "format": "uri",
+        "description": "Full GitHub URL"
+      },
+      "description": {
+        "type": "string"
+      },
+      "visibility": {
+        "type": "string",
+        "enum": [
+          "public",
+          "private",
+          "internal"
+        ]
+      },
+      "defaultBranch": {
+        "type": "string",
+        "default": "main"
+      },
+      "language": {
+        "type": "string",
+        "description": "Primary language, e.g. Kotlin, TypeScript"
+      },
+      "topics": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "uniqueItems": true
+      },
+      "archived": {
+        "type": "boolean",
+        "default": false
+      },
+      "stack": {
+        "type": "object",
+        "properties": {
+          "frontend": {
+            "type": "string"
+          },
+          "backend": {
+            "type": "string"
+          },
+          "infrastructure": {
+            "type": "string"
+          },
+          "ciCd": {
+            "type": "string"
+          }
+        }
+      },
+      "deployments": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "environment",
+            "url"
+          ],
+          "properties": {
+            "environment": {
+              "type": "string",
+              "enum": [
+                "development",
+                "staging",
+                "production"
+              ]
+            },
+            "url": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        }
+      },
+      "relatedServices": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "uniqueItems": true,
+        "description": "Names of other repos/services this one depends on or integrates with"
+      },
+      "codeowners": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "uniqueItems": true
+      },
+      "packageManager": {
+        "type": "string",
+        "enum": [
+          "npm",
+          "yarn",
+          "pnpm",
+          "gradle",
+          "maven",
+          "pip",
+          "cargo",
+          "go"
+        ]
+      },
+      "cloneUrl": {
+        "type": "string",
+        "format": "uri"
+      }
+    }
+  }
+}

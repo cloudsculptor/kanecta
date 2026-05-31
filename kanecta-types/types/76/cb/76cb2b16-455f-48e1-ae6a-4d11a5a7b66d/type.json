@@ -1,0 +1,87 @@
+{
+  "meta": {
+    "icon": "Person",
+    "description": "A person — colleague, contact, or team member",
+    "keywords": [
+      "person",
+      "contact",
+      "team",
+      "colleague",
+      "staff"
+    ]
+  },
+  "jsonSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "person",
+    "title": "Person",
+    "type": "object",
+    "required": [
+      "name"
+    ],
+    "properties": {
+      "name": {
+        "type": "string"
+      },
+      "preferredName": {
+        "type": "string",
+        "description": "Nickname or name they go by"
+      },
+      "email": {
+        "type": "string",
+        "format": "email"
+      },
+      "phone": {
+        "type": "string"
+      },
+      "jobTitle": {
+        "type": "string"
+      },
+      "organisation": {
+        "type": "string"
+      },
+      "team": {
+        "type": "string"
+      },
+      "location": {
+        "type": "string",
+        "description": "Office or city"
+      },
+      "timezone": {
+        "type": "string",
+        "description": "e.g. Pacific/Auckland"
+      },
+      "pronouns": {
+        "type": "string"
+      },
+      "github": {
+        "type": "string"
+      },
+      "slack": {
+        "type": "string"
+      },
+      "linkedin": {
+        "type": "string",
+        "format": "uri"
+      },
+      "avatar": {
+        "type": "string",
+        "format": "uri"
+      },
+      "skills": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "uniqueItems": true
+      },
+      "bio": {
+        "type": "string",
+        "contentMediaType": "text/markdown"
+      },
+      "startDate": {
+        "type": "string",
+        "format": "date"
+      }
+    }
+  }
+}

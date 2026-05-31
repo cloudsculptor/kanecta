@@ -1,0 +1,119 @@
+{
+  "meta": {
+    "icon": "ElectricBolt",
+    "description": "Epic",
+    "keywords": [
+      "epic",
+      "initiative",
+      "feature",
+      "jira"
+    ]
+  },
+  "jsonSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "epic",
+    "title": "Epic",
+    "type": "object",
+    "required": [
+      "title",
+      "status",
+      "priority"
+    ],
+    "properties": {
+      "title": {
+        "type": "string"
+      },
+      "key": {
+        "type": "string",
+        "pattern": "^[A-Z]+-[0-9]+$"
+      },
+      "description": {
+        "type": "string",
+        "contentMediaType": "text/markdown"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "Backlog",
+          "In Progress",
+          "Done",
+          "Cancelled"
+        ]
+      },
+      "priority": {
+        "type": "string",
+        "enum": [
+          "Critical",
+          "High",
+          "Medium",
+          "Low"
+        ]
+      },
+      "owner": {
+        "type": "string",
+        "format": "email"
+      },
+      "team": {
+        "type": "string"
+      },
+      "startDate": {
+        "type": "string",
+        "format": "date"
+      },
+      "dueDate": {
+        "type": "string",
+        "format": "date"
+      },
+      "quarter": {
+        "type": "string",
+        "pattern": "^Q[1-4] [0-9]{4}$"
+      },
+      "storyPoints": {
+        "type": "number",
+        "minimum": 0
+      },
+      "tShirtSize": {
+        "type": "string",
+        "enum": [
+          "XS",
+          "S",
+          "M",
+          "L",
+          "XL"
+        ]
+      },
+      "parentInitiative": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "labels": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "uniqueItems": true
+      },
+      "components": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "uniqueItems": true
+      },
+      "completionPercentage": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 100
+      },
+      "acceptanceCriteria": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true,
+        "description": "UUIDs referencing Acceptance Criteria items"
+      }
+    }
+  }
+}

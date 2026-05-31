@@ -1,0 +1,240 @@
+{
+  "meta": {
+    "icon": "TableChart",
+    "description": "A database table definition including columns, indexes, constraints and access patterns",
+    "keywords": [
+      "database",
+      "table",
+      "schema",
+      "SQL",
+      "columns",
+      "indexes"
+    ]
+  },
+  "jsonSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "database-table",
+    "title": "Database Table",
+    "type": "object",
+    "required": [
+      "name",
+      "schema",
+      "database"
+    ],
+    "properties": {
+      "name": {
+        "type": "string",
+        "description": "Table name, e.g. crs_tsm_type_cfig"
+      },
+      "schema": {
+        "type": "string",
+        "description": "Schema or namespace, e.g. public, dbo, crs"
+      },
+      "database": {
+        "type": "string",
+        "description": "Database name or engine, e.g. crsprd, landonline"
+      },
+      "engine": {
+        "type": "string",
+        "enum": [
+          "PostgreSQL",
+          "Informix",
+          "MySQL",
+          "MSSQL",
+          "Oracle",
+          "SQLite"
+        ]
+      },
+      "description": {
+        "type": "string"
+      },
+      "columns": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "name",
+            "dataType"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "dataType": {
+              "type": "string",
+              "description": "e.g. varchar(100), char(4), integer, boolean, lvarchar"
+            },
+            "nullable": {
+              "type": "boolean",
+              "default": true
+            },
+            "primaryKey": {
+              "type": "boolean",
+              "default": false
+            },
+            "foreignKey": {
+              "type": "object",
+              "properties": {
+                "table": {
+                  "type": "string"
+                },
+                "column": {
+                  "type": "string"
+                }
+              }
+            },
+            "unique": {
+              "type": "boolean",
+              "default": false
+            },
+            "default": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "primaryKey": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Column name(s) that form the primary key"
+      },
+      "indexes": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "name",
+            "columns"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "columns": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "unique": {
+              "type": "boolean",
+              "default": false
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "btree",
+                "hash",
+                "gin",
+                "gist"
+              ]
+            }
+          }
+        }
+      },
+      "foreignKeys": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "columns",
+            "referencedTable",
+            "referencedColumns"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "columns": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "referencedTable": {
+              "type": "string"
+            },
+            "referencedColumns": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "onDelete": {
+              "type": "string",
+              "enum": [
+                "CASCADE",
+                "SET NULL",
+                "RESTRICT",
+                "NO ACTION"
+              ]
+            },
+            "onUpdate": {
+              "type": "string",
+              "enum": [
+                "CASCADE",
+                "SET NULL",
+                "RESTRICT",
+                "NO ACTION"
+              ]
+            }
+          }
+        }
+      },
+      "constraints": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "name",
+            "type",
+            "expression"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "CHECK",
+                "UNIQUE",
+                "NOT NULL"
+              ]
+            },
+            "expression": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "audited": {
+        "type": "boolean",
+        "default": false
+      },
+      "rowCount": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Approximate number of rows"
+      },
+      "access": {
+        "type": "string",
+        "enum": [
+          "R",
+          "RW",
+          "W"
+        ],
+        "description": "Typical access pattern from application code"
+      },
+      "notes": {
+        "type": "string",
+        "contentMediaType": "text/markdown"
+      }
+    }
+  }
+}

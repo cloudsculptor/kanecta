@@ -1,0 +1,20 @@
+{
+  "id": "9549d28c-1067-44b9-b014-ec45806e76d9",
+  "parentId": null,
+  "value": "Test Case",
+  "type": "type",
+  "typeId": null,
+  "owner": "RicThomas@linz.govt.nz",
+  "license": null,
+  "sortOrder": 19,
+  "confidence": null,
+  "status": null,
+  "tags": [],
+  "createdAt": "2026-05-28T02:03:36.043Z",
+  "modifiedAt": "2026-05-28T02:03:36.043Z",
+  "createdBy": "RicThomas@linz.govt.nz",
+  "modifiedBy": "RicThomas@linz.govt.nz",
+  "cachedAt": null,
+  "subscribedAt": null,
+  "subscriptionSource": null
+}
