@@ -889,7 +889,7 @@ app.delete('/app/studio/starred/:id', (req, res) => {
 
 // ─── Settings ────────────────────────────────────────────────────────────────
 
-const DEFAULT_SETTINGS = { themeName: 'Green', sidebarBg: '#20a138', sidebarFg: '#ffffff', sidebarFgSelected: '#a0e8b0', contentBg: '#ffffff', contentBorder: '#20a138' };
+const DEFAULT_SETTINGS = { themeName: 'Green', sidebarBg: '#20a138', sidebarFg: '#ffffff', sidebarFgSelected: '#5a6a60', contentBg: '#ffffff', contentBorder: '#20a138', showContentBorder: false };
 
 function settingsFilePath() {
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
@@ -922,9 +922,9 @@ app.get('/app/studio/settings', (_req, res) => {
 });
 
 app.post('/app/studio/settings', (req, res) => {
-  const { themeName, sidebarBg, sidebarFg, sidebarFgSelected, contentBg, contentBorder } = req.body;
+  const { themeName, sidebarBg, sidebarFg, sidebarFgSelected, contentBg, contentBorder, showContentBorder } = req.body;
   if (!themeName) return res.status(400).json({ error: 'themeName required' });
-  fs.writeFileSync(settingsFilePath(), JSON.stringify({ themeName, sidebarBg, sidebarFg, sidebarFgSelected, contentBg, contentBorder }, null, 2));
+  fs.writeFileSync(settingsFilePath(), JSON.stringify({ themeName, sidebarBg, sidebarFg, sidebarFgSelected, contentBg, contentBorder, showContentBorder: showContentBorder ?? true }, null, 2));
   res.json({ ok: true });
 });
 

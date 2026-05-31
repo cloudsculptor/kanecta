@@ -20,7 +20,6 @@
     grid-area: body;
     display: flex;
     overflow: hidden;
-    border: 1px solid var(--content-border, var(--color-border));
   }
 
   &-main {
