@@ -411,6 +411,7 @@ export function TypesView() {
         <TypeList
           selectedTypeId={selectedType?.id ?? null}
           onSelect={(t) => void handleSelect(t)}
+          onCreateItem={(t) => void getApi().items.create({ value: `New ${t.value}`, type: t.value })}
           headerActions={
             <button className="TypesView-btn" onClick={handleStartAdding} title="New type">+</button>
           }
