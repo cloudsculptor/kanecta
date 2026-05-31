@@ -889,7 +889,7 @@ app.delete('/app/studio/starred/:id', (req, res) => {
 
 // ─── Settings ────────────────────────────────────────────────────────────────
 
-const DEFAULT_SETTINGS = { background: '#ffffff', foreground: '#000000', contentBackground: '#ffffff', contentForeground: '#666666' };
+const DEFAULT_SETTINGS = { themeName: 'Green', sidebarBg: '#20a138', sidebarFg: '#ffffff', sidebarFgSelected: '#a0e8b0', contentBg: '#ffffff', contentBorder: '#20a138' };
 
 function settingsFilePath() {
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
@@ -905,7 +905,13 @@ function readSettings() {
     return DEFAULT_SETTINGS;
   }
   try {
-    return JSON.parse(fs.readFileSync(p, 'utf8'));
+    const stored = JSON.parse(fs.readFileSync(p, 'utf8'));
+    const merged = { ...DEFAULT_SETTINGS, ...stored };
+    if (Object.keys(merged).length !== Object.keys(stored).length ||
+        Object.keys(DEFAULT_SETTINGS).some(k => !(k in stored))) {
+      fs.writeFileSync(p, JSON.stringify(merged, null, 2));
+    }
+    return merged;
   } catch {
     return DEFAULT_SETTINGS;
   }
@@ -916,9 +922,9 @@ app.get('/app/studio/settings', (_req, res) => {
 });
 
 app.post('/app/studio/settings', (req, res) => {
-  const { background, foreground, contentBackground, contentForeground } = req.body;
-  if (!background || !foreground) return res.status(400).json({ error: 'background and foreground required' });
-  fs.writeFileSync(settingsFilePath(), JSON.stringify({ background, foreground, contentBackground: contentBackground ?? '#ffffff', contentForeground: contentForeground ?? '#1a1a1a' }, null, 2));
+  const { themeName, sidebarBg, sidebarFg, sidebarFgSelected, contentBg, contentBorder } = req.body;
+  if (!themeName) return res.status(400).json({ error: 'themeName required' });
+  fs.writeFileSync(settingsFilePath(), JSON.stringify({ themeName, sidebarBg, sidebarFg, sidebarFgSelected, contentBg, contentBorder }, null, 2));
   res.json({ ok: true });
 });
 

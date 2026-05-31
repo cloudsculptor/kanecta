@@ -9,8 +9,7 @@
   height: 100vh;
   width: 100vw;
   overflow: hidden;
-  background: var(--color-surface);
-  color: var(--color-text);
+  background: var(--sidebar-bg, var(--color-surface));
 
   .TopBar    { grid-area: top; }
   .BottomBar { grid-area: bottom; }
@@ -21,7 +20,7 @@
     grid-area: body;
     display: flex;
     overflow: hidden;
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--content-border, var(--color-border));
   }
 
   &-main {
