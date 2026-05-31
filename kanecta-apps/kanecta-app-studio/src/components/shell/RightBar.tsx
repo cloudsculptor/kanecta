@@ -6,18 +6,10 @@ import IosShareIcon from '@mui/icons-material/IosShare';
 import ManageSearchIcon from '@mui/icons-material/ManageSearch';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import SyncIcon from '@mui/icons-material/Sync';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban';
 import type { ViewType } from '../../types/ui';
 import './RightBar.scss';
-
-function ClaudeIcon() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z" fill="#CC785C" />
-      <path d="M14.5 7.5L10 16.5M9.5 7.5L14 16.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 interface NavItem {
   view: ViewType;
@@ -31,7 +23,7 @@ const NAV_ITEMS: NavItem[] = [
   { view: 'gallery', label: 'Gallery', icon: <GridViewIcon /> },
   { view: 'calendar', label: 'Calendar', icon: <DateRangeIcon /> },
   { view: 'mission-control', label: 'Mission', icon: <FlightIcon /> },
-  { view: 'claude', label: 'Claude', icon: <ClaudeIcon /> },
+  { view: 'claude', label: 'Claude', icon: <AutoAwesomeIcon /> },
   { view: 'query', label: 'Query', icon: <ManageSearchIcon />, disabled: true },
   { view: 'inbox', label: 'Inbox', icon: <InboxIcon />, disabled: true },
   { view: 'export', label: 'Export', icon: <IosShareIcon />, disabled: true },

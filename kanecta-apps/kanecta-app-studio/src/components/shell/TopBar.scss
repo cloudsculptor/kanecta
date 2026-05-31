@@ -5,7 +5,7 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background: transparent;
+  background: var(--sidebar-bg, transparent);
 
   &-item {
     display: flex;
@@ -18,14 +18,9 @@
     border: none;
     background: none;
     cursor: pointer;
-    color: var(--theme-fg, var(--color-text-secondary));
-    opacity: 0.5;
+    color: var(--sidebar-fg);
     border-radius: 6px;
 
-    &:hover {
-      background: none;
-      opacity: 0.75;
-    }
 
     .MuiSvgIcon-root {
       font-size: 32px;

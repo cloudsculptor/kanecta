@@ -1,10 +1,12 @@
 import type { ApiClient } from './client';
 
 export interface AppSettings {
-  background: string;
-  foreground: string;
-  contentBackground: string;
-  contentForeground: string;
+  themeName: string;
+  sidebarBg: string;
+  sidebarFg: string;
+  sidebarFgSelected: string;
+  contentBg: string;
+  contentBorder: string;
 }
 
 export function settingsApi(client: ApiClient) {

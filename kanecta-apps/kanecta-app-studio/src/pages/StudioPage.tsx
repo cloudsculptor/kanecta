@@ -26,7 +26,7 @@ import { CommandPalette } from '../components/shared/CommandPalette';
 import { SettingsPage } from './SettingsPage';
 import { useWorkspaceStore } from '../store/workspace';
 import { useUiStore } from '../store/ui';
-import { useSettingsStore } from '../store/settings';
+import { useSettingsStore, THEMES } from '../store/settings';
 import { useLiveActivity } from '../hooks/useLiveActivity';
 import { flattenTree } from '../lib/items';
 import type { KanectaItem } from '../types/kanecta';
@@ -46,7 +46,7 @@ function StudioInner() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { getApi } = useWorkspaceStore();
   const { setFocusedItem, focusedItemId } = useUiStore();
-  const { setTheme } = useSettingsStore();
+  const { applyTheme } = useSettingsStore();
 
   useLiveActivity();
 
@@ -54,7 +54,8 @@ function StudioInner() {
     queryKey: ['app-settings'],
     queryFn: async () => {
       const s = await getApi().settings.get();
-      setTheme(s.background, s.foreground, s.contentBackground, s.contentForeground);
+      const theme = THEMES.find(t => t.name === s.themeName) ?? { ...s, name: s.themeName };
+      applyTheme(theme);
       return s;
     },
     staleTime: Infinity,
