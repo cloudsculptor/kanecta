@@ -41,6 +41,7 @@ class Datastore {
   update(id, changes, actor)           { return this._adapter.update(id, changes, actor); }
   delete(id, actor)                    { return this._adapter.delete(id, actor); }
   deleteWarnings(id)                   { return this._adapter.deleteWarnings(id); }
+  createType(value, opts)              { return this._adapter.createType(value, opts); }
 
   // ─── Aliases ───────────────────────────────────────────────────────────────
 

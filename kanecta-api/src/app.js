@@ -631,39 +631,9 @@ app.post('/types', (req, res) => {
   if (!value || typeof value !== 'string' || !value.trim()) {
     return res.status(400).json({ error: 'value is required' });
   }
-  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
-  const { randomUUID } = require('crypto');
-  const id = randomUUID();
-  const now = new Date().toISOString();
-  const owner = ds.config.owner;
-  const shard1 = id.slice(0, 2);
-  const shard2 = id.slice(2, 4);
-  const typeDir = path.join(root, '.kanecta', 'types', shard1, shard2, id);
   try {
-    fs.mkdirSync(typeDir, { recursive: true });
-    const metadata = { id, parentId: null, value: value.trim(), type: 'type', owner, createdAt: now, modifiedAt: now };
-    fs.writeFileSync(path.join(typeDir, 'metadata.json'), JSON.stringify(metadata, null, 2));
-    const initialSchema = {
-      meta: {
-        icon: '',
-        description: '',
-        details: '',
-        keywords: '',
-        tags: '',
-        'ai-instructions': { claude: '' },
-      },
-      jsonSchema: {
-        '$schema': 'http://json-schema.org/draft-07/schema#',
-        '$id': '',
-        title: value.trim(),
-        type: 'object',
-        properties: {},
-        required: [],
-        additionalProperties: false,
-      },
-    };
-    fs.writeFileSync(path.join(typeDir, 'type.json'), JSON.stringify(initialSchema, null, 2));
-    res.status(201).json({ ...metadata, icon: null, description: null, keywords: null, tags: null });
+    const { metadata } = ds.createType(value.trim());
+    res.status(201).json({ ...metadata, icon: null, description: null, details: null, keywords: null, primaryField: null, 'ai-instructions': null });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -954,8 +924,6 @@ app.post('/app/studio/sync-types/import', (req, res) => {
   if (!ds) return;
   const { folderIds } = req.body;
   if (!Array.isArray(folderIds) || folderIds.length === 0) return res.status(400).json({ error: 'folderIds required' });
-  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
-  const { randomUUID } = require('crypto');
   const imported = [];
   const errors = [];
   for (const folderId of folderIds) {
@@ -966,16 +934,8 @@ app.post('/app/studio/sync-types/import', (req, res) => {
       if (!fs.existsSync(typePath)) { errors.push({ folderId, error: 'type.json not found' }); continue; }
       const schema = JSON.parse(fs.readFileSync(typePath, 'utf8'));
       const title = schema.jsonSchema?.title || folderId;
-      const id = randomUUID();
-      const now = new Date().toISOString();
-      const shard1 = id.slice(0, 2);
-      const shard2 = id.slice(2, 4);
-      const typeDir = path.join(root, '.kanecta', 'types', shard1, shard2, id);
-      fs.mkdirSync(typeDir, { recursive: true });
-      const metadata = { id, parentId: null, value: title, type: 'type', owner: ds.config.owner, createdAt: now, modifiedAt: now };
-      fs.writeFileSync(path.join(typeDir, 'metadata.json'), JSON.stringify(metadata, null, 2));
-      fs.writeFileSync(path.join(typeDir, 'type.json'), JSON.stringify(schema, null, 2));
-      imported.push({ id, value: title });
+      const { metadata } = ds.createType(title, { schema });
+      imported.push({ id: metadata.id, value: title });
     } catch (err) { errors.push({ folderId, error: err.message }); }
   }
   res.json({ imported, errors });
