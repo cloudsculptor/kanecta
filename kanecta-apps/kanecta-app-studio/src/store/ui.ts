@@ -4,7 +4,7 @@ import type { PanelConfig, PanelLayout, SidebarState, FilterState, SortState } f
 
 const defaultPanel: PanelConfig = {
   id: 'default',
-  viewType: 'tree',
+  viewType: 'home',
 };
 
 interface UiState {
