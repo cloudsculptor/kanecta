@@ -28,6 +28,6 @@
     "@kanecta/filesystem": "^1.0.0"
   },
   "devDependencies": {
-    "jest": "^29.7.0"
+    "jest": "^30.4.2"
   }
 }
