@@ -40,7 +40,7 @@
 
   &-select {
     padding: 8px 10px;
-    border: 1px solid var(--mui-palette-divider);
+    border: 2px solid var(--mui-palette-text-secondary, #888);
     border-radius: 6px;
     font-size: 0.875rem;
     background: var(--mui-palette-background-default);
