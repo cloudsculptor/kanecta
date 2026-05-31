@@ -3,11 +3,7 @@ import { useSettingsStore, THEMES } from '../store/settings';
 import type { AppSettings } from '../api';
 import './SettingsPage.scss';
 
-interface SettingsPageProps {
-  onClose: () => void;
-}
-
-export function SettingsPage({ onClose }: SettingsPageProps) {
+export function SettingsPage() {
   const { getApi } = useWorkspaceStore();
   const { themeName, applyTheme } = useSettingsStore();
 
@@ -20,11 +16,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
   };
 
   return (
-    <div className="SettingsPage" role="dialog" aria-label="Settings">
-      <div className="SettingsPage-header">
-        <h2 className="SettingsPage-title">Settings</h2>
-        <button className="SettingsPage-close" onClick={onClose} aria-label="Close settings">×</button>
-      </div>
+    <div className="SettingsPage">
       <div className="SettingsPage-body">
         <section className="SettingsPage-section">
           <h3 className="SettingsPage-section-title">Theme</h3>

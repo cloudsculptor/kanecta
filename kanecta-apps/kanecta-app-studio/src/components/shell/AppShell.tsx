@@ -17,7 +17,6 @@ interface AppShellProps {
   commandPaletteNode?: React.ReactNode;
   onOpenQuickCapture?: () => void;
   onOpenCommandPalette?: () => void;
-  onOpenSettings?: () => void;
 }
 
 export function AppShell({
@@ -26,7 +25,6 @@ export function AppShell({
   rightPanelTitle,
   onOpenQuickCapture,
   onOpenCommandPalette,
-  onOpenSettings,
 }: AppShellProps) {
   const { rightPanelOpen, setRightPanelOpen, layout, updatePanel } = useUiStore();
   const { sidebarBg, sidebarFg, sidebarFgSelected, contentBg, contentBorder, showContentBorder } = useSettingsStore();
@@ -65,7 +63,8 @@ export function AppShell({
       <TopBar
         onQuickCapture={onOpenQuickCapture}
         onCommandPalette={onOpenCommandPalette}
-        onOpenSettings={onOpenSettings}
+        onViewSelect={handleViewSelect}
+        activeView={activeView}
       />
       <LeftBar activeView={activeView} onViewSelect={handleViewSelect} />
       <main className="Content" style={{ background: contentBg, border: showContentBorder ? `1px solid ${contentBorder}` : 'none' }}>
