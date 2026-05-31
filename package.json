@@ -9,6 +9,7 @@
     "prepare": "husky || true"
   },
   "workspaces": [
+    "kanecta-specification",
     "kanecta-filesystem",
     "kanecta-lib",
     "kanecta-api",

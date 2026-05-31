@@ -578,22 +578,30 @@ function handleGetTypeSchema(datastorePath, id) {
   }
 }
 
+const typeFileSpec = require('@kanecta/specification/1.2.0/file-specs/type.json');
+
 function validateTypeSchema(schema) {
   if (typeof schema !== 'object' || schema === null || Array.isArray(schema))
     return 'Schema must be a JSON object';
-  if (!schema.meta || typeof schema.meta !== 'object')
-    return 'meta is required';
-  if (typeof schema.meta.description !== 'string')
-    return 'meta.description is required and must be a string';
-  if (!schema.jsonSchema || typeof schema.jsonSchema !== 'object')
-    return 'jsonSchema is required';
+  for (const key of typeFileSpec.required) {
+    if (!schema[key] || typeof schema[key] !== 'object')
+      return `${key} is required`;
+  }
+  const metaRequired = typeFileSpec.properties.meta.required ?? [];
+  for (const key of metaRequired) {
+    if (typeof schema.meta[key] !== 'string')
+      return `meta.${key} is required and must be a string`;
+  }
+  const jsRequired = typeFileSpec.properties.jsonSchema.required ?? [];
   const js = schema.jsonSchema;
-  if (js['$schema'] !== 'http://json-schema.org/draft-07/schema#')
-    return 'jsonSchema.$schema must be "http://json-schema.org/draft-07/schema#"';
-  if (typeof js.title !== 'string' || !js.title)
-    return 'jsonSchema.title is required';
-  if (js.type !== 'object')
-    return 'jsonSchema.type must be "object"';
+  for (const key of jsRequired) {
+    if (js[key] === undefined || js[key] === null)
+      return `jsonSchema.${key} is required`;
+  }
+  if (js['$schema'] !== typeFileSpec.properties.jsonSchema.properties['$schema'].const)
+    return `jsonSchema.$schema must be "${typeFileSpec.properties.jsonSchema.properties['$schema'].const}"`;
+  if (js.type !== typeFileSpec.properties.jsonSchema.properties.type.const)
+    return `jsonSchema.type must be "${typeFileSpec.properties.jsonSchema.properties.type.const}"`;
   if (!js.properties || typeof js.properties !== 'object')
     return 'jsonSchema.properties is required';
   return null;
