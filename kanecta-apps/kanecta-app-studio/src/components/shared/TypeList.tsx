@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import * as MuiIcons from '@mui/icons-material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 import { useWorkspaceStore } from '../../store/workspace';
 import type { TypeDefinition } from '../../api/types';
 import './TypeList.scss';
@@ -15,14 +18,17 @@ export function TypeIcon({ name }: { name?: string | null }) {
 interface TypeListProps {
   selectedTypeId: string | null;
   onSelect: (type: TypeDefinition) => void;
+  onCreateItem?: (type: TypeDefinition) => void;
   headerActions?: React.ReactNode;
   extraControls?: React.ReactNode;
 }
 
-export function TypeList({ selectedTypeId, onSelect, headerActions, extraControls }: TypeListProps) {
+export function TypeList({ selectedTypeId, onSelect, onCreateItem, headerActions, extraControls }: TypeListProps) {
   const { getApi } = useWorkspaceStore();
   const [filter, setFilter] = useState('');
   const [detailed, setDetailed] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const [menuType, setMenuType] = useState<TypeDefinition | null>(null);
 
   const { data: types = [], isLoading } = useQuery({
     queryKey: ['types'],
@@ -49,6 +55,19 @@ export function TypeList({ selectedTypeId, onSelect, headerActions, extraControl
         );
       })
     : types;
+
+  const openMenu = (e: React.MouseEvent<HTMLButtonElement>, t: TypeDefinition) => {
+    e.stopPropagation();
+    setMenuAnchor(e.currentTarget);
+    setMenuType(t);
+  };
+
+  const closeMenu = () => { setMenuAnchor(null); setMenuType(null); };
+
+  const handleCreate = () => {
+    if (menuType) onCreateItem?.(menuType);
+    closeMenu();
+  };
 
   return (
     <div className="TypeList">
@@ -85,6 +104,13 @@ export function TypeList({ selectedTypeId, onSelect, headerActions, extraControl
               {countByTypeId.get(t.id) !== undefined && (
                 <span className="TypeList-count">{countByTypeId.get(t.id)}</span>
               )}
+              <button
+                className="TypeList-menu-btn"
+                onClick={(e) => openMenu(e, t)}
+                aria-label="More options"
+              >
+                <MoreHorizIcon fontSize="small" />
+              </button>
               <div className="TypeList-sub">
                 {detailed && t.description && <span className="TypeList-description">{t.description}</span>}
                 {detailed && t.keywords && <span className="TypeList-keywords">{t.keywords}</span>}
@@ -104,6 +130,10 @@ export function TypeList({ selectedTypeId, onSelect, headerActions, extraControl
           ))
         )}
       </div>
+
+      <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={closeMenu}>
+        <MenuItem onClick={handleCreate}>Create</MenuItem>
+      </Menu>
     </div>
   );
 }

@@ -71,7 +71,11 @@ export function TableView() {
   return (
     <div className="TableView">
       <div className="TableView-sidebar">
-        <TypeList selectedTypeId={selectedType?.id ?? null} onSelect={setSelectedType} />
+        <TypeList
+          selectedTypeId={selectedType?.id ?? null}
+          onSelect={setSelectedType}
+          onCreateItem={(t) => void getApi().items.create({ value: `New ${t.value}`, type: t.value })}
+        />
       </div>
       <div className="TableView-grid">
         {!selectedType && (

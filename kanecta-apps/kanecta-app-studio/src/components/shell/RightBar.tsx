@@ -6,8 +6,8 @@ import IosShareIcon from '@mui/icons-material/IosShare';
 import ManageSearchIcon from '@mui/icons-material/ManageSearch';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import SyncIcon from '@mui/icons-material/Sync';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban';
+import ViewListIcon from '@mui/icons-material/ViewList';
 import type { ViewType } from '../../types/ui';
 import './RightBar.scss';
 
@@ -19,11 +19,11 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  { view: 'list', label: 'List', icon: <ViewListIcon /> },
   { view: 'board', label: 'Board', icon: <ViewKanbanIcon /> },
   { view: 'gallery', label: 'Gallery', icon: <GridViewIcon /> },
   { view: 'calendar', label: 'Calendar', icon: <DateRangeIcon /> },
   { view: 'mission-control', label: 'Mission', icon: <FlightIcon /> },
-  { view: 'claude', label: 'Claude', icon: <AutoAwesomeIcon /> },
   { view: 'query', label: 'Query', icon: <ManageSearchIcon />, disabled: true },
   { view: 'inbox', label: 'Inbox', icon: <InboxIcon />, disabled: true },
   { view: 'export', label: 'Export', icon: <IosShareIcon />, disabled: true },
