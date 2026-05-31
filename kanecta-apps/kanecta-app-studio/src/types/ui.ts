@@ -18,7 +18,8 @@ export type ViewType =
   | 'history'
   | 'starred'
   | 'sync'
-  | 'claude';
+  | 'claude'
+  | 'settings';
 
 export interface PanelConfig {
   id: string;

@@ -43,7 +43,6 @@ const theme = createTheme({
 function StudioInner() {
   const [quickCaptureOpen, setQuickCaptureOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const { getApi } = useWorkspaceStore();
   const { setFocusedItem, focusedItemId } = useUiStore();
   const { applyTheme } = useSettingsStore();
@@ -98,6 +97,7 @@ function StudioInner() {
       case 'digest': return <DigestView />;
       case 'ai-instructions': return <AIInstructionsView />;
       case 'claude': return <ClaudeView />;
+      case 'settings': return <SettingsPage />;
       default:
         return (
           <div style={{ padding: 24, color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
@@ -115,14 +115,10 @@ function StudioInner() {
     <AppShell
       onOpenQuickCapture={() => setQuickCaptureOpen(true)}
       onOpenCommandPalette={() => setCommandPaletteOpen(true)}
-      onOpenSettings={() => setSettingsOpen(true)}
       rightPanelTitle={focusedItem?.value}
       rightPanelContent={focusedItemId ? <ItemDetail itemId={focusedItemId} /> : undefined}
     >
-      {settingsOpen
-        ? <SettingsPage onClose={() => setSettingsOpen(false)} />
-        : <PanelWorkspace renderView={renderView} />
-      }
+      <PanelWorkspace renderView={renderView} />
       <QuickCapture
         open={quickCaptureOpen}
         onClose={() => setQuickCaptureOpen(false)}

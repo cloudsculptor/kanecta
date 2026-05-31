@@ -22,6 +22,12 @@
     border-radius: 6px;
 
 
+    &--active {
+      background: var(--content-bg, #ffffff);
+      color: var(--sidebar-fg-selected);
+      border-radius: 0;
+    }
+
     .MuiSvgIcon-root {
       font-size: 32px;
       width: 32px;

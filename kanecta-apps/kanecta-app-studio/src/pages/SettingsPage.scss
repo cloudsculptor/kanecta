@@ -4,33 +4,6 @@
   height: 100%;
   background: var(--mui-palette-background-default);
 
-  &-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 24px;
-    border-bottom: 1px solid var(--mui-palette-divider);
-    flex-shrink: 0;
-  }
-
-  &-title {
-    font-size: 1.125rem;
-    font-weight: 600;
-    margin: 0;
-    color: var(--mui-palette-text-primary);
-  }
-
-  &-close {
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    cursor: pointer;
-    color: var(--mui-palette-text-secondary);
-    line-height: 1;
-    padding: 0 4px;
-    &:hover { color: var(--mui-palette-text-primary); }
-  }
-
   &-body {
     flex: 1;
     overflow-y: auto;
