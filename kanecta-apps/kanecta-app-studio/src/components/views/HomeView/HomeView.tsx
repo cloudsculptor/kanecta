@@ -33,7 +33,7 @@ interface NavItem {
 
 const ALL_ITEMS: NavItem[] = [
   { view: 'tree',            label: 'Tree',          icon: <AccountTreeIcon /> },
-  { view: 'templates',       label: 'Templates',     icon: <DashboardCustomizeIcon /> },
+  { view: 'types',           label: 'Types',          icon: <DashboardCustomizeIcon /> },
   { view: 'table',           label: 'Table',         icon: <TableChartIcon /> },
   { view: 'combinator',      label: 'Combinator',    icon: <MergeTypeIcon /> },
   { view: 'ai-instructions', label: 'AI',            icon: <PsychologyIcon /> },

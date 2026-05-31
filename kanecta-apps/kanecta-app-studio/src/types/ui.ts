@@ -1,7 +1,7 @@
 export type ViewType =
   | 'tree'
   | 'table'
-  | 'templates'
+  | 'types'
   | 'combinator'
   | 'query'
   | 'marketplace'

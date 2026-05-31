@@ -1,4 +1,4 @@
-.TemplatesView {
+.TypesView {
   display: flex;
   height: 100%;
   overflow: hidden;
@@ -134,7 +134,7 @@
     opacity: 0;
     transition: opacity 0.15s;
 
-    .TemplatesView-item:hover & {
+    .TypesView-item:hover & {
       opacity: 0.6;
     }
 

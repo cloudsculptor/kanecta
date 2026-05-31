@@ -5,7 +5,7 @@ import typeSpecRaw from '../../../../../../kanecta-specification/types/kanecta-t
 import { useWorkspaceStore } from '../../../store/workspace';
 import { TypeList } from '../../shared/TypeList';
 import type { TypeDefinition } from '../../../api/types';
-import './TemplatesView.scss';
+import './TypesView.scss';
 
 type Tab = 'item' | 'view' | 'meta' | 'meta-edit' | 'schema' | 'edit' | 'reference';
 
@@ -102,64 +102,64 @@ function MetaEditor({ typeId, schema, onSchemaChange }: MetaEditorProps) {
   };
 
   return (
-    <div className="TemplatesView-editwrap">
-      <div className="TemplatesView-metaform">
-        <div className="TemplatesView-field">
-          <label className="TemplatesView-label">Icon</label>
+    <div className="TypesView-editwrap">
+      <div className="TypesView-metaform">
+        <div className="TypesView-field">
+          <label className="TypesView-label">Icon</label>
           <input
-            className="TemplatesView-input"
+            className="TypesView-input"
             value={fields.icon}
             onChange={set('icon')}
             placeholder="e.g. TaskAlt"
             spellCheck={false}
           />
-          <span className="TemplatesView-hint">
-            MUI icon key — <a href={ICONS_URL} target="_blank" rel="noreferrer" className="TemplatesView-hint-link">browse icons ↗</a>
+          <span className="TypesView-hint">
+            MUI icon key — <a href={ICONS_URL} target="_blank" rel="noreferrer" className="TypesView-hint-link">browse icons ↗</a>
           </span>
         </div>
-        <div className="TemplatesView-field">
-          <label className="TemplatesView-label">Description</label>
+        <div className="TypesView-field">
+          <label className="TypesView-label">Description</label>
           <input
-            className="TemplatesView-input"
+            className="TypesView-input"
             value={fields.description}
             onChange={set('description')}
             placeholder="One-sentence summary"
           />
         </div>
-        <div className="TemplatesView-field">
-          <label className="TemplatesView-label">Details</label>
+        <div className="TypesView-field">
+          <label className="TypesView-label">Details</label>
           <textarea
-            className="TemplatesView-textarea"
+            className="TypesView-textarea"
             value={fields.details}
             onChange={set('details')}
             rows={5}
             placeholder="Longer description of this type, when to use it, and how it relates to other types"
           />
         </div>
-        <div className="TemplatesView-field">
-          <label className="TemplatesView-label">Keywords</label>
+        <div className="TypesView-field">
+          <label className="TypesView-label">Keywords</label>
           <input
-            className="TemplatesView-input"
+            className="TypesView-input"
             value={fields.keywords}
             onChange={set('keywords')}
             placeholder="Space-separated keywords for search"
             spellCheck={false}
           />
         </div>
-        <div className="TemplatesView-field">
-          <label className="TemplatesView-label">Tags</label>
+        <div className="TypesView-field">
+          <label className="TypesView-label">Tags</label>
           <input
-            className="TemplatesView-input"
+            className="TypesView-input"
             value={fields.tags}
             onChange={set('tags')}
             placeholder="Comma-separated tags"
             spellCheck={false}
           />
         </div>
-        <div className="TemplatesView-field">
-          <label className="TemplatesView-label">AI Instructions — Claude</label>
+        <div className="TypesView-field">
+          <label className="TypesView-label">AI Instructions — Claude</label>
           <textarea
-            className="TemplatesView-textarea"
+            className="TypesView-textarea"
             value={fields.claude}
             onChange={set('claude')}
             rows={6}
@@ -167,11 +167,11 @@ function MetaEditor({ typeId, schema, onSchemaChange }: MetaEditorProps) {
           />
         </div>
       </div>
-      <div className="TemplatesView-toolbar">
-        {saveError && <span className="TemplatesView-error">{saveError}</span>}
-        {saveOk && <span className="TemplatesView-ok">Saved</span>}
-        <div className="TemplatesView-toolbar-actions">
-          <button className="TemplatesView-btn TemplatesView-btn--primary" onClick={handleSave}>Save</button>
+      <div className="TypesView-toolbar">
+        {saveError && <span className="TypesView-error">{saveError}</span>}
+        {saveOk && <span className="TypesView-ok">Saved</span>}
+        <div className="TypesView-toolbar-actions">
+          <button className="TypesView-btn TypesView-btn--primary" onClick={handleSave}>Save</button>
         </div>
       </div>
     </div>
@@ -270,12 +270,12 @@ function DetailPane({ type, schema, onSchemaChange, initialTab = 'view' }: Detai
   };
 
   return (
-    <div className="TemplatesView-detail">
-      <div className="TemplatesView-tabs">
+    <div className="TypesView-detail">
+      <div className="TypesView-tabs">
         {(['view', 'item', 'meta', 'meta-edit', 'schema', 'edit', 'reference'] as Tab[]).map((t) => (
           <button
             key={t}
-            className={`TemplatesView-tab${tab === t ? ' TemplatesView-tab--active' : ''}`}
+            className={`TypesView-tab${tab === t ? ' TypesView-tab--active' : ''}`}
             onClick={() => setTab(t)}
           >
             {TAB_LABELS[t]}
@@ -283,17 +283,17 @@ function DetailPane({ type, schema, onSchemaChange, initialTab = 'view' }: Detai
         ))}
       </div>
 
-      <div className="TemplatesView-tabcontent">
+      <div className="TypesView-tabcontent">
         {tab === 'item' && (
-          <textarea className="TemplatesView-schema" value={itemMeta} readOnly spellCheck={false} />
+          <textarea className="TypesView-schema" value={itemMeta} readOnly spellCheck={false} />
         )}
 
         {tab === 'view' && (
-          <textarea className="TemplatesView-schema" value={schema} readOnly spellCheck={false} />
+          <textarea className="TypesView-schema" value={schema} readOnly spellCheck={false} />
         )}
 
         {tab === 'meta' && (
-          <textarea className="TemplatesView-schema" value={extractSection(schema, 'meta')} readOnly spellCheck={false} />
+          <textarea className="TypesView-schema" value={extractSection(schema, 'meta')} readOnly spellCheck={false} />
         )}
 
         {tab === 'meta-edit' && (
@@ -301,37 +301,37 @@ function DetailPane({ type, schema, onSchemaChange, initialTab = 'view' }: Detai
         )}
 
         {tab === 'schema' && (
-          <textarea className="TemplatesView-schema" value={extractSection(schema, 'jsonSchema')} readOnly spellCheck={false} />
+          <textarea className="TypesView-schema" value={extractSection(schema, 'jsonSchema')} readOnly spellCheck={false} />
         )}
 
         {tab === 'reference' && (
-          <textarea className="TemplatesView-schema" value={typeSpecRaw} readOnly spellCheck={false} />
+          <textarea className="TypesView-schema" value={typeSpecRaw} readOnly spellCheck={false} />
         )}
 
         {tab === 'edit' && (
-          <div className="TemplatesView-editwrap">
+          <div className="TypesView-editwrap">
             <textarea
-              className="TemplatesView-schema TemplatesView-schema--editable"
+              className="TypesView-schema TypesView-schema--editable"
               value={editText}
               onChange={(e) => { setEditText(e.target.value); setSaveError(null); setSaveOk(false); setValidateResults([]); }}
               spellCheck={false}
             />
             {validateResults.length > 0 && (
-              <div className="TemplatesView-validate">
+              <div className="TypesView-validate">
                 {validateResults.map((r, i) => (
-                  <div key={i} className={`TemplatesView-validate-item TemplatesView-validate-item--${r.ok ? 'ok' : 'error'}`}>
+                  <div key={i} className={`TypesView-validate-item TypesView-validate-item--${r.ok ? 'ok' : 'error'}`}>
                     {r.ok ? '✓' : '✗'} {r.message}
                   </div>
                 ))}
               </div>
             )}
-            <div className="TemplatesView-toolbar">
-              {saveError && <span className="TemplatesView-error">{saveError}</span>}
-              {saveOk && <span className="TemplatesView-ok">Saved</span>}
-              <div className="TemplatesView-toolbar-actions">
-                <button className="TemplatesView-btn" onClick={handleValidate}>Validate Schema</button>
-                <button className="TemplatesView-btn" onClick={handlePrettify}>Prettify</button>
-                <button className="TemplatesView-btn TemplatesView-btn--primary" onClick={handleSave}>Save</button>
+            <div className="TypesView-toolbar">
+              {saveError && <span className="TypesView-error">{saveError}</span>}
+              {saveOk && <span className="TypesView-ok">Saved</span>}
+              <div className="TypesView-toolbar-actions">
+                <button className="TypesView-btn" onClick={handleValidate}>Validate Schema</button>
+                <button className="TypesView-btn" onClick={handlePrettify}>Prettify</button>
+                <button className="TypesView-btn TypesView-btn--primary" onClick={handleSave}>Save</button>
               </div>
             </div>
           </div>
@@ -343,7 +343,7 @@ function DetailPane({ type, schema, onSchemaChange, initialTab = 'view' }: Detai
 
 // ─── Root view ────────────────────────────────────────────────────────────────
 
-export function TemplatesView() {
+export function TypesView() {
   const { getApi } = useWorkspaceStore();
   const queryClient = useQueryClient();
   const [selectedType, setSelectedType] = useState<TypeDefinition | null>(null);
@@ -406,31 +406,31 @@ export function TemplatesView() {
   };
 
   return (
-    <div className="TemplatesView">
-      <div className="TemplatesView-list">
+    <div className="TypesView">
+      <div className="TypesView-list">
         <TypeList
           selectedTypeId={selectedType?.id ?? null}
           onSelect={(t) => void handleSelect(t)}
           headerActions={
-            <button className="TemplatesView-btn" onClick={handleStartAdding} title="New type">+</button>
+            <button className="TypesView-btn" onClick={handleStartAdding} title="New type">+</button>
           }
           extraControls={adding || addError ? (
             <>
               {adding && (
-                <div className="TemplatesView-filterrow">
+                <div className="TypesView-filterrow">
                   <input
                     ref={addInputRef}
-                    className="TemplatesView-filterinput"
+                    className="TypesView-filterinput"
                     placeholder="Type name…"
                     value={newName}
                     onChange={(e) => { setNewName(e.target.value); setAddError(null); }}
                     onKeyDown={(e) => { if (e.key === 'Enter') void handleCreate(); if (e.key === 'Escape') setAdding(false); }}
                   />
-                  <button className="TemplatesView-btn TemplatesView-btn--primary" onClick={() => void handleCreate()}>Create</button>
-                  <button className="TemplatesView-btn" onClick={() => setAdding(false)}>✕</button>
+                  <button className="TypesView-btn TypesView-btn--primary" onClick={() => void handleCreate()}>Create</button>
+                  <button className="TypesView-btn" onClick={() => setAdding(false)}>✕</button>
                 </div>
               )}
-              {addError && <span className="TemplatesView-error">{addError}</span>}
+              {addError && <span className="TypesView-error">{addError}</span>}
             </>
           ) : undefined}
         />
@@ -438,8 +438,8 @@ export function TemplatesView() {
       {selectedType ? (
         <DetailPane key={`${selectedType.id}-${selectedInitialTab}`} type={selectedType} schema={schema} onSchemaChange={setSchema} initialTab={selectedInitialTab} />
       ) : (
-        <div className="TemplatesView-detail TemplatesView-detail--empty">
-          <div className="TemplatesView-placeholder">Select a type to view its schema</div>
+        <div className="TypesView-detail TypesView-detail--empty">
+          <div className="TypesView-placeholder">Select a type to view its schema</div>
         </div>
       )}
     </div>
