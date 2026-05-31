@@ -1,4 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
+import type { ViewMeta } from '../../../lib/viewMeta';
+import { useViewLocation } from '../../../context/LocationContext';
+
+export const TypesViewMeta: ViewMeta = {
+  uuid: 'd5c4e3f2-a6b7-4c8d-9e0f-1a2b3c4d5e6f',
+  name: 'types',
+  label: 'Types',
+  icon: 'DashboardCustomize',
+};
 import { useQueryClient } from '@tanstack/react-query';
 import Ajv from 'ajv';
 import SyncIcon from '@mui/icons-material/Sync';
@@ -346,6 +355,7 @@ function DetailPane({ type, schema, onSchemaChange, initialTab = 'view' }: Detai
 // ─── Root view ────────────────────────────────────────────────────────────────
 
 export function TypesView() {
+  const { setItemId } = useViewLocation(TypesViewMeta.uuid);
   const { getApi } = useWorkspaceStore();
   const queryClient = useQueryClient();
   const [selectedType, setSelectedType] = useState<TypeDefinition | null>(null);
@@ -359,6 +369,7 @@ export function TypesView() {
 
   const handleSelect = async (t: TypeDefinition) => {
     setSelectedType(t);
+    setItemId(t.id);
     setSelectedInitialTab('view');
     try {
       const s = await getApi().types.schema(t.id);

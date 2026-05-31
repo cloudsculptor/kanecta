@@ -1,4 +1,13 @@
+import type { ViewMeta } from '../../../lib/viewMeta';
+import { useViewLocation } from '../../../context/LocationContext';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
+
+export const HomeViewMeta: ViewMeta = {
+  uuid: 'f9e8a7b6-c0d1-4e2f-3a4b-5c6d7e8f9a0b',
+  name: 'home',
+  label: 'Home',
+  icon: 'Home',
+};
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import BubbleChartIcon from '@mui/icons-material/BubbleChart';
 import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
@@ -57,6 +66,7 @@ const ALL_ITEMS: NavItem[] = [
 ];
 
 export function HomeView() {
+  useViewLocation(HomeViewMeta.uuid);
   const { layout, updatePanel } = useUiStore();
 
   const handleSelect = (view: ViewType) => {

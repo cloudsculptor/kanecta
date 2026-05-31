@@ -1,4 +1,13 @@
 import { useState, useEffect } from 'react';
+import type { ViewMeta } from '../../../lib/viewMeta';
+import { useViewLocation } from '../../../context/LocationContext';
+
+export const AIInstructionsViewMeta: ViewMeta = {
+  uuid: 'c6b5d4e3-f7a8-4b9c-0d1e-2f3a4b5c6d7e',
+  name: 'ai-instructions',
+  label: 'AI Instructions',
+  icon: 'Psychology',
+};
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -7,6 +16,7 @@ import { useWorkspaceStore } from '../../../store/workspace';
 import './AIInstructionsView.scss';
 
 export function AIInstructionsView() {
+  useViewLocation(AIInstructionsViewMeta.uuid);
   const { getApi } = useWorkspaceStore();
   const api = getApi();
   const qc = useQueryClient();

@@ -17,6 +17,7 @@ export type ViewType =
   | 'ai-instructions'
   | 'history'
   | 'starred'
+  | 'digest'
   | 'sync'
   | 'claude'
   | 'settings'

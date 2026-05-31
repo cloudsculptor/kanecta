@@ -1,4 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ViewMeta } from '../../../lib/viewMeta';
+import { useViewLocation } from '../../../context/LocationContext';
+
+export const TreeViewMeta: ViewMeta = {
+  uuid: 'b3a2c1d0-e4f5-4a6b-9c7d-8e0f1a2b3c4d',
+  name: 'tree',
+  label: 'Tree',
+  icon: 'AccountTree',
+};
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
@@ -146,6 +155,7 @@ function TreeBranch({
 }
 
 export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
+  const { setItemId } = useViewLocation(TreeViewMeta.uuid);
   const { getApi, activeWorkspaceId } = useWorkspaceStore();
   const { setFocusedItem, focusedItemId } = useUiStore();
   const qc = useQueryClient();
@@ -299,8 +309,8 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
   );
 
   const handleFocus = useCallback(
-    (item: KanectaItem) => setFocusedItem(item.id),
-    [setFocusedItem],
+    (item: KanectaItem) => { setFocusedItem(item.id); setItemId(item.id); },
+    [setFocusedItem, setItemId],
   );
 
   const handleEdit = useCallback(
