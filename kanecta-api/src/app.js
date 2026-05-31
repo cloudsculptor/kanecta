@@ -669,7 +669,7 @@ app.post('/types', (req, res) => {
   }
 });
 
-const typeFileSpec = require('@kanecta/specification/1.2.0/file-specs/type.json');
+const { type: typeFileSpec } = require('@kanecta/specification');
 
 function validateTypeSchema(schema) {
   if (typeof schema !== 'object' || schema === null || Array.isArray(schema))

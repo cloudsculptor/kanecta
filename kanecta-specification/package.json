@@ -2,13 +2,9 @@
   "name": "@kanecta/specification",
   "version": "1.2.0",
   "description": "Kanecta datastore file format specifications and JSON schemas",
-  "exports": {
-    "./1.2.0/file-specs/type.json": "./1.2.0/file-specs/type.json",
-    "./1.2.0/file-specs/items.json": "./1.2.0/file-specs/items.json",
-    "./1.2.0/file-specs/metadata.json": "./1.2.0/file-specs/metadata.json",
-    "./1.2.0/file-specs/meta.json": "./1.2.0/file-specs/meta.json"
-  },
+  "main": "index.js",
   "files": [
+    "index.js",
     "1.2.0/"
   ],
   "license": "MIT",
