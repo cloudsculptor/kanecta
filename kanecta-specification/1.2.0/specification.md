@@ -498,6 +498,7 @@ Each custom type is stored as a pair of files under its UUID shard path.
 | `icon` | MUI icon key (e.g. `"Person"`) for display in the UI |
 | `description` | One-sentence summary shown in type lists |
 | `details` | Longer description: when to use this type and how it relates to others |
+| `primaryField` | Dot-separated path to the field in `jsonSchema.properties` that best represents an item of this type (e.g. `"name"`, `"title"`, `"address.street"`). Used by UIs to surface the most meaningful value. |
 | `ai-instructions.claude` | Guidance for Claude on when and how to use this type |
 | `keywords` | Space-separated keywords for search and filtering |
 | `tags` | Comma-separated tags for grouping |
