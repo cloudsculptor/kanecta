@@ -96,26 +96,27 @@ function resolveFromPointers() {
 }
 
 function checkSpecVersion(datastorePath) {
-  try {
-    const config = JSON.parse(
-      fs.readFileSync(path.join(datastorePath, '.kanecta', 'config', 'config.json'), 'utf8'),
+  const rootPkg = JSON.parse(
+    fs.readFileSync(path.join(__dirname, '../../package.json'), 'utf8'),
+  );
+  const expectedVersion = rootPkg.version;
+
+  const configPath = path.join(datastorePath, '.kanecta', 'config', 'config.json');
+  if (!fs.existsSync(configPath)) {
+    console.log(`  spec version check: skipped (no config.json found at ${configPath})`);
+    return;
+  }
+
+  const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  const datastoreVersion = config.specVersion ?? '(not set)';
+
+  if (datastoreVersion === expectedVersion) {
+    console.log(`  spec version check: ✓ ${datastoreVersion}`);
+  } else {
+    console.error(
+      `\n  spec version check: ✗ datastore specVersion (${datastoreVersion}) does not match expected (${expectedVersion})\n` +
+      `  Update config.json specVersion or check kanecta-specification for migration notes.\n`,
     );
-    const specMd = fs.readFileSync(
-      path.join(__dirname, '../../kanecta-specification/specification.md'),
-      'utf8',
-    );
-    const match = specMd.match(/^\*\*Version:\*\*\s*(.+)$/m);
-    if (!match) return;
-    const specVersion = match[1].trim();
-    if (config.specVersion !== specVersion) {
-      console.error(
-        `\nError: datastore specVersion (${config.specVersion}) does not match specification (${specVersion})\n` +
-        `Update your datastore or check kanecta-specification/specification.md\n`,
-      );
-      process.exit(1);
-    }
-  } catch (err) {
-    console.error(`\nError reading spec version: ${err.message}\n`);
     process.exit(1);
   }
 }
