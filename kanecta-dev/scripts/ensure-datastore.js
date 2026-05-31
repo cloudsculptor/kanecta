@@ -19,23 +19,12 @@ const POINTER_LOCATIONS = [
 
 const NAME_RE = /^[a-zA-Z0-9-]+$/;
 
-function findFreePort(preferred) {
+function checkPortFree(port) {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
     server.unref();
-    server.on('error', () => {
-      const s2 = net.createServer();
-      s2.unref();
-      s2.on('error', reject);
-      s2.listen(0, '127.0.0.1', () => {
-        const { port } = s2.address();
-        s2.close(() => resolve(port));
-      });
-    });
-    server.listen(preferred, '127.0.0.1', () => {
-      const { port } = server.address();
-      server.close(() => resolve(port));
-    });
+    server.on('error', () => resolve(false));
+    server.listen(port, '127.0.0.1', () => server.close(() => resolve(true)));
   });
 }
 
@@ -304,17 +293,26 @@ async function wizard() {
   return { datastorePath, apiPort, studioPort, commonTypesDir };
 }
 
-async function launch(datastorePath, preferredApiPort, preferredStudioPort, commonTypesDir) {
-  const [apiPort, studioPort] = await Promise.all([
-    findFreePort(preferredApiPort),
-    findFreePort(preferredStudioPort),
+async function launch(datastorePath, apiPort, studioPort, commonTypesDir) {
+  const [apiFree, studioFree] = await Promise.all([
+    checkPortFree(apiPort),
+    checkPortFree(studioPort),
   ]);
+
+  if (!apiFree) {
+    console.error(`\n  ✗ API port ${apiPort} is already in use. Free the port or update apiPort in your config.\n`);
+    process.exit(1);
+  }
+  if (!studioFree) {
+    console.error(`\n  ✗ Studio port ${studioPort} is already in use. Free the port or update studioPort in your config.\n`);
+    process.exit(1);
+  }
 
   const repoRoot = path.resolve(__dirname, '../..');
   const concurrentlyBin = path.join(repoRoot, 'node_modules', '.bin', 'concurrently');
 
-  console.log(`  API port:    ${apiPort}${apiPort !== preferredApiPort ? ` (${preferredApiPort} was busy)` : ''}`);
-  console.log(`  Studio port: ${studioPort}${studioPort !== preferredStudioPort ? ` (${preferredStudioPort} was busy)` : ''}`);
+  console.log(`  API port:    ${apiPort}`);
+  console.log(`  Studio port: ${studioPort}`);
 
   const proc = spawn(
     concurrentlyBin,
