@@ -16,7 +16,7 @@ export const THEMES: ThemeDefinition[] = [
   { name: 'Light',     sidebarBg: '#f5f5f5', sidebarFg: '#5a6a60', sidebarFgSelected: '#444444', contentBg: '#ffffff', contentBorder: '#e0e0e0', showContentBorder: true },
   { name: 'Dark',      sidebarBg: '#535754', sidebarFg: '#ffffff', sidebarFgSelected: '#e0e0e0', contentBg: '#ffffff', contentBorder: '#3a3a3a', showContentBorder: true },
   { name: 'Solarised', sidebarBg: '#073642', sidebarFg: '#ffffff', sidebarFgSelected: '#93a1a1', contentBg: '#fdf6e3', contentBorder: '#d4c89a', showContentBorder: true },
-  { name: 'Blue',      sidebarBg: '#000080', sidebarFg: '#ffffff', sidebarFgSelected: '#b0d0f0', contentBg: '#ffffff', contentBorder: '#b0c8e0', showContentBorder: true },
+  { name: 'Blue',      sidebarBg: '#000080', sidebarFg: '#ffffff', sidebarFgSelected: '#5a6a60', contentBg: '#ffffff', contentBorder: '#b0c8e0', showContentBorder: true },
   { name: 'Green',     sidebarBg: '#20a138', sidebarFg: '#ffffff', sidebarFgSelected: '#5a6a60', contentBg: '#ffffff', contentBorder: '#20a138', showContentBorder: false },
 ];
 
