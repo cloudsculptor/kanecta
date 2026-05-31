@@ -8,6 +8,7 @@ import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import SyncIcon from '@mui/icons-material/Sync';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import Alert from '@mui/material/Alert';
 import { useWorkspaceStore } from '../../../store/workspace';
 import type { CommonType } from '../../../api/syncTypes';
 import type { TypeDefinition } from '../../../api/types';
@@ -115,7 +116,11 @@ export function SyncTypesDialog({ open, onClose }: SyncTypesDialogProps) {
         <SyncIcon fontSize="small" />
         Sync Types
       </DialogTitle>
-      <DialogContent dividers sx={{ overflow: 'hidden', display: 'flex' }}>
+      <DialogContent dividers sx={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Alert severity="warning">
+          Exporting types writes them to the shared <code>kanecta-types</code> directory on disk. You are responsible for pushing any exported types to GitHub so they are available to other contributors.
+        </Alert>
+        <div style={{ overflow: 'hidden', display: 'flex', flex: 1 }}>
         {loading ? (
           <div className="SyncTypesDialog-loading"><CircularProgress size={24} /></div>
         ) : (
@@ -245,6 +250,7 @@ export function SyncTypesDialog({ open, onClose }: SyncTypesDialogProps) {
 
           </div>
         )}
+        </div>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Close</Button>
