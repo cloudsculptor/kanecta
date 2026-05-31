@@ -142,9 +142,9 @@ export function TreeNode({
         )}
 
         <div className="TreeNode-actions">
-          <Tooltip title="Open in overlay">
+          <Tooltip title="Details">
             <IconButton size="small" onClick={(e) => { e.stopPropagation(); setItemId(item.id); openOverlay(); }}>
-              <img src="/logo.svg" alt="Kanecta" style={{ width: 18, height: 18, display: 'block', objectFit: 'contain' }} />
+              <img src="/logo.svg" alt="Kanecta" style={{ width: 30, height: 30, display: 'block', objectFit: 'contain' }} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Copy ID">
