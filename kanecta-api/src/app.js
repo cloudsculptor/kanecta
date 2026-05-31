@@ -890,8 +890,8 @@ app.delete('/app/studio/starred/:id', (req, res) => {
 
 // ─── Sync Types ──────────────────────────────────────────────────────────────
 
-app.get('/app/studio/sync-types', (_req, res) => {
-  const commonDir = process.env.KANECTA_COMMON_TYPES_DIR;
+app.get('/app/studio/sync-system-items', (_req, res) => {
+  const commonDir = process.env.KANECTA_SYSTEM_ITEMS_DIR;
   if (!commonDir || !fs.existsSync(commonDir)) return res.json([]);
   const results = [];
   try {
@@ -917,9 +917,9 @@ app.get('/app/studio/sync-types', (_req, res) => {
   res.json(results);
 });
 
-app.post('/app/studio/sync-types/import', (req, res) => {
-  const commonDir = process.env.KANECTA_COMMON_TYPES_DIR;
-  if (!commonDir) return res.status(400).json({ error: 'KANECTA_COMMON_TYPES_DIR not configured' });
+app.post('/app/studio/sync-system-items/import', (req, res) => {
+  const commonDir = process.env.KANECTA_SYSTEM_ITEMS_DIR;
+  if (!commonDir) return res.status(400).json({ error: 'KANECTA_SYSTEM_ITEMS_DIR not configured' });
   const ds = openDatastore(res);
   if (!ds) return;
   const { folderIds } = req.body;
@@ -941,9 +941,9 @@ app.post('/app/studio/sync-types/import', (req, res) => {
   res.json({ imported, errors });
 });
 
-app.post('/app/studio/sync-types/export', (req, res) => {
-  const commonDir = process.env.KANECTA_COMMON_TYPES_DIR;
-  if (!commonDir) return res.status(400).json({ error: 'KANECTA_COMMON_TYPES_DIR not configured' });
+app.post('/app/studio/sync-system-items/export', (req, res) => {
+  const commonDir = process.env.KANECTA_SYSTEM_ITEMS_DIR;
+  if (!commonDir) return res.status(400).json({ error: 'KANECTA_SYSTEM_ITEMS_DIR not configured' });
   const { typeIds } = req.body;
   if (!Array.isArray(typeIds) || typeIds.length === 0) return res.status(400).json({ error: 'typeIds required' });
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;

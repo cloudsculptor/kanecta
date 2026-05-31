@@ -10,7 +10,7 @@ import SyncIcon from '@mui/icons-material/Sync';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import Alert from '@mui/material/Alert';
 import { useWorkspaceStore } from '../../../store/workspace';
-import type { CommonType } from '../../../api/syncTypes';
+import type { SystemItem } from '../../../api/systemItems';
 import type { TypeDefinition } from '../../../api/types';
 import './SyncTypesDialog.scss';
 
@@ -38,9 +38,9 @@ export function SyncTypesDialog({ open, onClose }: SyncTypesDialogProps) {
   const [exporting, setExporting] = useState(false);
   const { copiedId, copy } = useCopyId();
 
-  const { data: commonTypes = [], isLoading: loadingCommon } = useQuery({
-    queryKey: ['sync-types-common'],
-    queryFn: () => getApi().syncTypes.listCommon(),
+  const { data: systemItems = [], isLoading: loadingCommon } = useQuery({
+    queryKey: ['sync-system-items'],
+    queryFn: () => getApi().systemItems.list(),
     enabled: open,
   });
 
@@ -51,11 +51,11 @@ export function SyncTypesDialog({ open, onClose }: SyncTypesDialogProps) {
   });
 
   const instanceIds = new Set(instanceTypes.map((t: TypeDefinition) => t.id));
-  const commonFolderIds = new Set(commonTypes.map((c: CommonType) => c.folderId));
+  const commonFolderIds = new Set(systemItems.map((c: SystemItem) => c.folderId));
 
-  const notInInstance = commonTypes.filter((c: CommonType) => !instanceIds.has(c.folderId));
+  const notInInstance = systemItems.filter((c: SystemItem) => !instanceIds.has(c.folderId));
   const notInCommon = instanceTypes.filter((t: TypeDefinition) => !commonFolderIds.has(t.id));
-  const inSyncCount = commonTypes.filter((c: CommonType) => instanceIds.has(c.folderId)).length;
+  const inSyncCount = systemItems.filter((c: SystemItem) => instanceIds.has(c.folderId)).length;
 
   // Import column checkbox logic
   const allImportIds = notInInstance.map(c => c.folderId);
@@ -86,7 +86,7 @@ export function SyncTypesDialog({ open, onClose }: SyncTypesDialogProps) {
     if (ids.length === 0) return;
     setImporting(true);
     try {
-      await getApi().syncTypes.importTypes(ids);
+      await getApi().systemItems.importItems(ids);
       await qc.invalidateQueries({ queryKey: ['types'] });
       setImportChecked(new Set());
     } finally {
@@ -99,7 +99,7 @@ export function SyncTypesDialog({ open, onClose }: SyncTypesDialogProps) {
     if (ids.length === 0) return;
     setExporting(true);
     try {
-      await getApi().syncTypes.exportTypes(ids);
+      await getApi().systemItems.exportItems(ids);
       setExportChecked(new Set());
     } finally {
       setExporting(false);
@@ -118,7 +118,7 @@ export function SyncTypesDialog({ open, onClose }: SyncTypesDialogProps) {
       </DialogTitle>
       <DialogContent dividers sx={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Alert severity="warning">
-          Exporting types writes them to the shared <code>kanecta-types</code> directory on disk. You are responsible for pushing any exported types to GitHub so they are available to other contributors.
+          Exporting items writes them to the shared <code>kanecta-system-items</code> directory on disk. You are responsible for pushing any exported items to GitHub so they are available to other contributors.
         </Alert>
         <div style={{ overflow: 'hidden', display: 'flex', flex: 1 }}>
         {loading ? (
@@ -135,7 +135,7 @@ export function SyncTypesDialog({ open, onClose }: SyncTypesDialogProps) {
                 <p className={inSyncCount > 0 ? 'SyncTypesDialog-synced' : 'SyncTypesDialog-empty'}>
                   {inSyncCount > 0
                     ? `All ${inSyncCount} common type${inSyncCount !== 1 ? 's' : ''} are already in this instance.`
-                    : commonTypes.length === 0 ? 'No common types directory found.' : 'Nothing to import.'
+                    : systemItems.length === 0 ? 'No system items directory found.' : 'Nothing to import.'
                   }
                 </p>
               ) : (

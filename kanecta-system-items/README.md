@@ -4,7 +4,7 @@ Shared library of Kanecta system items — type definitions, instances, links, a
 
 ## Syncing into your local datastore
 
-The studio app has a built-in sync tool. Open **kanecta-app-studio**, go to **Templates → Types**, and use the **Sync** button. It reads from the directory configured in `KANECTA_COMMON_TYPES_DIR` (set to this folder by default in `npm start`) and lets you import items into your local datastore.
+The studio app has a built-in sync tool. Open **kanecta-app-studio**, go to **Templates → Types**, and use the **Sync** button. It reads from the directory configured in `KANECTA_SYSTEM_ITEMS_DIR` (set to this folder by default in `npm start`) and lets you import items into your local datastore.
 
 ## Contributing
 
