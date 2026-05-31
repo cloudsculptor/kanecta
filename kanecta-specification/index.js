@@ -7,5 +7,4 @@ module.exports = {
   type:     require(`./${version}/file-specs/type.json`),
   items:    require(`./${version}/file-specs/items.json`),
   metadata: require(`./${version}/file-specs/metadata.json`),
-  meta:     require(`./${version}/file-specs/meta.json`),
 };

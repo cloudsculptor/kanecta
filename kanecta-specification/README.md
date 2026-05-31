@@ -19,7 +19,7 @@ spec.version   // e.g. "1.2.0"
 spec.type      // JSON schema for .kanecta/types/{shard1}/{shard2}/{uuid}/type.json
 spec.items     // JSON schema for .kanecta/items/{shard1}/{shard2}/{uuid}/items.json
 spec.metadata  // JSON schema for .kanecta/…/metadata.json
-spec.meta      // JSON schema for .kanecta/…/meta.json
+// spec.meta is not exported — meta.json is a cache derived from metadata.json + type.json, see 1.2.0/file-specs/meta.json.md
 ```
 
 ## Versioning
