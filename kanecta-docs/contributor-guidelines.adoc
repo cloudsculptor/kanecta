@@ -18,12 +18,12 @@ This ensures:
 
 Running the app any other way bypasses these checks and can lead to silent data corruption or confusing runtime errors.
 
-== Contributing New Types
+== Contributing System Items
 
-See link:../kanecta-types/README.md[kanecta-types/README.md] for how to sync types between your local datastore and the shared library.
+See link:../kanecta-system-items/README.md[kanecta-system-items/README.md] for how to sync items between your local datastore and the shared library.
 
-Any new Kanecta types you create as part of your work should be contributed back to `kanecta-types`.
-This keeps the shared type library up to date for all consumers of the platform.
+Any new types, instances, or links you create that could be useful to others should be contributed back to `kanecta-system-items`.
+This keeps the shared library up to date for all consumers of the platform.
 
 == Updating the Specification
 
