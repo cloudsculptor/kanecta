@@ -54,6 +54,7 @@ export function SyncTypesDialog({ open, onClose }: SyncTypesDialogProps) {
 
   const notInInstance = commonTypes.filter((c: CommonType) => !instanceIds.has(c.folderId));
   const notInCommon = instanceTypes.filter((t: TypeDefinition) => !commonFolderIds.has(t.id));
+  const inSyncCount = commonTypes.filter((c: CommonType) => instanceIds.has(c.folderId)).length;
 
   // Import column checkbox logic
   const allImportIds = notInInstance.map(c => c.folderId);
@@ -122,11 +123,16 @@ export function SyncTypesDialog({ open, onClose }: SyncTypesDialogProps) {
 
             <section className="SyncTypesDialog-section">
               <h3 className="SyncTypesDialog-section-title">
-                Not in this instance
+                In common, not in instance
                 <span className="SyncTypesDialog-count">{notInInstance.length}</span>
               </h3>
               {notInInstance.length === 0 ? (
-                <p className="SyncTypesDialog-empty">All common types are already imported.</p>
+                <p className={inSyncCount > 0 ? 'SyncTypesDialog-synced' : 'SyncTypesDialog-empty'}>
+                  {inSyncCount > 0
+                    ? `All ${inSyncCount} common type${inSyncCount !== 1 ? 's' : ''} are already in this instance.`
+                    : commonTypes.length === 0 ? 'No common types directory found.' : 'Nothing to import.'
+                  }
+                </p>
               ) : (
                 <>
                   <div className="SyncTypesDialog-list-header">
@@ -178,11 +184,16 @@ export function SyncTypesDialog({ open, onClose }: SyncTypesDialogProps) {
 
             <section className="SyncTypesDialog-section">
               <h3 className="SyncTypesDialog-section-title">
-                Not in common directory
+                In instance, not in common
                 <span className="SyncTypesDialog-count">{notInCommon.length}</span>
               </h3>
               {notInCommon.length === 0 ? (
-                <p className="SyncTypesDialog-empty">No local-only types.</p>
+                <p className={instanceTypes.length > 0 ? 'SyncTypesDialog-synced' : 'SyncTypesDialog-empty'}>
+                  {instanceTypes.length > 0
+                    ? `All ${instanceTypes.length} instance type${instanceTypes.length !== 1 ? 's' : ''} are already in the common directory.`
+                    : 'No instance types found.'
+                  }
+                </p>
               ) : (
                 <>
                   <div className="SyncTypesDialog-list-header">
