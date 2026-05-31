@@ -44,7 +44,7 @@
     margin-bottom: -1px;
 
     &:hover { color: #333; }
-    &:first-child { color: #333; border-bottom-color: #333; }
+    &--active { color: #333; border-bottom-color: #333; }
   }
 
   &-tabs-spacer { flex: 1; }
@@ -79,10 +79,21 @@
     margin: 0 4px;
 
     &:hover { background: rgba(0, 0, 0, 0.05); color: #333; }
-    &:first-child { color: #333; background: rgba(0, 0, 0, 0.06); }
+    &--active { color: #333; background: rgba(0, 0, 0, 0.06); }
   }
 
   &-content {
     grid-area: content;
+    overflow-y: auto;
   }
+
+  &-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #999;
+    font-size: 0.875rem;
+  }
+
 }

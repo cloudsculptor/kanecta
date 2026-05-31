@@ -16,7 +16,7 @@ Kanecta is built for the age of AI-augmented work. Every item has a stable UUID 
 
 The same data powering your personal knowledge base can power a community website, a governance system, a team planning tool, or a financial dashboard. Kanecta ships with a growing collection of real-world apps built on the protocol — not demos, but production software used by real organisations. Build your own on top of the API, or extend an existing app.
 
-## Quick start
+## Developer quick start
 
 ```bash
 # Install Node.js 18+ from nodejs.org, then:
@@ -28,6 +28,8 @@ npm start
 ```
 
 On first run, `npm start` will guide you through creating or connecting a datastore, then launch the API and Studio in your browser.
+
+See the [Contributor Guidelines](kanecta-docs/contributor-guidelines.adoc) for how to play nicely in the codebase.
 
 ## Learn more
 

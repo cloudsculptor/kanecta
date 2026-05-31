@@ -1,0 +1,43 @@
+= Contributor Guidelines
+:toc:
+:toc-placement: preamble
+
+== Development Startup
+
+Always start development using the `npm start` script in the root directory.
+
+[source,shell]
+----
+npm start
+----
+
+This ensures:
+
+* The datastore version and the app version are checked against each other before the app loads.
+* If another contributor has made a breaking change of any kind, the script gives them a place to block loading and give you an opportunity to take any needed actions before proceeding (eg config dir moved that is not part of an auto migration).
+
+Running the app any other way bypasses these checks and can lead to silent data corruption or confusing runtime errors.
+
+== Contributing New Types
+
+Any new Kanecta types you create as part of your work should be contributed back to `kanecta-types`.
+This keeps the shared type library up to date for all consumers of the platform.
+
+== Updating the Specification
+
+Changes that affect the shape, semantics, or behaviour of Kanecta objects must be reflected in `kanecta-specification`.
+The specification is the source of truth for all storage and transport layers.
+Failing to update it breaks spec-driven development across the entire platform.
+
+Downstream packages that consume the specification include (but are not limited to):
+
+* `kanecta-filesystem`
+* `kanecta-s3`
+* `kanecta-mcp`
+* `kanecta-postgres`
+* `kanecta-sdk`
+* `kanecta-cli`
+* `kanecta-api`
+
+If you are unsure whether your change touches the specification, assume it does and check.
+It is far easier to update the spec alongside your change than to chase down breakage across multiple packages after the fact.

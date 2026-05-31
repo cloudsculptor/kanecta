@@ -2,8 +2,8 @@ import { useCallback, useEffect } from 'react';
 import { TopBar } from './TopBar';
 import { LeftBar } from './LeftBar';
 import { RightBar } from './RightBar';
-import { RightPanel } from './RightPanel';
 import { BottomBar } from './BottomBar';
+import { ItemOverlay } from './ItemOverlay';
 import { useUiStore } from '../../store/ui';
 import { useSettingsStore } from '../../store/settings';
 import type { ViewType } from '../../types/ui';
@@ -11,22 +11,16 @@ import './AppShell.scss';
 
 interface AppShellProps {
   children: React.ReactNode;
-  rightPanelContent?: React.ReactNode;
-  rightPanelTitle?: string;
-  quickCaptureNode?: React.ReactNode;
-  commandPaletteNode?: React.ReactNode;
   onOpenQuickCapture?: () => void;
   onOpenCommandPalette?: () => void;
 }
 
 export function AppShell({
   children,
-  rightPanelContent,
-  rightPanelTitle,
   onOpenQuickCapture,
   onOpenCommandPalette,
 }: AppShellProps) {
-  const { rightPanelOpen, setRightPanelOpen, layout, updatePanel } = useUiStore();
+  const { layout, updatePanel } = useUiStore();
   const { sidebarBg, sidebarFg, sidebarFgSelected, contentBg, contentBorder, showContentBorder, locationBorder } = useSettingsStore();
 
   const activeView = layout.panels[0]?.viewType ?? 'tree';
@@ -42,7 +36,6 @@ export function AppShell({
     [layout.panels, updatePanel],
   );
 
-  // Global keyboard shortcuts
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.code === 'Space') {
@@ -60,6 +53,7 @@ export function AppShell({
 
   return (
     <div className="AppShell" style={{ '--sidebar-bg': sidebarBg, '--sidebar-fg': sidebarFg, '--sidebar-fg-selected': sidebarFgSelected, '--content-bg': contentBg, '--content-border': contentBorder, '--location-border': locationBorder } as React.CSSProperties}>
+      <ItemOverlay />
       <TopBar
         onQuickCapture={onOpenQuickCapture}
         onCommandPalette={onOpenCommandPalette}
@@ -69,13 +63,6 @@ export function AppShell({
       <LeftBar activeView={activeView} onViewSelect={handleViewSelect} />
       <main className="Content" style={{ background: contentBg, border: showContentBorder ? `1px solid ${contentBorder}` : 'none' }}>
         <div className="AppShell-main">{children}</div>
-        <RightPanel
-          open={rightPanelOpen}
-          title={rightPanelTitle}
-          onClose={() => setRightPanelOpen(false)}
-        >
-          {rightPanelContent}
-        </RightPanel>
       </main>
       <RightBar activeView={activeView} onViewSelect={handleViewSelect} />
       <BottomBar onHome={() => handleViewSelect('home')} />
