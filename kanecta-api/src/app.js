@@ -887,6 +887,94 @@ app.delete('/app/studio/starred/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+// ─── Sync Types ──────────────────────────────────────────────────────────────
+
+app.get('/app/studio/sync-types', (_req, res) => {
+  const commonDir = process.env.KANECTA_COMMON_TYPES_DIR;
+  if (!commonDir || !fs.existsSync(commonDir)) return res.json([]);
+  const results = [];
+  try {
+    for (const s1 of fs.readdirSync(commonDir)) {
+      const d1 = path.join(commonDir, s1);
+      if (!fs.statSync(d1).isDirectory()) continue;
+      for (const s2 of fs.readdirSync(d1)) {
+        const d2 = path.join(d1, s2);
+        if (!fs.statSync(d2).isDirectory()) continue;
+        for (const id of fs.readdirSync(d2)) {
+          const typePath = path.join(d2, id, 'type.json');
+          if (!fs.existsSync(typePath)) continue;
+          try {
+            const schema = JSON.parse(fs.readFileSync(typePath, 'utf8'));
+            const title = schema.jsonSchema?.title || id;
+            results.push({ folderId: id, title, schema });
+          } catch {}
+        }
+      }
+    }
+  } catch (err) { return res.status(500).json({ error: err.message }); }
+  results.sort((a, b) => a.title.localeCompare(b.title));
+  res.json(results);
+});
+
+app.post('/app/studio/sync-types/import', (req, res) => {
+  const commonDir = process.env.KANECTA_COMMON_TYPES_DIR;
+  if (!commonDir) return res.status(400).json({ error: 'KANECTA_COMMON_TYPES_DIR not configured' });
+  const ds = openDatastore(res);
+  if (!ds) return;
+  const { folderIds } = req.body;
+  if (!Array.isArray(folderIds) || folderIds.length === 0) return res.status(400).json({ error: 'folderIds required' });
+  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const { randomUUID } = require('crypto');
+  const imported = [];
+  const errors = [];
+  for (const folderId of folderIds) {
+    try {
+      const s1 = folderId.slice(0, 2);
+      const s2 = folderId.slice(2, 4);
+      const typePath = path.join(commonDir, s1, s2, folderId, 'type.json');
+      if (!fs.existsSync(typePath)) { errors.push({ folderId, error: 'type.json not found' }); continue; }
+      const schema = JSON.parse(fs.readFileSync(typePath, 'utf8'));
+      const title = schema.jsonSchema?.title || folderId;
+      const id = randomUUID();
+      const now = new Date().toISOString();
+      const shard1 = id.slice(0, 2);
+      const shard2 = id.slice(2, 4);
+      const typeDir = path.join(root, '.kanecta', 'types', shard1, shard2, id);
+      fs.mkdirSync(typeDir, { recursive: true });
+      const metadata = { id, parentId: null, value: title, type: 'type', owner: ds.config.owner, createdAt: now, modifiedAt: now };
+      fs.writeFileSync(path.join(typeDir, 'metadata.json'), JSON.stringify(metadata, null, 2));
+      fs.writeFileSync(path.join(typeDir, 'type.json'), JSON.stringify(schema, null, 2));
+      imported.push({ id, value: title });
+    } catch (err) { errors.push({ folderId, error: err.message }); }
+  }
+  res.json({ imported, errors });
+});
+
+app.post('/app/studio/sync-types/export', (req, res) => {
+  const commonDir = process.env.KANECTA_COMMON_TYPES_DIR;
+  if (!commonDir) return res.status(400).json({ error: 'KANECTA_COMMON_TYPES_DIR not configured' });
+  const { typeIds } = req.body;
+  if (!Array.isArray(typeIds) || typeIds.length === 0) return res.status(400).json({ error: 'typeIds required' });
+  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const exported = [];
+  const errors = [];
+  for (const id of typeIds) {
+    try {
+      const shard1 = id.slice(0, 2);
+      const shard2 = id.slice(2, 4);
+      const srcDir = path.join(root, '.kanecta', 'types', shard1, shard2, id);
+      const typePath = path.join(srcDir, 'type.json');
+      if (!fs.existsSync(typePath)) { errors.push({ id, error: 'type.json not found' }); continue; }
+      const schema = JSON.parse(fs.readFileSync(typePath, 'utf8'));
+      const destDir = path.join(commonDir, shard1, shard2, id);
+      fs.mkdirSync(destDir, { recursive: true });
+      fs.writeFileSync(path.join(destDir, 'type.json'), JSON.stringify(schema, null, 2));
+      exported.push({ id });
+    } catch (err) { errors.push({ id, error: err.message }); }
+  }
+  res.json({ exported, errors });
+});
+
 // ─── Settings ────────────────────────────────────────────────────────────────
 
 const DEFAULT_SETTINGS = { themeName: 'Green', sidebarBg: '#20a138', sidebarFg: '#ffffff', sidebarFgSelected: '#5a6a60', contentBg: '#ffffff', contentBorder: '#20a138', showContentBorder: false, locationBorder: '#15712a' };

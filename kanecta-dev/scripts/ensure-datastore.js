@@ -51,7 +51,7 @@ function readPointer(file) {
   return null;
 }
 
-function writePointer(datastorePath, apiPort, studioPort) {
+function writePointer(datastorePath, apiPort, studioPort, commonTypesDir) {
   const file = POINTER_LOCATIONS[0];
   const isNew = !fs.existsSync(file);
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -62,6 +62,7 @@ function writePointer(datastorePath, apiPort, studioPort) {
   data.default = datastorePath;
   data.apiPort = apiPort;
   data.studioPort = studioPort;
+  if (commonTypesDir) data.commonTypesDir = commonTypesDir;
   fs.writeFileSync(file, JSON.stringify(data, null, 2) + '\n', 'utf8');
   if (isNew) {
     console.log(`  → Writing ${file}`);
@@ -240,6 +241,10 @@ async function wizard() {
   const apiPortInput = await ask(rl, `API port [${studioPort + 1}]: `);
   const apiPort = parseInt(apiPortInput || String(studioPort + 1), 10);
 
+  const defaultCommonTypesDir = path.resolve(__dirname, '../../kanecta-types/types');
+  const commonTypesDirInput = await ask(rl, `Common types directory [${defaultCommonTypesDir}]: `);
+  const commonTypesDir = expandHome(commonTypesDirInput || defaultCommonTypesDir);
+
   // ── Summary + confirmation ─────────────────────────────────────────────────
 
   const summary = {
@@ -248,6 +253,7 @@ async function wizard() {
     ...(zipPath ? { importFrom: zipPath } : {}),
     frontendPort: studioPort,
     apiPort,
+    commonTypesDir,
     pointerFile: POINTER_LOCATIONS[0],
   };
 
@@ -293,11 +299,11 @@ async function wizard() {
   }
 
   rl.close();
-  writePointer(datastorePath, apiPort, studioPort);
-  return { datastorePath, apiPort, studioPort };
+  writePointer(datastorePath, apiPort, studioPort, commonTypesDir);
+  return { datastorePath, apiPort, studioPort, commonTypesDir };
 }
 
-async function launch(datastorePath, preferredApiPort, preferredStudioPort) {
+async function launch(datastorePath, preferredApiPort, preferredStudioPort, commonTypesDir) {
   const [apiPort, studioPort] = await Promise.all([
     findFreePort(preferredApiPort),
     findFreePort(preferredStudioPort),
@@ -325,6 +331,7 @@ async function launch(datastorePath, preferredApiPort, preferredStudioPort) {
         KANECTA_DATASTORE: datastorePath,
         PORT: String(apiPort),
         KANECTA_API_URL: `http://localhost:${apiPort}`,
+        ...(commonTypesDir ? { KANECTA_COMMON_TYPES_DIR: commonTypesDir } : {}),
       },
       stdio: 'inherit',
     },
@@ -363,7 +370,7 @@ async function main() {
     }
     console.log(`✓ Datastore: ${datastorePath}`);
     checkSpecVersion(datastorePath);
-    return launch(datastorePath, data.apiPort ?? 9744, data.studioPort ?? 9743);
+    return launch(datastorePath, data.apiPort ?? 9744, data.studioPort ?? 9743, data.commonTypesDir);
   }
 
   // 3. First-run wizard
@@ -373,7 +380,7 @@ async function main() {
   }
   const wizardResult = await wizard();
   checkSpecVersion(wizardResult.datastorePath);
-  launch(wizardResult.datastorePath, wizardResult.apiPort, wizardResult.studioPort);
+  launch(wizardResult.datastorePath, wizardResult.apiPort, wizardResult.studioPort, wizardResult.commonTypesDir);
 }
 
 main().catch((err) => {

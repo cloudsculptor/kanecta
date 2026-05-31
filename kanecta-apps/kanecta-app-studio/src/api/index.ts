@@ -8,6 +8,7 @@ import { typesApi } from './types';
 import { breadcrumbApi } from './breadcrumb';
 import { starredApi } from './starred';
 import { settingsApi } from './settings';
+import { syncTypesApi } from './syncTypes';
 import { skillsApi } from './skills';
 import { claudeApi } from './claude';
 
@@ -33,6 +34,7 @@ export function createApi(baseUrl: string) {
     skills: skillsApi(client),
     claude: claudeApi(client, baseUrl),
     settings: settingsApi(client),
+    syncTypes: syncTypesApi(client),
   };
 }
 

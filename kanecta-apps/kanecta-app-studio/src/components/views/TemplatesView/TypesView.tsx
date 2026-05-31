@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import Ajv from 'ajv';
+import SyncIcon from '@mui/icons-material/Sync';
 import typeSpecRaw from '../../../../../../kanecta-specification/types/kanecta-type-specification-v1.json?raw';
 import { useWorkspaceStore } from '../../../store/workspace';
 import { TypeList } from '../../shared/TypeList';
+import { SyncTypesDialog } from './SyncTypesDialog';
 import type { TypeDefinition } from '../../../api/types';
 import './TypesView.scss';
 
@@ -349,6 +351,7 @@ export function TypesView() {
   const [selectedType, setSelectedType] = useState<TypeDefinition | null>(null);
   const [selectedInitialTab, setSelectedInitialTab] = useState<Tab>('view');
   const [schema, setSchema] = useState<string>('');
+  const [syncOpen, setSyncOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [addError, setAddError] = useState<string | null>(null);
@@ -407,6 +410,14 @@ export function TypesView() {
 
   return (
     <div className="TypesView">
+      <div className="TypesView-toolbar">
+        <button className="TypesView-btn TypesView-btn--auto TypesView-btn--icon" onClick={() => setSyncOpen(true)}>
+          <SyncIcon className="TypesView-btn-icon" />
+          Sync types
+        </button>
+      </div>
+      <SyncTypesDialog open={syncOpen} onClose={() => setSyncOpen(false)} />
+      <div className="TypesView-columns">
       <div className="TypesView-list">
         <TypeList
           selectedTypeId={selectedType?.id ?? null}
@@ -443,6 +454,7 @@ export function TypesView() {
           <div className="TypesView-placeholder">Select a type to view its schema</div>
         </div>
       )}
+      </div>
     </div>
   );
 }
