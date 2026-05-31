@@ -20,3 +20,4 @@ JSON Schema definitions for every file type written by a conforming implementati
 | [file-specs/type.json](file-specs/type.json) | `.kanecta/types/{s1}/{s2}/{uuid}/type.json` | Custom type definition (display meta + JSON Schema) |
 | [file-specs/items.json](file-specs/items.json) | `.kanecta/tags/{s1}/{s2}/{tag}/items.json` and `.kanecta/types/{s1}/{s2}/{uuid}/items.json` | Tag and type index files |
 | [file-specs/meta.json](file-specs/meta.json) | `.kanecta/data/{s1}/{s2}/{uuid}/meta.json` | Denormalized type display cache for typed object items |
+| [file-specs/object.json.md](file-specs/object.json.md) | `.kanecta/data/{s1}/{s2}/{uuid}/object.json` | Field values for a typed object item — an instance of the type's `jsonSchema` |
