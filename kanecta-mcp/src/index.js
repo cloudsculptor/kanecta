@@ -123,13 +123,18 @@ const TOOLS = [
   },
   {
     name: 'kanecta_search',
-    description: 'Search the Kanecta knowledge base for past context, decisions, or facts. Case-insensitive substring match across all item values. Pass rootId to scope the search to a subtree.',
+    description: 'Search the Kanecta knowledge base for past context, decisions, or facts. Case-insensitive substring match across all item values and objectData fields. Pass rootId to scope the search to a subtree.',
     inputSchema: {
       type: 'object',
       properties: {
         query: { type: 'string', description: 'Search query' },
         rootId: { type: 'string', description: 'Optional item UUID — restrict results to descendants of this item' },
         limit: { type: 'number', description: 'Maximum results (default: 10)' },
+        fields: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Optional list of objectData fields to restrict the search to'
+        },
       },
       required: ['query'],
     },
@@ -439,6 +444,27 @@ const TOOLS = [
       required: ['tag'],
     },
   },
+  {
+    name: 'kanecta_query',
+    description: 'Query the Kanecta knowledge base for items matching specific criteria. Returns items with their metadata and inline objectData.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        type: { type: 'string', description: 'Optional: match items of this primitive or custom type name' },
+        where: { type: 'object', description: 'Optional: predicates over objectData fields, e.g. { severity: "P1", status: { op: "!=", value: "closed" } }' },
+        rootId: { type: 'string', description: 'Optional: restrict results to descendants of this item' },
+        sort: {
+          type: 'object',
+          properties: {
+            field: { type: 'string', description: 'Field to sort by (metadata or objectData field)' },
+            dir: { type: 'string', enum: ['asc', 'desc'], description: 'Sort direction' },
+          },
+          required: ['field'],
+        },
+        limit: { type: 'number', description: 'Maximum results (default: 50)' },
+      },
+    },
+  },
 ];
 
 // ─── Handlers ─────────────────────────────────────────────────────────────────
@@ -487,12 +513,57 @@ function handleCapture(args, ds, cfg) {
   };
 }
 
+function matchObjectData(objectData, q, fields) {
+  if (!objectData || typeof objectData !== 'object') return false;
+
+  const keys = Array.isArray(fields) && fields.length > 0
+    ? fields
+    : Object.keys(objectData);
+
+  for (const key of keys) {
+    const val = objectData[key];
+    if (val === null || val === undefined) continue;
+
+    if (typeof val === 'object') {
+      if (Array.isArray(val)) {
+        for (const item of val) {
+          if (item !== null && typeof item !== 'object') {
+            const strVal = String(item).toLowerCase();
+            if (strVal.includes(q)) return true;
+          }
+        }
+      }
+      continue;
+    }
+
+    if (typeof val === 'string' && val.length > 10000) {
+      continue;
+    }
+
+    const strVal = String(val).toLowerCase();
+    if (strVal.includes(q)) return true;
+  }
+
+  return false;
+}
+
 function handleSearch(args, ds) {
-  const { query, rootId, limit = 10 } = args;
+  const { query, rootId, limit = 10, fields } = args;
   const q = query.toLowerCase();
 
   let candidates = ds.loadAll()
-    .filter(i => i.value && typeof i.value === 'string' && i.value.toLowerCase().includes(q));
+    .filter(i => {
+      if (i.value && typeof i.value === 'string' && i.value.toLowerCase().includes(q)) {
+        return true;
+      }
+      if (i.type === 'object') {
+        const objectData = ds.readObjectJson(i.id);
+        if (matchObjectData(objectData, q, fields)) {
+          return true;
+        }
+      }
+      return false;
+    });
 
   if (rootId) {
     const subtreeIds = new Set(collectSubtreeIds(ds, rootId));
@@ -780,6 +851,11 @@ function dispatch(name, args) {
     case 'kanecta_by_tag':
       return { tag: args.tag, items: ds.byTag(args.tag) };
 
+    case 'kanecta_query': {
+      const items = ds.query(args);
+      return { items: items.map(item => resolveItem(ds, item)) };
+    }
+      
     case 'kanecta_create_type': {
       const { metadata, schema } = ds.createType(args.value);
       return { ...metadata, schema };

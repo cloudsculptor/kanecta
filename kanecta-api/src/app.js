@@ -95,11 +95,45 @@ function cloneSubtree(ds, sourceId, targetParentId, actor) {
 
 // ─── Search ───────────────────────────────────────────────────────────────────
 
-// GET /search?q=&rootId=&limit= — full-text search with optional subtree scope and ancestor breadcrumb
+function matchObjectData(objectData, q, fields) {
+  if (!objectData || typeof objectData !== 'object') return false;
+
+  const keys = Array.isArray(fields) && fields.length > 0
+    ? fields
+    : Object.keys(objectData);
+
+  for (const key of keys) {
+    const val = objectData[key];
+    if (val === null || val === undefined) continue;
+
+    if (typeof val === 'object') {
+      if (Array.isArray(val)) {
+        for (const item of val) {
+          if (item !== null && typeof item !== 'object') {
+            const strVal = String(item).toLowerCase();
+            if (strVal.includes(q)) return true;
+          }
+        }
+      }
+      continue;
+    }
+
+    if (typeof val === 'string' && val.length > 10000) {
+      continue;
+    }
+
+    const strVal = String(val).toLowerCase();
+    if (strVal.includes(q)) return true;
+  }
+
+  return false;
+}
+
+// GET /search?q=&rootId=&limit=&fields= — full-text search with optional subtree scope, ancestor breadcrumb, and fields scoping
 app.get('/search', (req, res) => {
   const ds = openDatastore(res);
   if (!ds) return;
-  const { q, rootId, limit = '10' } = req.query;
+  const { q, rootId, limit = '10', fields } = req.query;
   if (!q) return res.status(400).json({ error: 'q is required' });
   const maxResults = parseInt(limit, 10);
   if (isNaN(maxResults) || maxResults < 1)
@@ -109,8 +143,28 @@ app.get('/search', (req, res) => {
   if (rootId && !ds.get(rootId))
     return res.status(404).json({ error: `rootId not found: ${rootId}` });
 
+  let fieldsArr;
+  if (typeof fields === 'string') {
+    fieldsArr = fields.split(',').map(s => s.trim()).filter(Boolean);
+  } else if (Array.isArray(fields)) {
+    fieldsArr = fields.map(s => String(s).trim()).filter(Boolean);
+  }
+
+  const queryLower = q.toLowerCase();
+
   let candidates = ds.loadAll()
-    .filter(i => i.value && typeof i.value === 'string' && i.value.toLowerCase().includes(q.toLowerCase()));
+    .filter(i => {
+      if (i.value && typeof i.value === 'string' && i.value.toLowerCase().includes(queryLower)) {
+        return true;
+      }
+      if (i.type === 'object') {
+        const objectData = ds.readObjectJson(i.id);
+        if (matchObjectData(objectData, queryLower, fieldsArr)) {
+          return true;
+        }
+      }
+      return false;
+    });
 
   if (rootId) {
     const subtreeIds = new Set(collectSubtreeIds(ds, rootId));

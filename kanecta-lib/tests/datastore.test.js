@@ -55,7 +55,7 @@ test('create returns item with valid UUID and correct fields', () => {
   expect(item.tags).toEqual(['x']);
   expect(item.owner).toBe('test@example.com');
   expect(item.parentId).toMatch(UUID_RE); // defaults to data_root
-  expect(item.sortOrder).toBe(0);
+  expect(item.sortOrder).toBe(1);
   fs.rmSync(ds.root, { recursive: true });
 });
 
@@ -236,7 +236,7 @@ test('tree respects maxDepth', () => {
   const root = ds.create({ value: 'root' });
   const child = ds.create({ value: 'child', parentId: root.id });
   ds.create({ value: 'grandchild', parentId: child.id });
-  const nodes = ds.tree(null, 1);
+  const nodes = ds.tree(root.id, 1);
   expect(nodes.length).toBe(2);
   fs.rmSync(ds.root, { recursive: true });
 });
@@ -300,4 +300,162 @@ test('sample: loadAll returns 40 items', () => {
 test('sample: tree from root produces 35 nodes', () => {
   const ds = Datastore.open(SAMPLE);
   expect(ds.tree(ROOT_ID)).toHaveLength(35);
+});
+
+// ─── Query ───────────────────────────────────────────────────────────────────
+
+test('query filters by type and matches primitive/custom type names', () => {
+  const ds = tmpDs();
+  const root = ds.create({ value: 'root' });
+  const textItem = ds.create({ value: 'hello', type: 'text', parentId: root.id });
+  const stringItem = ds.create({ value: 'world', type: 'string', parentId: root.id });
+  
+  // Custom type
+  const typeId = 'bbbbbbbb-cccc-dddd-eeee-ffffffffffff';
+  fs.mkdirSync(path.join(ds.k, 'types', 'bb', 'bb', typeId), { recursive: true });
+  fs.writeFileSync(
+    path.join(ds.k, 'types', 'bb', 'bb', typeId, 'metadata.json'),
+    JSON.stringify({ id: typeId, value: 'mycustomtype' })
+  );
+  
+  const customItem = ds.create({
+    type: 'object',
+    typeId,
+    parentId: root.id,
+    objectData: { title: 'Custom Item' }
+  });
+
+  const texts = ds.query({ type: 'text', rootId: root.id });
+  expect(texts).toHaveLength(1);
+  expect(texts[0].id).toBe(textItem.id);
+
+  const customs = ds.query({ type: 'mycustomtype' });
+  expect(customs).toHaveLength(1);
+  expect(customs[0].id).toBe(customItem.id);
+  expect(customs[0].objectData).toEqual({ title: 'Custom Item' });
+
+  fs.rmSync(ds.root, { recursive: true });
+});
+
+test('query filters by rootId scoping', () => {
+  const ds = tmpDs();
+  const r1 = ds.create({ value: 'r1' });
+  const r2 = ds.create({ value: 'r2' });
+  
+  const c1 = ds.create({ value: 'c1', parentId: r1.id });
+  const c2 = ds.create({ value: 'c2', parentId: r2.id });
+  
+  const results1 = ds.query({ rootId: r1.id });
+  const ids1 = results1.map(r => r.id);
+  expect(ids1).toContain(r1.id);
+  expect(ids1).toContain(c1.id);
+  expect(ids1).not.toContain(r2.id);
+  expect(ids1).not.toContain(c2.id);
+
+  fs.rmSync(ds.root, { recursive: true });
+});
+
+test('query filters by where predicates (operators: =, !=, in, contains, >, <)', () => {
+  const ds = tmpDs();
+  const root = ds.create({ value: 'root' });
+  
+  const typeId = 'cccccccc-dddd-eeee-ffff-000000000000';
+  fs.mkdirSync(path.join(ds.k, 'types', 'cc', 'cc', typeId), { recursive: true });
+  fs.writeFileSync(
+    path.join(ds.k, 'types', 'cc', 'cc', typeId, 'metadata.json'),
+    JSON.stringify({ id: typeId, value: 'item' })
+  );
+
+  const item1 = ds.create({
+    type: 'object',
+    typeId,
+    parentId: root.id,
+    objectData: { severity: 'P1', status: 'open', score: 10, tags: ['bug', 'ui'] }
+  });
+  
+  const item2 = ds.create({
+    type: 'object',
+    typeId,
+    parentId: root.id,
+    objectData: { severity: 'P2', status: 'closed', score: 5, tags: ['backend'] }
+  });
+
+  // '=' operator (default)
+  const res1 = ds.query({ where: { severity: 'P1' } });
+  expect(res1).toHaveLength(1);
+  expect(res1[0].id).toBe(item1.id);
+
+  // '!=' operator
+  const res2 = ds.query({ where: { severity: { op: '!=', value: 'P1' } } });
+  expect(res2).toHaveLength(1);
+  expect(res2[0].id).toBe(item2.id);
+
+  // 'in' operator
+  const res3 = ds.query({ where: { severity: { op: 'in', value: ['P1', 'P3'] } } });
+  expect(res3).toHaveLength(1);
+  expect(res3[0].id).toBe(item1.id);
+
+  // 'contains' operator on string
+  const res4 = ds.query({ where: { status: { op: 'contains', value: 'ope' } } });
+  expect(res4).toHaveLength(1);
+  expect(res4[0].id).toBe(item1.id);
+
+  // 'contains' operator on array
+  const res5 = ds.query({ where: { tags: { op: 'contains', value: 'Bug' } } });
+  expect(res5).toHaveLength(1);
+  expect(res5[0].id).toBe(item1.id);
+
+  // '>' operator
+  const res6 = ds.query({ where: { score: { op: '>', value: 7 } } });
+  expect(res6).toHaveLength(1);
+  expect(res6[0].id).toBe(item1.id);
+
+  // '<' operator
+  const res7 = ds.query({ where: { score: { op: '<', value: 7 } } });
+  expect(res7).toHaveLength(1);
+  expect(res7[0].id).toBe(item2.id);
+
+  fs.rmSync(ds.root, { recursive: true });
+});
+
+test('query supports sorting and limits', () => {
+  const ds = tmpDs();
+  const root = ds.create({ value: 'root' });
+  
+  const typeId = 'dddddddd-eeee-ffff-0000-111111111111';
+  fs.mkdirSync(path.join(ds.k, 'types', 'dd', 'dd', typeId), { recursive: true });
+  fs.writeFileSync(
+    path.join(ds.k, 'types', 'dd', 'dd', typeId, 'metadata.json'),
+    JSON.stringify({ id: typeId, value: 'item' })
+  );
+
+  ds.create({
+    type: 'object',
+    typeId,
+    parentId: root.id,
+    objectData: { score: 10 }
+  });
+  ds.create({
+    type: 'object',
+    typeId,
+    parentId: root.id,
+    objectData: { score: 30 }
+  });
+  ds.create({
+    type: 'object',
+    typeId,
+    parentId: root.id,
+    objectData: { score: 20 }
+  });
+
+  // Sort ascending
+  const asc = ds.query({ type: 'item', sort: { field: 'score', dir: 'asc' } });
+  expect(asc.map(a => a.objectData.score)).toEqual([10, 20, 30]);
+
+  // Sort descending and limit
+  const descLimit = ds.query({ type: 'item', sort: { field: 'score', dir: 'desc' }, limit: 2 });
+  expect(descLimit).toHaveLength(2);
+  expect(descLimit.map(a => a.objectData.score)).toEqual([30, 20]);
+
+  fs.rmSync(ds.root, { recursive: true });
 });
