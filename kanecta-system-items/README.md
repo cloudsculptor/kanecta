@@ -1,6 +1,6 @@
 # kanecta-system-items
 
-Shared library of Kanecta system items — type definitions, instances, links, and other objects that are useful across datastores. Items are stored in the standard datastore format under `items/` — the same sharded UUID structure used in a live datastore.
+Shared library of Kanecta system items — type definitions, instances, links, and other objects that are useful across datastores. Items are stored in the standard datastore format under `types/` — the same sharded UUID structure used in a live datastore.
 
 ## Syncing into your local datastore
 
