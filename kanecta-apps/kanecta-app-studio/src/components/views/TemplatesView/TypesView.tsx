@@ -16,6 +16,7 @@ import { useWorkspaceStore } from '../../../store/workspace';
 import { TypeList } from '../../shared/TypeList';
 import { SyncTypesDialog } from './SyncTypesDialog';
 import type { TypeDefinition } from '../../../api/types';
+import type { ItemType } from '../../../types/kanecta';
 import './TypesView.scss';
 
 type Tab = 'item' | 'view' | 'meta' | 'meta-edit' | 'schema' | 'edit' | 'reference';
@@ -267,7 +268,7 @@ function DetailPane({ type, schema, onSchemaChange, initialTab = 'view' }: Detai
         results.push({ ok: true, message: '"jsonSchema" is a valid JSON Schema' });
       } else {
         for (const err of ajv.errors ?? []) {
-          results.push({ ok: false, message: `jsonSchema${err.instancePath || ''}: ${err.message}` });
+          results.push({ ok: false, message: `jsonSchema${(err as Record<string, string>).instancePath || ''}: ${err.message}` });
         }
       }
     } else {
@@ -433,7 +434,7 @@ export function TypesView() {
         <TypeList
           selectedTypeId={selectedType?.id ?? null}
           onSelect={(t) => void handleSelect(t)}
-          onCreateItem={(t) => void getApi().items.create({ value: `New ${t.value}`, type: t.value })}
+          onCreateItem={(t) => void getApi().items.create({ value: `New ${t.value}`, type: t.value as ItemType })}
           headerActions={
             <button className="TypesView-btn" onClick={handleStartAdding} title="New type">+</button>
           }

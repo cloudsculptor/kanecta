@@ -30,6 +30,8 @@ function slashDescription(type: ItemType): string {
     url: 'A web link',
     image: 'An image reference',
     file: 'A file attachment',
+    object: 'A typed structured object',
+    heading: 'A section heading',
   };
   return map[type];
 }

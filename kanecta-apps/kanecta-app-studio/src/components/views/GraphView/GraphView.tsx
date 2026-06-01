@@ -50,6 +50,8 @@ const TYPE_COLOURS: Record<KanectaItem['type'], string> = {
   url: '#3f51b5',
   image: '#8bc34a',
   file: '#ffc107',
+  object: '#607d8b',
+  heading: '#9e9e9e',
 };
 
 const CONFIDENCE_COLOURS: Record<Confidence, string> = {
