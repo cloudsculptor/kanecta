@@ -976,12 +976,12 @@ app.post('/app/studio/sync-system-items/export', (req, res) => {
       const shard1 = id.slice(0, 2);
       const shard2 = id.slice(2, 4);
       const srcDir = path.join(root, '.kanecta', 'types', shard1, shard2, id);
-      const typePath = path.join(srcDir, 'type.json');
-      if (!fs.existsSync(typePath)) { errors.push({ id, error: 'type.json not found' }); continue; }
-      const schema = JSON.parse(fs.readFileSync(typePath, 'utf8'));
+      if (!fs.existsSync(srcDir)) { errors.push({ id, error: 'type directory not found' }); continue; }
       const destDir = path.join(commonDir, shard1, shard2, id);
       fs.mkdirSync(destDir, { recursive: true });
-      fs.writeFileSync(path.join(destDir, 'type.json'), JSON.stringify(schema, null, 2));
+      for (const file of fs.readdirSync(srcDir)) {
+        fs.copyFileSync(path.join(srcDir, file), path.join(destDir, file));
+      }
       exported.push({ id });
     } catch (err) { errors.push({ id, error: err.message }); }
   }
