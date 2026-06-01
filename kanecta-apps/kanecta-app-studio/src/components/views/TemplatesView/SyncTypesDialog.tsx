@@ -118,7 +118,7 @@ export function SyncTypesDialog({ open, onClose }: SyncTypesDialogProps) {
       </DialogTitle>
       <DialogContent dividers sx={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Alert severity="warning">
-          Exporting items writes them to the shared <code>kanecta-system-items</code> directory on disk. You are responsible for pushing any exported items to GitHub so they are available to other contributors.
+          Exporting items writes them to the shared <code>kanecta-system-items/items</code> directory on disk. You are responsible for pushing any exported items to GitHub so they are available to other contributors.
         </Alert>
         <div style={{ overflow: 'hidden', display: 'flex', flex: 1 }}>
         {loading ? (
