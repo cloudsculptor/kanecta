@@ -12,7 +12,7 @@ type Segment =
   | { kind: 'italic';   text: string };
 
 // Matches https?:// URLs, [[uuid|label]], [[uuid]], `code`, **bold**, *italic*
-const TOKEN_RE = /(https?:\/\/[^\s<>\[\]]+)|\[\[([a-f0-9-]{36})(?:\|([^\]]*))?\]\]|`([^`]+)`|\*\*([^*]+)\*\*|\*([^*]+)\*/g;
+const TOKEN_RE = /(https?:\/\/[^\s<>[\]]+)|\[\[([a-f0-9-]{36})(?:\|([^\]]*))?\]\]|`([^`]+)`|\*\*([^*]+)\*\*|\*([^*]+)\*/g;
 
 function parse(value: string): Segment[] {
   const segments: Segment[] = [];

@@ -125,7 +125,7 @@ export function ClaudeView() {
       esRef.current = es;
 
       es.onmessage = (e: MessageEvent) => {
-        try { handleEvent(JSON.parse(e.data as string) as ClaudeEvent); } catch {}
+        try { handleEvent(JSON.parse(e.data as string) as ClaudeEvent); } catch { /* ignore parse errors */ }
       };
       es.onerror = () => { setRunning(false); closeStream(); };
     } catch {
@@ -138,7 +138,7 @@ export function ClaudeView() {
     if (!sessionId) return;
     closeStream();
     setRunning(false);
-    try { await getApi().claude.cancel(sessionId); } catch {}
+    try { await getApi().claude.cancel(sessionId); } catch { /* ignore */ }
     setSessionId(null);
   }, [sessionId, getApi, closeStream]);
 

@@ -34,6 +34,7 @@ export function StarredView() {
 
   const handleNavigate = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
+    // eslint-disable-next-line react-hooks/immutability
     window.location.hash = `/tree/${id}`;
     const panelId = layout.panels[0]?.id;
     if (panelId) updatePanel(panelId, { viewType: 'tree' });

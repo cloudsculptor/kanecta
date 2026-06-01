@@ -82,7 +82,10 @@ function MetaEditor({ typeId, schema, onSchemaChange }: MetaEditorProps) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState(false);
 
-  useEffect(() => { setFields(parseMeta(schema)); setSaveError(null); setSaveOk(false); }, [schema, typeId]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFields(parseMeta(schema)); setSaveError(null); setSaveOk(false);
+  }, [schema, typeId]);
 
   const set = (key: keyof MetaFields) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFields(f => ({ ...f, [key]: e.target.value }));
@@ -208,13 +211,17 @@ function DetailPane({ type, schema, onSchemaChange, initialTab = 'view' }: Detai
   const [itemMeta, setItemMeta] = useState<string>('');
   const [validateResults, setValidateResults] = useState<{ ok: boolean; message: string }[]>([]);
 
-  useEffect(() => { setEditText(schema); setSaveError(null); setSaveOk(false); setValidateResults([]); }, [schema, type.id]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setEditText(schema); setSaveError(null); setSaveOk(false); setValidateResults([]);
+  }, [schema, type.id]);
 
   useEffect(() => {
     if (tab !== 'item') return;
     getApi().types.metadata(type.id)
       .then((m) => setItemMeta(JSON.stringify(m, null, 2)))
       .catch((e: Error) => setItemMeta(`Error: ${e.message}`));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, type.id]);
 
   const handleSave = async () => {
