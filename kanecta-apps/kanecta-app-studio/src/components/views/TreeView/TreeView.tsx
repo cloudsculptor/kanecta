@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ViewMeta } from '../../../lib/viewMeta';
-import { useViewLocation, useLocation } from '../../../context/LocationContext';
+import { useViewLocation } from '../../../context/LocationContext';
 
 export const TreeViewMeta: ViewMeta = {
   uuid: 'b3a2c1d0-e4f5-4a6b-9c7d-8e0f1a2b3c4d',
@@ -67,15 +67,13 @@ interface TreeBranchProps {
   onDelete: (item: KanectaItem) => void;
   onEdit: (item: KanectaItem, value: string) => Promise<void>;
   onIndent: (item: KanectaItem, prevSibling: KanectaItem | null) => void;
-  onOutdent: () => void;
+  onOutdent: (item: KanectaItem) => void;
   onNavigateToId: (id: string) => void;
   onExpandToDepth: (item: KanectaItem, depth: number | 'all') => void;
   onRecordClipboard: (item: KanectaItem, type: string, typeId: string) => void;
   onRecordViewed: (item: KanectaItem, type: string, typeId: string) => void;
   onCopyObject: (item: KanectaItem) => Promise<void>;
   onCopyAs: (item: KanectaItem) => void;
-  setItemId: (id: string | null) => void;
-  openOverlay: () => void;
 }
 
 function TreeBranch({
@@ -100,8 +98,6 @@ function TreeBranch({
   onRecordViewed,
   onCopyObject,
   onCopyAs,
-  setItemId,
-  openOverlay,
 }: TreeBranchProps) {
   const { data: items = [], isLoading, error } = useTreeData(parentId, workspaceId);
 
@@ -128,14 +124,12 @@ function TreeBranch({
           onDelete={() => onDelete(item)}
           onEdit={(value) => onEdit(item, value)}
           onIndent={() => { const idx = items.findIndex((i) => i.id === item.id); onIndent(item, idx > 0 ? items[idx - 1] : null); }}
-          onOutdent={onOutdent}
+          onOutdent={() => onOutdent(item)}
           onExpandToDepth={(depth) => onExpandToDepth(item, depth)}
           onRecordClipboard={(type, typeId) => onRecordClipboard(item, type, typeId)}
           onRecordViewed={(type, typeId) => onRecordViewed(item, type, typeId)}
           onCopyObject={item._hasObject ? () => onCopyObject(item) : undefined}
           onCopyAs={() => onCopyAs(item)}
-          setItemId={setItemId}
-          openOverlay={openOverlay}
         >
           {expandedIds.has(item.id) && (
             <TreeBranch
@@ -160,8 +154,6 @@ function TreeBranch({
               onRecordViewed={onRecordViewed}
               onCopyObject={onCopyObject}
               onCopyAs={onCopyAs}
-              setItemId={setItemId}
-              openOverlay={openOverlay}
             />
           )}
         </TreeNode>
@@ -171,8 +163,7 @@ function TreeBranch({
 }
 
 export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
-  const { setItemId } = useViewLocation(TreeViewMeta.uuid);
-  const { openOverlay } = useLocation();
+  useViewLocation(TreeViewMeta.uuid);
   const { getApi, activeWorkspaceId } = useWorkspaceStore();
   const { setFocusedItem, focusedItemId } = useUiStore();
   const qc = useQueryClient();
@@ -356,8 +347,8 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
   );
 
   const handleFocus = useCallback(
-    (item: KanectaItem) => { setFocusedItem(item.id); setItemId(item.id); },
-    [setFocusedItem, setItemId],
+    (item: KanectaItem) => { setFocusedItem(item.id); },
+    [setFocusedItem],
   );
 
   const handleEdit = useCallback(
@@ -407,9 +398,12 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
     [moveMutation, setExpandedIds],
   );
 
-  const handleOutdent = useCallback(() => {
-    // outdent: move up to grandparent — placeholder for Phase 2
-  }, []);
+  const handleOutdent = useCallback(
+    (_item: KanectaItem) => {
+      // outdent: move up to grandparent — placeholder for Phase 2
+    },
+    [],
+  );
 
   const handleRecordClipboard = useCallback(
     (item: KanectaItem, type: string, typeId: string) => {
@@ -480,8 +474,6 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
     onRecordViewed: handleRecordViewed,
     onCopyObject: handleCopyObject,
     onCopyAs: handleCopyAs,
-    setItemId,
-    openOverlay,
   };
 
   return (

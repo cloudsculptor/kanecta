@@ -26,12 +26,12 @@ function slashDescription(type: ItemType): string {
     entity: 'A named real-world entity',
     event: 'A dated occurrence',
     text: 'A long-form text document',
+    heading: 'A section heading',
     code: 'A code snippet',
     url: 'A web link',
     image: 'An image reference',
     file: 'A file attachment',
-    object: 'A typed structured object',
-    heading: 'A section heading',
+    object: 'A structured data object',
   };
   return map[type];
 }

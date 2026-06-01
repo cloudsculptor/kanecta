@@ -42,6 +42,7 @@ export function TreeNodeEditor({
     <div
       ref={ref}
       role="textbox"
+      aria-label="Edit item"
       aria-multiline="false"
       className="TreeNodeEditor"
       contentEditable

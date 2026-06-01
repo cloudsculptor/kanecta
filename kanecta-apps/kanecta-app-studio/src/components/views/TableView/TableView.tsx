@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import type { ItemType } from '../../../types/kanecta';
 import type { ViewMeta } from '../../../lib/viewMeta';
 import { useViewLocation } from '../../../context/LocationContext';
 
