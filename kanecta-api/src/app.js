@@ -956,7 +956,7 @@ app.post('/app/studio/sync-system-items/import', (req, res) => {
       if (!fs.existsSync(typePath)) { errors.push({ folderId, error: 'type.json not found' }); continue; }
       const schema = JSON.parse(fs.readFileSync(typePath, 'utf8'));
       const title = schema.jsonSchema?.title || folderId;
-      const { metadata } = ds.createType(title, { schema });
+      const { metadata } = ds.createType(title, { schema, id: folderId });
       imported.push({ id: metadata.id, value: title });
     } catch (err) { errors.push({ folderId, error: err.message }); }
   }

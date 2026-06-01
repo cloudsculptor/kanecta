@@ -590,11 +590,11 @@ class FilesystemAdapter {
 
   // ─── Type definitions ─────────────────────────────────────────────────────
 
-  createType(value, { schema, createdBy } = {}) {
+  createType(value, { schema, createdBy, id: explicitId } = {}) {
     if (!value || typeof value !== 'string' || !value.trim())
       throw new Error('value is required');
 
-    const id = crypto.randomUUID();
+    const id = explicitId || crypto.randomUUID();
     const now = new Date();
     const owner = this.config.owner;
     const actor = createdBy || owner;
