@@ -6,25 +6,49 @@ on:
       - '**'
 
 jobs:
-  test:
-    name: Type check & unit tests
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v5
-
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
-
       - name: Install dependencies
         run: npm ci
+      - name: Lint
+        working-directory: kanecta-apps/kanecta-app-studio
+        run: npm run lint
 
+  typecheck:
+    name: Type check
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
       - name: Type check
         working-directory: kanecta-apps/kanecta-app-studio
         run: npx tsc -b --noEmit
 
+  unit-tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    needs: typecheck
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
       - name: Run unit tests
         working-directory: kanecta-apps/kanecta-app-studio
         run: npm test
@@ -32,25 +56,20 @@ jobs:
   storybook:
     name: Storybook interaction tests
     runs-on: ubuntu-latest
-
+    needs: typecheck
     steps:
       - uses: actions/checkout@v5
-
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
-
       - name: Install dependencies
         run: npm ci
-
       - name: Install Playwright browser
         run: npx playwright install chromium --with-deps
-
       - name: Build Storybook
         working-directory: kanecta-apps/kanecta-app-studio
         run: npm run build-storybook
-
       - name: Run Storybook interaction tests
         working-directory: kanecta-apps/kanecta-app-studio
         run: |

@@ -14,6 +14,7 @@ export function QuickCapture({ open, onClose, onSubmit }: QuickCaptureProps) {
 
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setValue('');
       setTimeout(() => inputRef.current?.focus(), 10);
     }

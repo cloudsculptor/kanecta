@@ -67,7 +67,7 @@ interface TreeBranchProps {
   onDelete: (item: KanectaItem) => void;
   onEdit: (item: KanectaItem, value: string) => Promise<void>;
   onIndent: (item: KanectaItem, prevSibling: KanectaItem | null) => void;
-  onOutdent: (item: KanectaItem) => void;
+  onOutdent: () => void;
   onNavigateToId: (id: string) => void;
   onExpandToDepth: (item: KanectaItem, depth: number | 'all') => void;
   onRecordClipboard: (item: KanectaItem, type: string, typeId: string) => void;
@@ -128,7 +128,7 @@ function TreeBranch({
           onDelete={() => onDelete(item)}
           onEdit={(value) => onEdit(item, value)}
           onIndent={() => { const idx = items.findIndex((i) => i.id === item.id); onIndent(item, idx > 0 ? items[idx - 1] : null); }}
-          onOutdent={() => onOutdent(item)}
+          onOutdent={onOutdent}
           onExpandToDepth={(depth) => onExpandToDepth(item, depth)}
           onRecordClipboard={(type, typeId) => onRecordClipboard(item, type, typeId)}
           onRecordViewed={(type, typeId) => onRecordViewed(item, type, typeId)}
@@ -407,12 +407,9 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
     [moveMutation, setExpandedIds],
   );
 
-  const handleOutdent = useCallback(
-    (_item: KanectaItem) => {
-      // outdent: move up to grandparent — placeholder for Phase 2
-    },
-    [],
-  );
+  const handleOutdent = useCallback(() => {
+    // outdent: move up to grandparent — placeholder for Phase 2
+  }, []);
 
   const handleRecordClipboard = useCallback(
     (item: KanectaItem, type: string, typeId: string) => {

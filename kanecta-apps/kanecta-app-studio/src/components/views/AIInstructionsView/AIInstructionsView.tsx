@@ -40,17 +40,20 @@ export function AIInstructionsView() {
   // Auto-select first skill when list loads
   useEffect(() => {
     if (skills.length > 0 && selectedId === null) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedId(skills[0].id);
     }
   }, [skills, selectedId]);
 
   // Sync draft when file loads or selection changes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (skill) setDraft(skill.content);
   }, [skill]);
 
   // Reset to view tab when selection changes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTab('view');
   }, [selectedId]);
 

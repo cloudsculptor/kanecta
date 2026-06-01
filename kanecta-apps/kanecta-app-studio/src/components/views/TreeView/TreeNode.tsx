@@ -77,17 +77,20 @@ export function TreeNode({
   openOverlay,
 }: TreeNodeProps) {
   const [editing, setEditing] = useState(false);
+  const [initialDraft, setInitialDraft] = useState('');
   const draftRef = useRef('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const resolveId = useItemLookup();
 
   const startEdit = () => {
     draftRef.current = item.value;
+    setInitialDraft(item.value);
     setEditing(true);
   };
 
   useEffect(() => {
     if (autoFocusEdit) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       startEdit();
       onAutoFocused?.();
     }
@@ -135,7 +138,7 @@ export function TreeNode({
 
         {editing && !isSynthetic ? (
           <TreeNodeEditor
-            value={draftRef.current}
+            value={initialDraft}
             onChange={(val) => { draftRef.current = val; }}
             onCommit={commitEdit}
             onAbort={abortEdit}
