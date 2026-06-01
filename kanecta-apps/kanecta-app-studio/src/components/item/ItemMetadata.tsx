@@ -76,7 +76,7 @@ export function ItemMetadata({ item }: ItemMetadataProps) {
     if (val.startsWith('custom:')) {
       mutation.mutate({ typeId: val.slice(7) });
     } else {
-      mutation.mutate({ type: val as KanectaItem['type'], typeId: null });
+      mutation.mutate({ type: val as KanectaItem['type'], typeId: undefined });
     }
   };
 

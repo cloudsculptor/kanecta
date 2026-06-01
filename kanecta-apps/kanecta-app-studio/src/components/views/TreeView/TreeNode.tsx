@@ -11,7 +11,6 @@ import Looks3Icon from '@mui/icons-material/Looks3';
 import Looks4Icon from '@mui/icons-material/Looks4';
 import Looks5Icon from '@mui/icons-material/Looks5';
 import AddBoxIcon from '@mui/icons-material/AddBox';
-import AddBoxRoundedIcon from '@mui/icons-material/AddBoxRounded';
 import DataObjectIcon from '@mui/icons-material/DataObject';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DifferenceOutlinedIcon from '@mui/icons-material/DifferenceOutlined';

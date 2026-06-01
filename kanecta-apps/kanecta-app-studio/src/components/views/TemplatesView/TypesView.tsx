@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import type { ItemType } from '../../../types/kanecta';
 import type { ViewMeta } from '../../../lib/viewMeta';
 import { useViewLocation } from '../../../context/LocationContext';
 
@@ -267,7 +268,7 @@ function DetailPane({ type, schema, onSchemaChange, initialTab = 'view' }: Detai
         results.push({ ok: true, message: '"jsonSchema" is a valid JSON Schema' });
       } else {
         for (const err of ajv.errors ?? []) {
-          results.push({ ok: false, message: `jsonSchema${err.instancePath || ''}: ${err.message}` });
+          results.push({ ok: false, message: `jsonSchema${err.dataPath || ''}: ${err.message}` });
         }
       }
     } else {
@@ -433,7 +434,7 @@ export function TypesView() {
         <TypeList
           selectedTypeId={selectedType?.id ?? null}
           onSelect={(t) => void handleSelect(t)}
-          onCreateItem={(t) => void getApi().items.create({ value: `New ${t.value}`, type: t.value })}
+          onCreateItem={(t) => void getApi().items.create({ value: `New ${t.value}`, type: t.value as ItemType })}
           headerActions={
             <button className="TypesView-btn" onClick={handleStartAdding} title="New type">+</button>
           }

@@ -163,7 +163,7 @@ function TreeBranch({
 }
 
 export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
-  const { setItemId } = useViewLocation(TreeViewMeta.uuid);
+  useViewLocation(TreeViewMeta.uuid);
   const { getApi, activeWorkspaceId } = useWorkspaceStore();
   const { setFocusedItem, focusedItemId } = useUiStore();
   const qc = useQueryClient();

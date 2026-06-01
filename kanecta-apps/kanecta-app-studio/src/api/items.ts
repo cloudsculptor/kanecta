@@ -1,7 +1,6 @@
 import type { ApiClient } from './client';
 import type {
   KanectaItem,
-  KanectaItemWithChildren,
   Annotation,
   Relationship,
   HistoryEntry,

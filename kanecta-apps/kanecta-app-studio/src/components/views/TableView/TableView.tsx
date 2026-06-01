@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import type { ItemType } from '../../../types/kanecta';
 import type { ViewMeta } from '../../../lib/viewMeta';
 import { useViewLocation } from '../../../context/LocationContext';
 
@@ -84,14 +85,14 @@ export function TableView() {
         <TypeList
           selectedTypeId={selectedType?.id ?? null}
           onSelect={setSelectedType}
-          onCreateItem={(t) => void getApi().items.create({ value: `New ${t.value}`, type: t.value })}
+          onCreateItem={(t) => void getApi().items.create({ value: `New ${t.value}`, type: t.value as ItemType })}
         />
       </div>
       <div className="TableView-grid">
         {!selectedType && (
           <div className="TableView-empty">Select a type to view its items</div>
         )}
-        {selectedType && schema && columnDefs.length === 0 && (
+        {selectedType && !!schema && columnDefs.length === 0 && (
           <div className="TableView-empty">No schema fields defined for this type</div>
         )}
         {selectedType && columnDefs.length > 0 && typeItems.length === 0 && (

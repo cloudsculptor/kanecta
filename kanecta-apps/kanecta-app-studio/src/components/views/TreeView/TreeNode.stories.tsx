@@ -58,6 +58,11 @@ function TreeNodeDemo({ item, confidence }: { item: KanectaItem; confidence?: Ka
       onEdit={async (v) => alert(`edit: ${v}`)}
       onIndent={() => alert('indent')}
       onOutdent={() => alert('outdent')}
+      onNavigateToId={() => {}}
+      onExpandToDepth={() => {}}
+      onRecordClipboard={() => {}}
+      onRecordViewed={() => {}}
+      onCopyAs={() => {}}
     />
   );
 }
@@ -115,6 +120,11 @@ export const ClickToEdit: Story = {
             onEdit={async (v) => setValue(v)}
             onIndent={() => {}}
             onOutdent={() => {}}
+            onNavigateToId={() => {}}
+            onExpandToDepth={() => {}}
+            onRecordClipboard={() => {}}
+            onRecordViewed={() => {}}
+            onCopyAs={() => {}}
           />
           <p style={{ fontSize: 11, color: '#999', marginTop: 8 }}>Current value: <strong>{value}</strong></p>
         </div>
@@ -148,6 +158,11 @@ export const EditShortItems: Story = {
               onEdit={async (next) => setValues((vs) => vs.map((x, j) => (j === i ? next : x)))}
               onIndent={() => {}}
               onOutdent={() => {}}
+              onNavigateToId={() => {}}
+              onExpandToDepth={() => {}}
+              onRecordClipboard={() => {}}
+              onRecordViewed={() => {}}
+              onCopyAs={() => {}}
             />
           ))}
         </div>

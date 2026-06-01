@@ -2,11 +2,7 @@ import Fab from '@mui/material/Fab';
 import { useLocation } from '../../context/LocationContext';
 import './BottomBar.scss';
 
-interface BottomBarProps {
-  onHome: () => void;
-}
-
-export function BottomBar({ onHome }: BottomBarProps) {
+export function BottomBar() {
   const { overlayOpen, openOverlay, closeOverlay } = useLocation();
 
   return (
