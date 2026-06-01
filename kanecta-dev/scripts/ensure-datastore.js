@@ -341,7 +341,7 @@ async function wizard() {
   return { datastorePath, apiPort, studioPort, systemItemsDir };
 }
 
-function syncSystemItems(datastorePath, systemItemsDir) {
+async function syncSystemItems(datastorePath, systemItemsDir) {
   if (!systemItemsDir) {
     console.log('\n  system items check: skipped (systemItemsDir not configured)');
     return;
@@ -373,49 +373,68 @@ function syncSystemItems(datastorePath, systemItemsDir) {
     }
   }
 
-  // Step 1: non-type items only
-  const nonTypeItems = allSystemItems.filter(item => item.meta.type !== 'type');
-  console.log(`  found ${nonTypeItems.length} non-type system item(s) in systemItemsDir`);
-
-  // Steps 2+3: check existence, copy missing
+  // Calculate: non-type items missing from the datastore
   const dataRoot = path.join(datastorePath, '.kanecta', 'data');
-  const added = [];
+  const nonTypeItems = allSystemItems.filter(item => item.meta.type !== 'type');
+  const itemsToAdd = nonTypeItems.filter(({ id }) =>
+    !fs.existsSync(path.join(dataRoot, id.slice(0, 2), id.slice(2, 4), id, 'metadata.json'))
+  );
 
-  for (const item of nonTypeItems) {
-    const { id, meta, sourcePath } = item;
+  // Calculate: types required by those items that are missing from .kanecta/types
+  const typesRoot = path.join(datastorePath, '.kanecta', 'types');
+  const typeIds = [...new Set(itemsToAdd.map(i => i.meta.typeId).filter(Boolean))];
+  const typesToAdd = allSystemItems.filter(i =>
+    typeIds.includes(i.id) &&
+    !fs.existsSync(path.join(typesRoot, i.id.slice(0, 2), i.id.slice(2, 4), i.id, 'metadata.json'))
+  );
+
+  if (itemsToAdd.length === 0 && typesToAdd.length === 0) {
+    console.log('  system items check: all system items already present');
+    return;
+  }
+
+  // Show proposed changes
+  console.log('\n  Proposed changes:');
+  if (itemsToAdd.length > 0) {
+    console.log(`\n  Items to add to .kanecta/data (${itemsToAdd.length}):`);
+    for (const { id, meta } of itemsToAdd) {
+      console.log(`    + "${meta.value || id}"  (${id})`);
+    }
+  }
+  if (typesToAdd.length > 0) {
+    console.log(`\n  Types to add to .kanecta/types (${typesToAdd.length}):`);
+    for (const { id, meta } of typesToAdd) {
+      console.log(`    + "${meta.value || id}"  (${id})`);
+    }
+  }
+
+  // Prompt for confirmation
+  if (!process.stdin.isTTY) {
+    console.log('\n  system items check: non-interactive session, skipping apply');
+    return;
+  }
+
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const answer = await ask(rl, '\n  Apply these changes? [Y/n]: ');
+  rl.close();
+
+  if (answer.toLowerCase() === 'n') {
+    console.log('  system items check: skipped by user');
+    return;
+  }
+
+  // Apply
+  for (const { id, meta, sourcePath } of itemsToAdd) {
     const destPath = path.join(dataRoot, id.slice(0, 2), id.slice(2, 4), id);
-    if (fs.existsSync(path.join(destPath, 'metadata.json'))) continue;
-
     fs.mkdirSync(destPath, { recursive: true });
     for (const file of fs.readdirSync(sourcePath)) {
       fs.copyFileSync(path.join(sourcePath, file), path.join(destPath, file));
     }
-    console.log(`  + added system item: "${meta.value || id}" (${id})`);
-    added.push(item);
+    console.log(`  + added item: "${meta.value || id}" (${id})`);
   }
 
-  if (added.length === 0) {
-    console.log('  system items check: all non-type system items already present');
-    return;
-  }
-
-  // Step 4: collect typeIds referenced by added items
-  const typeIds = [...new Set(added.map(i => i.meta.typeId).filter(Boolean))];
-
-  if (typeIds.length === 0) {
-    console.log('  system items check: no type dependencies to sync');
-    return;
-  }
-
-  // Step 5: add required types to .kanecta/types
-  const typesRoot = path.join(datastorePath, '.kanecta', 'types');
-  const requiredTypes = allSystemItems.filter(i => typeIds.includes(i.id));
-
-  for (const typeItem of requiredTypes) {
-    const { id, meta, sourcePath } = typeItem;
+  for (const { id, meta, sourcePath } of typesToAdd) {
     const destPath = path.join(typesRoot, id.slice(0, 2), id.slice(2, 4), id);
-    if (fs.existsSync(path.join(destPath, 'metadata.json'))) continue;
-
     fs.mkdirSync(destPath, { recursive: true });
     for (const file of fs.readdirSync(sourcePath)) {
       fs.copyFileSync(path.join(sourcePath, file), path.join(destPath, file));
@@ -488,7 +507,7 @@ async function main() {
   if (datastorePath) {
     console.log(`✓ Datastore: ${datastorePath}`);
     checkSpecVersion(datastorePath);
-    syncSystemItems(datastorePath, process.env.KANECTA_SYSTEM_ITEMS_DIR);
+    await syncSystemItems(datastorePath, process.env.KANECTA_SYSTEM_ITEMS_DIR);
     return launch(datastorePath, 9744, 9743);
   }
 
@@ -512,7 +531,7 @@ async function main() {
     }
     console.log(`✓ Datastore: ${datastorePath}`);
     checkSpecVersion(datastorePath);
-    syncSystemItems(datastorePath, data.systemItemsDir);
+    await syncSystemItems(datastorePath, data.systemItemsDir);
     return launch(datastorePath, data.apiPort ?? 9744, data.studioPort ?? 9743, data.systemItemsDir);
   }
 
