@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Kanecta pointer file — ~/.config/kanecta/config.json",
+  "type": "object",
+  "required": ["default", "datastores", "studioPort", "apiPort"],
+  "additionalProperties": false,
+  "properties": {
+    "default": {
+      "type": "string",
+      "description": "Path to the active datastore"
+    },
+    "datastores": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "All known datastore paths"
+    },
+    "studioPort": {
+      "type": "integer",
+      "description": "Port the Studio frontend listens on"
+    },
+    "apiPort": {
+      "type": "integer",
+      "description": "Port the API server listens on"
+    },
+    "systemItemsDir": {
+      "type": "string",
+      "description": "Path to the system items directory (kanecta-system-items/items)"
+    }
+  }
+}
