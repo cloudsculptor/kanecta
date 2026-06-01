@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation } from '../../../context/LocationContext';
 import { IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -75,12 +75,12 @@ export function TreeNode({
   onAutoFocused,
 }: TreeNodeProps) {
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState('');
+  const draftRef = useRef('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const resolveId = useItemLookup();
 
   const startEdit = () => {
-    setDraft(item.value);
+    draftRef.current = item.value;
     setEditing(true);
   };
 
@@ -94,14 +94,14 @@ export function TreeNode({
 
   const commitEdit = async () => {
     setEditing(false);
-    if (draft !== item.value && draft.trim()) {
-      await onEdit(draft.trim());
+    const value = draftRef.current;
+    if (value !== item.value && value.trim()) {
+      await onEdit(value.trim());
     }
   };
 
   const abortEdit = () => {
     setEditing(false);
-    setDraft(item.value);
   };
 
   const isSynthetic = item._synthetic || item._hasObject;
@@ -111,8 +111,7 @@ export function TreeNode({
     <div className={`TreeNode TreeNode--confidence-${item.confidence}${isSynthetic ? ' TreeNode--synthetic' : ''}`}>
       <div
         className={`TreeNode-row${isFocused ? ' TreeNode-row--focused' : ''}`}
-        onClick={onFocus}
-        onDoubleClick={() => { setItemId(item.id); openOverlay(); }}
+        onClick={() => { onFocus(); if (!isSynthetic) startEdit(); }}
       >
         <button
           className={`TreeNode-toggle${!hasChildren ? ' TreeNode-toggle--leaf' : ''}`}
@@ -135,8 +134,8 @@ export function TreeNode({
 
         {editing && !isSynthetic ? (
           <TreeNodeEditor
-            value={draft}
-            onChange={setDraft}
+            value={draftRef.current}
+            onChange={(val) => { draftRef.current = val; }}
             onCommit={commitEdit}
             onAbort={abortEdit}
             onEnter={() => { void commitEdit().then(onAddSibling); }}
@@ -147,7 +146,6 @@ export function TreeNode({
         ) : (
           <span
             className="TreeNode-label"
-            onClick={(e) => { e.stopPropagation(); if (!isSynthetic) startEdit(); }}
           >
             <ItemValue value={item.value} resolveId={resolveId} onNavigate={onNavigateToId} />
           </span>

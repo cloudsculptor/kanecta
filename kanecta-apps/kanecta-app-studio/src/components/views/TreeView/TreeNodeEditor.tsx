@@ -22,22 +22,32 @@ export function TreeNodeEditor({
   onOutdent,
   onDeleteEmpty,
 }: TreeNodeEditorProps) {
-  const ref = useRef<HTMLInputElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    ref.current?.focus();
-    const len = ref.current?.value.length ?? 0;
-    ref.current?.setSelectionRange(len, len);
+    const el = ref.current;
+    if (!el) return;
+    el.textContent = value;
+    el.focus();
+    const range = document.createRange();
+    const sel = window.getSelection();
+    range.selectNodeContents(el);
+    range.collapse(false);
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <input
+    <div
       ref={ref}
       className="TreeNodeEditor"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
+      contentEditable
+      suppressContentEditableWarning
+      onInput={(e) => onChange(e.currentTarget.textContent ?? '')}
       onBlur={onCommit}
       onKeyDown={(e) => {
+        const empty = (e.currentTarget.textContent ?? '') === '';
         if (e.key === 'Enter') {
           e.preventDefault();
           onEnter();
@@ -48,7 +58,7 @@ export function TreeNodeEditor({
         } else if (e.key === 'Escape') {
           e.preventDefault();
           onAbort();
-        } else if (e.key === 'Backspace' && value === '') {
+        } else if (e.key === 'Backspace' && empty) {
           e.preventDefault();
           onDeleteEmpty();
         }
