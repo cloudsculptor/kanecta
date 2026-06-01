@@ -362,16 +362,17 @@ export const TabCommitsEditThenIndents: Story = {
 
 const setItemIdSpy = fn();
 
-export const ClickUpdatesLocationContextItemId: Story = {
-  name: 'Click — calls setItemId with the node\'s id',
+export const DetailsButtonCallsSetItemId: Story = {
+  name: 'Details button — calls setItemId and openOverlay',
   render: () => {
     function Demo() {
       const [focused, setFocused] = useState(false);
       return (
         <div>
           <p style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
-            <strong>Steps:</strong> Click the node row.<br />
-            <strong>Expected:</strong> setItemId is called with the item's id (<code>{baseItem.id}</code>).
+            <strong>Steps:</strong> Hover the node row, then click the Details (logo) button.<br />
+            <strong>Expected:</strong> setItemId is called with the item's id and openOverlay is called.
+            <br /><em>Note: setItemId on row click is wired in TreeView, not TreeNode directly.</em>
           </p>
           <TreeNode
             {...noopProps}
@@ -381,6 +382,7 @@ export const ClickUpdatesLocationContextItemId: Story = {
             onEdit={async () => {}}
             onIndent={() => {}}
             setItemId={setItemIdSpy}
+            openOverlay={fn()}
           />
           <p style={{ fontSize: 11, color: '#999', marginTop: 8 }}>
             setItemId called with: <strong>{setItemIdSpy.mock.calls[0]?.[0] ?? '—'}</strong>
@@ -392,8 +394,14 @@ export const ClickUpdatesLocationContextItemId: Story = {
   },
   play: async ({ canvasElement }) => {
     setItemIdSpy.mockClear();
+    const canvas = within(canvasElement);
 
-    await userEvent.click(within(canvasElement).getByText(baseItem.value));
+    // Hover to reveal the action buttons
+    await userEvent.hover(canvas.getByText(baseItem.value));
+
+    // Click the Details button (Kanecta logo img)
+    const detailsBtn = canvasElement.querySelector('.TreeNode-actions img[alt="Kanecta"]')?.closest('button') as HTMLElement;
+    if (detailsBtn) await userEvent.click(detailsBtn);
 
     await waitFor(() => expect(setItemIdSpy).toHaveBeenCalledWith(baseItem.id));
   },
