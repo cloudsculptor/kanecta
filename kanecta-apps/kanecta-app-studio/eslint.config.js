@@ -19,6 +19,10 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      // ViewMeta constants are intentionally co-located with their view component
+      'react-refresh/only-export-components': 'off',
+    },
   },
   prettierConfig,
 ]);
