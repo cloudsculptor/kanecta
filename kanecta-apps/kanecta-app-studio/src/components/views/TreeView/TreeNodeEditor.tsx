@@ -41,6 +41,8 @@ export function TreeNodeEditor({
   return (
     <div
       ref={ref}
+      role="textbox"
+      aria-multiline="false"
       className="TreeNodeEditor"
       contentEditable
       suppressContentEditableWarning
