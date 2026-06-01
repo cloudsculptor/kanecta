@@ -19,6 +19,54 @@ const POINTER_LOCATIONS = [
 
 const NAME_RE = /^[a-zA-Z0-9-]+$/;
 
+const POINTER_SPEC = JSON.parse(
+  fs.readFileSync(path.join(__dirname, '../pointer-file-spec.json'), 'utf8'),
+);
+
+function checkPointerFileFormat(data, sourceFile) {
+  const spec = POINTER_SPEC;
+  const errors = [];
+
+  for (const key of spec.required) {
+    if (!(key in data)) errors.push(`missing required field "${key}"`);
+  }
+
+  for (const [key, val] of Object.entries(data)) {
+    if (spec.additionalProperties === false && !(key in spec.properties)) {
+      errors.push(`unexpected field "${key}"`);
+      continue;
+    }
+    const propSpec = spec.properties[key];
+    if (!propSpec) continue;
+    if (propSpec.type === 'integer' && !Number.isInteger(val)) {
+      errors.push(`"${key}" must be an integer`);
+    } else if (propSpec.type === 'string' && typeof val !== 'string') {
+      errors.push(`"${key}" must be a string`);
+    } else if (propSpec.type === 'array') {
+      if (!Array.isArray(val)) {
+        errors.push(`"${key}" must be an array`);
+      } else if (propSpec.minItems && val.length < propSpec.minItems) {
+        errors.push(`"${key}" must have at least ${propSpec.minItems} item(s)`);
+      } else if (propSpec.items?.type) {
+        val.forEach((item, i) => {
+          if (typeof item !== propSpec.items.type) {
+            errors.push(`"${key}[${i}]" must be a ${propSpec.items.type}`);
+          }
+        });
+      }
+    }
+  }
+
+  if (errors.length > 0) {
+    console.error(`\n  ✗ Pointer file format is invalid (${sourceFile}):`);
+    errors.forEach(e => console.error(`    - ${e}`));
+    console.error(`\n  Expected format is defined in kanecta-dev/pointer-file-spec.json`);
+    console.error(`  Fix ${sourceFile} and try again.\n`);
+    process.exit(1);
+  }
+  console.log(`  ✓ pointer file format OK (checked against pointer-file-spec.json)`);
+}
+
 function checkPortFree(port) {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
@@ -293,6 +341,89 @@ async function wizard() {
   return { datastorePath, apiPort, studioPort, systemItemsDir };
 }
 
+function syncSystemItems(datastorePath, systemItemsDir) {
+  if (!systemItemsDir) {
+    console.log('\n  system items check: skipped (systemItemsDir not configured)');
+    return;
+  }
+  if (!fs.existsSync(systemItemsDir)) {
+    console.log(`\n  system items check: skipped (systemItemsDir not found: ${systemItemsDir})`);
+    return;
+  }
+
+  console.log('\n  system items check...');
+
+  // Scan systemItemsDir — 2+2+UUID sharding
+  const allSystemItems = [];
+  for (const shard1 of fs.readdirSync(systemItemsDir)) {
+    const shard1Path = path.join(systemItemsDir, shard1);
+    if (!fs.statSync(shard1Path).isDirectory()) continue;
+    for (const shard2 of fs.readdirSync(shard1Path)) {
+      const shard2Path = path.join(shard1Path, shard2);
+      if (!fs.statSync(shard2Path).isDirectory()) continue;
+      for (const itemId of fs.readdirSync(shard2Path)) {
+        const itemPath = path.join(shard2Path, itemId);
+        const metaPath = path.join(itemPath, 'metadata.json');
+        if (!fs.existsSync(metaPath)) continue;
+        try {
+          const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+          allSystemItems.push({ id: itemId, meta, sourcePath: itemPath });
+        } catch {}
+      }
+    }
+  }
+
+  // Step 1: non-type items only
+  const nonTypeItems = allSystemItems.filter(item => item.meta.type !== 'type');
+  console.log(`  found ${nonTypeItems.length} non-type system item(s) in systemItemsDir`);
+
+  // Steps 2+3: check existence, copy missing
+  const dataRoot = path.join(datastorePath, '.kanecta', 'data');
+  const added = [];
+
+  for (const item of nonTypeItems) {
+    const { id, meta, sourcePath } = item;
+    const destPath = path.join(dataRoot, id.slice(0, 2), id.slice(2, 4), id);
+    if (fs.existsSync(path.join(destPath, 'metadata.json'))) continue;
+
+    fs.mkdirSync(destPath, { recursive: true });
+    for (const file of fs.readdirSync(sourcePath)) {
+      fs.copyFileSync(path.join(sourcePath, file), path.join(destPath, file));
+    }
+    console.log(`  + added system item: "${meta.value || id}" (${id})`);
+    added.push(item);
+  }
+
+  if (added.length === 0) {
+    console.log('  system items check: all non-type system items already present');
+    return;
+  }
+
+  // Step 4: collect typeIds referenced by added items
+  const typeIds = [...new Set(added.map(i => i.meta.typeId).filter(Boolean))];
+
+  if (typeIds.length === 0) {
+    console.log('  system items check: no type dependencies to sync');
+    return;
+  }
+
+  // Step 5: add required types to .kanecta/types
+  const typesRoot = path.join(datastorePath, '.kanecta', 'types');
+  const requiredTypes = allSystemItems.filter(i => typeIds.includes(i.id));
+
+  for (const typeItem of requiredTypes) {
+    const { id, meta, sourcePath } = typeItem;
+    const destPath = path.join(typesRoot, id.slice(0, 2), id.slice(2, 4), id);
+    if (fs.existsSync(path.join(destPath, 'metadata.json'))) continue;
+
+    fs.mkdirSync(destPath, { recursive: true });
+    for (const file of fs.readdirSync(sourcePath)) {
+      fs.copyFileSync(path.join(sourcePath, file), path.join(destPath, file));
+    }
+    console.log(`  + added type: "${meta.value || id}" (${id})`);
+  }
+}
+
 async function launch(datastorePath, apiPort, studioPort, systemItemsDir) {
   const [apiFree, studioFree] = await Promise.all([
     checkPortFree(apiPort),
@@ -357,13 +488,15 @@ async function main() {
   if (datastorePath) {
     console.log(`✓ Datastore: ${datastorePath}`);
     checkSpecVersion(datastorePath);
+    syncSystemItems(datastorePath, process.env.KANECTA_SYSTEM_ITEMS_DIR);
     return launch(datastorePath, 9744, 9743);
   }
 
   // 2. Pointer files
   const pointer = resolveFromPointers();
   if (pointer) {
-    const { data } = pointer;
+    const { file: pointerFile, data } = pointer;
+    checkPointerFileFormat(data, pointerFile);
     if (data.datastores.length === 1) {
       datastorePath = data.datastores[0];
     } else {
@@ -379,6 +512,7 @@ async function main() {
     }
     console.log(`✓ Datastore: ${datastorePath}`);
     checkSpecVersion(datastorePath);
+    syncSystemItems(datastorePath, data.systemItemsDir);
     return launch(datastorePath, data.apiPort ?? 9744, data.studioPort ?? 9743, data.systemItemsDir);
   }
 
@@ -389,6 +523,7 @@ async function main() {
   }
   const wizardResult = await wizard();
   checkSpecVersion(wizardResult.datastorePath);
+  syncSystemItems(wizardResult.datastorePath, wizardResult.systemItemsDir);
   launch(wizardResult.datastorePath, wizardResult.apiPort, wizardResult.studioPort, wizardResult.systemItemsDir);
 }
 
