@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { useLocation } from '../../../context/LocationContext';
 import { IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -48,6 +47,8 @@ interface TreeNodeProps {
   isFocused: boolean;
   autoFocusEdit?: boolean;
   onAutoFocused?: () => void;
+  setItemId: (id: string | null) => void;
+  openOverlay: () => void;
 }
 
 export function TreeNode({
@@ -73,6 +74,8 @@ export function TreeNode({
   isFocused,
   autoFocusEdit,
   onAutoFocused,
+  setItemId,
+  openOverlay,
 }: TreeNodeProps) {
   const [editing, setEditing] = useState(false);
   const draftRef = useRef('');
@@ -105,7 +108,6 @@ export function TreeNode({
   };
 
   const isSynthetic = item._synthetic || item._hasObject;
-  const { setItemId, openOverlay } = useLocation();
 
   return (
     <div className={`TreeNode TreeNode--confidence-${item.confidence}${isSynthetic ? ' TreeNode--synthetic' : ''}`}>

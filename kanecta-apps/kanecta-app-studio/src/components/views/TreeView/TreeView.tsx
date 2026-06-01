@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ViewMeta } from '../../../lib/viewMeta';
-import { useViewLocation } from '../../../context/LocationContext';
+import { useViewLocation, useLocation } from '../../../context/LocationContext';
 
 export const TreeViewMeta: ViewMeta = {
   uuid: 'b3a2c1d0-e4f5-4a6b-9c7d-8e0f1a2b3c4d',
@@ -74,6 +74,8 @@ interface TreeBranchProps {
   onRecordViewed: (item: KanectaItem, type: string, typeId: string) => void;
   onCopyObject: (item: KanectaItem) => Promise<void>;
   onCopyAs: (item: KanectaItem) => void;
+  setItemId: (id: string | null) => void;
+  openOverlay: () => void;
 }
 
 function TreeBranch({
@@ -98,6 +100,8 @@ function TreeBranch({
   onRecordViewed,
   onCopyObject,
   onCopyAs,
+  setItemId,
+  openOverlay,
 }: TreeBranchProps) {
   const { data: items = [], isLoading, error } = useTreeData(parentId, workspaceId);
 
@@ -130,6 +134,8 @@ function TreeBranch({
           onRecordViewed={(type, typeId) => onRecordViewed(item, type, typeId)}
           onCopyObject={item._hasObject ? () => onCopyObject(item) : undefined}
           onCopyAs={() => onCopyAs(item)}
+          setItemId={setItemId}
+          openOverlay={openOverlay}
         >
           {expandedIds.has(item.id) && (
             <TreeBranch
@@ -154,6 +160,8 @@ function TreeBranch({
               onRecordViewed={onRecordViewed}
               onCopyObject={onCopyObject}
               onCopyAs={onCopyAs}
+              setItemId={setItemId}
+              openOverlay={openOverlay}
             />
           )}
         </TreeNode>
@@ -164,6 +172,7 @@ function TreeBranch({
 
 export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
   const { setItemId } = useViewLocation(TreeViewMeta.uuid);
+  const { openOverlay } = useLocation();
   const { getApi, activeWorkspaceId } = useWorkspaceStore();
   const { setFocusedItem, focusedItemId } = useUiStore();
   const qc = useQueryClient();
@@ -347,8 +356,8 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
   );
 
   const handleFocus = useCallback(
-    (item: KanectaItem) => { setFocusedItem(item.id); },
-    [setFocusedItem],
+    (item: KanectaItem) => { setFocusedItem(item.id); setItemId(item.id); },
+    [setFocusedItem, setItemId],
   );
 
   const handleEdit = useCallback(
@@ -474,6 +483,8 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
     onRecordViewed: handleRecordViewed,
     onCopyObject: handleCopyObject,
     onCopyAs: handleCopyAs,
+    setItemId,
+    openOverlay,
   };
 
   return (
