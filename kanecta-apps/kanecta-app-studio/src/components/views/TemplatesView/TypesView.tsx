@@ -275,7 +275,7 @@ function DetailPane({ type, schema, onSchemaChange, initialTab = 'view' }: Detai
         results.push({ ok: true, message: '"jsonSchema" is a valid JSON Schema' });
       } else {
         for (const err of ajv.errors ?? []) {
-          results.push({ ok: false, message: `jsonSchema${(err as Record<string, string>).instancePath || ''}: ${err.message}` });
+          results.push({ ok: false, message: `jsonSchema${(err as unknown as Record<string, string>).instancePath || ''}: ${err.message}` });
         }
       }
     } else {
