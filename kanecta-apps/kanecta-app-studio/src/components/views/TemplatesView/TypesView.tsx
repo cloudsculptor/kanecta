@@ -422,7 +422,7 @@ export function TypesView() {
   return (
     <div className="TypesView">
       <div className="TypesView-toolbar">
-        <button className="TypesView-btn TypesView-btn--auto TypesView-btn--icon" onClick={() => setSyncOpen(true)}>
+        <button className="TypesView-btn TypesView-btn--auto TypesView-btn--icon" disabled onClick={() => setSyncOpen(true)}>
           <SyncIcon className="TypesView-btn-icon" />
           Sync types
         </button>
