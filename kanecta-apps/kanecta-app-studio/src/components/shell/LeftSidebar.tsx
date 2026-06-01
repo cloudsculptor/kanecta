@@ -42,7 +42,7 @@ type NavEntry = NavItem | { divider: true };
 
 const NAV_ITEMS: NavEntry[] = [
   { view: 'tree', label: 'Tree', icon: <AccountTreeIcon fontSize="small" /> },
-  { view: 'templates', label: 'Templates', icon: <DashboardCustomizeIcon fontSize="small" /> },
+  { view: 'types', label: 'Templates', icon: <DashboardCustomizeIcon fontSize="small" /> },
   { view: 'table', label: 'Table', icon: <TableChartIcon fontSize="small" /> },
   { view: 'combinator', label: 'Combinator', icon: <MergeTypeIcon fontSize="small" /> },
   { view: 'ai-instructions', label: 'AI Instructions', icon: <PsychologyIcon fontSize="small" /> },

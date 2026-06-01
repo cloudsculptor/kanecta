@@ -168,7 +168,9 @@ export const EditShortItems: Story = {
 const noopProps = {
   isExpanded: false,
   hasChildren: false,
+  isFocused: false,
   onToggle: () => {},
+  onFocus: () => {},
   onZoom: () => {},
   onAddChild: () => {},
   onAddSibling: () => {},
