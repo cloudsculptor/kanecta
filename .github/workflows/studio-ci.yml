@@ -22,7 +22,7 @@ jobs:
         run: npm run lint
       - name: Type check
         working-directory: kanecta-apps/kanecta-app-studio
-        run: npx tsc -b --noEmit
+        run: npm run typecheck
 
   unit-tests:
     name: Unit tests
