@@ -6,6 +6,7 @@
   justify-content: center;
   overflow: hidden;
   background: var(--sidebar-bg, transparent);
+  padding: 4px;
 
   &-item {
     display: flex;
