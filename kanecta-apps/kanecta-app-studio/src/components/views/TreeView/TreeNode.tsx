@@ -139,7 +139,7 @@ export function TreeNode({
             onCommit={commitEdit}
             onAbort={abortEdit}
             onEnter={() => { void commitEdit().then(onAddSibling); }}
-            onIndent={onIndent}
+            onIndent={() => { void commitEdit().then(onIndent); }}
             onOutdent={onOutdent}
             onDeleteEmpty={onDelete}
           />
