@@ -893,7 +893,9 @@ app.delete('/app/studio/starred/:id', (req, res) => {
 app.get('/app/studio/sync-system-items', (_req, res) => {
   const commonDir = process.env.KANECTA_SYSTEM_ITEMS_DIR;
   if (!commonDir || !fs.existsSync(commonDir)) return res.json([]);
-  const results = [];
+
+  // Step 1: load all items from system-items
+  const allItems = [];
   try {
     for (const s1 of fs.readdirSync(commonDir)) {
       const d1 = path.join(commonDir, s1);
@@ -902,17 +904,37 @@ app.get('/app/studio/sync-system-items', (_req, res) => {
         const d2 = path.join(d1, s2);
         if (!fs.statSync(d2).isDirectory()) continue;
         for (const id of fs.readdirSync(d2)) {
-          const typePath = path.join(d2, id, 'type.json');
-          if (!fs.existsSync(typePath)) continue;
+          const metaPath = path.join(d2, id, 'metadata.json');
+          if (!fs.existsSync(metaPath)) continue;
           try {
-            const schema = JSON.parse(fs.readFileSync(typePath, 'utf8'));
-            const title = schema.jsonSchema?.title || id;
-            results.push({ folderId: id, title, schema });
+            const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+            allItems.push({ id, meta, dir: path.join(d2, id) });
           } catch {}
         }
       }
     }
   } catch (err) { return res.status(500).json({ error: err.message }); }
+
+  // Step 2: find non-type items (instances)
+  const instances = allItems.filter(({ meta }) => meta.type !== 'type');
+
+  // Step 3: collect typeIds used by those instances
+  const usedTypeIds = new Set(instances.map(({ meta }) => meta.typeId).filter(Boolean));
+
+  // Step 4: type definitions NOT used internally by system-items instances
+  const typeDefs = allItems.filter(({ id, meta }) => meta.type === 'type' && !usedTypeIds.has(id));
+
+  const results = [];
+  for (const { id, dir } of typeDefs) {
+    const typePath = path.join(dir, 'type.json');
+    if (!fs.existsSync(typePath)) continue;
+    try {
+      const schema = JSON.parse(fs.readFileSync(typePath, 'utf8'));
+      const title = schema.jsonSchema?.title || id;
+      results.push({ folderId: id, title, schema });
+    } catch {}
+  }
+
   results.sort((a, b) => a.title.localeCompare(b.title));
   res.json(results);
 });
