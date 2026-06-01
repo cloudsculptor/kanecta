@@ -249,9 +249,35 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
   const createMutation = useMutation({
     mutationFn: (payload: { value: string; parentId?: string }) =>
       api.items.create({ value: payload.value, type: 'text', parentId: payload.parentId }),
-    onSuccess: (newItem, vars) => {
-      invalidate(vars.parentId ?? null);
+    onMutate: async (vars) => {
+      const key = ['tree-children', vars.parentId ?? null, activeWorkspaceId];
+      await qc.cancelQueries({ queryKey: key });
+      const previous = qc.getQueryData(key);
+      const tempId = `temp-${Date.now()}`;
+      const tempItem: KanectaItem = {
+        id: tempId,
+        value: vars.value,
+        type: 'text',
+        confidence: null,
+        parentId: vars.parentId,
+        sortOrder: 0,
+        tags: [],
+        createdAt: null,
+        modifiedAt: null,
+        childCount: 0,
+      };
+      qc.setQueryData(key, (old: KanectaItem[] = []) => [...old, tempItem]);
+      return { previous, key, tempId };
+    },
+    onSuccess: (newItem, vars, context) => {
+      const key = ['tree-children', vars.parentId ?? null, activeWorkspaceId];
+      qc.setQueryData(key, (old: KanectaItem[] = []) =>
+        old.map((item) => (item.id === context?.tempId ? newItem : item))
+      );
       setFocusNewItemId(newItem.id);
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.key) qc.setQueryData(context.key, context.previous);
     },
   });
 
