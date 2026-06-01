@@ -66,7 +66,7 @@ interface TreeBranchProps {
   onAddChild: (item: KanectaItem) => void;
   onDelete: (item: KanectaItem) => void;
   onEdit: (item: KanectaItem, value: string) => Promise<void>;
-  onIndent: (item: KanectaItem) => void;
+  onIndent: (item: KanectaItem, prevSibling: KanectaItem | null) => void;
   onOutdent: (item: KanectaItem) => void;
   onNavigateToId: (id: string) => void;
   onExpandToDepth: (item: KanectaItem, depth: number | 'all') => void;
@@ -123,7 +123,7 @@ function TreeBranch({
           onAddChild={() => onAddChild(item)}
           onDelete={() => onDelete(item)}
           onEdit={(value) => onEdit(item, value)}
-          onIndent={() => onIndent(item)}
+          onIndent={() => { const idx = items.findIndex((i) => i.id === item.id); onIndent(item, idx > 0 ? items[idx - 1] : null); }}
           onOutdent={() => onOutdent(item)}
           onExpandToDepth={(depth) => onExpandToDepth(item, depth)}
           onRecordClipboard={(type, typeId) => onRecordClipboard(item, type, typeId)}
@@ -380,16 +380,27 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
     [deleteMutation],
   );
 
-  const handleIndent = useCallback(
-    (_item: KanectaItem) => {
-      // indent: move under previous sibling — complex; placeholder for Phase 2
+  const moveMutation = useMutation({
+    mutationFn: ({ id, newParentId }: { id: string; newParentId: string; oldParentId: string | null }) =>
+      api.items.update(id, { parentId: newParentId }),
+    onSuccess: (_, vars) => {
+      invalidate(vars.oldParentId);
+      invalidate(vars.newParentId);
     },
-    [],
+  });
+
+  const handleIndent = useCallback(
+    (item: KanectaItem, prevSibling: KanectaItem | null) => {
+      if (!prevSibling) return;
+      setExpandedIds((prev) => new Set([...prev, prevSibling.id]));
+      moveMutation.mutate({ id: item.id, newParentId: prevSibling.id, oldParentId: item.parentId ?? null });
+    },
+    [moveMutation, setExpandedIds],
   );
 
   const handleOutdent = useCallback(
     (_item: KanectaItem) => {
-      // outdent: move up to grandparent — complex; placeholder for Phase 2
+      // outdent: move up to grandparent — placeholder for Phase 2
     },
     [],
   );

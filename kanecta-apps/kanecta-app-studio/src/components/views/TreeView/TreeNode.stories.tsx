@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { userEvent, expect, fn, within, waitFor } from 'storybook/test';
 import { TreeNode } from './TreeNode';
 import type { KanectaItem } from '../../../types/kanecta';
 
@@ -153,5 +154,181 @@ export const EditShortItems: Story = {
       );
     }
     return <MultiDemo />;
+  },
+};
+
+// ─── Tab-to-indent stories ───────────────────────────────────────────────────
+
+const noopProps = {
+  isExpanded: false,
+  hasChildren: false,
+  onToggle: () => {},
+  onZoom: () => {},
+  onAddChild: () => {},
+  onAddSibling: () => {},
+  onDelete: () => {},
+  onOutdent: () => {},
+  onNavigateToId: () => {},
+  onExpandToDepth: () => {},
+  onRecordClipboard: () => {},
+  onRecordViewed: () => {},
+  onCopyAs: () => {},
+};
+
+// Spies defined at module level so play functions can reference them
+const indentSpy = fn();
+const editSpy = fn().mockResolvedValue(undefined);
+const indentAfterEditSpy = fn();
+
+export const TabCallsIndentOnSecondSibling: Story = {
+  name: 'Tab — calls onIndent when editing the second of two siblings',
+  render: () => {
+    function Demo() {
+      const [focused, setFocused] = useState<string | null>(null);
+      return (
+        <div>
+          <p style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
+            <strong>Steps:</strong> Click "Second item" to enter edit mode, then press Tab.<br />
+            <strong>Expected:</strong> onIndent is called once; no tab character is inserted.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TreeNode
+              {...noopProps}
+              item={{ ...baseItem, id: '1', value: 'First item', childCount: 0 }}
+              isFocused={focused === '1'}
+              onFocus={() => setFocused('1')}
+              onEdit={async () => {}}
+              onIndent={fn()}
+            />
+            <TreeNode
+              {...noopProps}
+              item={{ ...baseItem, id: '2', value: 'Second item', childCount: 0 }}
+              isFocused={focused === '2'}
+              onFocus={() => setFocused('2')}
+              onEdit={async () => {}}
+              onIndent={indentSpy}
+            />
+          </div>
+        </div>
+      );
+    }
+    return <Demo />;
+  },
+  play: async ({ canvasElement }) => {
+    indentSpy.mockClear();
+    const canvas = within(canvasElement);
+
+    // Click "Second item" — enters edit mode
+    await userEvent.click(canvas.getByText('Second item'));
+
+    // Wait for the contentEditable editor to appear
+    await waitFor(() => expect(canvasElement.querySelector('[contenteditable]')).not.toBeNull());
+
+    // Press Tab — should call onIndent, not insert a tab
+    await userEvent.keyboard('{Tab}');
+
+    await waitFor(() => expect(indentSpy).toHaveBeenCalledOnce());
+
+    // Confirm no tab character was inserted into the editor
+    const editor = canvasElement.querySelector('[contenteditable]');
+    await expect(editor?.textContent ?? '').not.toContain('\t');
+  },
+};
+
+export const TabOnFirstItemStillCallsIndent: Story = {
+  name: 'Tab — calls onIndent even when item is first; handler decides whether to move',
+  render: () => {
+    function Demo() {
+      const [focused, setFocused] = useState(false);
+      return (
+        <div>
+          <p style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
+            <strong>Steps:</strong> Click "Only item" to enter edit mode, then press Tab.<br />
+            <strong>Expected:</strong> onIndent is called. The handler (not TreeNode) is responsible
+            for doing nothing when there is no previous sibling.
+          </p>
+          <TreeNode
+            {...noopProps}
+            item={{ ...baseItem, id: '1', value: 'Only item', childCount: 0 }}
+            isFocused={focused}
+            onFocus={() => setFocused(true)}
+            onEdit={async () => {}}
+            onIndent={indentSpy}
+          />
+        </div>
+      );
+    }
+    return <Demo />;
+  },
+  play: async ({ canvasElement }) => {
+    indentSpy.mockClear();
+
+    await userEvent.click(within(canvasElement).getByText('Only item'));
+    await waitFor(() => expect(canvasElement.querySelector('[contenteditable]')).not.toBeNull());
+
+    await userEvent.keyboard('{Tab}');
+
+    await waitFor(() => expect(indentSpy).toHaveBeenCalledOnce());
+  },
+};
+
+export const TabCommitsEditThenIndents: Story = {
+  name: 'Tab — commits edited text before calling onIndent',
+  render: () => {
+    function Demo() {
+      const [focused, setFocused] = useState<string | null>(null);
+      const [values, setValues] = useState(['First item', 'Second item']);
+      return (
+        <div>
+          <p style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
+            <strong>Steps:</strong> Click "Second item", clear the text, type "Updated text", press Tab.<br />
+            <strong>Expected:</strong> onEdit is called with "Updated text" before onIndent fires.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TreeNode
+              {...noopProps}
+              item={{ ...baseItem, id: '1', value: values[0], childCount: 0 }}
+              isFocused={focused === '1'}
+              onFocus={() => setFocused('1')}
+              onEdit={async (v) => setValues((prev) => [v, prev[1]])}
+              onIndent={fn()}
+            />
+            <TreeNode
+              {...noopProps}
+              item={{ ...baseItem, id: '2', value: values[1], childCount: 0 }}
+              isFocused={focused === '2'}
+              onFocus={() => setFocused('2')}
+              onEdit={editSpy}
+              onIndent={indentAfterEditSpy}
+            />
+          </div>
+          <p style={{ fontSize: 11, color: '#999', marginTop: 8 }}>
+            onEdit called: <strong>{String(editSpy.mock.calls.length > 0)}</strong> —
+            onIndent called: <strong>{String(indentAfterEditSpy.mock.calls.length > 0)}</strong>
+          </p>
+        </div>
+      );
+    }
+    return <Demo />;
+  },
+  play: async ({ canvasElement }) => {
+    editSpy.mockClear();
+    indentAfterEditSpy.mockClear();
+
+    await userEvent.click(within(canvasElement).getByText('Second item'));
+    await waitFor(() => expect(canvasElement.querySelector('[contenteditable]')).not.toBeNull());
+
+    const editor = canvasElement.querySelector('[contenteditable]') as HTMLElement;
+
+    // Clear existing text and type new value
+    await userEvent.clear(editor);
+    await userEvent.type(editor, 'Updated text');
+
+    // Tab should commit the edit then call onIndent
+    await userEvent.keyboard('{Tab}');
+
+    // onEdit must be called with the new value before onIndent fires
+    await waitFor(() => expect(editSpy).toHaveBeenCalledWith('Updated text'));
+    await waitFor(() => expect(indentAfterEditSpy).toHaveBeenCalledOnce());
   },
 };
