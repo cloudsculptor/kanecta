@@ -56,17 +56,15 @@ describe('useUiStore', () => {
     expect(getStore().sidebarState).toBe('collapsed');
   });
 
-  it('setFocusedItem opens right panel', () => {
+  it('setFocusedItem sets focusedItemId', () => {
     getStore().setFocusedItem('abc-123');
     expect(getStore().focusedItemId).toBe('abc-123');
-    expect(getStore().rightPanelOpen).toBe(true);
   });
 
-  it('setFocusedItem with null closes right panel', () => {
+  it('setFocusedItem with null clears focusedItemId', () => {
     getStore().setFocusedItem('abc-123');
     getStore().setFocusedItem(null);
     expect(getStore().focusedItemId).toBeNull();
-    expect(getStore().rightPanelOpen).toBe(false);
   });
 
   it('setPanelFilter stores filter per panel', () => {

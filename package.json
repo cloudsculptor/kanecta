@@ -20,7 +20,9 @@
     "kanecta-apps/kanecta-app-claude"
   ],
   "devDependencies": {
-    "concurrently": "^9.2.1",
-    "husky": "^9.1.7"
+    "concurrently": "^10.0.1",
+    "husky": "^9.1.7",
+    "storybook": "^10.3.5",
+    "@storybook/react-vite": "^10.3.5"
   }
 }
