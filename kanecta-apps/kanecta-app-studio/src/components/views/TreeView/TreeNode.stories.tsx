@@ -63,6 +63,8 @@ function TreeNodeDemo({ item, confidence }: { item: KanectaItem; confidence?: Ka
       onRecordClipboard={() => {}}
       onRecordViewed={() => {}}
       onCopyAs={() => {}}
+      setItemId={() => {}}
+      openOverlay={() => {}}
     />
   );
 }
@@ -125,6 +127,8 @@ export const ClickToEdit: Story = {
             onRecordClipboard={() => {}}
             onRecordViewed={() => {}}
             onCopyAs={() => {}}
+            setItemId={() => {}}
+            openOverlay={() => {}}
           />
           <p style={{ fontSize: 11, color: '#999', marginTop: 8 }}>Current value: <strong>{value}</strong></p>
         </div>
@@ -163,6 +167,8 @@ export const EditShortItems: Story = {
               onRecordClipboard={() => {}}
               onRecordViewed={() => {}}
               onCopyAs={() => {}}
+              setItemId={() => {}}
+              openOverlay={() => {}}
             />
           ))}
         </div>
@@ -188,6 +194,8 @@ const noopProps = {
   onRecordClipboard: () => {},
   onRecordViewed: () => {},
   onCopyAs: () => {},
+  setItemId: () => {},
+  openOverlay: () => {},
 };
 
 // Spies defined at module level so play functions can reference them
