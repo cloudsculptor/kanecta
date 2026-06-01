@@ -46,10 +46,12 @@ const TYPE_COLOURS: Record<KanectaItem['type'], string> = {
   entity: '#e91e63',
   event: '#ff5722',
   text: '#795548',
+  heading: '#546e7a',
   code: '#009688',
   url: '#3f51b5',
   image: '#8bc34a',
   file: '#ffc107',
+  object: '#ab47bc',
 };
 
 const CONFIDENCE_COLOURS: Record<Confidence, string> = {

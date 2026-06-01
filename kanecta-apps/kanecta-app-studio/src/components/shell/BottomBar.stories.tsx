@@ -14,7 +14,6 @@ export default meta;
 type Story = StoryObj<typeof BottomBar>;
 
 export const Default: Story = {
-  args: { onHome: () => {} },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole('button', { name: 'Home' })).toBeInTheDocument();
