@@ -69,7 +69,7 @@ export const useUiStore = create<UiState>()(
       setRightPanelOpen: (rightPanelOpen) => set({ rightPanelOpen }),
 
       setFocusedItem: (focusedItemId) =>
-        set({ focusedItemId }),
+        set({ focusedItemId, rightPanelOpen: focusedItemId !== null }),
 
       setPanelFilter: (panelId, filter) =>
         set((s) => ({ filtersByPanel: { ...s.filtersByPanel, [panelId]: filter } })),
