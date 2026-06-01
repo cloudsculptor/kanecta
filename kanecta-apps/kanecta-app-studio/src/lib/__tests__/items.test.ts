@@ -52,7 +52,7 @@ describe('filterItems', () => {
   const items = [
     makeItem({ value: 'apple note', type: 'note', confidence: 'high', tags: ['fruit'] }),
     makeItem({ value: 'banana claim', type: 'claim', confidence: 'low', tags: ['fruit', 'food'] }),
-    makeItem({ value: 'orange note', type: 'note', confidence: 'high', tags: ['citrus'] }),
+    makeItem({ value: 'orange text', type: 'text', confidence: 'high', tags: ['citrus'] }),
   ];
 
   it('returns all items with empty filter', () => {
