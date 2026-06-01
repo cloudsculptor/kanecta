@@ -602,12 +602,15 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
           <TreeBranch parentId={rootId} {...branchProps} />
         )}
 
-        <button
-          className="TreeView-add-root"
-          onClick={() => createMutation.mutate({ value: '', parentId: rootId ?? undefined })}
-        >
-          <AddIcon sx={{ fontSize: 14 }} />
-        </button>
+        <div className="TreeNode">
+          <div
+            className="TreeNode-row"
+            onClick={() => createMutation.mutate({ value: '', parentId: rootId ?? undefined })}
+          >
+            <button className="TreeNode-toggle TreeNode-toggle--leaf" tabIndex={-1} aria-hidden="true" />
+            <AddIcon className="TreeNode-bullet" />
+          </div>
+        </div>
       </div>
     </div>
 
