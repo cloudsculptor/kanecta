@@ -347,8 +347,8 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
   );
 
   const handleFocus = useCallback(
-    (item: KanectaItem) => { setFocusedItem(item.id); setItemId(item.id); },
-    [setFocusedItem, setItemId],
+    (item: KanectaItem) => { setFocusedItem(item.id); },
+    [setFocusedItem],
   );
 
   const handleEdit = useCallback(
