@@ -58,6 +58,8 @@ function TreeNodeDemo({ item, confidence }: { item: KanectaItem; confidence?: Ka
       onEdit={async (v) => alert(`edit: ${v}`)}
       onIndent={() => alert('indent')}
       onOutdent={() => alert('outdent')}
+      setItemId={() => {}}
+      openOverlay={() => {}}
     />
   );
 }
@@ -115,6 +117,8 @@ export const ClickToEdit: Story = {
             onEdit={async (v) => setValue(v)}
             onIndent={() => {}}
             onOutdent={() => {}}
+            setItemId={() => {}}
+            openOverlay={() => {}}
           />
           <p style={{ fontSize: 11, color: '#999', marginTop: 8 }}>Current value: <strong>{value}</strong></p>
         </div>
@@ -148,6 +152,8 @@ export const EditShortItems: Story = {
               onEdit={async (next) => setValues((vs) => vs.map((x, j) => (j === i ? next : x)))}
               onIndent={() => {}}
               onOutdent={() => {}}
+              setItemId={() => {}}
+              openOverlay={() => {}}
             />
           ))}
         </div>
@@ -173,6 +179,8 @@ const noopProps = {
   onRecordClipboard: () => {},
   onRecordViewed: () => {},
   onCopyAs: () => {},
+  setItemId: () => {},
+  openOverlay: () => {},
 };
 
 // Spies defined at module level so play functions can reference them
@@ -330,5 +338,46 @@ export const TabCommitsEditThenIndents: Story = {
     // onEdit must be called with the new value before onIndent fires
     await waitFor(() => expect(editSpy).toHaveBeenCalledWith('Updated text'));
     await waitFor(() => expect(indentAfterEditSpy).toHaveBeenCalledOnce());
+  },
+};
+
+// ─── LocationContext stories ──────────────────────────────────────────────────
+
+const setItemIdSpy = fn();
+
+export const ClickUpdatesLocationContextItemId: Story = {
+  name: 'Click — calls setItemId with the node\'s id',
+  render: () => {
+    function Demo() {
+      const [focused, setFocused] = useState(false);
+      return (
+        <div>
+          <p style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
+            <strong>Steps:</strong> Click the node row.<br />
+            <strong>Expected:</strong> setItemId is called with the item's id (<code>{baseItem.id}</code>).
+          </p>
+          <TreeNode
+            {...noopProps}
+            item={baseItem}
+            isFocused={focused}
+            onFocus={() => setFocused(true)}
+            onEdit={async () => {}}
+            onIndent={() => {}}
+            setItemId={setItemIdSpy}
+          />
+          <p style={{ fontSize: 11, color: '#999', marginTop: 8 }}>
+            setItemId called with: <strong>{setItemIdSpy.mock.calls[0]?.[0] ?? '—'}</strong>
+          </p>
+        </div>
+      );
+    }
+    return <Demo />;
+  },
+  play: async ({ canvasElement }) => {
+    setItemIdSpy.mockClear();
+
+    await userEvent.click(within(canvasElement).getByText(baseItem.value));
+
+    await waitFor(() => expect(setItemIdSpy).toHaveBeenCalledWith(baseItem.id));
   },
 };
