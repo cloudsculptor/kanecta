@@ -58,6 +58,11 @@ function TreeNodeDemo({ item, confidence }: { item: KanectaItem; confidence?: Ka
       onEdit={async (v) => alert(`edit: ${v}`)}
       onIndent={() => alert('indent')}
       onOutdent={() => alert('outdent')}
+      onNavigateToId={() => {}}
+      onExpandToDepth={() => {}}
+      onRecordClipboard={() => {}}
+      onRecordViewed={() => {}}
+      onCopyAs={() => {}}
       setItemId={() => {}}
       openOverlay={() => {}}
     />
