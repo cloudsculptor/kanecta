@@ -231,7 +231,7 @@ async function wizard() {
   const apiPortInput = await ask(rl, `API port [${studioPort + 1}]: `);
   const apiPort = parseInt(apiPortInput || String(studioPort + 1), 10);
 
-  const defaultCommonTypesDir = path.resolve(__dirname, '../../kanecta-system-items/items');
+  const defaultCommonTypesDir = path.resolve(__dirname, '../../kanecta-system-items/types');
   const systemItemsDirInput = await ask(rl, `System items directory [${defaultCommonTypesDir}]: `);
   const systemItemsDir = expandHome(systemItemsDirInput || defaultCommonTypesDir);
 
