@@ -140,6 +140,7 @@ export function CopyAsDialog({ item, open, onClose, fetchTree }: CopyAsDialogPro
 
   useEffect(() => {
     if (!open || !item) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setError(false);
     setAllEntries([]);

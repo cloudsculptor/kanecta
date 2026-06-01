@@ -66,7 +66,7 @@ export function SyncTypesDialog({ open, onClose }: SyncTypesDialogProps) {
     setImportChecked(allImportChecked ? new Set() : new Set(allImportIds));
   };
   const toggleImport = (id: string) => {
-    setImportChecked(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    setImportChecked(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   };
 
   // Export column checkbox logic
@@ -78,7 +78,7 @@ export function SyncTypesDialog({ open, onClose }: SyncTypesDialogProps) {
     setExportChecked(allExportChecked ? new Set() : new Set(allExportIds));
   };
   const toggleExport = (id: string) => {
-    setExportChecked(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    setExportChecked(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   };
 
   const handleImport = async () => {
