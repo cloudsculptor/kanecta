@@ -82,6 +82,7 @@ function MetaEditor({ typeId, schema, onSchemaChange }: MetaEditorProps) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState(false);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setFields(parseMeta(schema)); setSaveError(null); setSaveOk(false); }, [schema, typeId]);
 
   const set = (key: keyof MetaFields) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -208,6 +209,7 @@ function DetailPane({ type, schema, onSchemaChange, initialTab = 'view' }: Detai
   const [itemMeta, setItemMeta] = useState<string>('');
   const [validateResults, setValidateResults] = useState<{ ok: boolean; message: string }[]>([]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setEditText(schema); setSaveError(null); setSaveOk(false); setValidateResults([]); }, [schema, type.id]);
 
   useEffect(() => {

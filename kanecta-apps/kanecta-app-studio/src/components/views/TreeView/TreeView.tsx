@@ -408,6 +408,7 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
   );
 
   const handleOutdent = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     (_item: KanectaItem) => {
       // outdent: move up to grandparent — placeholder for Phase 2
     },
