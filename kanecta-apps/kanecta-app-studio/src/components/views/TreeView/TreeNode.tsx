@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation } from '../../../context/LocationContext';
 import { IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -46,6 +46,8 @@ interface TreeNodeProps {
   onCopyObject?: () => Promise<void>;
   onCopyAs: () => void;
   isFocused: boolean;
+  autoFocusEdit?: boolean;
+  onAutoFocused?: () => void;
 }
 
 export function TreeNode({
@@ -69,6 +71,8 @@ export function TreeNode({
   onCopyObject,
   onCopyAs,
   isFocused,
+  autoFocusEdit,
+  onAutoFocused,
 }: TreeNodeProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
@@ -79,6 +83,14 @@ export function TreeNode({
     setDraft(item.value);
     setEditing(true);
   };
+
+  useEffect(() => {
+    if (autoFocusEdit) {
+      startEdit();
+      onAutoFocused?.();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const commitEdit = async () => {
     setEditing(false);

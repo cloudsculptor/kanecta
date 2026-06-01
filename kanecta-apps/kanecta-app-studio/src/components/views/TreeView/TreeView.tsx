@@ -57,6 +57,8 @@ interface TreeBranchProps {
   workspaceId?: string;
   expandedIds: Set<string>;
   focusedId: string | null;
+  focusNewItemId: string | null;
+  onClearFocusNewItem: () => void;
   onToggle: (id: string) => void;
   onFocus: (item: KanectaItem) => void;
   onZoom: (item: KanectaItem) => void;
@@ -79,6 +81,8 @@ function TreeBranch({
   workspaceId,
   expandedIds,
   focusedId,
+  focusNewItemId,
+  onClearFocusNewItem,
   onToggle,
   onFocus,
   onZoom,
@@ -109,6 +113,8 @@ function TreeBranch({
           isExpanded={expandedIds.has(item.id)}
           hasChildren={(item.childCount ?? 0) > 0 || expandedIds.has(item.id)}
           isFocused={focusedId === item.id}
+          autoFocusEdit={focusNewItemId === item.id}
+          onAutoFocused={onClearFocusNewItem}
           onToggle={() => onToggle(item.id)}
           onFocus={() => onFocus(item)}
           onZoom={() => onZoom(item)}
@@ -131,6 +137,8 @@ function TreeBranch({
               workspaceId={workspaceId}
               expandedIds={expandedIds}
               focusedId={focusedId}
+              focusNewItemId={focusNewItemId}
+              onClearFocusNewItem={onClearFocusNewItem}
               onToggle={onToggle}
               onFocus={onFocus}
               onZoom={onZoom}
@@ -165,6 +173,7 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
   const [zoomStack, setZoomStack] = useState<BreadcrumbItem[]>([]);
   const [copyAsItem, setCopyAsItem] = useState<KanectaItem | null>(null);
   const [confirmDeleteRoot, setConfirmDeleteRoot] = useState(false);
+  const [focusNewItemId, setFocusNewItemId] = useState<string | null>(null);
   const rootId = zoomedItemId ?? zoomStack[zoomStack.length - 1]?.id ?? null;
 
   const { data: starredList = [] } = useQuery({
@@ -240,7 +249,10 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
   const createMutation = useMutation({
     mutationFn: (payload: { value: string; parentId?: string }) =>
       api.items.create({ value: payload.value, type: 'text', parentId: payload.parentId }),
-    onSuccess: (_, vars) => invalidate(vars.parentId ?? null),
+    onSuccess: (newItem, vars) => {
+      invalidate(vars.parentId ?? null);
+      setFocusNewItemId(newItem.id);
+    },
   });
 
   const updateMutation = useMutation({
@@ -408,6 +420,8 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
     workspaceId: activeWorkspaceId,
     expandedIds,
     focusedId: focusedItemId,
+    focusNewItemId,
+    onClearFocusNewItem: () => setFocusNewItemId(null),
     onToggle: handleToggle,
     onFocus: handleFocus,
     onZoom: handleZoom,
@@ -588,6 +602,12 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
           <TreeBranch parentId={rootId} {...branchProps} />
         )}
 
+        <button
+          className="TreeView-add-root"
+          onClick={() => createMutation.mutate({ value: '', parentId: rootId ?? undefined })}
+        >
+          <AddIcon sx={{ fontSize: 14 }} />
+        </button>
       </div>
     </div>
 
