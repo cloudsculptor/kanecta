@@ -122,6 +122,11 @@ export const ClickToEdit: Story = {
             onEdit={async (v) => setValue(v)}
             onIndent={() => {}}
             onOutdent={() => {}}
+            onNavigateToId={() => {}}
+            onExpandToDepth={() => {}}
+            onRecordClipboard={() => {}}
+            onRecordViewed={() => {}}
+            onCopyAs={() => {}}
             setItemId={() => {}}
             openOverlay={() => {}}
           />
@@ -157,6 +162,11 @@ export const EditShortItems: Story = {
               onEdit={async (next) => setValues((vs) => vs.map((x, j) => (j === i ? next : x)))}
               onIndent={() => {}}
               onOutdent={() => {}}
+              onNavigateToId={() => {}}
+              onExpandToDepth={() => {}}
+              onRecordClipboard={() => {}}
+              onRecordViewed={() => {}}
+              onCopyAs={() => {}}
               setItemId={() => {}}
               openOverlay={() => {}}
             />
