@@ -492,3 +492,143 @@ describe('sample datastore', () => {
     expect(res.body).toHaveLength(35);
   });
 });
+
+// ─── Search ───────────────────────────────────────────────────────────────────
+
+describe('GET /search', () => {
+  it('requires q parameter', async () => {
+    const res = await request(app).get('/search');
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('q is required');
+  });
+
+  it('validates limit is positive integer', async () => {
+    const res = await request(app).get('/search?q=test&limit=0');
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('limit must be a positive integer');
+  });
+
+  it('validates rootId uuid format and existence', async () => {
+    const res1 = await request(app).get('/search?q=test&rootId=bad-uuid');
+    expect(res1.status).toBe(400);
+    expect(res1.body.error).toBe('Invalid UUID format for rootId');
+
+    const res2 = await request(app).get('/search?q=test&rootId=ffffffff-ffff-4fff-bfff-ffffffffffff');
+    expect(res2.status).toBe(404);
+    expect(res2.body.error).toContain('rootId not found');
+  });
+
+  it('searches item value case-insensitively', async () => {
+    ds.create({ value: 'Find Me Here' });
+    ds.create({ value: 'Other node' });
+    
+    const res = await request(app).get('/search?q=find');
+    expect(res.status).toBe(200);
+    expect(res.body.results).toHaveLength(1);
+    expect(res.body.results[0].value).toBe('Find Me Here');
+  });
+
+  it('searches objectData fields', async () => {
+    const typeId = 'bbbbbbbb-cccc-dddd-eeee-ffffffffffff';
+    const hex = typeId.replace(/-/g, '');
+    fs.mkdirSync(path.join(ds.k, 'types', hex.slice(0, 2), hex.slice(2, 4), typeId), { recursive: true });
+    fs.writeFileSync(
+      path.join(ds.k, 'types', hex.slice(0, 2), hex.slice(2, 4), typeId, 'metadata.json'),
+      JSON.stringify({ id: typeId, value: 'mycustomtype' })
+    );
+
+    const item = ds.create({
+      type: 'object',
+      typeId,
+      value: 'Parent node',
+      objectData: { description: 'This matches swipe actions', severity: 'P1' }
+    });
+
+    const res = await request(app).get('/search?q=swipe');
+    expect(res.status).toBe(200);
+    expect(res.body.results).toHaveLength(1);
+    expect(res.body.results[0].id).toBe(item.id);
+  });
+
+  it('searches objectData array fields', async () => {
+    const typeId = 'bbbbbbbb-cccc-dddd-eeee-ffffffffffff';
+    const hex = typeId.replace(/-/g, '');
+    fs.mkdirSync(path.join(ds.k, 'types', hex.slice(0, 2), hex.slice(2, 4), typeId), { recursive: true });
+    fs.writeFileSync(
+      path.join(ds.k, 'types', hex.slice(0, 2), hex.slice(2, 4), typeId, 'metadata.json'),
+      JSON.stringify({ id: typeId, value: 'mycustomtype' })
+    );
+
+    const item = ds.create({
+      type: 'object',
+      typeId,
+      value: 'Parent node',
+      objectData: { tags: ['bug', 'ui', 'frontend'] }
+    });
+
+    const res = await request(app).get('/search?q=front');
+    expect(res.status).toBe(200);
+    expect(res.body.results).toHaveLength(1);
+    expect(res.body.results[0].id).toBe(item.id);
+  });
+
+  it('supports fields query parameter to restrict objectData fields', async () => {
+    const typeId = 'bbbbbbbb-cccc-dddd-eeee-ffffffffffff';
+    const hex = typeId.replace(/-/g, '');
+    fs.mkdirSync(path.join(ds.k, 'types', hex.slice(0, 2), hex.slice(2, 4), typeId), { recursive: true });
+    fs.writeFileSync(
+      path.join(ds.k, 'types', hex.slice(0, 2), hex.slice(2, 4), typeId, 'metadata.json'),
+      JSON.stringify({ id: typeId, value: 'mycustomtype' })
+    );
+
+    const item = ds.create({
+      type: 'object',
+      typeId,
+      value: 'Parent node',
+      objectData: { description: 'matches search query', severity: 'P1' }
+    });
+
+    const res1 = await request(app).get('/search?q=matches&fields=severity');
+    expect(res1.status).toBe(200);
+    expect(res1.body.results).toHaveLength(0);
+
+    const res2 = await request(app).get('/search?q=matches&fields=severity,description');
+    expect(res2.status).toBe(200);
+    expect(res2.body.results).toHaveLength(1);
+    expect(res2.body.results[0].id).toBe(item.id);
+  });
+
+  it('respects rootId subtree scoping', async () => {
+    const typeId = 'bbbbbbbb-cccc-dddd-eeee-ffffffffffff';
+    const hex = typeId.replace(/-/g, '');
+    fs.mkdirSync(path.join(ds.k, 'types', hex.slice(0, 2), hex.slice(2, 4), typeId), { recursive: true });
+    fs.writeFileSync(
+      path.join(ds.k, 'types', hex.slice(0, 2), hex.slice(2, 4), typeId, 'metadata.json'),
+      JSON.stringify({ id: typeId, value: 'mycustomtype' })
+    );
+
+    const r1 = ds.create({ value: 'r1' });
+    const r2 = ds.create({ value: 'r2' });
+
+    const item1 = ds.create({
+      parentId: r1.id,
+      type: 'object',
+      typeId,
+      value: 'item1',
+      objectData: { description: 'this matches target text' }
+    });
+
+    ds.create({
+      parentId: r2.id,
+      type: 'object',
+      typeId,
+      value: 'item2',
+      objectData: { description: 'this also matches target text' }
+    });
+
+    const res = await request(app).get(`/search?q=target&rootId=${r1.id}`);
+    expect(res.status).toBe(200);
+    expect(res.body.results).toHaveLength(1);
+    expect(res.body.results[0].id).toBe(item1.id);
+  });
+});

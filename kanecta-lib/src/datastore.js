@@ -71,6 +71,7 @@ class Datastore {
 
   byTag(tag)                           { return this._adapter.byTag(tag); }
   byType(typeId)                       { return this._adapter.byType(typeId); }
+  query(opts)                          { return this._adapter.query(opts); }
 
   // ─── Tree ──────────────────────────────────────────────────────────────────
 
