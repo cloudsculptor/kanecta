@@ -944,10 +944,12 @@ app.delete('/app/studio/starred/:id', (req, res) => {
 
 // ─── Sync Types ──────────────────────────────────────────────────────────────
 
-app.get('/app/studio/sync-types', (_req, res) => {
-  const commonDir = process.env.KANECTA_COMMON_TYPES_DIR;
+app.get('/app/studio/sync-system-items', (_req, res) => {
+  const commonDir = process.env.KANECTA_SYSTEM_ITEMS_DIR;
   if (!commonDir || !fs.existsSync(commonDir)) return res.json([]);
-  const results = [];
+
+  // Step 1: load all items from system-items
+  const allItems = [];
   try {
     for (const s1 of fs.readdirSync(commonDir)) {
       const d1 = path.join(commonDir, s1);
@@ -956,24 +958,44 @@ app.get('/app/studio/sync-types', (_req, res) => {
         const d2 = path.join(d1, s2);
         if (!fs.statSync(d2).isDirectory()) continue;
         for (const id of fs.readdirSync(d2)) {
-          const typePath = path.join(d2, id, 'type.json');
-          if (!fs.existsSync(typePath)) continue;
+          const metaPath = path.join(d2, id, 'metadata.json');
+          if (!fs.existsSync(metaPath)) continue;
           try {
-            const schema = JSON.parse(fs.readFileSync(typePath, 'utf8'));
-            const title = schema.jsonSchema?.title || id;
-            results.push({ folderId: id, title, schema });
+            const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+            allItems.push({ id, meta, dir: path.join(d2, id) });
           } catch {}
         }
       }
     }
   } catch (err) { return res.status(500).json({ error: err.message }); }
+
+  // Step 2: find non-type items (instances)
+  const instances = allItems.filter(({ meta }) => meta.type !== 'type');
+
+  // Step 3: collect typeIds used by those instances
+  const usedTypeIds = new Set(instances.map(({ meta }) => meta.typeId).filter(Boolean));
+
+  // Step 4: type definitions NOT used internally by system-items instances
+  const typeDefs = allItems.filter(({ id, meta }) => meta.type === 'type' && !usedTypeIds.has(id));
+
+  const results = [];
+  for (const { id, dir } of typeDefs) {
+    const typePath = path.join(dir, 'type.json');
+    if (!fs.existsSync(typePath)) continue;
+    try {
+      const schema = JSON.parse(fs.readFileSync(typePath, 'utf8'));
+      const title = schema.jsonSchema?.title || id;
+      results.push({ folderId: id, title, schema });
+    } catch {}
+  }
+
   results.sort((a, b) => a.title.localeCompare(b.title));
   res.json(results);
 });
 
-app.post('/app/studio/sync-types/import', (req, res) => {
-  const commonDir = process.env.KANECTA_COMMON_TYPES_DIR;
-  if (!commonDir) return res.status(400).json({ error: 'KANECTA_COMMON_TYPES_DIR not configured' });
+app.post('/app/studio/sync-system-items/import', (req, res) => {
+  const commonDir = process.env.KANECTA_SYSTEM_ITEMS_DIR;
+  if (!commonDir) return res.status(400).json({ error: 'KANECTA_SYSTEM_ITEMS_DIR not configured' });
   const ds = openDatastore(res);
   if (!ds) return;
   const { folderIds } = req.body;
@@ -988,16 +1010,16 @@ app.post('/app/studio/sync-types/import', (req, res) => {
       if (!fs.existsSync(typePath)) { errors.push({ folderId, error: 'type.json not found' }); continue; }
       const schema = JSON.parse(fs.readFileSync(typePath, 'utf8'));
       const title = schema.jsonSchema?.title || folderId;
-      const { metadata } = ds.createType(title, { schema });
+      const { metadata } = ds.createType(title, { schema, id: folderId });
       imported.push({ id: metadata.id, value: title });
     } catch (err) { errors.push({ folderId, error: err.message }); }
   }
   res.json({ imported, errors });
 });
 
-app.post('/app/studio/sync-types/export', (req, res) => {
-  const commonDir = process.env.KANECTA_COMMON_TYPES_DIR;
-  if (!commonDir) return res.status(400).json({ error: 'KANECTA_COMMON_TYPES_DIR not configured' });
+app.post('/app/studio/sync-system-items/export', (req, res) => {
+  const commonDir = process.env.KANECTA_SYSTEM_ITEMS_DIR;
+  if (!commonDir) return res.status(400).json({ error: 'KANECTA_SYSTEM_ITEMS_DIR not configured' });
   const { typeIds } = req.body;
   if (!Array.isArray(typeIds) || typeIds.length === 0) return res.status(400).json({ error: 'typeIds required' });
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
@@ -1008,12 +1030,12 @@ app.post('/app/studio/sync-types/export', (req, res) => {
       const shard1 = id.slice(0, 2);
       const shard2 = id.slice(2, 4);
       const srcDir = path.join(root, '.kanecta', 'types', shard1, shard2, id);
-      const typePath = path.join(srcDir, 'type.json');
-      if (!fs.existsSync(typePath)) { errors.push({ id, error: 'type.json not found' }); continue; }
-      const schema = JSON.parse(fs.readFileSync(typePath, 'utf8'));
+      if (!fs.existsSync(srcDir)) { errors.push({ id, error: 'type directory not found' }); continue; }
       const destDir = path.join(commonDir, shard1, shard2, id);
       fs.mkdirSync(destDir, { recursive: true });
-      fs.writeFileSync(path.join(destDir, 'type.json'), JSON.stringify(schema, null, 2));
+      for (const file of fs.readdirSync(srcDir)) {
+        fs.copyFileSync(path.join(srcDir, file), path.join(destDir, file));
+      }
       exported.push({ id });
     } catch (err) { errors.push({ id, error: err.message }); }
   }
