@@ -622,3 +622,117 @@ export const ExpandLevelNoSavedColor: Story = {
     }
   },
 };
+
+// ─── Copy disk location stories ───────────────────────────────────────────────
+
+const configGetSpy = fn();
+
+function mockConfigApi(datastorePath: string) {
+  configGetSpy.mockResolvedValue({ datastorePath });
+  useWorkspaceStore.setState({
+    getApi: (() => ({
+      config: { get: configGetSpy },
+    })) as unknown as ReturnType<typeof useWorkspaceStore.getState>['getApi'],
+  });
+}
+
+// Item whose UUID is known so we can assert the exact expected path
+const diskItem: KanectaItem = {
+  ...baseItem,
+  id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+  value: 'Disk location item',
+  childCount: 0,
+};
+
+function DiskLocationDemo({ item = diskItem }: { item?: KanectaItem }) {
+  return (
+    <TreeNode
+      {...noopProps}
+      item={item}
+      isFocused={false}
+      onFocus={() => {}}
+      onEdit={async () => {}}
+      onIndent={() => {}}
+    />
+  );
+}
+
+export const CopyDiskLocationButton: Story = {
+  name: 'Copy disk location — button present on hover',
+  render: () => <DiskLocationDemo />,
+  play: async ({ canvasElement }) => {
+    mockConfigApi('/home/user/my-datastore');
+    await userEvent.hover(within(canvasElement).getByText('Disk location item'));
+    await expect(within(canvasElement).getByRole('button', { name: 'Copy disk location' })).toBeTruthy();
+  },
+};
+
+export const CopyDiskLocationCallsConfigOnFirstClick: Story = {
+  name: 'Copy disk location — fetches /config on first click',
+  render: () => <DiskLocationDemo />,
+  play: async ({ canvasElement }) => {
+    configGetSpy.mockClear();
+    mockConfigApi('/home/user/datastore');
+    await userEvent.hover(within(canvasElement).getByText('Disk location item'));
+    await userEvent.click(within(canvasElement).getByRole('button', { name: 'Copy disk location' }));
+    await waitFor(() => expect(configGetSpy).toHaveBeenCalledOnce());
+  },
+};
+
+export const CopyDiskLocationCorrectPath: Story = {
+  name: 'Copy disk location — copies correct sharded path to clipboard',
+  render: () => <DiskLocationDemo />,
+  play: async ({ canvasElement }) => {
+    configGetSpy.mockClear();
+    mockConfigApi('/home/user/datastore');
+
+    // UUID: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+    // Stripped: a1b2c3d4e5f67890abcdef1234567890
+    // shard1 = a1, shard2 = b2
+    const expectedPath = '/home/user/datastore/.kanecta/data/a1/b2/a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+
+    const writeTextSpy = fn();
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: writeTextSpy },
+      configurable: true,
+    });
+
+    await userEvent.hover(within(canvasElement).getByText('Disk location item'));
+    await userEvent.click(within(canvasElement).getByRole('button', { name: 'Copy disk location' }));
+
+    await waitFor(() => expect(writeTextSpy).toHaveBeenCalledWith(expectedPath));
+  },
+};
+
+export const CopyDiskLocationCachesConfig: Story = {
+  name: 'Copy disk location — /config is only fetched once across multiple clicks',
+  render: () => <DiskLocationDemo />,
+  play: async ({ canvasElement }) => {
+    configGetSpy.mockClear();
+    mockConfigApi('/home/user/datastore');
+
+    await userEvent.hover(within(canvasElement).getByText('Disk location item'));
+    const btn = within(canvasElement).getByRole('button', { name: 'Copy disk location' });
+
+    await userEvent.click(btn);
+    await userEvent.click(btn);
+    await userEvent.click(btn);
+
+    await waitFor(() => expect(configGetSpy).toHaveBeenCalledOnce());
+  },
+};
+
+export const CopyDiskLocationAfterCopyId: Story = {
+  name: 'Copy disk location — appears after Copy value in action bar',
+  render: () => <DiskLocationDemo />,
+  play: async ({ canvasElement }) => {
+    mockConfigApi('/home/user/datastore');
+    await userEvent.hover(within(canvasElement).getByText('Disk location item'));
+
+    // Verify by checking tooltip title ordering in the DOM
+    const allTitles = Array.from(canvasElement.querySelectorAll('[title]')).map((el) => el.getAttribute('title'));
+    const copyValueTitleIdx = allTitles.indexOf('Copy value');
+    const diskLocTitleIdx = allTitles.indexOf('Copy disk location');
+    await expect(diskLocTitleIdx).toBeGreaterThan(copyValueTitleIdx);
+  },
+};
