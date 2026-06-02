@@ -88,6 +88,8 @@ Each item folder contains:
 
 ### metadata.json Schema
 
+**Source of truth: [`./file-specs/metadata.json`](./file-specs/metadata.json)**
+
 ```json
 {
   "id": "string (UUID v4)",
@@ -118,7 +120,7 @@ Each item folder contains:
 | `id` | yes | Unique identifier for this item (UUID v4) |
 | `parentId` | yes | UUID of parent item. Never null — the `root` node is self-referential (`parentId` equals its own `id`) |
 | `value` | no | Item content. Text string, UUID reference (for symlinks), or null |
-| `type` | yes | Item type. **Primitive:** `string`, `number`, `text`, `heading`, `file`, `symlink`, `url`, `image`, `function`. **Structured:** `object`, `decision`, `annotation`, `claim`, `question`, `task`, `note`, `concept`, `entity`, `event`. **Well-known:** `root`, `system_root`, `app_root`, `component_root`, `data_root`. Canonical list: `1.2.0/types/primitive.json` |
+| `type` | yes | Item type. See [Item Types](#item-types) below for the canonical list. |
 | `typeId` | conditional | If type is `object`, UUID of the type definition. Otherwise null |
 | `owner` | yes | Email or domain of item owner |
 | `license` | no | License identifier (MIT, Apache-2.0, CC-BY, etc.) or null |
@@ -133,6 +135,24 @@ Each item folder contains:
 | `cachedAt` | conditional | ISO8601 timestamp when remote item was last cached. Required for remotes, null for local items |
 | `subscribedAt` | no | ISO8601 timestamp when subscription started. Null if not subscribed |
 | `subscriptionSource` | no | URL or identifier of remote source for updates |
+
+### Item Types
+
+**Source of truth: [`./types/primitive.json`](./types/primitive.json)**
+
+All valid `type` values are defined in `./types/primitive.json`. Implementations must treat that file as authoritative — do not hardcode the type list.
+
+Types are grouped into three categories:
+
+| Category | Description | Types |
+|---|---|---|
+| **primitive** | Basic value containers with no domain-specific meaning | `string`, `number`, `text`, `heading`, `file`, `symlink`, `url`, `image`, `function` |
+| **structured** | Types with defined semantic intent | `object`, `decision`, `annotation`, `claim`, `question`, `task`, `note`, `concept`, `entity`, `event` |
+| **wellKnown** | Reserved system root nodes — not for user data | `root`, `system_root`, `app_root`, `component_root`, `data_root` |
+
+User-created items use `primitive` and `structured` types. `wellKnown` types are created only during datastore initialisation.
+
+---
 
 ### Confidence Levels
 
@@ -337,6 +357,8 @@ Remote items use the same metadata schema as local items. The `cachedAt` field i
 
 ### .kanecta/remotes-index/ — Remote Owner Index
 
+**Source of truth: [`./file-specs/items.json`](./file-specs/items.json)** (shared schema with the type-to-items and tag indexes)
+
 Maps owners to their cached items. Uses the mandatory 2 + 2 + full sharding pattern, keyed by the owner identifier string.
 
 **Structure:**
@@ -365,6 +387,8 @@ This allows fast lookup of "give me everything cached from this owner" without s
 Output folder for the search library (MeiliSearch, Lunr, custom implementation, etc.). Automatically managed by the indexing tool. Should not be edited manually.
 
 ### .kanecta/tags/ — Tag Index Cache
+
+**Source of truth: [`./file-specs/items.json`](./file-specs/items.json)** (shared schema with the type-to-items index)
 
 Reverse index mapping tag names to all items carrying that tag. Uses the mandatory 2 + 2 + full sharding pattern, keyed by tag name.
 
@@ -439,6 +463,8 @@ Both use the mandatory 2 + 2 + full UUID sharding, keyed by type UUID.
 
 #### Type Definitions
 
+**Sources of truth: [`./file-specs/metadata.json`](./file-specs/metadata.json) (metadata.json), [`./file-specs/type.json`](./file-specs/type.json) (type.json), [`./file-specs/object.json.md`](./file-specs/object.json.md) (object.json), [`./file-specs/meta.json.md`](./file-specs/meta.json.md) (meta.json)**
+
 Each custom type is stored as a pair of files under its UUID shard path.
 
 **Structure:**
@@ -508,6 +534,8 @@ The `$id` in `jsonSchema` should follow the pattern `https://kanecta.org/types/{
 When a data item uses a custom type, its `metadata.json` sets `type: "object"` and `typeId` to the type definition UUID.
 
 #### Type-to-Items Index Cache
+
+**Source of truth: [`./file-specs/items.json`](./file-specs/items.json)**
 
 Reverse index mapping type UUIDs to all items of that type. Lives alongside `metadata.json` and `type.json` in the same shard folder.
 
