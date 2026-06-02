@@ -1,0 +1,60 @@
+{
+  "meta": {
+    "icon": "AccountTreeOutlined",
+    "description": "Defines a data pipeline as an ordered sequence of functions, each consuming the previous step's output",
+    "details": "",
+    "keywords": [
+      "pipeline",
+      "workflow",
+      "steps",
+      "automation",
+      "sequence"
+    ],
+    "tags": "",
+    "ai-instructions": {
+      "claude": "A Pipeline is a template — it defines the shape of a run but does not execute. 'inputType' is either a Kanecta type UUID or a TypeScript primitive string. Each step declares the Function UUID to call and the Kanecta type UUID of the object it produces. The output of step N becomes the input of step N+1. To execute a pipeline, create a Pipeline Run item."
+    }
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "pipeline",
+    "title": "Pipeline",
+    "type": "object",
+    "required": [
+      "name",
+      "inputType",
+      "steps"
+    ],
+    "properties": {
+      "name": {
+        "type": "string"
+      },
+      "description": {
+        "type": "string"
+      },
+      "inputType": {
+        "type": "string"
+      },
+      "steps": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "function",
+            "outputType"
+          ],
+          "properties": {
+            "function": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "outputType": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      }
+    }
+  }
+}
