@@ -37,7 +37,18 @@ interface GraphData {
 }
 
 const TYPE_COLOURS: Record<KanectaItem['type'], string> = {
+  string: '#90a4ae',
   number: '#78909c',
+  text: '#795548',
+  heading: '#546e7a',
+  file: '#ffc107',
+  symlink: '#29b6f6',
+  url: '#3f51b5',
+  image: '#8bc34a',
+  function: '#009688',
+  object: '#ab47bc',
+  decision: '#5c6bc0',
+  annotation: '#26a69a',
   claim: '#ff9800',
   question: '#2196f3',
   task: '#9c27b0',
@@ -45,13 +56,6 @@ const TYPE_COLOURS: Record<KanectaItem['type'], string> = {
   concept: '#00bcd4',
   entity: '#e91e63',
   event: '#ff5722',
-  text: '#795548',
-  heading: '#546e7a',
-  code: '#009688',
-  url: '#3f51b5',
-  image: '#8bc34a',
-  file: '#ffc107',
-  object: '#ab47bc',
 };
 
 const CONFIDENCE_COLOURS: Record<Confidence, string> = {

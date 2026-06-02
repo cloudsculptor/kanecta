@@ -17,7 +17,7 @@ export const Concept: Story = { args: { type: 'concept' } };
 export const AllTypes: Story = {
   render: () => (
     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-      {(['claim', 'question', 'task', 'note', 'concept', 'entity', 'event', 'text', 'code', 'url'] as const).map((t) => (
+      {(['claim', 'question', 'task', 'note', 'concept', 'entity', 'event', 'text', 'function', 'url'] as const).map((t) => (
         <TypeBadge key={t} type={t} />
       ))}
     </div>

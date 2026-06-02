@@ -13,25 +13,33 @@ import AddBoxRoundedIcon from '@mui/icons-material/AddBoxRounded';
 import ImageIcon from '@mui/icons-material/Image';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import DataObjectIcon from '@mui/icons-material/DataObject';
+import AbcIcon from '@mui/icons-material/Abc';
+import ShortcutIcon from '@mui/icons-material/Shortcut';
+import BalanceIcon from '@mui/icons-material/Balance';
+import CommentIcon from '@mui/icons-material/Comment';
 import type { SvgIconComponent } from '@mui/icons-material';
 import type { ItemType } from '../types/kanecta';
 
 export const TYPE_ICONS: Record<ItemType, SvgIconComponent> = {
-  number: NumbersIcon,
-  claim: RecordVoiceOverIcon,
-  question: HelpOutlineIcon,
-  task: TaskAltIcon,
-  note: StickyNote2Icon,
-  concept: LightbulbIcon,
-  entity: PersonIcon,
-  event: CalendarTodayIcon,
-  text: StopRoundedIcon,
-  code: CodeIcon,
-  url: LinkIcon,
-  heading: AddBoxRoundedIcon,
-  image: ImageIcon,
-  file: InsertDriveFileIcon,
-  object: DataObjectIcon,
+  string:     AbcIcon,
+  number:     NumbersIcon,
+  text:       StopRoundedIcon,
+  heading:    AddBoxRoundedIcon,
+  file:       InsertDriveFileIcon,
+  symlink:    ShortcutIcon,
+  url:        LinkIcon,
+  image:      ImageIcon,
+  function:   CodeIcon,
+  object:     DataObjectIcon,
+  decision:   BalanceIcon,
+  annotation: CommentIcon,
+  claim:      RecordVoiceOverIcon,
+  question:   HelpOutlineIcon,
+  task:       TaskAltIcon,
+  note:       StickyNote2Icon,
+  concept:    LightbulbIcon,
+  entity:     PersonIcon,
+  event:      CalendarTodayIcon,
 };
 
 export { HelpOutlineIcon as FallbackIcon };

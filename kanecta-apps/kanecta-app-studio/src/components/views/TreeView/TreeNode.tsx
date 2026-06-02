@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material';
+import { IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, List, ListItemButton, ListItemText, CircularProgress } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import AddIcon from '@mui/icons-material/Add';
@@ -15,12 +15,16 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DifferenceOutlinedIcon from '@mui/icons-material/DifferenceOutlined';
 import FileCopyOutlinedIcon from '@mui/icons-material/FileCopyOutlined';
 import CategoryIcon from '@mui/icons-material/Category';
+import TransformIcon from '@mui/icons-material/Transform';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { TreeNodeEditor } from './TreeNodeEditor';
 import { ItemValue } from '../../shared/ItemValue';
 import { DynamicIcon } from '../../shared/DynamicIcon';
 import { useItemLookup } from '../../../hooks/useItemLookup';
+import { useWorkspaceStore } from '../../../store/workspace';
 import { TYPE_ICONS } from '../../../lib/typeIcons';
-import type { KanectaItem } from '../../../types/kanecta';
+import type { KanectaItem, ItemType } from '../../../types/kanecta';
+import type { TypeDefinition } from '../../../api/types';
 import './TreeNode.scss';
 
 interface TreeNodeProps {
@@ -80,7 +84,28 @@ export function TreeNode({
   const [initialDraft, setInitialDraft] = useState('');
   const draftRef = useRef('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [convertOpen, setConvertOpen] = useState(false);
+  const [converting, setConverting] = useState(false);
   const resolveId = useItemLookup();
+  const { getApi } = useWorkspaceStore();
+  const queryClient = useQueryClient();
+
+  const { data: types = [], isLoading: typesLoading } = useQuery({
+    queryKey: ['types'],
+    queryFn: () => getApi().types.list(),
+    enabled: convertOpen,
+  });
+
+  const handleConvert = async (target: TypeDefinition) => {
+    setConverting(true);
+    try {
+      await getApi().items.update(item.id, { type: target.value as ItemType, typeId: target.id });
+      await queryClient.invalidateQueries({ queryKey: ['tree'] });
+      setConvertOpen(false);
+    } finally {
+      setConverting(false);
+    }
+  };
 
   const startEdit = () => {
     draftRef.current = item.value;
@@ -190,6 +215,13 @@ export function TreeNode({
               <FileCopyOutlinedIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
             </IconButton>
           </Tooltip>
+          {!isSynthetic && (
+            <Tooltip title="Convert">
+              <IconButton size="small" onClick={(e) => { e.stopPropagation(); setConvertOpen(true); }}>
+                <TransformIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+              </IconButton>
+            </Tooltip>
+          )}
           {([
             { depth: 2, Icon: LooksTwoIcon, label: 'Expand 2 levels' },
             { depth: 3, Icon: Looks3Icon,   label: 'Expand 3 levels' },
@@ -241,6 +273,33 @@ export function TreeNode({
         <DialogActions>
           <Button onClick={() => setConfirmDelete(false)}>Cancel</Button>
           <Button color="error" onClick={() => { setConfirmDelete(false); onDelete(); }}>Delete</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={convertOpen} onClose={() => !converting && setConvertOpen(false)} onClick={(e) => e.stopPropagation()} maxWidth="xs" fullWidth>
+        <DialogTitle>Convert "{item.value}"</DialogTitle>
+        <DialogContent sx={{ p: 0 }}>
+          {typesLoading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '24px' }}>
+              <CircularProgress size={24} />
+            </div>
+          ) : (
+            <List dense disablePadding>
+              {types.map((t) => (
+                <ListItemButton
+                  key={t.id}
+                  selected={t.value === item.type}
+                  disabled={converting || t.value === item.type}
+                  onClick={() => void handleConvert(t)}
+                >
+                  <ListItemText primary={t.value} secondary={t.value === item.type ? 'current type' : undefined} />
+                </ListItemButton>
+              ))}
+            </List>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConvertOpen(false)} disabled={converting}>Cancel</Button>
         </DialogActions>
       </Dialog>
     </div>

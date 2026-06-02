@@ -10,7 +10,7 @@ import { ITEM_TYPES, CONFIDENCE_LEVELS } from '../../lib/constants';
 import type { KanectaItem } from '../../types/kanecta';
 import './ItemMetadata.scss';
 
-const TOP_TYPES = ['text', 'number', 'heading', 'url', 'file', 'image', 'code', 'object'];
+const TOP_TYPES = ['text', 'number', 'heading', 'url', 'file', 'image', 'function', 'object'];
 const OTHER_TYPES = ITEM_TYPES.filter((t) => !TOP_TYPES.includes(t));
 
 interface ItemMetadataProps {
