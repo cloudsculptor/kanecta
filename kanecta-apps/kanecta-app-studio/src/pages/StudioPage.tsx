@@ -22,6 +22,7 @@ import { AIInstructionsView } from '../components/views/AIInstructionsView/AIIns
 import { ClaudeView } from '../components/views/ClaudeView/ClaudeView';
 import { HomeView } from '../components/views/HomeView/HomeView';
 import { DiagramView } from '../components/views/DiagramView/DiagramView';
+import { FunctionsView } from '../components/views/FunctionsView/FunctionsView';
 import { QuickCapture } from '../components/shared/QuickCapture';
 import { CommandPalette } from '../components/shared/CommandPalette';
 import { SettingsPage } from './SettingsPage';
@@ -102,6 +103,7 @@ function StudioInner() {
       case 'settings': return <SettingsPage />;
       case 'home': return <HomeView />;
       case 'diagram': return <DiagramView />;
+      case 'functions': return <FunctionsView />;
       default:
         return (
           <div style={{ padding: 24, color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>

@@ -22,7 +22,8 @@ export type ViewType =
   | 'claude'
   | 'settings'
   | 'home'
-  | 'diagram';
+  | 'diagram'
+  | 'functions';
 
 export interface PanelConfig {
   id: string;

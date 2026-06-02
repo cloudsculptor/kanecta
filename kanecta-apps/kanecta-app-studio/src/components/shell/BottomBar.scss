@@ -19,4 +19,34 @@
     height: 100%;
     object-fit: contain;
   }
+
+  &-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 12px;
+    border: none;
+    background: none;
+    color: var(--sidebar-fg);
+    cursor: pointer;
+    border-radius: 6px;
+    font-size: 0.6875rem;
+
+    &--active {
+      background: var(--content-bg, #ffffff);
+      color: var(--sidebar-fg-selected);
+      border-radius: 0;
+    }
+
+    .MuiSvgIcon-root {
+      font-size: 32px;
+      width: 32px;
+      height: 32px;
+    }
+  }
+
+  &-item-label {
+    line-height: 1;
+  }
 }

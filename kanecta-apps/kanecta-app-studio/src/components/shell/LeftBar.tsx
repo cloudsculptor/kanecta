@@ -3,10 +3,9 @@ import SchemaIcon from '@mui/icons-material/Schema';
 import BubbleChartIcon from '@mui/icons-material/BubbleChart';
 import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
-import HistoryIcon from '@mui/icons-material/History';
+import FunctionsIcon from '@mui/icons-material/Functions';
 import MergeTypeIcon from '@mui/icons-material/MergeType';
 import PsychologyIcon from '@mui/icons-material/Psychology';
-import StarIcon from '@mui/icons-material/Star';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import type { ViewType } from '../../types/ui';
@@ -23,11 +22,10 @@ const NAV_ITEMS: NavItem[] = [
   { view: 'tree', label: 'Tree', icon: <AccountTreeIcon /> },
   { view: 'types', label: 'Types', icon: <DashboardCustomizeIcon /> },
   { view: 'table', label: 'Table', icon: <TableChartIcon /> },
+  { view: 'functions', label: 'Functions', icon: <FunctionsIcon /> },
   { view: 'diagram', label: 'Diagram', icon: <SchemaIcon /> },
   { view: 'combinator', label: 'Combinator', icon: <MergeTypeIcon /> },
   { view: 'ai-instructions', label: 'AI', icon: <PsychologyIcon /> },
-  { view: 'history', label: 'History', icon: <HistoryIcon /> },
-  { view: 'starred', label: 'Starred', icon: <StarIcon /> },
   { view: 'graph', label: 'Graph', icon: <BubbleChartIcon /> },
   { view: 'quality-control', label: 'Quality', icon: <FactCheckIcon /> },
   { view: 'claude', label: 'Claude', icon: <AutoAwesomeIcon /> },
