@@ -1,0 +1,117 @@
+{
+  "meta": {
+    "icon": "PlayCircleOutlined",
+    "description": "An instance of a Pipeline execution — records the artifact chain and per-step logs produced during a run",
+    "details": "",
+    "keywords": [
+      "pipeline",
+      "run",
+      "execution",
+      "instance",
+      "log",
+      "artifact"
+    ],
+    "tags": "",
+    "ai-instructions": {
+      "claude": "A Pipeline Run is the live state and audit log of a pipeline execution. The 'steps' array is updated after each step completes — steps[N].output holds the Kanecta UUID of the artifact produced, which becomes the input for step N+1 (steps[N+1].input). The Pipeline Run item's children in the Kanecta tree are the artifact objects produced at each step. To resume a failed run, read the last completed step's output UUID and restart from the next step."
+    }
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "pipeline-run",
+    "title": "Pipeline Run",
+    "type": "object",
+    "required": [
+      "pipeline",
+      "status"
+    ],
+    "properties": {
+      "pipeline": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "running",
+          "completed",
+          "failed"
+        ]
+      },
+      "startedAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "completedAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "steps": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "function",
+            "status"
+          ],
+          "properties": {
+            "function": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "input": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "output": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "running",
+                "completed",
+                "failed",
+                "skipped"
+              ]
+            },
+            "error": {
+              "type": "string"
+            },
+            "log": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "level",
+                  "message",
+                  "timestamp"
+                ],
+                "properties": {
+                  "level": {
+                    "type": "string",
+                    "enum": [
+                      "info",
+                      "warn",
+                      "error"
+                    ]
+                  },
+                  "message": {
+                    "type": "string"
+                  },
+                  "timestamp": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

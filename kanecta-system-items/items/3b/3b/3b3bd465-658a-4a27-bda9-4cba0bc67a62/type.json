@@ -1,0 +1,78 @@
+{
+  "meta": {
+    "icon": "FlightTakeoffOutlined",
+    "description": "Pre-flight assessment of implementation blockers and unknowns for a given item",
+    "details": "",
+    "keywords": [
+      "pre-flight",
+      "blocker",
+      "readiness",
+      "gaps",
+      "unknowns",
+      "implementation"
+    ],
+    "tags": "",
+    "ai-instructions": {
+      "claude": ""
+    }
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "preflight-report",
+    "title": "Pre-flight Report",
+    "type": "object",
+    "required": [
+      "subject",
+      "blockers"
+    ],
+    "properties": {
+      "subject": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "assessedBy": {
+        "type": "string"
+      },
+      "blockers": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "category",
+            "description",
+            "severity"
+          ],
+          "properties": {
+            "category": {
+              "type": "string",
+              "enum": [
+                "domain",
+                "codebase",
+                "repro",
+                "acceptance",
+                "context",
+                "other"
+              ]
+            },
+            "description": {
+              "type": "string"
+            },
+            "severity": {
+              "type": "string",
+              "enum": [
+                "blocking",
+                "significant",
+                "minor"
+              ]
+            }
+          }
+        }
+      },
+      "readinessScore": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 10
+      }
+    }
+  }
+}
