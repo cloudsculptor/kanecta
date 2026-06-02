@@ -1,0 +1,78 @@
+{
+  "meta": {
+    "icon": "FunctionsOutlined",
+    "description": "Represents a TypeScript function including its signature, implementation, and metadata",
+    "details": "",
+    "keywords": [
+      "function",
+      "typescript",
+      "method",
+      "signature",
+      "code"
+    ],
+    "tags": "",
+    "ai-instructions": {
+      "claude": "The 'arguments' array contains UUIDs referencing Argument type items. The 'returns' array accepts either a Kanecta type UUID or a TypeScript primitive string ('string', 'number', 'boolean', 'Date', 'any', 'unknown', 'void', 'null', 'undefined', 'never'). Multiple entries in 'returns' represent a union type. The 'function' field contains raw TypeScript source code. If 'async' is true, the return type should be wrapped in Promise<>."
+    }
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "function",
+    "title": "Function",
+    "type": "object",
+    "required": [
+      "name",
+      "function"
+    ],
+    "properties": {
+      "name": {
+        "type": "string"
+      },
+      "description": {
+        "type": "string"
+      },
+      "prompt": {
+        "type": "string"
+      },
+      "arguments": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true
+      },
+      "returns": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "uniqueItems": true
+      },
+      "returnNullable": {
+        "type": "boolean"
+      },
+      "async": {
+        "type": "boolean"
+      },
+      "throws": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "uniqueItems": true
+      },
+      "dependencies": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "uniqueItems": true
+      },
+      "function": {
+        "type": "string",
+        "contentMediaType": "text/typescript"
+      }
+    }
+  }
+}

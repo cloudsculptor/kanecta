@@ -1,0 +1,55 @@
+{
+  "meta": {
+    "icon": "CodeOutlined",
+    "description": "Represents an argument to a TypeScript function",
+    "details": "",
+    "keywords": [
+      "argument",
+      "parameter",
+      "typescript",
+      "function",
+      "type"
+    ],
+    "tags": "",
+    "ai-instructions": {
+      "claude": "The 'types' array accepts either: (1) a Kanecta type UUID referencing a type definition whose JSON schema will be converted to a TypeScript type, or (2) a TypeScript primitive string such as 'string', 'number', 'boolean', 'Date', 'any', 'unknown', 'void', 'null', 'undefined', 'never'."
+    }
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "argument",
+    "title": "Argument",
+    "type": "object",
+    "required": [
+      "name",
+      "types"
+    ],
+    "properties": {
+      "name": {
+        "type": "string"
+      },
+      "types": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "uniqueItems": true
+      },
+      "description": {
+        "type": "string"
+      },
+      "prompt": {
+        "type": "string"
+      },
+      "nullable": {
+        "type": "boolean"
+      },
+      "optional": {
+        "type": "boolean"
+      },
+      "defaultValue": {
+        "type": "string"
+      }
+    }
+  }
+}

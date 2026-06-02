@@ -1,0 +1,20 @@
+{
+  "id": "fe0ec59e-207c-447f-b07f-18b201551543",
+  "parentId": null,
+  "value": "Pipeline Run",
+  "type": "type",
+  "typeId": null,
+  "owner": "RicThomas@linz.govt.nz",
+  "license": null,
+  "sortOrder": null,
+  "confidence": null,
+  "status": null,
+  "tags": [],
+  "createdAt": "2026-06-02T08:16:05.291Z",
+  "modifiedAt": "2026-06-02T08:16:05.291Z",
+  "createdBy": "RicThomas@linz.govt.nz",
+  "modifiedBy": "RicThomas@linz.govt.nz",
+  "cachedAt": null,
+  "subscribedAt": null,
+  "subscriptionSource": null
+}
