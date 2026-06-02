@@ -25,6 +25,9 @@ export type { AppSettings } from './settings';
 export function createApi(baseUrl: string) {
   const client = makeClient(baseUrl);
   return {
+    config: {
+      get: () => client.get<{ datastorePath: string }>('/config'),
+    },
     items: itemsApi(client),
     aliases: aliasesApi(client),
     relationships: relationshipsApi(client),
