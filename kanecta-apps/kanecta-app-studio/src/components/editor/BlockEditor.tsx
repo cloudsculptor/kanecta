@@ -4,7 +4,9 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import MentionExtension from '@tiptap/extension-mention';
 import { Extension } from '@tiptap/core';
+import type { Editor, Range } from '@tiptap/core';
 import Suggestion from '@tiptap/suggestion';
+import type { SuggestionProps, SuggestionKeyDownProps } from '@tiptap/suggestion';
 import tippy, { type Instance as TippyInstance } from 'tippy.js';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useWorkspaceStore } from '../../store/workspace';
@@ -103,7 +105,7 @@ function buildMentionExtension(allItems: KanectaItem[]) {
     HTMLAttributes: { class: 'BlockEditor-mention' },
     suggestion: {
       char: '@',
-      items({ query }) {
+      items({ query }: { query: string }) {
         const q = query.toLowerCase();
         return allItems.filter((item) => item.value.toLowerCase().includes(q)).slice(0, 10);
       },
@@ -112,7 +114,7 @@ function buildMentionExtension(allItems: KanectaItem[]) {
         let popup: TippyInstance[];
 
         return {
-          onStart(props) {
+          onStart(props: SuggestionProps<KanectaItem>) {
             component = new ReactRenderer(MentionDropdown, {
               props: {
                 items: props.items,
@@ -133,7 +135,7 @@ function buildMentionExtension(allItems: KanectaItem[]) {
               placement: 'bottom-start',
             });
           },
-          onUpdate(props) {
+          onUpdate(props: SuggestionProps<KanectaItem>) {
             component.updateProps({
               items: props.items,
               command(item: KanectaItem) {
@@ -143,7 +145,7 @@ function buildMentionExtension(allItems: KanectaItem[]) {
             if (!props.clientRect) return;
             popup[0].setProps({ getReferenceClientRect: props.clientRect as () => DOMRect });
           },
-          onKeyDown(props) {
+          onKeyDown(props: SuggestionKeyDownProps) {
             if (props.event.key === 'Escape') {
               popup[0].hide();
               return true;
@@ -156,7 +158,7 @@ function buildMentionExtension(allItems: KanectaItem[]) {
           },
         };
       },
-      command({ editor, range, props }) {
+      command({ editor, range, props }: { editor: Editor; range: Range; props: { id: string; label: string } }) {
         editor
           .chain()
           .focus()

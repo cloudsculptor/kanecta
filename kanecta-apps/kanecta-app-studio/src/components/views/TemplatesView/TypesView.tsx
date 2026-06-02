@@ -270,7 +270,7 @@ function DetailPane({ type, schema, onSchemaChange, initialTab = 'view' }: Detai
         results.push({ ok: true, message: '"jsonSchema" is a valid JSON Schema' });
       } else {
         for (const err of ajv.errors ?? []) {
-          results.push({ ok: false, message: `jsonSchema${err.dataPath || ''}: ${err.message}` });
+          results.push({ ok: false, message: `jsonSchema${err.instancePath || ''}: ${err.message}` });
         }
       }
     } else {

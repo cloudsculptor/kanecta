@@ -13,7 +13,7 @@ interface BoardCardProps {
 export function BoardCard({ item }: BoardCardProps) {
   const { focusedItemId, setFocusedItem } = useUiStore();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: item.id });
+    useSortable({ id: item.id, resizeObserverConfig: undefined });
 
   const style = { transform: CSS.Transform.toString(transform), transition };
 
