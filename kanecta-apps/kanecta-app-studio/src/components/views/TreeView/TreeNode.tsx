@@ -241,14 +241,14 @@ export function TreeNode({
               <ContentCopyIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Copy disk location">
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); void copyDiskLocation(); }}>
-              <FolderOpenIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
-            </IconButton>
-          </Tooltip>
           <Tooltip title="Copy value">
             <IconButton size="small" onClick={(e) => { e.stopPropagation(); void navigator.clipboard.writeText(item.value); }}>
               <DifferenceOutlinedIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Copy disk location">
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); void copyDiskLocation(); }}>
+              <FolderOpenIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
             </IconButton>
           </Tooltip>
           {item.typeId && (
