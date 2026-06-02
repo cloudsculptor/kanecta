@@ -3,8 +3,20 @@
   "version": "1.2.0",
   "description": "Kanecta datastore file format specifications and JSON schemas",
   "main": "index.js",
+  "module": "index.mjs",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./index.mjs",
+      "require": "./index.js",
+      "types": "./index.d.ts"
+    },
+    "./1.2.0/*": "./1.2.0/*"
+  },
   "files": [
     "index.js",
+    "index.mjs",
+    "index.d.ts",
     "1.2.0/"
   ],
   "license": "MIT",
