@@ -45,6 +45,23 @@
               "description": "Guidance for Claude on when and how to use this type."
             }
           }
+        },
+        "functions": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Function items related to this type.",
+          "properties": {
+            "consumedBy": {
+              "type": "array",
+              "items": { "type": "string", "format": "uuid" },
+              "description": "UUIDs of function-primitive items that accept this type as an argument."
+            },
+            "producedBy": {
+              "type": "array",
+              "items": { "type": "string", "format": "uuid" },
+              "description": "UUIDs of function-primitive items that return this type."
+            }
+          }
         }
       }
     },
@@ -96,6 +113,10 @@
         "primaryField": "name",
         "ai-instructions": {
           "claude": "Use this type for any individual human being."
+        },
+        "functions": {
+          "consumedBy": [],
+          "producedBy": []
         }
       },
       "jsonSchema": {
