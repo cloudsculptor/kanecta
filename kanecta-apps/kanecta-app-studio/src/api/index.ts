@@ -11,6 +11,8 @@ import { settingsApi } from './settings';
 import { systemItemsApi } from './systemItems';
 import { skillsApi } from './skills';
 import { claudeApi } from './claude';
+import { viewApi } from './view';
+export type { ViewSettings } from './view';
 
 export { ApiError } from './client';
 export type { AliasEntry } from './aliases';
@@ -35,6 +37,7 @@ export function createApi(baseUrl: string) {
     claude: claudeApi(client, baseUrl),
     settings: settingsApi(client),
     systemItems: systemItemsApi(client),
+    view: viewApi(client),
   };
 }
 

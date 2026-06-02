@@ -5,6 +5,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
+import LooksOneIcon from '@mui/icons-material/LooksOne';
 import LooksTwoIcon from '@mui/icons-material/LooksTwo';
 import Looks3Icon from '@mui/icons-material/Looks3';
 import Looks4Icon from '@mui/icons-material/Looks4';
@@ -234,10 +235,11 @@ export function TreeNode({
             </Tooltip>
           )}
           {([
-            { depth: 2, Icon: LooksTwoIcon, label: 'Expand 2 levels' },
-            { depth: 3, Icon: Looks3Icon,   label: 'Expand 3 levels' },
-            { depth: 4, Icon: Looks4Icon,   label: 'Expand 4 levels' },
-            { depth: 5, Icon: Looks5Icon,   label: 'Expand 5 levels' },
+            { depth: 1,           Icon: LooksOneIcon,  label: 'Expand 1 level' },
+            { depth: 2,           Icon: LooksTwoIcon,  label: 'Expand 2 levels' },
+            { depth: 3,           Icon: Looks3Icon,    label: 'Expand 3 levels' },
+            { depth: 4,           Icon: Looks4Icon,    label: 'Expand 4 levels' },
+            { depth: 5,           Icon: Looks5Icon,    label: 'Expand 5 levels' },
             { depth: 'all' as const, Icon: AddBoxIcon, label: 'Expand all' },
           ] as const).map(({ depth, Icon, label }) => (
             <Tooltip key={String(depth)} title={label}>

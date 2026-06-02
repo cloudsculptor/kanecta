@@ -942,6 +942,40 @@ app.delete('/app/studio/starred/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+// ─── View settings ───────────────────────────────────────────────────────────
+
+function viewDir(root, id) {
+  const stripped = id.replace(/-/g, '');
+  return path.join(root, '.kanecta', 'app', 'studio', 'view', stripped.slice(0, 2), stripped.slice(2, 4), id);
+}
+
+// GET /app/studio/view/:id
+app.get('/app/studio/view/:id', (req, res) => {
+  const { id } = req.params;
+  if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID' });
+  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const file = path.join(viewDir(root, id), 'view.json');
+  if (!fs.existsSync(file)) return res.json(null);
+  try {
+    res.json(JSON.parse(fs.readFileSync(file, 'utf8')));
+  } catch {
+    res.json(null);
+  }
+});
+
+// PUT /app/studio/view/:id
+app.put('/app/studio/view/:id', (req, res) => {
+  const { id } = req.params;
+  if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID' });
+  const { levels } = req.body;
+  if (levels == null) return res.status(400).json({ error: 'levels required' });
+  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const dir = viewDir(root, id);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'view.json'), JSON.stringify({ levels }, null, 2));
+  res.json({ ok: true });
+});
+
 // ─── Sync Types ──────────────────────────────────────────────────────────────
 
 app.get('/app/studio/sync-system-items', (_req, res) => {
