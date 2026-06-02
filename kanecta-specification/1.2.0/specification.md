@@ -6,6 +6,21 @@
 ## Overview
 Kanecta is an open-source, self-hosted personal and organizational information repository. Data is stored as a hierarchical tree structure with globally unique identifiers, enabling flexible organization, linking, semantic relationships, and multi-user collaboration. The protocol is designed as a human-AI bridge: structured enough for AI to work with efficiently, transparent enough for humans to audit and understand.
 
+## Official Specification
+
+**This document is the official Kanecta specification.** It defines the filesystem-based datastore format that all compliant implementations must follow.
+
+## Extended Specifications
+
+The [`./extended-specs/`](./extended-specs/) directory contains derived specifications for alternative storage backends:
+
+| File | Description |
+|---|---|
+| [`./extended-specs/specification.db.md`](./extended-specs/specification.db.md) | Relational database variant (ANSI SQL) |
+| [`./extended-specs/specification.db.postgres.md`](./extended-specs/specification.db.postgres.md) | PostgreSQL-specific dialect, extends the database variant |
+
+These are **not required**. Implementations are free to use any storage backend they choose. The extended specs are provided as suggestions to help keep implementations compatible with each other and with the reference implementation. They reflect the same data model and business rules as this document, adapted for a different storage medium.
+
 ## 1. Directory Structure
 
 ### Root Level
