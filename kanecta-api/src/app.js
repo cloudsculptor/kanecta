@@ -129,6 +129,12 @@ function matchObjectData(objectData, q, fields) {
   return false;
 }
 
+// GET /config — datastore configuration visible to the studio
+app.get('/config', (req, res) => {
+  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  res.json({ datastorePath: root });
+});
+
 // GET /search?q=&rootId=&limit=&fields= — full-text search with optional subtree scope, ancestor breadcrumb, and fields scoping
 app.get('/search', (req, res) => {
   const ds = openDatastore(res);

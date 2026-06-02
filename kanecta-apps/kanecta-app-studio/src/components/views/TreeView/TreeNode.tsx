@@ -18,6 +18,7 @@ import FileCopyOutlinedIcon from '@mui/icons-material/FileCopyOutlined';
 import CategoryIcon from '@mui/icons-material/Category';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import { useQueryClient } from '@tanstack/react-query';
 import { primitiveTypes } from '@kanecta/specification';
@@ -98,6 +99,19 @@ export function TreeNode({
   const resolveId = useItemLookup();
   const { getApi } = useWorkspaceStore();
   const queryClient = useQueryClient();
+  const datastorePathRef = useRef<string | null>(null);
+
+  const copyDiskLocation = async () => {
+    if (!datastorePathRef.current) {
+      const cfg = await getApi().config.get();
+      datastorePathRef.current = cfg.datastorePath;
+    }
+    const stripped = item.id.replace(/-/g, '');
+    const shard1 = stripped.slice(0, 2);
+    const shard2 = stripped.slice(2, 4);
+    const diskPath = `${datastorePathRef.current}/.kanecta/data/${shard1}/${shard2}/${item.id}`;
+    void navigator.clipboard.writeText(diskPath);
+  };
 
   const allConversionsDestructive = item.type === 'function';
 
@@ -225,6 +239,11 @@ export function TreeNode({
           <Tooltip title="Copy ID">
             <IconButton size="small" onClick={(e) => { e.stopPropagation(); void navigator.clipboard.writeText(item.id); onRecordClipboard(item.type, item.typeId ?? ''); }}>
               <ContentCopyIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Copy disk location">
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); void copyDiskLocation(); }}>
+              <FolderOpenIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Copy value">
