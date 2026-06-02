@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, List, ListItemButton, ListItemText, CircularProgress } from '@mui/material';
+import { IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, List, ListItemButton, ListItemText } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import AddIcon from '@mui/icons-material/Add';
@@ -15,8 +15,9 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DifferenceOutlinedIcon from '@mui/icons-material/DifferenceOutlined';
 import FileCopyOutlinedIcon from '@mui/icons-material/FileCopyOutlined';
 import CategoryIcon from '@mui/icons-material/Category';
-import TransformIcon from '@mui/icons-material/Transform';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import { useQueryClient } from '@tanstack/react-query';
+import { primitiveTypes } from '@kanecta/specification';
 import { TreeNodeEditor } from './TreeNodeEditor';
 import { ItemValue } from '../../shared/ItemValue';
 import { DynamicIcon } from '../../shared/DynamicIcon';
@@ -24,7 +25,6 @@ import { useItemLookup } from '../../../hooks/useItemLookup';
 import { useWorkspaceStore } from '../../../store/workspace';
 import { TYPE_ICONS } from '../../../lib/typeIcons';
 import type { KanectaItem, ItemType } from '../../../types/kanecta';
-import type { TypeDefinition } from '../../../api/types';
 import './TreeNode.scss';
 
 interface TreeNodeProps {
@@ -90,16 +90,10 @@ export function TreeNode({
   const { getApi } = useWorkspaceStore();
   const queryClient = useQueryClient();
 
-  const { data: types = [], isLoading: typesLoading } = useQuery({
-    queryKey: ['types'],
-    queryFn: () => getApi().types.list(),
-    enabled: convertOpen,
-  });
-
-  const handleConvert = async (target: TypeDefinition) => {
+  const handleConvert = async (targetType: string) => {
     setConverting(true);
     try {
-      await getApi().items.update(item.id, { type: target.value as ItemType, typeId: target.id });
+      await getApi().items.update(item.id, { type: targetType as ItemType });
       await queryClient.invalidateQueries({ queryKey: ['tree'] });
       setConvertOpen(false);
     } finally {
@@ -218,7 +212,7 @@ export function TreeNode({
           {!isSynthetic && (
             <Tooltip title="Convert">
               <IconButton size="small" onClick={(e) => { e.stopPropagation(); setConvertOpen(true); }}>
-                <TransformIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+                <AutoFixHighIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
               </IconButton>
             </Tooltip>
           )}
@@ -279,24 +273,18 @@ export function TreeNode({
       <Dialog open={convertOpen} onClose={() => !converting && setConvertOpen(false)} onClick={(e) => e.stopPropagation()} maxWidth="xs" fullWidth>
         <DialogTitle>Convert "{item.value}"</DialogTitle>
         <DialogContent sx={{ p: 0 }}>
-          {typesLoading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '24px' }}>
-              <CircularProgress size={24} />
-            </div>
-          ) : (
-            <List dense disablePadding>
-              {types.map((t) => (
-                <ListItemButton
-                  key={t.id}
-                  selected={t.value === item.type}
-                  disabled={converting || t.value === item.type}
-                  onClick={() => void handleConvert(t)}
-                >
-                  <ListItemText primary={t.value} secondary={t.value === item.type ? 'current type' : undefined} />
-                </ListItemButton>
-              ))}
-            </List>
-          )}
+          <List dense disablePadding>
+            {primitiveTypes.map((t) => (
+              <ListItemButton
+                key={t}
+                selected={t === item.type}
+                disabled={converting || t === item.type}
+                onClick={() => void handleConvert(t)}
+              >
+                <ListItemText primary={t} secondary={t === item.type ? 'current type' : undefined} />
+              </ListItemButton>
+            ))}
+          </List>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConvertOpen(false)} disabled={converting}>Cancel</Button>
