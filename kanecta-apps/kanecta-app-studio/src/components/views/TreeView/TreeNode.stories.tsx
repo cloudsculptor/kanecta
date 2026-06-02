@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { userEvent, expect, fn, within, waitFor } from 'storybook/test';
 import { TreeNode } from './TreeNode';
+import { useWorkspaceStore } from '../../../store/workspace';
 import type { KanectaItem } from '../../../types/kanecta';
 
 const qc = new QueryClient();
@@ -353,5 +354,185 @@ export const TabCommitsEditThenIndents: Story = {
     // onEdit must be called with the new value before onIndent fires
     await waitFor(() => expect(editSpy).toHaveBeenCalledWith('Updated text'));
     await waitFor(() => expect(indentAfterEditSpy).toHaveBeenCalledOnce());
+  },
+};
+
+// ─── Convert type dialog stories ─────────────────────────────────────────────
+
+const convertUpdateSpy = fn();
+
+function makeConvertItem(overrides?: Partial<KanectaItem>): KanectaItem {
+  return {
+    ...baseItem,
+    id: 'convert-item',
+    parentId: 'parent-id',
+    value: 'My item',
+    type: 'text',
+    childCount: 0,
+    ...overrides,
+  };
+}
+
+function ConvertDemo({ item }: { item: KanectaItem }) {
+  return (
+    <TreeNode
+      {...noopProps}
+      item={item}
+      isFocused={false}
+      onFocus={() => {}}
+      onEdit={async () => {}}
+      onIndent={() => {}}
+    />
+  );
+}
+
+function mockApi(resolvedItem: KanectaItem) {
+  convertUpdateSpy.mockResolvedValue(resolvedItem);
+  useWorkspaceStore.setState({
+    getApi: (() => ({ items: { update: convertUpdateSpy } })) as unknown as ReturnType<typeof useWorkspaceStore.getState>['getApi'],
+  });
+}
+
+async function openConvertDialog(canvasElement: HTMLElement) {
+  await userEvent.hover(within(canvasElement).getByText('My item'));
+  const btn = canvasElement.querySelector('[data-testid="convert-btn"]') as HTMLElement;
+  await userEvent.click(btn);
+  await waitFor(() => expect(within(document.body).getByRole('dialog')).toBeTruthy());
+}
+
+export const ConvertDialogSafeItem: Story = {
+  name: 'Convert dialog — safe item (text type)',
+  render: () => <ConvertDemo item={makeConvertItem()} />,
+  play: async ({ canvasElement }) => {
+    mockApi(makeConvertItem({ type: 'heading' }));
+    await openConvertDialog(canvasElement);
+
+    const dialog = within(document.body).getByRole('dialog');
+
+    // Current type chip is shown in the title area
+    await expect(within(dialog).getByText('text')).toBeTruthy();
+
+    // No destructive warning banner
+    await expect(within(dialog).queryByRole('alert')).toBeNull();
+
+    // All other primitive types are shown as chips (all safe)
+    await expect(within(dialog).getByText('heading')).toBeTruthy();
+    await expect(within(dialog).getByText('string')).toBeTruthy();
+    await expect(within(dialog).getByText('function')).toBeTruthy();
+
+    // Current type (text) is NOT in the chip list (filtered out)
+    const chips = dialog.querySelectorAll('button');
+    const chipLabels = Array.from(chips).map((b) => b.textContent ?? '');
+    await expect(chipLabels.some((l) => l.trim() === 'text')).toBe(false);
+  },
+};
+
+export const ConvertDialogFunctionItem: Story = {
+  name: 'Convert dialog — destructive (function type) shows warning',
+  render: () => <ConvertDemo item={makeConvertItem({ type: 'function' })} />,
+  play: async ({ canvasElement }) => {
+    mockApi(makeConvertItem({ type: 'text' }));
+    await openConvertDialog(canvasElement);
+
+    const dialog = within(document.body).getByRole('dialog');
+
+    // Warning banner is shown
+    await waitFor(() =>
+      expect(within(dialog).getByRole('alert').textContent).toContain('function'),
+    );
+
+    // Current type chip shows 'function'
+    await expect(within(dialog).getByText('function')).toBeTruthy();
+
+    // Other types are available as chips
+    await expect(within(dialog).getByText('text')).toBeTruthy();
+  },
+};
+
+export const ConvertSafeTypeClick: Story = {
+  name: 'Convert — clicking safe type calls update and closes dialog',
+  render: () => <ConvertDemo item={makeConvertItem()} />,
+  play: async ({ canvasElement }) => {
+    convertUpdateSpy.mockClear();
+    mockApi(makeConvertItem({ type: 'heading' }));
+    await openConvertDialog(canvasElement);
+
+    const dialog = within(document.body).getByRole('dialog');
+    await userEvent.click(within(dialog).getByText('heading'));
+
+    await waitFor(() => expect(convertUpdateSpy).toHaveBeenCalledWith(
+      'convert-item',
+      { type: 'heading' },
+    ));
+    // Dialog closes after successful conversion
+    await waitFor(() => expect(document.body.querySelector('[role="dialog"]')).toBeNull());
+  },
+};
+
+export const ConvertFromFunctionShowsConfirmation: Story = {
+  name: 'Convert from function — clicking chip shows confirmation, not immediate convert',
+  render: () => <ConvertDemo item={makeConvertItem({ type: 'function' })} />,
+  play: async ({ canvasElement }) => {
+    convertUpdateSpy.mockClear();
+    mockApi(makeConvertItem({ type: 'text' }));
+    await openConvertDialog(canvasElement);
+
+    const dialog = within(document.body).getByRole('dialog');
+    await userEvent.click(within(dialog).getByText('text'));
+
+    // update must NOT have been called yet — confirmation required
+    await expect(convertUpdateSpy).not.toHaveBeenCalled();
+
+    // Confirmation alert appears with the target type named
+    await waitFor(() =>
+      expect(within(dialog).getAllByRole('alert').some((el) => el.textContent?.includes('text'))).toBe(true),
+    );
+  },
+};
+
+export const ConvertFromFunctionConfirm: Story = {
+  name: 'Convert from function — confirming calls update and closes dialog',
+  render: () => <ConvertDemo item={makeConvertItem({ type: 'function' })} />,
+  play: async ({ canvasElement }) => {
+    convertUpdateSpy.mockClear();
+    mockApi(makeConvertItem({ type: 'text' }));
+    await openConvertDialog(canvasElement);
+
+    const dialog = within(document.body).getByRole('dialog');
+    await userEvent.click(within(dialog).getByText('text'));
+
+    // Click the "Convert" button inside the confirmation alert
+    await waitFor(() => within(dialog).getByRole('button', { name: 'Convert' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Convert' }));
+
+    await waitFor(() => expect(convertUpdateSpy).toHaveBeenCalledWith(
+      'convert-item',
+      { type: 'text' },
+    ));
+    await waitFor(() => expect(document.body.querySelector('[role="dialog"]')).toBeNull());
+  },
+};
+
+export const ConvertFromFunctionBack: Story = {
+  name: 'Convert from function — Back dismisses confirmation without converting',
+  render: () => <ConvertDemo item={makeConvertItem({ type: 'function' })} />,
+  play: async ({ canvasElement }) => {
+    convertUpdateSpy.mockClear();
+    mockApi(makeConvertItem({ type: 'text' }));
+    await openConvertDialog(canvasElement);
+
+    const dialog = within(document.body).getByRole('dialog');
+    await userEvent.click(within(dialog).getByText('text'));
+
+    // Wait for confirmation, then click Back
+    await waitFor(() => within(dialog).getByRole('button', { name: 'Back' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Back' }));
+
+    // update was NOT called
+    await expect(convertUpdateSpy).not.toHaveBeenCalled();
+
+    // Dialog is still open, confirmation gone, chips still visible
+    await expect(document.body.querySelector('[role="dialog"]')).toBeTruthy();
+    await waitFor(() => expect(within(dialog).getByText('text')).toBeTruthy());
   },
 };
