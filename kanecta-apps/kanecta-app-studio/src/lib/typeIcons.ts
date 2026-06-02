@@ -1,6 +1,6 @@
 import NumbersIcon from '@mui/icons-material/Numbers';
 import RecordVoiceOverIcon from '@mui/icons-material/RecordVoiceOver';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutlined';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import StickyNote2Icon from '@mui/icons-material/StickyNote2';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
