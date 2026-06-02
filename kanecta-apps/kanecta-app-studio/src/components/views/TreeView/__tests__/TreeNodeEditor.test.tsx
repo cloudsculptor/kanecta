@@ -20,7 +20,7 @@ describe('TreeNodeEditor', () => {
         onDeleteEmpty={noop}
       />,
     );
-    expect(screen.getByRole('textbox')).toHaveTextContent('hello');
+    expect(screen.getByRole('textbox').textContent).toBe('hello');
   });
 
   it('calls onChange on input', async () => {

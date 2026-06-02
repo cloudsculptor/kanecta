@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import type { ItemType } from '../../../types/kanecta';
 import type { ViewMeta } from '../../../lib/viewMeta';
 import { useViewLocation } from '../../../context/LocationContext';
 
@@ -16,7 +17,6 @@ import { useWorkspaceStore } from '../../../store/workspace';
 import { TypeList } from '../../shared/TypeList';
 import { SyncTypesDialog } from './SyncTypesDialog';
 import type { TypeDefinition } from '../../../api/types';
-import type { ItemType } from '../../../types/kanecta';
 import './TypesView.scss';
 
 type Tab = 'item' | 'view' | 'meta' | 'meta-edit' | 'schema' | 'edit' | 'reference';
@@ -82,10 +82,8 @@ function MetaEditor({ typeId, schema, onSchemaChange }: MetaEditorProps) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState(false);
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setFields(parseMeta(schema)); setSaveError(null); setSaveOk(false);
-  }, [schema, typeId]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setFields(parseMeta(schema)); setSaveError(null); setSaveOk(false); }, [schema, typeId]);
 
   const set = (key: keyof MetaFields) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFields(f => ({ ...f, [key]: e.target.value }));
@@ -211,17 +209,14 @@ function DetailPane({ type, schema, onSchemaChange, initialTab = 'view' }: Detai
   const [itemMeta, setItemMeta] = useState<string>('');
   const [validateResults, setValidateResults] = useState<{ ok: boolean; message: string }[]>([]);
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setEditText(schema); setSaveError(null); setSaveOk(false); setValidateResults([]);
-  }, [schema, type.id]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setEditText(schema); setSaveError(null); setSaveOk(false); setValidateResults([]); }, [schema, type.id]);
 
   useEffect(() => {
     if (tab !== 'item') return;
     getApi().types.metadata(type.id)
       .then((m) => setItemMeta(JSON.stringify(m, null, 2)))
       .catch((e: Error) => setItemMeta(`Error: ${e.message}`));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, type.id]);
 
   const handleSave = async () => {
@@ -275,7 +270,7 @@ function DetailPane({ type, schema, onSchemaChange, initialTab = 'view' }: Detai
         results.push({ ok: true, message: '"jsonSchema" is a valid JSON Schema' });
       } else {
         for (const err of ajv.errors ?? []) {
-          results.push({ ok: false, message: `jsonSchema${(err as unknown as Record<string, string>).instancePath || ''}: ${err.message}` });
+          results.push({ ok: false, message: `jsonSchema${err.dataPath || ''}: ${err.message}` });
         }
       }
     } else {
@@ -430,7 +425,7 @@ export function TypesView() {
   return (
     <div className="TypesView">
       <div className="TypesView-toolbar">
-        <button className="TypesView-btn TypesView-btn--auto TypesView-btn--icon" disabled onClick={() => setSyncOpen(true)}>
+        <button className="TypesView-btn TypesView-btn--auto TypesView-btn--icon" onClick={() => setSyncOpen(true)}>
           <SyncIcon className="TypesView-btn-icon" />
           Sync types
         </button>

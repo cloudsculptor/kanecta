@@ -102,7 +102,7 @@ export function ReviewConveyor({ onClose }: ReviewConveyorProps) {
               </div>
             )}
             <p className="ReviewConveyor-card-meta">
-              Created {current.createdAt ? new Date(current.createdAt).toLocaleDateString() : '—'}
+              Created {new Date(current.createdAt ?? '').toLocaleDateString()}
             </p>
           </div>
 

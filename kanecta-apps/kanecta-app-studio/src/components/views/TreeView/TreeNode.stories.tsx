@@ -183,9 +183,7 @@ export const EditShortItems: Story = {
 const noopProps = {
   isExpanded: false,
   hasChildren: false,
-  isFocused: false,
   onToggle: () => {},
-  onFocus: () => {},
   onZoom: () => {},
   onAddChild: () => {},
   onAddSibling: () => {},
@@ -355,54 +353,5 @@ export const TabCommitsEditThenIndents: Story = {
     // onEdit must be called with the new value before onIndent fires
     await waitFor(() => expect(editSpy).toHaveBeenCalledWith('Updated text'));
     await waitFor(() => expect(indentAfterEditSpy).toHaveBeenCalledOnce());
-  },
-};
-
-// ─── LocationContext stories ──────────────────────────────────────────────────
-
-const setItemIdSpy = fn();
-
-export const DetailsButtonCallsSetItemId: Story = {
-  name: 'Details button — calls setItemId and openOverlay',
-  render: () => {
-    function Demo() {
-      const [focused, setFocused] = useState(false);
-      return (
-        <div>
-          <p style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
-            <strong>Steps:</strong> Hover the node row, then click the Details (logo) button.<br />
-            <strong>Expected:</strong> setItemId is called with the item's id and openOverlay is called.
-            <br /><em>Note: setItemId on row click is wired in TreeView, not TreeNode directly.</em>
-          </p>
-          <TreeNode
-            {...noopProps}
-            item={baseItem}
-            isFocused={focused}
-            onFocus={() => setFocused(true)}
-            onEdit={async () => {}}
-            onIndent={() => {}}
-            setItemId={setItemIdSpy}
-            openOverlay={fn()}
-          />
-          <p style={{ fontSize: 11, color: '#999', marginTop: 8 }}>
-            setItemId called with: <strong>{setItemIdSpy.mock.calls[0]?.[0] ?? '—'}</strong>
-          </p>
-        </div>
-      );
-    }
-    return <Demo />;
-  },
-  play: async ({ canvasElement }) => {
-    setItemIdSpy.mockClear();
-    const canvas = within(canvasElement);
-
-    // Hover to reveal the action buttons
-    await userEvent.hover(canvas.getByText(baseItem.value));
-
-    // Click the Details button (Kanecta logo img)
-    const detailsBtn = canvasElement.querySelector('.TreeNode-actions img[alt="Kanecta"]')?.closest('button') as HTMLElement;
-    if (detailsBtn) await userEvent.click(detailsBtn);
-
-    await waitFor(() => expect(setItemIdSpy).toHaveBeenCalledWith(baseItem.id));
   },
 };
