@@ -1,19 +1,8 @@
+import primitiveSpec from '@kanecta/specification/1.2.0/types/primitive.json';
+
 export type ItemType =
-  | 'number'
-  | 'claim'
-  | 'question'
-  | 'task'
-  | 'note'
-  | 'concept'
-  | 'entity'
-  | 'event'
-  | 'text'
-  | 'heading'
-  | 'code'
-  | 'url'
-  | 'image'
-  | 'file'
-  | 'object';
+  | typeof primitiveSpec.primitive[number]
+  | typeof primitiveSpec.structured[number];
 
 export type Confidence = 'low' | 'medium' | 'high' | 'verified' | 'locked';
 

@@ -17,7 +17,18 @@ const SLASH_ITEMS: SlashMenuItem[] = ITEM_TYPES.map((type) => ({
 
 function slashDescription(type: ItemType): string {
   const map: Record<ItemType, string> = {
+    string: 'A plain text string',
     number: 'A numeric value',
+    text: 'A long-form text document',
+    heading: 'A section heading',
+    file: 'A file attachment',
+    symlink: 'A link to another item',
+    url: 'A web link',
+    image: 'An image reference',
+    function: 'A function or code snippet',
+    object: 'A structured data object',
+    decision: 'A recorded decision with reasoning',
+    annotation: 'A comment or annotation on an item',
     claim: 'An assertion to be evaluated',
     question: 'An open question to explore',
     task: 'An action item or to-do',
@@ -25,13 +36,6 @@ function slashDescription(type: ItemType): string {
     concept: 'An abstract idea or concept',
     entity: 'A named real-world entity',
     event: 'A dated occurrence',
-    text: 'A long-form text document',
-    heading: 'A section heading',
-    code: 'A code snippet',
-    url: 'A web link',
-    image: 'An image reference',
-    file: 'A file attachment',
-    object: 'A structured data object',
   };
   return map[type];
 }

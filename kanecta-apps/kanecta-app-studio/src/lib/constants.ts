@@ -1,9 +1,10 @@
+import primitiveSpec from '@kanecta/specification/1.2.0/types/primitive.json';
 import type { ItemType, Confidence, RelationshipType } from '../types/kanecta';
 
 export const ITEM_TYPES: ItemType[] = [
-  'number', 'claim', 'question', 'task', 'note', 'concept',
-  'entity', 'event', 'text', 'heading', 'code', 'url', 'image', 'file',
-];
+  ...primitiveSpec.primitive,
+  ...primitiveSpec.structured,
+] as ItemType[];
 
 export const CONFIDENCE_LEVELS: Confidence[] = [
   'low', 'medium', 'high', 'verified', 'locked',
