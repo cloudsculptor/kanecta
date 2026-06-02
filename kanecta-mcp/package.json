@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "node src/index.js",
+    "test": "jest --runInBand",
     "release": "bash scripts/release.sh",
     "release:minor": "bash scripts/release.sh minor",
     "release:major": "bash scripts/release.sh major"
@@ -25,6 +26,9 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "devDependencies": {
+    "jest": "^30.4.2"
   },
   "keywords": [
     "kanecta",
