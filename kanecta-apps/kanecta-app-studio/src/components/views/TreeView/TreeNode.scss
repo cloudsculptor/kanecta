@@ -78,6 +78,13 @@
       visibility: visible;
     }
 
+    &-group {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      margin-right: 24px;
+    }
+
     .MuiIconButton-root {
       padding: 0;
       color: var(--color-text-muted);

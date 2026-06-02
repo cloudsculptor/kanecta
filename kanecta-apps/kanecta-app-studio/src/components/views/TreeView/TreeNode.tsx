@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Box, Typography, Alert } from '@mui/material';
+import { IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Box, Typography, Alert, Fab } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import AddIcon from '@mui/icons-material/Add';
@@ -17,10 +17,14 @@ import DifferenceOutlinedIcon from '@mui/icons-material/DifferenceOutlined';
 import FileCopyOutlinedIcon from '@mui/icons-material/FileCopyOutlined';
 import CategoryIcon from '@mui/icons-material/Category';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import EditNoteIcon from '@mui/icons-material/EditNote';
 import { useQueryClient } from '@tanstack/react-query';
 import { primitiveTypes } from '@kanecta/specification';
 
 import { TreeNodeEditor } from './TreeNodeEditor';
+import { EditFunctionDialog } from './EditFunctionDialog';
+import { RunFunctionDialog } from './RunFunctionDialog';
 import { ItemValue } from '../../shared/ItemValue';
 import { DynamicIcon } from '../../shared/DynamicIcon';
 import { useItemLookup } from '../../../hooks/useItemLookup';
@@ -87,6 +91,8 @@ export function TreeNode({
   const draftRef = useRef('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
+  const [editFunctionOpen, setEditFunctionOpen] = useState(false);
+  const [runFunctionOpen, setRunFunctionOpen] = useState(false);
   const [converting, setConverting] = useState(false);
   const [pendingConvert, setPendingConvert] = useState<string | null>(null);
   const resolveId = useItemLookup();
@@ -193,6 +199,24 @@ export function TreeNode({
         )}
 
         <div className="TreeNode-actions">
+          {item.type === 'function' && (
+            <div className="TreeNode-actions-group">
+              <Tooltip title="Run">
+                <Fab
+                  size="small"
+                  onClick={(e) => { e.stopPropagation(); setRunFunctionOpen(true); }}
+                  sx={{ bgcolor: 'success.main', color: 'success.contrastText', boxShadow: 2, width: 28, height: 28, minHeight: 28, '&:hover': { bgcolor: 'success.dark' } }}
+                >
+                  <PlayArrowIcon sx={{ fontSize: '18px' }} />
+                </Fab>
+              </Tooltip>
+              <Tooltip title="Edit">
+                <IconButton size="small" onClick={(e) => { e.stopPropagation(); setEditFunctionOpen(true); }}>
+                  <EditNoteIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+                </IconButton>
+              </Tooltip>
+            </div>
+          )}
           <Tooltip title="Details">
             <IconButton size="small" onClick={(e) => { e.stopPropagation(); setItemId(item.id); openOverlay(); }}>
               <img src="/logo.svg" alt="Kanecta" style={{ width: 30, height: 30, display: 'block', objectFit: 'contain' }} />
@@ -275,6 +299,9 @@ export function TreeNode({
       {isExpanded && hasChildren && (
         <div className="TreeNode-children">{children}</div>
       )}
+
+      <EditFunctionDialog open={editFunctionOpen} onClose={() => setEditFunctionOpen(false)} item={item} />
+      <RunFunctionDialog open={runFunctionOpen} onClose={() => setRunFunctionOpen(false)} item={item} />
 
       <Dialog open={confirmDelete} onClose={() => setConfirmDelete(false)} onClick={(e) => e.stopPropagation()}>
         <DialogTitle>Delete "{item.value}"?</DialogTitle>
