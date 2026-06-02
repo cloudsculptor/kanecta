@@ -8,22 +8,39 @@ const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES } = require('
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const CONFIG_PATH = path.join(os.homedir(), '.kanecta-config.json');
-const DEFAULT_DATASTORE_PATH = path.join(os.homedir(), '.kanecta');
+const APP_CONFIG_PATH = path.join(os.homedir(), '.config', 'kanecta', 'config.json');
+const MCP_CONFIG_PATH = path.join(os.homedir(), '.kanecta-config.json');
+
+function readAppConfig() {
+  try { return JSON.parse(fs.readFileSync(APP_CONFIG_PATH, 'utf8')); } catch { return null; }
+}
 
 function readConfig() {
-  try { return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')); } catch { return null; }
+  try { return JSON.parse(fs.readFileSync(MCP_CONFIG_PATH, 'utf8')); } catch { return null; }
 }
 
 function writeConfig(cfg) {
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2) + '\n');
+  fs.writeFileSync(MCP_CONFIG_PATH, JSON.stringify(cfg, null, 2) + '\n');
+}
+
+function resolveDatastorePath() {
+  if (process.env.KANECTA_DATASTORE) {
+    return process.env.KANECTA_DATASTORE.replace(/^~/, os.homedir());
+  }
+  const appCfg = readAppConfig();
+  const datastores = (appCfg?.datastores ?? []).map(p => p.replace(/^~/, os.homedir()));
+  if (datastores.length === 1) return datastores[0];
+  if (datastores.length > 1) {
+    throw new Error(
+      `Multiple Kanecta datastores configured in ${APP_CONFIG_PATH} — set KANECTA_DATASTORE to one of:\n${datastores.join('\n')}`
+    );
+  }
+  throw new Error(`No Kanecta datastores found in ${APP_CONFIG_PATH}`);
 }
 
 function openDs() {
+  const datastorePath = resolveDatastorePath();
   const cfg = readConfig();
-  const datastorePath = cfg?.datastorePath
-    ? cfg.datastorePath.replace(/^~/, os.homedir())
-    : (process.env.KANECTA_DATASTORE?.replace(/^~/, os.homedir()) ?? DEFAULT_DATASTORE_PATH);
   return { ds: Datastore.open(datastorePath), cfg, datastorePath };
 }
 
