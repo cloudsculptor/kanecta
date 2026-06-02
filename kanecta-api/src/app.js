@@ -3,6 +3,7 @@
 const express = require('express');
 const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE } = require('@kanecta/lib');
 const claude = require('./claude');
+const { generateFunctionScaffold } = require('./generateFunctionCode');
 
 const app = express();
 app.use(express.json());
@@ -455,6 +456,16 @@ app.put('/items/:id/object', (req, res) => {
   res.json({ ok: true });
 });
 
+// GET /items/:id/function/scaffold — check whether the function/ code scaffold directory exists
+app.get('/items/:id/function/scaffold', (req, res) => {
+  const { id } = req.params;
+  if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
+  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const s = id.replace(/-/g, '');
+  const fnDir = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id, 'function');
+  res.json({ exists: fs.existsSync(fnDir) });
+});
+
 // GET /items/:id/function — read the function.json for a function item
 app.get('/items/:id/function', (req, res) => {
   const { id } = req.params;
@@ -466,14 +477,23 @@ app.get('/items/:id/function', (req, res) => {
   res.json(fn);
 });
 
-// PUT /items/:id/function — write or replace the function.json for a function item
+// PUT /items/:id/function — write or replace the function.json and regenerate code scaffold
 app.put('/items/:id/function', (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const ds = openDatastore(res);
   if (!ds) return;
-  if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
+  const item = ds.get(id);
+  if (!item) return res.status(404).json({ error: 'Item not found' });
   ds.writeFunctionJson(id, req.body);
+  try {
+    const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+    const s = id.replace(/-/g, '');
+    const itemDir = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id);
+    generateFunctionScaffold(itemDir, item.value ?? id, req.body, root);
+  } catch (err) {
+    console.error(`[kanecta] generateFunctionScaffold failed for ${id}:`, err);
+  }
   res.json({ ok: true });
 });
 
