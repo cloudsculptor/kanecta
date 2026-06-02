@@ -167,7 +167,7 @@ export function CopyAsDialog({ item, open, onClose, fetchTree }: CopyAsDialogPro
       onClose={onClose}
       maxWidth={false}
       onClick={(e) => e.stopPropagation()}
-      PaperProps={{ sx: { width: '80vw', height: '80vh', display: 'flex', flexDirection: 'column' } }}
+      slotProps={{ paper: { sx: { width: '80vw', height: '80vh', display: 'flex', flexDirection: 'column' } } }}
     >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
         <span>Copy as</span>

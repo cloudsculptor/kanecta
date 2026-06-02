@@ -110,7 +110,7 @@ export function SyncTypesDialog({ open, onClose }: SyncTypesDialogProps) {
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth={false}
-      PaperProps={{ sx: { maxHeight: '80vh', width: '80vw', maxWidth: '1400px' } }}
+      slotProps={{ paper: { sx: { maxHeight: '80vh', width: '80vw', maxWidth: '1400px' } } }}
     >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <SyncIcon fontSize="small" />
