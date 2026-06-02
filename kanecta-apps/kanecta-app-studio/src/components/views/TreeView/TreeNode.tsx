@@ -26,6 +26,7 @@ import { primitiveTypes } from '@kanecta/specification';
 import { TreeNodeEditor } from './TreeNodeEditor';
 import { EditFunctionDialog } from './EditFunctionDialog';
 import { RunFunctionDialog } from './RunFunctionDialog';
+import { FunctionLinksButton } from './FunctionLinksButton';
 import { ItemValue } from '../../shared/ItemValue';
 import { DynamicIcon } from '../../shared/DynamicIcon';
 import { useItemLookup } from '../../../hooks/useItemLookup';
@@ -213,6 +214,7 @@ export function TreeNode({
         )}
 
         <div className="TreeNode-actions">
+          {item.typeId && <FunctionLinksButton item={item} />}
           {item.type === 'function' && (
             <div className="TreeNode-actions-group">
               <Tooltip title="Run">
