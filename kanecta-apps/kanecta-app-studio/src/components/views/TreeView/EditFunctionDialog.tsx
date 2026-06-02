@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, TextField, Switch, FormControlLabel, Stack,
@@ -9,6 +9,7 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { functionSpec } from '@kanecta/specification';
 import { useWorkspaceStore } from '../../../store/workspace';
+import { BodyConflictDialog } from './BodyConflictDialog';
 import type { KanectaItem } from '../../../types/kanecta';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -115,44 +116,61 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const [scaffoldExists, setScaffoldExists] = useState(false);
+  const [showDirtyWarning, setShowDirtyWarning] = useState(false);
+  const [showBodyConflict, setShowBodyConflict] = useState(false);
+  const [diskBody, setDiskBody] = useState('');
+  const loadedBodyRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     if (!open) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setError(null);
-    getApi().items.getFunctionData(item.id)
-      .then((data) => setForm(data ? fromRaw(data) : EMPTY))
-      .catch(() => setForm(EMPTY))
-      .finally(() => setLoading(false));
+    setIsDirty(false);
+    Promise.all([
+      getApi().items.getFunctionData(item.id).catch(() => null),
+      getApi().items.checkFunctionScaffold(item.id).catch(() => ({ exists: false })),
+    ]).then(([data, scaffold]) => {
+      const loaded = data ? fromRaw(data) : EMPTY;
+      setForm(loaded);
+      loadedBodyRef.current = loaded.body;
+      setScaffoldExists(scaffold.exists);
+    }).finally(() => setLoading(false));
   }, [open, item.id, getApi]);
 
-  const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
+  const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
+    setIsDirty(true);
     setForm((f) => ({ ...f, [key]: value }));
+  };
+
+  const dirtySet = (updater: (f: FormState) => FormState) => {
+    setIsDirty(true);
+    setForm(updater);
+  };
 
   // --- type parameters ---
-  const addTypeParam = () =>
-    setForm((f) => ({ ...f, typeParameters: [...f.typeParameters, { name: '' }] }));
+  const addTypeParam = () => dirtySet((f) => ({ ...f, typeParameters: [...f.typeParameters, { name: '' }] }));
   const updateTypeParam = (i: number, patch: Partial<TypeParam>) =>
-    setForm((f) => ({ ...f, typeParameters: f.typeParameters.map((p, idx) => idx === i ? { ...p, ...patch } : p) }));
+    dirtySet((f) => ({ ...f, typeParameters: f.typeParameters.map((p, idx) => idx === i ? { ...p, ...patch } : p) }));
   const removeTypeParam = (i: number) =>
-    setForm((f) => ({ ...f, typeParameters: f.typeParameters.filter((_, idx) => idx !== i) }));
+    dirtySet((f) => ({ ...f, typeParameters: f.typeParameters.filter((_, idx) => idx !== i) }));
 
   // --- parameters ---
   const addParam = () =>
-    setForm((f) => ({ ...f, parameters: [...f.parameters, { name: '', typeMode: 'primitive', type: 'string' }] }));
+    dirtySet((f) => ({ ...f, parameters: [...f.parameters, { name: '', typeMode: 'primitive', type: 'string' }] }));
   const updateParam = (i: number, patch: Partial<Param>) =>
-    setForm((f) => ({ ...f, parameters: f.parameters.map((p, idx) => idx === i ? { ...p, ...patch } : p) }));
+    dirtySet((f) => ({ ...f, parameters: f.parameters.map((p, idx) => idx === i ? { ...p, ...patch } : p) }));
   const removeParam = (i: number) =>
-    setForm((f) => ({ ...f, parameters: f.parameters.filter((_, idx) => idx !== i) }));
+    dirtySet((f) => ({ ...f, parameters: f.parameters.filter((_, idx) => idx !== i) }));
 
   // --- throws ---
-  const addThrow = () =>
-    setForm((f) => ({ ...f, throws: [...f.throws, { type: '' }] }));
+  const addThrow = () => dirtySet((f) => ({ ...f, throws: [...f.throws, { type: '' }] }));
   const updateThrow = (i: number, patch: Partial<ThrowEntry>) =>
-    setForm((f) => ({ ...f, throws: f.throws.map((t, idx) => idx === i ? { ...t, ...patch } : t) }));
+    dirtySet((f) => ({ ...f, throws: f.throws.map((t, idx) => idx === i ? { ...t, ...patch } : t) }));
   const removeThrow = (i: number) =>
-    setForm((f) => ({ ...f, throws: f.throws.filter((_, idx) => idx !== i) }));
+    dirtySet((f) => ({ ...f, throws: f.throws.filter((_, idx) => idx !== i) }));
 
   const isValid =
     (form.returnMode === 'primitive' ? !!form.returnType?.trim() : !!form.returnTypeId?.trim()) &&
@@ -160,7 +178,7 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
       p.name.trim() && (p.typeMode === 'primitive' ? !!p.type?.trim() : !!p.typeId?.trim())
     );
 
-  const handleSave = async () => {
+  const doSave = async () => {
     setSaving(true);
     setError(null);
     try {
@@ -171,6 +189,48 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSave = async () => {
+    // Stage 1 — dirty warning: scaffold exists and form has changes
+    if (isDirty && scaffoldExists) {
+      setShowDirtyWarning(true);
+      return;
+    }
+    await checkBodyConflictThenSave();
+  };
+
+  const checkBodyConflictThenSave = async () => {
+    // Stage 2 — body conflict: fetch current disk body and compare
+    try {
+      const diskData = await getApi().items.getFunctionData(item.id).catch(() => null);
+      const currentDiskBody = (diskData?.body as string | undefined) ?? '';
+      const formBody = form.body ?? '';
+      if (currentDiskBody !== formBody && (currentDiskBody || formBody)) {
+        setDiskBody(currentDiskBody);
+        setShowBodyConflict(true);
+        return;
+      }
+    } catch {
+      // if we can't fetch, proceed with save
+    }
+    await doSave();
+  };
+
+  const handleDirtyWarningConfirm = async () => {
+    setShowDirtyWarning(false);
+    await checkBodyConflictThenSave();
+  };
+
+  const handleUseFormBody = async () => {
+    setShowBodyConflict(false);
+    await doSave();
+  };
+
+  const handleUseDiskBody = () => {
+    setShowBodyConflict(false);
+    setForm((f) => ({ ...f, body: diskBody || undefined }));
+    // Don't auto-save — let the user review the restored body first
   };
 
   return (
@@ -278,11 +338,11 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
                       <FormControl size="small">
                         <FormLabel sx={{ fontSize: '0.75rem', mb: 0.5 }}>Type</FormLabel>
                         <RadioGroup row value={p.typeMode}
-                          onChange={(e) => updateParam(i, {
+                          onChange={(e) => { setIsDirty(true); updateParam(i, {
                             typeMode: e.target.value as Param['typeMode'],
                             type: undefined,
                             typeId: undefined,
-                          })}>
+                          }); }}>
                           <FormControlLabel value="primitive" control={<Radio size="small" />} label={<Typography variant="body2">Primitive</Typography>} />
                           <FormControlLabel value="kanecta" control={<Radio size="small" />} label={<Typography variant="body2">Kanecta type</Typography>} />
                         </RadioGroup>
@@ -330,12 +390,12 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
               <Typography variant="overline" color="text.secondary">Return Type</Typography>
               <FormControl>
                 <RadioGroup row value={form.returnMode}
-                  onChange={(e) => setForm((f) => ({
+                  onChange={(e) => { setIsDirty(true); setForm((f) => ({
                     ...f,
                     returnMode: e.target.value as FormState['returnMode'],
                     returnType: undefined,
                     returnTypeId: undefined,
-                  }))}>
+                  })); }}>
                   <FormControlLabel value="primitive" control={<Radio size="small" />} label={<Typography variant="body2">Primitive</Typography>} />
                   <FormControlLabel value="kanecta" control={<Radio size="small" />} label={<Typography variant="body2">Kanecta type</Typography>} />
                 </RadioGroup>
@@ -412,6 +472,32 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
           {saving ? 'Saving…' : 'Save'}
         </Button>
       </DialogActions>
+
+      {/* Stage 1 — dirty warning */}
+      <Dialog open={showDirtyWarning} onClose={() => setShowDirtyWarning(false)} onClick={(e) => e.stopPropagation()} maxWidth="xs" fullWidth>
+        <DialogTitle>Overwrite generated code?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            The <code>function/</code> directory already exists. Saving will regenerate <code>index.ts</code> and overwrite any manual edits you made in your IDE.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowDirtyWarning(false)}>Cancel</Button>
+          <Button variant="contained" color="warning" onClick={() => void handleDirtyWarningConfirm()}>
+            Save anyway
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Stage 2 — body conflict */}
+      <BodyConflictDialog
+        open={showBodyConflict}
+        onClose={() => setShowBodyConflict(false)}
+        diskBody={diskBody}
+        formBody={form.body ?? ''}
+        onUseForm={() => void handleUseFormBody()}
+        onUseDisk={handleUseDiskBody}
+      />
     </Dialog>
   );
 }
