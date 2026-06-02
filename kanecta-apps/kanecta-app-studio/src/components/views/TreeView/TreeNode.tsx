@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, List, ListItemButton, ListItemText } from '@mui/material';
+import { IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Box, Typography, Alert } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import AddIcon from '@mui/icons-material/Add';
@@ -18,6 +18,7 @@ import CategoryIcon from '@mui/icons-material/Category';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import { useQueryClient } from '@tanstack/react-query';
 import { primitiveTypes } from '@kanecta/specification';
+
 import { TreeNodeEditor } from './TreeNodeEditor';
 import { ItemValue } from '../../shared/ItemValue';
 import { DynamicIcon } from '../../shared/DynamicIcon';
@@ -86,16 +87,29 @@ export function TreeNode({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [pendingConvert, setPendingConvert] = useState<string | null>(null);
   const resolveId = useItemLookup();
   const { getApi } = useWorkspaceStore();
   const queryClient = useQueryClient();
+
+  const allConversionsDestructive = item.type === 'function';
+
+  const closeConvert = () => { setConvertOpen(false); setPendingConvert(null); };
+
+  const handleTypeClick = (targetType: string) => {
+    if (allConversionsDestructive) {
+      setPendingConvert(targetType);
+    } else {
+      void handleConvert(targetType);
+    }
+  };
 
   const handleConvert = async (targetType: string) => {
     setConverting(true);
     try {
       await getApi().items.update(item.id, { type: targetType as ItemType });
       await queryClient.invalidateQueries({ queryKey: ['tree'] });
-      setConvertOpen(false);
+      closeConvert();
     } finally {
       setConverting(false);
     }
@@ -270,25 +284,76 @@ export function TreeNode({
         </DialogActions>
       </Dialog>
 
-      <Dialog open={convertOpen} onClose={() => !converting && setConvertOpen(false)} onClick={(e) => e.stopPropagation()} maxWidth="xs" fullWidth>
-        <DialogTitle>Convert "{item.value}"</DialogTitle>
-        <DialogContent sx={{ p: 0 }}>
-          <List dense disablePadding>
-            {primitiveTypes.map((t) => (
-              <ListItemButton
-                key={t}
-                selected={t === item.type}
-                disabled={converting || t === item.type}
-                onClick={() => void handleConvert(t)}
-              >
-                <ListItemText primary={t} secondary={t === item.type ? 'current type' : undefined} />
-              </ListItemButton>
-            ))}
-          </List>
+      <Dialog open={convertOpen} onClose={() => !converting && closeConvert()} onClick={(e) => e.stopPropagation()} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ pb: 0 }}>
+          Convert type
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Currently <strong>{item.type}</strong>
+          </Typography>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          {allConversionsDestructive && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              This item uses the <strong>function</strong> type. Converting will delete structured data that cannot be recovered.
+            </Alert>
+          )}
+
+          <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+            {allConversionsDestructive ? 'Destructive — choose target type' : 'Choose target type'}
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: pendingConvert ? 2 : 0 }}>
+            {primitiveTypes.filter((t) => t !== item.type).map((t) => {
+              const Icon = TYPE_ICONS[t as ItemType];
+              const isPending = pendingConvert === t;
+              return (
+                <Box
+                  key={t}
+                  component="button"
+                  disabled={converting}
+                  onClick={() => handleTypeClick(t)}
+                  sx={{
+                    display: 'flex', alignItems: 'center', gap: 0.75,
+                    px: 1.5, py: 0.75, borderRadius: 2, border: '1px solid',
+                    fontSize: '0.8125rem', cursor: 'pointer',
+                    borderColor: isPending ? 'error.main' : allConversionsDestructive ? 'error.light' : 'divider',
+                    bgcolor: isPending ? 'error.main' : 'background.paper',
+                    color: isPending ? 'error.contrastText' : allConversionsDestructive ? 'error.main' : 'text.primary',
+                    '&:hover:not(:disabled)': {
+                      borderColor: allConversionsDestructive ? 'error.main' : 'primary.main',
+                      bgcolor: allConversionsDestructive ? 'error.main' : 'action.hover',
+                      color: allConversionsDestructive ? 'error.contrastText' : 'text.primary',
+                    },
+                    '&:disabled': { opacity: 0.5, cursor: 'not-allowed' },
+                  }}
+                >
+                  {Icon && <Icon sx={{ fontSize: '1rem' }} />}
+                  {t}
+                </Box>
+              );
+            })}
+          </Box>
+
+          {pendingConvert && (
+            <Alert
+              severity="error"
+              action={
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <Button size="small" color="inherit" onClick={() => setPendingConvert(null)}>Back</Button>
+                  <Button size="small" color="error" variant="contained" disabled={converting} onClick={() => void handleConvert(pendingConvert)}>
+                    Convert
+                  </Button>
+                </Box>
+              }
+            >
+              Convert to <strong>{pendingConvert}</strong>? This cannot be undone.
+            </Alert>
+          )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConvertOpen(false)} disabled={converting}>Cancel</Button>
-        </DialogActions>
+        {!pendingConvert && (
+          <DialogActions>
+            <Button onClick={closeConvert} disabled={converting}>Cancel</Button>
+          </DialogActions>
+        )}
       </Dialog>
     </div>
   );
