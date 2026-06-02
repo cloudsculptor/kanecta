@@ -19,6 +19,7 @@ import DifferenceOutlinedIcon from '@mui/icons-material/DifferenceOutlined';
 import CategoryIcon from '@mui/icons-material/Category';
 import DataObjectIcon from '@mui/icons-material/DataObject';
 import FileCopyOutlinedIcon from '@mui/icons-material/FileCopyOutlined';
+import LooksOneIcon from '@mui/icons-material/LooksOne';
 import LooksTwoIcon from '@mui/icons-material/LooksTwo';
 import Looks3Icon from '@mui/icons-material/Looks3';
 import Looks4Icon from '@mui/icons-material/Looks4';
@@ -191,6 +192,14 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
     refetchInterval: 10_000,
   });
   const isStarred = rootId ? starredList.some((e) => e.id === rootId) : false;
+
+  const { data: rootViewSettings } = useQuery({
+    queryKey: ['view-settings', rootId],
+    queryFn: () => api.view.get(rootId!),
+    enabled: rootId != null,
+    staleTime: 5 * 60 * 1000,
+  });
+  const rootSavedLevel = rootViewSettings?.levels ?? null;
   const currentLabel = zoomStack[zoomStack.length - 1]?.label ?? '';
 
   const handleStar = useCallback(async () => {
@@ -345,15 +354,37 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
     setExpandedIds(new Set());
   }, [api]);
 
-  const handleBreadcrumbNav = useCallback(
-    (id: string) => {
-      setZoomStack((prev) => {
-        const idx = prev.findIndex((b) => b.id === id);
-        return idx >= 0 ? prev.slice(0, idx + 1) : prev;
-      });
-    },
-    [],
-  );
+  const handleBreadcrumbNav = useCallback((id: string) => {
+    setZoomStack((prev) => {
+      const idx = prev.findIndex((b) => b.id === id);
+      return idx >= 0 ? prev.slice(0, idx + 1) : prev;
+    });
+    setExpandedIds(new Set());
+  }, []);
+
+  // Auto-expand to saved level whenever the root changes — covers zoom, breadcrumb,
+  // URL restore on mount, zoomedItemId prop, and navigating back to this view.
+  const apiRef = useRef(api);
+  apiRef.current = api;
+  useEffect(() => {
+    if (!rootId) return;
+    let cancelled = false;
+    apiRef.current.view.get(rootId)
+      .then((settings) => {
+        if (cancelled || !settings?.levels) return;
+        const maxDepth = settings.levels === 'all' ? undefined : settings.levels;
+        return apiRef.current.items.tree(rootId, maxDepth).then((entries) => {
+          if (cancelled) return;
+          const ids = entries
+            .filter((e) => maxDepth == null || e.depth < maxDepth)
+            .map((e) => e.item.id);
+          setExpandedIds(new Set(ids));
+        });
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rootId]);
 
   const handleFocus = useCallback(
     (item: KanectaItem) => { setFocusedItem(item.id); },
@@ -599,15 +630,21 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
               </IconButton>
             </Tooltip>
             {([
-              { depth: 2, Icon: LooksTwoIcon, label: 'Expand 2 levels' },
-              { depth: 3, Icon: Looks3Icon,   label: 'Expand 3 levels' },
-              { depth: 4, Icon: Looks4Icon,   label: 'Expand 4 levels' },
-              { depth: 5, Icon: Looks5Icon,   label: 'Expand 5 levels' },
-              { depth: 'all' as const, Icon: AddBoxIcon, label: 'Expand all' },
+              { depth: 1,              Icon: LooksOneIcon,  label: 'Expand 1 level' },
+              { depth: 2,              Icon: LooksTwoIcon,  label: 'Expand 2 levels' },
+              { depth: 3,              Icon: Looks3Icon,    label: 'Expand 3 levels' },
+              { depth: 4,              Icon: Looks4Icon,    label: 'Expand 4 levels' },
+              { depth: 5,              Icon: Looks5Icon,    label: 'Expand 5 levels' },
+              { depth: 'all' as const, Icon: AddBoxIcon,    label: 'Expand all' },
             ] as const).map(({ depth, Icon, label }) => (
               <Tooltip key={String(depth)} title={label}>
-                <IconButton size="small" onClick={() => void handleExpandToDepth(rootItem, depth)}>
-                  <Icon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+                <IconButton size="small" onClick={() => {
+                  void handleExpandToDepth(rootItem, depth);
+                  void api.view.save(rootItem.id, depth).then(() => {
+                    qc.setQueryData(['view-settings', rootItem.id], { levels: depth });
+                  });
+                }}>
+                  <Icon sx={{ fontSize: '18px', width: '18px', height: '18px', color: rootSavedLevel === depth ? 'var(--color-primary, #1976d2)' : undefined }} />
                 </IconButton>
               </Tooltip>
             ))}
