@@ -243,7 +243,7 @@ export function TreeNode({
             { depth: 'all' as const, Icon: AddBoxIcon, label: 'Expand all' },
           ] as const).map(({ depth, Icon, label }) => (
             <Tooltip key={String(depth)} title={label}>
-              <IconButton size="small" onClick={(e) => { e.stopPropagation(); onExpandToDepth(depth); }}>
+              <IconButton size="small" aria-label={label} onClick={(e) => { e.stopPropagation(); onExpandToDepth(depth); }}>
                 <Icon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
               </IconButton>
             </Tooltip>

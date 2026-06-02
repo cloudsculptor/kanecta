@@ -536,3 +536,89 @@ export const ConvertFromFunctionBack: Story = {
     await waitFor(() => expect(within(dialog).getByText('text')).toBeTruthy());
   },
 };
+
+// ─── Expand level button stories ─────────────────────────────────────────────
+
+const expandSpy = fn();
+
+function ExpandDemo() {
+  return (
+    <TreeNode
+      {...noopProps}
+      item={{ ...baseItem, id: 'expand-item', value: 'Expand me', childCount: 5 }}
+      isFocused={false}
+      onFocus={() => {}}
+      onEdit={async () => {}}
+      onIndent={() => {}}
+      onExpandToDepth={expandSpy}
+    />
+  );
+}
+
+async function hoverAndGetActions(canvasElement: HTMLElement) {
+  await userEvent.hover(within(canvasElement).getByText('Expand me'));
+  return canvasElement;
+}
+
+export const ExpandLevelButtonsAllPresent: Story = {
+  name: 'Expand level — all 6 buttons present on hover',
+  render: () => <ExpandDemo />,
+  play: async ({ canvasElement }) => {
+    await hoverAndGetActions(canvasElement);
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole('button', { name: 'Expand 1 level' })).toBeTruthy();
+    await expect(canvas.getByRole('button', { name: 'Expand 2 levels' })).toBeTruthy();
+    await expect(canvas.getByRole('button', { name: 'Expand 3 levels' })).toBeTruthy();
+    await expect(canvas.getByRole('button', { name: 'Expand 4 levels' })).toBeTruthy();
+    await expect(canvas.getByRole('button', { name: 'Expand 5 levels' })).toBeTruthy();
+    await expect(canvas.getByRole('button', { name: 'Expand all' })).toBeTruthy();
+  },
+};
+
+export const ExpandLevel1: Story = {
+  name: 'Expand level — clicking 1 calls onExpandToDepth(1)',
+  render: () => <ExpandDemo />,
+  play: async ({ canvasElement }) => {
+    expandSpy.mockClear();
+    await hoverAndGetActions(canvasElement);
+    await userEvent.click(within(canvasElement).getByRole('button', { name: 'Expand 1 level' }));
+    await waitFor(() => expect(expandSpy).toHaveBeenCalledWith(1));
+  },
+};
+
+export const ExpandLevel3: Story = {
+  name: 'Expand level — clicking 3 calls onExpandToDepth(3)',
+  render: () => <ExpandDemo />,
+  play: async ({ canvasElement }) => {
+    expandSpy.mockClear();
+    await hoverAndGetActions(canvasElement);
+    await userEvent.click(within(canvasElement).getByRole('button', { name: 'Expand 3 levels' }));
+    await waitFor(() => expect(expandSpy).toHaveBeenCalledWith(3));
+  },
+};
+
+export const ExpandLevelAll: Story = {
+  name: 'Expand level — clicking all calls onExpandToDepth("all")',
+  render: () => <ExpandDemo />,
+  play: async ({ canvasElement }) => {
+    expandSpy.mockClear();
+    await hoverAndGetActions(canvasElement);
+    await userEvent.click(within(canvasElement).getByRole('button', { name: 'Expand all' }));
+    await waitFor(() => expect(expandSpy).toHaveBeenCalledWith('all'));
+  },
+};
+
+export const ExpandLevelNoSavedColor: Story = {
+  name: 'Expand level — no button shows saved-level colour (child nodes never fetch view settings)',
+  render: () => <ExpandDemo />,
+  play: async ({ canvasElement }) => {
+    await hoverAndGetActions(canvasElement);
+    const levels = ['Expand 1 level', 'Expand 2 levels', 'Expand 3 levels', 'Expand 4 levels', 'Expand 5 levels', 'Expand all'];
+    for (const label of levels) {
+      const btn = within(canvasElement).getByRole('button', { name: label });
+      const icon = btn.querySelector('svg');
+      // No inline colour style means no saved-level highlight applied
+      await expect(icon?.style.color ?? '').toBe('');
+    }
+  },
+};

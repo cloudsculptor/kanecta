@@ -365,7 +365,9 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
   // Auto-expand to saved level whenever the root changes — covers zoom, breadcrumb,
   // URL restore on mount, zoomedItemId prop, and navigating back to this view.
   const apiRef = useRef(api);
-  apiRef.current = api;
+  useEffect(() => {
+    apiRef.current = api;
+  });
   useEffect(() => {
     if (!rootId) return;
     let cancelled = false;
@@ -376,7 +378,7 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
         return apiRef.current.items.tree(rootId, maxDepth).then((entries) => {
           if (cancelled) return;
           const ids = entries
-            .filter((e) => maxDepth == null || e.depth < maxDepth)
+            .filter((e) => e.depth > 0 && (maxDepth == null || e.depth < maxDepth))
             .map((e) => e.item.id);
           setExpandedIds(new Set(ids));
         });
@@ -527,7 +529,7 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
           <Breadcrumb
             items={breadcrumb}
             onNavigate={(id) => {
-              if (id === 'root') setZoomStack([]);
+              if (id === 'root') { setZoomStack([]); setExpandedIds(new Set()); }
               else handleBreadcrumbNav(id);
             }}
           />
