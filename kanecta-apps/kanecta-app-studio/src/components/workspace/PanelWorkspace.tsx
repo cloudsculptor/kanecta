@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
+import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from 'react-resizable-panels';
 import { PanelContainer } from './PanelContainer';
 import { useUiStore } from '../../store/ui';
 import './PanelWorkspace.scss';
