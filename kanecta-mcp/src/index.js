@@ -962,7 +962,7 @@ function runMcpServer() {
   process.stdin.on('end', () => process.exit(0));
 }
 
-module.exports = { runMcpServer, TOOLS };
+module.exports = { runMcpServer, TOOLS, resolveDatastorePath };
 
 if (require.main === module) {
   runMcpServer();
