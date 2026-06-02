@@ -3,20 +3,10 @@ import { useLocation } from '../../context/LocationContext';
 import './BottomBar.scss';
 
 export function BottomBar() {
-  const { viewId, itemId, overlayOpen, openOverlay, closeOverlay } = useLocation();
+  const { overlayOpen, openOverlay, closeOverlay } = useLocation();
 
   return (
     <nav className={`BottomBar${overlayOpen ? ' BottomBar--raised' : ''}`}>
-      <div className="BottomBar-location" title="View">
-        <input
-          className="BottomBar-location-input"
-          type="text"
-          placeholder="View"
-          aria-label="View"
-          readOnly
-          value={viewId ?? ''}
-        />
-      </div>
       <Fab
         onClick={() => overlayOpen ? closeOverlay() : openOverlay()}
         aria-label="Home"
@@ -24,16 +14,6 @@ export function BottomBar() {
       >
         <img src="/logo.svg" alt="Kanecta" className="BottomBar-logo" />
       </Fab>
-      <div className="BottomBar-location" title="Item">
-        <input
-          className="BottomBar-location-input"
-          type="text"
-          placeholder="Item"
-          aria-label="Item"
-          readOnly
-          value={itemId ?? ''}
-        />
-      </div>
     </nav>
   );
 }

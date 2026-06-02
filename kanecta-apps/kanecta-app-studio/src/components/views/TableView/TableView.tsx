@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import type { ItemType } from '../../../types/kanecta';
 import type { ViewMeta } from '../../../lib/viewMeta';
 import { useViewLocation } from '../../../context/LocationContext';
 
@@ -15,7 +16,6 @@ import { useWorkspaceStore } from '../../../store/workspace';
 import { useAllItems } from '../../../hooks/useAllItems';
 import { TypeList } from '../../shared/TypeList';
 import type { TypeDefinition } from '../../../api/types';
-import type { ItemType } from '../../../types/kanecta';
 import './TableView.scss';
 
 const theme = themeQuartz;
