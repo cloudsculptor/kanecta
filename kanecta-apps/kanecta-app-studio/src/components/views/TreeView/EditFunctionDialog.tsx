@@ -121,7 +121,7 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setError(null);
-    getApi().items.getObject(item.id)
+    getApi().items.getFunctionData(item.id)
       .then((data) => setForm(data ? fromRaw(data) : EMPTY))
       .catch(() => setForm(EMPTY))
       .finally(() => setLoading(false));
@@ -164,7 +164,7 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
     setSaving(true);
     setError(null);
     try {
-      await getApi().items.saveObject(item.id, toRaw(form));
+      await getApi().items.saveFunctionData(item.id, toRaw(form));
       onClose();
     } catch {
       setError('Failed to save. Please try again.');

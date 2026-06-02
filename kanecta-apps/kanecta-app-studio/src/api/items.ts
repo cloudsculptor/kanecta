@@ -55,5 +55,11 @@ export function itemsApi(client: ApiClient) {
 
     saveObject: (id: string, data: Record<string, unknown>) =>
       client.put<{ ok: boolean }>(`/items/${id}/object`, data),
+
+    getFunctionData: (id: string) =>
+      client.get<Record<string, unknown>>(`/items/${id}/function`),
+
+    saveFunctionData: (id: string, data: Record<string, unknown>) =>
+      client.put<{ ok: boolean }>(`/items/${id}/function`, data),
   };
 }

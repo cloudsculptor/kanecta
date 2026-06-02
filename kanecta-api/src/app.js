@@ -455,6 +455,28 @@ app.put('/items/:id/object', (req, res) => {
   res.json({ ok: true });
 });
 
+// GET /items/:id/function — read the function.json for a function item
+app.get('/items/:id/function', (req, res) => {
+  const { id } = req.params;
+  if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
+  const ds = openDatastore(res);
+  if (!ds) return;
+  const fn = ds.readFunctionJson(id);
+  if (!fn) return res.status(404).json({ error: 'No function data for this item' });
+  res.json(fn);
+});
+
+// PUT /items/:id/function — write or replace the function.json for a function item
+app.put('/items/:id/function', (req, res) => {
+  const { id } = req.params;
+  if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
+  const ds = openDatastore(res);
+  if (!ds) return;
+  if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
+  ds.writeFunctionJson(id, req.body);
+  res.json({ ok: true });
+});
+
 // GET /items/:id/tree — tree rooted at item (?depth=n)
 app.get('/items/:id/tree', (req, res) => {
   const { id } = req.params;

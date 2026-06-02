@@ -215,6 +215,15 @@ class FilesystemAdapter {
     this._writeJson(path.join(this._itemDir(id), 'object.json'), data);
   }
 
+  readFunctionJson(id) {
+    if (this._isSyntheticId(id)) return null;
+    return this._readJson(path.join(this._itemDir(id), 'function.json'), null);
+  }
+
+  writeFunctionJson(id, data) {
+    this._writeJson(path.join(this._itemDir(id), 'function.json'), data);
+  }
+
   // ─── Link extraction ───────────────────────────────────────────────────────
 
   _parseLinks(value) {

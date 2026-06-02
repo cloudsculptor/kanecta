@@ -80,6 +80,8 @@ class Datastore {
   tree(rootId, maxDepth)               { return this._adapter.tree(rootId, maxDepth); }
   readObjectJson(id)                   { return this._adapter.readObjectJson(id); }
   writeObjectJson(id, data)            { return this._adapter.writeObjectJson(id, data); }
+  readFunctionJson(id)                 { return this._adapter.readFunctionJson(id); }
+  writeFunctionJson(id, data)          { return this._adapter.writeFunctionJson(id, data); }
   getRoot()                            { return this._adapter.getRoot(); }
   getDataRoot()                        { return this._adapter.getDataRoot(); }
 
