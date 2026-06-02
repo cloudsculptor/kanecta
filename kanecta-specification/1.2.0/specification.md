@@ -99,6 +99,7 @@ Path: `.kanecta/data/a1/b2/a1b2c3d4-e5f6-4abc-9def-123456789012/`
 
 Each item folder contains:
 - **metadata.json** — Item metadata (required)
+- **function.json** — Function signature and implementation (required when `type` is `function`)
 - **Optional files** — Images, code, documents, attachments, etc.
 
 ### metadata.json Schema
@@ -150,6 +151,40 @@ Each item folder contains:
 | `cachedAt` | conditional | ISO8601 timestamp when remote item was last cached. Required for remotes, null for local items |
 | `subscribedAt` | no | ISO8601 timestamp when subscription started. Null if not subscribed |
 | `subscriptionSource` | no | URL or identifier of remote source for updates |
+
+### function.json Schema
+
+**Source of truth: [`./file-specs/function.json`](./file-specs/function.json)**
+
+When an item's `type` is `function`, a `function.json` file must be stored alongside `metadata.json` in the item's data folder. It captures the full TypeScript-compatible function signature and optional implementation. The function name is stored in the item's `metadata.json` `value` field.
+
+Key fields:
+
+| Field | Required | Description |
+|---|---|---|
+| `parameters` | yes | Ordered array of parameter objects. Each must have `name` and exactly one of `type` or `typeId` (see below). |
+| `returnType` | conditional | TypeScript **primitive** return type only. Same rules as parameter `type`: primitives and their compositions. Object types must use `returnTypeId`. Required if `returnTypeId` is absent. |
+| `returnTypeId` | conditional | UUID of a Kanecta type definition for the return value. Required for object return types. Required if `returnType` is absent. |
+| `description` | no | JSDoc-style summary |
+| `async` | no | Whether the function is async (default `false`) |
+| `ai` | no | Whether the function invokes AI during its internal operations (default `false`) |
+| `skill` | no | UUID of a Kanecta skill item. When present, the function delegates to that skill instead of (or in addition to) `body` |
+| `typeParameters` | no | Generic type parameters (`name`, `constraint`, `default`) |
+| `throws` | no | Error types the function may throw |
+| `deprecated` | no | Deprecation notice string |
+| `body` | no | Function body as source code. Omit when describing a signature only |
+
+**Parameter fields:**
+
+| Field | Required | Description |
+|---|---|---|
+| `name` | yes | Parameter name |
+| `type` | conditional | TypeScript **primitive** type only: `string`, `number`, `boolean`, `null`, `undefined`, `void`, `never`, `unknown`, `any`, `symbol`, `bigint`, and compositions of these (arrays, unions, `Promise<T>`, generic params from `typeParameters`). Object types — named or inline — are not permitted; use `typeId` instead. Required if `typeId` is absent. |
+| `typeId` | conditional | UUID of a Kanecta type definition. Resolves to that type's JSON schema at runtime. Required for all object types. Required if `type` is absent. |
+| `optional` | no | Whether the parameter is optional — `?` suffix in TypeScript (default `false`) |
+| `rest` | no | Whether this is a rest parameter — `...args` (default `false`) |
+| `defaultValue` | no | Default value as a source string (e.g. `'0'`, `'[]'`) |
+| `description` | no | JSDoc `@param` description |
 
 ### Item Types
 
