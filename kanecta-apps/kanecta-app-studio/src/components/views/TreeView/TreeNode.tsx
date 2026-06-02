@@ -107,8 +107,11 @@ export function TreeNode({
   const handleConvert = async (targetType: string) => {
     setConverting(true);
     try {
-      await getApi().items.update(item.id, { type: targetType as ItemType });
-      await queryClient.invalidateQueries({ queryKey: ['tree'] });
+      const updated = await getApi().items.update(item.id, { type: targetType as ItemType });
+      queryClient.setQueriesData<KanectaItem[]>(
+        { queryKey: ['tree-children'] },
+        (old) => old?.map((i) => (i.id === item.id ? updated : i)),
+      );
       closeConvert();
     } finally {
       setConverting(false);
@@ -225,7 +228,7 @@ export function TreeNode({
           </Tooltip>
           {!isSynthetic && (
             <Tooltip title="Convert">
-              <IconButton size="small" onClick={(e) => { e.stopPropagation(); setConvertOpen(true); }}>
+              <IconButton size="small" data-testid="convert-btn" onClick={(e) => { e.stopPropagation(); setConvertOpen(true); }}>
                 <AutoFixHighIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
               </IconButton>
             </Tooltip>
@@ -287,9 +290,19 @@ export function TreeNode({
       <Dialog open={convertOpen} onClose={() => !converting && closeConvert()} onClick={(e) => e.stopPropagation()} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ pb: 0 }}>
           Convert type
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Currently <strong>{item.type}</strong>
-          </Typography>
+          <Box sx={{ mt: 1 }}>
+            {(() => { const Icon = TYPE_ICONS[item.type]; return (
+              <Box component="span" sx={{
+                display: 'inline-flex', alignItems: 'center', gap: 0.75,
+                px: 1.5, py: 0.75, borderRadius: 2, border: '1px solid',
+                borderColor: 'primary.main', bgcolor: 'primary.main',
+                color: 'primary.contrastText', fontSize: '0.8125rem',
+              }}>
+                {Icon && <Icon sx={{ fontSize: '1rem' }} />}
+                {item.type}
+              </Box>
+            ); })()}
+          </Box>
         </DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
           {allConversionsDestructive && (
