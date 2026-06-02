@@ -4,6 +4,7 @@ import {
   MenuList, MenuItem, ListSubheader, Grow, Box,
 } from '@mui/material';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import { useWorkspaceStore } from '../../../store/workspace';
 import { RunFunctionDialog } from './RunFunctionDialog';
 import type { KanectaItem } from '../../../types/kanecta';
@@ -95,6 +96,8 @@ export function FunctionLinksButton({ item }: Props) {
           boxShadow: 2,
           flexShrink: 0,
           bgcolor: 'success.main',
+          borderRadius: '12px',
+          overflow: 'hidden',
           '& .MuiButtonGroup-grouped': { borderColor: 'success.dark' },
         }}
         onClick={(e) => e.stopPropagation()}
@@ -103,10 +106,12 @@ export function FunctionLinksButton({ item }: Props) {
           onClick={handleMainClick}
           sx={{
             bgcolor: 'success.main', color: 'success.contrastText',
-            fontSize: '0.75rem', py: 0.25, px: 1, textTransform: 'none',
+            fontSize: '0.75rem', py: 0.25, px: '12px', textTransform: 'none',
+            gap: 0.5,
             '&:hover': { bgcolor: 'success.dark' },
           }}
         >
+          <PlayArrowIcon sx={{ fontSize: '14px' }} />
           {selected.name}
         </Button>
         <Button
