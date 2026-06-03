@@ -13,6 +13,7 @@
     "kanecta-specification",
     "kanecta-filesystem",
     "kanecta-lib",
+    "kanecta-api-client",
     "kanecta-sdk",
     "kanecta-api",
     "kanecta-cli",
