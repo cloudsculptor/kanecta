@@ -6,6 +6,7 @@ import {
   Radio, RadioGroup, FormControl, FormLabel, Alert,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { functionSpec } from '@kanecta/specification';
 import { useWorkspaceStore } from '../../../store/workspace';
@@ -341,9 +342,17 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
       fullWidth
       sx={{ '& .MuiDialog-paper': { height: '90vh', width: '90vw', maxWidth: '90vw' } }}
     >
-      <DialogTitle sx={{ pb: 0 }}>
+      <DialogTitle sx={{ pb: 0, pr: 6 }}>
         Edit function
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>{item.value}</Typography>
+        <IconButton
+          onClick={onClose}
+          disabled={busy}
+          sx={{ position: 'absolute', top: 8, right: 8 }}
+          size="small"
+        >
+          <CloseIcon fontSize="small" />
+        </IconButton>
       </DialogTitle>
 
       <DialogContent
