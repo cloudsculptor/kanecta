@@ -29,6 +29,7 @@ export interface KanectaItem {
   workspaceId?: string;
   createdAt: string | null;
   modifiedAt: string | null;
+  completedAt?: string | null;
   childCount?: number;
   icon?: string | null;
   _synthetic?: boolean;

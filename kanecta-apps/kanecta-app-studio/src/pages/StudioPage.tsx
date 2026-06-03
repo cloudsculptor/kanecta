@@ -23,6 +23,8 @@ import { ClaudeView } from '../components/views/ClaudeView/ClaudeView';
 import { HomeView } from '../components/views/HomeView/HomeView';
 import { DiagramView } from '../components/views/DiagramView/DiagramView';
 import { FunctionsView } from '../components/views/FunctionsView/FunctionsView';
+import { TodoView } from '../components/views/TodoView/TodoView';
+import { LayoutsView } from '../components/views/LayoutsView/LayoutsView';
 import { QuickCapture } from '../components/shared/QuickCapture';
 import { CommandPalette } from '../components/shared/CommandPalette';
 import { SettingsPage } from './SettingsPage';
@@ -116,6 +118,8 @@ function StudioInner() {
       case 'home': return <HomeView />;
       case 'diagram': return <DiagramView />;
       case 'functions': return <FunctionsView />;
+      case 'todo': return <TodoView />;
+      case 'layouts': return <LayoutsView />;
       default:
         return (
           <div style={{ padding: 24, color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>

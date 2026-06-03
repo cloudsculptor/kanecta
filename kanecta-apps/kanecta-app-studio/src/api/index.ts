@@ -12,6 +12,7 @@ import { systemItemsApi } from './systemItems';
 import { skillsApi } from './skills';
 import { claudeApi } from './claude';
 import { viewApi } from './view';
+import { layoutsApi } from './layouts';
 export type { ViewSettings } from './view';
 
 export { ApiError } from './client';
@@ -44,6 +45,7 @@ export function createApi(baseUrl: string) {
     settings: settingsApi(client),
     systemItems: systemItemsApi(client),
     view: viewApi(client),
+    layouts: layoutsApi(client),
   };
 }
 

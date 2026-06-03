@@ -70,5 +70,9 @@ export function itemsApi(client: ApiClient) {
 
     runFunctionScaffold: (id: string, args: Record<string, string>) =>
       client.post<{ success: boolean; output: string | null; logs: string }>(`/items/${id}/function/run`, { args }),
+
+    complete: (id: string) => client.post<KanectaItem>(`/items/${id}/complete`, {}),
+
+    uncomplete: (id: string) => client.post<KanectaItem>(`/items/${id}/uncomplete`, {}),
   };
 }

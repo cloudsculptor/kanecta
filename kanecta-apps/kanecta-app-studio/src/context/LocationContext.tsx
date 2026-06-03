@@ -10,6 +10,7 @@ interface LocationState {
   closeOverlay: () => void;
 }
 
+export { LocationContext };
 const LocationContext = createContext<LocationState>({
   viewId: null,
   itemId: null,

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Box, Typography, Alert, Fab } from '@mui/material';
+import { IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Box, Typography, Alert, Fab, TextField, CircularProgress } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import AddIcon from '@mui/icons-material/Add';
@@ -13,6 +13,7 @@ import Looks5Icon from '@mui/icons-material/Looks5';
 import AddBoxIcon from '@mui/icons-material/AddBox';
 import DataObjectIcon from '@mui/icons-material/DataObject';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import LabelIcon from '@mui/icons-material/Label';
 import DifferenceOutlinedIcon from '@mui/icons-material/DifferenceOutlined';
 import FileCopyOutlinedIcon from '@mui/icons-material/FileCopyOutlined';
 import CategoryIcon from '@mui/icons-material/Category';
@@ -100,6 +101,11 @@ export function TreeNode({
   const [runFunctionOpen, setRunFunctionOpen] = useState(false);
   const [converting, setConverting] = useState(false);
   const [pendingConvert, setPendingConvert] = useState<string | null>(null);
+  const [aliasOpen, setAliasOpen] = useState(false);
+  const [aliasInput, setAliasInput] = useState('');
+  const [aliasChecking, setAliasChecking] = useState(false);
+  const [aliasConflict, setAliasConflict] = useState<{ alias: string; targetId: string; value?: string } | null>(null);
+  const [aliasSaving, setAliasSaving] = useState(false);
   const resolveId = useItemLookup();
   const { getApi } = useWorkspaceStore();
   const { vscodeAvailable } = useUiStore();
@@ -152,6 +158,49 @@ const allConversionsDestructive = item.type === 'function';
       closeConvert();
     } finally {
       setConverting(false);
+    }
+  };
+
+  const openAliasDialog = () => {
+    setAliasInput('');
+    setAliasConflict(null);
+    setAliasOpen(true);
+  };
+
+  const closeAliasDialog = () => {
+    setAliasOpen(false);
+    setAliasConflict(null);
+    setAliasInput('');
+  };
+
+  const handleAliasSubmit = async () => {
+    const alias = aliasInput.trim();
+    if (!alias) return;
+    setAliasChecking(true);
+    setAliasConflict(null);
+    try {
+      const existing = await getApi().aliases.resolve(alias);
+      let existingValue: string | undefined;
+      try {
+        const existingItem = await getApi().items.get(existing.targetId);
+        existingValue = existingItem.value;
+      } catch { /* item may be missing */ }
+      setAliasConflict({ alias: existing.alias, targetId: existing.targetId, value: existingValue });
+    } catch {
+      // no conflict — save
+      await saveAlias(alias);
+    } finally {
+      setAliasChecking(false);
+    }
+  };
+
+  const saveAlias = async (alias: string) => {
+    setAliasSaving(true);
+    try {
+      await getApi().aliases.set(alias, item.id);
+      closeAliasDialog();
+    } finally {
+      setAliasSaving(false);
     }
   };
 
@@ -256,6 +305,11 @@ const allConversionsDestructive = item.type === 'function';
           <Tooltip title="Copy ID">
             <IconButton size="small" onClick={(e) => { e.stopPropagation(); void navigator.clipboard.writeText(item.id); onRecordClipboard(item.type, item.typeId ?? ''); }}>
               <ContentCopyIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Set alias">
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); openAliasDialog(); }}>
+              <LabelIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Copy value">
@@ -444,6 +498,56 @@ const allConversionsDestructive = item.type === 'function';
             <Button onClick={closeConvert} disabled={converting}>Cancel</Button>
           </DialogActions>
         )}
+      </Dialog>
+
+      <Dialog open={aliasOpen} onClose={closeAliasDialog} onClick={(e) => e.stopPropagation()} maxWidth="xs" fullWidth>
+        <DialogTitle>Set alias for "{item.value}"</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          <TextField
+            autoFocus
+            label="Alias"
+            size="small"
+            fullWidth
+            value={aliasInput}
+            onChange={e => { setAliasInput(e.target.value); setAliasConflict(null); }}
+            onKeyDown={e => { if (e.key === 'Enter' && !aliasChecking && !aliasSaving) void handleAliasSubmit(); }}
+            disabled={aliasChecking || aliasSaving}
+            placeholder="e.g. my-project"
+          />
+          {aliasConflict && (
+            <Alert severity="warning">
+              <strong>{aliasConflict.alias}</strong> already points to{' '}
+              {aliasConflict.value ? <strong>{aliasConflict.value}</strong> : 'an item'}{' '}
+              <Typography variant="caption" sx={{ display: 'block', mt: 0.5, fontFamily: 'monospace', opacity: 0.7 }}>
+                {aliasConflict.targetId}
+              </Typography>
+              Overwrite?
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeAliasDialog} disabled={aliasChecking || aliasSaving}>Cancel</Button>
+          {aliasConflict ? (
+            <Button
+              color="warning"
+              variant="contained"
+              disabled={aliasSaving}
+              onClick={() => void saveAlias(aliasInput.trim())}
+              startIcon={aliasSaving ? <CircularProgress size={14} /> : undefined}
+            >
+              Overwrite
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              disabled={!aliasInput.trim() || aliasChecking || aliasSaving}
+              onClick={() => void handleAliasSubmit()}
+              startIcon={aliasChecking ? <CircularProgress size={14} /> : undefined}
+            >
+              Save
+            </Button>
+          )}
+        </DialogActions>
       </Dialog>
     </div>
   );

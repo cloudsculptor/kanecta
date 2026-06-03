@@ -1,4 +1,6 @@
 import Fab from '@mui/material/Fab';
+import ChecklistIcon from '@mui/icons-material/Checklist';
+import DashboardIcon from '@mui/icons-material/Dashboard';
 import HistoryIcon from '@mui/icons-material/History';
 import StarIcon from '@mui/icons-material/Star';
 import { useLocation } from '../../context/LocationContext';
@@ -13,17 +15,22 @@ interface BottomBarProps {
 export function BottomBar({ activeView, onViewSelect }: BottomBarProps) {
   const { overlayOpen, openOverlay, closeOverlay } = useLocation();
 
+  const item = (view: ViewType, label: string, icon: React.ReactNode) => (
+    <button
+      className={`BottomBar-item${activeView === view ? ' BottomBar-item--active' : ''}`}
+      onClick={() => onViewSelect(view)}
+      aria-label={label}
+      aria-current={activeView === view ? 'page' : undefined}
+    >
+      {icon}
+      <span className="BottomBar-item-label">{label}</span>
+    </button>
+  );
+
   return (
     <nav className={`BottomBar${overlayOpen ? ' BottomBar--raised' : ''}`}>
-      <button
-        className={`BottomBar-item${activeView === 'starred' ? ' BottomBar-item--active' : ''}`}
-        onClick={() => onViewSelect('starred')}
-        aria-label="Starred"
-        aria-current={activeView === 'starred' ? 'page' : undefined}
-      >
-        <StarIcon />
-        <span className="BottomBar-item-label">Starred</span>
-      </button>
+      {item('starred', 'Starred', <StarIcon />)}
+      {item('history', 'History', <HistoryIcon />)}
       <Fab
         onClick={() => overlayOpen ? closeOverlay() : openOverlay()}
         aria-label="Home"
@@ -31,15 +38,8 @@ export function BottomBar({ activeView, onViewSelect }: BottomBarProps) {
       >
         <img src="/logo.svg" alt="Kanecta" className="BottomBar-logo" />
       </Fab>
-      <button
-        className={`BottomBar-item${activeView === 'history' ? ' BottomBar-item--active' : ''}`}
-        onClick={() => onViewSelect('history')}
-        aria-label="History"
-        aria-current={activeView === 'history' ? 'page' : undefined}
-      >
-        <HistoryIcon />
-        <span className="BottomBar-item-label">History</span>
-      </button>
+      {item('layouts', 'Layouts', <DashboardIcon />)}
+      {item('todo', 'Todo', <ChecklistIcon />)}
     </nav>
   );
 }
