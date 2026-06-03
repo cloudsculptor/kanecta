@@ -64,5 +64,8 @@ export function itemsApi(client: ApiClient) {
 
     checkFunctionScaffold: (id: string) =>
       client.get<{ exists: boolean }>(`/items/${id}/function/scaffold`),
+
+    compileFunctionScaffold: (id: string) =>
+      client.post<{ success: boolean; output: string }>(`/items/${id}/function/compile`, {}),
   };
 }

@@ -4,6 +4,7 @@ const express = require('express');
 const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE } = require('@kanecta/lib');
 const claude = require('./claude');
 const { generateFunctionScaffold } = require('./generateFunctionCode');
+const { spawnSync } = require('child_process');
 
 const app = express();
 app.use(express.json());
@@ -495,6 +496,39 @@ app.put('/items/:id/function', (req, res) => {
     console.error(`[kanecta] generateFunctionScaffold failed for ${id}:`, err);
   }
   res.json({ ok: true });
+});
+
+// POST /items/:id/function/compile — npm install + tsc in the function scaffold directory
+app.post('/items/:id/function/compile', (req, res) => {
+  const { id } = req.params;
+  if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
+  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const s = id.replace(/-/g, '');
+  const fnDir = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id, 'function');
+
+  if (!fs.existsSync(fnDir)) {
+    return res.status(404).json({ error: 'Function scaffold not found. Save the function first.' });
+  }
+
+  const chunks = [];
+
+  const install = spawnSync('npm', ['install'], {
+    cwd: fnDir, encoding: 'utf8', shell: true, timeout: 120_000,
+  });
+  if (install.stdout) chunks.push(install.stdout);
+  if (install.stderr) chunks.push(install.stderr);
+
+  if (install.status !== 0) {
+    return res.json({ success: false, output: chunks.join('\n').trim() });
+  }
+
+  const build = spawnSync('npm', ['run', 'build'], {
+    cwd: fnDir, encoding: 'utf8', shell: true, timeout: 60_000,
+  });
+  if (build.stdout) chunks.push(build.stdout);
+  if (build.stderr) chunks.push(build.stderr);
+
+  return res.json({ success: build.status === 0, output: chunks.join('\n').trim() });
 });
 
 // GET /items/:id/tree — tree rooted at item (?depth=n)
