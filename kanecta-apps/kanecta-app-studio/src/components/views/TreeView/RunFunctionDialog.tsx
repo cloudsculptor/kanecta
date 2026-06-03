@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, TextField, Typography, Stack, Box, CircularProgress, Alert,
+  Divider, IconButton,
 } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import { useWorkspaceStore } from '../../../store/workspace';
 import type { KanectaItem } from '../../../types/kanecta';
 
@@ -36,6 +38,8 @@ export function RunFunctionDialog({ open, onClose, item }: Props) {
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [output, setOutput] = useState<string | null>(null);
+  const [logs, setLogs] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -44,6 +48,8 @@ export function RunFunctionDialog({ open, onClose, item }: Props) {
     setError(null);
     setArgs({});
     setFnData(null);
+    setOutput(null);
+    setLogs(null);
     getApi().items.getFunctionData(item.id)
       .then((data) => {
         if (!data) return;
@@ -67,10 +73,12 @@ export function RunFunctionDialog({ open, onClose, item }: Props) {
 
   const handleRun = async () => {
     setRunning(true);
+    setOutput(null);
+    setLogs(null);
     try {
       // TODO: wire to execution engine with args
       await Promise.resolve();
-      onClose();
+      setLogs('Execution not yet wired up.');
     } catch {
       setError('Execution failed.');
     } finally {
@@ -79,68 +87,131 @@ export function RunFunctionDialog({ open, onClose, item }: Props) {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} onClick={(e) => e.stopPropagation()} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ pb: 0 }}>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      onClick={(e) => e.stopPropagation()}
+      maxWidth="lg"
+      fullWidth
+      sx={{ '& .MuiDialog-paper': { width: '90vw', maxWidth: '90vw', height: '80vh' } }}
+    >
+      <DialogTitle sx={{ pb: 0, pr: 6 }}>
         Run function
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>{item.value}</Typography>
+        <IconButton onClick={onClose} disabled={running} sx={{ position: 'absolute', top: 8, right: 8 }} size="small">
+          <CloseIcon fontSize="small" />
+        </IconButton>
       </DialogTitle>
 
-      <DialogContent sx={{ pt: '12px !important' }}>
+      <DialogContent
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 3,
+          overflow: 'hidden',
+          pt: '12px !important',
+        }}
+      >
         {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={32} /></Box>
+          <Box sx={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress size={32} />
+          </Box>
         ) : (
-          <Stack spacing={2}>
-            {error && <Alert severity="error">{error}</Alert>}
+          <>
+            {/* ── Left: inputs + output ── */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, overflow: 'auto' }}>
+              {error && <Alert severity="error">{error}</Alert>}
 
-            {fnData?.description && (
-              <Typography variant="body2" color="text.secondary">{fnData.description}</Typography>
-            )}
+              {fnData?.description && (
+                <Typography variant="body2" color="text.secondary">{fnData.description}</Typography>
+              )}
 
-            {params.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                This function takes no arguments.
+              <Stack spacing={2}>
+                {params.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                    This function takes no arguments.
+                  </Typography>
+                ) : (
+                  params.map((p) => {
+                    const typeLabel = p.type ?? (p.typeId ? `Kanecta: ${p.typeId}` : 'unknown');
+                    const helperParts: string[] = [`type: ${typeLabel}`];
+                    if (p.description) helperParts.unshift(p.description);
+                    return (
+                      <TextField
+                        key={p.name}
+                        label={
+                          <Box component="span">
+                            {p.name}
+                            {p.optional && (
+                              <Typography component="span" variant="caption" color="text.secondary"> optional</Typography>
+                            )}
+                            {p.rest && (
+                              <Typography component="span" variant="caption" color="text.secondary"> ...rest</Typography>
+                            )}
+                          </Box>
+                        }
+                        value={args[p.name] ?? ''}
+                        onChange={(e) => setArgs((a) => ({ ...a, [p.name]: e.target.value }))}
+                        fullWidth
+                        required={!p.optional}
+                        placeholder={p.defaultValue !== undefined ? `default: ${p.defaultValue}` : undefined}
+                        helperText={helperParts.join(' — ')}
+                      />
+                    );
+                  })
+                )}
+              </Stack>
+
+              {fnData && (
+                <Typography variant="caption" color="text.secondary">
+                  Returns: <strong>{returnLabel}</strong>
+                </Typography>
+              )}
+
+              {output !== null && (
+                <>
+                  <Divider />
+                  <Typography variant="overline" color="text.secondary">Output</Typography>
+                  <Box
+                    component="pre"
+                    sx={{
+                      m: 0, p: 1.5,
+                      fontFamily: 'monospace', fontSize: '0.75rem', lineHeight: 1.5,
+                      bgcolor: '#1e1e1e', color: '#d4d4d4',
+                      borderRadius: 1, whiteSpace: 'pre-wrap', overflow: 'auto',
+                      flex: 1, minHeight: 80,
+                    }}
+                  >
+                    {output}
+                  </Box>
+                </>
+              )}
+            </Box>
+
+            {/* ── Right: logging ── */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, overflow: 'hidden' }}>
+              <Typography variant="overline" color="text.secondary" sx={{ lineHeight: 1, flexShrink: 0 }}>
+                Logs
               </Typography>
-            ) : (
-              params.map((p) => {
-                const typeLabel = p.type ?? (p.typeId ? `Kanecta: ${p.typeId}` : 'unknown');
-                const helperParts: string[] = [`type: ${typeLabel}`];
-                if (p.description) helperParts.unshift(p.description);
-                return (
-                  <TextField
-                    key={p.name}
-                    label={
-                      <Box component="span">
-                        {p.name}
-                        {p.optional && (
-                          <Typography component="span" variant="caption" color="text.secondary"> optional</Typography>
-                        )}
-                        {p.rest && (
-                          <Typography component="span" variant="caption" color="text.secondary"> ...rest</Typography>
-                        )}
-                      </Box>
-                    }
-                    value={args[p.name] ?? ''}
-                    onChange={(e) => setArgs((a) => ({ ...a, [p.name]: e.target.value }))}
-                    fullWidth
-                    required={!p.optional}
-                    placeholder={p.defaultValue !== undefined ? `default: ${p.defaultValue}` : undefined}
-                    helperText={helperParts.join(' — ')}
-                  />
-                );
-              })
-            )}
-
-            {fnData && (
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
-                Returns: <strong>{returnLabel}</strong>
-              </Typography>
-            )}
-          </Stack>
+              <Box
+                component="pre"
+                sx={{
+                  flex: 1,
+                  m: 0, p: 1.5,
+                  fontFamily: 'monospace', fontSize: '0.75rem', lineHeight: 1.5,
+                  bgcolor: '#1e1e1e', color: '#d4d4d4',
+                  borderRadius: 1, whiteSpace: 'pre-wrap', overflow: 'auto',
+                }}
+              >
+                {logs ?? ''}
+              </Box>
+            </Box>
+          </>
         )}
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={onClose} disabled={running}>Cancel</Button>
+        <Button onClick={onClose} disabled={running}>Close</Button>
         <Button
           variant="contained"
           color="success"
