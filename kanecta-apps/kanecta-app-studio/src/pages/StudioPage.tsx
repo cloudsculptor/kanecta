@@ -29,6 +29,7 @@ import { SettingsPage } from './SettingsPage';
 import { LocationProvider } from '../context/LocationContext';
 import { useWorkspaceStore } from '../store/workspace';
 import { useSettingsStore, THEMES } from '../store/settings';
+import { useUiStore } from '../store/ui';
 import { useLiveActivity } from '../hooks/useLiveActivity';
 import { flattenTree } from '../lib/items';
 import type { KanectaItem } from '../types/kanecta';
@@ -48,9 +49,20 @@ function StudioInner() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const { getApi } = useWorkspaceStore();
   const { applyTheme } = useSettingsStore();
+  const { setVscodeAvailable } = useUiStore();
   const { setItemId } = useLocation();
 
   useLiveActivity();
+
+  useQuery({
+    queryKey: ['app-config'],
+    queryFn: async () => {
+      const cfg = await getApi().config.get();
+      setVscodeAvailable(cfg.vscodeAvailable);
+      return cfg;
+    },
+    staleTime: Infinity,
+  });
 
   useQuery({
     queryKey: ['app-settings'],

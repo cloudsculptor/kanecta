@@ -14,6 +14,7 @@ interface UiState {
   focusedItemId: string | null;
   filtersByPanel: Record<string, FilterState>;
   sortsByPanel: Record<string, SortState>;
+  vscodeAvailable: boolean;
 
   addPanel: (config?: Partial<PanelConfig>) => void;
   removePanel: (id: string) => void;
@@ -24,6 +25,7 @@ interface UiState {
   setFocusedItem: (id: string | null) => void;
   setPanelFilter: (panelId: string, filter: FilterState) => void;
   setPanelSort: (panelId: string, sort: SortState) => void;
+  setVscodeAvailable: (available: boolean) => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -35,6 +37,7 @@ export const useUiStore = create<UiState>()(
       focusedItemId: null,
       filtersByPanel: {},
       sortsByPanel: {},
+      vscodeAvailable: false,
 
       addPanel: (config = {}) =>
         set((s) => {
@@ -76,6 +79,8 @@ export const useUiStore = create<UiState>()(
 
       setPanelSort: (panelId, sort) =>
         set((s) => ({ sortsByPanel: { ...s.sortsByPanel, [panelId]: sort } })),
+
+      setVscodeAvailable: (vscodeAvailable) => set({ vscodeAvailable }),
     }),
     { name: 'kanecta-ui' },
   ),
