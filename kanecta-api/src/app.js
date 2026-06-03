@@ -151,7 +151,19 @@ function matchObjectData(objectData, q, fields) {
 // GET /config — datastore configuration visible to the studio
 app.get('/config', (req, res) => {
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
-  res.json({ datastorePath: root });
+  const whichCmd = process.platform === 'win32' ? 'where' : 'which';
+  const vscodeCheck = spawnSync(whichCmd, ['code'], { encoding: 'utf8' });
+  res.json({ datastorePath: root, vscodeAvailable: vscodeCheck.status === 0 });
+});
+
+// POST /open-in-vscode — open a path in VS Code
+app.post('/open-in-vscode', (req, res) => {
+  const { path: targetPath } = req.body;
+  if (!targetPath || typeof targetPath !== 'string') {
+    return res.status(400).json({ error: 'path is required' });
+  }
+  spawnSync('code', [targetPath], { shell: false });
+  res.json({ ok: true });
 });
 
 // POST /open-path — open a local directory in the OS file manager

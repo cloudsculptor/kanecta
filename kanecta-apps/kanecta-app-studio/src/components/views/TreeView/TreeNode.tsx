@@ -20,7 +20,7 @@ import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import DriveFolderUploadIcon from '@mui/icons-material/DriveFolderUpload';
-import FolderSpecialIcon from '@mui/icons-material/FolderSpecial';
+import CodeIcon from '@mui/icons-material/Code';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import { useQueryClient } from '@tanstack/react-query';
 import { primitiveTypes } from '@kanecta/specification';
@@ -33,6 +33,7 @@ import { ItemValue } from '../../shared/ItemValue';
 import { DynamicIcon } from '../../shared/DynamicIcon';
 import { useItemLookup } from '../../../hooks/useItemLookup';
 import { useWorkspaceStore } from '../../../store/workspace';
+import { useUiStore } from '../../../store/ui';
 import { TYPE_ICONS } from '../../../lib/typeIcons';
 import type { KanectaItem, ItemType } from '../../../types/kanecta';
 import './TreeNode.scss';
@@ -101,6 +102,7 @@ export function TreeNode({
   const [pendingConvert, setPendingConvert] = useState<string | null>(null);
   const resolveId = useItemLookup();
   const { getApi } = useWorkspaceStore();
+  const { vscodeAvailable } = useUiStore();
   const queryClient = useQueryClient();
   const datastorePathRef = useRef<string | null>(null);
 
@@ -123,11 +125,11 @@ export function TreeNode({
     void getApi().config.openInBrowser(await getDiskPath());
   };
 
-  const copyDiskLocation = async () => {
-    void navigator.clipboard.writeText(await getDiskPath());
+  const openInVscode = async () => {
+    void getApi().config.openInVscode(await getDiskPath());
   };
 
-  const allConversionsDestructive = item.type === 'function';
+const allConversionsDestructive = item.type === 'function';
 
   const closeConvert = () => { setConvertOpen(false); setPendingConvert(null); };
 
@@ -261,19 +263,21 @@ export function TreeNode({
               <DifferenceOutlinedIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
             </IconButton>
           </Tooltip>
+          {vscodeAvailable && (
+            <Tooltip title="Open in VS Code">
+              <IconButton size="small" onClick={(e) => { e.stopPropagation(); void openInVscode(); }}>
+                <CodeIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+              </IconButton>
+            </Tooltip>
+          )}
           <Tooltip title="Open in file browser">
             <IconButton size="small" onClick={(e) => { e.stopPropagation(); void openDiskLocation(); }}>
-              <DriveFolderUploadIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Open in browser">
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); void openDiskLocationInBrowser(); }}>
-              <FolderSpecialIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Copy disk location">
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); void copyDiskLocation(); }}>
               <FolderOpenIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Open in web browser">
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); void openDiskLocationInBrowser(); }}>
+              <DriveFolderUploadIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
             </IconButton>
           </Tooltip>
           {item.typeId && (

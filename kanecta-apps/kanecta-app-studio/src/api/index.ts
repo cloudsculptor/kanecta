@@ -26,9 +26,10 @@ export function createApi(baseUrl: string) {
   const client = makeClient(baseUrl);
   return {
     config: {
-      get: () => client.get<{ datastorePath: string }>('/config'),
+      get: () => client.get<{ datastorePath: string; vscodeAvailable: boolean }>('/config'),
       openPath: (path: string) => client.post<{ ok: boolean }>('/open-path', { path }),
       openInBrowser: (path: string) => client.post<{ ok: boolean }>('/open-in-browser', { path }),
+      openInVscode: (path: string) => client.post<{ ok: boolean }>('/open-in-vscode', { path }),
     },
     items: itemsApi(client),
     aliases: aliasesApi(client),
