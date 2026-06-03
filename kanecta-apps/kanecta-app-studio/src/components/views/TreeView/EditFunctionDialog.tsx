@@ -658,13 +658,6 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
         </Box>
       </DialogContent>
 
-      {/* Compile failure banner — sits between content and actions */}
-      {compileResult && !compileResult.success && (
-        <Box sx={{ px: 3, pt: 1 }}>
-          <Alert severity="error" sx={{ py: 0.5 }}>Compile failed — see build output on the right</Alert>
-        </Box>
-      )}
-
       <DialogActions>
         <Button onClick={onClose} disabled={busy}>Close</Button>
         <Button variant="outlined" disabled={busy || loading || !isValid} onClick={() => void handleSave()}>
