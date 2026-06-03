@@ -44,7 +44,7 @@ export function RunFunctionDialog({ open, onClose, item }: Props) {
     setError(null);
     setArgs({});
     setFnData(null);
-    getApi().items.getObject(item.id)
+    getApi().items.getFunctionData(item.id)
       .then((data) => {
         if (!data) return;
         const fn = data as unknown as FunctionData;
