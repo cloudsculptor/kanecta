@@ -339,7 +339,7 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
       onClick={(e) => e.stopPropagation()}
       maxWidth="lg"
       fullWidth
-      sx={{ '& .MuiDialog-paper': { height: '90vh' } }}
+      sx={{ '& .MuiDialog-paper': { height: '90vh', width: '90vw', maxWidth: '90vw' } }}
     >
       <DialogTitle sx={{ pb: 0 }}>
         Edit function
