@@ -531,7 +531,7 @@ app.post('/items/:id/function/compile', (req, res) => {
   return res.json({ success: build.status === 0, output: chunks.join('\n').trim() });
 });
 
-// POST /items/:id/function/run — execute the compiled function with provided args
+// POST /items/:id/function/run — npm install + build + execute the function with provided args
 app.post('/items/:id/function/run', (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
@@ -542,10 +542,23 @@ app.post('/items/:id/function/run', (req, res) => {
   const distIndex = path.join(fnDir, 'dist', 'index.js');
 
   if (!fs.existsSync(fnDir)) {
-    return res.status(404).json({ error: 'Function scaffold not found. Save first.' });
+    return res.status(404).json({ error: 'Function scaffold not found. Save the function first.' });
   }
-  if (!fs.existsSync(distIndex)) {
-    return res.status(400).json({ error: 'Function not compiled. Run Save & Compile first.' });
+
+  const buildChunks = [];
+
+  const install = spawnSync('npm', ['install'], { cwd: fnDir, encoding: 'utf8', shell: true, timeout: 120_000 });
+  if (install.stdout) buildChunks.push(install.stdout);
+  if (install.stderr) buildChunks.push(install.stderr);
+  if (install.status !== 0) {
+    return res.json({ success: false, output: null, logs: buildChunks.join('\n').trim() });
+  }
+
+  const build = spawnSync('npm', ['run', 'build'], { cwd: fnDir, encoding: 'utf8', shell: true, timeout: 60_000 });
+  if (build.stdout) buildChunks.push(build.stdout);
+  if (build.stderr) buildChunks.push(build.stderr);
+  if (build.status !== 0) {
+    return res.json({ success: false, output: null, logs: buildChunks.join('\n').trim() });
   }
 
   const ds = openDatastore(res);
@@ -588,7 +601,9 @@ Promise.resolve(mod[${JSON.stringify(fnName)}](...values))
   const resultMatch = stdout.match(new RegExp(`${RESULT_START}([\\s\\S]*?)${RESULT_END}`));
   const output = resultMatch ? resultMatch[1].trim() : null;
   const logsFromStdout = stdout.replace(new RegExp(`${RESULT_START}[\\s\\S]*?${RESULT_END}\\n?`), '').trim();
-  const logs = [logsFromStdout, stderr].filter(Boolean).join('\n').trim();
+  const execLogs = [logsFromStdout, stderr].filter(Boolean).join('\n').trim();
+  const buildLog = buildChunks.join('\n').trim();
+  const logs = [buildLog, execLogs].filter(Boolean).join('\n\n').trim();
 
   return res.json({ success: result.status === 0, output, logs });
 });
