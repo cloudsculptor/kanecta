@@ -671,7 +671,7 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
           {saving ? 'Saving…' : 'Save'}
         </Button>
         <Button variant="contained" disabled={busy || loading} onClick={() => void handleCompile()}>
-          {compiling ? 'Compiling…' : 'Compile'}
+          {compiling ? 'Compiling…' : saving ? 'Saving…' : 'Save & Compile'}
         </Button>
       </DialogActions>
 
