@@ -40,4 +40,31 @@
     font-size: 12px;
     line-height: 1.2;
   }
+
+  &-input-wrap {
+    width: 400px;
+    flex-shrink: 0;
+    margin: 0 36px;
+    background: #ffffff;
+    border: 1px solid var(--location-border, #cccccc);
+    border-radius: 20px;
+    padding: 6px 14px;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+
+  &-input {
+    width: 100%;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 0.8125rem;
+    color: #333;
+    text-align: center;
+
+    &::placeholder {
+      color: #aaa;
+    }
+  }
 }

@@ -23,7 +23,9 @@ export type ViewType =
   | 'settings'
   | 'home'
   | 'diagram'
-  | 'functions';
+  | 'functions'
+  | 'todo'
+  | 'layouts';
 
 export interface PanelConfig {
   id: string;

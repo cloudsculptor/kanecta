@@ -1403,6 +1403,40 @@ app.post('/app/studio/settings', (req, res) => {
   res.json({ ok: true });
 });
 
+// ─── Layouts ─────────────────────────────────────────────────────────────────
+
+function layoutsFilePath() {
+  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const dir = path.join(root, '.kanecta', 'app', 'studio', 'layouts');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  return path.join(dir, 'layouts.json');
+}
+
+function defaultLayoutData() {
+  const { randomUUID } = require('crypto');
+  const tabId = randomUUID();
+  const paneId = randomUUID();
+  return {
+    activeTabId: tabId,
+    tabs: [{ id: tabId, label: 'Tab 1', root: { type: 'leaf', id: paneId, viewType: null, itemId: null } }],
+  };
+}
+
+app.get('/app/studio/layouts', (_req, res) => {
+  const filePath = layoutsFilePath();
+  if (!fs.existsSync(filePath)) return res.json(defaultLayoutData());
+  try {
+    res.json(JSON.parse(fs.readFileSync(filePath, 'utf8')));
+  } catch {
+    res.json(defaultLayoutData());
+  }
+});
+
+app.put('/app/studio/layouts', (req, res) => {
+  fs.writeFileSync(layoutsFilePath(), JSON.stringify(req.body, null, 2));
+  res.json({ ok: true });
+});
+
 // ─── Skills ──────────────────────────────────────────────────────────────────
 
 const SKILLS_DIR = process.env.KANECTA_SKILLS_PATH || path.join(__dirname, '../../kanecta-skills');
