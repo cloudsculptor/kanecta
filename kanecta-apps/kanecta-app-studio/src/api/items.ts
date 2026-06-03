@@ -67,5 +67,8 @@ export function itemsApi(client: ApiClient) {
 
     compileFunctionScaffold: (id: string) =>
       client.post<{ success: boolean; output: string }>(`/items/${id}/function/compile`, {}),
+
+    runFunctionScaffold: (id: string, args: Record<string, string>) =>
+      client.post<{ success: boolean; output: string | null; logs: string }>(`/items/${id}/function/run`, { args }),
   };
 }

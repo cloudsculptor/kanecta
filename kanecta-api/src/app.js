@@ -3,7 +3,7 @@
 const express = require('express');
 const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE } = require('@kanecta/lib');
 const claude = require('./claude');
-const { generateFunctionScaffold } = require('./generateFunctionCode');
+const { generateFunctionScaffold, toCamelCase } = require('./generateFunctionCode');
 const { spawnSync } = require('child_process');
 
 const app = express();
@@ -529,6 +529,68 @@ app.post('/items/:id/function/compile', (req, res) => {
   if (build.stderr) chunks.push(build.stderr);
 
   return res.json({ success: build.status === 0, output: chunks.join('\n').trim() });
+});
+
+// POST /items/:id/function/run — execute the compiled function with provided args
+app.post('/items/:id/function/run', (req, res) => {
+  const { id } = req.params;
+  if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
+
+  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const s = id.replace(/-/g, '');
+  const fnDir = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id, 'function');
+  const distIndex = path.join(fnDir, 'dist', 'index.js');
+
+  if (!fs.existsSync(fnDir)) {
+    return res.status(404).json({ error: 'Function scaffold not found. Save first.' });
+  }
+  if (!fs.existsSync(distIndex)) {
+    return res.status(400).json({ error: 'Function not compiled. Run Save & Compile first.' });
+  }
+
+  const ds = openDatastore(res);
+  if (!ds) return;
+  const item = ds.get(id);
+  if (!item) return res.status(404).json({ error: 'Item not found' });
+
+  const fnData = ds.readFunctionJson(id) ?? {};
+  const fnName = toCamelCase(item.value ?? id);
+  const params = fnData.parameters ?? [];
+  const { args = {} } = req.body;
+
+  const RESULT_START = '__KANECTA_RESULT_START__';
+  const RESULT_END = '__KANECTA_RESULT_END__';
+
+  const runnerCode = `
+const mod = require(${JSON.stringify(distIndex)});
+const params = ${JSON.stringify(params)};
+const rawArgs = ${JSON.stringify(args)};
+const values = params.map(p => {
+  const v = rawArgs[p.name];
+  if (v === undefined || v === '') return undefined;
+  try { return JSON.parse(v); } catch { return v; }
+});
+Promise.resolve(mod[${JSON.stringify(fnName)}](...values))
+  .then(r => {
+    process.stdout.write(${JSON.stringify(RESULT_START)} + JSON.stringify(r, null, 2) + ${JSON.stringify(RESULT_END)} + '\\n');
+  })
+  .catch(e => {
+    process.stderr.write((e.stack || e.message || String(e)) + '\\n');
+    process.exit(1);
+  });
+`;
+
+  const result = spawnSync('node', ['-e', runnerCode], { encoding: 'utf8', timeout: 30_000 });
+
+  const stdout = result.stdout ?? '';
+  const stderr = result.stderr ?? '';
+
+  const resultMatch = stdout.match(new RegExp(`${RESULT_START}([\\s\\S]*?)${RESULT_END}`));
+  const output = resultMatch ? resultMatch[1].trim() : null;
+  const logsFromStdout = stdout.replace(new RegExp(`${RESULT_START}[\\s\\S]*?${RESULT_END}\\n?`), '').trim();
+  const logs = [logsFromStdout, stderr].filter(Boolean).join('\n').trim();
+
+  return res.json({ success: result.status === 0, output, logs });
 });
 
 // GET /items/:id/tree — tree rooted at item (?depth=n)

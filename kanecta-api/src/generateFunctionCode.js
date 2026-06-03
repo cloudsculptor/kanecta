@@ -220,4 +220,4 @@ function generateFunctionScaffold(itemDir, itemName, fnData, root) {
   fs.writeFileSync(path.join(fnDir, 'index.ts'), indexTs, 'utf8');
 }
 
-module.exports = { generateFunctionScaffold };
+module.exports = { generateFunctionScaffold, toCamelCase };
