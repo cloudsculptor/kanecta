@@ -20,9 +20,11 @@
     "kanecta-apps/kanecta-app-claude"
   ],
   "devDependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@storybook/react-vite": "^10.3.5",
     "concurrently": "^10.0.1",
     "husky": "^9.1.7",
-    "storybook": "^10.3.5",
-    "@storybook/react-vite": "^10.3.5"
+    "storybook": "^10.3.5"
   }
 }
