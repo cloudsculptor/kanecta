@@ -1,7 +1,7 @@
 {
-  "name": "@kanecta/sdk",
+  "name": "@kanecta/api-client",
   "version": "0.1.0",
-  "description": "Kanecta SDK — interact with Kanecta and AI from within functions",
+  "description": "Kanecta API client — typed HTTP client for all kanecta-api endpoints",
   "main": "index.js",
   "types": "index.d.ts",
   "files": [
@@ -11,16 +11,13 @@
   "scripts": {
     "test": "echo \"No tests yet\""
   },
-  "dependencies": {
-    "@kanecta/api-client": "*"
-  },
   "engines": {
     "node": ">=18.0.0"
   },
   "keywords": [
     "kanecta",
-    "sdk",
-    "functions"
+    "api",
+    "client"
   ],
   "author": "Richie Thomas <richardsempire@gmail.com>",
   "license": "MIT",
