@@ -40,6 +40,7 @@ export function RunFunctionDialog({ open, onClose, item }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [output, setOutput] = useState<string | null>(null);
   const [logs, setLogs] = useState<string | null>(null);
+  const [runSuccess, setRunSuccess] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -75,12 +76,16 @@ export function RunFunctionDialog({ open, onClose, item }: Props) {
     setRunning(true);
     setOutput(null);
     setLogs(null);
+    setError(null);
+    setRunSuccess(null);
     try {
-      // TODO: wire to execution engine with args
-      await Promise.resolve();
-      setLogs('Execution not yet wired up.');
+      const result = await getApi().items.runFunctionScaffold(item.id, args);
+      setOutput(result.output);
+      setLogs(result.logs);
+      setRunSuccess(result.success);
+      if (!result.success && !result.logs) setError('Execution failed with no output.');
     } catch {
-      setError('Execution failed.');
+      setError('Failed to reach the server.');
     } finally {
       setRunning(false);
     }
@@ -190,8 +195,14 @@ export function RunFunctionDialog({ open, onClose, item }: Props) {
 
             {/* ── Right: logging ── */}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, overflow: 'hidden' }}>
-              <Typography variant="overline" color="text.secondary" sx={{ lineHeight: 1, flexShrink: 0 }}>
-                Logs
+              <Typography
+                variant="overline"
+                sx={{
+                  lineHeight: 1, flexShrink: 0,
+                  color: runSuccess === null ? 'text.secondary' : runSuccess ? 'success.main' : 'error.main',
+                }}
+              >
+                {runSuccess === null ? 'Logs' : runSuccess ? 'Logs — success' : 'Logs — failed'}
               </Typography>
               <Box
                 component="pre"
@@ -199,7 +210,8 @@ export function RunFunctionDialog({ open, onClose, item }: Props) {
                   flex: 1,
                   m: 0, p: 1.5,
                   fontFamily: 'monospace', fontSize: '0.75rem', lineHeight: 1.5,
-                  bgcolor: '#1e1e1e', color: '#d4d4d4',
+                  bgcolor: '#1e1e1e',
+                  color: runSuccess === false ? '#f48771' : '#d4d4d4',
                   borderRadius: 1, whiteSpace: 'pre-wrap', overflow: 'auto',
                 }}
               >
