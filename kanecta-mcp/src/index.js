@@ -245,9 +245,22 @@ const TOOLS = [
         sortOrder: { type: 'number', description: 'New sort position among siblings' },
         confidence: { type: 'string', enum: VALID_CONFIDENCES, description: 'Confidence level' },
         status: { type: 'string', description: 'Arbitrary status string (e.g. "active", "archived", "draft")' },
+        completedAt: { type: 'string', description: 'ISO8601 timestamp to mark as completed, or null to clear' },
         objectData: { type: 'object', description: 'Replace the object.json field values for a typed object item.' },
       },
       required: ['id'],
+    },
+  },
+  {
+    name: 'kanecta_complete_item',
+    description: 'Mark an item as completed (sets completedAt to now) or uncomplete it (clears completedAt). Use this instead of kanecta_update_item when the only intent is to mark something done or undone.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Item UUID' },
+        completed: { type: 'boolean', description: 'true to mark completed now, false to clear completedAt' },
+      },
+      required: ['id', 'completed'],
     },
   },
   {
@@ -306,6 +319,7 @@ const TOOLS = [
               parentId: { type: 'string' },
               sortOrder: { type: 'number' },
               status: { type: 'string' },
+              completedAt: { type: 'string' },
             },
             required: ['id'],
           },
@@ -782,6 +796,12 @@ function dispatch(name, args) {
       const { id, objectData, ...changes } = args;
       const updated = ds.update(id, changes, cfg?.owner);
       if (objectData !== undefined) ds.writeObjectJson(id, objectData);
+      return resolveItem(ds, updated);
+    }
+
+    case 'kanecta_complete_item': {
+      const completedAt = args.completed ? new Date().toISOString() : null;
+      const updated = ds.update(args.id, { completedAt }, cfg?.owner);
       return resolveItem(ds, updated);
     }
 

@@ -163,6 +163,7 @@ class FilesystemAdapter {
       cachedAt: null,
       subscribedAt: null,
       subscriptionSource: null,
+      completedAt: null,
       _synthetic: true,
       _fieldPath: fieldPath,
       _realId: realId,
@@ -192,6 +193,7 @@ class FilesystemAdapter {
       cachedAt: null,
       subscribedAt: null,
       subscriptionSource: null,
+      completedAt: null,
       _synthetic: true,
       _fieldPath: `${parentFieldPath}.__`,
       _realId: realId,
@@ -320,7 +322,7 @@ class FilesystemAdapter {
       confidence: null, tags: [],
       createdAt: now.toISOString(), modifiedAt: now.toISOString(),
       createdBy: owner, modifiedBy: owner,
-      cachedAt: null, subscribedAt: null, subscriptionSource: null,
+      cachedAt: null, subscribedAt: null, subscriptionSource: null, completedAt: null,
     };
     this._writeMetadata(path.join(this._itemDir(id), 'metadata.json'), item);
     this._snapshot(item, 'create', owner, now);
@@ -422,6 +424,7 @@ class FilesystemAdapter {
       cachedAt: null,
       subscribedAt: null,
       subscriptionSource: null,
+      completedAt: null,
     };
 
     this._writeMetadata(path.join(this._itemDir(id), 'metadata.json'), item);
@@ -543,6 +546,7 @@ class FilesystemAdapter {
     if ('confidence' in changes) updated.confidence = changes.confidence;
     if ('status' in changes) updated.status = changes.status;
     if ('license' in changes) updated.license = changes.license;
+    if ('completedAt' in changes) updated.completedAt = changes.completedAt;
 
     if ('tags' in changes) {
       const oldTags = current.tags || [];
@@ -627,6 +631,7 @@ class FilesystemAdapter {
       cachedAt: null,
       subscribedAt: null,
       subscriptionSource: null,
+      completedAt: null,
     };
 
     const resolvedSchema = schema || {
