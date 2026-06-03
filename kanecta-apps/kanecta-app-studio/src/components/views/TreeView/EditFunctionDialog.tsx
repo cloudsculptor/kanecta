@@ -278,8 +278,18 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
   };
 
   const handleCompile = async () => {
-    setCompiling(true);
+    setSaving(true);
+    setError(null);
     setCompileResult(null);
+    try {
+      await getApi().items.saveFunctionData(item.id, toRaw(form));
+    } catch {
+      setError('Failed to save. Please try again.');
+      setSaving(false);
+      return;
+    }
+    setSaving(false);
+    setCompiling(true);
     try {
       const result = await getApi().items.compileFunctionScaffold(item.id);
       setCompileResult(result);
