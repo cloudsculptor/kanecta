@@ -255,7 +255,7 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
     setCompileResult(null);
     Promise.all([
       getApi().items.getFunctionData(item.id).catch(() => null),
-      getApi().items.checkFunctionScaffold(item.id).catch(() => ({ exists: false })),
+      getApi().items.checkFunctionScaffold(item.id).catch(() => ({ exists: false, stale: false })),
     ]).then(([data, scaffold]) => {
       const loaded = data ? fromRaw(data) : EMPTY;
       setForm(loaded);

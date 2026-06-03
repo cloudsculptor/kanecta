@@ -162,7 +162,6 @@ function buildIndexTs(fnName, fnData, typeIdMap) {
     lines.push(`export ${asyncKw}function ${fnName}${typeParamsStr}(): ${returnType} {`);
   }
 
-  // Body
   if (fnData.body?.trim()) {
     for (const l of fnData.body.split('\n')) {
       lines.push(`  ${l}`);

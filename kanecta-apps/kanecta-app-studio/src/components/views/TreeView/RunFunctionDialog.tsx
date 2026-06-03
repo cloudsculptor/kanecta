@@ -43,6 +43,7 @@ export function RunFunctionDialog({ open, onClose, item }: Props) {
   const [output, setOutput] = useState<string | null>(null);
   const [logs, setLogs] = useState<string | null>(null);
   const [runSuccess, setRunSuccess] = useState<boolean | null>(null);
+  const [showStaleDialog, setShowStaleDialog] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -53,8 +54,11 @@ export function RunFunctionDialog({ open, onClose, item }: Props) {
     setFnData(null);
     setOutput(null);
     setLogs(null);
-    getApi().items.getFunctionData(item.id)
-      .then((data) => {
+    Promise.all([
+      getApi().items.getFunctionData(item.id),
+      getApi().items.checkFunctionScaffold(item.id).catch(() => ({ exists: false, stale: false })),
+    ])
+      .then(([data, scaffold]) => {
         if (!data) return;
         const fn = data as unknown as FunctionData;
         setFnData(fn);
@@ -63,6 +67,7 @@ export function RunFunctionDialog({ open, onClose, item }: Props) {
           if (p.defaultValue !== undefined) initial[p.name] = p.defaultValue;
         });
         setArgs(initial);
+        if (scaffold.stale) setShowStaleDialog(true);
       })
       .catch(() => setError('Failed to load function definition.'))
       .finally(() => setLoading(false));
@@ -135,7 +140,7 @@ export function RunFunctionDialog({ open, onClose, item }: Props) {
                   icon={<AutoAwesomeIcon />}
                   sx={{ fontWeight: 700, fontSize: '0.95rem', alignItems: 'center' }}
                 >
-                  <strong>This function calls AI.</strong> Running it will consume AI credits.
+                  <strong>This function calls AI.</strong> Running it will consume AI tokens.
                 </Alert>
               )}
 
@@ -245,6 +250,29 @@ export function RunFunctionDialog({ open, onClose, item }: Props) {
           {running ? 'Running…' : 'Run'}
         </Button>
       </DialogActions>
+
+      {/* Stale warning dialog */}
+      <Dialog
+        open={showStaleDialog}
+        onClose={() => setShowStaleDialog(false)}
+        onClick={(e) => e.stopPropagation()}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Function modified since last compiled</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            The generated code has changed since this function was last compiled.
+            It will be rebuilt automatically when you run it.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowStaleDialog(false)}>Close</Button>
+          <Button variant="contained" onClick={() => setShowStaleDialog(false)}>
+            OK
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   );
 }
