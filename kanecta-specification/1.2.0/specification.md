@@ -257,7 +257,7 @@ Each `target.txt` contains a single line with the target UUID:
 a1b2c3d4-e5f6-4abc-9def-123456789012
 ```
 
-Multiple aliases may point to the same UUID. Aliases under 4 characters must be padded with underscores on the right to reach 4 characters before computing shard levels.
+Multiple aliases may point to the same UUID. Aliases under 4 characters must be padded with underscores on the right to reach 4 characters before computing shard levels. **Aliases are always stored and resolved in lowercase.** Applications must normalise alias input to lowercase before writing or querying, providing a case-insensitive experience to the user.
 
 **Usage:** Read the alias file to get the UUID, then look up that UUID in the data/ folder.
 
@@ -768,7 +768,7 @@ On every create, update, or delete:
 - The five well-known root types (`root`, `system_root`, `app_root`, `component_root`, `data_root`) are singletons. Each may appear exactly once in a datastore. Implementations must reject creation of a second instance of any well-known type.
 - The `root` ID (`00000000-0000-0000-0000-000000000000`) is reserved. No user-created item may use this ID.
 - All keyed folder structures in `.kanecta/` use the mandatory 2 + 2 + full sharding pattern. No alternative layout is permitted.
-- Aliases should be unique within a datastore (not enforced at the filesystem level; applications should validate).
+- Aliases should be unique within a datastore (not enforced at the filesystem level; applications should validate). Aliases are always lowercase; applications must normalise to lowercase before writing or resolving.
 - Circular links via `[[uuid]]` and relationships are allowed but should be detected and handled by UIs.
 - Symlinks can point to items owned by other users (via remotes/).
 - File system operations are atomic enough for single-user scenarios; multi-user synchronization requires additional logic (changelogs, conflict resolution).
