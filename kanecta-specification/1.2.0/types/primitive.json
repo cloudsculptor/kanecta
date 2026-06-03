@@ -8,7 +8,9 @@
     "symlink",
     "url",
     "image",
-    "function"
+    "function",
+    "markdown",
+    "runner"
   ],
   "structured": [
     "object",

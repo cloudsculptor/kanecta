@@ -125,7 +125,8 @@ Each item folder contains:
   "modifiedBy": "string (email or domain)",
   "cachedAt": "string (ISO8601) or null",
   "subscribedAt": "string (ISO8601) or null",
-  "subscriptionSource": "string or null"
+  "subscriptionSource": "string or null",
+  "completedAt": "string (ISO8601) or null"
 }
 ```
 
@@ -151,6 +152,7 @@ Each item folder contains:
 | `cachedAt` | conditional | ISO8601 timestamp when remote item was last cached. Required for remotes, null for local items |
 | `subscribedAt` | no | ISO8601 timestamp when subscription started. Null if not subscribed |
 | `subscriptionSource` | no | URL or identifier of remote source for updates |
+| `completedAt` | no | ISO8601 timestamp when this item was marked as completed. Null if not completed |
 
 ### function.json Schema
 
@@ -196,7 +198,7 @@ Types are grouped into three categories:
 
 | Category | Description | Types |
 |---|---|---|
-| **primitive** | Basic value containers with no domain-specific meaning | `string`, `number`, `text`, `heading`, `file`, `symlink`, `url`, `image`, `function` |
+| **primitive** | Basic value containers with no domain-specific meaning | `string`, `number`, `text`, `heading`, `file`, `symlink`, `url`, `image`, `function`, `markdown`, `runner` |
 | **structured** | Types with defined semantic intent | `object`, `decision`, `annotation`, `claim`, `question`, `task`, `note`, `concept`, `entity`, `event` |
 | **wellKnown** | Reserved system root nodes — not for user data | `root`, `system_root`, `app_root`, `component_root`, `data_root` |
 
