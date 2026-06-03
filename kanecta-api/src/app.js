@@ -165,6 +165,38 @@ app.post('/open-path', (req, res) => {
   res.json({ ok: true });
 });
 
+// POST /open-in-browser — open a file:// URL in the default web browser
+app.post('/open-in-browser', (req, res) => {
+  const { path: targetPath } = req.body;
+  if (!targetPath || typeof targetPath !== 'string') {
+    return res.status(400).json({ error: 'path is required' });
+  }
+  const url = `file://${targetPath}`;
+  if (process.platform === 'darwin') {
+    spawnSync('open', [url], { shell: false });
+  } else if (process.platform === 'win32') {
+    spawnSync('cmd', ['/c', 'start', '', url], { shell: false });
+  } else {
+    // Linux: try BROWSER env var, then sensible-browser, then common browsers
+    const candidates = [
+      process.env.BROWSER,
+      'sensible-browser',
+      'firefox',
+      'chromium-browser',
+      'chromium',
+      'google-chrome',
+    ].filter(Boolean);
+    for (const browser of candidates) {
+      const found = spawnSync('which', [browser], { encoding: 'utf8' });
+      if (found.status === 0) {
+        spawnSync(browser, [url], { shell: false, detached: true });
+        break;
+      }
+    }
+  }
+  res.json({ ok: true });
+});
+
 // GET /search?q=&rootId=&limit=&fields= — full-text search with optional subtree scope, ancestor breadcrumb, and fields scoping
 app.get('/search', (req, res) => {
   const ds = openDatastore(res);

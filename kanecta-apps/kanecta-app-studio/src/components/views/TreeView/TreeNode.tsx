@@ -20,6 +20,7 @@ import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import DriveFolderUploadIcon from '@mui/icons-material/DriveFolderUpload';
+import FolderSpecialIcon from '@mui/icons-material/FolderSpecial';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import { useQueryClient } from '@tanstack/react-query';
 import { primitiveTypes } from '@kanecta/specification';
@@ -116,6 +117,10 @@ export function TreeNode({
 
   const openDiskLocation = async () => {
     void getApi().config.openPath(await getDiskPath());
+  };
+
+  const openDiskLocationInBrowser = async () => {
+    void getApi().config.openInBrowser(await getDiskPath());
   };
 
   const copyDiskLocation = async () => {
@@ -256,9 +261,14 @@ export function TreeNode({
               <DifferenceOutlinedIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Open disk location">
+          <Tooltip title="Open in file browser">
             <IconButton size="small" onClick={(e) => { e.stopPropagation(); void openDiskLocation(); }}>
               <DriveFolderUploadIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Open in browser">
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); void openDiskLocationInBrowser(); }}>
+              <FolderSpecialIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Copy disk location">
