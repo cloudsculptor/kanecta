@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, TextField, Switch, FormControlLabel, Stack,
@@ -115,13 +115,16 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
   const [form, setForm] = useState<FormState>(EMPTY);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [compiling, setCompiling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [compileResult, setCompileResult] = useState<{ success: boolean; output: string } | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [scaffoldExists, setScaffoldExists] = useState(false);
   const [showDirtyWarning, setShowDirtyWarning] = useState(false);
   const [showBodyConflict, setShowBodyConflict] = useState(false);
   const [diskBody, setDiskBody] = useState('');
   const loadedBodyRef = useRef<string | undefined>(undefined);
+  const saveIntentRef = useRef<'save' | 'saveAndCompile'>('save');
 
   useEffect(() => {
     if (!open) return;
@@ -178,21 +181,59 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
       p.name.trim() && (p.typeMode === 'primitive' ? !!p.type?.trim() : !!p.typeId?.trim())
     );
 
-  const doSave = async () => {
+  const performSave = useCallback(async (): Promise<boolean> => {
     setSaving(true);
     setError(null);
+    setCompileResult(null);
     try {
       await getApi().items.saveFunctionData(item.id, toRaw(form));
-      onClose();
+      return true;
     } catch {
       setError('Failed to save. Please try again.');
+      return false;
     } finally {
       setSaving(false);
     }
-  };
+  }, [getApi, item.id, form]);
+
+  const doSave = useCallback(async () => {
+    const ok = await performSave();
+    if (ok) onClose();
+  }, [performSave, onClose]);
+
+  const doSaveAndCompile = useCallback(async () => {
+    const ok = await performSave();
+    if (!ok) return;
+    setCompiling(true);
+    try {
+      const result = await getApi().items.compileFunctionScaffold(item.id);
+      setCompileResult(result);
+    } catch {
+      setCompileResult({ success: false, output: 'Compile request failed. Check the server.' });
+    } finally {
+      setCompiling(false);
+    }
+  }, [performSave, getApi, item.id]);
+
+  const finalSave = useCallback(async () => {
+    if (saveIntentRef.current === 'saveAndCompile') {
+      await doSaveAndCompile();
+    } else {
+      await doSave();
+    }
+  }, [doSave, doSaveAndCompile]);
 
   const handleSave = async () => {
-    // Stage 1 — dirty warning: scaffold exists and form has changes
+    saveIntentRef.current = 'save';
+    if (isDirty && scaffoldExists) {
+      setShowDirtyWarning(true);
+      return;
+    }
+    await checkBodyConflictThenSave();
+  };
+
+  const handleSaveAndCompile = async () => {
+    saveIntentRef.current = 'saveAndCompile';
     if (isDirty && scaffoldExists) {
       setShowDirtyWarning(true);
       return;
@@ -201,7 +242,6 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
   };
 
   const checkBodyConflictThenSave = async () => {
-    // Stage 2 — body conflict: fetch current disk body and compare
     try {
       const diskData = await getApi().items.getFunctionData(item.id).catch(() => null);
       const currentDiskBody = (diskData?.body as string | undefined) ?? '';
@@ -214,7 +254,7 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
     } catch {
       // if we can't fetch, proceed with save
     }
-    await doSave();
+    await finalSave();
   };
 
   const handleDirtyWarningConfirm = async () => {
@@ -224,7 +264,7 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
 
   const handleUseFormBody = async () => {
     setShowBodyConflict(false);
-    await doSave();
+    await finalSave();
   };
 
   const handleUseDiskBody = () => {
@@ -246,6 +286,19 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
         ) : (
           <Stack spacing={3}>
             {error && <Alert severity="error">{error}</Alert>}
+            {compileResult && (
+              <Alert severity={compileResult.success ? 'success' : 'error'}>
+                {compileResult.success ? 'Compiled successfully.' : 'Compile failed.'}
+                {!compileResult.success && compileResult.output && (
+                  <Box
+                    component="pre"
+                    sx={{ mt: 1, mb: 0, fontSize: '0.75rem', whiteSpace: 'pre-wrap', maxHeight: 240, overflowY: 'auto' }}
+                  >
+                    {compileResult.output}
+                  </Box>
+                )}
+              </Alert>
+            )}
 
             {/* Basic */}
             <Stack spacing={2}>
@@ -467,9 +520,12 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={onClose} disabled={saving}>Cancel</Button>
-        <Button variant="contained" disabled={saving || loading || !isValid} onClick={() => void handleSave()}>
+        <Button onClick={onClose} disabled={saving || compiling}>Cancel</Button>
+        <Button variant="outlined" disabled={saving || compiling || loading || !isValid} onClick={() => void handleSave()}>
           {saving ? 'Saving…' : 'Save'}
+        </Button>
+        <Button variant="contained" disabled={saving || compiling || loading || !isValid} onClick={() => void handleSaveAndCompile()}>
+          {compiling ? 'Compiling…' : saving ? 'Saving…' : 'Save & Compile'}
         </Button>
       </DialogActions>
 
