@@ -598,8 +598,8 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
               fontFamily: 'monospace',
               fontSize: '0.75rem',
               lineHeight: 1.5,
-              bgcolor: 'grey.950',
-              color: 'grey.200',
+              bgcolor: '#1e1e1e',
+              color: '#d4d4d4',
               borderRadius: 1,
               whiteSpace: 'pre',
             }}
@@ -627,8 +627,8 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
                   fontFamily: 'monospace',
                   fontSize: '0.75rem',
                   lineHeight: 1.5,
-                  bgcolor: 'grey.950',
-                  color: compileResult.success ? 'success.light' : 'error.light',
+                  bgcolor: '#1e1e1e',
+                  color: compileResult.success ? '#4ec9b0' : '#f48771',
                   borderRadius: 1,
                   whiteSpace: 'pre-wrap',
                 }}
