@@ -5,6 +5,7 @@ import {
   Divider, IconButton,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import { useWorkspaceStore } from '../../../store/workspace';
 import type { KanectaItem } from '../../../types/kanecta';
 
@@ -20,6 +21,7 @@ interface Param {
 
 interface FunctionData {
   description?: string;
+  ai?: boolean;
   parameters: Param[];
   returnType?: string;
   returnTypeId?: string;
@@ -126,6 +128,16 @@ export function RunFunctionDialog({ open, onClose, item }: Props) {
             {/* ── Left: inputs + output ── */}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, overflow: 'auto' }}>
               {error && <Alert severity="error">{error}</Alert>}
+
+              {fnData?.ai && (
+                <Alert
+                  severity="warning"
+                  icon={<AutoAwesomeIcon />}
+                  sx={{ fontWeight: 700, fontSize: '0.95rem', alignItems: 'center' }}
+                >
+                  <strong>This function calls AI.</strong> Running it will consume AI credits.
+                </Alert>
+              )}
 
               {fnData?.description && (
                 <Typography variant="body2" color="text.secondary">{fnData.description}</Typography>

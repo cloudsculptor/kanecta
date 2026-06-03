@@ -136,6 +136,16 @@
     "body": {
       "type": "string",
       "description": "Function body as source code. Omit when describing a signature only."
+    },
+    "includeKanectaSdk": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether to include @kanecta/sdk as a dependency and import createClient in the generated scaffold. Defaults to true."
+    },
+    "dependencies": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Additional npm packages to install in the function scaffold (e.g. [\"axios@^1.0.0\", \"lodash\"]). Each entry is a package name with optional version specifier."
     }
   },
   "examples": [
