@@ -5,6 +5,23 @@ const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE } = 
 const claude = require('./claude');
 const { generateFunctionScaffold, toCamelCase } = require('./generateFunctionCode');
 const { spawnSync } = require('child_process');
+const { createHash } = require('crypto');
+
+function hashIndexTs(fnDir) {
+  try {
+    const src = fs.readFileSync(path.join(fnDir, 'index.ts'), 'utf8');
+    return createHash('sha256').update(src).digest('hex');
+  } catch { return null; }
+}
+
+function readBuildHash(fnDir) {
+  try { return fs.readFileSync(path.join(fnDir, '.build-hash'), 'utf8').trim(); } catch { return null; }
+}
+
+function writeBuildHash(fnDir) {
+  const hash = hashIndexTs(fnDir);
+  if (hash) fs.writeFileSync(path.join(fnDir, '.build-hash'), hash + '\n', 'utf8');
+}
 
 const app = express();
 app.use(express.json());
@@ -458,14 +475,26 @@ app.put('/items/:id/object', (req, res) => {
 });
 
 // GET /items/:id/function/scaffold — check whether the function/ code scaffold directory exists
+// Returns { exists, stale } where stale=true means the compiled dist is out of date with function.json
 app.get('/items/:id/function/scaffold', (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
   const s = id.replace(/-/g, '');
-  const fnDir = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id, 'function');
-  res.json({ exists: fs.existsSync(fnDir) });
+  const itemDir = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id);
+  const fnDir = path.join(itemDir, 'function');
+  const exists = fs.existsSync(fnDir);
+  if (!exists) return res.json({ exists: false, stale: false });
+
+  let stale = false;
+  try {
+    const currentHash = hashIndexTs(fnDir);
+    const buildHash = readBuildHash(fnDir);
+    stale = !currentHash || !buildHash || currentHash !== buildHash || !fs.existsSync(path.join(fnDir, 'dist', 'index.js'));
+  } catch { stale = true; }
+  res.json({ exists, stale });
 });
+
 
 // GET /items/:id/function — read the function.json for a function item
 app.get('/items/:id/function', (req, res) => {
@@ -491,7 +520,9 @@ app.put('/items/:id/function', (req, res) => {
     const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
     const s = id.replace(/-/g, '');
     const itemDir = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id);
+    const fnDir = path.join(itemDir, 'function');
     generateFunctionScaffold(itemDir, item.value ?? id, req.body, root);
+    writeBuildHash(fnDir);
   } catch (err) {
     console.error(`[kanecta] generateFunctionScaffold failed for ${id}:`, err);
   }
@@ -504,7 +535,8 @@ app.post('/items/:id/function/compile', (req, res) => {
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
   const s = id.replace(/-/g, '');
-  const fnDir = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id, 'function');
+  const itemDir = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id);
+  const fnDir = path.join(itemDir, 'function');
 
   if (!fs.existsSync(fnDir)) {
     return res.status(404).json({ error: 'Function scaffold not found. Save the function first.' });
@@ -528,10 +560,16 @@ app.post('/items/:id/function/compile', (req, res) => {
   if (build.stdout) chunks.push(build.stdout);
   if (build.stderr) chunks.push(build.stderr);
 
-  return res.json({ success: build.status === 0, output: chunks.join('\n').trim() });
+  const success = build.status === 0;
+
+  if (success) {
+    try { writeBuildHash(fnDir); } catch { /* not critical */ }
+  }
+
+  return res.json({ success, output: chunks.join('\n').trim() });
 });
 
-// POST /items/:id/function/run — npm install + build + execute the function with provided args
+// POST /items/:id/function/run — check hash, rebuild if stale, then execute the function
 app.post('/items/:id/function/run', (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
@@ -545,20 +583,41 @@ app.post('/items/:id/function/run', (req, res) => {
     return res.status(404).json({ error: 'Function scaffold not found. Save the function first.' });
   }
 
-  if (!fs.existsSync(distIndex)) {
-    return res.json({
-      success: false,
-      output: null,
-      logs: 'Function has not been compiled yet. Use Save & Compile first.',
-    });
-  }
-
   const ds = openDatastore(res);
   if (!ds) return;
   const item = ds.get(id);
   if (!item) return res.status(404).json({ error: 'Item not found' });
 
   const fnData = ds.readFunctionJson(id) ?? {};
+  const currentHash = hashIndexTs(fnDir);
+  const buildHash = readBuildHash(fnDir);
+  const needsRebuild = !fs.existsSync(distIndex) || !currentHash || !buildHash || currentHash !== buildHash;
+
+  if (needsRebuild) {
+    const rebuildChunks = [];
+    const install = spawnSync('npm', ['install'], {
+      cwd: fnDir, encoding: 'utf8', shell: true, timeout: 120_000,
+    });
+    if (install.stdout) rebuildChunks.push(install.stdout);
+    if (install.stderr) rebuildChunks.push(install.stderr);
+
+    if (install.status !== 0) {
+      return res.json({ success: false, output: null, logs: `Auto-rebuild failed (npm install):\n${rebuildChunks.join('\n').trim()}` });
+    }
+
+    const build = spawnSync('npm', ['run', 'build'], {
+      cwd: fnDir, encoding: 'utf8', shell: true, timeout: 60_000,
+    });
+    if (build.stdout) rebuildChunks.push(build.stdout);
+    if (build.stderr) rebuildChunks.push(build.stderr);
+
+    if (build.status !== 0) {
+      return res.json({ success: false, output: null, logs: `Auto-rebuild failed (build):\n${rebuildChunks.join('\n').trim()}` });
+    }
+
+    writeBuildHash(fnDir);
+  }
+
   const fnName = toCamelCase(item.value ?? id);
   const params = fnData.parameters ?? [];
   const { args = {} } = req.body;
