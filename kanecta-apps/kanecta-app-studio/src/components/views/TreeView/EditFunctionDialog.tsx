@@ -270,7 +270,6 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
     setError(null);
     try {
       await getApi().items.saveFunctionData(item.id, toRaw(form));
-      onClose();
     } catch {
       setError('Failed to save. Please try again.');
     } finally {
@@ -657,7 +656,7 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
       )}
 
       <DialogActions>
-        <Button onClick={onClose} disabled={busy}>Cancel</Button>
+        <Button onClick={onClose} disabled={busy}>Close</Button>
         <Button variant="outlined" disabled={busy || loading || !isValid} onClick={() => void handleSave()}>
           {saving ? 'Saving…' : 'Save'}
         </Button>
