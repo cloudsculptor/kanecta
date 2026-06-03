@@ -154,6 +154,17 @@ app.get('/config', (req, res) => {
   res.json({ datastorePath: root });
 });
 
+// POST /open-path — open a local directory in the OS file manager
+app.post('/open-path', (req, res) => {
+  const { path: targetPath } = req.body;
+  if (!targetPath || typeof targetPath !== 'string') {
+    return res.status(400).json({ error: 'path is required' });
+  }
+  const opener = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'explorer' : 'xdg-open';
+  spawnSync(opener, [targetPath], { shell: false });
+  res.json({ ok: true });
+});
+
 // GET /search?q=&rootId=&limit=&fields= — full-text search with optional subtree scope, ancestor breadcrumb, and fields scoping
 app.get('/search', (req, res) => {
   const ds = openDatastore(res);
