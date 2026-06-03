@@ -19,6 +19,7 @@ import CategoryIcon from '@mui/icons-material/Category';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
+import DriveFolderUploadIcon from '@mui/icons-material/DriveFolderUpload';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import { useQueryClient } from '@tanstack/react-query';
 import { primitiveTypes } from '@kanecta/specification';
@@ -102,7 +103,7 @@ export function TreeNode({
   const queryClient = useQueryClient();
   const datastorePathRef = useRef<string | null>(null);
 
-  const copyDiskLocation = async () => {
+  const getDiskPath = async () => {
     if (!datastorePathRef.current) {
       const cfg = await getApi().config.get();
       datastorePathRef.current = cfg.datastorePath;
@@ -110,8 +111,15 @@ export function TreeNode({
     const stripped = item.id.replace(/-/g, '');
     const shard1 = stripped.slice(0, 2);
     const shard2 = stripped.slice(2, 4);
-    const diskPath = `${datastorePathRef.current}/.kanecta/data/${shard1}/${shard2}/${item.id}`;
-    void navigator.clipboard.writeText(diskPath);
+    return `${datastorePathRef.current}/.kanecta/data/${shard1}/${shard2}/${item.id}`;
+  };
+
+  const openDiskLocation = async () => {
+    void getApi().config.openPath(await getDiskPath());
+  };
+
+  const copyDiskLocation = async () => {
+    void navigator.clipboard.writeText(await getDiskPath());
   };
 
   const allConversionsDestructive = item.type === 'function';
@@ -246,6 +254,11 @@ export function TreeNode({
           <Tooltip title="Copy value">
             <IconButton size="small" onClick={(e) => { e.stopPropagation(); void navigator.clipboard.writeText(item.value); }}>
               <DifferenceOutlinedIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Open disk location">
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); void openDiskLocation(); }}>
+              <DriveFolderUploadIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Copy disk location">

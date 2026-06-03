@@ -27,6 +27,7 @@ export function createApi(baseUrl: string) {
   return {
     config: {
       get: () => client.get<{ datastorePath: string }>('/config'),
+      openPath: (path: string) => client.post<{ ok: boolean }>('/open-path', { path }),
     },
     items: itemsApi(client),
     aliases: aliasesApi(client),
