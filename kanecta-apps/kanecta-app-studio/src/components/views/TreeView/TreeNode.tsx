@@ -13,6 +13,7 @@ import Looks5Icon from '@mui/icons-material/Looks5';
 import AddBoxIcon from '@mui/icons-material/AddBox';
 import DataObjectIcon from '@mui/icons-material/DataObject';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import CloseIcon from '@mui/icons-material/Close';
 import LabelIcon from '@mui/icons-material/Label';
 import DifferenceOutlinedIcon from '@mui/icons-material/DifferenceOutlined';
 import FileCopyOutlinedIcon from '@mui/icons-material/FileCopyOutlined';
@@ -23,7 +24,7 @@ import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import DriveFolderUploadIcon from '@mui/icons-material/DriveFolderUpload';
 import CodeIcon from '@mui/icons-material/Code';
 import EditNoteIcon from '@mui/icons-material/EditNote';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { primitiveTypes } from '@kanecta/specification';
 
 import { TreeNodeEditor } from './TreeNodeEditor';
@@ -106,10 +107,19 @@ export function TreeNode({
   const [aliasChecking, setAliasChecking] = useState(false);
   const [aliasConflict, setAliasConflict] = useState<{ alias: string; targetId: string; value?: string } | null>(null);
   const [aliasSaving, setAliasSaving] = useState(false);
+  const [existingAliases, setExistingAliases] = useState<string[]>([]);
+  const [aliasLoadError, setAliasLoadError] = useState(false);
   const resolveId = useItemLookup();
   const { getApi } = useWorkspaceStore();
   const { vscodeAvailable } = useUiStore();
   const queryClient = useQueryClient();
+
+  const { data: allAliases = [] } = useQuery({
+    queryKey: ['aliases'],
+    queryFn: () => getApi().aliases.list(),
+    staleTime: 30_000,
+  });
+  const itemAliasCount = allAliases.filter(a => a.targetId === item.id).length;
   const datastorePathRef = useRef<string | null>(null);
 
   const getDiskPath = async () => {
@@ -161,33 +171,46 @@ const allConversionsDestructive = item.type === 'function';
     }
   };
 
-  const openAliasDialog = () => {
+  const openAliasDialog = async () => {
     setAliasInput('');
     setAliasConflict(null);
+    setAliasLoadError(false);
     setAliasOpen(true);
+    try {
+      const entries = await getApi().aliases.listForItem(item.id);
+      setExistingAliases(entries.map(e => e.alias));
+    } catch {
+      setAliasLoadError(true);
+    }
   };
 
   const closeAliasDialog = () => {
     setAliasOpen(false);
     setAliasConflict(null);
     setAliasInput('');
+    setExistingAliases([]);
   };
 
   const handleAliasSubmit = async () => {
-    const alias = aliasInput.trim();
+    const alias = aliasInput.trim().toLowerCase();
     if (!alias) return;
     setAliasChecking(true);
     setAliasConflict(null);
     try {
       const existing = await getApi().aliases.resolve(alias);
-      let existingValue: string | undefined;
-      try {
-        const existingItem = await getApi().items.get(existing.targetId);
-        existingValue = existingItem.value;
-      } catch { /* item may be missing */ }
-      setAliasConflict({ alias: existing.alias, targetId: existing.targetId, value: existingValue });
+      if (existing.targetId === item.id) {
+        // already points here — just add it to the displayed list
+        setExistingAliases(prev => prev.includes(alias) ? prev : [...prev, alias]);
+        setAliasInput('');
+      } else {
+        let existingValue: string | undefined;
+        try {
+          const existingItem = await getApi().items.get(existing.targetId);
+          existingValue = existingItem.value;
+        } catch { /* item may be missing */ }
+        setAliasConflict({ alias: existing.alias, targetId: existing.targetId, value: existingValue });
+      }
     } catch {
-      // no conflict — save
       await saveAlias(alias);
     } finally {
       setAliasChecking(false);
@@ -198,10 +221,21 @@ const allConversionsDestructive = item.type === 'function';
     setAliasSaving(true);
     try {
       await getApi().aliases.set(alias, item.id);
-      closeAliasDialog();
+      setExistingAliases(prev => prev.includes(alias) ? prev : [...prev, alias]);
+      setAliasInput('');
+      setAliasConflict(null);
+      void queryClient.invalidateQueries({ queryKey: ['aliases'] });
     } finally {
       setAliasSaving(false);
     }
+  };
+
+  const removeAlias = async (alias: string) => {
+    try {
+      await getApi().aliases.remove(alias);
+      setExistingAliases(prev => prev.filter(a => a !== alias));
+      void queryClient.invalidateQueries({ queryKey: ['aliases'] });
+    } catch { /* ignore */ }
   };
 
   const startEdit = () => {
@@ -307,9 +341,9 @@ const allConversionsDestructive = item.type === 'function';
               <ContentCopyIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Set alias">
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); openAliasDialog(); }}>
-              <LabelIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+          <Tooltip title="Aliases">
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); void openAliasDialog(); }}>
+              <LabelIcon sx={{ fontSize: '18px', width: '18px', height: '18px', color: itemAliasCount > 0 ? 'primary.main' : 'inherit' }} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Copy value">
@@ -501,15 +535,36 @@ const allConversionsDestructive = item.type === 'function';
       </Dialog>
 
       <Dialog open={aliasOpen} onClose={closeAliasDialog} onClick={(e) => e.stopPropagation()} maxWidth="xs" fullWidth>
-        <DialogTitle>Set alias for "{item.value}"</DialogTitle>
+        <DialogTitle>Aliases</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          {aliasLoadError && <Alert severity="error">Failed to load aliases.</Alert>}
+          {existingAliases.length > 0 && (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {existingAliases.map(a => (
+                <Box key={a} sx={{
+                  display: 'inline-flex', alignItems: 'center', gap: 0.5,
+                  px: 1, py: 0.25, borderRadius: 2, border: '1px solid',
+                  borderColor: 'primary.main', color: 'primary.main', fontSize: '0.8125rem',
+                }}>
+                  {a}
+                  <Box component="button" onClick={() => void removeAlias(a)} sx={{
+                    border: 'none', background: 'none', cursor: 'pointer', padding: 0,
+                    display: 'flex', alignItems: 'center', color: 'inherit', opacity: 0.6,
+                    '&:hover': { opacity: 1 },
+                  }}>
+                    <CloseIcon sx={{ fontSize: '14px' }} />
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          )}
           <TextField
             autoFocus
-            label="Alias"
+            label="Add alias"
             size="small"
             fullWidth
             value={aliasInput}
-            onChange={e => { setAliasInput(e.target.value); setAliasConflict(null); }}
+            onChange={e => { setAliasInput(e.target.value.toLowerCase()); setAliasConflict(null); }}
             onKeyDown={e => { if (e.key === 'Enter' && !aliasChecking && !aliasSaving) void handleAliasSubmit(); }}
             disabled={aliasChecking || aliasSaving}
             placeholder="e.g. my-project"
@@ -526,7 +581,7 @@ const allConversionsDestructive = item.type === 'function';
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={closeAliasDialog} disabled={aliasChecking || aliasSaving}>Cancel</Button>
+          <Button onClick={closeAliasDialog}>Done</Button>
           {aliasConflict ? (
             <Button
               color="warning"
@@ -544,7 +599,7 @@ const allConversionsDestructive = item.type === 'function';
               onClick={() => void handleAliasSubmit()}
               startIcon={aliasChecking ? <CircularProgress size={14} /> : undefined}
             >
-              Save
+              Add
             </Button>
           )}
         </DialogActions>

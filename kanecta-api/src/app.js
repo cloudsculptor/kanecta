@@ -842,27 +842,33 @@ app.get('/tree', (req, res) => {
 
 // ─── Aliases ──────────────────────────────────────────────────────────────────
 
-// GET /aliases — list all aliases
+// GET /aliases — list all aliases, optionally filtered by ?targetId=
 app.get('/aliases', (req, res) => {
   const ds = openDatastore(res);
   if (!ds) return;
-  res.json(ds.listAliases());
+  const all = ds.listAliases();
+  if (req.query.targetId) {
+    return res.json(all.filter(a => a.targetId === req.query.targetId));
+  }
+  res.json(all);
 });
 
 // GET /aliases/:alias — resolve alias to UUID
 app.get('/aliases/:alias', (req, res) => {
   const ds = openDatastore(res);
   if (!ds) return;
-  const targetId = ds.resolveAlias(req.params.alias);
-  if (!targetId) return res.status(404).json({ error: `Alias not found: ${req.params.alias}` });
-  res.json({ alias: req.params.alias, targetId });
+  const alias = req.params.alias.toLowerCase();
+  const targetId = ds.resolveAlias(alias);
+  if (!targetId) return res.status(404).json({ error: `Alias not found: ${alias}` });
+  res.json({ alias, targetId });
 });
 
 // POST /aliases — set alias { alias, targetId }
 app.post('/aliases', (req, res) => {
   const ds = openDatastore(res);
   if (!ds) return;
-  const { alias, targetId } = req.body;
+  const { targetId } = req.body;
+  const alias = typeof req.body.alias === 'string' ? req.body.alias.toLowerCase() : req.body.alias;
   if (!alias) return res.status(400).json({ error: 'alias is required' });
   if (!targetId) return res.status(400).json({ error: 'targetId is required' });
   if (!isUuid(targetId)) return res.status(400).json({ error: 'Invalid UUID format for targetId' });
@@ -875,10 +881,11 @@ app.post('/aliases', (req, res) => {
 app.delete('/aliases/:alias', (req, res) => {
   const ds = openDatastore(res);
   if (!ds) return;
-  if (!ds.resolveAlias(req.params.alias))
-    return res.status(404).json({ error: `Alias not found: ${req.params.alias}` });
-  ds.removeAlias(req.params.alias);
-  res.json({ removed: req.params.alias });
+  const alias = req.params.alias.toLowerCase();
+  if (!ds.resolveAlias(alias))
+    return res.status(404).json({ error: `Alias not found: ${alias}` });
+  ds.removeAlias(alias);
+  res.json({ removed: alias });
 });
 
 // ─── Relationships ────────────────────────────────────────────────────────────

@@ -57,6 +57,7 @@ export function TodoView() {
               checked={!!child.completedAt}
               onChange={() => void handleToggle(child)}
               size="small"
+              sx={{ p: '2px' }}
             />
             <span className="TodoView-item-label">{child.value}</span>
           </li>

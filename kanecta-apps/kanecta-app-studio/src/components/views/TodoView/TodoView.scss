@@ -19,14 +19,14 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 0;
   }
 
   &-item {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 4px 0;
+    gap: 4px;
+    padding: 0;
 
     &--done &-label {
       text-decoration: line-through;

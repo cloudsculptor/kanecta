@@ -223,14 +223,19 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
     void navigator.clipboard.writeText(window.location.href);
   }, []);
 
-  // Restore zoom state from hash on mount
+  // Restore zoom state from hash on mount, and respond to programmatic hash changes
   useEffect(() => {
-    const match = window.location.hash.match(/^#\/tree\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
-    if (!match) return;
-    const id = match[1];
-    void getApi().items.get(id)
-      .then((item) => setZoomStack([{ id, label: item.value }]))
-      .catch(() => {});
+    const navigateToHash = () => {
+      const match = window.location.hash.match(/^#\/tree\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
+      if (!match) return;
+      const id = match[1];
+      void getApi().items.get(id)
+        .then((item) => setZoomStack([{ id, label: item.value }]))
+        .catch(() => {});
+    };
+    navigateToHash();
+    window.addEventListener('hashchange', navigateToHash);
+    return () => window.removeEventListener('hashchange', navigateToHash);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

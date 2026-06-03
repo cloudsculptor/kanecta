@@ -149,7 +149,7 @@ function PaneItemInput({
     if (!input) { onSetItemId(null); setValue(''); return; }
     if (UUID_RE.test(input)) { onSetItemId(input); setValue(''); return; }
     try {
-      const entry = await getApi().aliases.resolve(input);
+      const entry = await getApi().aliases.resolve(input.toLowerCase());
       onSetItemId(entry.targetId);
       setValue('');
     } catch {

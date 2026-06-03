@@ -31,13 +31,15 @@ export function TopBar({ onQuickCapture, onCommandPalette, onViewSelect, activeV
 
     if (UUID_RE.test(input)) {
       setItemId(input);
+      window.location.hash = `/tree/${input}`;
       setValue('');
       return;
     }
 
     try {
-      const entry = await api.aliases.resolve(input);
+      const entry = await api.aliases.resolve(input.toLowerCase());
       setItemId(entry.targetId);
+      window.location.hash = `/tree/${entry.targetId}`;
       setValue('');
     } catch {
       // alias not found — leave input as-is so user can see it failed
