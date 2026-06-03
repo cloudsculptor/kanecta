@@ -465,6 +465,7 @@ app.put('/items/:id', (req, res) => {
   if ('license' in body) changes.license = body.license;
   if ('status' in body) changes.status = body.status;
   if ('tags' in body) changes.tags = body.tags;
+  if ('completedAt' in body) changes.completedAt = body.completedAt;
 
   try {
     const updated = ds.update(id, changes, body.actor);
@@ -527,6 +528,28 @@ app.put('/items/:id/object', (req, res) => {
   if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
   ds.writeObjectJson(id, req.body);
   res.json({ ok: true });
+});
+
+// POST /items/:id/complete — mark item as completed (sets completedAt to now)
+app.post('/items/:id/complete', (req, res) => {
+  const { id } = req.params;
+  if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
+  const ds = openDatastore(res);
+  if (!ds) return;
+  if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
+  const updated = ds.update(id, { completedAt: new Date().toISOString() }, req.body.actor);
+  res.json(updated);
+});
+
+// POST /items/:id/uncomplete — clear completed state (sets completedAt to null)
+app.post('/items/:id/uncomplete', (req, res) => {
+  const { id } = req.params;
+  if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
+  const ds = openDatastore(res);
+  if (!ds) return;
+  if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
+  const updated = ds.update(id, { completedAt: null }, req.body.actor);
+  res.json(updated);
 });
 
 // GET /items/:id/function/scaffold — check whether the function/ code scaffold directory exists
