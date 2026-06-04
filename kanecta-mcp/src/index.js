@@ -358,12 +358,12 @@ const TOOLS = [
   // ── Relationships ────────────────────────────────────────────────────────────
   {
     name: 'kanecta_relate',
-    description: `Create a typed semantic relationship between two items. Valid types: ${VALID_REL_TYPES.join(', ')}.`,
+    description: `Create a typed semantic relationship between two items. Built-in types: ${VALID_REL_TYPES.join(', ')}. A datastore may register additional types in its config (config.relTypes), so the accepted set can be larger; an invalid type returns the full valid list.`,
     inputSchema: {
       type: 'object',
       properties: {
         sourceId: { type: 'string', description: 'UUID of the source item' },
-        type: { type: 'string', enum: VALID_REL_TYPES, description: 'Relationship type' },
+        type: { type: 'string', description: 'Relationship type (built-in default or datastore-registered)' },
         targetId: { type: 'string', description: 'UUID of the target item' },
         note: { type: 'string', description: 'Optional note about the relationship' },
       },
@@ -857,8 +857,8 @@ function dispatch(name, args) {
 
     case 'kanecta_relate': {
       const { sourceId, type, targetId, note } = args;
-      if (!VALID_REL_TYPES.includes(type))
-        return { error: `Invalid relationship type: ${type}. Valid: ${VALID_REL_TYPES.join(', ')}` };
+      if (!ds.relTypes.includes(type))
+        return { error: `Invalid relationship type: ${type}. Valid: ${ds.relTypes.join(', ')}` };
       if (!ds.get(sourceId)) return { error: `Source not found: ${sourceId}` };
       if (!ds.get(targetId)) return { error: `Target not found: ${targetId}` };
       return ds.relate(sourceId, type, targetId, { note, createdBy: cfg?.owner });
