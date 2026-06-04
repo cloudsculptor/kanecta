@@ -60,7 +60,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@storybook/react-vite": "^10.3.5",
+    "@storybook/react-vite": "^10.4.2",
     "@storybook/test-runner": "^0.24.4",
     "@testing-library/jest-dom": "^6.5.0",
     "@testing-library/react": "^16.0.1",
@@ -80,7 +80,7 @@
     "sass": "^1.100.0",
     "storybook": "^10.3.5",
     "typescript": "~6.0.2",
-    "typescript-eslint": "^8.60.0",
+    "typescript-eslint": "^8.60.1",
     "vite": "^8.0.10",
     "vitest": "^4.1.8"
   },
