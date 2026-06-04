@@ -637,6 +637,11 @@ app.post('/items/:id/function/compile', (req, res) => {
 
   const chunks = [];
 
+  // Link local Kanecta packages before install so npm uses them instead of the registry
+  spawnSync('npm', ['link', '@kanecta/api-client', '@kanecta/sdk'], {
+    cwd: fnDir, encoding: 'utf8', shell: true,
+  });
+
   const install = spawnSync('npm', ['install'], {
     cwd: fnDir, encoding: 'utf8', shell: true, timeout: 120_000,
   });
@@ -688,6 +693,12 @@ app.post('/items/:id/function/run', (req, res) => {
 
   if (needsRebuild) {
     const rebuildChunks = [];
+
+    // Link local Kanecta packages before install so npm uses them instead of the registry
+    spawnSync('npm', ['link', '@kanecta/api-client', '@kanecta/sdk'], {
+      cwd: fnDir, encoding: 'utf8', shell: true,
+    });
+
     const install = spawnSync('npm', ['install'], {
       cwd: fnDir, encoding: 'utf8', shell: true, timeout: 120_000,
     });
