@@ -226,7 +226,12 @@ function buildCodePreview(fnName: string, form: FormState): string {
       : (p.type ?? 'unknown');
     const name = p.name || 'param';
     const prefix = p.rest ? '...' : '';
-    if (p.defaultValue) return `  ${prefix}${name}: ${tsType} = ${p.defaultValue}`;
+    if (p.defaultValue) {
+      const dv = tsType === 'string' && !/^["'`]/.test(p.defaultValue)
+        ? `"${p.defaultValue.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+        : p.defaultValue;
+      return `  ${prefix}${name}: ${tsType} = ${dv}`;
+    }
     if (p.optional) return `  ${prefix}${name}?: ${tsType}`;
     return `  ${prefix}${name}: ${tsType}`;
   });

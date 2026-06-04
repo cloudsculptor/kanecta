@@ -142,7 +142,12 @@ function buildIndexTs(fnName, fnData, typeIdMap) {
       ? (typeIdMap.get(p.typeId)?.name ?? 'unknown')
       : (p.type ?? 'unknown');
     const prefix = p.rest ? '...' : '';
-    if (p.defaultValue) return `  ${prefix}${p.name}: ${tsType} = ${p.defaultValue}`;
+    if (p.defaultValue) {
+      const dv = tsType === 'string' && !/^["'`]/.test(p.defaultValue)
+        ? `"${p.defaultValue.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+        : p.defaultValue;
+      return `  ${prefix}${p.name}: ${tsType} = ${dv}`;
+    }
     if (p.optional) return `  ${prefix}${p.name}?: ${tsType}`;
     return `  ${prefix}${p.name}: ${tsType}`;
   });
