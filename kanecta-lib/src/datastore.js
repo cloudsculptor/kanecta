@@ -59,6 +59,8 @@ class Datastore {
   // ─── Relationships ─────────────────────────────────────────────────────────
 
   relate(sourceId, type, targetId, opts) { return this._adapter.relate(sourceId, type, targetId, opts); }
+  get relTypes()                       { return this._adapter.relTypes; }
+  addRelTypes(names)                   { return this._adapter.addRelTypes(names); }
   relationships(id)                    { return this._adapter.relationships(id); }
   backlinks(id)                        { return this._adapter.backlinks(id); }
   listRelationships()                  { return this._adapter.listRelationships(); }
