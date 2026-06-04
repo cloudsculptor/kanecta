@@ -187,7 +187,7 @@ function generateFunctionScaffold(itemDir, itemName, fnData, root) {
   const fnDir = path.join(itemDir, 'function');
   fs.mkdirSync(fnDir, { recursive: true });
 
-  // package.json — once
+  // package.json — always regenerated so dependencies stay in sync with function.json
   const usesSdk = fnData.includeKanectaSdk !== false;
   const extraDeps = fnData.dependencies ?? [];
   const dependencies = {};
@@ -200,7 +200,7 @@ function generateFunctionScaffold(itemDir, itemName, fnData, root) {
       dependencies[dep] = '*';
     }
   }
-  writeIfAbsent(
+  fs.writeFileSync(
     path.join(fnDir, 'package.json'),
     JSON.stringify({
       name: `kanecta-fn-${slugify(itemName)}`,
@@ -217,6 +217,7 @@ function generateFunctionScaffold(itemDir, itemName, fnData, root) {
         '@types/node': '^20.0.0',
       },
     }, null, 2) + '\n',
+    'utf8',
   );
 
   // tsconfig.json — once
