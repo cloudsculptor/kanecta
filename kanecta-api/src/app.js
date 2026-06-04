@@ -1555,7 +1555,13 @@ app.get('/claude/sessions/:id/stream', (req, res) => {
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
 
-  const write = (data) => res.write(data);
+  const write = (data) => {
+    res.write(data);
+    try {
+      const event = JSON.parse(data.replace(/^data: /, ''));
+      if (event.type === 'done') { claude.unsubscribe(id, write); res.end(); }
+    } catch {}
+  };
   claude.subscribe(id, write);
   req.on('close', () => claude.unsubscribe(id, write));
 });
