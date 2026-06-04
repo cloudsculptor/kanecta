@@ -1,3 +1,5 @@
+import type { KanectaApiClient, ApiClientOptions, KanectaItem, CreateItemPayload } from '@kanecta/api-client';
+
 export {
   // Types
   KanectaItem,
@@ -51,4 +53,12 @@ export {
 
 // Legacy alias kept for backward compatibility
 export { ApiClientOptions as ClientOptions } from '@kanecta/api-client';
-export declare function createClient(options?: import('@kanecta/api-client').ApiClientOptions): import('@kanecta/api-client').KanectaApiClient;
+
+export interface KanectaClient extends KanectaApiClient {
+  /** Send a prompt to Claude and return the response as a string. */
+  ai(prompt: string, context?: string): Promise<string>;
+  /** Create an item under a parent. */
+  writeItem(parentId: string, value: string, extra?: Omit<CreateItemPayload, 'parentId' | 'value'>): Promise<KanectaItem>;
+}
+
+export declare function createClient(options?: ApiClientOptions): KanectaClient;
