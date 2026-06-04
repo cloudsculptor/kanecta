@@ -443,86 +443,6 @@ async function syncSystemItems(datastorePath, systemItemsDir) {
   }
 }
 
-async function checkSdkLink() {
-  const repoRoot = path.resolve(__dirname, '../..');
-
-  console.log('\n  @kanecta/sdk global link check...');
-
-  let globalRoot;
-  try {
-    globalRoot = execSync('npm root -g', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
-  } catch {
-    console.log('  ✗ could not determine npm global root, skipping');
-    return;
-  }
-
-  const localSdkPath = path.resolve(repoRoot, 'kanecta-sdk');
-  const globalSdkPath = path.join(globalRoot, '@kanecta', 'sdk');
-
-  // Check if already linked to our local kanecta-sdk
-  try {
-    const stat = fs.lstatSync(globalSdkPath);
-    if (stat.isSymbolicLink()) {
-      const target = fs.realpathSync(globalSdkPath);
-      if (target === localSdkPath) {
-        console.log('  ✓ @kanecta/sdk already linked globally');
-        return;
-      }
-      console.log(`  ⚠ @kanecta/sdk is linked globally but points elsewhere: ${target}`);
-    }
-  } catch {
-    // not linked at all — fall through to prompt
-  }
-
-  if (!process.stdin.isTTY) {
-    console.log('  @kanecta/sdk not linked — non-interactive session, skipping');
-    return;
-  }
-
-  console.log('  @kanecta/sdk is not linked globally.');
-  console.log('  Linking it allows user functions to import @kanecta/sdk when they run.\n');
-
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  const answer = await ask(rl, '  Link @kanecta/sdk globally now? [Y/n]: ');
-  rl.close();
-
-  if (answer.toLowerCase() === 'n') {
-    console.log('  Skipped. User functions will not be able to use @kanecta/sdk until it is linked.');
-    return;
-  }
-
-  // Also link @kanecta/api-client (it is a dependency of @kanecta/sdk)
-  const localApiClientPath = path.resolve(repoRoot, 'kanecta-api-client');
-  const globalApiClientPath = path.join(globalRoot, '@kanecta', 'api-client');
-
-  let apiClientLinked = false;
-  try {
-    const stat = fs.lstatSync(globalApiClientPath);
-    if (stat.isSymbolicLink()) {
-      const target = fs.realpathSync(globalApiClientPath);
-      apiClientLinked = target === localApiClientPath;
-    }
-  } catch {}
-
-  if (!apiClientLinked) {
-    try {
-      execSync('npm link', { cwd: localApiClientPath, stdio: 'pipe' });
-      console.log('  ✓ @kanecta/api-client linked globally');
-    } catch (err) {
-      console.error(`  ✗ failed to link @kanecta/api-client: ${err.message}`);
-      console.error('  Try manually: cd kanecta-api-client && sudo npm link');
-    }
-  }
-
-  try {
-    execSync('npm link', { cwd: localSdkPath, stdio: 'pipe' });
-    console.log('  ✓ @kanecta/sdk linked globally');
-  } catch (err) {
-    console.error(`  ✗ failed to link @kanecta/sdk: ${err.message}`);
-    console.error('  Try manually: cd kanecta-sdk && sudo npm link');
-  }
-}
-
 async function launch(datastorePath, apiPort, studioPort, systemItemsDir) {
   const [apiFree, studioFree] = await Promise.all([
     checkPortFree(apiPort),
@@ -588,7 +508,7 @@ async function main() {
     console.log(`✓ Datastore: ${datastorePath}`);
     checkSpecVersion(datastorePath);
     await syncSystemItems(datastorePath, process.env.KANECTA_SYSTEM_ITEMS_DIR);
-    await checkSdkLink();
+
     return launch(datastorePath, 9744, 9743);
   }
 
@@ -613,7 +533,7 @@ async function main() {
     console.log(`✓ Datastore: ${datastorePath}`);
     checkSpecVersion(datastorePath);
     await syncSystemItems(datastorePath, data.systemItemsDir);
-    await checkSdkLink();
+
     return launch(datastorePath, data.apiPort ?? 9744, data.studioPort ?? 9743, data.systemItemsDir);
   }
 
@@ -625,7 +545,6 @@ async function main() {
   const wizardResult = await wizard();
   checkSpecVersion(wizardResult.datastorePath);
   await syncSystemItems(wizardResult.datastorePath, wizardResult.systemItemsDir);
-  await checkSdkLink();
   launch(wizardResult.datastorePath, wizardResult.apiPort, wizardResult.studioPort, wizardResult.systemItemsDir);
 }
 
