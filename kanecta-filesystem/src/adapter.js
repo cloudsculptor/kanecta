@@ -725,7 +725,32 @@ class FilesystemAdapter {
 
   // ─── Relationships ─────────────────────────────────────────────────────────
 
+  // Effective relationship types = built-in defaults ∪ datastore-configured extras (config.relTypes).
+  get relTypes() {
+    const extra = Array.isArray(this.config.relTypes) ? this.config.relTypes : [];
+    return [...new Set([...VALID_REL_TYPES, ...extra])];
+  }
+
+  // Register additional datastore-level relationship types (persisted to config.json, deduped vs built-ins).
+  // Names must be lowercase slugs (e.g. "affects", "evidenced-by"). Idempotent. Returns the effective list.
+  addRelTypes(names) {
+    const list = (Array.isArray(names) ? names : [names]).map((n) => String(n).trim()).filter(Boolean);
+    for (const n of list) {
+      if (!/^[a-z][a-z0-9-]*$/.test(n))
+        throw new Error(`Invalid relationship type name: "${n}" (use a lowercase slug, e.g. "affects")`);
+    }
+    const cfg = this.config;
+    const builtins = new Set(VALID_REL_TYPES);
+    const existing = Array.isArray(cfg.relTypes) ? cfg.relTypes : [];
+    cfg.relTypes = [...new Set([...existing, ...list.filter((n) => !builtins.has(n))])];
+    this._writeJson(path.join(this.k, 'config', 'config.json'), cfg);
+    this._config = cfg;
+    return this.relTypes;
+  }
+
   relate(sourceId, type, targetId, { createdBy, note = null } = {}) {
+    if (!this.relTypes.includes(type))
+      throw new Error(`Invalid relationship type: ${type}. Valid: ${this.relTypes.join(', ')}`);
     const now = new Date();
     const actor = createdBy || this.config.owner;
     const relId = crypto.randomUUID();

@@ -547,7 +547,7 @@ async function cmdRelate(positional, flags) {
   const ds = await openDatastore(flags);
   const [srcRef, type, tgtRef] = positional;
   if (!srcRef || !type || !tgtRef) die('Usage: kanecta relate <source> <type> <target> [--note <text>]');
-  if (!VALID_REL_TYPES.includes(type)) die(`Invalid relationship type: ${type}\nValid: ${VALID_REL_TYPES.join(', ')}`);
+  if (!ds.relTypes.includes(type)) die(`Invalid relationship type: ${type}\nValid: ${ds.relTypes.join(', ')}`);
   const src = ds.resolve(srcRef);
   if (!src) die(`Source not found: ${srcRef}`);
   const tgt = ds.resolve(tgtRef);

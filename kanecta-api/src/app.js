@@ -906,8 +906,8 @@ app.post('/relationships', (req, res) => {
     return res.status(400).json({ error: 'sourceId, type, and targetId are required' });
   if (!isUuid(sourceId)) return res.status(400).json({ error: 'Invalid UUID: sourceId' });
   if (!isUuid(targetId)) return res.status(400).json({ error: 'Invalid UUID: targetId' });
-  if (!VALID_REL_TYPES.includes(type))
-    return res.status(400).json({ error: `Invalid relationship type: ${type}. Valid: ${VALID_REL_TYPES.join(', ')}` });
+  if (!ds.relTypes.includes(type))
+    return res.status(400).json({ error: `Invalid relationship type: ${type}. Valid: ${ds.relTypes.join(', ')}` });
   if (!ds.get(sourceId)) return res.status(404).json({ error: `Source not found: ${sourceId}` });
   if (!ds.get(targetId)) return res.status(404).json({ error: `Target not found: ${targetId}` });
   const rel = ds.relate(sourceId, type, targetId, { note, createdBy });

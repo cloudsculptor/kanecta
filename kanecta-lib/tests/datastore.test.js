@@ -218,6 +218,25 @@ test('relate creates outbound and inbound entries', () => {
   fs.rmSync(ds.root, { recursive: true });
 });
 
+test('rel types: datastore-configurable via addRelTypes; relate validates against the effective list', () => {
+  const ds = tmpDs();
+  const a = ds.create({ value: 'a' });
+  const b = ds.create({ value: 'b' });
+  // unknown type rejected against built-in defaults
+  expect(() => ds.relate(a.id, 'affects', b.id)).toThrow(/Invalid relationship type/);
+  // register datastore-level types -> now accepted; built-ins preserved
+  const eff = ds.addRelTypes(['affects', 'evidenced-by']);
+  expect(eff).toEqual(expect.arrayContaining([...VALID_REL_TYPES, 'affects', 'evidenced-by']));
+  expect(ds.relate(a.id, 'affects', b.id).type).toBe('affects');
+  expect(ds.relate(a.id, 'depends-on', b.id).type).toBe('depends-on'); // built-in still works
+  expect(() => ds.relate(a.id, 'nope', b.id)).toThrow(/Invalid relationship type/);
+  // persisted to config.json: a freshly-opened datastore keeps the custom types
+  expect(Datastore.open(ds.root).relTypes).toEqual(expect.arrayContaining(['affects', 'evidenced-by']));
+  // names must be lowercase slugs
+  expect(() => ds.addRelTypes(['Bad Name'])).toThrow(/lowercase slug/);
+  fs.rmSync(ds.root, { recursive: true });
+});
+
 // ─── tree / children ──────────────────────────────────────────────────────────
 
 test('children returns sorted children', () => {
