@@ -436,8 +436,18 @@ const allConversionsDestructive = item.type === 'function';
         <div className="TreeNode-children">{children}</div>
       )}
 
-      <EditFunctionDialog open={editFunctionOpen} onClose={() => setEditFunctionOpen(false)} item={item} />
-      <RunFunctionDialog open={runFunctionOpen} onClose={() => setRunFunctionOpen(false)} item={item} />
+      <EditFunctionDialog
+        open={editFunctionOpen}
+        onClose={() => setEditFunctionOpen(false)}
+        item={item}
+        onOpenRun={() => { setEditFunctionOpen(false); setRunFunctionOpen(true); }}
+      />
+      <RunFunctionDialog
+        open={runFunctionOpen}
+        onClose={() => setRunFunctionOpen(false)}
+        item={item}
+        onOpenEdit={() => { setRunFunctionOpen(false); setEditFunctionOpen(true); }}
+      />
 
       <Dialog open={confirmDelete} onClose={() => setConfirmDelete(false)} onClick={(e) => e.stopPropagation()}>
         <DialogTitle>Delete "{item.value}"?</DialogTitle>

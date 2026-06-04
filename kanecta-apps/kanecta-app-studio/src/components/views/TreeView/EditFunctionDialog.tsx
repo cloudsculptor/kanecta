@@ -268,9 +268,10 @@ interface Props {
   open: boolean;
   onClose: () => void;
   item: KanectaItem;
+  onOpenRun?: () => void;
 }
 
-export function EditFunctionDialog({ open, onClose, item }: Props) {
+export function EditFunctionDialog({ open, onClose, item, onOpenRun }: Props) {
   const { getApi } = useWorkspaceStore();
   const [form, setForm] = useState<FormState>(EMPTY);
   const [loading, setLoading] = useState(false);
@@ -814,6 +815,17 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
       </DialogContent>
 
       <DialogActions>
+        {onOpenRun && (
+          <Button
+            variant="outlined"
+            color="success"
+            disabled={busy}
+            onClick={onOpenRun}
+            sx={{ mr: 'auto' }}
+          >
+            Run function
+          </Button>
+        )}
         <Button onClick={onClose} disabled={busy}>Close</Button>
         <Button variant="outlined" disabled={busy || loading || !isValid} onClick={() => void handleSave()}>
           {saving ? 'Saving…' : 'Save'}
