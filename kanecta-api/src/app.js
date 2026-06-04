@@ -4,7 +4,7 @@ const express = require('express');
 const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE } = require('@kanecta/lib');
 const claude = require('./claude');
 const { generateFunctionScaffold, toCamelCase } = require('./generateFunctionCode');
-const { spawnSync } = require('child_process');
+const { spawnSync, spawn } = require('child_process');
 const { createHash } = require('crypto');
 
 function hashIndexTs(fnDir) {
@@ -738,17 +738,26 @@ Promise.resolve(mod[${JSON.stringify(fnName)}](...values))
   });
 `;
 
-  const result = spawnSync('node', ['-e', runnerCode], { encoding: 'utf8', timeout: 30_000 });
+  const child = spawn('node', ['-e', runnerCode], { encoding: 'utf8' });
 
-  const stdout = result.stdout ?? '';
-  const stderr = result.stderr ?? '';
+  let stdout = '';
+  let stderr = '';
+  child.stdout.on('data', chunk => { stdout += chunk; });
+  child.stderr.on('data', chunk => { stderr += chunk; });
 
-  const resultMatch = stdout.match(new RegExp(`${RESULT_START}([\\s\\S]*?)${RESULT_END}`));
-  const output = resultMatch ? resultMatch[1].trim() : null;
-  const logsFromStdout = stdout.replace(new RegExp(`${RESULT_START}[\\s\\S]*?${RESULT_END}\\n?`), '').trim();
-  const logs = [logsFromStdout, stderr].filter(Boolean).join('\n').trim();
+  const timer = setTimeout(() => {
+    child.kill();
+    stderr += '\nExecution timed out after 30s';
+  }, 30_000);
 
-  return res.json({ success: result.status === 0, output, logs });
+  child.on('close', code => {
+    clearTimeout(timer);
+    const resultMatch = stdout.match(new RegExp(`${RESULT_START}([\\s\\S]*?)${RESULT_END}`));
+    const output = resultMatch ? resultMatch[1].trim() : null;
+    const logsFromStdout = stdout.replace(new RegExp(`${RESULT_START}[\\s\\S]*?${RESULT_END}\\n?`), '').trim();
+    const logs = [logsFromStdout, stderr].filter(Boolean).join('\n').trim();
+    res.json({ success: code === 0, output, logs });
+  });
 });
 
 // GET /items/:id/tree — tree rooted at item (?depth=n)
