@@ -636,16 +636,6 @@ app.post('/items/:id/function/compile', (req, res) => {
   }
 
   const chunks = [];
-  const repoRoot = path.resolve(__dirname, '../..');
-
-  // Register local Kanecta packages globally then link them into the function dir
-  // so npm install doesn't try to fetch them from the registry.
-  for (const pkg of ['kanecta-api-client', 'kanecta-sdk']) {
-    spawnSync('npm', ['link'], { cwd: path.join(repoRoot, pkg), shell: true });
-  }
-  spawnSync('npm', ['link', '@kanecta/api-client', '@kanecta/sdk'], {
-    cwd: fnDir, encoding: 'utf8', shell: true,
-  });
 
   const install = spawnSync('npm', ['install'], {
     cwd: fnDir, encoding: 'utf8', shell: true, timeout: 120_000,
@@ -698,14 +688,6 @@ app.post('/items/:id/function/run', (req, res) => {
 
   if (needsRebuild) {
     const rebuildChunks = [];
-    const repoRoot = path.resolve(__dirname, '../..');
-
-    for (const pkg of ['kanecta-api-client', 'kanecta-sdk']) {
-      spawnSync('npm', ['link'], { cwd: path.join(repoRoot, pkg), shell: true });
-    }
-    spawnSync('npm', ['link', '@kanecta/api-client', '@kanecta/sdk'], {
-      cwd: fnDir, encoding: 'utf8', shell: true,
-    });
 
     const install = spawnSync('npm', ['install'], {
       cwd: fnDir, encoding: 'utf8', shell: true, timeout: 120_000,

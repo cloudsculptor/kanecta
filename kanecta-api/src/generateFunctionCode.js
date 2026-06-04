@@ -188,10 +188,21 @@ function generateFunctionScaffold(itemDir, itemName, fnData, root) {
   fs.mkdirSync(fnDir, { recursive: true });
 
   // package.json — always regenerated so dependencies stay in sync with function.json
+  const repoRoot = path.resolve(__dirname, '../..');
   const usesSdk = fnData.includeKanectaSdk !== false;
   const extraDeps = fnData.dependencies ?? [];
   const dependencies = {};
-  if (usesSdk) dependencies['@kanecta/sdk'] = '*';
+  if (usesSdk) {
+    const localSdkPath = path.join(repoRoot, 'kanecta-sdk');
+    if (fs.existsSync(path.join(localSdkPath, 'package.json'))) {
+      // Running from source — use file: refs so npm doesn't hit the registry
+      dependencies['@kanecta/api-client'] = `file:${path.join(repoRoot, 'kanecta-api-client')}`;
+      dependencies['@kanecta/sdk'] = `file:${localSdkPath}`;
+    } else {
+      // Installed from npm — packages are on the registry
+      dependencies['@kanecta/sdk'] = '*';
+    }
+  }
   for (const dep of extraDeps) {
     const atIdx = dep.lastIndexOf('@');
     if (atIdx > 0) {
