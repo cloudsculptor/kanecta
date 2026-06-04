@@ -4,7 +4,10 @@
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
+const { createHash } = require('crypto');
+const { spawnSync } = require('child_process');
 const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES } = require('@kanecta/lib');
+const { generateFunctionScaffold, toCamelCase } = require('../../kanecta-api/src/generateFunctionCode');
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -465,6 +468,107 @@ const TOOLS = [
 
   // ── Tag queries ──────────────────────────────────────────────────────────────
   {
+    name: 'kanecta_get_function',
+    description: 'Read a function item\'s definition (parameters, return type, body, dependencies) and scaffold status.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'UUID of the function item' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'kanecta_create_function',
+    description: 'Create a new function item, write its definition, and generate the TypeScript scaffold. Use compile:true to also run npm install + tsc.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        parentId:         { type: 'string', description: 'UUID of the parent item' },
+        name:             { type: 'string', description: 'Function name (becomes the item value and the TypeScript function name)' },
+        description:      { type: 'string', description: 'JSDoc description of what the function does' },
+        async:            { type: 'boolean', description: 'Whether the function is async (default: false)' },
+        ai:               { type: 'boolean', description: 'Whether the function calls AI internally (default: false)' },
+        parameters: {
+          type: 'array',
+          description: 'Ordered list of function parameters',
+          items: {
+            type: 'object',
+            properties: {
+              name:         { type: 'string', description: 'Parameter name' },
+              type:         { type: 'string', description: 'TypeScript primitive type (string, number, boolean, etc.)' },
+              typeId:       { type: 'string', description: 'Kanecta type UUID (use instead of type for structured objects)' },
+              optional:     { type: 'boolean' },
+              rest:         { type: 'boolean', description: 'Variadic ...rest parameter' },
+              defaultValue: { type: 'string', description: 'Default value as a TypeScript expression e.g. "0" or "\"hello\""' },
+              description:  { type: 'string', description: 'What this parameter is for — used as @param JSDoc and to prompt for values when running' },
+            },
+            required: ['name'],
+          },
+        },
+        returnType:       { type: 'string', description: 'TypeScript return type (default: "void"). Use this OR returnTypeId.' },
+        returnTypeId:     { type: 'string', description: 'Kanecta type UUID for the return value. Use this OR returnType.' },
+        body:             { type: 'string', description: 'Function implementation source code (TypeScript, inside the function body)' },
+        includeKanectaSdk: { type: 'boolean', description: 'Auto-import @kanecta/sdk and create a kanecta client (default: true)' },
+        dependencies:     { type: 'array', items: { type: 'string' }, description: 'Additional npm packages e.g. ["axios@^1.0.0", "lodash"]' },
+        compile:          { type: 'boolean', description: 'Run npm install + tsc after generating the scaffold (default: false)' },
+      },
+      required: ['parentId', 'name'],
+    },
+  },
+  {
+    name: 'kanecta_edit_function',
+    description: 'Update an existing function\'s definition and regenerate the TypeScript scaffold. Only the fields you provide are changed; everything else is preserved.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id:               { type: 'string', description: 'UUID of the function item to edit' },
+        description:      { type: 'string' },
+        async:            { type: 'boolean' },
+        ai:               { type: 'boolean' },
+        parameters: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name:         { type: 'string' },
+              type:         { type: 'string' },
+              typeId:       { type: 'string' },
+              optional:     { type: 'boolean' },
+              rest:         { type: 'boolean' },
+              defaultValue: { type: 'string' },
+              description:  { type: 'string', description: 'What this parameter is for — used as @param JSDoc and to prompt for values when running' },
+            },
+            required: ['name'],
+          },
+        },
+        returnType:        { type: 'string' },
+        returnTypeId:      { type: 'string' },
+        body:              { type: 'string', description: 'Full replacement function body (TypeScript source inside the function)' },
+        includeKanectaSdk: { type: 'boolean' },
+        dependencies:      { type: 'array', items: { type: 'string' } },
+        compile:           { type: 'boolean', description: 'Run npm install + tsc after regenerating the scaffold (default: false)' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'kanecta_execute_function',
+    description: 'Run a compiled Kanecta function. Auto-recompiles if the code is stale. The response includes parameter definitions (with descriptions) so you can see what each arg expects.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id:   { type: 'string', description: 'UUID of the function item to execute' },
+        args: {
+          type: 'object',
+          description: 'Argument values keyed by parameter name. Values are strings and are JSON-parsed at runtime (so pass "42" for a number, "true" for a boolean, or a plain string for text). Check parameter descriptions via kanecta_get_function if unsure what to pass.',
+          additionalProperties: { type: 'string' },
+        },
+      },
+      required: ['id'],
+    },
+  },
+  {
     name: 'kanecta_by_tag',
     description: 'List all items carrying a given tag.',
     inputSchema: {
@@ -497,6 +601,68 @@ const TOOLS = [
     },
   },
 ];
+
+// ─── Function helpers ─────────────────────────────────────────────────────────
+
+function fnItemDir(datastorePath, id) {
+  const s = id.replace(/-/g, '');
+  return path.join(datastorePath, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id);
+}
+
+function hashIndexTs(fnDir) {
+  try {
+    return createHash('sha256').update(fs.readFileSync(path.join(fnDir, 'index.ts'), 'utf8')).digest('hex');
+  } catch { return null; }
+}
+
+function fnScaffoldStatus(fnDir) {
+  if (!fs.existsSync(fnDir)) return { exists: false, stale: false };
+  const current = hashIndexTs(fnDir);
+  const hashPath = path.join(fnDir, '.build-hash');
+  const saved = fs.existsSync(hashPath) ? fs.readFileSync(hashPath, 'utf8').trim() : null;
+  const distJs = path.join(fnDir, 'dist', 'index.js');
+  const stale = !current || !saved || current !== saved || !fs.existsSync(distJs);
+  return { exists: true, stale };
+}
+
+function compileFunctionScaffold(fnDir) {
+  const chunks = [];
+  const install = spawnSync('npm', ['install'], { cwd: fnDir, encoding: 'utf8', shell: true, timeout: 120_000 });
+  if (install.stdout) chunks.push(install.stdout);
+  if (install.stderr) chunks.push(install.stderr);
+  if (install.status !== 0) return { success: false, output: chunks.join('\n').trim() };
+  const build = spawnSync('npm', ['run', 'build'], { cwd: fnDir, encoding: 'utf8', shell: true, timeout: 60_000 });
+  if (build.stdout) chunks.push(build.stdout);
+  if (build.stderr) chunks.push(build.stderr);
+  const success = build.status === 0;
+  if (success) {
+    const h = hashIndexTs(fnDir);
+    if (h) fs.writeFileSync(path.join(fnDir, '.build-hash'), h + '\n', 'utf8');
+  }
+  return { success, output: chunks.join('\n').trim() };
+}
+
+function buildFunctionJson(args, existing = {}) {
+  const fn = { ...existing };
+  if ('description'      in args) fn.description      = args.description;
+  if ('async'            in args) fn.async             = args.async;
+  if ('ai'               in args) fn.ai                = args.ai;
+  if ('skill'            in args) fn.skill             = args.skill;
+  if ('typeParameters'   in args) fn.typeParameters    = args.typeParameters;
+  if ('parameters'       in args) fn.parameters        = args.parameters;
+  if ('returnType'       in args) fn.returnType        = args.returnType;
+  if ('returnTypeId'     in args) fn.returnTypeId      = args.returnTypeId;
+  if ('throws'           in args) fn.throws            = args.throws;
+  if ('deprecated'       in args) fn.deprecated        = args.deprecated;
+  if ('body'             in args) fn.body              = args.body;
+  if ('includeKanectaSdk' in args) fn.includeKanectaSdk = args.includeKanectaSdk;
+  if ('dependencies'     in args) fn.dependencies      = args.dependencies;
+  // ensure parameters always present
+  if (!fn.parameters) fn.parameters = [];
+  // ensure a return type
+  if (!fn.returnType && !fn.returnTypeId) fn.returnType = 'void';
+  return fn;
+}
 
 // ─── Handlers ─────────────────────────────────────────────────────────────────
 
@@ -906,6 +1072,105 @@ function dispatch(name, args) {
 
     case 'kanecta_update_type_schema':
       return handleUpdateTypeSchema(datastorePath, args.id, args.schema);
+
+    // ─── Function tools ────────────────────────────────────────────────────────
+
+    case 'kanecta_get_function': {
+      const item = ds.get(args.id);
+      if (!item) return { error: `Not found: ${args.id}` };
+      const fnData = ds.readFunctionJson(args.id);
+      if (!fnData) return { error: `No function definition for: ${args.id}` };
+      const dir = path.join(fnItemDir(datastorePath, args.id), 'function');
+      return { ...fnData, scaffold: fnScaffoldStatus(dir) };
+    }
+
+    case 'kanecta_create_function': {
+      const { parentId, name, compile = false, ...fnArgs } = args;
+      if (parentId && !ds.get(parentId)) return { error: `Parent not found: ${parentId}` };
+      const item = ds.create({
+        parentId: parentId ?? null,
+        value: name,
+        type: VALID_TYPES.includes('function') ? 'function' : 'string',
+        owner: cfg?.owner,
+      });
+      const fnData = buildFunctionJson(fnArgs);
+      const itemDir = fnItemDir(datastorePath, item.id);
+      ds.writeFunctionJson(item.id, fnData);
+      generateFunctionScaffold(itemDir, name, fnData, datastorePath);
+      const dir = path.join(itemDir, 'function');
+      const result = { item, definition: fnData, scaffold: fnScaffoldStatus(dir) };
+      if (compile) result.compile = compileFunctionScaffold(dir);
+      return result;
+    }
+
+    case 'kanecta_edit_function': {
+      const { id, compile = false, ...fnArgs } = args;
+      const item = ds.get(id);
+      if (!item) return { error: `Not found: ${id}` };
+      const existing = ds.readFunctionJson(id) ?? {};
+      const fnData = buildFunctionJson(fnArgs, existing);
+      const itemDir = fnItemDir(datastorePath, id);
+      ds.writeFunctionJson(id, fnData);
+      generateFunctionScaffold(itemDir, item.value ?? id, fnData, datastorePath);
+      const dir = path.join(itemDir, 'function');
+      const result = { definition: fnData, scaffold: fnScaffoldStatus(dir) };
+      if (compile) result.compile = compileFunctionScaffold(dir);
+      return result;
+    }
+
+    case 'kanecta_execute_function': {
+      const { id, args: fnArgs = {} } = args;
+      const item = ds.get(id);
+      if (!item) return { error: `Not found: ${id}` };
+      const fnData = ds.readFunctionJson(id) ?? {};
+      const dir = path.join(fnItemDir(datastorePath, id), 'function');
+      const distIndex = path.join(dir, 'dist', 'index.js');
+
+      if (!fs.existsSync(dir)) {
+        return { error: 'Function scaffold not found. Use kanecta_create_function or kanecta_edit_function first.' };
+      }
+
+      const status = fnScaffoldStatus(dir);
+      let compileLog = null;
+      if (status.stale || !fs.existsSync(distIndex)) {
+        const compiled = compileFunctionScaffold(dir);
+        compileLog = compiled.output;
+        if (!compiled.success) {
+          return { success: false, output: null, logs: `Compile failed:\n${compiled.output}`, parameters: fnData.parameters ?? [] };
+        }
+      }
+
+      const fnName = toCamelCase(item.value ?? id);
+      const params = fnData.parameters ?? [];
+      const RESULT_START = '__KANECTA_RESULT_START__';
+      const RESULT_END   = '__KANECTA_RESULT_END__';
+      const runnerCode = `
+const mod = require(${JSON.stringify(distIndex)});
+const params = ${JSON.stringify(params)};
+const rawArgs = ${JSON.stringify(fnArgs)};
+const values = params.map(p => {
+  const v = rawArgs[p.name];
+  if (v === undefined || v === '') return undefined;
+  try { return JSON.parse(v); } catch { return v; }
+});
+Promise.resolve(mod[${JSON.stringify(fnName)}](...values))
+  .then(r => {
+    process.stdout.write(${JSON.stringify(RESULT_START)} + JSON.stringify(r, null, 2) + ${JSON.stringify(RESULT_END)} + '\\n');
+  })
+  .catch(e => {
+    process.stderr.write((e.stack || e.message || String(e)) + '\\n');
+    process.exit(1);
+  });
+`;
+      const run = spawnSync('node', ['-e', runnerCode], { encoding: 'utf8', timeout: 30_000 });
+      const stdout = run.stdout ?? '';
+      const stderr = run.stderr ?? '';
+      const match = stdout.match(new RegExp(`${RESULT_START}([\\s\\S]*?)${RESULT_END}`));
+      const output = match ? match[1].trim() : null;
+      const logsFromStdout = stdout.replace(new RegExp(`${RESULT_START}[\\s\\S]*?${RESULT_END}\\n?`), '').trim();
+      const logs = [compileLog, logsFromStdout, stderr].filter(Boolean).join('\n').trim();
+      return { success: run.status === 0, output, logs, parameters: params };
+    }
 
     default: {
       const err = new Error(`Unknown tool: ${name}`);
