@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, TextField, Typography, Stack, Box, CircularProgress, Alert,
-  Divider, IconButton,
+  Divider, IconButton, Tabs, Tab,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
@@ -44,6 +44,8 @@ export function RunFunctionDialog({ open, onClose, item }: Props) {
   const [logs, setLogs] = useState<string | null>(null);
   const [runSuccess, setRunSuccess] = useState<boolean | null>(null);
   const [showStaleDialog, setShowStaleDialog] = useState(false);
+  const [rightTab, setRightTab] = useState<'logs' | 'packageJson'>('logs');
+  const [packageJson, setPackageJson] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -54,11 +56,13 @@ export function RunFunctionDialog({ open, onClose, item }: Props) {
     setFnData(null);
     setOutput(null);
     setLogs(null);
+    setPackageJson(null);
     Promise.all([
       getApi().items.getFunctionData(item.id),
       getApi().items.checkFunctionScaffold(item.id).catch(() => ({ exists: false, stale: false })),
+      getApi().items.getFunctionPackageJson(item.id).catch(() => null),
     ])
-      .then(([data, scaffold]) => {
+      .then(([data, scaffold, pkg]) => {
         if (!data) return;
         const fn = data as unknown as FunctionData;
         setFnData(fn);
@@ -68,6 +72,7 @@ export function RunFunctionDialog({ open, onClose, item }: Props) {
         });
         setArgs(initial);
         if (scaffold.stale) setShowStaleDialog(true);
+        if (pkg) setPackageJson(JSON.stringify(pkg, null, 2));
       })
       .catch(() => setError('Failed to load function definition.'))
       .finally(() => setLoading(false));
@@ -210,30 +215,59 @@ export function RunFunctionDialog({ open, onClose, item }: Props) {
               )}
             </Box>
 
-            {/* ── Right: logging ── */}
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, overflow: 'hidden' }}>
-              <Typography
-                variant="overline"
-                sx={{
-                  lineHeight: 1, flexShrink: 0,
-                  color: runSuccess === null ? 'text.secondary' : runSuccess ? 'success.main' : 'error.main',
-                }}
+            {/* ── Right: tabbed panel ── */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <Tabs
+                value={rightTab}
+                onChange={(_, v: 'logs' | 'packageJson') => setRightTab(v)}
+                sx={{ flexShrink: 0, minHeight: 32, mb: 1, '& .MuiTab-root': { minHeight: 32, py: 0.5 } }}
               >
-                {runSuccess === null ? 'Logs' : runSuccess ? 'Logs — success' : 'Logs — failed'}
-              </Typography>
-              <Box
-                component="pre"
-                sx={{
-                  flex: 1,
-                  m: 0, p: 1.5,
-                  fontFamily: 'monospace', fontSize: '0.75rem', lineHeight: 1.5,
-                  bgcolor: '#1e1e1e',
-                  color: runSuccess === false ? '#f48771' : '#d4d4d4',
-                  borderRadius: 1, whiteSpace: 'pre-wrap', overflow: 'auto',
-                }}
-              >
-                {logs ?? ''}
-              </Box>
+                <Tab
+                  label={
+                    runSuccess === null ? 'Logs'
+                    : runSuccess ? 'Logs — success'
+                    : 'Logs — failed'
+                  }
+                  value="logs"
+                  sx={{
+                    color: rightTab === 'logs'
+                      ? (runSuccess === null ? undefined : runSuccess ? 'success.main' : 'error.main')
+                      : undefined,
+                  }}
+                />
+                <Tab label="Package.json" value="packageJson" />
+              </Tabs>
+
+              {rightTab === 'logs' && (
+                <Box
+                  component="pre"
+                  sx={{
+                    flex: 1,
+                    m: 0, p: 1.5,
+                    fontFamily: 'monospace', fontSize: '0.75rem', lineHeight: 1.5,
+                    bgcolor: '#1e1e1e',
+                    color: runSuccess === false ? '#f48771' : '#d4d4d4',
+                    borderRadius: 1, whiteSpace: 'pre-wrap', overflow: 'auto',
+                  }}
+                >
+                  {logs ?? ''}
+                </Box>
+              )}
+
+              {rightTab === 'packageJson' && (
+                <Box
+                  component="pre"
+                  sx={{
+                    flex: 1,
+                    m: 0, p: 1.5,
+                    fontFamily: 'monospace', fontSize: '0.75rem', lineHeight: 1.5,
+                    bgcolor: '#1e1e1e', color: '#d4d4d4',
+                    borderRadius: 1, whiteSpace: 'pre-wrap', overflow: 'auto',
+                  }}
+                >
+                  {packageJson ?? '(no package.json — save the function first)'}
+                </Box>
+              )}
             </Box>
           </>
         )}

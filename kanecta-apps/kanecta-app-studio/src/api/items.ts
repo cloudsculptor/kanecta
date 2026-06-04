@@ -62,6 +62,9 @@ export function itemsApi(client: ApiClient) {
     saveFunctionData: (id: string, data: Record<string, unknown>) =>
       client.put<{ ok: boolean }>(`/items/${id}/function`, data),
 
+    getFunctionPackageJson: (id: string) =>
+      client.get<Record<string, unknown>>(`/items/${id}/function/package-json`),
+
     checkFunctionScaffold: (id: string) =>
       client.get<{ exists: boolean; stale: boolean }>(`/items/${id}/function/scaffold`),
 

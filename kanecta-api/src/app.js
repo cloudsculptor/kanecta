@@ -552,6 +552,21 @@ app.post('/items/:id/uncomplete', (req, res) => {
   res.json(updated);
 });
 
+// GET /items/:id/function/package-json — read the package.json inside the function scaffold directory
+app.get('/items/:id/function/package-json', (req, res) => {
+  const { id } = req.params;
+  if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
+  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const s = id.replace(/-/g, '');
+  const pkgPath = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id, 'function', 'package.json');
+  if (!fs.existsSync(pkgPath)) return res.status(404).json({ error: 'package.json not found' });
+  try {
+    res.json(JSON.parse(fs.readFileSync(pkgPath, 'utf8')));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /items/:id/function/scaffold — check whether the function/ code scaffold directory exists
 // Returns { exists, stale } where stale=true means the compiled dist is out of date with function.json
 app.get('/items/:id/function/scaffold', (req, res) => {

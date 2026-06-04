@@ -4,6 +4,7 @@ import {
   Button, TextField, Switch, FormControlLabel, Stack,
   Typography, Divider, IconButton, Box, CircularProgress,
   Radio, RadioGroup, FormControl, FormLabel, Alert, Tooltip, Checkbox,
+  Tabs, Tab,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
@@ -129,6 +130,42 @@ function TypeHelperText({ fullText }: { fullText: string }) {
 
 // ─── Live code preview ────────────────────────────────────────────────────────
 
+function slugify(name: string): string {
+  return name
+    .replace(/([A-Z])/g, (_, c: string) => `-${c.toLowerCase()}`)
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '') || 'function';
+}
+
+function buildPackageJsonPreview(itemName: string, form: FormState): string {
+  const usesSdk = form.includeKanectaSdk;
+  const dependencies: Record<string, string> = {};
+  if (usesSdk) dependencies['@kanecta/sdk'] = '*';
+  for (const dep of form.dependencies) {
+    const atIdx = dep.lastIndexOf('@');
+    if (atIdx > 0) {
+      dependencies[dep.slice(0, atIdx)] = dep.slice(atIdx + 1);
+    } else {
+      dependencies[dep] = '*';
+    }
+  }
+  const pkg: Record<string, unknown> = {
+    name: `kanecta-fn-${slugify(itemName)}`,
+    version: '1.0.0',
+    private: true,
+    scripts: { build: 'tsc', start: 'ts-node index.ts' },
+    ...(Object.keys(dependencies).length > 0 ? { dependencies } : {}),
+    devDependencies: {
+      'typescript': '^5.0.0',
+      'ts-node': '^10.9.0',
+      '@types/node': '^20.0.0',
+    },
+  };
+  return JSON.stringify(pkg, null, 2);
+}
+
 function fnNameFrom(itemName: string): string {
   return (
     itemName
@@ -243,8 +280,14 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
   const [diskBody, setDiskBody] = useState('');
   const loadedBodyRef = useRef<string | undefined>(undefined);
 
+  const [rightTab, setRightTab] = useState<'code' | 'packageJson'>('code');
+
   const fnName = useMemo(() => fnNameFrom(item.value ?? 'fn'), [item.value]);
   const codePreview = useMemo(() => buildCodePreview(fnName, form), [fnName, form]);
+  const packageJsonPreview = useMemo(
+    () => buildPackageJsonPreview(item.value ?? 'fn', form),
+    [item.value, form],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -676,45 +719,24 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
           )}
         </Box>
 
-        {/* ── Right column: generated code + build log ── */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, overflow: 'hidden', minWidth: 0 }}>
-          <Typography variant="overline" color="text.secondary" sx={{ lineHeight: 1, flexShrink: 0 }}>
-            Generated code
-          </Typography>
-          <Box
-            component="pre"
-            sx={{
-              flex: compileResult ? '0 1 auto' : 1,
-              minHeight: 120,
-              overflow: 'auto',
-              m: 0,
-              p: 1.5,
-              fontFamily: 'monospace',
-              fontSize: '0.75rem',
-              lineHeight: 1.5,
-              bgcolor: '#1e1e1e',
-              color: '#d4d4d4',
-              borderRadius: 1,
-              whiteSpace: 'pre',
-            }}
+        {/* ── Right column: tabbed preview + build log ── */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+          <Tabs
+            value={rightTab}
+            onChange={(_, v: 'code' | 'packageJson') => setRightTab(v)}
+            sx={{ flexShrink: 0, minHeight: 32, mb: 1, '& .MuiTab-root': { minHeight: 32, py: 0.5 } }}
           >
-            {codePreview}
-          </Box>
+            <Tab label="Generated code" value="code" />
+            <Tab label="Package.json" value="packageJson" />
+          </Tabs>
 
-          {compileResult && (
+          {rightTab === 'code' && (
             <>
-              <Divider flexItem sx={{ flexShrink: 0 }} />
-              <Typography
-                variant="overline"
-                sx={{ lineHeight: 1, flexShrink: 0, color: compileResult.success ? 'success.main' : 'error.main' }}
-              >
-                {compileResult.success ? 'Build succeeded' : 'Build failed'}
-              </Typography>
               <Box
                 component="pre"
                 sx={{
-                  flex: 1,
-                  minHeight: 80,
+                  flex: compileResult ? '0 1 auto' : 1,
+                  minHeight: 120,
                   overflow: 'auto',
                   m: 0,
                   p: 1.5,
@@ -722,14 +744,66 @@ export function EditFunctionDialog({ open, onClose, item }: Props) {
                   fontSize: '0.75rem',
                   lineHeight: 1.5,
                   bgcolor: '#1e1e1e',
-                  color: compileResult.success ? '#4ec9b0' : '#f48771',
+                  color: '#d4d4d4',
                   borderRadius: 1,
-                  whiteSpace: 'pre-wrap',
+                  whiteSpace: 'pre',
                 }}
               >
-                {compileResult.output || (compileResult.success ? 'No output.' : 'No output.')}
+                {codePreview}
               </Box>
+
+              {compileResult && (
+                <>
+                  <Divider flexItem sx={{ flexShrink: 0, my: 1 }} />
+                  <Typography
+                    variant="overline"
+                    sx={{ lineHeight: 1, flexShrink: 0, color: compileResult.success ? 'success.main' : 'error.main' }}
+                  >
+                    {compileResult.success ? 'Build succeeded' : 'Build failed'}
+                  </Typography>
+                  <Box
+                    component="pre"
+                    sx={{
+                      flex: 1,
+                      minHeight: 80,
+                      overflow: 'auto',
+                      m: 0,
+                      p: 1.5,
+                      fontFamily: 'monospace',
+                      fontSize: '0.75rem',
+                      lineHeight: 1.5,
+                      bgcolor: '#1e1e1e',
+                      color: compileResult.success ? '#4ec9b0' : '#f48771',
+                      borderRadius: 1,
+                      whiteSpace: 'pre-wrap',
+                    }}
+                  >
+                    {compileResult.output || 'No output.'}
+                  </Box>
+                </>
+              )}
             </>
+          )}
+
+          {rightTab === 'packageJson' && (
+            <Box
+              component="pre"
+              sx={{
+                flex: 1,
+                overflow: 'auto',
+                m: 0,
+                p: 1.5,
+                fontFamily: 'monospace',
+                fontSize: '0.75rem',
+                lineHeight: 1.5,
+                bgcolor: '#1e1e1e',
+                color: '#d4d4d4',
+                borderRadius: 1,
+                whiteSpace: 'pre',
+              }}
+            >
+              {packageJsonPreview}
+            </Box>
           )}
         </Box>
       </DialogContent>
