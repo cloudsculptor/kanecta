@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, TextField, Switch, FormControlLabel, Stack,
@@ -10,8 +10,10 @@ import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import CodeIcon from '@mui/icons-material/Code';
 import { functionSpec } from '@kanecta/specification';
 import { useWorkspaceStore } from '../../../store/workspace';
+import { useUiStore } from '../../../store/ui';
 import { BodyConflictDialog } from './BodyConflictDialog';
 import type { KanectaItem } from '../../../types/kanecta';
 
@@ -273,6 +275,7 @@ interface Props {
 
 export function EditFunctionDialog({ open, onClose, item, onOpenRun }: Props) {
   const { getApi } = useWorkspaceStore();
+  const { vscodeAvailable } = useUiStore();
   const [form, setForm] = useState<FormState>(EMPTY);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -284,7 +287,9 @@ export function EditFunctionDialog({ open, onClose, item, onOpenRun }: Props) {
   const [showDirtyWarning, setShowDirtyWarning] = useState(false);
   const [showBodyConflict, setShowBodyConflict] = useState(false);
   const [diskBody, setDiskBody] = useState('');
+  const [externallyModified, setExternallyModified] = useState(false);
   const loadedBodyRef = useRef<string | undefined>(undefined);
+  const datastorePathRef = useRef<string | undefined>(undefined);
 
   const [rightTab, setRightTab] = useState<'code' | 'packageJson'>('code');
 
@@ -302,6 +307,7 @@ export function EditFunctionDialog({ open, onClose, item, onOpenRun }: Props) {
     setError(null);
     setIsDirty(false);
     setCompileResult(null);
+    setExternallyModified(false);
     Promise.all([
       getApi().items.getFunctionData(item.id).catch(() => null),
       getApi().items.checkFunctionScaffold(item.id).catch(() => ({ exists: false, stale: false })),
@@ -312,6 +318,31 @@ export function EditFunctionDialog({ open, onClose, item, onOpenRun }: Props) {
       setScaffoldExists(scaffold.exists);
     }).finally(() => setLoading(false));
   }, [open, item.id, getApi]);
+
+  useEffect(() => {
+    if (!open) return;
+    const interval = setInterval(async () => {
+      try {
+        const diskData = await getApi().items.getFunctionData(item.id).catch(() => null);
+        const currentDiskBody = (diskData?.body as string | undefined) ?? '';
+        const loadedBody = loadedBodyRef.current ?? '';
+        setExternallyModified(currentDiskBody !== loadedBody);
+      } catch {
+        // ignore poll errors
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [open, item.id, getApi]);
+
+  const openInVscode = useCallback(async () => {
+    if (!datastorePathRef.current) {
+      const cfg = await getApi().config.get();
+      datastorePathRef.current = cfg.datastorePath as string;
+    }
+    const stripped = item.id.replace(/-/g, '');
+    const path = `${datastorePathRef.current}/.kanecta/data/${stripped.slice(0, 2)}/${stripped.slice(2, 4)}/${item.id}/function/index.ts`;
+    void getApi().config.openInVscode(path);
+  }, [item.id, getApi]);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setIsDirty(true);
@@ -713,6 +744,22 @@ export function EditFunctionDialog({ open, onClose, item, onOpenRun }: Props) {
               </Stack>
 
               {/* Body */}
+              {externallyModified && vscodeAvailable && (
+                <Alert
+                  severity="warning"
+                  action={
+                    <Button
+                      size="small"
+                      startIcon={<CodeIcon fontSize="small" />}
+                      onClick={() => void openInVscode()}
+                    >
+                      Open in VS Code
+                    </Button>
+                  }
+                >
+                  This file was modified outside the editor. Saving will overwrite those changes.
+                </Alert>
+              )}
               <TextField
                 label="Body"
                 value={form.body ?? ''}
