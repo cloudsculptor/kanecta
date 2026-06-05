@@ -1,0 +1,53 @@
+{
+  "meta": {
+    "icon": "Language",
+    "description": "A harvested web page — stores URL, content, and provenance metadata to enable future sync",
+    "keywords": [
+      "webpage",
+      "web",
+      "harvest",
+      "source",
+      "url"
+    ],
+    "tags": "",
+    "ai-instructions": {
+      "claude": ""
+    }
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "webpage",
+    "title": "Webpage",
+    "type": "object",
+    "required": [
+      "url",
+      "harvestedAt",
+      "harvestSkill"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "url": {
+        "type": "string",
+        "format": "uri"
+      },
+      "title": {
+        "type": "string"
+      },
+      "harvestedAt": {
+        "type": "string",
+        "format": "date-time",
+        "description": "ISO 8601 timestamp when this page was fetched"
+      },
+      "harvestSkill": {
+        "type": "string",
+        "format": "uuid",
+        "description": "UUID of the Skill item used to harvest this page"
+      },
+      "content": {
+        "type": "string",
+        "contentMediaType": "text/markdown",
+        "description": "Full page content as markdown"
+      }
+    }
+  }
+}

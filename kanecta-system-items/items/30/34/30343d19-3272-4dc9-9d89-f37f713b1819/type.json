@@ -1,0 +1,146 @@
+{
+  "meta": {
+    "icon": "MergeOutlined",
+    "description": "A virtual GitHub pull request — title, description, patch and metadata ready to push as a real PR later",
+    "keywords": "github pr pull request patch diff branch review merge",
+    "tags": "github,development,pipeline",
+    "ai-instructions": {
+      "claude": "A GitHub PR item is a virtual PR — it holds everything needed to open a real PR on GitHub but does not push anything. Use the 'patch' field for the raw git diff. When a real PR is ready to be opened, a separate function will read this item and call the GitHub API."
+    }
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "github-pr",
+    "title": "GitHub PR",
+    "type": "object",
+    "required": [
+      "title",
+      "baseBranch",
+      "headBranch"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "title": {
+        "type": "string"
+      },
+      "body": {
+        "type": "string",
+        "contentMediaType": "text/markdown"
+      },
+      "patch": {
+        "type": "string",
+        "description": "Raw git diff / patch content"
+      },
+      "baseBranch": {
+        "type": "string"
+      },
+      "headBranch": {
+        "type": "string"
+      },
+      "headCommitSha": {
+        "type": "string",
+        "description": "SHA of the HEAD commit the patch applies to"
+      },
+      "repositoryUrl": {
+        "type": "string",
+        "description": "HTTPS URL of the target GitHub repository"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "open",
+          "approved",
+          "changes_requested",
+          "merged",
+          "closed"
+        ]
+      },
+      "draft": {
+        "type": "boolean"
+      },
+      "pushStatus": {
+        "type": "string",
+        "enum": [
+          "unpushed",
+          "pushed"
+        ],
+        "description": "Whether this virtual PR has been materialised as a real GitHub PR",
+        "default": "unpushed"
+      },
+      "labels": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "assignees": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "reviewers": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "linkedTickets": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Kanecta UUIDs of linked Jira Story items"
+      },
+      "generatedByRun": {
+        "type": "string",
+        "format": "uuid",
+        "description": "UUID of the pipeline run that produced this virtual PR"
+      },
+      "checksStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "passing",
+          "failing",
+          "skipped"
+        ]
+      },
+      "additions": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "deletions": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "changedFiles": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "commits": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "sha",
+            "message"
+          ],
+          "properties": {
+            "sha": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "mergeCommitSha": {
+        "type": "string"
+      }
+    }
+  }
+}

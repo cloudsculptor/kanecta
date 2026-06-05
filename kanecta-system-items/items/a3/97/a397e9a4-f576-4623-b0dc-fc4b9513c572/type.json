@@ -1,0 +1,95 @@
+{
+  "meta": {
+    "icon": "Lightbulb",
+    "description": "An org-level domain concept — definition, provenance, and relationships for knowledge graph use",
+    "keywords": [
+      "concept",
+      "domain",
+      "knowledge",
+      "glossary",
+      "definition"
+    ],
+    "tags": "",
+    "ai-instructions": {
+      "claude": ""
+    }
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "domain-concept",
+    "title": "Domain Concept",
+    "type": "object",
+    "required": [
+      "briefSummary"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "abbreviation": {
+        "type": "string",
+        "description": "Short abbreviation, e.g. NoC"
+      },
+      "aliases": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Other names this concept goes by"
+      },
+      "category": {
+        "type": "string",
+        "enum": [
+          "legal instrument",
+          "business process",
+          "system feature",
+          "data entity",
+          "org unit",
+          "external party",
+          "other"
+        ]
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "active",
+          "deprecated",
+          "proposed",
+          "legacy"
+        ]
+      },
+      "briefSummary": {
+        "type": "string",
+        "description": "1-2 sentence summary"
+      },
+      "comprehensiveSummary": {
+        "type": "string",
+        "contentMediaType": "text/markdown",
+        "description": "Full detailed description in markdown"
+      },
+      "sources": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true,
+        "description": "UUIDs of Website items used as sources for this concept"
+      },
+      "relatedConcepts": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true,
+        "description": "UUIDs of other Domain Concept items"
+      },
+      "applicableSystems": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Systems or modules where this concept applies, e.g. Landonline, Notices Service"
+      }
+    }
+  }
+}

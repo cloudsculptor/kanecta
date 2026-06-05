@@ -1,0 +1,57 @@
+{
+  "meta": {
+    "icon": "MenuBook",
+    "description": "A Confluence space — groups harvested Confluence Page objects and serves as a citable source for Domain Concepts",
+    "keywords": [
+      "confluence",
+      "space",
+      "atlassian",
+      "wiki",
+      "source"
+    ],
+    "tags": "",
+    "ai-instructions": {
+      "claude": ""
+    }
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "confluence-space",
+    "title": "Confluence Space",
+    "type": "object",
+    "required": [
+      "name",
+      "spaceKey",
+      "cloudId"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "name": {
+        "type": "string",
+        "description": "Human-readable space name"
+      },
+      "spaceKey": {
+        "type": "string",
+        "description": "Confluence space key, e.g. STEP"
+      },
+      "cloudId": {
+        "type": "string",
+        "description": "Atlassian cloud instance UUID"
+      },
+      "spaceUrl": {
+        "type": "string",
+        "format": "uri",
+        "description": "Browser URL for this space in Confluence"
+      },
+      "pages": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true,
+        "description": "UUIDs of Confluence Page items belonging to this space"
+      }
+    }
+  }
+}

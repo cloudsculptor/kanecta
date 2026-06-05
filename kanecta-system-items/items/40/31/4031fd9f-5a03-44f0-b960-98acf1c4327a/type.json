@@ -1,0 +1,44 @@
+{
+  "meta": {
+    "icon": "SubjectOutlined",
+    "description": "A single log line — timestamp, level, message and optional structured data",
+    "keywords": "log entry line message debug info warn error",
+    "tags": "pipeline,logging",
+    "ai-instructions": {
+      "claude": ""
+    }
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "log-item",
+    "title": "LogItem",
+    "type": "object",
+    "required": [
+      "ts",
+      "level",
+      "message"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "ts": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "level": {
+        "type": "string",
+        "enum": [
+          "debug",
+          "info",
+          "warn",
+          "error"
+        ]
+      },
+      "message": {
+        "type": "string"
+      },
+      "data": {
+        "type": "object"
+      }
+    }
+  }
+}

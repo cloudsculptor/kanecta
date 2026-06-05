@@ -1,0 +1,75 @@
+{
+  "meta": {
+    "icon": "HexagonOutlined",
+    "description": "A single step in a pipeline — captures function, inputs, outputs, outcome and a reference to its log",
+    "keywords": "pipeline step function execution inputs outputs outcome log",
+    "tags": "pipeline,automation",
+    "ai-instructions": {
+      "claude": "The 'logs' field is a UUID pointing to a Logs item whose children are LogItem instances. The 'dependsOn' array contains step indices (integers) that must reach outcome 'success' before this step runs. 'inputs' and 'outputs' are arbitrary objects whose shape is determined by the function being called."
+    }
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "pipeline-step",
+    "title": "Pipeline Step",
+    "type": "object",
+    "required": [
+      "function",
+      "outcome"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "name": {
+        "type": "string"
+      },
+      "stepIndex": {
+        "type": "integer"
+      },
+      "function": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "dependsOn": {
+        "type": "array",
+        "items": {
+          "type": "integer"
+        }
+      },
+      "inputs": {
+        "type": "object"
+      },
+      "outputs": {
+        "type": "object"
+      },
+      "outcome": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "running",
+          "success",
+          "failure",
+          "skipped"
+        ]
+      },
+      "error": {
+        "type": "string"
+      },
+      "retryCount": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "startedAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "completedAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "logs": {
+        "type": "string",
+        "format": "uuid"
+      }
+    }
+  }
+}

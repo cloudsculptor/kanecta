@@ -1,0 +1,98 @@
+{
+  "meta": {
+    "icon": "Article",
+    "description": "A harvested Confluence page — stores full content and enough metadata to sync or re-fetch via the Atlassian MCP",
+    "keywords": [
+      "confluence",
+      "wiki",
+      "page",
+      "atlassian",
+      "harvest",
+      "source"
+    ],
+    "tags": "",
+    "ai-instructions": {
+      "claude": ""
+    }
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "confluence-page",
+    "title": "Confluence Page",
+    "type": "object",
+    "required": [
+      "pageId",
+      "cloudId",
+      "title",
+      "harvestedAt",
+      "harvestSkill"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "pageId": {
+        "type": "string",
+        "description": "Confluence numeric page ID — used with cloudId to re-fetch via getConfluencePage"
+      },
+      "cloudId": {
+        "type": "string",
+        "description": "Atlassian cloud instance UUID, e.g. 657f2f03-a46f-4e79-b691-bc95a50cf1b7"
+      },
+      "spaceKey": {
+        "type": "string",
+        "description": "Confluence space key, e.g. STEP"
+      },
+      "spaceName": {
+        "type": "string",
+        "description": "Human-readable space name, e.g. STEP"
+      },
+      "title": {
+        "type": "string"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "current",
+          "archived",
+          "draft"
+        ]
+      },
+      "version": {
+        "type": "integer",
+        "description": "Page version number at time of harvest"
+      },
+      "versionAt": {
+        "type": "string",
+        "format": "date-time",
+        "description": "When this version was created in Confluence"
+      },
+      "authorId": {
+        "type": "string",
+        "description": "Atlassian account ID of the page author"
+      },
+      "parentPageId": {
+        "type": "string",
+        "description": "Confluence page ID of the parent page"
+      },
+      "webUrl": {
+        "type": "string",
+        "format": "uri",
+        "description": "Browser URL for this page in Confluence"
+      },
+      "content": {
+        "type": "string",
+        "contentMediaType": "text/markdown",
+        "description": "Page body converted to markdown"
+      },
+      "harvestedAt": {
+        "type": "string",
+        "format": "date-time",
+        "description": "ISO 8601 timestamp when this page was fetched"
+      },
+      "harvestSkill": {
+        "type": "string",
+        "format": "uuid",
+        "description": "UUID of the Skill item used to harvest this page"
+      }
+    }
+  }
+}
