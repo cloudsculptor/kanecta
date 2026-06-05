@@ -1,0 +1,14 @@
+{
+  "name": "@kanecta/docs",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "asciidoctor -r asciidoctor-kroki -D html *.adoc",
+    "watch": "find . -name '*.adoc' | entr npm run build"
+  },
+  "devDependencies": {
+    "@asciidoctor/core": "^3.0.4",
+    "asciidoctor": "^3.0.4",
+    "asciidoctor-kroki": "^0.18.1"
+  }
+}
