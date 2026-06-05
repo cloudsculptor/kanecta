@@ -168,11 +168,10 @@ export const SaveDisabledWhenReturnTypeEmpty: Story = {
   render: () => (
     <EditFunctionDialog open item={functionItem} onClose={() => {}} />
   ),
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await waitFor(() => expect(canvas.getByRole('button', { name: 'Save' })).toBeTruthy());
-    const saveBtn = canvas.getByRole('button', { name: 'Save' });
-    await expect(saveBtn).toBeDisabled();
+  play: async () => {
+    const dialog = within(document.body).getByRole('dialog');
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Save' })).toBeTruthy());
+    await expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled();
   },
 };
 
@@ -182,10 +181,10 @@ export const SaveEnabledWithValidData: Story = {
   render: () => (
     <EditFunctionDialog open item={functionItem} onClose={() => {}} />
   ),
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
+  play: async () => {
+    const dialog = within(document.body).getByRole('dialog');
     await waitFor(() => {
-      const btn = canvas.getByRole('button', { name: 'Save' });
+      const btn = within(dialog).getByRole('button', { name: 'Save' });
       expect(btn).not.toBeDisabled();
     });
   },
@@ -197,15 +196,15 @@ export const SaveCallsSaveObject: Story = {
   render: () => (
     <EditFunctionDialog open item={functionItem} onClose={() => {}} />
   ),
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
+  play: async () => {
+    const dialog = within(document.body).getByRole('dialog');
 
     await waitFor(() => {
-      const btn = canvas.getByRole('button', { name: 'Save' });
+      const btn = within(dialog).getByRole('button', { name: 'Save' });
       expect(btn).not.toBeDisabled();
     });
 
-    await userEvent.click(canvas.getByRole('button', { name: 'Save' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(saveObjectSpy).toHaveBeenCalledOnce());
     const [id, data] = saveObjectSpy.mock.calls[0] as [string, Record<string, unknown>];
@@ -220,29 +219,22 @@ export const AddAndRemoveParameter: Story = {
   render: () => (
     <EditFunctionDialog open item={functionItem} onClose={() => {}} />
   ),
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
+  play: async () => {
+    const dialog = within(document.body).getByRole('dialog');
 
-    // Add a parameter
-    await waitFor(() => canvas.getByRole('button', { name: /add parameter/i }));
-    await userEvent.click(canvas.getByRole('button', { name: /add parameter/i }));
+    await waitFor(() => within(dialog).getByRole('button', { name: /add parameter/i }));
+    await userEvent.click(within(dialog).getByRole('button', { name: /add parameter/i }));
 
-    // Fill the name field (last input labelled "Name")
-    const nameInputs = canvas.getAllByRole('textbox', { name: /^Name$/i });
+    const nameInputs = within(dialog).getAllByRole('textbox', { name: /^Name$/i });
+    await expect(nameInputs.length).toBeGreaterThan(0);
     const newName = nameInputs[nameInputs.length - 1];
     await userEvent.clear(newName);
     await userEvent.type(newName, 'myParam');
 
-    // Remove it — find the delete IconButton inside the parameter box
-    const paramSection = canvasElement.querySelector('.MuiBox-root');
-    if (paramSection) {
-      const btn = paramSection.querySelector('button:last-of-type') as HTMLButtonElement | null;
-      if (btn) await userEvent.click(btn);
-    }
+    await userEvent.click(within(dialog).getByRole('button', { name: /remove parameter/i }));
 
-    // Parameter should be gone
     await waitFor(() => {
-      const inputs = canvas.queryAllByRole('textbox', { name: /^Name$/i });
+      const inputs = within(dialog).queryAllByRole('textbox', { name: /^Name$/i });
       expect(inputs).toHaveLength(0);
     });
   },
@@ -254,17 +246,14 @@ export const SwitchReturnTypeToKanecta: Story = {
   render: () => (
     <EditFunctionDialog open item={functionItem} onClose={() => {}} />
   ),
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
+  play: async () => {
+    const dialog = within(document.body).getByRole('dialog');
 
-    // Wait for form to load then switch to Kanecta type
-    await waitFor(() => canvas.getAllByRole('radio'));
-    const kanectaRadios = canvas.getAllByRole('radio', { name: /kanecta type/i });
-    // The last one is the return type section
+    await waitFor(() => within(dialog).getAllByRole('radio'));
+    const kanectaRadios = within(dialog).getAllByRole('radio', { name: /kanecta type/i });
     const returnKanectaRadio = kanectaRadios[kanectaRadios.length - 1];
     await userEvent.click(returnKanectaRadio);
 
-    // UUID field appears
-    await waitFor(() => expect(canvas.getByRole('textbox', { name: /return type uuid/i })).toBeTruthy());
+    await waitFor(() => expect(within(dialog).getByRole('textbox', { name: /return type uuid/i })).toBeTruthy());
   },
 };

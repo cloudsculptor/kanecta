@@ -609,7 +609,7 @@ export function EditFunctionDialog({ open, onClose, item, onOpenRun }: Props) {
                             placeholder="UUID" sx={{ flex: 1 }}
                             helperText={paramProps.typeId.description} />
                         )}
-                        <IconButton size="small" onClick={() => removeParam(i)} sx={{ mt: 0.5 }}>
+                        <IconButton size="small" aria-label="Remove parameter" onClick={() => removeParam(i)} sx={{ mt: 0.5 }}>
                           <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Stack>

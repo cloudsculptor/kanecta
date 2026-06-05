@@ -114,16 +114,20 @@ const aiData = {
 
 // ─── Stories ─────────────────────────────────────────────────────────────────
 
+function getDialog() {
+  return within(document.body).getByRole('dialog');
+}
+
 export const NoParameters: Story = {
   name: 'No parameters — Run is immediately enabled',
   decorators: [(Story) => { mockApi(noParamsData); return <Story />; }],
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'triggerBuild' }} onClose={() => {}} />
   ),
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await waitFor(() => canvas.getByText('This function takes no arguments.'));
-    const runBtn = canvas.getByRole('button', { name: 'Run' });
+  play: async () => {
+    const dialog = within(document.body).getByRole('dialog');
+    await waitFor(() => within(dialog).getByText('This function takes no arguments.'));
+    const runBtn = within(dialog).getByRole('button', { name: 'Run' });
     await expect(runBtn).not.toBeDisabled();
   },
 };
@@ -134,16 +138,13 @@ export const PrimitiveParameters: Story = {
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'fetchUser' }} onClose={() => {}} />
   ),
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-
-    // Both inputs appear
-    await waitFor(() => canvas.getByRole('textbox', { name: /id/i }));
-    await expect(canvas.getByRole('textbox', { name: /limit/i })).toBeTruthy();
-
-    // Helper text shows types
-    const idHelper = canvasElement.querySelector('#\\:r0\\:-helper-text, .MuiFormHelperText-root');
-    if (idHelper) await expect(idHelper.textContent).toContain('string');
+  play: async () => {
+    const dialog = getDialog();
+    await waitFor(() => within(dialog).getByRole('textbox', { name: /id/i }));
+    await expect(within(dialog).getByRole('textbox', { name: /limit/i })).toBeTruthy();
+    const helperTexts = dialog.querySelectorAll('.MuiFormHelperText-root');
+    const hasString = Array.from(helperTexts).some((el) => el.textContent?.includes('string'));
+    if (helperTexts.length > 0) await expect(hasString).toBe(true);
   },
 };
 
@@ -153,12 +154,10 @@ export const AllOptionalParameters: Story = {
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'notify' }} onClose={() => {}} />
   ),
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await waitFor(() => canvas.getByRole('textbox', { name: /title/i }));
-    // Run should be enabled even with empty fields
-    const runBtn = canvas.getByRole('button', { name: 'Run' });
-    await expect(runBtn).not.toBeDisabled();
+  play: async () => {
+    const dialog = getDialog();
+    await waitFor(() => within(dialog).getByRole('textbox', { name: /title/i }));
+    await expect(within(dialog).getByRole('button', { name: 'Run' })).not.toBeDisabled();
   },
 };
 
@@ -168,12 +167,10 @@ export const KanectaTypedParameters: Story = {
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'createContact' }} onClose={() => {}} />
   ),
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await waitFor(() => canvas.getByRole('textbox', { name: /contact/i }));
-
-    // Helper text should mention Kanecta and the UUID
-    const helperTexts = canvasElement.querySelectorAll('.MuiFormHelperText-root');
+  play: async () => {
+    const dialog = getDialog();
+    await waitFor(() => within(dialog).getByRole('textbox', { name: /contact/i }));
+    const helperTexts = dialog.querySelectorAll('.MuiFormHelperText-root');
     const hasKanectaRef = Array.from(helperTexts).some((el) =>
       el.textContent?.includes('a1b2c3d4'),
     );
@@ -187,8 +184,9 @@ export const RestParameter: Story = {
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'log' }} onClose={() => {}} />
   ),
-  play: async ({ canvasElement }) => {
-    await waitFor(() => within(canvasElement).getByText(/rest/i));
+  play: async () => {
+    const dialog = getDialog();
+    await waitFor(() => expect(dialog.textContent?.toLowerCase().includes('rest')).toBe(true));
   },
 };
 
@@ -198,9 +196,9 @@ export const AIFunction: Story = {
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'summarise' }} onClose={() => {}} />
   ),
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await waitFor(() => canvas.getByRole('textbox', { name: /document/i }));
+  play: async () => {
+    const dialog = getDialog();
+    await waitFor(() => within(dialog).getByRole('textbox', { name: /document/i }));
   },
 };
 
@@ -212,20 +210,16 @@ export const RunDisabledUntilRequiredFilled: Story = {
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'fetchUser' }} onClose={() => {}} />
   ),
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
+  play: async () => {
+    const dialog = getDialog();
+    await waitFor(() => within(dialog).getByRole('textbox', { name: /id/i }));
+    const runBtn = within(dialog).getByRole('button', { name: 'Run' });
 
-    await waitFor(() => canvas.getByRole('textbox', { name: /id/i }));
-    const runBtn = canvas.getByRole('button', { name: 'Run' });
-
-    // Disabled while required 'id' is empty
     await expect(runBtn).toBeDisabled();
 
-    // Fill the required field
-    await userEvent.type(canvas.getByRole('textbox', { name: /id/i }), 'user-uuid-123');
+    await userEvent.type(within(dialog).getByRole('textbox', { name: /id/i }), 'user-uuid-123');
 
-    // Now enabled
-    await waitFor(() => expect(canvas.getByRole('button', { name: 'Run' })).not.toBeDisabled());
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Run' })).not.toBeDisabled());
   },
 };
 
@@ -243,16 +237,11 @@ export const OptionalDefaultDoesNotBlockRun: Story = {
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'fetchUser' }} onClose={() => {}} />
   ),
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-
-    await waitFor(() => canvas.getByRole('textbox', { name: /id/i }));
-
-    // Fill only the required field
-    await userEvent.type(canvas.getByRole('textbox', { name: /id/i }), 'abc');
-
-    // 'limit' has a defaultValue so it doesn't block Run
-    await waitFor(() => expect(canvas.getByRole('button', { name: 'Run' })).not.toBeDisabled());
+  play: async () => {
+    const dialog = getDialog();
+    await waitFor(() => within(dialog).getByRole('textbox', { name: /id/i }));
+    await userEvent.type(within(dialog).getByRole('textbox', { name: /id/i }), 'abc');
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Run' })).not.toBeDisabled());
   },
 };
 
@@ -262,16 +251,12 @@ export const RunButtonFills: Story = {
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'createContact' }} onClose={() => {}} />
   ),
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-
-    await waitFor(() => canvas.getByRole('textbox', { name: /contact/i }));
-
-    // Fill both required params
-    await userEvent.type(canvas.getByRole('textbox', { name: /contact/i }), 'c1d2e3f4-0000-0000-0000-000000000000');
-    await userEvent.type(canvas.getByRole('textbox', { name: /userId/i }), 'user-123');
-
-    await waitFor(() => expect(canvas.getByRole('button', { name: 'Run' })).not.toBeDisabled());
+  play: async () => {
+    const dialog = getDialog();
+    await waitFor(() => within(dialog).getByRole('textbox', { name: /contact/i }));
+    await userEvent.type(within(dialog).getByRole('textbox', { name: /contact/i }), 'c1d2e3f4-0000-0000-0000-000000000000');
+    await userEvent.type(within(dialog).getByRole('textbox', { name: /userId/i }), 'user-123');
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Run' })).not.toBeDisabled());
   },
 };
 
@@ -281,11 +266,10 @@ export const ReturnTypeShown: Story = {
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'fetchUser' }} onClose={() => {}} />
   ),
-  play: async ({ canvasElement }) => {
-    await waitFor(() =>
-      expect(within(canvasElement).getByText(/Returns:/i)).toBeTruthy(),
-    );
-    await expect(within(canvasElement).getByText(/Promise<User>/)).toBeTruthy();
+  play: async () => {
+    const dialog = getDialog();
+    await waitFor(() => expect(within(dialog).getByText(/Returns:/i)).toBeTruthy());
+    await expect(within(dialog).getByText(/Promise<User>/)).toBeTruthy();
   },
 };
 
@@ -295,10 +279,10 @@ export const LoadingState: Story = {
   render: () => (
     <RunFunctionDialog open item={functionItem} onClose={() => {}} />
   ),
-  play: async ({ canvasElement }) => {
-    // Slow load — spinner should be visible briefly
+  play: async () => {
+    const dialog = getDialog();
     await waitFor(() =>
-      expect(canvasElement.querySelector('.MuiCircularProgress-root')).toBeTruthy(),
+      expect(dialog.querySelector('.MuiCircularProgress-root')).toBeTruthy(),
     );
   },
 };
