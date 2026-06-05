@@ -46,7 +46,12 @@ function mockApi(data: Record<string, unknown> | null, saveDelay = 0) {
   );
   useWorkspaceStore.setState({
     getApi: (() => ({
-      items: { getFunctionData: getObjectSpy, saveFunctionData: saveObjectSpy },
+      items: {
+        getFunctionData: getObjectSpy,
+        saveFunctionData: saveObjectSpy,
+        checkFunctionScaffold: () => Promise.resolve({ exists: true, stale: false }),
+        getFunctionPackageJson: () => Promise.resolve(null),
+      },
     })) as unknown as ReturnType<typeof useWorkspaceStore.getState>['getApi'],
   });
 }

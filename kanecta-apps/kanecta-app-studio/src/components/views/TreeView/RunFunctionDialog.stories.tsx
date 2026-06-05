@@ -34,17 +34,24 @@ const functionItem: KanectaItem = {
   modifiedAt: new Date().toISOString(),
 };
 
-const getObjectSpy = fn();
+const getFunctionDataSpy = fn();
+const runFunctionScaffoldSpy = fn();
 
 function mockApi(data: Record<string, unknown> | null, delay = 0) {
-  getObjectSpy.mockImplementation(() =>
+  getFunctionDataSpy.mockImplementation(() =>
     delay > 0
       ? new Promise((r) => setTimeout(() => r(data), delay))
       : Promise.resolve(data),
   );
+  runFunctionScaffoldSpy.mockResolvedValue({ success: true, output: '"ok"', logs: '' });
   useWorkspaceStore.setState({
     getApi: (() => ({
-      items: { getObject: getObjectSpy },
+      items: {
+        getFunctionData: getFunctionDataSpy,
+        runFunctionScaffold: runFunctionScaffoldSpy,
+        checkFunctionScaffold: () => Promise.resolve({ exists: true, stale: false }),
+        getFunctionPackageJson: () => Promise.resolve(null),
+      },
     })) as unknown as ReturnType<typeof useWorkspaceStore.getState>['getApi'],
   });
 }

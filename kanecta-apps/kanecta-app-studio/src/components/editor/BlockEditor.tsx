@@ -4,7 +4,6 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import MentionExtension from '@tiptap/extension-mention';
 import { Extension } from '@tiptap/core';
-import type { Editor, Range } from '@tiptap/core';
 import Suggestion from '@tiptap/suggestion';
 import type { SuggestionProps, SuggestionKeyDownProps } from '@tiptap/suggestion';
 import tippy, { type Instance as TippyInstance } from 'tippy.js';
@@ -158,7 +157,8 @@ function buildMentionExtension(allItems: KanectaItem[]) {
           },
         };
       },
-      command({ editor, range, props }: { editor: Editor; range: Range; props: { id: string; label: string } }) {
+      command({ editor, range, props }) {
+        if (!props.id) return;
         editor
           .chain()
           .focus()

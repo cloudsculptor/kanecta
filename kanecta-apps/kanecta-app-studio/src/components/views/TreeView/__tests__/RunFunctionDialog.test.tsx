@@ -14,6 +14,8 @@ const { api, getApi } = vi.hoisted(() => {
     items: {
       getFunctionData: vi.fn(),
       runFunctionScaffold: vi.fn(),
+      checkFunctionScaffold: vi.fn(),
+      getFunctionPackageJson: vi.fn(),
     },
   };
   const getApi = () => api;
@@ -88,6 +90,8 @@ describe('RunFunctionDialog', () => {
     vi.clearAllMocks();
     api.items.getFunctionData.mockResolvedValue(noArgFnData);
     api.items.runFunctionScaffold.mockResolvedValue({ success: true, output: '"hello"', logs: '' });
+    api.items.checkFunctionScaffold.mockResolvedValue({ exists: true, stale: false });
+    api.items.getFunctionPackageJson.mockResolvedValue(null);
   });
 
   // ── Rendering ───────────────────────────────────────────────────────────────
