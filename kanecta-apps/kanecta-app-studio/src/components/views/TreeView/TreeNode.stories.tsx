@@ -441,8 +441,8 @@ export const ConvertDialogFunctionItem: Story = {
       expect(within(dialog).getByRole('alert').textContent).toContain('function'),
     );
 
-    // Current type chip shows 'function'
-    await expect(within(dialog).getByText('function')).toBeTruthy();
+    // Current type chip shows 'function' (may appear in both chip and warning text)
+    await expect(within(dialog).getAllByText('function').length).toBeGreaterThan(0);
 
     // Other types are available as chips
     await expect(within(dialog).getByText('text')).toBeTruthy();
@@ -673,6 +673,10 @@ export const CopyDiskLocationCallsConfigOnFirstClick: Story = {
   play: async ({ canvasElement }) => {
     configGetSpy.mockClear();
     mockConfigApi('/home/user/datastore');
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: fn() },
+      configurable: true,
+    });
     await userEvent.hover(within(canvasElement).getByText('Disk location item'));
     await userEvent.click(within(canvasElement).getByRole('button', { name: 'Copy disk location' }));
     await waitFor(() => expect(configGetSpy).toHaveBeenCalledOnce());
@@ -710,6 +714,10 @@ export const CopyDiskLocationCachesConfig: Story = {
   play: async ({ canvasElement }) => {
     configGetSpy.mockClear();
     mockConfigApi('/home/user/datastore');
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: fn() },
+      configurable: true,
+    });
 
     await userEvent.hover(within(canvasElement).getByText('Disk location item'));
     const btn = within(canvasElement).getByRole('button', { name: 'Copy disk location' });
@@ -729,10 +737,12 @@ export const CopyDiskLocationAfterCopyId: Story = {
     mockConfigApi('/home/user/datastore');
     await userEvent.hover(within(canvasElement).getByText('Disk location item'));
 
-    // Verify by checking tooltip title ordering in the DOM
-    const allTitles = Array.from(canvasElement.querySelectorAll('[title]')).map((el) => el.getAttribute('title'));
-    const copyValueTitleIdx = allTitles.indexOf('Copy value');
-    const diskLocTitleIdx = allTitles.indexOf('Copy disk location');
-    await expect(diskLocTitleIdx).toBeGreaterThan(copyValueTitleIdx);
+    // MUI Tooltip doesn't set [title] on the child; use [aria-label] on the IconButtons instead
+    const allLabels = Array.from(canvasElement.querySelectorAll('[aria-label]')).map(
+      (el) => el.getAttribute('aria-label'),
+    );
+    const copyValueIdx = allLabels.indexOf('Copy value');
+    const diskLocIdx = allLabels.indexOf('Copy disk location');
+    await expect(diskLocIdx).toBeGreaterThan(copyValueIdx);
   },
 };

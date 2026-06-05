@@ -116,11 +116,11 @@ const aiData = {
 
 export const NoParameters: Story = {
   name: 'No parameters — Run is immediately enabled',
+  decorators: [(Story) => { mockApi(noParamsData); return <Story />; }],
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'triggerBuild' }} onClose={() => {}} />
   ),
   play: async ({ canvasElement }) => {
-    mockApi(noParamsData);
     const canvas = within(canvasElement);
     await waitFor(() => canvas.getByText('This function takes no arguments.'));
     const runBtn = canvas.getByRole('button', { name: 'Run' });
@@ -130,11 +130,11 @@ export const NoParameters: Story = {
 
 export const PrimitiveParameters: Story = {
   name: 'Primitive parameters — one required, one optional',
+  decorators: [(Story) => { mockApi(primitiveParamsData); return <Story />; }],
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'fetchUser' }} onClose={() => {}} />
   ),
   play: async ({ canvasElement }) => {
-    mockApi(primitiveParamsData);
     const canvas = within(canvasElement);
 
     // Both inputs appear
@@ -149,11 +149,11 @@ export const PrimitiveParameters: Story = {
 
 export const AllOptionalParameters: Story = {
   name: 'All optional parameters — Run enabled without filling any',
+  decorators: [(Story) => { mockApi(allOptionalData); return <Story />; }],
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'notify' }} onClose={() => {}} />
   ),
   play: async ({ canvasElement }) => {
-    mockApi(allOptionalData);
     const canvas = within(canvasElement);
     await waitFor(() => canvas.getByRole('textbox', { name: /title/i }));
     // Run should be enabled even with empty fields
@@ -164,11 +164,11 @@ export const AllOptionalParameters: Story = {
 
 export const KanectaTypedParameters: Story = {
   name: 'Kanecta-typed parameter — shows typeId as helper text',
+  decorators: [(Story) => { mockApi(kanectaTypedData); return <Story />; }],
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'createContact' }} onClose={() => {}} />
   ),
   play: async ({ canvasElement }) => {
-    mockApi(kanectaTypedData);
     const canvas = within(canvasElement);
     await waitFor(() => canvas.getByRole('textbox', { name: /contact/i }));
 
@@ -183,22 +183,22 @@ export const KanectaTypedParameters: Story = {
 
 export const RestParameter: Story = {
   name: 'Rest parameter — shows ...rest label',
+  decorators: [(Story) => { mockApi(restParamData); return <Story />; }],
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'log' }} onClose={() => {}} />
   ),
   play: async ({ canvasElement }) => {
-    mockApi(restParamData);
     await waitFor(() => within(canvasElement).getByText(/rest/i));
   },
 };
 
 export const AIFunction: Story = {
   name: 'AI function with optional param — Run enabled',
+  decorators: [(Story) => { mockApi(aiData); return <Story />; }],
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'summarise' }} onClose={() => {}} />
   ),
   play: async ({ canvasElement }) => {
-    mockApi(aiData);
     const canvas = within(canvasElement);
     await waitFor(() => canvas.getByRole('textbox', { name: /document/i }));
   },
@@ -208,11 +208,11 @@ export const AIFunction: Story = {
 
 export const RunDisabledUntilRequiredFilled: Story = {
   name: 'Run disabled until required field is filled',
+  decorators: [(Story) => { mockApi(primitiveParamsData); return <Story />; }],
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'fetchUser' }} onClose={() => {}} />
   ),
   play: async ({ canvasElement }) => {
-    mockApi(primitiveParamsData);
     const canvas = within(canvasElement);
 
     await waitFor(() => canvas.getByRole('textbox', { name: /id/i }));
@@ -229,19 +229,21 @@ export const RunDisabledUntilRequiredFilled: Story = {
   },
 };
 
+const optionalDefaultData = {
+  parameters: [
+    { name: 'id', type: 'string' },
+    { name: 'limit', type: 'number', defaultValue: '10' },
+  ],
+  returnType: 'Promise<User>',
+};
+
 export const OptionalDefaultDoesNotBlockRun: Story = {
   name: 'Optional param with defaultValue does not block Run',
+  decorators: [(Story) => { mockApi(optionalDefaultData); return <Story />; }],
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'fetchUser' }} onClose={() => {}} />
   ),
   play: async ({ canvasElement }) => {
-    mockApi({
-      parameters: [
-        { name: 'id', type: 'string' },
-        { name: 'limit', type: 'number', defaultValue: '10' },
-      ],
-      returnType: 'Promise<User>',
-    });
     const canvas = within(canvasElement);
 
     await waitFor(() => canvas.getByRole('textbox', { name: /id/i }));
@@ -256,11 +258,11 @@ export const OptionalDefaultDoesNotBlockRun: Story = {
 
 export const RunButtonFills: Story = {
   name: 'Filling all required args enables Run',
+  decorators: [(Story) => { mockApi(kanectaTypedData); return <Story />; }],
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'createContact' }} onClose={() => {}} />
   ),
   play: async ({ canvasElement }) => {
-    mockApi(kanectaTypedData);
     const canvas = within(canvasElement);
 
     await waitFor(() => canvas.getByRole('textbox', { name: /contact/i }));
@@ -275,11 +277,11 @@ export const RunButtonFills: Story = {
 
 export const ReturnTypeShown: Story = {
   name: 'Return type is shown at the bottom',
+  decorators: [(Story) => { mockApi(primitiveParamsData); return <Story />; }],
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'fetchUser' }} onClose={() => {}} />
   ),
   play: async ({ canvasElement }) => {
-    mockApi(primitiveParamsData);
     await waitFor(() =>
       expect(within(canvasElement).getByText(/Returns:/i)).toBeTruthy(),
     );
@@ -289,12 +291,12 @@ export const ReturnTypeShown: Story = {
 
 export const LoadingState: Story = {
   name: 'Loading state — spinner shown while fetching',
+  decorators: [(Story) => { mockApi(primitiveParamsData, 2000); return <Story />; }],
   render: () => (
     <RunFunctionDialog open item={functionItem} onClose={() => {}} />
   ),
   play: async ({ canvasElement }) => {
     // Slow load — spinner should be visible briefly
-    mockApi(primitiveParamsData, 2000);
     await waitFor(() =>
       expect(canvasElement.querySelector('.MuiCircularProgress-root')).toBeTruthy(),
     );

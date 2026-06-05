@@ -16,6 +16,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CloseIcon from '@mui/icons-material/Close';
 import LabelIcon from '@mui/icons-material/Label';
 import DifferenceOutlinedIcon from '@mui/icons-material/DifferenceOutlined';
+import FolderCopyOutlinedIcon from '@mui/icons-material/FolderCopyOutlined';
 import FileCopyOutlinedIcon from '@mui/icons-material/FileCopyOutlined';
 import CategoryIcon from '@mui/icons-material/Category';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
@@ -109,6 +110,8 @@ export function TreeNode({
   const [aliasSaving, setAliasSaving] = useState(false);
   const [existingAliases, setExistingAliases] = useState<string[]>([]);
   const [aliasLoadError, setAliasLoadError] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const diskConfigRef = useRef<{ datastorePath: string } | null>(null);
   const resolveId = useItemLookup();
   const { getApi } = useWorkspaceStore();
   const { vscodeAvailable } = useUiStore();
@@ -238,6 +241,16 @@ const allConversionsDestructive = item.type === 'function';
     } catch { /* ignore */ }
   };
 
+  const copyDiskLocation = async () => {
+    if (!diskConfigRef.current) {
+      diskConfigRef.current = await getApi().config.get();
+    }
+    const { datastorePath } = diskConfigRef.current;
+    const stripped = item.id.replace(/-/g, '');
+    const path = `${datastorePath}/.kanecta/data/${stripped.slice(0, 2)}/${stripped.slice(2, 4)}/${item.id}`;
+    void navigator.clipboard.writeText(path);
+  };
+
   const startEdit = () => {
     draftRef.current = item.value;
     setInitialDraft(item.value);
@@ -272,6 +285,8 @@ const allConversionsDestructive = item.type === 'function';
       <div
         className={`TreeNode-row${isFocused ? ' TreeNode-row--focused' : ''}`}
         onClick={() => { onFocus(); if (!isSynthetic) startEdit(); }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
         <button
           className={`TreeNode-toggle${!hasChildren ? ' TreeNode-toggle--leaf' : ''}`}
@@ -311,7 +326,7 @@ const allConversionsDestructive = item.type === 'function';
           </span>
         )}
 
-        <div className="TreeNode-actions">
+        <div className="TreeNode-actions" style={{ visibility: isHovered ? 'visible' : 'hidden' }}>
           {item.typeId && <FunctionLinksButton item={item} />}
           {item.type === 'function' && (
             <div className="TreeNode-actions-group">
@@ -349,6 +364,11 @@ const allConversionsDestructive = item.type === 'function';
           <Tooltip title="Copy value">
             <IconButton size="small" onClick={(e) => { e.stopPropagation(); void navigator.clipboard.writeText(item.value); }}>
               <DifferenceOutlinedIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Copy disk location">
+            <IconButton size="small" aria-label="Copy disk location" onClick={(e) => { e.stopPropagation(); void copyDiskLocation(); }}>
+              <FolderCopyOutlinedIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
             </IconButton>
           </Tooltip>
           {vscodeAvailable && (

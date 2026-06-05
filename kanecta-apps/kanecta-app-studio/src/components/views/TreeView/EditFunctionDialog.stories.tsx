@@ -114,73 +114,61 @@ const deprecatedData = {
 
 export const Empty: Story = {
   name: 'Empty — new function (no existing data)',
+  decorators: [(Story) => { mockApi(null); return <Story />; }],
   render: () => (
     <EditFunctionDialog open item={functionItem} onClose={() => {}} />
   ),
-  play: async () => {
-    mockApi(null);
-  },
 };
 
 export const Minimal: Story = {
   name: 'Minimal — parameters: [], returnType: void',
+  decorators: [(Story) => { mockApi(minimalData); return <Story />; }],
   render: () => (
     <EditFunctionDialog open item={functionItem} onClose={() => {}} />
   ),
-  play: async () => {
-    mockApi(minimalData);
-  },
 };
 
 export const WithPrimitiveParameters: Story = {
   name: 'With primitive parameters and type parameter',
+  decorators: [(Story) => { mockApi(fetchUserData); return <Story />; }],
   render: () => (
     <EditFunctionDialog open item={{ ...functionItem, value: 'fetchUser' }} onClose={() => {}} />
   ),
-  play: async () => {
-    mockApi(fetchUserData);
-  },
 };
 
 export const AsyncWithAIAndSkill: Story = {
   name: 'Async + AI + skill UUID',
+  decorators: [(Story) => { mockApi(summariseData); return <Story />; }],
   render: () => (
     <EditFunctionDialog open item={{ ...functionItem, value: 'summarise' }} onClose={() => {}} />
   ),
-  play: async () => {
-    mockApi(summariseData);
-  },
 };
 
 export const WithKanectaTypedParams: Story = {
   name: 'Kanecta-typed parameter and return type',
+  decorators: [(Story) => { mockApi(kanectaTypedData); return <Story />; }],
   render: () => (
     <EditFunctionDialog open item={{ ...functionItem, value: 'createContact' }} onClose={() => {}} />
   ),
-  play: async () => {
-    mockApi(kanectaTypedData);
-  },
 };
 
 export const Deprecated: Story = {
   name: 'Deprecated function',
+  decorators: [(Story) => { mockApi(deprecatedData); return <Story />; }],
   render: () => (
     <EditFunctionDialog open item={{ ...functionItem, value: 'getUser' }} onClose={() => {}} />
   ),
-  play: async () => {
-    mockApi(deprecatedData);
-  },
 };
 
 // ─── Interaction tests ────────────────────────────────────────────────────────
 
 export const SaveDisabledWhenReturnTypeEmpty: Story = {
   name: 'Save is disabled when returnType is empty',
+  decorators: [(Story) => { mockApi({ parameters: [], returnType: '' }); return <Story />; }],
   render: () => (
     <EditFunctionDialog open item={functionItem} onClose={() => {}} />
   ),
   play: async ({ canvasElement }) => {
-    mockApi({ parameters: [], returnType: '' });
     const canvas = within(canvasElement);
     await waitFor(() => expect(canvas.getByRole('button', { name: 'Save' })).toBeTruthy());
     const saveBtn = canvas.getByRole('button', { name: 'Save' });
@@ -190,11 +178,11 @@ export const SaveDisabledWhenReturnTypeEmpty: Story = {
 
 export const SaveEnabledWithValidData: Story = {
   name: 'Save is enabled when form is valid',
+  decorators: [(Story) => { mockApi(minimalData); return <Story />; }],
   render: () => (
     <EditFunctionDialog open item={functionItem} onClose={() => {}} />
   ),
   play: async ({ canvasElement }) => {
-    mockApi(minimalData);
     const canvas = within(canvasElement);
     await waitFor(() => {
       const btn = canvas.getByRole('button', { name: 'Save' });
@@ -205,12 +193,11 @@ export const SaveEnabledWithValidData: Story = {
 
 export const SaveCallsSaveObject: Story = {
   name: 'Save calls saveObject with form data',
+  decorators: [(Story) => { saveObjectSpy.mockClear(); mockApi(minimalData); return <Story />; }],
   render: () => (
     <EditFunctionDialog open item={functionItem} onClose={() => {}} />
   ),
   play: async ({ canvasElement }) => {
-    saveObjectSpy.mockClear();
-    mockApi(minimalData);
     const canvas = within(canvasElement);
 
     await waitFor(() => {
@@ -229,11 +216,11 @@ export const SaveCallsSaveObject: Story = {
 
 export const AddAndRemoveParameter: Story = {
   name: 'Add parameter row, fill name + type, remove it',
+  decorators: [(Story) => { mockApi(minimalData); return <Story />; }],
   render: () => (
     <EditFunctionDialog open item={functionItem} onClose={() => {}} />
   ),
   play: async ({ canvasElement }) => {
-    mockApi(minimalData);
     const canvas = within(canvasElement);
 
     // Add a parameter
@@ -263,11 +250,11 @@ export const AddAndRemoveParameter: Story = {
 
 export const SwitchReturnTypeToKanecta: Story = {
   name: 'Switching return type to Kanecta type shows UUID field',
+  decorators: [(Story) => { mockApi(minimalData); return <Story />; }],
   render: () => (
     <EditFunctionDialog open item={functionItem} onClose={() => {}} />
   ),
   play: async ({ canvasElement }) => {
-    mockApi(minimalData);
     const canvas = within(canvasElement);
 
     // Wait for form to load then switch to Kanecta type
