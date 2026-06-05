@@ -429,15 +429,15 @@ class FilesystemAdapter {
 
     this._writeMetadata(path.join(this._itemDir(id), 'metadata.json'), item);
 
-    // C1 + C2: for typed objects with data, write meta.json and object.json
-    if (type === 'object' && typeId && objectData !== null) {
+    // C1 + C2: for typed objects, always write meta.json and object.json
+    if (type === 'object' && typeId) {
       const typeMeta = this._readJson(path.join(this._typeDir(typeId), 'metadata.json'), null);
       const typeSpec = this._readJson(path.join(this._typeDir(typeId), 'type.json'), null);
       if (typeMeta) {
         const icon = typeSpec?.meta?.icon ?? null;
         this._writeJson(path.join(this._itemDir(id), 'meta.json'), { ...typeMeta, type: 'object', ...(icon ? { icon } : {}) });
       }
-      this._writeJson(path.join(this._itemDir(id), 'object.json'), objectData);
+      this._writeJson(path.join(this._itemDir(id), 'object.json'), objectData ?? {});
     }
 
     if (item.typeId) this._addTypeEntry(item.typeId, id);
@@ -575,6 +575,7 @@ class FilesystemAdapter {
   }
 
   delete(id, actor) {
+    if (this._isSyntheticId(id)) return { warnings: [] };
     const item = this.get(id);
     this._assertDeletable(item, id);
     actor = actor || this.config.owner;
