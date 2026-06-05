@@ -1,8 +1,9 @@
+import * as MuiIcons from '@mui/icons-material';
+import type { SvgIconComponent } from '@mui/icons-material';
 import type { SvgIconProps } from '@mui/material/SvgIcon';
-import { TYPE_ICON_REGISTRY } from '../../lib/typeIconRegistry';
 
 export function DynamicIcon({ name, ...props }: { name: string } & SvgIconProps) {
-  const Icon = TYPE_ICON_REGISTRY[name];
+  const Icon = (MuiIcons as Record<string, SvgIconComponent>)[name];
   if (!Icon) return null;
   return <Icon {...props} />;
 }
