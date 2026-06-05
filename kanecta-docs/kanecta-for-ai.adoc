@@ -1,0 +1,212 @@
+= Kanecta as an AI Platform
+:toc: left
+:toc-title: Contents
+:toclevels: 2
+:sectnums:
+:icons: font
+
+== Introduction
+
+Most AI integrations treat a language model as a black box: send a prompt, receive text, parse it, move on.
+Kanecta takes a different approach.
+It gives AI a _structured world to work in_ — typed objects, a navigable knowledge graph, versioned pipelines, and schema-validated outputs — so that AI stops being a one-shot text generator and starts being a first-class participant in engineering workflows.
+
+This document captures why that distinction matters.
+
+== The Virtual PR: a new primitive
+
+When an AI agent finishes analysing a Jira ticket and generating code changes, there are two options:
+
+. Push a real PR to GitHub immediately.
+. Materialise a *Virtual PR* — a fully-formed GitHub Pull Request stored as a Kanecta item — and decide later whether to push it.
+
+Option 2 is far more powerful.
+
+The concept is directly analogous to React's Virtual DOM.
+React does not mutate the browser DOM on every state change; it builds a complete in-memory representation of what the DOM _should_ look like, diffs it against the real DOM, and applies only the minimum mutations.
+The virtual representation is accurate, inspectable, and disposable.
+
+A Kanecta Virtual PR works the same way:
+
+[cols="1,1"]
+|===
+| React Virtual DOM | Kanecta Virtual PR
+
+| In-memory DOM tree | Kanecta item with full PR schema
+| `render()` computes the new tree | Pipeline computes the new PR
+| Diff against real DOM | Diff against previous run's PR
+| `ReactDOM.render()` flushes to browser | Future step calls `gh pr create`
+| Inspectable before commit | Reviewable before push
+|===
+
+The Virtual PR holds everything: `title`, `body`, `baseBranch`, `headBranch`, `headCommitSha`, `repositoryUrl`, the raw `patch` (the actual git diff), `commits`, `additions`, `deletions`, `changedFiles`, `reviewers`, `labels`, and a `pushStatus` of `unpushed`.
+It _could_ be pushed.
+It won't be — until a human decides it should be.
+
+This is a qualitatively different relationship between AI and source control:
+the AI does the work completely, the human controls the consequence.
+
+== Object-oriented AI
+
+Traditional AI pipelines pass strings in and get strings out.
+Kanecta makes AI _object-oriented_.
+
+Every item in the graph is a typed object with a JSON Schema.
+When a pipeline step asks Claude to produce a Pre-flight Report, the response is validated against the `Pre-flight Report` schema before it is stored.
+The AI cannot return a malformed object.
+The schema enforces:
+
+* Required fields (`subject`, `readinessScore`, `blockers`)
+* Value constraints (`readinessScore` is an integer 0–10)
+* Blocker structure (`category`, `description`, `severity`)
+
+This is the same benefit that TypeScript gives over plain JavaScript, applied to AI output.
+The downstream code that reads the Pre-flight Report item does not need to defensively parse unstructured text — it can trust the shape of its input.
+
+The same principle applies to every object in the pipeline:
+
+[cols="2,3"]
+|===
+| Type | Enforced structure
+
+| Jira Story | `key`, `title`, `description`, `issueType`, `status`, `priority`
+| Pipeline Step | `name`, `stepIndex`, `function`, `outcome`, `startedAt`, `completedAt`
+| Pipeline Run | `pipeline`, `status`, `startedAt`, `completedAt`, `steps[]`
+| Pre-flight Report | `subject`, `assessedBy`, `blockers[]`, `readinessScore`
+| GitHub PR (Virtual) | `title`, `baseBranch`, `headBranch`, `patch`, `pushStatus`, …
+| Domain Concept | `abbreviation`, `briefSummary`, `comprehensiveSummary`, `sources[]`
+|===
+
+== Deterministic pipelines
+
+AI work is usually ephemeral: a conversation happens, a result is produced, and both are gone.
+Kanecta pipelines are _permanent_.
+
+Every pipeline run creates a tree of items in the knowledge graph:
+
+----
+Pipeline: Jira ticket to PR
+  └── Run: PROJ-1234
+        ├── fetchJira          [step: outcome=success, startedAt, completedAt]
+        │   └── Jira Story     [typed object with full ticket data]
+        └── preflightGapAnalysis  [step: outcome=success]
+            └── Pre-flight Report [typed object: score=0, blockers=[…]]
+----
+
+Because runs are items, they are:
+
+* *Replayable* — every intermediate result is stored; a failed step can be retried without re-running prior steps
+* *Comparable* — Run 1 and Run 2 sit side by side in the tree; scores, blockers, and patches are diffable
+* *Auditable* — who ran what, when, with what inputs, producing what outputs — all captured in the graph
+* *Presentable* — an HTML report can be generated from any run by reading its tree; no separate logging system needed
+
+This is the difference between a script and a pipeline with memory.
+
+== Token savings through targeted context injection
+
+A naive approach to giving AI organisational context is to prepend the entire company wiki to every prompt.
+This is expensive, slow, and noisy — the AI must attend to thousands of tokens of irrelevant material to find the few hundred that matter.
+
+Kanecta solves this with the `org-context` tag.
+
+Any item — a Domain Concept, a Confluence Space, a Repository — can be tagged `org-context`.
+The `preflightGapAnalysis` function calls `kanecta.tags.byTag('org-context')`, fetches each item's subtree, serialises it, and injects _only that content_ into the prompt.
+
+The result:
+
+* The AI receives exactly the context it needs — nothing more
+* As the knowledge graph grows, each new `org-context` item improves every future pipeline run automatically, without touching function code
+* Context is versioned: the `contextUsed` field on every Pre-flight Report records the UUIDs of items that were injected, so you know exactly what the AI knew when it made a decision
+
+The token savings compound over time.
+A Domain Concept node with a `comprehensiveSummary` of 500 tokens replaces 10,000 tokens of raw Confluence page content.
+As more concepts are captured, each prompt grows by exactly the concepts relevant to that domain — not by the full corpus.
+
+== Progressive enrichment: the knowledge graph gets smarter
+
+A language model's weights are fixed.
+But the knowledge it is given at inference time can grow continuously.
+
+Kanecta's knowledge graph is the AI's persistent, structured memory.
+Each new Domain Concept, harvested Confluence page, or typed Repository item makes every future pipeline run more capable — without retraining, without fine-tuning, without changing any function code.
+
+The demo for this principle is direct:
+
+* *Run 1* — no Domain Concepts exist. Pre-flight score: 0/10. Blocker: "no ticket content provided."
+* *Run 2* — three Domain Concepts covering a core business process and its variants are tagged `org-context`. The AI now understands the domain terminology, the modernisation initiative underway, and which downstream systems are affected. Score improves significantly.
+* *Run N* — as more concepts are added, scores rise, blockers become more specific, and the Virtual PR's generated code becomes more accurate.
+
+The pipeline itself does not change between runs.
+The knowledge graph does.
+This is a fundamentally different model from prompt engineering: instead of writing better instructions for the AI, you build a richer world for it to reason about.
+
+== Structured memory vs. prompt engineering
+
+Prompt engineering treats the AI as a stateless function: craft the right input string, get the right output string.
+It is fragile, opaque, and non-composable.
+
+Kanecta's knowledge graph is the alternative: a persistent, structured, navigable store of org knowledge that the AI reads at inference time.
+The difference in practice:
+
+[cols="1,1"]
+|===
+| Prompt engineering | Kanecta knowledge graph
+
+| "Be aware that a WidgetX is a [business term] used in [domain process]" | `WidgetX Domain Concept` item with `briefSummary`, `comprehensiveSummary`, Confluence pages, vendor documentation pages, linked variant concepts
+| Embedded in a single prompt | Available to every pipeline run forever
+| Lost when the conversation ends | Versioned, auditable, queryable
+| Text blob — no structure | Typed object with `abbreviation`, `sources[]`, `applicableSystems[]`
+| One person's knowledge | Shared across the whole team
+| Manual to update | Grows automatically as the graph is enriched
+|===
+
+== The type system as a shared language
+
+When a human looks at a Kanecta item, they see a labelled tree.
+When an AI reads the same item via `treeToText()`, it sees a structured text representation with field names and values.
+The same data serves both audiences.
+
+This means:
+
+* A Domain Concept written to help a new team member understand a business term is _also_ useful as AI context — no duplication
+* A typed Jira Story that a human created in the UI is _also_ a valid pipeline input — no transformation
+* A Virtual PR that AI generated is _also_ navigable by a human in the Kanecta tree — no separate viewer needed
+
+The type system is a shared language between humans and AI, expressed once and consumed by both.
+
+== Composable, reusable pipeline steps
+
+Functions in Kanecta are stored as items (`function` type).
+They are not scripts that live on a developer's machine — they are versioned, inspectable nodes in the knowledge graph.
+
+A pipeline is assembled from these function items:
+
+----
+Pipeline: Jira ticket to PR
+  ├── Step 0 → fetchJira          (function d259e3aa)
+  ├── Step 1 → preflightGapAnalysis  (function 5c1d7b22)
+  └── Step 2 → generateVirtualPR  (function TBD)
+----
+
+Adding a step means creating a new function item and referencing it from the pipeline.
+Changing a step means editing its function item — the change is tracked, diffable, and revertible like any other item.
+Steps can be shared across multiple pipelines.
+
+This is composability without a build system.
+
+== Summary
+
+Kanecta is great for AI because it solves the five core problems of AI in production engineering workflows:
+
+[cols="2,3"]
+|===
+| Problem | Kanecta solution
+
+| AI output is unstructured | JSON Schema-validated typed objects — output shape is enforced
+| AI work is ephemeral | Pipeline runs are permanent items — every step result is stored
+| Context is expensive and noisy | `org-context` tag injection — AI gets exactly what it needs
+| Knowledge is locked in prompts | Knowledge graph grows independently of pipelines
+| AI actions are irreversible | Virtual PR pattern — full work product, push is a separate decision
+|===
+
+The result is an AI that does real engineering work — not one-shot text generation, but structured, versioned, auditable, improvable pipelines that produce artefacts humans can trust.

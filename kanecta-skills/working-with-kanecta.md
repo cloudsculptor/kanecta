@@ -144,7 +144,7 @@ Set via the `confidence` field in `kanecta_update_item`.
 
 ## Backup and recovery
 
-**Backup location:** `/home/RicThomas/.kanecta-backups/[timestamp]/`
+**Backup location:** `/home/{user}/.kanecta-backups/[timestamp]/`
 
 File format: `data/[first 2 chars of uuid]/[next 2 chars]/[full-uuid]/metadata.json`
 
