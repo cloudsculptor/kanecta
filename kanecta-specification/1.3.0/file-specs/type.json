@@ -74,11 +74,11 @@
         },
         "immutable": {
           "type": "boolean",
-          "description": "When true, this type definition is sealed — its shape (jsonSchema, sqlSchema, and meta) is locked and cannot be changed. Enforced by the hash field: the hash is computed when immutable is set to true, and any subsequent write that would alter the definition is rejected if it no longer matches. A sealed type that needs a shape change must be published as a new type (new UUID) with supersededBy pointing back to this one. Defaults to false when absent."
+          "description": "When true, this type definition is sealed — its contract (jsonSchema, sqlSchema, and meta.primaryField) is locked and cannot change. Enforced by the hash field: the hash is computed over exactly those three fields when immutable is set to true, and any subsequent write that would alter them is rejected if the hash no longer matches. Other meta fields (description, icon, skills, etc.) may still be updated after sealing — they are cosmetic and do not affect consumers. A sealed type that needs a contract change must be published as a new type (new UUID) with supersededBy pointing back to this one. Defaults to false when absent."
         },
         "hash": {
           "type": "string",
-          "description": "Hex-encoded SHA-256 hash of the canonical JSON serialisation of this type definition (keys sorted, no trailing whitespace). Set by the tooling that writes or publishes the type; re-computed and checked on load to detect corruption or tampering. Absent on draft / in-progress definitions."
+          "description": "Hex-encoded SHA-256 hash computed over the contract fields only: jsonSchema + sqlSchema + meta.primaryField (keys sorted, no trailing whitespace). Covers exactly the fields that consumers depend on — not cosmetic meta fields. Set by the tooling when immutable is set to true; re-computed and checked on load to detect tampering. Absent on open (mutable) type definitions."
         }
       }
     },

@@ -1,3 +1,5 @@
+import { createHash } from 'crypto';
+
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -21,6 +23,16 @@ const ALL_ITEM_TYPES = new Set([
 
 const VISIBILITY   = new Set(['private','organisation','public']);
 const UUID_ARRAYS  = ['sync','supersededBy','implements','extends'];
+
+function computeContractHash(typeJson) {
+  const contract = {
+    jsonSchema:   typeJson.jsonSchema   ?? null,
+    sqlSchema:    typeJson.sqlSchema    ?? null,
+    primaryField: typeJson.meta?.primaryField ?? null,
+  };
+  const canonical = JSON.stringify(contract, Object.keys(contract).sort());
+  return createHash('sha256').update(canonical).digest('hex');
+}
 
 // ─── validateType ────────────────────────────────────────────────────────────
 
@@ -80,6 +92,22 @@ export function validateType(typeJson) {
         fns.forEach((u, i) => {
           if (!isUUID(u)) errors.push(e(`meta.functions[${i}]`, `Not a valid UUID: "${u}"`, 'format:uuid'));
         });
+      }
+    }
+
+    // Hash check: when immutable, verify meta.hash matches the contract
+    if (meta.immutable === true) {
+      if (!meta.hash) {
+        errors.push(e('meta.hash',
+          'meta.hash is required when meta.immutable is true',
+          'kanecta:immutable-requires-hash'));
+      } else if (typeJson.jsonSchema && typeJson.sqlSchema) {
+        const expected = computeContractHash(typeJson);
+        if (meta.hash !== expected) {
+          errors.push(e('meta.hash',
+            `meta.hash does not match the contract (jsonSchema + sqlSchema + meta.primaryField). Expected "${expected}"`,
+            'kanecta:hash-mismatch'));
+        }
       }
     }
   }
