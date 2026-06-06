@@ -2,7 +2,7 @@
 
 const express = require('express');
 const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE } = require('@kanecta/lib');
-const claude = require('./claude');
+const claude = require('@kanecta/ai');
 const { generateFunctionScaffold, toCamelCase } = require('./generateFunctionCode');
 const { spawnSync, spawn } = require('child_process');
 const { createHash } = require('crypto');

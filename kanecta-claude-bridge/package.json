@@ -1,0 +1,25 @@
+{
+  "name": "@kanecta/claude-bridge",
+  "version": "0.1.0",
+  "description": "Kanecta Claude bridge — spawns and manages Claude CLI sessions over SSE",
+  "main": "src/index.js",
+  "files": [
+    "src/"
+  ],
+  "scripts": {
+    "test": "echo \"No tests yet\""
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "kanecta",
+    "claude",
+    "ai"
+  ],
+  "author": "Richie Thomas <richardsempire@gmail.com>",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}

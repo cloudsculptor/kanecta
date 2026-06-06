@@ -35,14 +35,15 @@ describe('GET /items', () => {
     ds.create({ value: 'child', parentId: child.id });
     const res = await request(app).get('/items');
     expect(res.status).toBe(200);
-    expect(res.body).toHaveLength(3);
+    expect(res.body).toHaveLength(4); // 3 created + the seeded "Welcome to Kanecta!" item
     expect(res.body.every(i => i.parentId != null)).toBe(true);
   });
 
-  it('returns empty array when datastore has no user items', async () => {
+  it('returns just the seeded welcome item when datastore has no user items', async () => {
     const res = await request(app).get('/items');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual([]);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].value).toBe('Welcome to Kanecta!');
   });
 });
 
@@ -105,7 +106,7 @@ describe('GET /items/:id', () => {
   it('returns 400 for malformed UUID', async () => {
     const res = await request(app).get('/items/not-a-uuid');
     expect(res.status).toBe(400);
-    expect(res.body.error).toBe('Invalid UUID format');
+    expect(res.body.error).toBe('Invalid ID format'); // route also accepts synthetic IDs, not just UUIDs
   });
 });
 
@@ -150,7 +151,7 @@ describe('DELETE /items/:id', () => {
     const item = ds.create({ value: 'bye' });
     const res = await request(app).delete(`/items/${item.id}`);
     expect(res.status).toBe(200);
-    expect(res.body.deleted).toBe(item.id);
+    expect(res.body.deleted).toEqual([item.id]); // deletion returns the full removed subtree
     expect(ds.get(item.id)).toBeNull();
   });
 
@@ -298,7 +299,7 @@ describe('GET /tree', () => {
     ds.create({ value: 'child', parentId: root.id });
     const res = await request(app).get('/tree');
     expect(res.status).toBe(200);
-    expect(res.body).toHaveLength(2);
+    expect(res.body).toHaveLength(3); // root + child + the seeded "Welcome to Kanecta!" item
   });
 
   it('respects ?depth', async () => {
@@ -307,13 +308,14 @@ describe('GET /tree', () => {
     ds.create({ value: 'grandchild', parentId: child.id });
     const res = await request(app).get('/tree?depth=1');
     expect(res.status).toBe(200);
-    expect(res.body).toHaveLength(2);
+    expect(res.body).toHaveLength(3); // welcome item + root + child (grandchild excluded by depth)
   });
 
-  it('returns empty array for empty datastore', async () => {
+  it('returns just the seeded welcome item for an otherwise-empty datastore', async () => {
     const res = await request(app).get('/tree');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual([]);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].item.value).toBe('Welcome to Kanecta!');
   });
 });
 
