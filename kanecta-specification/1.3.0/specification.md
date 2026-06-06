@@ -546,22 +546,24 @@ Each custom type is stored as a pair of files under its UUID shard path.
 }
 ```
 
-**type.json** — the type definition, containing display metadata under `meta`, a JSON Schema under `jsonSchema`, the SQL DDL for relational storage under `sqlSchema`, and four type-level cross-reference lists — `sync` (functions that can refresh instances of this type from their original source), `supersededBy` (types that replace this one, if any), `implements` (types whose shape/contract this type fulfils, interface-style) and `extends` (types this type extends/specialises):
+**type.json** — the type definition. Exactly three top-level keys: `meta` (all type metadata and cross-references), `jsonSchema` (the JSON Schema Draft-07 field definitions), and `sqlSchema` (the SQL DDL):
 ```json
 {
-  "sync": ["a9d78f4f-a7b3-477a-a1d6-f5fb99de1067"],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "meta": {
     "icon": "Person",
     "description": "A human individual as a biographical fact.",
     "details": "Longer description of this type, when to use it, and how it relates to other types.",
-    "ai-instructions": {
+    "keywords": "human individual biography name",
+    "tags": "people,biography,individual",
+    "skills": {
       "claude": "Use this type for any individual human being."
     },
-    "keywords": "human individual biography name",
-    "tags": "people,biography,individual"
+    "functions": [],
+    "sync": ["a9d78f4f-a7b3-477a-a1d6-f5fb99de1067"],
+    "supersededBy": [],
+    "implements": [],
+    "extends": [],
+    "immutable": false
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -569,7 +571,7 @@ Each custom type is stored as a pair of files under its UUID shard path.
     "title": "Person",
     "type": "object",
     "properties": {
-      "name": { "type": "string", "description": "Full name" }
+      "name": { "x-id": "550e8400-e29b-41d4-a716-446655440000", "type": "string", "description": "Full name" }
     },
     "required": ["name"]
   },
@@ -579,30 +581,54 @@ Each custom type is stored as a pair of files under its UUID shard path.
 }
 ```
 
-**Top-level fields (sibling to `meta`/`jsonSchema`/`sqlSchema`):**
-
-| Field | Description |
-|---|---|
-| `sync` | Array of UUIDs of `function`-primitive items that can sync instances of this type from their original/external source (e.g. re-fetch a `Repository` from GitHub). Empty if this type has no sync sources. |
-| `supersededBy` | Array of UUIDs of type definitions that replace this one. Set when a type's shape has been superseded, to suggest migration paths for existing items — Kanecta types are immutable, so a changed shape always means a new type. Empty if not superseded. |
-| `implements` | Array of UUIDs of types whose shape/contract this type fulfils — a programming-language-interface-style relationship (a declared compatibility claim, not storage inheritance). |
-| `extends` | Array of UUIDs of types this type extends/specialises — a programming-language-class-style relationship (a declared relationship between type definitions, not storage inheritance). |
-
 **meta fields:**
 
 | Field | Description |
 |---|---|
 | `icon` | MUI icon key (e.g. `"Person"`) for display in the UI |
-| `description` | One-sentence summary shown in type lists |
+| `description` | One-sentence summary shown in type lists (required) |
 | `details` | Longer description: when to use this type and how it relates to others |
-| `primaryField` | Dot-separated path to the field in `jsonSchema.properties` that best represents an item of this type (e.g. `"name"`, `"title"`, `"address.street"`). Used by UIs to surface the most meaningful value. |
-| `ai-instructions.claude` | Guidance for Claude on when and how to use this type |
+| `primaryField` | Dot-separated path to the field in `jsonSchema.properties` that best represents an item of this type (e.g. `"name"`, `"title"`). Used by UIs to surface the most meaningful value |
 | `keywords` | Space-separated keywords for search and filtering |
 | `tags` | Comma-separated tags for grouping |
+| `skills.claude` | Guidance for Claude on when and how to use this type |
+| `functions` | Array of UUIDs of `function`-primitive items associated with this type |
+| `sync` | Array of UUIDs of `function`-primitive items that can sync instances of this type from their original/external source (e.g. re-fetch a `Repository` from GitHub) |
+| `supersededBy` | Array of UUIDs of type definitions that replace this one — Kanecta types are immutable, so a changed shape always means a new type |
+| `implements` | Array of UUIDs of types whose shape/contract this type fulfils (interface-style compatibility claim, not storage inheritance) |
+| `extends` | Array of UUIDs of types this type extends/specialises (declared relationship, not storage inheritance) |
+| `immutable` | When `true`, instances of this type cannot be mutated after creation — only read or deleted |
+| `hash` | Hex-encoded SHA-256 of the canonical serialisation of this type definition, for integrity checking |
+
+#### Type Lifecycle
+
+Kanecta types are designed to start permissive and graduate to a published contract, without ever forcing in-place mutation.
+
+**1. Open (mutable draft)**
+When a type is first created, `meta.immutable` is absent or `false`. The author can freely edit the type's shape — add, remove, or rename fields in `jsonSchema`, update `sqlSchema`, change any `meta` field. Other users who depend on an open type are implicitly warned that the shape may still change.
+
+**2. Immutable (published contract)**
+Setting `meta.immutable: true` is a promise: *this type's shape will not change*. The tooling enforces this by computing `meta.hash` (SHA-256 of the canonical JSON) at the time `immutable` is set; any subsequent write that would alter the type definition is rejected if the hash no longer matches. Consumers who see `immutable: true` can depend on the type safely.
+
+Because types are immutable once sealed, Kanecta metadata files have **no `version` field** — there is nothing to version. A type that changes shape is simply a new type with a new UUID.
+
+**3. Superseded**
+If the author later decides the sealed type needs a shape change, they:
+1. Create a new type (same name is fine; it will have a different UUID).
+2. Set `meta.supersededBy: ["<new-type-uuid>"]` on the old type.
+3. Register a converter function in `meta.functions` — a function that accepts the old type and produces the new one (or vice versa). A converter can be a deterministic function, a TypeScript function wrapping an AI call, or a pure AI skill — Kanecta makes no distinction.
+
+Subscribers to the old type (items or type consumers) receive a notification and can decide whether and when to upgrade. The old type remains readable and usable indefinitely; `supersededBy` is a suggestion, not a forced migration.
+
+**Types as items**
+Types are first-class Kanecta items — they have a `metadata.json` just like any other item, with `type: "type"`. This means types can themselves be subscribed to, linked, tagged, annotated, and related just like any other item.
+
+**Freeform extension via tree children**
+Every item of a custom type can have freeform tree children (primitive items: `text`, `heading`, `markdown`, etc.) as a third dimension alongside the type's defined fields. This lets users attach notes, context, or unstructured content to any typed item without widening the type's contract. These children are "off-API" — not part of the type's schema promise, not covered by converters or visual components, and not guaranteed to survive a type migration.
 
 The `$id` in `jsonSchema` should follow the pattern `https://kanecta.org/types/{slug}`.
 
-**Kanecta types are flat — exactly one level deep.** Each property in `jsonSchema.properties` must be one of:
+**Kanecta types are flat — exactly one level deep.** Each property in `jsonSchema.properties` must carry a stable `"x-id"` UUID (e.g. `"x-id": "550e8400-..."`) alongside its type definition. This UUID is the field's permanent identity — it survives renames and is the canonical reference used by migrations, sync adapters, and converters. Each property must also be one of:
 - a **primitive** (`string`/`number`/`integer`/`boolean`, optionally with `format` such as `date`, `date-time`, `uuid`)
 - an **array of primitives** (`{ "type": "array", "items": { "type": "<primitive>" } }`)
 - a **reference to another standalone type**, written as `{ "type": "string", "format": "uuid", "typeId": "<type-uuid>" }` — reusing the same `typeId` convention as `metadata.json` and `function.json.parameters[]` (deliberately *not* JSON Schema's `$ref`, which would incorrectly imply the value is validated against the referenced type's full shape, when the value is actually just a UUID pointer to it)
