@@ -597,8 +597,8 @@ Each custom type is stored as a pair of files under its UUID shard path.
 | `supersededBy` | Array of UUIDs of type definitions that replace this one — Kanecta types are immutable, so a changed shape always means a new type |
 | `implements` | Array of UUIDs of types whose shape/contract this type fulfils (interface-style compatibility claim, not storage inheritance) |
 | `extends` | Array of UUIDs of types this type extends/specialises (declared relationship, not storage inheritance) |
-| `immutable` | When `true`, this type definition is sealed — its shape cannot change. Enforced by `hash`. A sealed type that needs a shape change must be replaced with a new type and `supersededBy` set |
-| `hash` | Hex-encoded SHA-256 of the canonical serialisation of this type definition, for integrity checking |
+| `immutable` | When `true`, the type's contract (`jsonSchema`, `sqlSchema`, `meta.primaryField`) is sealed and enforced by `hash`. Cosmetic meta fields may still be updated. A sealed type needing a contract change must be replaced with a new type UUID and `supersededBy` set |
+| `hash` | Hex-encoded SHA-256 computed over the contract fields: `jsonSchema` + `sqlSchema` + `meta.primaryField` (keys sorted). Covers exactly what consumers depend on — cosmetic meta fields are excluded |
 
 #### Type Lifecycle
 
@@ -608,7 +608,7 @@ Kanecta types are designed to start permissive and graduate to a published contr
 When a type is first created, `meta.immutable` is absent or `false`. The author can freely edit the type's shape — add, remove, or rename fields in `jsonSchema`, update `sqlSchema`, change any `meta` field. Other users who depend on an open type are implicitly warned that the shape may still change.
 
 **2. Immutable (published contract)**
-Setting `meta.immutable: true` is a promise: *this type's shape will not change*. The tooling enforces this by computing `meta.hash` (SHA-256 of the canonical JSON) at the time `immutable` is set; any subsequent write that would alter the type definition is rejected if the hash no longer matches. Consumers who see `immutable: true` can depend on the type safely.
+Setting `meta.immutable: true` is a promise: *this type's contract will not change*. The tooling enforces this by computing `meta.hash` — a SHA-256 over the three contract fields: `jsonSchema`, `sqlSchema`, and `meta.primaryField` (keys sorted, no trailing whitespace) — at the time `immutable` is set. Any subsequent write that would alter those fields is rejected if the hash no longer matches. Cosmetic `meta` fields (`description`, `icon`, `skills`, `keywords`, etc.) may still be updated after sealing — they do not affect consumers. Consumers who see `immutable: true` can safely depend on the type's field definitions and SQL layout.
 
 Because types are immutable once sealed, Kanecta metadata files have **no `version` field** — there is nothing to version. A type that changes shape is simply a new type with a new UUID.
 

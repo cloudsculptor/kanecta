@@ -9,9 +9,10 @@ export interface ValidationError {
    * Standard JSON Schema rules:  "required" | "type" | "format:uuid" | "format:date-time" |
    *                               "format:date" | "const" | "enum" | "exclusive"
    *
-   * Kanecta-specific rules:       "kanecta:x-id-required" | "kanecta:flat" | "kanecta:no-ref" |
-   *                               "kanecta:valid-type"    | "kanecta:object-requires-typeid" |
-   *                               "kanecta:no-object-type"
+   * Kanecta-specific rules:       "kanecta:x-id-required"        | "kanecta:flat"                  |
+   *                               "kanecta:no-ref"               | "kanecta:valid-type"            |
+   *                               "kanecta:object-requires-typeid" | "kanecta:no-object-type"      |
+   *                               "kanecta:immutable-requires-hash" | "kanecta:hash-mismatch"
    */
   rule: string;
 }
