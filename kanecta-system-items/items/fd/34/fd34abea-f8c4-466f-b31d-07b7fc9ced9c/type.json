@@ -132,5 +132,8 @@
         "description": "UUIDs referencing Acceptance Criteria items"
       }
     }
-  }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_fd34abea_f8c4_466f_b31d_07b7fc9ced9c\" (\n    item_id UUID NOT NULL,\n    \"title\" TEXT,\n    \"key\" TEXT,\n    \"description\" TEXT,\n    \"status\" TEXT,\n    \"priority\" TEXT,\n    \"owner\" TEXT,\n    \"team\" TEXT,\n    \"start_date\" TEXT,\n    \"due_date\" TEXT,\n    \"quarter\" TEXT,\n    \"story_points\" NUMERIC,\n    \"t_shirt_size\" TEXT,\n    \"parent_initiative\" UUID,\n    \"labels\" TEXT[] NOT NULL DEFAULT '{}',\n    \"components\" TEXT[] NOT NULL DEFAULT '{}',\n    \"completion_percentage\" NUMERIC,\n    \"acceptance_criteria\" TEXT[] NOT NULL DEFAULT '{}',\n    CONSTRAINT \"pk_obj_fd34abea_f8c4_466f_b31d_07b7fc9ced9c\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_fd34abeaf8c4466f_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
 }

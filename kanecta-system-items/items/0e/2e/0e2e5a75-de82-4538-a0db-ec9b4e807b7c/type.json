@@ -209,5 +209,8 @@
         "format": "date-time"
       }
     }
-  }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_0e2e5a75_de82_4538_a0db_ec9b4e807b7c\" (\n    item_id UUID NOT NULL,\n    \"title\" TEXT,\n    \"key\" TEXT,\n    \"description\" TEXT,\n    \"issue_type\" TEXT,\n    \"status\" TEXT,\n    \"priority\" TEXT,\n    \"resolution\" TEXT,\n    \"assignee\" TEXT,\n    \"reporter\" TEXT,\n    \"team\" TEXT,\n    \"epic\" UUID,\n    \"parent_ticket\" UUID,\n    \"sprint\" TEXT,\n    \"story_points\" NUMERIC,\n    \"t_shirt_size\" TEXT,\n    \"acceptance_criteria\" TEXT[] NOT NULL DEFAULT '{}',\n    \"subtasks\" TEXT[] NOT NULL DEFAULT '{}',\n    \"blocked_by\" TEXT[] NOT NULL DEFAULT '{}',\n    \"blocks\" TEXT[] NOT NULL DEFAULT '{}',\n    \"related_to\" TEXT[] NOT NULL DEFAULT '{}',\n    \"labels\" TEXT[] NOT NULL DEFAULT '{}',\n    \"components\" TEXT[] NOT NULL DEFAULT '{}',\n    \"fix_versions\" TEXT[] NOT NULL DEFAULT '{}',\n    \"due_date\" TEXT,\n    \"resolved_at\" TIMESTAMPTZ,\n    CONSTRAINT \"pk_obj_0e2e5a75_de82_4538_a0db_ec9b4e807b7c\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_0e2e5a75de824538_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
 }
