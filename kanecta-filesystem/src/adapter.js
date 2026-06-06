@@ -164,6 +164,7 @@ class FilesystemAdapter {
       subscribedAt: null,
       subscriptionSource: null,
       completedAt: null,
+      dueAt: null,
       _synthetic: true,
       _fieldPath: fieldPath,
       _realId: realId,
@@ -194,6 +195,7 @@ class FilesystemAdapter {
       subscribedAt: null,
       subscriptionSource: null,
       completedAt: null,
+      dueAt: null,
       _synthetic: true,
       _fieldPath: `${parentFieldPath}.__`,
       _realId: realId,
@@ -322,7 +324,7 @@ class FilesystemAdapter {
       confidence: null, tags: [],
       createdAt: now.toISOString(), modifiedAt: now.toISOString(),
       createdBy: owner, modifiedBy: owner,
-      cachedAt: null, subscribedAt: null, subscriptionSource: null, completedAt: null,
+      cachedAt: null, subscribedAt: null, subscriptionSource: null, completedAt: null, dueAt: null,
     };
     this._writeMetadata(path.join(this._itemDir(id), 'metadata.json'), item);
     this._snapshot(item, 'create', owner, now);
@@ -383,7 +385,7 @@ class FilesystemAdapter {
   create({
     parentId, value = null, type = 'string', typeId = null,
     owner, license = null, sortOrder, confidence = null, status = null, tags = [],
-    createdBy, objectData = null,
+    createdBy, objectData = null, dueAt = null,
   } = {}) {
     if (WELL_KNOWN_TYPES.has(type)) {
       throw new Error(`Type '${type}' is a well-known root type and cannot be created via create()`);
@@ -425,6 +427,7 @@ class FilesystemAdapter {
       subscribedAt: null,
       subscriptionSource: null,
       completedAt: null,
+      dueAt,
     };
 
     this._writeMetadata(path.join(this._itemDir(id), 'metadata.json'), item);
@@ -547,6 +550,7 @@ class FilesystemAdapter {
     if ('status' in changes) updated.status = changes.status;
     if ('license' in changes) updated.license = changes.license;
     if ('completedAt' in changes) updated.completedAt = changes.completedAt;
+    if ('dueAt' in changes) updated.dueAt = changes.dueAt;
 
     if ('tags' in changes) {
       const oldTags = current.tags || [];
@@ -633,6 +637,7 @@ class FilesystemAdapter {
       subscribedAt: null,
       subscriptionSource: null,
       completedAt: null,
+      dueAt: null,
     };
 
     const resolvedSchema = schema || {

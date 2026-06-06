@@ -42,17 +42,23 @@ flowchart TB
 
     subgraph storage["Storage adapters"]
         FS["kanecta-filesystem"]
+        Cloud["kanecta-cloud"]
+    end
+
+    subgraph cloud_internals["Cloud adapter internals"]
         DB["kanecta-database"]
         S3["kanecta-s3"]
     end
 
-    subgraph remote["Remote storage"]
+    subgraph remote[" "]
         PG["kanecta-postgres"]
     end
 
     subgraph data["Data"]
-        Files["files"]
-        Items["items"]
+        Database["database"]
+        Filesystem["filesystem"]
+        ObjectStore["S3-compatible<br/>object store"]
+        LocalTemp["local working dir<br/>(temp, sandboxed)"]
     end
 
     subgraph external["External services"]
@@ -73,14 +79,17 @@ flowchart TB
     CLI --> Lib
 
     Lib --> FS
-    Lib --> DB
-    Lib --> S3
+    Lib --> Cloud
+    Cloud --> DB
+    Cloud --> S3
     DB --> PG
 
-    FS --> Files
-    FS --> Items
-    S3 --> Files
-    PG --> Items
+    FS --> Filesystem
+    S3 --> ObjectStore
+    PG --> Database
+
+    Lib -.->|pull + run, then clean up| LocalTemp
+    Runner -.->|pull + run, then clean up| LocalTemp
 ....
 
 == Entry points
@@ -114,11 +123,10 @@ flowchart TB
 | Adapter | When to use
 
 | `kanecta-filesystem`
-| Default. Local JSON files under `~/.kanecta/`. Human-readable, zero config.
+| Default ("easy start"). Items and files both live as local JSON/binary files under `~/.kanecta/`. Human-readable, zero config, zero external dependencies.
 
-| `kanecta-database` (+ `kanecta-postgres`)
-| Remote/hosted mode. Structured SQL storage for items and metadata.
-
-| `kanecta-s3`
-| Remote/hosted mode. Object storage for binary assets/files. Independent of `kanecta-database`.
+| `kanecta-cloud`
+| "Bring your own" cloud/remote mode. A single adapter `kanecta-lib` selects in place of `kanecta-filesystem` — internally composes `kanecta-database` (items, via `kanecta-postgres`) and `kanecta-s3` (files), so the rest of the system doesn't need to know storage is split across two backends. Postgres and the S3-compatible store may be self-hosted (incl. local, e.g. native Postgres + MinIO for dev/test) or fully managed cloud services — `kanecta-cloud` doesn't need to know which.
 |===
+
+NOTE: Even in `kanecta-cloud` mode, some operations still touch the local filesystem out of necessity — e.g. user-provided functions are pulled from Postgres/S3 and written to a local working directory before being executed in a sandboxed process, then cleaned up. "Cloud mode" means items/files aren't stored on local disk as the source of truth, not that the filesystem is never touched.

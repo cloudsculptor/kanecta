@@ -14,6 +14,8 @@
     "kanecta-filesystem",
     "kanecta-postgres",
     "kanecta-database",
+    "kanecta-s3",
+    "kanecta-cloud",
     "kanecta-lib",
     "kanecta-api-client",
     "kanecta-sdk",

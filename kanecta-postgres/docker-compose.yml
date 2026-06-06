@@ -1,0 +1,13 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg18
+    container_name: kanecta-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: kanecta
+      POSTGRES_USER: kanecta
+      POSTGRES_PASSWORD: kanecta
+    ports:
+      - "5432:5432"
+    volumes:
+      - ${KANECTA_DATASTORE:-.}/.kanecta/database:/var/lib/postgresql

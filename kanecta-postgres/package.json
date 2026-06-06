@@ -8,7 +8,10 @@
     "migrations/"
   ],
   "scripts": {
-    "test": "echo \"No tests yet\" && exit 0"
+    "test": "echo \"No tests yet\" && exit 0",
+    "docker:up": "node scripts/ensure-running.js",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f postgres"
   },
   "keywords": [
     "kanecta",
@@ -25,5 +28,8 @@
   },
   "peerDependencies": {
     "pg": ">=8.0.0"
+  },
+  "devDependencies": {
+    "pg": "^8.0.0"
   }
 }

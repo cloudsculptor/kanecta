@@ -1,0 +1,176 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://kanecta.org/specification/kanecta-type-v1",
+  "title": "Kanecta Type Definition",
+  "description": "Schema for a Kanecta custom type definition (type.json). Stored at .kanecta/types/{shard1}/{shard2}/{type-uuid}/type.json",
+  "type": "object",
+  "required": ["meta", "jsonSchema", "sqlSchema"],
+  "additionalProperties": false,
+  "properties": {
+    "sync": {
+      "type": "array",
+      "items": { "type": "string", "format": "uuid" },
+      "description": "UUIDs of function-primitive items that can sync instances of this type from their original/external source (e.g. re-fetch a Person from a directory, a Repository from GitHub)."
+    },
+    "supersededBy": {
+      "type": "array",
+      "items": { "type": "string", "format": "uuid" },
+      "description": "UUIDs of type definitions that replace this one, when this type's shape has been superseded. Used to suggest migration paths for existing items. Empty if not superseded."
+    },
+    "implements": {
+      "type": "array",
+      "items": { "type": "string", "format": "uuid" },
+      "description": "UUIDs of types whose shape/contract this type fulfils — a programming-language-interface-style relationship. Does not imply storage inheritance; purely a declared compatibility claim."
+    },
+    "extends": {
+      "type": "array",
+      "items": { "type": "string", "format": "uuid" },
+      "description": "UUIDs of types this type extends/specialises — a programming-language-class-style relationship. Does not imply storage inheritance; purely a declared relationship between type definitions."
+    },
+    "meta": {
+      "type": "object",
+      "required": ["description"],
+      "additionalProperties": false,
+      "properties": {
+        "icon": {
+          "type": "string",
+          "description": "MUI icon component name (e.g. 'Person', 'TaskAlt', 'Place'). Used for display in the studio UI."
+        },
+        "description": {
+          "type": "string",
+          "description": "One-sentence summary of the type. Shown in type lists and pickers."
+        },
+        "details": {
+          "type": "string",
+          "description": "Longer description: when to use this type and how it relates to other types."
+        },
+        "keywords": {
+          "type": "string",
+          "description": "Space-separated keywords for search and filtering (e.g. 'human individual biography')."
+        },
+        "tags": {
+          "type": "string",
+          "description": "Comma-separated tags for grouping types (e.g. 'people,biography,individual')."
+        },
+        "primaryField": {
+          "type": "string",
+          "description": "Dot-separated path to the field in jsonSchema.properties that best represents the item (e.g. 'title', 'name', 'address.street'). Used by UIs to surface the most meaningful value."
+        },
+        "ai-instructions": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "claude": {
+              "type": "string",
+              "description": "Guidance for Claude on when and how to use this type."
+            }
+          }
+        },
+        "functions": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Function items related to this type.",
+          "properties": {
+            "consumedBy": {
+              "type": "array",
+              "items": { "type": "string", "format": "uuid" },
+              "description": "UUIDs of function-primitive items that accept this type as an argument."
+            },
+            "producedBy": {
+              "type": "array",
+              "items": { "type": "string", "format": "uuid" },
+              "description": "UUIDs of function-primitive items that return this type."
+            }
+          }
+        }
+      }
+    },
+    "jsonSchema": {
+      "type": "object",
+      "required": ["$schema", "title", "type", "properties"],
+      "description": "JSON Schema Draft-07 definition for items of this type.",
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "const": "http://json-schema.org/draft-07/schema#"
+        },
+        "$id": {
+          "type": "string",
+          "description": "Canonical URI for this type schema (e.g. 'https://kanecta.org/types/person').",
+          "format": "uri"
+        },
+        "title": {
+          "type": "string",
+          "description": "Human-readable name of the type."
+        },
+        "type": {
+          "type": "string",
+          "const": "object"
+        },
+        "properties": {
+          "type": "object",
+          "description": "Field definitions for items of this type. Kanecta types are flat — exactly one level deep. Each property must be either: (a) a primitive (string/number/integer/boolean, optionally with a format such as 'date', 'date-time', 'uuid'); (b) an array of primitives (`{ \"type\": \"array\", \"items\": { \"type\": \"<primitive>\" } }`); or (c) a reference to another standalone Kanecta type, expressed as `{ \"type\": \"string\", \"format\": \"uuid\", \"typeId\": \"<type-uuid>\" }` — the same `typeId` convention used in metadata.json and function.json.parameters[], NOT JSON Schema's `$ref` (which would incorrectly imply the value is validated against the referenced type's full shape, when it is actually just a UUID pointer to it). Inline nested objects and arrays of objects are not permitted — a reusable nested concept must be modelled as its own standalone type and referenced via `typeId`. This keeps every type mappable to exactly one SQL table (see sqlSchema and specification.db.postgres.md)."
+        },
+        "required": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of required field names."
+        },
+        "additionalProperties": {
+          "type": "boolean"
+        }
+      }
+    },
+    "sqlSchema": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "Ordered list of complete SQL DDL statements (PostgreSQL dialect) that, when executed in order against a database that already contains the items table, create the entire storage structure for instances of this type — every table, relationship/constraint (FK references — inline in CREATE TABLE preferred over separate ALTER TABLE statements, but either is valid), and index. Nothing beyond running these statements is required to stand up storage for the type. Defined once at type-creation time and never altered — Kanecta types are immutable; a changed shape means a new type, not an edited sqlSchema. Required even for types that currently only ever exist in filesystem-mode datastores, so that migrating a datastore to a SQL backend later never requires retrofitting schemas onto existing types. See specification.db.postgres.md for the full design rationale, naming conventions, and worked examples."
+    }
+  },
+  "examples": [
+    {
+      "sync": ["a9d78f4f-a7b3-477a-a1d6-f5fb99de1067"],
+      "supersededBy": [],
+      "implements": [],
+      "extends": [],
+      "meta": {
+        "icon": "Person",
+        "description": "A human individual as a biographical fact.",
+        "details": "Use for any individual human being. Relates to Organisation via membership.",
+        "keywords": "human individual biography name",
+        "tags": "people,biography,individual",
+        "primaryField": "name",
+        "ai-instructions": {
+          "claude": "Use this type for any individual human being."
+        },
+        "functions": {
+          "consumedBy": [],
+          "producedBy": []
+        }
+      },
+      "jsonSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "$id": "https://kanecta.org/types/person",
+        "title": "Person",
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "description": "Full name" },
+          "born": { "type": "string", "format": "date", "description": "Date of birth" },
+          "died": { "type": "string", "format": "date", "description": "Date of death" },
+          "nicknames": { "type": "array", "items": { "type": "string" }, "description": "Known nicknames or aliases" },
+          "favouritePet": {
+            "type": "string",
+            "format": "uuid",
+            "typeId": "a1a1a1a1-b2b2-7890-abcd-ef1234567890",
+            "description": "Reference to a Pet item — a standalone type, not inlined (Kanecta types are flat; nested concepts are modelled as their own types and referenced by typeId)"
+          }
+        },
+        "required": ["name"]
+      },
+      "sqlSchema": [
+        "CREATE TABLE \"obj_f1e2d3c4_b5a6_7890_abcd_ef1234567890\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"born\" DATE,\n    \"died\" DATE,\n    \"nicknames\" TEXT[],\n    \"favourite_pet\" UUID,\n    CONSTRAINT \"pk_obj_f1e2d3c4_b5a6_7890_abcd_ef1234567890\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_obj_f1e2d3c4_b5a6_7890_abcd_ef1234567890_item\" FOREIGN KEY (item_id) REFERENCES items(id),\n    CONSTRAINT \"fk_obj_f1e2d3c4_..._favourite_pet\" FOREIGN KEY (favourite_pet) REFERENCES items(id)\n)"
+      ]
+    }
+  ]
+}
