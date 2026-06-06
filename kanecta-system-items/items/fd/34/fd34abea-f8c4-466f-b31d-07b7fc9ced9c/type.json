@@ -21,17 +21,21 @@
     ],
     "properties": {
       "title": {
+        "x-id": "3cfe0928-7845-4b07-b0ff-e8c0be02ce8a",
         "type": "string"
       },
       "key": {
+        "x-id": "37f01c11-30d1-4cf7-a17e-1a86f4981c98",
         "type": "string",
         "pattern": "^[A-Z]+-[0-9]+$"
       },
       "description": {
+        "x-id": "318ea6ea-c533-4437-8e94-03c1910d9162",
         "type": "string",
         "contentMediaType": "text/markdown"
       },
       "status": {
+        "x-id": "d7db7b09-f439-426a-b1cd-024b0d4a1105",
         "type": "string",
         "enum": [
           "Backlog",
@@ -41,6 +45,7 @@
         ]
       },
       "priority": {
+        "x-id": "96815301-1d7b-47bb-8ae5-23f572f5766a",
         "type": "string",
         "enum": [
           "Critical",
@@ -50,29 +55,36 @@
         ]
       },
       "owner": {
+        "x-id": "3ce508f3-002d-4d59-b015-f4c5d4aac54e",
         "type": "string",
         "format": "email"
       },
       "team": {
+        "x-id": "94cbfe95-a24d-46f8-83d9-6c801f1a9868",
         "type": "string"
       },
       "startDate": {
+        "x-id": "12523e66-4752-4f5c-9100-1f7753ce9d7a",
         "type": "string",
         "format": "date"
       },
       "dueDate": {
+        "x-id": "edf07f8e-7ee6-4790-ac23-348fbb8262c1",
         "type": "string",
         "format": "date"
       },
       "quarter": {
+        "x-id": "7aad0028-c293-4a40-a8ac-94e01222abce",
         "type": "string",
         "pattern": "^Q[1-4] [0-9]{4}$"
       },
       "storyPoints": {
+        "x-id": "4884c73a-7c32-47c9-9daf-83d198afe7e2",
         "type": "number",
         "minimum": 0
       },
       "tShirtSize": {
+        "x-id": "bc9b29bf-adcc-45a8-b997-ad854d60b8c8",
         "type": "string",
         "enum": [
           "XS",
@@ -83,10 +95,12 @@
         ]
       },
       "parentInitiative": {
+        "x-id": "7a000261-8f7b-4a64-ad2d-6859b8328478",
         "type": "string",
         "format": "uuid"
       },
       "labels": {
+        "x-id": "be180c00-e4de-41e2-9928-4bd18e92c275",
         "type": "array",
         "items": {
           "type": "string"
@@ -94,6 +108,7 @@
         "uniqueItems": true
       },
       "components": {
+        "x-id": "2c56d66d-a7f0-4a08-8d17-570489458330",
         "type": "array",
         "items": {
           "type": "string"
@@ -101,11 +116,13 @@
         "uniqueItems": true
       },
       "completionPercentage": {
+        "x-id": "e65b5af0-8d08-46ed-9402-8df50ec60bbb",
         "type": "number",
         "minimum": 0,
         "maximum": 100
       },
       "acceptanceCriteria": {
+        "x-id": "81c98ae9-cb98-4149-9c2f-2b8dc1b84699",
         "type": "array",
         "items": {
           "type": "string",

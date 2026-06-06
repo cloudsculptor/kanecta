@@ -15,26 +15,32 @@
     "type": "object",
     "properties": {
       "name": {
+        "x-id": "2d85e420-40c7-47e6-b830-0548570dfe0a",
         "type": "string",
         "description": "Step name."
       },
       "description": {
+        "x-id": "0c47f2cc-aafa-424b-a16f-20a0f9697375",
         "type": "string",
         "description": "What this step does."
       },
       "consumes": {
+        "x-id": "c62f9a74-64e8-4766-a032-c0dc03671680",
         "type": "string",
         "description": "What this step consumes."
       },
       "produces": {
+        "x-id": "309f1cdc-f0a7-4a70-88e6-27657579a6f7",
         "type": "string",
         "description": "What this step produces."
       },
       "status": {
+        "x-id": "9d2d11a0-81d6-46d7-825a-b612ac7b689c",
         "type": "string",
         "description": "Status (e.g. planned, active)."
       },
       "loopsTo": {
+        "x-id": "f358845f-ed5b-429d-8e2f-8026fe854b15",
         "type": "string",
         "description": "Step name this step may loop back to."
       }

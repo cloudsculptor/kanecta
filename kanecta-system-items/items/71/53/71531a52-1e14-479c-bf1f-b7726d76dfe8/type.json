@@ -15,10 +15,12 @@
     "type": "object",
     "properties": {
       "name": {
+        "x-id": "b7261886-3160-4246-ae4f-fbff0fb346a3",
         "type": "string",
         "description": "Constraint name."
       },
       "columns": {
+        "x-id": "39b210d7-6386-4736-8a3a-c9cf5d3c3e84",
         "type": "array",
         "items": {
           "type": "string"
@@ -26,10 +28,12 @@
         "description": "Local column names."
       },
       "referencedTable": {
+        "x-id": "89602718-5ab5-4e09-a0b2-5aeac258bc10",
         "type": "string",
         "description": "Referenced table name."
       },
       "referencedColumns": {
+        "x-id": "918a3085-6c5d-461a-bc7f-825942946655",
         "type": "array",
         "items": {
           "type": "string"
@@ -37,10 +41,12 @@
         "description": "Referenced column names."
       },
       "onDelete": {
+        "x-id": "bad2798c-1717-490e-a2da-6849d22a3122",
         "type": "string",
         "description": "ON DELETE behaviour (e.g. CASCADE, SET NULL)."
       },
       "onUpdate": {
+        "x-id": "131d579b-a460-4d80-9211-e6cd038c3aff",
         "type": "string",
         "description": "ON UPDATE behaviour."
       }

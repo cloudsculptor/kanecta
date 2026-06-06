@@ -15,34 +15,42 @@
     "type": "object",
     "properties": {
       "name": {
+        "x-id": "aeb61d9b-cb7d-4102-a5e6-1f83524afbca",
         "type": "string",
         "description": "Field name."
       },
       "description": {
+        "x-id": "9fa402bc-52ed-4dce-aa57-17e6e0ccc155",
         "type": "string",
         "description": "What the field represents."
       },
       "dbField": {
+        "x-id": "cb98f5d9-3e38-423e-8e82-68dac28e24fb",
         "type": "string",
         "description": "Database column name."
       },
       "inputType": {
+        "x-id": "b77d05a4-8b9e-4ea0-bae7-c587237a24fd",
         "type": "string",
         "description": "UI input type (e.g. text, select, date)."
       },
       "dataType": {
+        "x-id": "b3a6decc-a221-4c67-977f-8e504863b88c",
         "type": "string",
         "description": "Data type."
       },
       "charLimit": {
+        "x-id": "c9ee57f2-ab94-45e8-8a2e-02d6eb928f9d",
         "type": "integer",
         "description": "Maximum character length."
       },
       "requiredForNew": {
+        "x-id": "a5f6c115-73e4-4860-ba7a-215cac583965",
         "type": "boolean",
         "description": "Required when creating a new record."
       },
       "mandatory": {
+        "x-id": "86bdca1e-0d64-454f-978f-852c2bad7e82",
         "type": "boolean",
         "description": "Always mandatory."
       }

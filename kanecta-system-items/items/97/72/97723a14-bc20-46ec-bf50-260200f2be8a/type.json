@@ -15,20 +15,24 @@
     "type": "object",
     "properties": {
       "epicId": {
+        "x-id": "b6fc280e-a250-44fd-8dd0-040c4df7cbd9",
         "type": "string",
         "format": "uuid",
         "typeId": "fd34abea-f8c4-466f-b31d-07b7fc9ced9c",
         "description": "UUID of the Epic this requirement belongs to."
       },
       "epicKey": {
+        "x-id": "442d105a-e797-4f5e-af94-d3b4022e43e3",
         "type": "string",
         "description": "Epic key (e.g. PROJ-123)."
       },
       "acceptanceCriteria": {
+        "x-id": "5e1af8cf-47a8-4c79-a7f6-75fcac812717",
         "type": "string",
         "description": "Acceptance criteria."
       },
       "estimate": {
+        "x-id": "4b0848e1-a5d8-4467-a741-71b15085b85f",
         "type": "string",
         "description": "Effort estimate."
       }

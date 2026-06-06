@@ -1,1 +1,42 @@
-{"meta":{"icon":"StickyNote2","description":"A freeform note with tags and date","keywords":"note capture idea reference journal","tags":"personal,organiser,capture"},"jsonSchema":{"$schema":"http://json-schema.org/draft-07/schema#","title":"Note","type":"object","required":["title"],"properties":{"title":{"type":"string"},"content":{"type":"string"},"source":{"type":"string"},"date":{"type":"string","format":"date"},"tags":{"type":"array","items":{"type":"string"}}}}}
+{
+  "meta": {
+    "icon": "StickyNote2",
+    "description": "A freeform note with tags and date",
+    "keywords": "note capture idea reference journal",
+    "tags": "personal,organiser,capture"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Note",
+    "type": "object",
+    "required": [
+      "title"
+    ],
+    "properties": {
+      "title": {
+        "x-id": "27854b7a-0fb3-4bef-ba1b-eb270f12205a",
+        "type": "string"
+      },
+      "content": {
+        "x-id": "aa11642b-d105-42a9-8c83-f24bdd3fdbef",
+        "type": "string"
+      },
+      "source": {
+        "x-id": "7a17b3db-24f6-4cb9-b9cb-358de3487828",
+        "type": "string"
+      },
+      "date": {
+        "x-id": "8bfdc225-9ef7-4036-a937-9024a129b53a",
+        "type": "string",
+        "format": "date"
+      },
+      "tags": {
+        "x-id": "1e133fe8-c644-448d-936f-fb54a34d0798",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

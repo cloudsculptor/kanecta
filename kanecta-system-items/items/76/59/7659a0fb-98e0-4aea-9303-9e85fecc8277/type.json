@@ -1,7 +1,7 @@
 {
   "meta": {
     "icon": "Gavel",
-    "description": "A decision \u2014 a choice made with rationale, alternatives considered and owner",
+    "description": "A decision — a choice made with rationale, alternatives considered and owner",
     "keywords": "decision choice rationale trade-off resolution",
     "tags": "software,organisation,governance",
     "sync": [],
@@ -20,13 +20,16 @@
     ],
     "properties": {
       "title": {
+        "x-id": "e51d7885-d68a-4759-81f9-f2abe0dcece3",
         "type": "string"
       },
       "date": {
+        "x-id": "fe636ae0-6b79-4327-8abc-37b43135856b",
         "type": "string",
         "format": "date"
       },
       "status": {
+        "x-id": "a9564de8-8f21-46ea-80b7-c3cb8026e3e9",
         "type": "string",
         "enum": [
           "proposed",
@@ -36,18 +39,23 @@
         ]
       },
       "context": {
+        "x-id": "32a0ddca-5b9f-4d9a-9e9c-5fb65132b0d7",
         "type": "string"
       },
       "decision": {
+        "x-id": "3deec9df-7e5e-483f-b59f-37c2f24f01f3",
         "type": "string"
       },
       "rationale": {
+        "x-id": "e05f2303-2a7c-4892-8c7a-d15e6568a138",
         "type": "string"
       },
       "consequences": {
+        "x-id": "6d4e44df-9296-4ada-98ef-ddcd9f1e4c67",
         "type": "string"
       },
       "deciders": {
+        "x-id": "0fe4b5fc-7e61-477c-b978-43d46448a9cc",
         "type": "array",
         "items": {
           "type": "string",
@@ -55,13 +63,16 @@
         }
       },
       "owner": {
+        "x-id": "8367e966-6570-4829-bcf6-667e140027ca",
         "type": "string",
         "format": "email"
       },
       "supersededBy": {
+        "x-id": "57c1245b-8809-48d3-b737-25af65de2ad4",
         "type": "string"
       },
       "tags": {
+        "x-id": "f484c694-d833-4d05-8f89-b745cd6e2003",
         "type": "array",
         "items": {
           "type": "string"

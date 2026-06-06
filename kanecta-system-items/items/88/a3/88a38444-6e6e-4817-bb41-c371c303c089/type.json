@@ -1,7 +1,7 @@
 {
   "meta": {
     "icon": "MenuBook",
-    "description": "A runbook \u2014 operational steps for a specific system event such as a deploy, incident or rollback",
+    "description": "A runbook — operational steps for a specific system event such as a deploy, incident or rollback",
     "keywords": "runbook operational incident deploy on-call",
     "tags": "software,development,operations",
     "sync": [],
@@ -20,15 +20,19 @@
     ],
     "properties": {
       "title": {
+        "x-id": "e8b56ed8-3bcf-405b-a01b-8b820b6a8141",
         "type": "string"
       },
       "trigger": {
+        "x-id": "2c410899-cc7f-4cf0-b173-8a36b723aff9",
         "type": "string"
       },
       "service": {
+        "x-id": "b847c5d1-0568-4168-9d34-008b6ed004ba",
         "type": "string"
       },
       "severity": {
+        "x-id": "736a5038-52d3-40b0-b920-a05f2202cd5d",
         "type": "string",
         "enum": [
           "P1",
@@ -38,17 +42,21 @@
         ]
       },
       "owner": {
+        "x-id": "6d4e1404-6674-4ef7-a391-a556af531e14",
         "type": "string",
         "format": "email"
       },
       "escalationPath": {
+        "x-id": "159c0d78-963e-4b06-aed4-0a96ccbf5066",
         "type": "string"
       },
       "lastTested": {
+        "x-id": "2e356935-b890-4910-8bc3-b23720fbbffa",
         "type": "string",
         "format": "date"
       },
       "tags": {
+        "x-id": "715cb6a7-6a22-46ef-8491-088cacfdaf6d",
         "type": "array",
         "items": {
           "type": "string"

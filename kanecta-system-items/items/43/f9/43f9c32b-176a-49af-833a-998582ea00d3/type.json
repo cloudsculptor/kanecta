@@ -1,7 +1,7 @@
 {
   "meta": {
     "icon": "Assignment",
-    "description": "Delivery plan for a Detailed Design \u2014 one instance per design.",
+    "description": "Delivery plan for a Detailed Design — one instance per design.",
     "keywords": "detailed design delivery plan",
     "tags": "detailed,design,delivery,plan",
     "sync": [],
@@ -15,6 +15,7 @@
     "type": "object",
     "properties": {
       "tickets": {
+        "x-id": "1796d166-c220-433e-adfd-97de8975ae4a",
         "type": "array",
         "items": {
           "type": "string",
@@ -23,6 +24,7 @@
         "description": "UUIDs of Ticket items in the delivery plan."
       },
       "sequencingNotes": {
+        "x-id": "53349a7d-ef95-47af-a14b-0ad9927595c5",
         "type": "string",
         "description": "Notes on delivery sequencing."
       }

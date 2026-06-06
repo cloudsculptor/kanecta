@@ -15,10 +15,12 @@
     "type": "object",
     "properties": {
       "action": {
+        "x-id": "8eddf034-cd6c-40b3-8ac1-aabb40d0fbfc",
         "type": "string",
         "description": "Action to perform."
       },
       "expectedResult": {
+        "x-id": "8aa25833-a02d-4fe0-b79f-09c500fc4546",
         "type": "string",
         "description": "Expected result after the action."
       }

@@ -1,1 +1,62 @@
-{"meta":{"icon":"Groups","description":"A team — a group of people with a shared mission and responsibilities","keywords":"team squad group people organisation","tags":"people,organisation,team"},"jsonSchema":{"$schema":"http://json-schema.org/draft-07/schema#","title":"Team","type":"object","required":["name"],"properties":{"name":{"type":"string"},"description":{"type":"string"},"mission":{"type":"string"},"lead":{"type":"string","format":"email"},"members":{"type":"array","items":{"type":"string","format":"email"}},"slackChannel":{"type":"string"},"confluenceSpace":{"type":"string"},"oncallRotation":{"type":"string"},"tags":{"type":"array","items":{"type":"string"}}}}}
+{
+  "meta": {
+    "icon": "Groups",
+    "description": "A team — a group of people with a shared mission and responsibilities",
+    "keywords": "team squad group people organisation",
+    "tags": "people,organisation,team"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Team",
+    "type": "object",
+    "required": [
+      "name"
+    ],
+    "properties": {
+      "name": {
+        "x-id": "f3bf5660-6cf0-471c-a51b-376d61533086",
+        "type": "string"
+      },
+      "description": {
+        "x-id": "dceb67e0-08f2-41a4-9bed-75b0c87aa10f",
+        "type": "string"
+      },
+      "mission": {
+        "x-id": "4e1125e2-a325-49fc-8021-3f991d6a7484",
+        "type": "string"
+      },
+      "lead": {
+        "x-id": "23adec65-7fa6-496b-8461-f51a67854747",
+        "type": "string",
+        "format": "email"
+      },
+      "members": {
+        "x-id": "111ac996-5544-4663-a360-52e5a7e535ae",
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "email"
+        }
+      },
+      "slackChannel": {
+        "x-id": "950c28f7-b5e7-4e51-9150-e5f7397a9eee",
+        "type": "string"
+      },
+      "confluenceSpace": {
+        "x-id": "a9bb5a7b-f3f2-40f4-85d3-c013b145d344",
+        "type": "string"
+      },
+      "oncallRotation": {
+        "x-id": "c2b87979-4e1b-4da1-bb77-4bc8e314fb8a",
+        "type": "string"
+      },
+      "tags": {
+        "x-id": "d78d73be-583c-4407-998c-cb8aeade58b5",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

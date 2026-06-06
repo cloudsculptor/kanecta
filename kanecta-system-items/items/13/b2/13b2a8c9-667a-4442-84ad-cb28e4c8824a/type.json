@@ -15,14 +15,17 @@
     "type": "object",
     "properties": {
       "title": {
+        "x-id": "b8541940-c5b4-4607-9bfe-4b438818d117",
         "type": "string",
         "description": "Step title."
       },
       "instructions": {
+        "x-id": "ec34c2e5-0d08-4197-b262-e3e0f162508e",
         "type": "string",
         "description": "Detailed instructions."
       },
       "expectedOutcome": {
+        "x-id": "4906d81c-8776-499c-908b-0b8ce5801a97",
         "type": "string",
         "description": "Expected state after this step."
       }

@@ -15,10 +15,12 @@
     "type": "object",
     "properties": {
       "environment": {
+        "x-id": "0b800a95-9b2c-4a54-9b3b-6bca322109e2",
         "type": "string",
         "description": "Deployment environment name."
       },
       "url": {
+        "x-id": "9259a3e0-0f16-45e4-b9e3-afdaa129cec3",
         "type": "string",
         "description": "URL of the deployed instance."
       }

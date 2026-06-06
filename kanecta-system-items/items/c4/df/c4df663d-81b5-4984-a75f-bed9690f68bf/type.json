@@ -15,14 +15,17 @@
     "type": "object",
     "properties": {
       "name": {
+        "x-id": "f77b30e5-8da5-480c-9490-f7e0ffe7d055",
         "type": "string",
         "description": "Constraint name."
       },
       "type": {
+        "x-id": "9e5176ad-be0d-4673-bf10-50731444f04b",
         "type": "string",
         "description": "Constraint type (e.g. CHECK, UNIQUE)."
       },
       "expression": {
+        "x-id": "7f692c13-7a16-49e4-ad12-f2df1d22ee96",
         "type": "string",
         "description": "Constraint expression."
       }

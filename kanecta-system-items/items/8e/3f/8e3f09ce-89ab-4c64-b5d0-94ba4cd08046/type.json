@@ -15,18 +15,22 @@
     "type": "object",
     "properties": {
       "name": {
+        "x-id": "e2a98612-3318-4257-8a07-929a7272eeae",
         "type": "string",
         "description": "Parameter name."
       },
       "description": {
+        "x-id": "c4a32511-2c56-456a-9327-1d9f6fb7e607",
         "type": "string",
         "description": "What this parameter represents."
       },
       "required": {
+        "x-id": "5b854e10-d1a2-4ba4-aa30-be847d676fc4",
         "type": "boolean",
         "description": "Whether the parameter is required."
       },
       "example": {
+        "x-id": "132d455f-792d-4ea9-9d51-7d02977a7f24",
         "type": "string",
         "description": "Example value."
       }

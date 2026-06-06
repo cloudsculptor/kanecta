@@ -1,1 +1,68 @@
-{"meta":{"icon":"Cloud","description":"A deployment environment such as dev, staging or production","keywords":"environment dev staging production infrastructure","tags":"software,development,infrastructure"},"jsonSchema":{"$schema":"http://json-schema.org/draft-07/schema#","title":"Environment","type":"object","required":["name","type"],"properties":{"name":{"type":"string"},"type":{"type":"string","enum":["local","development","staging","production"]},"baseUrl":{"type":"string","format":"uri"},"status":{"type":"string","enum":["active","degraded","down","maintenance"]},"services":{"type":"array","items":{"type":"string"}},"owner":{"type":"string","format":"email"},"accessInstructions":{"type":"string"},"configNotes":{"type":"string"}}}}
+{
+  "meta": {
+    "icon": "Cloud",
+    "description": "A deployment environment such as dev, staging or production",
+    "keywords": "environment dev staging production infrastructure",
+    "tags": "software,development,infrastructure"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Environment",
+    "type": "object",
+    "required": [
+      "name",
+      "type"
+    ],
+    "properties": {
+      "name": {
+        "x-id": "06103f54-c08b-4bf0-a413-05a05a5481f5",
+        "type": "string"
+      },
+      "type": {
+        "x-id": "9523c1a8-15d4-4026-8676-382ab345cac9",
+        "type": "string",
+        "enum": [
+          "local",
+          "development",
+          "staging",
+          "production"
+        ]
+      },
+      "baseUrl": {
+        "x-id": "e47f7b40-50a8-4e79-bbcd-5c3cae87fb8b",
+        "type": "string",
+        "format": "uri"
+      },
+      "status": {
+        "x-id": "2f874cba-5b6d-4e7c-a1a3-e731fde05b8c",
+        "type": "string",
+        "enum": [
+          "active",
+          "degraded",
+          "down",
+          "maintenance"
+        ]
+      },
+      "services": {
+        "x-id": "16decf41-ac21-403e-9e40-39d665a8244a",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "owner": {
+        "x-id": "1895e4d1-3f2e-4242-909a-fffc4a042c01",
+        "type": "string",
+        "format": "email"
+      },
+      "accessInstructions": {
+        "x-id": "cf3d28b2-0ac4-43de-a501-25121bbe684e",
+        "type": "string"
+      },
+      "configNotes": {
+        "x-id": "2688c5bb-28c6-46ef-a186-fe5c2fbb8a1c",
+        "type": "string"
+      }
+    }
+  }
+}

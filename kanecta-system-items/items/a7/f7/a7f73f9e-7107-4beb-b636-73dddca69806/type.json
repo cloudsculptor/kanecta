@@ -15,20 +15,24 @@
     "type": "object",
     "properties": {
       "question": {
+        "x-id": "82fcb349-88b5-42b1-a4fd-e327a950a1ca",
         "type": "string",
         "description": "The question."
       },
       "assigneeId": {
+        "x-id": "d61a8f63-6c91-48a5-8502-fcde6fa62e05",
         "type": "string",
         "format": "uuid",
         "typeId": "76cb2b16-455f-48e1-ae6a-4d11a5a7b66d",
         "description": "UUID of the Person assigned to resolve this."
       },
       "answer": {
+        "x-id": "eadd06c6-e51e-481e-962d-1de5b2ab9474",
         "type": "string",
         "description": "Answer or resolution once known."
       },
       "status": {
+        "x-id": "de3965dd-c029-4fc7-94ad-24d935e2dc79",
         "type": "string",
         "description": "Status (e.g. open, resolved, deferred)."
       }

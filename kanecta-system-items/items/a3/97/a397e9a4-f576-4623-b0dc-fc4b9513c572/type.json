@@ -1,7 +1,7 @@
 {
   "meta": {
     "icon": "Lightbulb",
-    "description": "An org-level domain concept \u2014 definition, provenance, and relationships for knowledge graph use",
+    "description": "An org-level domain concept — definition, provenance, and relationships for knowledge graph use",
     "keywords": [
       "concept",
       "domain",
@@ -25,10 +25,12 @@
     "additionalProperties": false,
     "properties": {
       "abbreviation": {
+        "x-id": "96ba1250-1804-47e8-8d57-f12bb361e6c8",
         "type": "string",
         "description": "Short abbreviation, e.g. NoC"
       },
       "aliases": {
+        "x-id": "9f9e47bf-36ef-4784-b2e5-16d26c1f02f8",
         "type": "array",
         "items": {
           "type": "string"
@@ -36,6 +38,7 @@
         "description": "Other names this concept goes by"
       },
       "category": {
+        "x-id": "9a3fca85-69ea-4612-b894-387a6ea34034",
         "type": "string",
         "enum": [
           "legal instrument",
@@ -48,6 +51,7 @@
         ]
       },
       "status": {
+        "x-id": "db535eca-8c58-464c-abc2-4f1913e65792",
         "type": "string",
         "enum": [
           "active",
@@ -57,15 +61,18 @@
         ]
       },
       "briefSummary": {
+        "x-id": "4d31840a-fcc3-487f-b34c-c212e002eea9",
         "type": "string",
         "description": "1-2 sentence summary"
       },
       "comprehensiveSummary": {
+        "x-id": "a9e55c99-60a3-4a9e-b4fa-462f0eecb6eb",
         "type": "string",
         "contentMediaType": "text/markdown",
         "description": "Full detailed description in markdown"
       },
       "sources": {
+        "x-id": "5ba91e3e-c9d9-43e9-96f2-6d33cf93722d",
         "type": "array",
         "items": {
           "type": "string",
@@ -75,6 +82,7 @@
         "description": "UUIDs of Website items used as sources for this concept"
       },
       "relatedConcepts": {
+        "x-id": "cad95f13-5e9e-4430-929e-a477bc6e4784",
         "type": "array",
         "items": {
           "type": "string",
@@ -84,6 +92,7 @@
         "description": "UUIDs of other Domain Concept items"
       },
       "applicableSystems": {
+        "x-id": "df2cf52f-5bce-4a9a-9b19-98a144463cc8",
         "type": "array",
         "items": {
           "type": "string"

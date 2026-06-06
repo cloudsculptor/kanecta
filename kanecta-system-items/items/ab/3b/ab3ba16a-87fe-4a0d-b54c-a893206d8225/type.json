@@ -26,9 +26,11 @@
     ],
     "properties": {
       "title": {
+        "x-id": "a14a2ffa-c0a7-4be8-969a-101b17624b0c",
         "type": "string"
       },
       "useCases": {
+        "x-id": "2c0c7901-42d6-4ed5-a78b-422f563a5f21",
         "type": "array",
         "items": {
           "type": "string"
@@ -36,32 +38,39 @@
         "minItems": 1
       },
       "documentOwner": {
+        "x-id": "6fdf9a1e-57de-41b0-bb4e-d6225d9240a8",
         "type": "string"
       },
       "designer": {
+        "x-id": "287af09e-470b-4ef3-86f9-52bc04cc5f3c",
         "type": "string"
       },
       "techLeads": {
+        "x-id": "b4e85593-7782-4927-9df1-e3d93d135773",
         "type": "array",
         "items": {
           "type": "string"
         }
       },
       "qa": {
+        "x-id": "b76a4d39-63c1-4b32-a574-6c73dcb5b4cc",
         "type": "array",
         "items": {
           "type": "string"
         }
       },
       "figma": {
+        "x-id": "5bb37702-485c-4e6a-9d06-00ca2863436b",
         "type": "string",
         "format": "uri"
       },
       "detailedDesign": {
+        "x-id": "4ebf0c2c-8e97-4c0e-93f3-aa0e4dc701eb",
         "type": "string",
         "format": "uri"
       },
       "currentState": {
+        "x-id": "5a7ac220-7dde-440e-8048-c0892a7cab96",
         "type": "array",
         "items": {
           "type": "string",
@@ -69,20 +78,24 @@
         }
       },
       "assumptions": {
+        "x-id": "6370adba-a574-4cb4-8e3d-31f0c2f0b775",
         "type": "string",
         "contentMediaType": "text/markdown"
       },
       "outOfScope": {
+        "x-id": "a063d018-1d5e-442d-b132-180226ca11c3",
         "type": "array",
         "items": {
           "type": "string"
         }
       },
       "businessProcessUpstream": {
+        "x-id": "1a2764c0-df31-4c56-97c8-d8c177e8244f",
         "type": "string",
         "description": "Upstream business process context."
       },
       "businessProcessDownstream": {
+        "x-id": "0fadb861-f7fa-419a-a9ae-1004836fd278",
         "type": "string",
         "description": "Downstream business process context."
       }

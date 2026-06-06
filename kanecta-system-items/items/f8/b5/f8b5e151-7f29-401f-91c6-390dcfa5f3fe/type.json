@@ -26,22 +26,27 @@
     ],
     "properties": {
       "name": {
+        "x-id": "8af37976-36c0-4be5-a814-e9837ff8807d",
         "type": "string",
         "description": "Repository name, e.g. landonline-admin-portal"
       },
       "owner": {
+        "x-id": "cfabe907-449e-4646-8e3a-cbd1c65ff825",
         "type": "string",
         "description": "GitHub org or user, e.g. acme"
       },
       "url": {
+        "x-id": "b1f6adf9-4204-4a6b-97fd-c611ff87b1e4",
         "type": "string",
         "format": "uri",
         "description": "Full GitHub URL"
       },
       "description": {
+        "x-id": "195ebef0-f371-48b4-84c2-0962f9441755",
         "type": "string"
       },
       "visibility": {
+        "x-id": "af1fff2f-264b-4491-b928-2e2f30ae889f",
         "type": "string",
         "enum": [
           "public",
@@ -50,14 +55,17 @@
         ]
       },
       "defaultBranch": {
+        "x-id": "2b192ba1-82bd-45c1-87b9-806681300218",
         "type": "string",
         "default": "main"
       },
       "language": {
+        "x-id": "f94877e5-8898-4407-814a-78ca60e73d85",
         "type": "string",
         "description": "Primary language, e.g. Kotlin, TypeScript"
       },
       "topics": {
+        "x-id": "c666a2c1-f1ed-478d-a0e9-a70a145efb38",
         "type": "array",
         "items": {
           "type": "string"
@@ -65,10 +73,12 @@
         "uniqueItems": true
       },
       "archived": {
+        "x-id": "2d6ca19f-5218-4df7-89df-33525be4fed3",
         "type": "boolean",
         "default": false
       },
       "relatedServices": {
+        "x-id": "61d22cdf-9f45-4ab0-8ec5-456db76b7d34",
         "type": "array",
         "items": {
           "type": "string"
@@ -77,6 +87,7 @@
         "description": "Names of other repos/services this one depends on or integrates with"
       },
       "codeowners": {
+        "x-id": "467a0327-ce16-4bf4-b714-982887464023",
         "type": "array",
         "items": {
           "type": "string"
@@ -84,6 +95,7 @@
         "uniqueItems": true
       },
       "packageManager": {
+        "x-id": "20b8f6ea-722e-4bd8-80df-10528463037d",
         "type": "string",
         "enum": [
           "npm",
@@ -97,22 +109,27 @@
         ]
       },
       "cloneUrl": {
+        "x-id": "4953c459-0e87-427d-8582-0230eb31f01e",
         "type": "string",
         "format": "uri"
       },
       "stackFrontend": {
+        "x-id": "70a6f74e-b15d-46b4-bec4-ff7bd7ccb1e9",
         "type": "string",
         "description": "Frontend technology stack."
       },
       "stackBackend": {
+        "x-id": "5312452b-e647-4c49-96ce-70ede7307ae4",
         "type": "string",
         "description": "Backend technology stack."
       },
       "stackInfrastructure": {
+        "x-id": "e8fd0743-2034-409e-812a-8c0d1ce5af67",
         "type": "string",
         "description": "Infrastructure stack."
       },
       "stackCiCd": {
+        "x-id": "fa9ca496-45b6-4f66-ab80-58475c3989de",
         "type": "string",
         "description": "CI/CD tooling."
       }
