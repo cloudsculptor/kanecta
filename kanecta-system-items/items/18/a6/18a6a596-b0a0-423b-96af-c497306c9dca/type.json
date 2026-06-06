@@ -15,22 +15,27 @@
     "type": "object",
     "properties": {
       "name": {
+        "x-id": "c9d38299-4794-4b9e-9948-c33c120dc22a",
         "type": "string",
         "description": "Parameter name."
       },
       "in": {
+        "x-id": "6010db2b-dc0e-49d3-9b26-a358a78fdf88",
         "type": "string",
         "description": "Location: path, query, header, or body."
       },
       "description": {
+        "x-id": "73aab9b7-0adb-444b-bf97-e3a9c3a4aa7e",
         "type": "string",
         "description": "What this parameter does."
       },
       "required": {
+        "x-id": "5f850415-1502-40c1-8995-15f8888e51e4",
         "type": "boolean",
         "description": "Whether the parameter is required."
       },
       "dataType": {
+        "x-id": "83b9e80d-2fbe-476a-83ec-3f6eb71c235d",
         "type": "string",
         "description": "Data type (e.g. string, integer)."
       }

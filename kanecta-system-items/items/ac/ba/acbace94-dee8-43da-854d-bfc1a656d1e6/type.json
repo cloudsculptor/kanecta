@@ -15,10 +15,12 @@
     "type": "object",
     "properties": {
       "option": {
+        "x-id": "8ec9e6a8-5cc3-4e7e-912f-1a4cf54c08e7",
         "type": "string",
         "description": "Description of the alternative."
       },
       "tradeoffs": {
+        "x-id": "8c777a13-c122-43e9-8e5e-a6141141b41e",
         "type": "string",
         "description": "Key tradeoffs of this option."
       }

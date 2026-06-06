@@ -1,7 +1,7 @@
 {
   "meta": {
     "icon": "Code",
-    "description": "Backend implementation details for a Detailed Design \u2014 one instance per design.",
+    "description": "Backend implementation details for a Detailed Design — one instance per design.",
     "keywords": "detailed design backend implementation",
     "tags": "detailed,design,backend,implementation",
     "sync": [],
@@ -15,26 +15,31 @@
     "type": "object",
     "properties": {
       "serviceId": {
+        "x-id": "3a8efa27-c854-4747-b0c6-b54751d1fba8",
         "type": "string",
         "format": "uuid",
         "typeId": "68b4c3a2-266c-4a4e-b7dc-507a06ba95a5",
         "description": "UUID of the Service being implemented."
       },
       "gradleModule": {
+        "x-id": "9a65875c-f6d3-4b9a-ad59-b18f8d23595c",
         "type": "string",
         "description": "Gradle module name."
       },
       "featureToggleId": {
+        "x-id": "0391ea44-8fff-4ecf-8285-5e66c03ae3d2",
         "type": "string",
         "format": "uuid",
         "typeId": "0411d6fb-3160-4db6-bd91-93c6260689b2",
         "description": "UUID of the controlling Feature Flag."
       },
       "adminActionConstant": {
+        "x-id": "fa51e8f4-e5b6-4fbf-a78c-ce814ec61bc3",
         "type": "string",
         "description": "Admin action constant name."
       },
       "notes": {
+        "x-id": "00178c96-4ccd-4fb5-8b1a-77a22975783f",
         "type": "string",
         "description": "Additional implementation notes."
       }

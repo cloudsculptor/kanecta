@@ -1,7 +1,7 @@
 {
   "meta": {
     "icon": "Storage",
-    "description": "Data structure references for a Detailed Design \u2014 one instance per design.",
+    "description": "Data structure references for a Detailed Design — one instance per design.",
     "keywords": "detailed design data structures",
     "tags": "detailed,design,data,structures",
     "sync": [],
@@ -15,6 +15,7 @@
     "type": "object",
     "properties": {
       "tables": {
+        "x-id": "4f24e5d8-20df-4247-ae37-09f97575667e",
         "type": "array",
         "items": {
           "type": "string",
@@ -23,10 +24,12 @@
         "description": "UUIDs of Database Table items involved."
       },
       "erd": {
+        "x-id": "509c0f69-4eba-42c1-abf3-f23adbed9b79",
         "type": "string",
         "description": "ERD URL or description."
       },
       "notes": {
+        "x-id": "08cd4680-684b-4798-96ef-0fa90565be41",
         "type": "string",
         "description": "Additional notes."
       }

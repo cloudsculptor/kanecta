@@ -18,38 +18,48 @@
     ],
     "properties": {
       "name": {
+        "x-id": "d22934bf-ff9d-4f55-bd3b-df5b9c7b4a6c",
         "type": "string"
       },
       "description": {
+        "x-id": "fa56a31d-38d3-490f-82b9-c4481ac38698",
         "type": "string"
       },
       "repository": {
+        "x-id": "0649f423-6ca1-4146-b0ef-ddb7591f687b",
         "type": "string"
       },
       "language": {
+        "x-id": "4ca17b4b-6985-4e1b-9b27-1e714128b716",
         "type": "string"
       },
       "team": {
+        "x-id": "3acab5b3-3fad-4910-9388-67fb688090d1",
         "type": "string"
       },
       "owner": {
+        "x-id": "ac9d03ff-d122-4cb3-b716-21d72fce1137",
         "type": "string",
         "format": "email"
       },
       "dependencies": {
+        "x-id": "15d7beca-8012-4c04-9818-b9f81f35b8b1",
         "type": "array",
         "items": {
           "type": "string"
         }
       },
       "healthCheckUrl": {
+        "x-id": "6b95c796-6fcc-4089-af05-118313b8747c",
         "type": "string",
         "format": "uri"
       },
       "runbook": {
+        "x-id": "53961495-26f5-4b06-9e67-7c41e217eb1d",
         "type": "string"
       },
       "tags": {
+        "x-id": "2503d6af-8b5b-4e57-9762-52fa5564f14d",
         "type": "array",
         "items": {
           "type": "string"

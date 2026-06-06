@@ -1,7 +1,7 @@
 {
   "meta": {
     "icon": "Psychology",
-    "description": "A Claude AI skill \u2014 a named procedure Claude follows when invoked",
+    "description": "A Claude AI skill — a named procedure Claude follows when invoked",
     "keywords": [
       "skill",
       "claude",
@@ -27,14 +27,17 @@
     ],
     "properties": {
       "name": {
+        "x-id": "9ed5de8b-fd21-4228-adc3-26cbd4b5d39a",
         "type": "string",
         "description": "Short kebab-case slug used to invoke the skill, e.g. review-pr"
       },
       "description": {
+        "x-id": "aa3d582b-6c12-429f-aa77-6ecf49b70f00",
         "type": "string",
         "description": "One or two sentence summary shown to the user and used by Claude to decide when to trigger the skill"
       },
       "triggerConditions": {
+        "x-id": "045af48c-3816-4ab1-9afa-05790229f589",
         "type": "array",
         "items": {
           "type": "string"
@@ -42,6 +45,7 @@
         "description": "Phrases, patterns or contexts that should cause Claude to invoke this skill"
       },
       "skipConditions": {
+        "x-id": "d947e3c0-8194-435e-a499-cf86a1114d7b",
         "type": "array",
         "items": {
           "type": "string"
@@ -49,11 +53,13 @@
         "description": "Conditions where this skill should NOT be triggered despite apparent relevance"
       },
       "instructions": {
+        "x-id": "27c06302-7e61-4d1f-9366-43461f2844df",
         "type": "string",
         "contentMediaType": "text/markdown",
         "description": "The full step-by-step procedure Claude follows when the skill is invoked"
       },
       "tools": {
+        "x-id": "c38b9abe-f429-474e-920e-7b1677bcf45c",
         "type": "array",
         "items": {
           "type": "string"
@@ -62,11 +68,13 @@
         "description": "MCP tools or Claude Code tools this skill relies on, e.g. mcp__kanecta__kanecta_get"
       },
       "outputFormat": {
+        "x-id": "2d010d61-91b2-417a-9b29-144deda65ae0",
         "type": "string",
         "contentMediaType": "text/markdown",
         "description": "Description of what the skill produces or returns to the user"
       },
       "relatedSkills": {
+        "x-id": "08855cfe-4610-4d29-aa0b-aa7b0e50cb0b",
         "type": "array",
         "items": {
           "type": "string"
@@ -75,13 +83,16 @@
         "description": "Names of other skills this one calls or is related to"
       },
       "version": {
+        "x-id": "a5432892-ca9e-4f53-9417-08143c99019b",
         "type": "string"
       },
       "author": {
+        "x-id": "eb3e692d-eaa3-4669-9516-01e88743845c",
         "type": "string",
         "format": "email"
       },
       "tags": {
+        "x-id": "08afef97-8740-4362-a9de-c6adae64d0dd",
         "type": "array",
         "items": {
           "type": "string"

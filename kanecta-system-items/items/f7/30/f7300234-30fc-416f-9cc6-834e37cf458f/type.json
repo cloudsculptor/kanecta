@@ -15,22 +15,27 @@
     "type": "object",
     "properties": {
       "profile": {
+        "x-id": "89238793-2a29-4643-bf4a-cc9313f82a1d",
         "type": "string",
         "description": "User profile or role name."
       },
       "view": {
+        "x-id": "0bd8d860-60c8-4fd1-b81f-a115e3676b26",
         "type": "boolean",
         "description": "Can view."
       },
       "modify": {
+        "x-id": "e7004034-7835-40a8-b0c4-b695f8e9bec8",
         "type": "boolean",
         "description": "Can modify."
       },
       "create": {
+        "x-id": "98cc5f07-4d56-413c-94fa-dfcb4eea39aa",
         "type": "boolean",
         "description": "Can create."
       },
       "delete": {
+        "x-id": "6ee39604-9c03-463d-8163-d7dd01d213b6",
         "type": "boolean",
         "description": "Can delete."
       }

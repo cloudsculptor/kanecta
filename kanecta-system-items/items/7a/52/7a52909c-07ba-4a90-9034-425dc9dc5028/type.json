@@ -1,1 +1,76 @@
-{"meta":{"icon":"WorkOutline","description":"A project — a personal or team initiative with an outcome and next action","keywords":"project initiative work outcome PARA","tags":"personal,organiser,productivity"},"jsonSchema":{"$schema":"http://json-schema.org/draft-07/schema#","title":"Project","type":"object","required":["title","status"],"properties":{"title":{"type":"string"},"description":{"type":"string"},"outcome":{"type":"string"},"status":{"type":"string","enum":["active","on-hold","completed","cancelled"]},"owner":{"type":"string","format":"email"},"dueDate":{"type":"string","format":"date"},"nextAction":{"type":"string"},"areas":{"type":"array","items":{"type":"string"}},"relatedGoals":{"type":"array","items":{"type":"string"}},"tags":{"type":"array","items":{"type":"string"}}}}}
+{
+  "meta": {
+    "icon": "WorkOutline",
+    "description": "A project — a personal or team initiative with an outcome and next action",
+    "keywords": "project initiative work outcome PARA",
+    "tags": "personal,organiser,productivity"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Project",
+    "type": "object",
+    "required": [
+      "title",
+      "status"
+    ],
+    "properties": {
+      "title": {
+        "x-id": "9ebbd78d-acac-4942-a3da-e3750cda94f6",
+        "type": "string"
+      },
+      "description": {
+        "x-id": "89429e26-ea0b-4136-b8df-3fe30887e6e1",
+        "type": "string"
+      },
+      "outcome": {
+        "x-id": "da3ffbb3-18a5-45a3-9161-26037216e414",
+        "type": "string"
+      },
+      "status": {
+        "x-id": "e8885443-7856-46bf-bed8-3ea249dbda1a",
+        "type": "string",
+        "enum": [
+          "active",
+          "on-hold",
+          "completed",
+          "cancelled"
+        ]
+      },
+      "owner": {
+        "x-id": "949a44aa-6199-464d-a67a-6fba184ce2d9",
+        "type": "string",
+        "format": "email"
+      },
+      "dueDate": {
+        "x-id": "f6705dfb-d605-47f4-b971-cd23623dc3c5",
+        "type": "string",
+        "format": "date"
+      },
+      "nextAction": {
+        "x-id": "043da70a-0245-47f9-a783-d5a82814d517",
+        "type": "string"
+      },
+      "areas": {
+        "x-id": "aaca0d4e-2076-4c99-b063-414268fddeb8",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "relatedGoals": {
+        "x-id": "4a8002d0-2d1a-461a-9fb4-009e6fe10ed3",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "tags": {
+        "x-id": "bae6f642-e4c2-4a45-90e1-daaeff6a6abd",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

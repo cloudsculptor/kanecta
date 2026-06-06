@@ -31,13 +31,16 @@
     ],
     "properties": {
       "subject": {
+        "x-id": "41ee6deb-d755-4c00-b2b5-525658cbd7c8",
         "type": "string",
         "format": "uuid"
       },
       "assessedBy": {
+        "x-id": "288df104-ee33-4ce4-99fb-a62f7f817ddf",
         "type": "string"
       },
       "readinessScore": {
+        "x-id": "65e763af-a8fc-4923-afe1-edc09f000894",
         "type": "number",
         "minimum": 0,
         "maximum": 10

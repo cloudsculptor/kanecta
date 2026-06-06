@@ -1,7 +1,7 @@
 {
   "meta": {
     "icon": "MenuBook",
-    "description": "Reference document links for a Detailed Design \u2014 one instance per design.",
+    "description": "Reference document links for a Detailed Design — one instance per design.",
     "keywords": "detailed design references",
     "tags": "detailed,design,references",
     "sync": [],
@@ -15,28 +15,33 @@
     "type": "object",
     "properties": {
       "currentStateId": {
+        "x-id": "a2fd7726-9c7f-4396-84a4-fee02967e1ca",
         "type": "string",
         "format": "uuid",
         "typeId": "ab3ba16a-87fe-4a0d-b54c-a893206d8225",
         "description": "UUID of the Current State document."
       },
       "futureStateId": {
+        "x-id": "2e76516e-dd53-40d7-9ddf-3c71eaf6c117",
         "type": "string",
         "format": "uuid",
         "typeId": "ab3ba16a-87fe-4a0d-b54c-a893206d8225",
         "description": "UUID of the Future State document."
       },
       "figma": {
+        "x-id": "c1cbbc34-1f31-4f6c-9191-5d7f6f061a25",
         "type": "string",
         "description": "Figma design file URL."
       },
       "confluencePageId": {
+        "x-id": "313af3ae-a5da-455a-b17a-f4c99a5e89fd",
         "type": "string",
         "format": "uuid",
         "typeId": "923e9fec-f285-4043-a5fc-3ade5f63d3f5",
         "description": "UUID of the related Confluence page."
       },
       "epics": {
+        "x-id": "4cba4580-b4c4-4419-b6d0-f6f7e9586eca",
         "type": "array",
         "items": {
           "type": "string",
@@ -45,18 +50,21 @@
         "description": "UUIDs of related Epic items."
       },
       "backendRepoId": {
+        "x-id": "1852046d-cb50-492b-a343-7ec4cbb534a1",
         "type": "string",
         "format": "uuid",
         "typeId": "f8b5e151-7f29-401f-91c6-390dcfa5f3fe",
         "description": "UUID of the backend Repository."
       },
       "frontendRepoId": {
+        "x-id": "cb704333-f402-47ab-a395-cbb80413540d",
         "type": "string",
         "format": "uuid",
         "typeId": "f8b5e151-7f29-401f-91c6-390dcfa5f3fe",
         "description": "UUID of the frontend Repository."
       },
       "legacyScreen": {
+        "x-id": "0b0bea68-f305-4bb6-ac84-1f76e5d84227",
         "type": "string",
         "description": "Legacy screen description or URL."
       }

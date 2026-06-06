@@ -15,14 +15,17 @@
     "type": "object",
     "properties": {
       "condition": {
+        "x-id": "e54fb6b1-5e25-4195-9e8c-db06840753a0",
         "type": "string",
         "description": "Condition to evaluate."
       },
       "ifYes": {
+        "x-id": "a32407ee-9d4d-4eb3-9e9f-135ef4716d92",
         "type": "string",
         "description": "What to do if condition is true."
       },
       "ifNo": {
+        "x-id": "8609d999-193d-4523-a0fc-73a1bd393e8a",
         "type": "string",
         "description": "What to do if condition is false."
       }

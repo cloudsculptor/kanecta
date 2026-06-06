@@ -1,7 +1,7 @@
 {
   "meta": {
     "icon": "ToggleOn",
-    "description": "A feature flag \u2014 a toggle controlling feature visibility per environment or rollout",
+    "description": "A feature flag — a toggle controlling feature visibility per environment or rollout",
     "keywords": "feature flag toggle Split.io LaunchDarkly rollout",
     "tags": "software,development,operations",
     "sync": [],
@@ -19,15 +19,19 @@
     ],
     "properties": {
       "name": {
+        "x-id": "bb4a4070-6372-4e08-a778-f1139fc45996",
         "type": "string"
       },
       "flagKey": {
+        "x-id": "0520d4c6-07e7-4c9e-ba57-9ceed9b26186",
         "type": "string"
       },
       "description": {
+        "x-id": "494022f2-18ce-41c8-9969-df1588f65001",
         "type": "string"
       },
       "platform": {
+        "x-id": "d8b6a65b-5225-453e-a22d-1a4bdc18500b",
         "type": "string",
         "enum": [
           "Split.io",
@@ -37,10 +41,12 @@
         ]
       },
       "owner": {
+        "x-id": "fbf7fa6c-c7cc-45cc-97b2-d4f866962970",
         "type": "string",
         "format": "email"
       },
       "status": {
+        "x-id": "d561670c-5ae9-4719-b84c-0c97912b1349",
         "type": "string",
         "enum": [
           "enabled",
@@ -49,17 +55,20 @@
         ]
       },
       "rolloutPercentage": {
+        "x-id": "542a99d2-c054-417b-9982-cc8b826ca6ed",
         "type": "number",
         "minimum": 0,
         "maximum": 100
       },
       "linkedTickets": {
+        "x-id": "548a7662-946c-461a-8abf-b0850ebb1ddf",
         "type": "array",
         "items": {
           "type": "string"
         }
       },
       "cleanupDate": {
+        "x-id": "b5cb0d44-8d69-4edb-848f-3262615303ad",
         "type": "string",
         "format": "date"
       }

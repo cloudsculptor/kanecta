@@ -15,18 +15,22 @@
     "type": "object",
     "properties": {
       "name": {
+        "x-id": "835037c5-bd3d-43fd-be79-9b7ac70951bc",
         "type": "string",
         "description": "Integration name."
       },
       "description": {
+        "x-id": "58fd82b3-2c81-4827-bb50-cc9bc8e07e3f",
         "type": "string",
         "description": "What this integration does."
       },
       "contributes": {
+        "x-id": "4e83ebe0-e25c-4335-bd39-8ff09c961325",
         "type": "string",
         "description": "What it contributes to the pipeline."
       },
       "status": {
+        "x-id": "c2682d9f-e6eb-4043-a362-b9f9adb5e254",
         "type": "string",
         "description": "Status (e.g. planned, active)."
       }

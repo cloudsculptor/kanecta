@@ -1,7 +1,7 @@
 {
   "meta": {
     "icon": "PlayCircleOutlined",
-    "description": "An instance of a Pipeline execution \u2014 records the artifact chain and per-step logs produced during a run",
+    "description": "An instance of a Pipeline execution — records the artifact chain and per-step logs produced during a run",
     "details": "",
     "keywords": [
       "pipeline",
@@ -13,7 +13,7 @@
     ],
     "tags": "",
     "skills": {
-      "claude": "A Pipeline Run is the live state and audit log of a pipeline execution. The 'steps' array is updated after each step completes \u2014 steps[N].output holds the Kanecta UUID of the artifact produced, which becomes the input for step N+1 (steps[N+1].input). The Pipeline Run item's children in the Kanecta tree are the artifact objects produced at each step. To resume a failed run, read the last completed step's output UUID and restart from the next step."
+      "claude": "A Pipeline Run is the live state and audit log of a pipeline execution. The 'steps' array is updated after each step completes — steps[N].output holds the Kanecta UUID of the artifact produced, which becomes the input for step N+1 (steps[N+1].input). The Pipeline Run item's children in the Kanecta tree are the artifact objects produced at each step. To resume a failed run, read the last completed step's output UUID and restart from the next step."
     },
     "sync": [],
     "supersededBy": [],
@@ -31,10 +31,12 @@
     ],
     "properties": {
       "pipeline": {
+        "x-id": "82fb1a16-a279-4cda-8d81-653b247faa5f",
         "type": "string",
         "format": "uuid"
       },
       "status": {
+        "x-id": "ab9f1805-d212-4aae-87ff-1195e4714346",
         "type": "string",
         "enum": [
           "pending",
@@ -44,10 +46,12 @@
         ]
       },
       "startedAt": {
+        "x-id": "c8f73882-6a11-4a43-9676-95cca75204bf",
         "type": "string",
         "format": "date-time"
       },
       "completedAt": {
+        "x-id": "cd2573ba-6f72-4d0b-9b33-6286802e2241",
         "type": "string",
         "format": "date-time"
       }

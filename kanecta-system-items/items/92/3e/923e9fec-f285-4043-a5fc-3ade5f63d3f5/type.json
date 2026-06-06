@@ -1,7 +1,7 @@
 {
   "meta": {
     "icon": "Article",
-    "description": "A harvested Confluence page \u2014 stores full content and enough metadata to sync or re-fetch via the Atlassian MCP",
+    "description": "A harvested Confluence page — stores full content and enough metadata to sync or re-fetch via the Atlassian MCP",
     "keywords": [
       "confluence",
       "wiki",
@@ -30,25 +30,31 @@
     "additionalProperties": false,
     "properties": {
       "pageId": {
+        "x-id": "ce127e69-e831-4416-80b0-0db69d42d418",
         "type": "string",
-        "description": "Confluence numeric page ID \u2014 used with cloudId to re-fetch via getConfluencePage"
+        "description": "Confluence numeric page ID — used with cloudId to re-fetch via getConfluencePage"
       },
       "cloudId": {
+        "x-id": "9e329d61-7e78-4ef9-addd-314a179b76e7",
         "type": "string",
         "description": "Atlassian cloud instance UUID, e.g. 657f2f03-a46f-4e79-b691-bc95a50cf1b7"
       },
       "spaceKey": {
+        "x-id": "d57931b2-09c2-4cc4-aeb2-5fd9955fbcb5",
         "type": "string",
         "description": "Confluence space key, e.g. STEP"
       },
       "spaceName": {
+        "x-id": "98ffffb9-ef08-4cf5-a240-91829b7ee8a5",
         "type": "string",
         "description": "Human-readable space name, e.g. STEP"
       },
       "title": {
+        "x-id": "ec55873e-3599-4f4b-9ad0-df100c819e9c",
         "type": "string"
       },
       "status": {
+        "x-id": "f01aa8d1-c482-46d8-8f92-dd4cfe93f5b2",
         "type": "string",
         "enum": [
           "current",
@@ -57,38 +63,46 @@
         ]
       },
       "version": {
+        "x-id": "98f16adf-5100-46ff-a05f-c576d56dfe37",
         "type": "integer",
         "description": "Page version number at time of harvest"
       },
       "versionAt": {
+        "x-id": "aba01ef6-e93e-474b-9365-fbfa466d5160",
         "type": "string",
         "format": "date-time",
         "description": "When this version was created in Confluence"
       },
       "authorId": {
+        "x-id": "5378e8dc-00e0-4b29-a27f-38208e9f9a87",
         "type": "string",
         "description": "Atlassian account ID of the page author"
       },
       "parentPageId": {
+        "x-id": "58a95bf0-3f7f-4937-a016-e9bc441e2bdd",
         "type": "string",
         "description": "Confluence page ID of the parent page"
       },
       "webUrl": {
+        "x-id": "2a2e5d1f-3f8e-442e-88fb-7444c7a8c638",
         "type": "string",
         "format": "uri",
         "description": "Browser URL for this page in Confluence"
       },
       "content": {
+        "x-id": "8f8f0378-7b42-4fab-a3b7-4bc6ef25b6f0",
         "type": "string",
         "contentMediaType": "text/markdown",
         "description": "Page body converted to markdown"
       },
       "harvestedAt": {
+        "x-id": "1092759c-cce4-4555-87cb-1a8b31de8218",
         "type": "string",
         "format": "date-time",
         "description": "ISO 8601 timestamp when this page was fetched"
       },
       "harvestSkill": {
+        "x-id": "6c76f9c0-3320-42fd-89df-953e27a03da3",
         "type": "string",
         "format": "uuid",
         "description": "UUID of the Skill item used to harvest this page"

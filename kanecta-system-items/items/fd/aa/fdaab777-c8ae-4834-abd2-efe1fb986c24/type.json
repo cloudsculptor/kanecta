@@ -21,9 +21,11 @@
     ],
     "properties": {
       "statement": {
+        "x-id": "8ac1f241-924e-4796-83ae-fef31cc0d1cc",
         "type": "string"
       },
       "format": {
+        "x-id": "7afad61e-0d31-4d08-8fa4-3b917c23a60f",
         "type": "string",
         "enum": [
           "GWT",
@@ -32,6 +34,7 @@
         ]
       },
       "status": {
+        "x-id": "7bf85387-613c-4bde-8c8d-19d273833919",
         "type": "string",
         "enum": [
           "Draft",
@@ -41,15 +44,19 @@
         ]
       },
       "given": {
+        "x-id": "76cad343-b317-4065-9358-2511c44b69ce",
         "type": "string"
       },
       "when": {
+        "x-id": "8edf3eb3-9f90-43b7-9d49-41d6f2efda27",
         "type": "string"
       },
       "then": {
+        "x-id": "9f79de14-c312-4779-8a52-9fa66809ee5d",
         "type": "string"
       },
       "priority": {
+        "x-id": "86707698-cc7a-4469-8065-a9e2f1718764",
         "type": "string",
         "enum": [
           "Must",
@@ -58,33 +65,41 @@
         ]
       },
       "devComplete": {
+        "x-id": "32f09974-e306-46ac-9093-cc4ce85e59a5",
         "type": "boolean"
       },
       "epic": {
+        "x-id": "4f541093-849e-4c00-9375-bebb373c3e3d",
         "type": "string",
         "format": "uuid"
       },
       "ticket": {
+        "x-id": "fbba5071-5fe9-4b1b-bd18-c132b191e97d",
         "type": "string",
         "format": "uuid"
       },
       "agreedBy": {
+        "x-id": "b09be45a-719d-45a3-816e-0f11ce73f8ca",
         "type": "string",
         "format": "email"
       },
       "agreedAt": {
+        "x-id": "7e9a4e07-fd4b-4c44-9be9-de5bb303ecb9",
         "type": "string",
         "format": "date"
       },
       "verifiedBy": {
+        "x-id": "d89074b5-f5e7-4332-b8fc-d74fb2cd87ce",
         "type": "string",
         "format": "email"
       },
       "verifiedAt": {
+        "x-id": "8fe8834f-a013-420c-b4a8-2b3fbc2f482b",
         "type": "string",
         "format": "date"
       },
       "testCases": {
+        "x-id": "3b8eea28-c035-4d4a-8b3b-588655d1995b",
         "type": "array",
         "items": {
           "type": "string",
@@ -93,9 +108,11 @@
         "uniqueItems": true
       },
       "notes": {
+        "x-id": "9d002592-3a79-4bbb-9bb6-c7758fb3abde",
         "type": "string"
       },
       "attachments": {
+        "x-id": "19abf113-8dc3-46a3-a2e7-fe2532439fd5",
         "type": "array",
         "items": {
           "type": "string",

@@ -15,16 +15,19 @@
     "type": "object",
     "properties": {
       "environment": {
+        "x-id": "0846442d-dbef-4d4d-8569-61796a4f0d4f",
         "type": "string",
         "description": "Environment name (e.g. production, staging)."
       },
       "enabled": {
+        "x-id": "7434fc4b-261a-4e44-b23a-83916f7fe4be",
         "type": "boolean",
         "description": "Whether the flag is enabled in this environment."
       },
       "rolloutPercentage": {
+        "x-id": "17d75a34-b894-4732-8e4e-fb0bff35ec33",
         "type": "integer",
-        "description": "Percentage of users who see the flag enabled (0\u2013100)."
+        "description": "Percentage of users who see the flag enabled (0–100)."
       }
     },
     "required": []

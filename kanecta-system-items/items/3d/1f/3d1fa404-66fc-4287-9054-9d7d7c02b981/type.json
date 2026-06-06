@@ -15,14 +15,17 @@
     "type": "object",
     "properties": {
       "category": {
+        "x-id": "43da45f9-31a9-41bd-88ae-9fdc903c2b34",
         "type": "string",
         "description": "Blocker category (e.g. technical, dependency, knowledge gap)."
       },
       "description": {
+        "x-id": "b5531634-09ee-42e8-aaea-df2ecd97bb35",
         "type": "string",
         "description": "Description of the blocker."
       },
       "severity": {
+        "x-id": "600dc842-104f-4c73-b5d0-26be635324bc",
         "type": "string",
         "description": "Severity level (e.g. high, medium, low)."
       }

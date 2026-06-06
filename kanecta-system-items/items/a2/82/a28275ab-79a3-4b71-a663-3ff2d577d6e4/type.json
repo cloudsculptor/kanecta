@@ -1,1 +1,77 @@
-{"meta":{"icon":"RocketLaunch","description":"A versioned release — a deployment with changelog and affected services","keywords":"release deployment version changelog ship","tags":"software,development,operations"},"jsonSchema":{"$schema":"http://json-schema.org/draft-07/schema#","title":"Release","type":"object","required":["version","environment"],"properties":{"version":{"type":"string"},"name":{"type":"string"},"date":{"type":"string","format":"date"},"status":{"type":"string","enum":["planned","in-progress","released","rolled-back"]},"environment":{"type":"string","enum":["staging","production"]},"services":{"type":"array","items":{"type":"string"}},"changelog":{"type":"string"},"tickets":{"type":"array","items":{"type":"string"}},"deployedBy":{"type":"string","format":"email"},"rollbackPlan":{"type":"string"}}}}
+{
+  "meta": {
+    "icon": "RocketLaunch",
+    "description": "A versioned release — a deployment with changelog and affected services",
+    "keywords": "release deployment version changelog ship",
+    "tags": "software,development,operations"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Release",
+    "type": "object",
+    "required": [
+      "version",
+      "environment"
+    ],
+    "properties": {
+      "version": {
+        "x-id": "a682cced-f769-463d-b735-be3276b1e0e2",
+        "type": "string"
+      },
+      "name": {
+        "x-id": "924dbf93-1905-4810-b7d4-61e0f4ce8d85",
+        "type": "string"
+      },
+      "date": {
+        "x-id": "348c9fd3-12c5-4bfa-b380-8a6eacf5fc94",
+        "type": "string",
+        "format": "date"
+      },
+      "status": {
+        "x-id": "c33df708-1b5a-4e55-942d-0802286b2be3",
+        "type": "string",
+        "enum": [
+          "planned",
+          "in-progress",
+          "released",
+          "rolled-back"
+        ]
+      },
+      "environment": {
+        "x-id": "c2499adf-01b7-443b-b589-26150a1c6a21",
+        "type": "string",
+        "enum": [
+          "staging",
+          "production"
+        ]
+      },
+      "services": {
+        "x-id": "4b3b5610-d756-4d0d-a668-79150436ee10",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "changelog": {
+        "x-id": "c5326176-9fb9-4bb6-b8a7-a088e76062bb",
+        "type": "string"
+      },
+      "tickets": {
+        "x-id": "38d93229-af97-4f80-a842-35f89dda9086",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "deployedBy": {
+        "x-id": "2f547deb-9988-4789-9902-9ef2e91a82f7",
+        "type": "string",
+        "format": "email"
+      },
+      "rollbackPlan": {
+        "x-id": "7002223c-15f6-491a-bc8c-e41874eb8e3a",
+        "type": "string"
+      }
+    }
+  }
+}

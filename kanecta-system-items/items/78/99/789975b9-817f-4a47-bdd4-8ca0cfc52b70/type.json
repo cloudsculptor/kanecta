@@ -1,7 +1,7 @@
 {
   "meta": {
     "icon": "DescriptionOutlined",
-    "description": "Self-describing specification for a Kanecta pipeline \u2014 purpose, philosophy, step contracts, learning loops and planned integrations",
+    "description": "Self-describing specification for a Kanecta pipeline — purpose, philosophy, step contracts, learning loops and planned integrations",
     "keywords": "pipeline spec about description steps learning loops integrations",
     "tags": "pipeline,documentation",
     "skills": {
@@ -23,19 +23,24 @@
     "additionalProperties": false,
     "properties": {
       "purpose": {
+        "x-id": "6110fc04-964a-4a13-98fc-dc091bb6807c",
         "type": "string"
       },
       "philosophy": {
+        "x-id": "ba9eb3a4-a034-4719-9ad7-780700855723",
         "type": "string"
       },
       "version": {
+        "x-id": "81e936e1-fc3e-48cd-9798-d03eacf6d01b",
         "type": "string"
       },
       "inputType": {
+        "x-id": "3581707a-5049-4104-ab29-b4b2223ad55a",
         "type": "string",
         "description": "Human-readable name or UUID of the primary input type"
       },
       "outputType": {
+        "x-id": "464edf00-8f03-4a9c-bae7-0519d0097bbf",
         "type": "string",
         "description": "Human-readable name or UUID of the primary output type"
       }

@@ -15,10 +15,12 @@
     "type": "object",
     "properties": {
       "sha": {
+        "x-id": "4893a32b-1e1a-4799-a740-5676ceaeed1e",
         "type": "string",
         "description": "Commit SHA."
       },
       "message": {
+        "x-id": "6d154c44-efe4-46b8-91cc-ab2545efeaae",
         "type": "string",
         "description": "Commit message."
       }

@@ -15,10 +15,12 @@
     "type": "object",
     "properties": {
       "role": {
+        "x-id": "ef8a29e0-5c8f-4fac-bf23-e227f862eb64",
         "type": "string",
         "description": "Role name."
       },
       "responsibility": {
+        "x-id": "ca65b85d-06a5-4d5e-a615-7964a3d02882",
         "type": "string",
         "description": "What this role is responsible for."
       }
