@@ -1,0 +1,43 @@
+{
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "meta": {
+    "icon": "Loop",
+    "description": "A feedback or learning loop in a pipeline specification.",
+    "keywords": "learning loop",
+    "tags": "learning,loop"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Learning Loop",
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "description": "Loop name."
+      },
+      "description": {
+        "type": "string",
+        "description": "What is learned or fed back."
+      },
+      "type": {
+        "type": "string",
+        "description": "Type of learning loop."
+      },
+      "effect": {
+        "type": "string",
+        "description": "Effect on the pipeline."
+      },
+      "status": {
+        "type": "string",
+        "description": "Status (e.g. planned, active)."
+      }
+    },
+    "required": []
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_4d061861_f599_4d64_9c9a_00a077a232da\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"description\" TEXT,\n    \"type\" TEXT,\n    \"effect\" TEXT,\n    \"status\" TEXT,\n    CONSTRAINT \"pk_obj_4d061861_f599_4d64_9c9a_00a077a232da\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_4d061861f5994d64_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

@@ -1,1 +1,63 @@
-{"meta":{"icon":"Hub","description":"A deployed microservice or backend application","keywords":"service microservice backend application API","tags":"software,development,infrastructure"},"jsonSchema":{"$schema":"http://json-schema.org/draft-07/schema#","title":"Service","type":"object","required":["name"],"properties":{"name":{"type":"string"},"description":{"type":"string"},"repository":{"type":"string"},"language":{"type":"string"},"team":{"type":"string"},"owner":{"type":"string","format":"email"},"deployments":{"type":"array","items":{"type":"object","required":["environment","url"],"properties":{"environment":{"type":"string","enum":["development","staging","production"]},"url":{"type":"string","format":"uri"}}}},"dependencies":{"type":"array","items":{"type":"string"}},"healthCheckUrl":{"type":"string","format":"uri"},"runbook":{"type":"string"},"tags":{"type":"array","items":{"type":"string"}}}}}
+{
+  "meta": {
+    "icon": "Hub",
+    "description": "A deployed microservice or backend application",
+    "keywords": "service microservice backend application API",
+    "tags": "software,development,infrastructure"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Service",
+    "type": "object",
+    "required": [
+      "name"
+    ],
+    "properties": {
+      "name": {
+        "type": "string"
+      },
+      "description": {
+        "type": "string"
+      },
+      "repository": {
+        "type": "string"
+      },
+      "language": {
+        "type": "string"
+      },
+      "team": {
+        "type": "string"
+      },
+      "owner": {
+        "type": "string",
+        "format": "email"
+      },
+      "dependencies": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "healthCheckUrl": {
+        "type": "string",
+        "format": "uri"
+      },
+      "runbook": {
+        "type": "string"
+      },
+      "tags": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "sqlSchema": [
+    "CREATE TABLE \"obj_68b4c3a2_266c_4a4e_b7dc_507a06ba95a5\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"description\" TEXT,\n    \"repository\" TEXT,\n    \"language\" TEXT,\n    \"team\" TEXT,\n    \"owner\" TEXT,\n    \"dependencies\" TEXT[] NOT NULL DEFAULT '{}',\n    \"health_check_url\" TEXT,\n    \"runbook\" TEXT,\n    \"tags\" TEXT[] NOT NULL DEFAULT '{}',\n    CONSTRAINT \"pk_obj_68b4c3a2_266c_4a4e_b7dc_507a06ba95a5\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_68b4c3a2266c4a4e_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

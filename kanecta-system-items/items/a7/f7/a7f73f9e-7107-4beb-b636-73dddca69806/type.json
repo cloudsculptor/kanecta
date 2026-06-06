@@ -1,0 +1,41 @@
+{
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "meta": {
+    "icon": "Help",
+    "description": "An open question needing resolution, used in Future State and Detailed Design documents.",
+    "keywords": "open question",
+    "tags": "open,question"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Open Question",
+    "type": "object",
+    "properties": {
+      "question": {
+        "type": "string",
+        "description": "The question."
+      },
+      "assigneeId": {
+        "type": "string",
+        "format": "uuid",
+        "typeId": "76cb2b16-455f-48e1-ae6a-4d11a5a7b66d",
+        "description": "UUID of the Person assigned to resolve this."
+      },
+      "answer": {
+        "type": "string",
+        "description": "Answer or resolution once known."
+      },
+      "status": {
+        "type": "string",
+        "description": "Status (e.g. open, resolved, deferred)."
+      }
+    },
+    "required": []
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_a7f73f9e_7107_4beb_b636_73dddca69806\" (\n    item_id UUID NOT NULL,\n    \"question\" TEXT,\n    \"assignee_id\" UUID,\n    \"answer\" TEXT,\n    \"status\" TEXT,\n    CONSTRAINT \"pk_obj_a7f73f9e_7107_4beb_b636_73dddca69806\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_a7f73f9e71074beb_item\" FOREIGN KEY (item_id) REFERENCES items(id),\n    CONSTRAINT \"fk_a7f73f9e71074beb_assignee_id\" FOREIGN KEY (\"assignee_id\") REFERENCES items(id)\n)"
+  ]
+}

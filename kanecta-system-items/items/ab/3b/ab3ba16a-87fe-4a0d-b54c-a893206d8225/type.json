@@ -64,48 +64,9 @@
           "format": "uri"
         }
       },
-      "businessProcess": {
-        "type": "object",
-        "properties": {
-          "upstream": {
-            "type": "string"
-          },
-          "downstream": {
-            "type": "string"
-          }
-        }
-      },
       "assumptions": {
         "type": "string",
         "contentMediaType": "text/markdown"
-      },
-      "requirements": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": [
-            "epic"
-          ],
-          "properties": {
-            "epic": {
-              "type": "string"
-            },
-            "epicKey": {
-              "type": "string",
-              "pattern": "^[A-Z]+-[0-9]+$"
-            },
-            "acceptanceCriteria": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "estimate": {
-              "type": "number",
-              "minimum": 0
-            }
-          }
-        }
       },
       "outOfScope": {
         "type": "array",
@@ -113,102 +74,21 @@
           "type": "string"
         }
       },
-      "accessLevels": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": [
-            "profile"
-          ],
-          "properties": {
-            "profile": {
-              "type": "string"
-            },
-            "view": {
-              "type": "boolean"
-            },
-            "modify": {
-              "type": "boolean"
-            },
-            "create": {
-              "type": "boolean"
-            },
-            "delete": {
-              "type": "boolean"
-            }
-          }
-        }
+      "businessProcessUpstream": {
+        "type": "string",
+        "description": "Upstream business process context."
       },
-      "fields": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": [
-            "name"
-          ],
-          "properties": {
-            "name": {
-              "type": "string"
-            },
-            "description": {
-              "type": "string"
-            },
-            "dbField": {
-              "type": "string"
-            },
-            "inputType": {
-              "type": "string",
-              "enum": [
-                "Free-text",
-                "Dropdown",
-                "Checkbox",
-                "Multi-choice",
-                "Textarea"
-              ]
-            },
-            "dataType": {
-              "type": "string"
-            },
-            "charLimit": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "requiredForNew": {
-              "type": "boolean"
-            },
-            "mandatory": {
-              "type": "boolean"
-            }
-          }
-        }
-      },
-      "openQuestions": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": [
-            "question"
-          ],
-          "properties": {
-            "question": {
-              "type": "string"
-            },
-            "assignee": {
-              "type": "string"
-            },
-            "answer": {
-              "type": "string"
-            },
-            "status": {
-              "type": "string",
-              "enum": [
-                "open",
-                "closed"
-              ]
-            }
-          }
-        }
+      "businessProcessDownstream": {
+        "type": "string",
+        "description": "Downstream business process context."
       }
     }
-  }
+  },
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "sqlSchema": [
+    "CREATE TABLE \"obj_ab3ba16a_87fe_4a0d_b54c_a893206d8225\" (\n    item_id UUID NOT NULL,\n    \"title\" TEXT,\n    \"use_cases\" TEXT[] NOT NULL DEFAULT '{}',\n    \"document_owner\" TEXT,\n    \"designer\" TEXT,\n    \"tech_leads\" TEXT[] NOT NULL DEFAULT '{}',\n    \"qa\" TEXT[] NOT NULL DEFAULT '{}',\n    \"figma\" TEXT,\n    \"detailed_design\" TEXT,\n    \"current_state\" TEXT[] NOT NULL DEFAULT '{}',\n    \"assumptions\" TEXT,\n    \"out_of_scope\" TEXT[] NOT NULL DEFAULT '{}',\n    \"business_process_upstream\" TEXT,\n    \"business_process_downstream\" TEXT,\n    CONSTRAINT \"pk_obj_ab3ba16a_87fe_4a0d_b54c_a893206d8225\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_ab3ba16a87fe4a0d_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
 }

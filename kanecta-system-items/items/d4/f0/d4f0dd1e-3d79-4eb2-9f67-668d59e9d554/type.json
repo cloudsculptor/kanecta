@@ -1,0 +1,31 @@
+{
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "meta": {
+    "icon": "PlayCircle",
+    "description": "An example invocation of a Claude AI skill.",
+    "keywords": "skill example",
+    "tags": "skill,example"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Skill Example",
+    "type": "object",
+    "properties": {
+      "invocation": {
+        "type": "string",
+        "description": "Example invocation phrase or input."
+      },
+      "notes": {
+        "type": "string",
+        "description": "Notes on what the skill does or returns in this case."
+      }
+    },
+    "required": []
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_d4f0dd1e_3d79_4eb2_9f67_668d59e9d554\" (\n    item_id UUID NOT NULL,\n    \"invocation\" TEXT,\n    \"notes\" TEXT,\n    CONSTRAINT \"pk_obj_d4f0dd1e_3d79_4eb2_9f67_668d59e9d554\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_d4f0dd1e3d794eb2_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

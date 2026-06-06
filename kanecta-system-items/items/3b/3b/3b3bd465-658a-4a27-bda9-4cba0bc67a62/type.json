@@ -33,46 +33,18 @@
       "assessedBy": {
         "type": "string"
       },
-      "blockers": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": [
-            "category",
-            "description",
-            "severity"
-          ],
-          "properties": {
-            "category": {
-              "type": "string",
-              "enum": [
-                "domain",
-                "codebase",
-                "repro",
-                "acceptance",
-                "context",
-                "other"
-              ]
-            },
-            "description": {
-              "type": "string"
-            },
-            "severity": {
-              "type": "string",
-              "enum": [
-                "blocking",
-                "significant",
-                "minor"
-              ]
-            }
-          }
-        }
-      },
       "readinessScore": {
         "type": "number",
         "minimum": 0,
         "maximum": 10
       }
     }
-  }
+  },
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "sqlSchema": [
+    "CREATE TABLE \"obj_3b3bd465_658a_4a27_bda9_4cba0bc67a62\" (\n    item_id UUID NOT NULL,\n    \"subject\" UUID,\n    \"assessed_by\" TEXT,\n    \"readiness_score\" TEXT,\n    CONSTRAINT \"pk_obj_3b3bd465_658a_4a27_bda9_4cba0bc67a62\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_3b3bd465658a4a27_item\" FOREIGN KEY (item_id) REFERENCES items(id),\n    CONSTRAINT \"fk_3b3bd465658a4a27_subject\" FOREIGN KEY (\"subject\") REFERENCES items(id)\n)"
+  ]
 }

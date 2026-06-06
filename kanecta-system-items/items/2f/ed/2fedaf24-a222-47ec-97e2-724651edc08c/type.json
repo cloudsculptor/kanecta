@@ -1,7 +1,7 @@
 {
   "meta": {
     "icon": "HexagonOutlined",
-    "description": "A single step in a pipeline — captures function, inputs, outputs, outcome and a reference to its log",
+    "description": "A single step in a pipeline \u2014 captures function, inputs, outputs, outcome and a reference to its log",
     "keywords": "pipeline step function execution inputs outputs outcome log",
     "tags": "pipeline,automation",
     "ai-instructions": {
@@ -32,14 +32,10 @@
       "dependsOn": {
         "type": "array",
         "items": {
-          "type": "integer"
-        }
-      },
-      "inputs": {
-        "type": "object"
-      },
-      "outputs": {
-        "type": "object"
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "UUIDs of Pipeline Step items this step depends on."
       },
       "outcome": {
         "type": "string",
@@ -69,7 +65,22 @@
       "logs": {
         "type": "string",
         "format": "uuid"
+      },
+      "inputs": {
+        "type": "string",
+        "description": "Serialised input data (parked as string until shape is defined)."
+      },
+      "outputs": {
+        "type": "string",
+        "description": "Serialised output data (parked as string until shape is defined)."
       }
     }
-  }
+  },
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "sqlSchema": [
+    "CREATE TABLE \"obj_2fedaf24_a222_47ec_97e2_724651edc08c\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"step_index\" INTEGER,\n    \"function\" UUID,\n    \"depends_on\" UUID[] NOT NULL DEFAULT '{}',\n    \"outcome\" TEXT,\n    \"error\" TEXT,\n    \"retry_count\" INTEGER,\n    \"started_at\" TEXT,\n    \"completed_at\" TEXT,\n    \"logs\" UUID,\n    \"inputs\" TEXT,\n    \"outputs\" TEXT,\n    CONSTRAINT \"pk_obj_2fedaf24_a222_47ec_97e2_724651edc08c\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_2fedaf24a22247ec_item\" FOREIGN KEY (item_id) REFERENCES items(id),\n    CONSTRAINT \"fk_2fedaf24a22247ec_function\" FOREIGN KEY (\"function\") REFERENCES items(id),\n    CONSTRAINT \"fk_2fedaf24a22247ec_logs\" FOREIGN KEY (\"logs\") REFERENCES items(id)\n)"
+  ]
 }

@@ -1,0 +1,55 @@
+{
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "meta": {
+    "icon": "TableChart",
+    "description": "A column definition in a database table.",
+    "keywords": "database table column",
+    "tags": "database,table,column"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Database Table Column",
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "description": "Column name."
+      },
+      "dataType": {
+        "type": "string",
+        "description": "SQL data type (e.g. VARCHAR(255), UUID)."
+      },
+      "nullable": {
+        "type": "boolean",
+        "description": "Allows NULL."
+      },
+      "primaryKey": {
+        "type": "boolean",
+        "description": "Part of the primary key."
+      },
+      "foreignKey": {
+        "type": "boolean",
+        "description": "Is a foreign key."
+      },
+      "unique": {
+        "type": "boolean",
+        "description": "Has a unique constraint."
+      },
+      "default": {
+        "type": "string",
+        "description": "Default value expression."
+      },
+      "description": {
+        "type": "string",
+        "description": "Purpose of this column."
+      }
+    },
+    "required": []
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_f290f7ab_7c0a_4943_9b29_9e23b7a1bc81\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"data_type\" TEXT,\n    \"nullable\" BOOLEAN,\n    \"primary_key\" BOOLEAN,\n    \"foreign_key\" BOOLEAN,\n    \"unique\" BOOLEAN,\n    \"default\" TEXT,\n    \"description\" TEXT,\n    CONSTRAINT \"pk_obj_f290f7ab_7c0a_4943_9b29_9e23b7a1bc81\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_f290f7ab7c0a4943_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

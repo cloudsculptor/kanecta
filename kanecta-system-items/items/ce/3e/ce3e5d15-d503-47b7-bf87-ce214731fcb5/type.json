@@ -1,0 +1,42 @@
+{
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "meta": {
+    "icon": "Speed",
+    "description": "An index definition for a database table.",
+    "keywords": "database table index",
+    "tags": "database,table,index"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Database Table Index",
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "description": "Index name."
+      },
+      "columns": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Indexed column names."
+      },
+      "unique": {
+        "type": "boolean",
+        "description": "Whether this is a unique index."
+      },
+      "type": {
+        "type": "string",
+        "description": "Index type (e.g. BTREE, GIN)."
+      }
+    },
+    "required": []
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_ce3e5d15_d503_47b7_bf87_ce214731fcb5\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"columns\" TEXT[] NOT NULL DEFAULT '{}',\n    \"unique\" BOOLEAN,\n    \"type\" TEXT,\n    CONSTRAINT \"pk_obj_ce3e5d15_d503_47b7_bf87_ce214731fcb5\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_ce3e5d15d50347b7_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

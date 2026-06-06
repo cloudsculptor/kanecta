@@ -1,0 +1,35 @@
+{
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "meta": {
+    "icon": "CallSplit",
+    "description": "A branching decision point in a human procedure.",
+    "keywords": "procedure decision point",
+    "tags": "procedure,decision,point"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Procedure Decision Point",
+    "type": "object",
+    "properties": {
+      "condition": {
+        "type": "string",
+        "description": "Condition to evaluate."
+      },
+      "ifYes": {
+        "type": "string",
+        "description": "What to do if condition is true."
+      },
+      "ifNo": {
+        "type": "string",
+        "description": "What to do if condition is false."
+      }
+    },
+    "required": []
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_f1ab23fb_b82d_4559_915e_2aab964d3568\" (\n    item_id UUID NOT NULL,\n    \"condition\" TEXT,\n    \"if_yes\" TEXT,\n    \"if_no\" TEXT,\n    CONSTRAINT \"pk_obj_f1ab23fb_b82d_4559_915e_2aab964d3568\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_f1ab23fbb82d4559_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

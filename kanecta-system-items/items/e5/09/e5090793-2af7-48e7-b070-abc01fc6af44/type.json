@@ -1,1 +1,65 @@
-{"meta":{"icon":"Event","description":"A meeting — agenda, attendees, decisions and actions","keywords":"meeting standup retro planning sync","tags":"people,organisation,collaboration"},"jsonSchema":{"$schema":"http://json-schema.org/draft-07/schema#","title":"Meeting","type":"object","required":["title","date"],"properties":{"title":{"type":"string"},"date":{"type":"string","format":"date-time"},"duration":{"type":"string"},"location":{"type":"string"},"attendees":{"type":"array","items":{"type":"string","format":"email"}},"agenda":{"type":"array","items":{"type":"string"}},"decisions":{"type":"array","items":{"type":"string"}},"actions":{"type":"array","items":{"type":"object","required":["title","owner"],"properties":{"title":{"type":"string"},"owner":{"type":"string","format":"email"},"dueDate":{"type":"string","format":"date"}}}},"recurring":{"type":"boolean","default":false},"notes":{"type":"string"}}}}
+{
+  "meta": {
+    "icon": "Event",
+    "description": "A meeting \u2014 agenda, attendees, decisions and actions",
+    "keywords": "meeting standup retro planning sync",
+    "tags": "people,organisation,collaboration"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Meeting",
+    "type": "object",
+    "required": [
+      "title",
+      "date"
+    ],
+    "properties": {
+      "title": {
+        "type": "string"
+      },
+      "date": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "duration": {
+        "type": "string"
+      },
+      "location": {
+        "type": "string"
+      },
+      "attendees": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "email"
+        }
+      },
+      "agenda": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "decisions": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "recurring": {
+        "type": "boolean",
+        "default": false
+      },
+      "notes": {
+        "type": "string"
+      }
+    }
+  },
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "sqlSchema": [
+    "CREATE TABLE \"obj_e5090793_2af7_48e7_b070_abc01fc6af44\" (\n    item_id UUID NOT NULL,\n    \"title\" TEXT,\n    \"date\" TEXT,\n    \"duration\" TEXT,\n    \"location\" TEXT,\n    \"attendees\" TEXT[] NOT NULL DEFAULT '{}',\n    \"agenda\" TEXT[] NOT NULL DEFAULT '{}',\n    \"decisions\" TEXT[] NOT NULL DEFAULT '{}',\n    \"recurring\" BOOLEAN,\n    \"notes\" TEXT,\n    CONSTRAINT \"pk_obj_e5090793_2af7_48e7_b070_abc01fc6af44\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_e50907932af748e7_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

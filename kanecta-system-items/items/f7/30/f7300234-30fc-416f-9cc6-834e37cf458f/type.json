@@ -1,0 +1,43 @@
+{
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "meta": {
+    "icon": "Security",
+    "description": "A user profile's CRUD access permissions for a feature.",
+    "keywords": "access level",
+    "tags": "access,level"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Access Level",
+    "type": "object",
+    "properties": {
+      "profile": {
+        "type": "string",
+        "description": "User profile or role name."
+      },
+      "view": {
+        "type": "boolean",
+        "description": "Can view."
+      },
+      "modify": {
+        "type": "boolean",
+        "description": "Can modify."
+      },
+      "create": {
+        "type": "boolean",
+        "description": "Can create."
+      },
+      "delete": {
+        "type": "boolean",
+        "description": "Can delete."
+      }
+    },
+    "required": []
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_f7300234_30fc_416f_9cc6_834e37cf458f\" (\n    item_id UUID NOT NULL,\n    \"profile\" TEXT,\n    \"view\" BOOLEAN,\n    \"modify\" BOOLEAN,\n    \"create\" BOOLEAN,\n    \"delete\" BOOLEAN,\n    CONSTRAINT \"pk_obj_f7300234_30fc_416f_9cc6_834e37cf458f\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_f730023430fc416f_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "meta": {
+    "icon": "Commit",
+    "description": "A single commit in a GitHub pull request.",
+    "keywords": "github pr commit",
+    "tags": "github,pr,commit"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "GitHub PR Commit",
+    "type": "object",
+    "properties": {
+      "sha": {
+        "type": "string",
+        "description": "Commit SHA."
+      },
+      "message": {
+        "type": "string",
+        "description": "Commit message."
+      }
+    },
+    "required": []
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_1a7ca1f8_b06d_4808_b9d4_be4e46d464c7\" (\n    item_id UUID NOT NULL,\n    \"sha\" TEXT,\n    \"message\" TEXT,\n    CONSTRAINT \"pk_obj_1a7ca1f8_b06d_4808_b9d4_be4e46d464c7\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_1a7ca1f8b06d4808_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

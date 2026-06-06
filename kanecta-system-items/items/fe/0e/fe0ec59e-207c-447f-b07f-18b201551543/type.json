@@ -1,7 +1,7 @@
 {
   "meta": {
     "icon": "PlayCircleOutlined",
-    "description": "An instance of a Pipeline execution — records the artifact chain and per-step logs produced during a run",
+    "description": "An instance of a Pipeline execution \u2014 records the artifact chain and per-step logs produced during a run",
     "details": "",
     "keywords": [
       "pipeline",
@@ -13,7 +13,7 @@
     ],
     "tags": "",
     "ai-instructions": {
-      "claude": "A Pipeline Run is the live state and audit log of a pipeline execution. The 'steps' array is updated after each step completes — steps[N].output holds the Kanecta UUID of the artifact produced, which becomes the input for step N+1 (steps[N+1].input). The Pipeline Run item's children in the Kanecta tree are the artifact objects produced at each step. To resume a failed run, read the last completed step's output UUID and restart from the next step."
+      "claude": "A Pipeline Run is the live state and audit log of a pipeline execution. The 'steps' array is updated after each step completes \u2014 steps[N].output holds the Kanecta UUID of the artifact produced, which becomes the input for step N+1 (steps[N+1].input). The Pipeline Run item's children in the Kanecta tree are the artifact objects produced at each step. To resume a failed run, read the last completed step's output UUID and restart from the next step."
     }
   },
   "jsonSchema": {
@@ -46,72 +46,14 @@
       "completedAt": {
         "type": "string",
         "format": "date-time"
-      },
-      "steps": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": [
-            "function",
-            "status"
-          ],
-          "properties": {
-            "function": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "input": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "output": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "status": {
-              "type": "string",
-              "enum": [
-                "pending",
-                "running",
-                "completed",
-                "failed",
-                "skipped"
-              ]
-            },
-            "error": {
-              "type": "string"
-            },
-            "log": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "required": [
-                  "level",
-                  "message",
-                  "timestamp"
-                ],
-                "properties": {
-                  "level": {
-                    "type": "string",
-                    "enum": [
-                      "info",
-                      "warn",
-                      "error"
-                    ]
-                  },
-                  "message": {
-                    "type": "string"
-                  },
-                  "timestamp": {
-                    "type": "string",
-                    "format": "date-time"
-                  }
-                }
-              }
-            }
-          }
-        }
       }
     }
-  }
+  },
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "sqlSchema": [
+    "CREATE TABLE \"obj_fe0ec59e_207c_447f_b07f_18b201551543\" (\n    item_id UUID NOT NULL,\n    \"pipeline\" UUID,\n    \"status\" TEXT,\n    \"started_at\" TEXT,\n    \"completed_at\" TEXT,\n    CONSTRAINT \"pk_obj_fe0ec59e_207c_447f_b07f_18b201551543\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_fe0ec59e207c447f_item\" FOREIGN KEY (item_id) REFERENCES items(id),\n    CONSTRAINT \"fk_fe0ec59e207c447f_pipeline\" FOREIGN KEY (\"pipeline\") REFERENCES items(id)\n)"
+  ]
 }

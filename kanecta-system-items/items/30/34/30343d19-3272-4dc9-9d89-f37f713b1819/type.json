@@ -1,11 +1,11 @@
 {
   "meta": {
     "icon": "MergeOutlined",
-    "description": "A virtual GitHub pull request — title, description, patch and metadata ready to push as a real PR later",
+    "description": "A virtual GitHub pull request \u2014 title, description, patch and metadata ready to push as a real PR later",
     "keywords": "github pr pull request patch diff branch review merge",
     "tags": "github,development,pipeline",
     "ai-instructions": {
-      "claude": "A GitHub PR item is a virtual PR — it holds everything needed to open a real PR on GitHub but does not push anything. Use the 'patch' field for the raw git diff. When a real PR is ready to be opened, a separate function will read this item and call the GitHub API."
+      "claude": "A GitHub PR item is a virtual PR \u2014 it holds everything needed to open a real PR on GitHub but does not push anything. Use the 'patch' field for the raw git diff. When a real PR is ready to be opened, a separate function will read this item and call the GitHub API."
     }
   },
   "jsonSchema": {
@@ -120,27 +120,16 @@
         "type": "integer",
         "minimum": 0
       },
-      "commits": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": [
-            "sha",
-            "message"
-          ],
-          "properties": {
-            "sha": {
-              "type": "string"
-            },
-            "message": {
-              "type": "string"
-            }
-          }
-        }
-      },
       "mergeCommitSha": {
         "type": "string"
       }
     }
-  }
+  },
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "sqlSchema": [
+    "CREATE TABLE \"obj_30343d19_3272_4dc9_9d89_f37f713b1819\" (\n    item_id UUID NOT NULL,\n    \"title\" TEXT,\n    \"body\" TEXT,\n    \"patch\" TEXT,\n    \"base_branch\" TEXT,\n    \"head_branch\" TEXT,\n    \"head_commit_sha\" TEXT,\n    \"repository_url\" TEXT,\n    \"status\" TEXT,\n    \"draft\" BOOLEAN,\n    \"push_status\" TEXT,\n    \"labels\" TEXT[] NOT NULL DEFAULT '{}',\n    \"assignees\" TEXT[] NOT NULL DEFAULT '{}',\n    \"reviewers\" TEXT[] NOT NULL DEFAULT '{}',\n    \"linked_tickets\" UUID[] NOT NULL DEFAULT '{}',\n    \"generated_by_run\" UUID,\n    \"checks_status\" TEXT,\n    \"additions\" INTEGER,\n    \"deletions\" INTEGER,\n    \"changed_files\" INTEGER,\n    \"merge_commit_sha\" TEXT,\n    CONSTRAINT \"pk_obj_30343d19_3272_4dc9_9d89_f37f713b1819\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_30343d1932724dc9_item\" FOREIGN KEY (item_id) REFERENCES items(id),\n    CONSTRAINT \"fk_30343d1932724dc9_generated_by_run\" FOREIGN KEY (\"generated_by_run\") REFERENCES items(id)\n)"
+  ]
 }

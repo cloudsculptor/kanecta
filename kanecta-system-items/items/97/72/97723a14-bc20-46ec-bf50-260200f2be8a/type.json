@@ -1,0 +1,41 @@
+{
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "meta": {
+    "icon": "Assignment",
+    "description": "A requirement linked to an epic in a future state specification.",
+    "keywords": "future state requirement",
+    "tags": "future,state,requirement"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Future State Requirement",
+    "type": "object",
+    "properties": {
+      "epicId": {
+        "type": "string",
+        "format": "uuid",
+        "typeId": "fd34abea-f8c4-466f-b31d-07b7fc9ced9c",
+        "description": "UUID of the Epic this requirement belongs to."
+      },
+      "epicKey": {
+        "type": "string",
+        "description": "Epic key (e.g. PROJ-123)."
+      },
+      "acceptanceCriteria": {
+        "type": "string",
+        "description": "Acceptance criteria."
+      },
+      "estimate": {
+        "type": "string",
+        "description": "Effort estimate."
+      }
+    },
+    "required": []
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_97723a14_bc20_46ec_bf50_260200f2be8a\" (\n    item_id UUID NOT NULL,\n    \"epic_id\" UUID,\n    \"epic_key\" TEXT,\n    \"acceptance_criteria\" TEXT,\n    \"estimate\" TEXT,\n    CONSTRAINT \"pk_obj_97723a14_bc20_46ec_bf50_260200f2be8a\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_97723a14bc2046ec_item\" FOREIGN KEY (item_id) REFERENCES items(id),\n    CONSTRAINT \"fk_97723a14bc2046ec_epic_id\" FOREIGN KEY (\"epic_id\") REFERENCES items(id)\n)"
+  ]
+}
