@@ -33,6 +33,7 @@ datastore/
 │   ├── aliases/
 │   ├── annotations/
 │   ├── config/
+│   ├── fields/
 │   ├── history/
 │   ├── links/
 │   ├── relationships/
@@ -241,6 +242,46 @@ When `type` is `decision`, the `value` field contains a JSON object capturing th
 ```
 
 Decision items capture not just *what* was decided, but *why*. They form an institutional memory of reasoning that compounds in value over time.
+
+### .kanecta/fields/ — Field UUID Mappings
+
+Maps stable UUIDs to `(item, field)` pairs. Created on demand only — never proactively generated. Uses the mandatory 2 + 2 + full UUID sharding, keyed by the field-ref UUID.
+
+**Structure:**
+```
+.kanecta/fields/
+└── a1/
+    └── b2/
+        └── a1b2c3d4-e5f6-4abc-9def-123456789012/
+            └── ref.json
+```
+
+**ref.json:**
+```json
+{
+  "id": "a1b2c3d4-e5f6-4abc-9def-123456789012",
+  "itemId": "item-uuid",
+  "fieldXId": "x-id-uuid-of-the-property"
+}
+```
+
+A reverse index lives alongside each item's data, listing all field-ref UUIDs that point into it:
+
+```
+.kanecta/data/[shard]/[item-uuid]/fields.json
+```
+
+```json
+{ "fieldRefs": ["field-ref-uuid-1", "field-ref-uuid-2"] }
+```
+
+This reverse index enables cleanup: when an item is deleted, all its field-ref entries can be found and removed without scanning the full `fields/` tree.
+
+**Rules:**
+- A field-ref UUID is permanent as long as its parent item exists. Implementations must never delete a field-ref entry while the item is alive.
+- When an item is deleted, all its fields are deleted with it (cascade).
+- The `(itemId, fieldXId)` pair is unique — requesting a field-ref UUID for the same pair always returns the same UUID (upsert semantics).
+- `fieldXId` is the `x-id` UUID of a property in the item's type's `jsonSchema.properties`. It is not validated against the live type schema at write time, but resolvers should handle gracefully the case where the field no longer exists in the type.
 
 ### .kanecta/aliases/ — Human-Readable Shortcuts
 
@@ -663,6 +704,28 @@ Reverse index mapping type UUIDs to all items of that type. Lives alongside `met
 
 Items can reference other items in two ways:
 
+### Field-Level Addressing
+
+A specific field on a specific item can be addressed using dot notation:
+
+```
+[item-uuid].[field-x-id]
+```
+
+where `field-x-id` is the `x-id` UUID of a property in the item's type's `jsonSchema.properties`. This allows a UI to jump directly to a field, highlight a cell in a table, or use a field value as the target of a formula — without needing any additional lookup table.
+
+A field reference can also be assigned its own stable UUID on demand (see [`.kanecta/fields/`](#kanectafields--field-uuid-mappings)). Once created, this UUID is permanent for the lifetime of the item and can itself be aliased.
+
+**Resolution order** for any identifier passed to the datastore:
+
+| Input form | Resolution |
+|---|---|
+| `[uuid].[uuid]` (dot notation) | Parse directly: look up item by first UUID, resolve field by `x-id` (second UUID) from the item's type — no index needed |
+| bare UUID | Try `data/` (item) first; fall through to `fields/` if not found |
+| non-UUID string | Try `aliases/` first |
+
+This ordering means common paths (direct item UUID, human-readable alias) pay no extra cost, and field-ref UUIDs are only checked when nothing else matches.
+
 ### Inline Links
 
 Within the `value` field, use double square brackets to create links:
@@ -744,20 +807,27 @@ When displayed, the symlink resolves to show the target item's content while pre
    - Remove all backlinks entries pointing **to** this item
    - Remove all relationship entries pointing **to** this item
    - Remove all annotations targeting this item (or orphan them, per implementation)
+   - Read `data/[item-shard]/fields.json`; delete every listed entry from `fields/`; delete `fields.json`
    - Remove from search index
 
 ### Reading Items
 
-1. **UUID lookup:** Compute shard path; read `metadata.json` directly.
-2. **Alias lookup:** Read alias file to get UUID, then perform UUID lookup.
-3. **Query by type:** Read `.kanecta/types/[type-shard]/items.json`.
-4. **Query by tag:** Read `.kanecta/tags/[tag-shard]/items.json`.
-5. **Query by owner:** Read `.kanecta/remotes-index/[owner-shard]/items.json`.
-6. **Search:** Query search index for text matches.
-7. **Backlinks:** Read `.kanecta/links/[item-shard]/backlinks.json`.
-8. **Relationships:** Read `.kanecta/relationships/[item-shard]/relationships.json`.
-9. **History:** List files in `.kanecta/history/[item-shard]/` for change timeline.
-10. **Annotations:** List files in `.kanecta/annotations/[item-shard]/` for comments on an item.
+**Resolving an identifier:**
+
+1. **Dot notation** (`[uuid].[uuid]`): parse the two UUIDs; look up item by the first; resolve field by `x-id` (second UUID) from the item's type. No index is consulted.
+2. **Bare UUID:** compute shard path and read `metadata.json` from `data/`. If not found, check `fields/` for a field-level UUID.
+3. **Non-UUID string:** read the alias file from `aliases/` to get a UUID, then apply rule 2.
+
+**Other read operations:**
+
+4. **Query by type:** Read `.kanecta/types/[type-shard]/items.json`.
+5. **Query by tag:** Read `.kanecta/tags/[tag-shard]/items.json`.
+6. **Query by owner:** Read `.kanecta/remotes-index/[owner-shard]/items.json`.
+7. **Search:** Query search index for text matches.
+8. **Backlinks:** Read `.kanecta/links/[item-shard]/backlinks.json`.
+9. **Relationships:** Read `.kanecta/relationships/[item-shard]/relationships.json`.
+10. **History:** List files in `.kanecta/history/[item-shard]/` for change timeline.
+11. **Annotations:** List files in `.kanecta/annotations/[item-shard]/` for comments on an item.
 
 ### Datastore Initialisation
 
@@ -829,7 +899,8 @@ On every create, update, or delete:
 - Symlinks can point to items owned by other users (via remotes/).
 - File system operations are atomic enough for single-user scenarios; multi-user synchronization requires additional logic (changelogs, conflict resolution).
 - Parent-child relationships are enforced in metadata, not filesystem structure.
-- Index caches (`tags/`, `types/`, `links/`, `relationships/`, `remotes-index/`, `search/`) are derivable from `data/` and can be rebuilt at any time. Only `data/`, `history/`, `annotations/`, `aliases/`, `remotes/`, and `config/` are authoritative.
+- Index caches (`tags/`, `types/`, `links/`, `relationships/`, `remotes-index/`, `search/`) are derivable from `data/` and can be rebuilt at any time. Only `data/`, `history/`, `annotations/`, `aliases/`, `remotes/`, `fields/`, and `config/` are authoritative.
+- Field-ref entries (`fields/`) are permanent for the lifetime of their parent item. Implementations must cascade-delete all fields for an item when that item is deleted, and must never delete a field-ref while the item exists. The `(itemId, fieldXId)` pair is unique — creating a field-ref for the same pair twice returns the existing UUID.
 
 ---
 
