@@ -128,7 +128,8 @@ Each item folder contains:
   "subscribedAt": "string (ISO8601) or null",
   "subscriptionSource": "string or null",
   "completedAt": "string (ISO8601) or null",
-  "dueAt": "string (ISO8601) or null"
+  "dueAt": "string (ISO8601) or null",
+  "aspect": "string or null"
 }
 ```
 
@@ -157,6 +158,11 @@ Each item folder contains:
 | `dueAt` | no | ISO8601 timestamp when this item is due. Null if no due date is set |
 | `completedAt` | no | ISO8601 timestamp when this item was marked as completed. Null if not completed |
 | `visibility` | no | Coarse default access level: `private`, `organisation`, or `public`. Fast-path check, layered under by fine-grained per-principal grants — see [Future Extensibility](#5-future-extensibility) |
+| `aspect` | no | Dimension this item occupies under its parent. `null` = main tree (default). Any other string names an alternative dimension (e.g. `"settings"`, `"hidden"`, `"archive"`). An item belongs to exactly one aspect. `sortOrder` is scoped per-aspect. Aspect names are free-form; none are reserved |
+
+**Understanding aspects**
+
+Think of aspects as named drawers built into every item. The main drawer (`null`) is what the user always sees when browsing the tree. Other drawers — `"settings"`, `"hidden"`, `"context"` — sit alongside it, invisible until explicitly opened. A settings panel for a project lives in that project's `"settings"` aspect; archived children live in `"archive"`; a scratchpad lives in `"draft"`. The parent item doesn't need to know what aspects its children use — aspects are declared by the children, not the parent. This means any item can sprout new dimensions without the parent being modified.
 
 ### function.json Schema
 
@@ -850,11 +856,13 @@ When a lib or CLI opens a datastore for the first time and finds it empty, it mu
 
 1. Navigate directly to root using its known ID: `00000000-0000-0000-0000-000000000000`.
 2. Find the child of root with `type: data_root`.
-3. Starting from `data_root`, find all items with `parentId` matching the current item's `id`.
-4. Sort siblings by `sortOrder`.
+3. Starting from `data_root`, find all items with `parentId` matching the current item's `id` **and `aspect` matching the active aspect** (default: `null`).
+4. Sort siblings by `sortOrder` (scoped to the active aspect).
 5. Recursively build the tree.
 
 User data lives exclusively under `data_root`. Items under `system_root`, `app_root`, and `component_root` are reserved for internal use and are not shown in the user-facing tree.
+
+**Aspects:** A traversal always targets exactly one aspect. The default aspect is `null` (the main tree). To view a different dimension, the caller specifies an aspect string and only children with that `aspect` value are returned. Children in other aspects are invisible to that traversal — they are not hidden, just not in scope.
 
 ### Creating Relationships
 
