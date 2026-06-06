@@ -74,7 +74,7 @@
         },
         "immutable": {
           "type": "boolean",
-          "description": "When true, existing instances of this type cannot be mutated after creation — only read or deleted. Useful for append-only audit records, signed artefacts, or any type where post-creation edits would violate data integrity. Defaults to false when absent."
+          "description": "When true, this type definition is sealed — its shape (jsonSchema, sqlSchema, and meta) is locked and cannot be changed. Enforced by the hash field: the hash is computed when immutable is set to true, and any subsequent write that would alter the definition is rejected if it no longer matches. A sealed type that needs a shape change must be published as a new type (new UUID) with supersededBy pointing back to this one. Defaults to false when absent."
         },
         "hash": {
           "type": "string",
