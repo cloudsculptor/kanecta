@@ -1,0 +1,35 @@
+{
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "meta": {
+    "icon": "Rule",
+    "description": "A check or other constraint on a database table.",
+    "keywords": "database table constraint",
+    "tags": "database,table,constraint"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Database Table Constraint",
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "description": "Constraint name."
+      },
+      "type": {
+        "type": "string",
+        "description": "Constraint type (e.g. CHECK, UNIQUE)."
+      },
+      "expression": {
+        "type": "string",
+        "description": "Constraint expression."
+      }
+    },
+    "required": []
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_c4df663d_81b5_4984_a75f_bed9690f68bf\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"type\" TEXT,\n    \"expression\" TEXT,\n    CONSTRAINT \"pk_obj_c4df663d_81b5_4984_a75f_bed9690f68bf\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_c4df663d81b54984_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

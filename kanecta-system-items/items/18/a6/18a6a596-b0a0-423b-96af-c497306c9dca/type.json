@@ -1,0 +1,43 @@
+{
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "meta": {
+    "icon": "Tune",
+    "description": "A parameter for an API endpoint.",
+    "keywords": "api parameter",
+    "tags": "api,parameter"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "API Parameter",
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "description": "Parameter name."
+      },
+      "in": {
+        "type": "string",
+        "description": "Location: path, query, header, or body."
+      },
+      "description": {
+        "type": "string",
+        "description": "What this parameter does."
+      },
+      "required": {
+        "type": "boolean",
+        "description": "Whether the parameter is required."
+      },
+      "dataType": {
+        "type": "string",
+        "description": "Data type (e.g. string, integer)."
+      }
+    },
+    "required": []
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_18a6a596_b0a0_423b_96af_c497306c9dca\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"in\" TEXT,\n    \"description\" TEXT,\n    \"required\" BOOLEAN,\n    \"data_type\" TEXT,\n    CONSTRAINT \"pk_obj_18a6a596_b0a0_423b_96af_c497306c9dca\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_18a6a596b0a0423b_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

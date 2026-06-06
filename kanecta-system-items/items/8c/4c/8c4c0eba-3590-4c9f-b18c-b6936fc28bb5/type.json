@@ -1,0 +1,31 @@
+{
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "meta": {
+    "icon": "Person",
+    "description": "A role and its responsibility in a human procedure.",
+    "keywords": "procedure role",
+    "tags": "procedure,role"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Procedure Role",
+    "type": "object",
+    "properties": {
+      "role": {
+        "type": "string",
+        "description": "Role name."
+      },
+      "responsibility": {
+        "type": "string",
+        "description": "What this role is responsible for."
+      }
+    },
+    "required": []
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_8c4c0eba_3590_4c9f_b18c_b6936fc28bb5\" (\n    item_id UUID NOT NULL,\n    \"role\" TEXT,\n    \"responsibility\" TEXT,\n    CONSTRAINT \"pk_obj_8c4c0eba_3590_4c9f_b18c_b6936fc28bb5\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_8c4c0eba35904c9f_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

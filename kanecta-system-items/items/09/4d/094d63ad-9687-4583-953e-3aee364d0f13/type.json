@@ -1,0 +1,47 @@
+{
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "meta": {
+    "icon": "Code",
+    "description": "Backend implementation details for a Detailed Design \u2014 one instance per design.",
+    "keywords": "detailed design backend implementation",
+    "tags": "detailed,design,backend,implementation"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Detailed Design Backend Implementation",
+    "type": "object",
+    "properties": {
+      "serviceId": {
+        "type": "string",
+        "format": "uuid",
+        "typeId": "68b4c3a2-266c-4a4e-b7dc-507a06ba95a5",
+        "description": "UUID of the Service being implemented."
+      },
+      "gradleModule": {
+        "type": "string",
+        "description": "Gradle module name."
+      },
+      "featureToggleId": {
+        "type": "string",
+        "format": "uuid",
+        "typeId": "0411d6fb-3160-4db6-bd91-93c6260689b2",
+        "description": "UUID of the controlling Feature Flag."
+      },
+      "adminActionConstant": {
+        "type": "string",
+        "description": "Admin action constant name."
+      },
+      "notes": {
+        "type": "string",
+        "description": "Additional implementation notes."
+      }
+    },
+    "required": []
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_094d63ad_9687_4583_953e_3aee364d0f13\" (\n    item_id UUID NOT NULL,\n    \"service_id\" UUID,\n    \"gradle_module\" TEXT,\n    \"feature_toggle_id\" UUID,\n    \"admin_action_constant\" TEXT,\n    \"notes\" TEXT,\n    CONSTRAINT \"pk_obj_094d63ad_9687_4583_953e_3aee364d0f13\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_094d63ad96874583_item\" FOREIGN KEY (item_id) REFERENCES items(id),\n    CONSTRAINT \"fk_094d63ad96874583_service_id\" FOREIGN KEY (\"service_id\") REFERENCES items(id),\n    CONSTRAINT \"fk_094d63ad96874583_feature_toggle_id\" FOREIGN KEY (\"feature_toggle_id\") REFERENCES items(id)\n)"
+  ]
+}

@@ -1,7 +1,7 @@
 {
   "meta": {
     "icon": "Assignment",
-    "description": "A human procedure — a named, step-by-step process that people follow to complete a task consistently",
+    "description": "A human procedure \u2014 a named, step-by-step process that people follow to complete a task consistently",
     "keywords": [
       "procedure",
       "process",
@@ -65,90 +65,12 @@
         "type": "string",
         "description": "Typical time to complete, e.g. 30 minutes, 2 hours"
       },
-      "roles": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": [
-            "role",
-            "responsibility"
-          ],
-          "properties": {
-            "role": {
-              "type": "string",
-              "description": "Job title or team role"
-            },
-            "responsibility": {
-              "type": "string",
-              "description": "What this role does in the procedure"
-            }
-          }
-        },
-        "description": "People or roles involved and their responsibilities"
-      },
       "prerequisites": {
         "type": "array",
         "items": {
           "type": "string"
         },
         "description": "What must be in place or completed before starting"
-      },
-      "steps": {
-        "type": "array",
-        "minItems": 1,
-        "items": {
-          "type": "object",
-          "required": [
-            "title",
-            "instructions"
-          ],
-          "properties": {
-            "title": {
-              "type": "string"
-            },
-            "instructions": {
-              "type": "string",
-              "contentMediaType": "text/markdown"
-            },
-            "role": {
-              "type": "string",
-              "description": "Who performs this step"
-            },
-            "expectedOutcome": {
-              "type": "string"
-            },
-            "warnings": {
-              "type": "string"
-            },
-            "optional": {
-              "type": "boolean",
-              "default": false
-            }
-          }
-        }
-      },
-      "decisionPoints": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": [
-            "condition",
-            "ifYes",
-            "ifNo"
-          ],
-          "properties": {
-            "condition": {
-              "type": "string"
-            },
-            "ifYes": {
-              "type": "string"
-            },
-            "ifNo": {
-              "type": "string"
-            }
-          }
-        },
-        "description": "Branch points where the procedure takes different paths"
       },
       "expectedOutcome": {
         "type": "string",
@@ -187,5 +109,12 @@
         "uniqueItems": true
       }
     }
-  }
+  },
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "sqlSchema": [
+    "CREATE TABLE \"obj_6968f981_d8c6_4213_96a7_48941fd9ba7c\" (\n    item_id UUID NOT NULL,\n    \"title\" TEXT,\n    \"purpose\" TEXT,\n    \"owner\" TEXT,\n    \"team\" TEXT,\n    \"status\" TEXT,\n    \"version\" TEXT,\n    \"last_reviewed\" TEXT,\n    \"next_review\" TEXT,\n    \"frequency\" TEXT,\n    \"estimated_duration\" TEXT,\n    \"prerequisites\" TEXT[] NOT NULL DEFAULT '{}',\n    \"expected_outcome\" TEXT,\n    \"failure_mode\" TEXT,\n    \"ai_skill\" UUID,\n    \"related_procedures\" UUID[] NOT NULL DEFAULT '{}',\n    \"references\" TEXT[] NOT NULL DEFAULT '{}',\n    \"tags\" TEXT[] NOT NULL DEFAULT '{}',\n    CONSTRAINT \"pk_obj_6968f981_d8c6_4213_96a7_48941fd9ba7c\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_6968f981d8c64213_item\" FOREIGN KEY (item_id) REFERENCES items(id),\n    CONSTRAINT \"fk_6968f981d8c64213_ai_skill\" FOREIGN KEY (\"ai_skill\") REFERENCES items(id)\n)"
+  ]
 }

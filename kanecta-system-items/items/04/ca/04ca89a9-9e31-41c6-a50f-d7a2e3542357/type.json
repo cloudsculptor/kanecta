@@ -1,0 +1,47 @@
+{
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "meta": {
+    "icon": "AccountTree",
+    "description": "A conceptual step in a pipeline specification.",
+    "keywords": "pipeline spec step",
+    "tags": "pipeline,spec,step"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Pipeline Spec Step",
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "description": "Step name."
+      },
+      "description": {
+        "type": "string",
+        "description": "What this step does."
+      },
+      "consumes": {
+        "type": "string",
+        "description": "What this step consumes."
+      },
+      "produces": {
+        "type": "string",
+        "description": "What this step produces."
+      },
+      "status": {
+        "type": "string",
+        "description": "Status (e.g. planned, active)."
+      },
+      "loopsTo": {
+        "type": "string",
+        "description": "Step name this step may loop back to."
+      }
+    },
+    "required": []
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_04ca89a9_9e31_41c6_a50f_d7a2e3542357\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"description\" TEXT,\n    \"consumes\" TEXT,\n    \"produces\" TEXT,\n    \"status\" TEXT,\n    \"loops_to\" TEXT,\n    CONSTRAINT \"pk_obj_04ca89a9_9e31_41c6_a50f_d7a2e3542357\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_04ca89a99e3141c6_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

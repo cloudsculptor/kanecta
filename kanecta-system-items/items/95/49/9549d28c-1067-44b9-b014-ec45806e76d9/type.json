@@ -1,1 +1,74 @@
-{"meta":{"icon":"Science","description":"A test case — a specific scenario with steps, expected outcome and pass/fail status","keywords":"test case QA scenario verification","tags":"software,development,testing"},"jsonSchema":{"$schema":"http://json-schema.org/draft-07/schema#","title":"Test Case","type":"object","required":["title"],"properties":{"title":{"type":"string"},"description":{"type":"string"},"preconditions":{"type":"array","items":{"type":"string"}},"steps":{"type":"array","items":{"type":"object","required":["action"],"properties":{"action":{"type":"string"},"expectedResult":{"type":"string"}}}},"expectedResult":{"type":"string"},"actualResult":{"type":"string"},"status":{"type":"string","enum":["not-run","pass","fail","blocked"]},"priority":{"type":"string","enum":["critical","high","medium","low"]},"linkedTicket":{"type":"string"},"automatable":{"type":"boolean","default":false},"tags":{"type":"array","items":{"type":"string"}}}}}
+{
+  "meta": {
+    "icon": "Science",
+    "description": "A test case \u2014 a specific scenario with steps, expected outcome and pass/fail status",
+    "keywords": "test case QA scenario verification",
+    "tags": "software,development,testing"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Test Case",
+    "type": "object",
+    "required": [
+      "title"
+    ],
+    "properties": {
+      "title": {
+        "type": "string"
+      },
+      "description": {
+        "type": "string"
+      },
+      "preconditions": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "expectedResult": {
+        "type": "string"
+      },
+      "actualResult": {
+        "type": "string"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "not-run",
+          "pass",
+          "fail",
+          "blocked"
+        ]
+      },
+      "priority": {
+        "type": "string",
+        "enum": [
+          "critical",
+          "high",
+          "medium",
+          "low"
+        ]
+      },
+      "linkedTicket": {
+        "type": "string"
+      },
+      "automatable": {
+        "type": "boolean",
+        "default": false
+      },
+      "tags": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "sqlSchema": [
+    "CREATE TABLE \"obj_9549d28c_1067_44b9_b014_ec45806e76d9\" (\n    item_id UUID NOT NULL,\n    \"title\" TEXT,\n    \"description\" TEXT,\n    \"preconditions\" TEXT[] NOT NULL DEFAULT '{}',\n    \"expected_result\" TEXT,\n    \"actual_result\" TEXT,\n    \"status\" TEXT,\n    \"priority\" TEXT,\n    \"linked_ticket\" TEXT,\n    \"automatable\" BOOLEAN,\n    \"tags\" TEXT[] NOT NULL DEFAULT '{}',\n    CONSTRAINT \"pk_obj_9549d28c_1067_44b9_b014_ec45806e76d9\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_9549d28c106744b9_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

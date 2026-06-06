@@ -1,0 +1,39 @@
+{
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "meta": {
+    "icon": "Storage",
+    "description": "Data structure references for a Detailed Design \u2014 one instance per design.",
+    "keywords": "detailed design data structures",
+    "tags": "detailed,design,data,structures"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Detailed Design Data Structures",
+    "type": "object",
+    "properties": {
+      "tables": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "UUIDs of Database Table items involved."
+      },
+      "erd": {
+        "type": "string",
+        "description": "ERD URL or description."
+      },
+      "notes": {
+        "type": "string",
+        "description": "Additional notes."
+      }
+    },
+    "required": []
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_1059dd4c_ec4e_4ea1_8634_dd7b3276730e\" (\n    item_id UUID NOT NULL,\n    \"tables\" UUID[] NOT NULL DEFAULT '{}',\n    \"erd\" TEXT,\n    \"notes\" TEXT,\n    CONSTRAINT \"pk_obj_1059dd4c_ec4e_4ea1_8634_dd7b3276730e\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_1059dd4cec4e4ea1_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

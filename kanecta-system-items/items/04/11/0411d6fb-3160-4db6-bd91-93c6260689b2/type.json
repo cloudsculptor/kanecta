@@ -1,1 +1,71 @@
-{"meta":{"icon":"ToggleOn","description":"A feature flag — a toggle controlling feature visibility per environment or rollout","keywords":"feature flag toggle Split.io LaunchDarkly rollout","tags":"software,development,operations"},"jsonSchema":{"$schema":"http://json-schema.org/draft-07/schema#","title":"Feature Flag","type":"object","required":["name","flagKey"],"properties":{"name":{"type":"string"},"flagKey":{"type":"string"},"description":{"type":"string"},"platform":{"type":"string","enum":["Split.io","LaunchDarkly","Unleash","Custom"]},"owner":{"type":"string","format":"email"},"status":{"type":"string","enum":["enabled","disabled","rollout"]},"rolloutPercentage":{"type":"number","minimum":0,"maximum":100},"linkedTickets":{"type":"array","items":{"type":"string"}},"cleanupDate":{"type":"string","format":"date"},"environments":{"type":"array","items":{"type":"object","required":["environment"],"properties":{"environment":{"type":"string"},"enabled":{"type":"boolean"},"rolloutPercentage":{"type":"number","minimum":0,"maximum":100}}}}}}}
+{
+  "meta": {
+    "icon": "ToggleOn",
+    "description": "A feature flag \u2014 a toggle controlling feature visibility per environment or rollout",
+    "keywords": "feature flag toggle Split.io LaunchDarkly rollout",
+    "tags": "software,development,operations"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Feature Flag",
+    "type": "object",
+    "required": [
+      "name",
+      "flagKey"
+    ],
+    "properties": {
+      "name": {
+        "type": "string"
+      },
+      "flagKey": {
+        "type": "string"
+      },
+      "description": {
+        "type": "string"
+      },
+      "platform": {
+        "type": "string",
+        "enum": [
+          "Split.io",
+          "LaunchDarkly",
+          "Unleash",
+          "Custom"
+        ]
+      },
+      "owner": {
+        "type": "string",
+        "format": "email"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "enabled",
+          "disabled",
+          "rollout"
+        ]
+      },
+      "rolloutPercentage": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 100
+      },
+      "linkedTickets": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "cleanupDate": {
+        "type": "string",
+        "format": "date"
+      }
+    }
+  },
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "sqlSchema": [
+    "CREATE TABLE \"obj_0411d6fb_3160_4db6_bd91_93c6260689b2\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"flag_key\" TEXT,\n    \"description\" TEXT,\n    \"platform\" TEXT,\n    \"owner\" TEXT,\n    \"status\" TEXT,\n    \"rollout_percentage\" TEXT,\n    \"linked_tickets\" TEXT[] NOT NULL DEFAULT '{}',\n    \"cleanup_date\" TEXT,\n    CONSTRAINT \"pk_obj_0411d6fb_3160_4db6_bd91_93c6260689b2\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_0411d6fb31604db6_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

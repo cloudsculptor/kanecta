@@ -1,0 +1,53 @@
+{
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "meta": {
+    "icon": "Link",
+    "description": "A foreign key constraint on a database table.",
+    "keywords": "database table foreign key",
+    "tags": "database,table,foreign,key"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Database Table Foreign Key",
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "description": "Constraint name."
+      },
+      "columns": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Local column names."
+      },
+      "referencedTable": {
+        "type": "string",
+        "description": "Referenced table name."
+      },
+      "referencedColumns": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Referenced column names."
+      },
+      "onDelete": {
+        "type": "string",
+        "description": "ON DELETE behaviour (e.g. CASCADE, SET NULL)."
+      },
+      "onUpdate": {
+        "type": "string",
+        "description": "ON UPDATE behaviour."
+      }
+    },
+    "required": []
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_71531a52_1e14_479c_bf1f_b7726d76dfe8\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"columns\" TEXT[] NOT NULL DEFAULT '{}',\n    \"referenced_table\" TEXT,\n    \"referenced_columns\" TEXT[] NOT NULL DEFAULT '{}',\n    \"on_delete\" TEXT,\n    \"on_update\" TEXT,\n    CONSTRAINT \"pk_obj_71531a52_1e14_479c_bf1f_b7726d76dfe8\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_71531a521e14479c_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

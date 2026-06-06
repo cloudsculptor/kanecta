@@ -1,0 +1,39 @@
+{
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "meta": {
+    "icon": "Input",
+    "description": "An input parameter for a Claude AI skill.",
+    "keywords": "skill parameter",
+    "tags": "skill,parameter"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Skill Parameter",
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "description": "Parameter name."
+      },
+      "description": {
+        "type": "string",
+        "description": "What this parameter represents."
+      },
+      "required": {
+        "type": "boolean",
+        "description": "Whether the parameter is required."
+      },
+      "example": {
+        "type": "string",
+        "description": "Example value."
+      }
+    },
+    "required": []
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_8e3f09ce_89ab_4c64_b5d0_94ba4cd08046\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"description\" TEXT,\n    \"required\" BOOLEAN,\n    \"example\" TEXT,\n    CONSTRAINT \"pk_obj_8e3f09ce_89ab_4c64_b5d0_94ba4cd08046\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_8e3f09ce89ab4c64_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

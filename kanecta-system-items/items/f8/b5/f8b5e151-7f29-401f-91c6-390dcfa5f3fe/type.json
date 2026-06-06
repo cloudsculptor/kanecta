@@ -64,47 +64,6 @@
         "type": "boolean",
         "default": false
       },
-      "stack": {
-        "type": "object",
-        "properties": {
-          "frontend": {
-            "type": "string"
-          },
-          "backend": {
-            "type": "string"
-          },
-          "infrastructure": {
-            "type": "string"
-          },
-          "ciCd": {
-            "type": "string"
-          }
-        }
-      },
-      "deployments": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": [
-            "environment",
-            "url"
-          ],
-          "properties": {
-            "environment": {
-              "type": "string",
-              "enum": [
-                "development",
-                "staging",
-                "production"
-              ]
-            },
-            "url": {
-              "type": "string",
-              "format": "uri"
-            }
-          }
-        }
-      },
       "relatedServices": {
         "type": "array",
         "items": {
@@ -136,7 +95,30 @@
       "cloneUrl": {
         "type": "string",
         "format": "uri"
+      },
+      "stackFrontend": {
+        "type": "string",
+        "description": "Frontend technology stack."
+      },
+      "stackBackend": {
+        "type": "string",
+        "description": "Backend technology stack."
+      },
+      "stackInfrastructure": {
+        "type": "string",
+        "description": "Infrastructure stack."
+      },
+      "stackCiCd": {
+        "type": "string",
+        "description": "CI/CD tooling."
       }
     }
-  }
+  },
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "sqlSchema": [
+    "CREATE TABLE \"obj_f8b5e151_7f29_401f_91c6_390dcfa5f3fe\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"owner\" TEXT,\n    \"url\" TEXT,\n    \"description\" TEXT,\n    \"visibility\" TEXT,\n    \"default_branch\" TEXT,\n    \"language\" TEXT,\n    \"topics\" TEXT[] NOT NULL DEFAULT '{}',\n    \"archived\" BOOLEAN,\n    \"related_services\" TEXT[] NOT NULL DEFAULT '{}',\n    \"codeowners\" TEXT[] NOT NULL DEFAULT '{}',\n    \"package_manager\" TEXT,\n    \"clone_url\" TEXT,\n    \"stack_frontend\" TEXT,\n    \"stack_backend\" TEXT,\n    \"stack_infrastructure\" TEXT,\n    \"stack_ci_cd\" TEXT,\n    CONSTRAINT \"pk_obj_f8b5e151_7f29_401f_91c6_390dcfa5f3fe\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_f8b5e1517f29401f_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
 }

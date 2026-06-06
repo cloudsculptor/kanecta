@@ -1,0 +1,55 @@
+{
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "meta": {
+    "icon": "TextFields",
+    "description": "A form field specification in a future state document.",
+    "keywords": "future state field",
+    "tags": "future,state,field"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Future State Field",
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "description": "Field name."
+      },
+      "description": {
+        "type": "string",
+        "description": "What the field represents."
+      },
+      "dbField": {
+        "type": "string",
+        "description": "Database column name."
+      },
+      "inputType": {
+        "type": "string",
+        "description": "UI input type (e.g. text, select, date)."
+      },
+      "dataType": {
+        "type": "string",
+        "description": "Data type."
+      },
+      "charLimit": {
+        "type": "integer",
+        "description": "Maximum character length."
+      },
+      "requiredForNew": {
+        "type": "boolean",
+        "description": "Required when creating a new record."
+      },
+      "mandatory": {
+        "type": "boolean",
+        "description": "Always mandatory."
+      }
+    },
+    "required": []
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_bbe48818_7bf4_4954_ae95_cc767fb10c87\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"description\" TEXT,\n    \"db_field\" TEXT,\n    \"input_type\" TEXT,\n    \"data_type\" TEXT,\n    \"char_limit\" INTEGER,\n    \"required_for_new\" BOOLEAN,\n    \"mandatory\" BOOLEAN,\n    CONSTRAINT \"pk_obj_bbe48818_7bf4_4954_ae95_cc767fb10c87\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_bbe488187bf44954_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

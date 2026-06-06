@@ -1,7 +1,7 @@
 {
   "meta": {
     "icon": "Psychology",
-    "description": "A Claude AI skill — a named procedure Claude follows when invoked",
+    "description": "A Claude AI skill \u2014 a named procedure Claude follows when invoked",
     "keywords": [
       "skill",
       "claude",
@@ -49,32 +49,6 @@
         "contentMediaType": "text/markdown",
         "description": "The full step-by-step procedure Claude follows when the skill is invoked"
       },
-      "parameters": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": [
-            "name",
-            "description"
-          ],
-          "properties": {
-            "name": {
-              "type": "string"
-            },
-            "description": {
-              "type": "string"
-            },
-            "required": {
-              "type": "boolean",
-              "default": false
-            },
-            "example": {
-              "type": "string"
-            }
-          }
-        },
-        "description": "Arguments the skill accepts when invoked"
-      },
       "tools": {
         "type": "array",
         "items": {
@@ -82,25 +56,6 @@
         },
         "uniqueItems": true,
         "description": "MCP tools or Claude Code tools this skill relies on, e.g. mcp__kanecta__kanecta_get"
-      },
-      "examples": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": [
-            "invocation"
-          ],
-          "properties": {
-            "invocation": {
-              "type": "string",
-              "description": "How the user triggers this skill"
-            },
-            "notes": {
-              "type": "string",
-              "description": "What Claude should do in this case"
-            }
-          }
-        }
       },
       "outputFormat": {
         "type": "string",
@@ -130,5 +85,12 @@
         "uniqueItems": true
       }
     }
-  }
+  },
+  "sync": [],
+  "supersededBy": [],
+  "implements": [],
+  "extends": [],
+  "sqlSchema": [
+    "CREATE TABLE \"obj_35bc5f84_77f4_4064_9806_c101c40dbd92\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"description\" TEXT,\n    \"trigger_conditions\" TEXT[] NOT NULL DEFAULT '{}',\n    \"skip_conditions\" TEXT[] NOT NULL DEFAULT '{}',\n    \"instructions\" TEXT,\n    \"tools\" TEXT[] NOT NULL DEFAULT '{}',\n    \"output_format\" TEXT,\n    \"related_skills\" TEXT[] NOT NULL DEFAULT '{}',\n    \"version\" TEXT,\n    \"author\" TEXT,\n    \"tags\" TEXT[] NOT NULL DEFAULT '{}',\n    CONSTRAINT \"pk_obj_35bc5f84_77f4_4064_9806_c101c40dbd92\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_35bc5f8477f44064_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
 }
