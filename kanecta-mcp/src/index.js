@@ -610,12 +610,12 @@ const TOOLS = [
   },
   {
     name: 'kanecta_query',
-    description: 'Query the Kanecta knowledge base for items matching specific criteria. Returns items with their metadata and inline objectData.',
+    description: 'Query the Kanecta knowledge base for items matching specific criteria. Returns items with their metadata and inline objectData. severity and status filters are case-insensitive. Supports mode="count" → {count:N} and mode="group_by" with group_by_field → {groups:{value:count}} — both modes fetch all matches (limit ignored).',
     inputSchema: {
       type: 'object',
       properties: {
         type: { type: 'string', description: 'Optional: match items of this primitive or custom type name' },
-        where: { type: 'object', description: 'Optional: predicates over objectData fields, e.g. { severity: "P1", status: { op: "!=", value: "closed" } }' },
+        where: { type: 'object', description: 'Optional: predicates over objectData fields, e.g. { severity: "P1", status: { op: "!=", value: "closed" } }. severity is normalised to uppercase, status to lowercase.' },
         rootId: { type: 'string', description: 'Optional: restrict results to descendants of this item' },
         sort: {
           type: 'object',
@@ -625,7 +625,9 @@ const TOOLS = [
           },
           required: ['field'],
         },
-        limit: { type: 'number', description: 'Maximum results (default: 50)' },
+        limit: { type: 'number', description: 'Maximum results (default: 50). Ignored when mode is set.' },
+        mode: { type: 'string', enum: ['count', 'group_by'], description: 'Optional aggregation mode. "count" returns {count:N}. "group_by" returns {groups:{field_value:count}} — also requires group_by_field.' },
+        group_by_field: { type: 'string', description: 'Required when mode="group_by": objectData field to bucket by, e.g. "severity", "status", "screen_id".' },
       },
     },
   },
@@ -1084,7 +1086,49 @@ function dispatch(name, args) {
       return { tag: args.tag, items: ds.byTag(args.tag) };
 
     case 'kanecta_query': {
-      const items = ds.query(args);
+      // Normalise known enum fields so filters are case-insensitive
+      const { mode, group_by_field, ...dsArgs } = args;
+      if (dsArgs.where) {
+        const w = { ...dsArgs.where };
+        if (w.severity !== undefined) {
+          w.severity = typeof w.severity === 'string'
+            ? w.severity.toUpperCase()
+            : (w.severity && typeof w.severity === 'object' && w.severity.value !== undefined)
+              ? { ...w.severity, value: String(w.severity.value).toUpperCase() }
+              : w.severity;
+        }
+        if (w.status !== undefined) {
+          w.status = typeof w.status === 'string'
+            ? w.status.toLowerCase()
+            : (w.status && typeof w.status === 'object' && w.status.value !== undefined)
+              ? { ...w.status, value: String(w.status.value).toLowerCase() }
+              : w.status;
+        }
+        dsArgs.where = w;
+      }
+
+      if (mode === 'count') {
+        const { limit: _l, ...countArgs } = dsArgs;
+        const items = ds.query(countArgs);
+        return { count: items.length };
+      }
+
+      if (mode === 'group_by') {
+        if (!group_by_field) return { error: 'group_by mode requires group_by_field' };
+        const { limit: _l, ...groupArgs } = dsArgs;
+        const items = ds.query(groupArgs);
+        const groups = {};
+        for (const item of items) {
+          const val = (item.objectData && item.objectData[group_by_field] !== undefined)
+            ? item.objectData[group_by_field]
+            : item[group_by_field] ?? 'unknown';
+          const key = String(val);
+          groups[key] = (groups[key] || 0) + 1;
+        }
+        return { groups };
+      }
+
+      const items = ds.query(dsArgs);
       return { items: items.map(item => resolveItem(ds, item)) };
     }
       
