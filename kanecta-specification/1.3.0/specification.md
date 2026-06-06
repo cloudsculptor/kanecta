@@ -597,7 +597,7 @@ Each custom type is stored as a pair of files under its UUID shard path.
 | `supersededBy` | Array of UUIDs of type definitions that replace this one — Kanecta types are immutable, so a changed shape always means a new type |
 | `implements` | Array of UUIDs of types whose shape/contract this type fulfils (interface-style compatibility claim, not storage inheritance) |
 | `extends` | Array of UUIDs of types this type extends/specialises (declared relationship, not storage inheritance) |
-| `immutable` | When `true`, instances of this type cannot be mutated after creation — only read or deleted |
+| `immutable` | When `true`, this type definition is sealed — its shape cannot change. Enforced by `hash`. A sealed type that needs a shape change must be replaced with a new type and `supersededBy` set |
 | `hash` | Hex-encoded SHA-256 of the canonical serialisation of this type definition, for integrity checking |
 
 #### Type Lifecycle
