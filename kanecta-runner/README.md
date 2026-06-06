@@ -1,0 +1,1 @@
+# Future home of kanecta-runner for running functions outside kanecta (pipelines etc)

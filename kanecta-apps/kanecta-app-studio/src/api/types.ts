@@ -1,4 +1,4 @@
-import type { ApiClient } from './client';
+import type { KanectaApiClient } from '@kanecta/api-client';
 
 export interface TypeDefinition {
   id: string;
@@ -13,12 +13,13 @@ export interface TypeDefinition {
   tags?: string | null;
 }
 
-export function typesApi(client: ApiClient) {
+export function typesApi(client: KanectaApiClient) {
   return {
-    list: () => client.get<TypeDefinition[]>('/types'),
-    schema: (id: string) => client.get<unknown>(`/types/${id}/schema`),
-    saveSchema: (id: string, schema: unknown) => client.put<unknown>(`/types/${id}/schema`, schema),
-    create: (value: string) => client.post<TypeDefinition>('/types', { value }),
-    metadata: (id: string) => client.get<unknown>(`/types/${id}`),
+    list: () => client.types.list() as unknown as Promise<TypeDefinition[]>,
+    schema: (id: string) => client.types.getSchema(id),
+    saveSchema: (id: string, schema: unknown) =>
+      client.types.updateSchema(id, schema as never),
+    create: (value: string) => client.types.create(value) as unknown as Promise<TypeDefinition>,
+    metadata: (id: string) => client.types.get(id),
   };
 }

@@ -1,4 +1,4 @@
-import type { ApiClient } from './client';
+import type { KanectaApiClient } from '@kanecta/api-client';
 
 export interface SystemItem {
   folderId: string;
@@ -16,12 +16,12 @@ export interface ExportResult {
   errors: { id: string; error: string }[];
 }
 
-export function systemItemsApi(client: ApiClient) {
+export function systemItemsApi(client: KanectaApiClient) {
   return {
-    list: () => client.get<SystemItem[]>('/app/studio/sync-system-items'),
+    list: () => client.systemItems.getSync() as unknown as Promise<SystemItem[]>,
     importItems: (folderIds: string[]) =>
-      client.post<ImportResult>('/app/studio/sync-system-items/import', { folderIds }),
+      client.systemItems.import(folderIds) as unknown as Promise<ImportResult>,
     exportItems: (itemIds: string[]) =>
-      client.post<ExportResult>('/app/studio/sync-system-items/export', { typeIds: itemIds }),
+      client.systemItems.export(itemIds) as unknown as Promise<ExportResult>,
   };
 }

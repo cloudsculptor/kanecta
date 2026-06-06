@@ -1,0 +1,28 @@
+{
+  "name": "@kanecta/database",
+  "version": "0.1.0",
+  "description": "Kanecta database layer — sits between kanecta-lib and kanecta-postgres",
+  "main": "index.js",
+  "files": [
+    "index.js"
+  ],
+  "scripts": {
+    "test": "echo \"No tests yet\""
+  },
+  "dependencies": {
+    "@kanecta/postgres": "*"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "kanecta",
+    "database",
+    "datastore"
+  ],
+  "author": "Richie Thomas <richardsempire@gmail.com>",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}

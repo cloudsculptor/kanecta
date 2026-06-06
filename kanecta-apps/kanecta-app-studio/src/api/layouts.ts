@@ -1,9 +1,9 @@
-import type { ApiClient } from './client';
+import type { KanectaApiClient } from '@kanecta/api-client';
 import type { LayoutData } from '../components/views/LayoutsView/types';
 
-export function layoutsApi(client: ApiClient) {
+export function layoutsApi(client: KanectaApiClient) {
   return {
-    get: () => client.get<LayoutData>('/app/studio/layouts'),
-    save: (data: LayoutData) => client.put<{ ok: boolean }>('/app/studio/layouts', data),
+    get: () => client.layouts.get() as unknown as Promise<LayoutData>,
+    save: (data: LayoutData) => client.layouts.save(data as never),
   };
 }

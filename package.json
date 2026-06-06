@@ -12,6 +12,8 @@
   "workspaces": [
     "kanecta-specification",
     "kanecta-filesystem",
+    "kanecta-postgres",
+    "kanecta-database",
     "kanecta-lib",
     "kanecta-api-client",
     "kanecta-sdk",

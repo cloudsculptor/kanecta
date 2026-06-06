@@ -1,21 +1,20 @@
-import type { ApiClient } from './client';
+import type { KanectaApiClient } from '@kanecta/api-client';
 
 export interface AliasEntry {
   alias: string;
   targetId: string;
 }
 
-export function aliasesApi(client: ApiClient) {
+export function aliasesApi(client: KanectaApiClient) {
   return {
-    list: () => client.get<AliasEntry[]>('/aliases'),
+    list: () => client.aliases.list(),
 
-    listForItem: (targetId: string) => client.get<AliasEntry[]>(`/aliases?targetId=${encodeURIComponent(targetId)}`),
+    listForItem: (targetId: string) => client.aliases.list(targetId),
 
-    resolve: (alias: string) => client.get<AliasEntry>(`/aliases/${alias}`),
+    resolve: (alias: string) => client.aliases.resolve(alias),
 
-    set: (alias: string, targetId: string) =>
-      client.post<AliasEntry>('/aliases', { alias, targetId }),
+    set: (alias: string, targetId: string) => client.aliases.set(alias, targetId),
 
-    remove: (alias: string) => client.delete<{ removed: string }>(`/aliases/${alias}`),
+    remove: (alias: string) => client.aliases.remove(alias),
   };
 }

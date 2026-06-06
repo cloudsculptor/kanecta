@@ -7,6 +7,9 @@ export default defineConfig({
   resolve: {
     dedupe: ['react', 'react-dom', '@emotion/react', '@emotion/styled', '@mui/material'],
   },
+  optimizeDeps: {
+    include: ['@kanecta/api-client'],
+  },
   build: {
     outDir: 'dist',
     emptyOutDir: true,

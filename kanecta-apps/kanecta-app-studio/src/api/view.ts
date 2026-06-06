@@ -1,13 +1,12 @@
-import type { ApiClient } from './client';
+import type { KanectaApiClient } from '@kanecta/api-client';
 
 export interface ViewSettings {
   levels: number | 'all';
 }
 
-export function viewApi(client: ApiClient) {
+export function viewApi(client: KanectaApiClient) {
   return {
-    get: (id: string) => client.get<ViewSettings | null>(`/app/studio/view/${id}`),
-    save: (id: string, levels: number | 'all') =>
-      client.put<{ ok: boolean }>(`/app/studio/view/${id}`, { levels }),
+    get: (id: string) => client.view.get(id) as unknown as Promise<ViewSettings | null>,
+    save: (id: string, levels: number | 'all') => client.view.save(id, { levels }),
   };
 }

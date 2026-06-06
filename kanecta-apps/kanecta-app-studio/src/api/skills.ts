@@ -1,4 +1,4 @@
-import type { ApiClient } from './client';
+import type { KanectaApiClient } from '@kanecta/api-client';
 
 export interface SkillFile {
   id: string;
@@ -10,11 +10,11 @@ export interface SkillFileWithContent extends SkillFile {
   content: string;
 }
 
-export function skillsApi(client: ApiClient) {
+export function skillsApi(client: KanectaApiClient) {
   return {
-    list: () => client.get<SkillFile[]>('/skills'),
-    get: (id: string) => client.get<SkillFileWithContent>(`/skills/${id}`),
+    list: () => client.skills.list() as unknown as Promise<SkillFile[]>,
+    get: (id: string) => client.skills.get(id) as unknown as Promise<SkillFileWithContent>,
     update: (id: string, content: string) =>
-      client.put<SkillFile>(`/skills/${id}`, { content }),
+      client.skills.update(id, content) as unknown as Promise<SkillFile>,
   };
 }
