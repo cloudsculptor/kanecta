@@ -1,13 +1,13 @@
 {
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "meta": {
     "icon": "Checklist",
     "description": "A single action-and-expected-result step in a test case.",
     "keywords": "test case step",
-    "tags": "test,case,step"
+    "tags": "test,case,step",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",

@@ -1,13 +1,13 @@
 {
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "meta": {
     "icon": "AccountTree",
     "description": "A conceptual step in a pipeline specification.",
     "keywords": "pipeline spec step",
-    "tags": "pipeline,spec,step"
+    "tags": "pipeline,spec,step",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",

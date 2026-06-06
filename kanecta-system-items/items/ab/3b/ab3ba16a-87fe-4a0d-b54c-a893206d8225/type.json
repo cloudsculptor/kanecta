@@ -8,7 +8,11 @@
       "use case",
       "AC",
       "acceptance criteria"
-    ]
+    ],
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -84,10 +88,6 @@
       }
     }
   },
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "sqlSchema": [
     "CREATE TABLE \"obj_ab3ba16a_87fe_4a0d_b54c_a893206d8225\" (\n    item_id UUID NOT NULL,\n    \"title\" TEXT,\n    \"use_cases\" TEXT[] NOT NULL DEFAULT '{}',\n    \"document_owner\" TEXT,\n    \"designer\" TEXT,\n    \"tech_leads\" TEXT[] NOT NULL DEFAULT '{}',\n    \"qa\" TEXT[] NOT NULL DEFAULT '{}',\n    \"figma\" TEXT,\n    \"detailed_design\" TEXT,\n    \"current_state\" TEXT[] NOT NULL DEFAULT '{}',\n    \"assumptions\" TEXT,\n    \"out_of_scope\" TEXT[] NOT NULL DEFAULT '{}',\n    \"business_process_upstream\" TEXT,\n    \"business_process_downstream\" TEXT,\n    CONSTRAINT \"pk_obj_ab3ba16a_87fe_4a0d_b54c_a893206d8225\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_ab3ba16a87fe4a0d_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
   ]

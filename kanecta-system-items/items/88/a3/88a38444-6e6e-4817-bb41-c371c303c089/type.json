@@ -3,7 +3,11 @@
     "icon": "MenuBook",
     "description": "A runbook \u2014 operational steps for a specific system event such as a deploy, incident or rollback",
     "keywords": "runbook operational incident deploy on-call",
-    "tags": "software,development,operations"
+    "tags": "software,development,operations",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -52,10 +56,6 @@
       }
     }
   },
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "sqlSchema": [
     "CREATE TABLE \"obj_88a38444_6e6e_4817_bb41_c371c303c089\" (\n    item_id UUID NOT NULL,\n    \"title\" TEXT,\n    \"trigger\" TEXT,\n    \"service\" TEXT,\n    \"severity\" TEXT,\n    \"owner\" TEXT,\n    \"escalation_path\" TEXT,\n    \"last_tested\" TEXT,\n    \"tags\" TEXT[] NOT NULL DEFAULT '{}',\n    CONSTRAINT \"pk_obj_88a38444_6e6e_4817_bb41_c371c303c089\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_88a384446e6e4817_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
   ]

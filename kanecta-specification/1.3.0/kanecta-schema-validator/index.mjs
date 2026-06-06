@@ -47,30 +47,31 @@ export function validateType(typeJson) {
     if (typeJson[f] == null) errors.push(e(f, `Required field "${f}" is missing`, 'required'));
   }
 
-  if (typeJson.immutable != null && typeof typeJson.immutable !== 'boolean') {
-    errors.push(e('immutable', 'immutable must be a boolean', 'type'));
-  }
-  if (typeJson.hash != null && typeof typeJson.hash !== 'string') {
-    errors.push(e('hash', 'hash must be a string', 'type'));
-  }
-
-  for (const f of UUID_ARRAYS) {
-    const v = typeJson[f];
-    if (v == null) continue;
-    if (!Array.isArray(v)) {
-      errors.push(e(f, `"${f}" must be an array`, 'type'));
-    } else {
-      v.forEach((u, i) => {
-        if (!isUUID(u)) errors.push(e(`${f}[${i}]`, `Not a valid UUID: "${u}"`, 'format:uuid'));
-      });
-    }
-  }
-
   const meta = typeJson.meta;
   if (meta && typeof meta === 'object') {
     if (!meta.description) {
       errors.push(e('meta.description', 'meta.description is required', 'required'));
     }
+
+    for (const f of UUID_ARRAYS) {
+      const v = meta[f];
+      if (v == null) continue;
+      if (!Array.isArray(v)) {
+        errors.push(e(`meta.${f}`, `"meta.${f}" must be an array`, 'type'));
+      } else {
+        v.forEach((u, i) => {
+          if (!isUUID(u)) errors.push(e(`meta.${f}[${i}]`, `Not a valid UUID: "${u}"`, 'format:uuid'));
+        });
+      }
+    }
+
+    if (meta.immutable != null && typeof meta.immutable !== 'boolean') {
+      errors.push(e('meta.immutable', 'meta.immutable must be a boolean', 'type'));
+    }
+    if (meta.hash != null && typeof meta.hash !== 'string') {
+      errors.push(e('meta.hash', 'meta.hash must be a string', 'type'));
+    }
+
     const fns = meta.functions;
     if (fns != null) {
       if (!Array.isArray(fns)) {

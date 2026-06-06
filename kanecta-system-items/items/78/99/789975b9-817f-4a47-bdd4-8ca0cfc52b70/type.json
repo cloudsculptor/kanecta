@@ -6,7 +6,11 @@
     "tags": "pipeline,documentation",
     "skills": {
       "claude": "A Pipeline Spec is the 'about' document for a pipeline. It describes purpose, philosophy, each step's input/output contract, the improvement loops, and planned integrations. Referenced by the Pipeline item's 'about' field. Can be tagged org-context to inject pipeline knowledge into AI reasoning."
-    }
+    },
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -37,10 +41,6 @@
       }
     }
   },
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "sqlSchema": [
     "CREATE TABLE \"obj_789975b9_817f_4a47_bdd4_8ca0cfc52b70\" (\n    item_id UUID NOT NULL,\n    \"purpose\" TEXT,\n    \"philosophy\" TEXT,\n    \"version\" TEXT,\n    \"input_type\" TEXT,\n    \"output_type\" TEXT,\n    CONSTRAINT \"pk_obj_789975b9_817f_4a47_bdd4_8ca0cfc52b70\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_789975b9817f4a47_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
   ]

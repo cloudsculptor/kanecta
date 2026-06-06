@@ -13,7 +13,11 @@
     "tags": "",
     "skills": {
       "claude": "A Pipeline is a template \u2014 it defines the shape of a run but does not execute. 'inputType' is either a Kanecta type UUID or a TypeScript primitive string. Each step declares the Function UUID to call and the Kanecta type UUID of the object it produces. The output of step N becomes the input of step N+1. To execute a pipeline, create a Pipeline Run item."
-    }
+    },
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -37,10 +41,6 @@
       }
     }
   },
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "sqlSchema": [
     "CREATE TABLE \"obj_c0d6b3de_a652_435c_a9e9_2339de1211f6\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"description\" TEXT,\n    \"input_type\" TEXT,\n    CONSTRAINT \"pk_obj_c0d6b3de_a652_435c_a9e9_2339de1211f6\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_c0d6b3dea652435c_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
   ]

@@ -1,13 +1,13 @@
 {
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "meta": {
     "icon": "Rule",
     "description": "A check or other constraint on a database table.",
     "keywords": "database table constraint",
-    "tags": "database,table,constraint"
+    "tags": "database,table,constraint",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",

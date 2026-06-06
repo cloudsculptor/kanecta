@@ -3,7 +3,11 @@
     "icon": "Hub",
     "description": "A deployed microservice or backend application",
     "keywords": "service microservice backend application API",
-    "tags": "software,development,infrastructure"
+    "tags": "software,development,infrastructure",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -53,10 +57,6 @@
       }
     }
   },
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "sqlSchema": [
     "CREATE TABLE \"obj_68b4c3a2_266c_4a4e_b7dc_507a06ba95a5\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"description\" TEXT,\n    \"repository\" TEXT,\n    \"language\" TEXT,\n    \"team\" TEXT,\n    \"owner\" TEXT,\n    \"dependencies\" TEXT[] NOT NULL DEFAULT '{}',\n    \"health_check_url\" TEXT,\n    \"runbook\" TEXT,\n    \"tags\" TEXT[] NOT NULL DEFAULT '{}',\n    CONSTRAINT \"pk_obj_68b4c3a2_266c_4a4e_b7dc_507a06ba95a5\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_68b4c3a2266c4a4e_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
   ]

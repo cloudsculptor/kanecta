@@ -1,13 +1,13 @@
 {
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "meta": {
     "icon": "Person",
     "description": "A role and its responsibility in a human procedure.",
     "keywords": "procedure role",
-    "tags": "procedure,role"
+    "tags": "procedure,role",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",

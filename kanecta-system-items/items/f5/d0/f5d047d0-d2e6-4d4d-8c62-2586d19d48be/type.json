@@ -1,13 +1,13 @@
 {
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "meta": {
     "icon": "PlayArrow",
     "description": "A single function in a pipeline's ordered execution sequence.",
     "keywords": "pipeline sequence step",
-    "tags": "pipeline,sequence,step"
+    "tags": "pipeline,sequence,step",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",

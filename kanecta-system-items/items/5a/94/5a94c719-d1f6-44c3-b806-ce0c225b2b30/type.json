@@ -1,13 +1,13 @@
 {
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "meta": {
     "icon": "Settings",
     "description": "An environment-specific rollout configuration for a feature flag.",
     "keywords": "feature flag environment",
-    "tags": "feature,flag,environment"
+    "tags": "feature,flag,environment",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",

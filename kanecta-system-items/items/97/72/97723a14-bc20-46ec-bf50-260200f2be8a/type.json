@@ -1,13 +1,13 @@
 {
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "meta": {
     "icon": "Assignment",
     "description": "A requirement linked to an epic in a future state specification.",
     "keywords": "future state requirement",
-    "tags": "future,state,requirement"
+    "tags": "future,state,requirement",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",

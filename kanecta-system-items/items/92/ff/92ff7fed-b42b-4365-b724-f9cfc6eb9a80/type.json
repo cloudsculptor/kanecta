@@ -1,13 +1,13 @@
 {
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "meta": {
     "icon": "MenuBook",
     "description": "Reference document links for a Detailed Design \u2014 one instance per design.",
     "keywords": "detailed design references",
-    "tags": "detailed,design,references"
+    "tags": "detailed,design,references",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",

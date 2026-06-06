@@ -1,13 +1,13 @@
 {
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "meta": {
     "icon": "Assignment",
     "description": "Delivery plan for a Detailed Design \u2014 one instance per design.",
     "keywords": "detailed design delivery plan",
-    "tags": "detailed,design,delivery,plan"
+    "tags": "detailed,design,delivery,plan",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",

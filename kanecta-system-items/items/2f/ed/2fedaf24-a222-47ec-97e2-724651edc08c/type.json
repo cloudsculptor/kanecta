@@ -6,7 +6,11 @@
     "tags": "pipeline,automation",
     "skills": {
       "claude": "The 'logs' field is a UUID pointing to a Logs item whose children are LogItem instances. The 'dependsOn' array contains step indices (integers) that must reach outcome 'success' before this step runs. 'inputs' and 'outputs' are arbitrary objects whose shape is determined by the function being called."
-    }
+    },
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -76,10 +80,6 @@
       }
     }
   },
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "sqlSchema": [
     "CREATE TABLE \"obj_2fedaf24_a222_47ec_97e2_724651edc08c\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"step_index\" INTEGER,\n    \"function\" UUID,\n    \"depends_on\" UUID[] NOT NULL DEFAULT '{}',\n    \"outcome\" TEXT,\n    \"error\" TEXT,\n    \"retry_count\" INTEGER,\n    \"started_at\" TEXT,\n    \"completed_at\" TEXT,\n    \"logs\" UUID,\n    \"inputs\" TEXT,\n    \"outputs\" TEXT,\n    CONSTRAINT \"pk_obj_2fedaf24_a222_47ec_97e2_724651edc08c\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_2fedaf24a22247ec_item\" FOREIGN KEY (item_id) REFERENCES items(id),\n    CONSTRAINT \"fk_2fedaf24a22247ec_function\" FOREIGN KEY (\"function\") REFERENCES items(id),\n    CONSTRAINT \"fk_2fedaf24a22247ec_logs\" FOREIGN KEY (\"logs\") REFERENCES items(id)\n)"
   ]

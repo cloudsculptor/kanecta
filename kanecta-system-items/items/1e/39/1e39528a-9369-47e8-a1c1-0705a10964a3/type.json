@@ -3,7 +3,11 @@
     "icon": "TrackChanges",
     "description": "A goal \u2014 an outcome to work toward with a deadline and success criteria",
     "keywords": "goal OKR objective outcome target",
-    "tags": "personal,organiser,productivity"
+    "tags": "personal,organiser,productivity",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -51,10 +55,6 @@
       }
     }
   },
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "sqlSchema": [
     "CREATE TABLE \"obj_1e39528a_9369_47e8_a1c1_0705a10964a3\" (\n    item_id UUID NOT NULL,\n    \"title\" TEXT,\n    \"description\" TEXT,\n    \"success_criteria\" TEXT,\n    \"due_date\" TEXT,\n    \"status\" TEXT,\n    \"owner\" TEXT,\n    \"parent_goal\" TEXT,\n    \"tags\" TEXT[] NOT NULL DEFAULT '{}',\n    CONSTRAINT \"pk_obj_1e39528a_9369_47e8_a1c1_0705a10964a3\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_1e39528a936947e8_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
   ]
