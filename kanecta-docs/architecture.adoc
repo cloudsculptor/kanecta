@@ -10,13 +10,14 @@ This document describes the aspirational package architecture for Kanecta.
 ....
 flowchart TB
     subgraph apps["Applications"]
-        Studio["kanecta-app-studio\n(React SPA)"]
-        MCP["kanecta-mcp\n(MCP server)"]
-        CLI["kanecta-cli\n(CLI tool)"]
+        Studio["kanecta-app-studio<br/>(React SPA)"]
+        MCP["kanecta-mcp<br/>(MCP server)"]
+        CLI["kanecta-cli<br/>(CLI tool)"]
+        Runner["kanecta-runner<br/>(pipeline / standalone)"]
     end
 
-    subgraph studio_internals["Inside kanecta-app-studio"]
-        Functions["hosted functions\n(user-provided)"]
+    subgraph studio_internals[" "]
+        Functions["hosted functions<br/>(user-provided)"]
         SDK["kanecta-sdk"]
         Functions --> SDK
     end
@@ -26,11 +27,13 @@ flowchart TB
     end
 
     subgraph server["Server"]
-        API["kanecta-api\n(Express)"]
+        API["kanecta-api<br/>(Express)"]
     end
 
     subgraph ai["kanecta-ai"]
+        AI["kanecta-ai"]
         ClaudeLib["kanecta-claude-lib"]
+        AI --> ClaudeLib
     end
 
     subgraph core["Core"]
@@ -39,22 +42,31 @@ flowchart TB
 
     subgraph storage["Storage adapters"]
         FS["kanecta-filesystem"]
-        DB["kanecta-database\n+ kanecta-s3"]
+        DB["kanecta-database"]
+        S3["kanecta-s3"]
     end
 
     subgraph remote["Remote storage"]
         PG["kanecta-postgres"]
     end
 
+    subgraph data["Data"]
+        Files["files"]
+        Items["items"]
+    end
+
     subgraph external["External services"]
-        Claude["Claude API\n(Anthropic)"]
+        Claude["Claude API<br/>(Anthropic)"]
     end
 
     Studio --> ApiClient
+    Studio --> Functions
+    Runner --> Functions
     SDK --> ApiClient
+    SDK --> AI
     ApiClient --> API
     API --> Lib
-    API --> ClaudeLib
+    API --> AI
     ClaudeLib --> Claude
 
     MCP --> Lib
@@ -62,7 +74,13 @@ flowchart TB
 
     Lib --> FS
     Lib --> DB
+    Lib --> S3
     DB --> PG
+
+    FS --> Files
+    FS --> Items
+    S3 --> Files
+    PG --> Items
 ....
 
 == Entry points
@@ -74,8 +92,11 @@ flowchart TB
 | Studio
 | `kanecta-app-studio` → `kanecta-api-client` → `kanecta-api` → `kanecta-lib` + `kanecta-ai/kanecta-claude-lib`
 
-| Hosted functions (inside Studio)
+| Hosted functions (inside Studio or kanecta-runner)
 | user code → `kanecta-sdk` → `kanecta-api-client` → `kanecta-api` → …
+
+| Runner (pipeline / standalone)
+| `kanecta-runner` → hosted functions → `kanecta-sdk` → `kanecta-api-client` → `kanecta-api` → …
 
 | MCP server
 | `kanecta-mcp` → `kanecta-lib`
@@ -95,6 +116,9 @@ flowchart TB
 | `kanecta-filesystem`
 | Default. Local JSON files under `~/.kanecta/`. Human-readable, zero config.
 
-| `kanecta-database` + `kanecta-s3` + `kanecta-postgres`
-| Remote/hosted mode. Structured SQL storage with S3 for binary assets.
+| `kanecta-database` (+ `kanecta-postgres`)
+| Remote/hosted mode. Structured SQL storage for items and metadata.
+
+| `kanecta-s3`
+| Remote/hosted mode. Object storage for binary assets/files. Independent of `kanecta-database`.
 |===
