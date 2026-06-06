@@ -1,7 +1,7 @@
 {
   "meta": {
     "icon": "Article",
-    "description": "A harvested Confluence page — stores full content and enough metadata to sync or re-fetch via the Atlassian MCP",
+    "description": "A harvested Confluence page \u2014 stores full content and enough metadata to sync or re-fetch via the Atlassian MCP",
     "keywords": [
       "confluence",
       "wiki",
@@ -11,7 +11,7 @@
       "source"
     ],
     "tags": "",
-    "ai-instructions": {
+    "skills": {
       "claude": ""
     }
   },
@@ -31,7 +31,7 @@
     "properties": {
       "pageId": {
         "type": "string",
-        "description": "Confluence numeric page ID — used with cloudId to re-fetch via getConfluencePage"
+        "description": "Confluence numeric page ID \u2014 used with cloudId to re-fetch via getConfluencePage"
       },
       "cloudId": {
         "type": "string",

@@ -11,7 +11,7 @@
       "code"
     ],
     "tags": "",
-    "ai-instructions": {
+    "skills": {
       "claude": "The 'arguments' array contains UUIDs referencing Argument type items. The 'returns' array accepts either a Kanecta type UUID or a TypeScript primitive string ('string', 'number', 'boolean', 'Date', 'any', 'unknown', 'void', 'null', 'undefined', 'never'). Multiple entries in 'returns' represent a union type. The 'function' field contains raw TypeScript source code. If 'async' is true, the return type should be wrapped in Promise<>."
     }
   },

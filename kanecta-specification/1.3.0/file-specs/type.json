@@ -56,9 +56,10 @@
           "type": "string",
           "description": "Dot-separated path to the field in jsonSchema.properties that best represents the item (e.g. 'title', 'name', 'address.street'). Used by UIs to surface the most meaningful value."
         },
-        "ai-instructions": {
+        "skills": {
           "type": "object",
           "additionalProperties": false,
+          "description": "AI skill guidance keyed by model/provider name.",
           "properties": {
             "claude": {
               "type": "string",
@@ -67,21 +68,9 @@
           }
         },
         "functions": {
-          "type": "object",
-          "additionalProperties": false,
-          "description": "Function items related to this type.",
-          "properties": {
-            "consumedBy": {
-              "type": "array",
-              "items": { "type": "string", "format": "uuid" },
-              "description": "UUIDs of function-primitive items that accept this type as an argument."
-            },
-            "producedBy": {
-              "type": "array",
-              "items": { "type": "string", "format": "uuid" },
-              "description": "UUIDs of function-primitive items that return this type."
-            }
-          }
+          "type": "array",
+          "items": { "type": "string", "format": "uuid" },
+          "description": "UUIDs of function-primitive items associated with this type."
         }
       }
     },
@@ -149,13 +138,10 @@
         "keywords": "human individual biography name",
         "tags": "people,biography,individual",
         "primaryField": "name",
-        "ai-instructions": {
+        "skills": {
           "claude": "Use this type for any individual human being."
         },
-        "functions": {
-          "consumedBy": [],
-          "producedBy": []
-        }
+        "functions": []
       },
       "jsonSchema": {
         "$schema": "http://json-schema.org/draft-07/schema#",

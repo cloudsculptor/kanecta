@@ -12,7 +12,7 @@
       "artifact"
     ],
     "tags": "",
-    "ai-instructions": {
+    "skills": {
       "claude": "A Pipeline Run is the live state and audit log of a pipeline execution. The 'steps' array is updated after each step completes \u2014 steps[N].output holds the Kanecta UUID of the artifact produced, which becomes the input for step N+1 (steps[N+1].input). The Pipeline Run item's children in the Kanecta tree are the artifact objects produced at each step. To resume a failed run, read the last completed step's output UUID and restart from the next step."
     }
   },

@@ -4,7 +4,7 @@
     "description": "A single log line \u2014 timestamp, level, message and optional structured data",
     "keywords": "log entry line message debug info warn error",
     "tags": "pipeline,logging",
-    "ai-instructions": {
+    "skills": {
       "claude": ""
     }
   },

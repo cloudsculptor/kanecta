@@ -1,7 +1,7 @@
 {
   "meta": {
     "icon": "Language",
-    "description": "A harvested web page — stores URL, content, and provenance metadata to enable future sync",
+    "description": "A harvested web page \u2014 stores URL, content, and provenance metadata to enable future sync",
     "keywords": [
       "webpage",
       "web",
@@ -10,7 +10,7 @@
       "url"
     ],
     "tags": "",
-    "ai-instructions": {
+    "skills": {
       "claude": ""
     }
   },

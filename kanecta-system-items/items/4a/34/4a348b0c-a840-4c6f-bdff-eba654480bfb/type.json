@@ -11,7 +11,7 @@
       "type"
     ],
     "tags": "",
-    "ai-instructions": {
+    "skills": {
       "claude": "The 'types' array accepts either: (1) a Kanecta type UUID referencing a type definition whose JSON schema will be converted to a TypeScript type, or (2) a TypeScript primitive string such as 'string', 'number', 'boolean', 'Date', 'any', 'unknown', 'void', 'null', 'undefined', 'never'."
     }
   },

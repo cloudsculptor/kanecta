@@ -4,7 +4,7 @@
     "description": "Self-describing specification for a Kanecta pipeline \u2014 purpose, philosophy, step contracts, learning loops and planned integrations",
     "keywords": "pipeline spec about description steps learning loops integrations",
     "tags": "pipeline,documentation",
-    "ai-instructions": {
+    "skills": {
       "claude": "A Pipeline Spec is the 'about' document for a pipeline. It describes purpose, philosophy, each step's input/output contract, the improvement loops, and planned integrations. Referenced by the Pipeline item's 'about' field. Can be tagged org-context to inject pipeline knowledge into AI reasoning."
     }
   },
