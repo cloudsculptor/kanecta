@@ -101,6 +101,11 @@
       "enum": ["private", "organisation", "public"],
       "default": "private",
       "description": "Coarse default access level, checked before any fine-grained grants. 'private' = owner and explicitly-granted principals only; 'organisation' = visible to anyone in the owner's organisation; 'public' = visible to anyone. Fine-grained per-principal read/write/subscribe grants layer on top of this and can extend (but never narrow) what visibility allows — see specification.db.postgres.md for the access-control storage model."
+    },
+    "aspect": {
+      "type": ["string", "null"],
+      "default": null,
+      "description": "Dimension this item occupies under its parent. Null means the item belongs to the main tree. Any other string names an alternative dimension (e.g. 'settings', 'hidden', 'archive'). UIs show only null-aspect children by default; a user or application switches aspect to see a different dimension's children. An item belongs to exactly one aspect. sortOrder is scoped per-aspect — siblings in different aspects are ordered independently. Aspect names are free-form conventions; none are reserved by the spec."
     }
   },
   "examples": [
