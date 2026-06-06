@@ -32,8 +32,8 @@ flowchart TB
 
     subgraph ai["kanecta-ai"]
         AI["kanecta-ai"]
-        ClaudeLib["kanecta-claude-lib"]
-        AI --> ClaudeLib
+        ClaudeBridge["kanecta-claude-bridge"]
+        AI --> ClaudeBridge
     end
 
     subgraph core["Core"]
@@ -67,7 +67,7 @@ flowchart TB
     ApiClient --> API
     API --> Lib
     API --> AI
-    ClaudeLib --> Claude
+    ClaudeBridge --> Claude
 
     MCP --> Lib
     CLI --> Lib
@@ -90,7 +90,7 @@ flowchart TB
 | Entry point | Path
 
 | Studio
-| `kanecta-app-studio` → `kanecta-api-client` → `kanecta-api` → `kanecta-lib` + `kanecta-ai/kanecta-claude-lib`
+| `kanecta-app-studio` → `kanecta-api-client` → `kanecta-api` → `kanecta-lib` + `kanecta-ai/kanecta-claude-bridge`
 
 | Hosted functions (inside Studio or kanecta-runner)
 | user code → `kanecta-sdk` → `kanecta-api-client` → `kanecta-api` → …
