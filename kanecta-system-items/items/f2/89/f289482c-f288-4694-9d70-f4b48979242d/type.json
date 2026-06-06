@@ -1,7 +1,7 @@
 {
   "meta": {
     "icon": "MenuBook",
-    "description": "A Confluence space — groups harvested Confluence Page objects and serves as a citable source for Domain Concepts",
+    "description": "A Confluence space \u2014 groups harvested Confluence Page objects and serves as a citable source for Domain Concepts",
     "keywords": [
       "confluence",
       "space",
@@ -10,7 +10,7 @@
       "source"
     ],
     "tags": "",
-    "ai-instructions": {
+    "skills": {
       "claude": ""
     }
   },

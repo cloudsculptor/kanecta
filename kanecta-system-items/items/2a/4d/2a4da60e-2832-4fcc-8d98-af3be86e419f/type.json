@@ -1,11 +1,11 @@
 {
   "meta": {
     "icon": "ListAltOutlined",
-    "description": "A container for log entries — children in the Kanecta tree are LogItem instances",
+    "description": "A container for log entries \u2014 children in the Kanecta tree are LogItem instances",
     "keywords": "logs container log entries pipeline",
     "tags": "pipeline,logging",
-    "ai-instructions": {
-      "claude": "A Logs item is a container — do not store log entries inline. Instead create LogItem child nodes under this item, one per log line."
+    "skills": {
+      "claude": "A Logs item is a container \u2014 do not store log entries inline. Instead create LogItem child nodes under this item, one per log line."
     }
   },
   "jsonSchema": {

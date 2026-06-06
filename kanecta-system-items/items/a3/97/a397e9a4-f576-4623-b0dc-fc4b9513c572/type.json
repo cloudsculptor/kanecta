@@ -1,7 +1,7 @@
 {
   "meta": {
     "icon": "Lightbulb",
-    "description": "An org-level domain concept — definition, provenance, and relationships for knowledge graph use",
+    "description": "An org-level domain concept \u2014 definition, provenance, and relationships for knowledge graph use",
     "keywords": [
       "concept",
       "domain",
@@ -10,7 +10,7 @@
       "definition"
     ],
     "tags": "",
-    "ai-instructions": {
+    "skills": {
       "claude": ""
     }
   },

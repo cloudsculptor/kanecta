@@ -4,7 +4,7 @@
     "description": "A virtual GitHub pull request \u2014 title, description, patch and metadata ready to push as a real PR later",
     "keywords": "github pr pull request patch diff branch review merge",
     "tags": "github,development,pipeline",
-    "ai-instructions": {
+    "skills": {
       "claude": "A GitHub PR item is a virtual PR \u2014 it holds everything needed to open a real PR on GitHub but does not push anything. Use the 'patch' field for the raw git diff. When a real PR is ready to be opened, a separate function will read this item and call the GitHub API."
     }
   },

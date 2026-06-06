@@ -84,14 +84,13 @@ function validateType(typeJson) {
       errors.push(e('meta.description', 'meta.description is required', 'required'));
     }
     const fns = meta.functions;
-    if (fns && typeof fns === 'object') {
-      for (const f of ['consumedBy', 'producedBy']) {
-        const arr = fns[f];
-        if (Array.isArray(arr)) {
-          arr.forEach((u, i) => {
-            if (!isUUID(u)) errors.push(e(`meta.functions.${f}[${i}]`, `Not a valid UUID: "${u}"`, 'format:uuid'));
-          });
-        }
+    if (fns != null) {
+      if (!Array.isArray(fns)) {
+        errors.push(e('meta.functions', 'meta.functions must be an array of UUIDs', 'type'));
+      } else {
+        fns.forEach((u, i) => {
+          if (!isUUID(u)) errors.push(e(`meta.functions[${i}]`, `Not a valid UUID: "${u}"`, 'format:uuid'));
+        });
       }
     }
   }

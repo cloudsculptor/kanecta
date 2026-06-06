@@ -4,7 +4,7 @@
     "description": "A single step in a pipeline \u2014 captures function, inputs, outputs, outcome and a reference to its log",
     "keywords": "pipeline step function execution inputs outputs outcome log",
     "tags": "pipeline,automation",
-    "ai-instructions": {
+    "skills": {
       "claude": "The 'logs' field is a UUID pointing to a Logs item whose children are LogItem instances. The 'dependsOn' array contains step indices (integers) that must reach outcome 'success' before this step runs. 'inputs' and 'outputs' are arbitrary objects whose shape is determined by the function being called."
     }
   },
