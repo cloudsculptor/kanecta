@@ -1,13 +1,13 @@
 {
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "meta": {
     "icon": "Block",
     "description": "An implementation blocker or unknown identified in a pre-flight assessment.",
     "keywords": "pre-flight blocker",
-    "tags": "pre-flight,blocker"
+    "tags": "pre-flight,blocker",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",

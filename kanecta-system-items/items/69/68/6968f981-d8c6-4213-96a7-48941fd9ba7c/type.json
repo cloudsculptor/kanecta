@@ -9,7 +9,11 @@
       "checklist",
       "workflow",
       "runbook"
-    ]
+    ],
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -110,10 +114,6 @@
       }
     }
   },
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "sqlSchema": [
     "CREATE TABLE \"obj_6968f981_d8c6_4213_96a7_48941fd9ba7c\" (\n    item_id UUID NOT NULL,\n    \"title\" TEXT,\n    \"purpose\" TEXT,\n    \"owner\" TEXT,\n    \"team\" TEXT,\n    \"status\" TEXT,\n    \"version\" TEXT,\n    \"last_reviewed\" TEXT,\n    \"next_review\" TEXT,\n    \"frequency\" TEXT,\n    \"estimated_duration\" TEXT,\n    \"prerequisites\" TEXT[] NOT NULL DEFAULT '{}',\n    \"expected_outcome\" TEXT,\n    \"failure_mode\" TEXT,\n    \"ai_skill\" UUID,\n    \"related_procedures\" UUID[] NOT NULL DEFAULT '{}',\n    \"references\" TEXT[] NOT NULL DEFAULT '{}',\n    \"tags\" TEXT[] NOT NULL DEFAULT '{}',\n    CONSTRAINT \"pk_obj_6968f981_d8c6_4213_96a7_48941fd9ba7c\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_6968f981d8c64213_item\" FOREIGN KEY (item_id) REFERENCES items(id),\n    CONSTRAINT \"fk_6968f981d8c64213_ai_skill\" FOREIGN KEY (\"ai_skill\") REFERENCES items(id)\n)"
   ]

@@ -14,7 +14,11 @@
     "tags": "",
     "skills": {
       "claude": "A Pipeline Run is the live state and audit log of a pipeline execution. The 'steps' array is updated after each step completes \u2014 steps[N].output holds the Kanecta UUID of the artifact produced, which becomes the input for step N+1 (steps[N+1].input). The Pipeline Run item's children in the Kanecta tree are the artifact objects produced at each step. To resume a failed run, read the last completed step's output UUID and restart from the next step."
-    }
+    },
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -49,10 +53,6 @@
       }
     }
   },
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "sqlSchema": [
     "CREATE TABLE \"obj_fe0ec59e_207c_447f_b07f_18b201551543\" (\n    item_id UUID NOT NULL,\n    \"pipeline\" UUID,\n    \"status\" TEXT,\n    \"started_at\" TEXT,\n    \"completed_at\" TEXT,\n    CONSTRAINT \"pk_obj_fe0ec59e_207c_447f_b07f_18b201551543\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_fe0ec59e207c447f_item\" FOREIGN KEY (item_id) REFERENCES items(id),\n    CONSTRAINT \"fk_fe0ec59e207c447f_pipeline\" FOREIGN KEY (\"pipeline\") REFERENCES items(id)\n)"
   ]

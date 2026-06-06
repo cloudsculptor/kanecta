@@ -3,7 +3,11 @@
     "icon": "Event",
     "description": "A meeting \u2014 agenda, attendees, decisions and actions",
     "keywords": "meeting standup retro planning sync",
-    "tags": "people,organisation,collaboration"
+    "tags": "people,organisation,collaboration",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -55,10 +59,6 @@
       }
     }
   },
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "sqlSchema": [
     "CREATE TABLE \"obj_e5090793_2af7_48e7_b070_abc01fc6af44\" (\n    item_id UUID NOT NULL,\n    \"title\" TEXT,\n    \"date\" TEXT,\n    \"duration\" TEXT,\n    \"location\" TEXT,\n    \"attendees\" TEXT[] NOT NULL DEFAULT '{}',\n    \"agenda\" TEXT[] NOT NULL DEFAULT '{}',\n    \"decisions\" TEXT[] NOT NULL DEFAULT '{}',\n    \"recurring\" BOOLEAN,\n    \"notes\" TEXT,\n    CONSTRAINT \"pk_obj_e5090793_2af7_48e7_b070_abc01fc6af44\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_e50907932af748e7_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
   ]

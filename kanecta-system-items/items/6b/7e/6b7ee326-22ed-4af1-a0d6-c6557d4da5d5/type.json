@@ -8,7 +8,11 @@
       "architecture",
       "API",
       "design doc"
-    ]
+    ],
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -109,10 +113,6 @@
       }
     }
   },
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "sqlSchema": [
     "CREATE TABLE \"obj_6b7ee326_22ed_4af1_a0d6_c6557d4da5d5\" (\n    item_id UUID NOT NULL,\n    \"title\" TEXT,\n    \"author\" TEXT,\n    \"status\" TEXT,\n    \"scope\" TEXT,\n    \"outcome\" TEXT,\n    \"last_reviewed\" TEXT,\n    \"next_review\" TEXT,\n    \"initiative\" TEXT,\n    \"purpose\" TEXT,\n    \"problem_statement\" TEXT,\n    \"ui_components\" TEXT,\n    \"identified_reuse\" TEXT,\n    \"business_logic\" TEXT,\n    \"access_levels\" TEXT,\n    \"delete_behaviour\" TEXT,\n    \"validation\" TEXT,\n    \"db_operations\" TEXT,\n    \"user_access_matrix\" TEXT,\n    \"api_endpoints\" UUID[] NOT NULL DEFAULT '{}',\n    CONSTRAINT \"pk_obj_6b7ee326_22ed_4af1_a0d6_c6557d4da5d5\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_6b7ee32622ed4af1_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
   ]

@@ -1,13 +1,13 @@
 {
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "meta": {
     "icon": "Loop",
     "description": "A feedback or learning loop in a pipeline specification.",
     "keywords": "learning loop",
-    "tags": "learning,loop"
+    "tags": "learning,loop",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",

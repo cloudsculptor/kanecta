@@ -9,7 +9,11 @@
       "SQL",
       "columns",
       "indexes"
-    ]
+    ],
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -79,10 +83,6 @@
       }
     }
   },
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "sqlSchema": [
     "CREATE TABLE \"obj_acbebdc2_97c3_4b98_aed7_3f54cd7fca55\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"schema\" TEXT,\n    \"database\" TEXT,\n    \"engine\" TEXT,\n    \"description\" TEXT,\n    \"primary_key\" TEXT[] NOT NULL DEFAULT '{}',\n    \"audited\" BOOLEAN,\n    \"row_count\" INTEGER,\n    \"access\" TEXT,\n    \"notes\" TEXT,\n    CONSTRAINT \"pk_obj_acbebdc2_97c3_4b98_aed7_3f54cd7fca55\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_acbebdc297c34b98_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
   ]

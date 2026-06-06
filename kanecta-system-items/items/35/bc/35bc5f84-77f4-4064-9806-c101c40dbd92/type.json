@@ -9,7 +9,11 @@
       "prompt",
       "procedure",
       "slash command"
-    ]
+    ],
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -86,10 +90,6 @@
       }
     }
   },
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "sqlSchema": [
     "CREATE TABLE \"obj_35bc5f84_77f4_4064_9806_c101c40dbd92\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"description\" TEXT,\n    \"trigger_conditions\" TEXT[] NOT NULL DEFAULT '{}',\n    \"skip_conditions\" TEXT[] NOT NULL DEFAULT '{}',\n    \"instructions\" TEXT,\n    \"tools\" TEXT[] NOT NULL DEFAULT '{}',\n    \"output_format\" TEXT,\n    \"related_skills\" TEXT[] NOT NULL DEFAULT '{}',\n    \"version\" TEXT,\n    \"author\" TEXT,\n    \"tags\" TEXT[] NOT NULL DEFAULT '{}',\n    CONSTRAINT \"pk_obj_35bc5f84_77f4_4064_9806_c101c40dbd92\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_35bc5f8477f44064_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
   ]

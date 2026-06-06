@@ -3,7 +3,11 @@
     "icon": "Api",
     "description": "A single API endpoint \u2014 method, path, auth scope and request/response shape",
     "keywords": "api endpoint route REST HTTP",
-    "tags": "software,development,api"
+    "tags": "software,development,api",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -60,10 +64,6 @@
       }
     }
   },
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "sqlSchema": [
     "CREATE TABLE \"obj_88657248_047c_4734_983c_7535e3342ffb\" (\n    item_id UUID NOT NULL,\n    \"method\" TEXT,\n    \"path\" TEXT,\n    \"description\" TEXT,\n    \"scope\" TEXT,\n    \"is_new\" BOOLEAN,\n    \"deprecated\" BOOLEAN,\n    \"service\" TEXT,\n    \"tags\" TEXT[] NOT NULL DEFAULT '{}',\n    \"request_body\" TEXT,\n    \"response_body\" TEXT,\n    CONSTRAINT \"pk_obj_88657248_047c_4734_983c_7535e3342ffb\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_88657248047c4734_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
   ]

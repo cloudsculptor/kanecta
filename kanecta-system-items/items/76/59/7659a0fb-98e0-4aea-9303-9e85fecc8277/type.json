@@ -3,7 +3,11 @@
     "icon": "Gavel",
     "description": "A decision \u2014 a choice made with rationale, alternatives considered and owner",
     "keywords": "decision choice rationale trade-off resolution",
-    "tags": "software,organisation,governance"
+    "tags": "software,organisation,governance",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -65,10 +69,6 @@
       }
     }
   },
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "sqlSchema": [
     "CREATE TABLE \"obj_7659a0fb_98e0_4aea_9303_9e85fecc8277\" (\n    item_id UUID NOT NULL,\n    \"title\" TEXT,\n    \"date\" TEXT,\n    \"status\" TEXT,\n    \"context\" TEXT,\n    \"decision\" TEXT,\n    \"rationale\" TEXT,\n    \"consequences\" TEXT,\n    \"deciders\" TEXT[] NOT NULL DEFAULT '{}',\n    \"owner\" TEXT,\n    \"superseded_by\" TEXT,\n    \"tags\" TEXT[] NOT NULL DEFAULT '{}',\n    CONSTRAINT \"pk_obj_7659a0fb_98e0_4aea_9303_9e85fecc8277\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_7659a0fb98e04aea_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
   ]

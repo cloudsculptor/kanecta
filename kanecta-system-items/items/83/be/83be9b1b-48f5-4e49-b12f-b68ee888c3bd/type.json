@@ -1,13 +1,13 @@
 {
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "meta": {
     "icon": "TrackChanges",
     "description": "A measurable key result for a goal.",
     "keywords": "goal key result",
-    "tags": "goal,key,result"
+    "tags": "goal,key,result",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",

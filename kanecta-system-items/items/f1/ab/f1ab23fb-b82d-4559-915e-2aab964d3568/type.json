@@ -1,13 +1,13 @@
 {
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "meta": {
     "icon": "CallSplit",
     "description": "A branching decision point in a human procedure.",
     "keywords": "procedure decision point",
-    "tags": "procedure,decision,point"
+    "tags": "procedure,decision,point",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",

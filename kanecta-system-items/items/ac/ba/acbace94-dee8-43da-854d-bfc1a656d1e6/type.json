@@ -1,13 +1,13 @@
 {
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "meta": {
     "icon": "CompareArrows",
     "description": "An alternative option considered in a decision or ADR.",
     "keywords": "decision alternative",
-    "tags": "decision,alternative"
+    "tags": "decision,alternative",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",

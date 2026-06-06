@@ -6,7 +6,11 @@
     "tags": "pipeline,logging",
     "skills": {
       "claude": ""
-    }
+    },
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -42,10 +46,6 @@
       }
     }
   },
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "sqlSchema": [
     "CREATE TABLE \"obj_4031fd9f_5a03_44f0_b960_98acf1c4327a\" (\n    item_id UUID NOT NULL,\n    \"ts\" TEXT,\n    \"level\" TEXT,\n    \"message\" TEXT,\n    \"data\" TEXT,\n    CONSTRAINT \"pk_obj_4031fd9f_5a03_44f0_b960_98acf1c4327a\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_4031fd9f5a0344f0_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
   ]

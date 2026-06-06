@@ -1,13 +1,13 @@
 {
-  "sync": [],
-  "supersededBy": [],
-  "implements": [],
-  "extends": [],
   "meta": {
     "icon": "Extension",
     "description": "An external integration used by a pipeline.",
     "keywords": "pipeline integration",
-    "tags": "pipeline,integration"
+    "tags": "pipeline,integration",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",
