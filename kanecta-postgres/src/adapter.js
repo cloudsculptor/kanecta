@@ -339,6 +339,7 @@ class PostgresAdapter {
     const now = new Date();
     const warnings = await this.deleteWarnings(id);
     await this._snapshot(item, 'delete', actor, now);
+    await this._pool.query('DELETE FROM aliases WHERE target_id = $1', [id]);
     await this._pool.query('DELETE FROM items WHERE id = $1', [id]);
     return { warnings };
   }
