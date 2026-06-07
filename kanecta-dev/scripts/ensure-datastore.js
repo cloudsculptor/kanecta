@@ -705,8 +705,11 @@ async function main() {
     let name;
     if (names.length === 1) {
       name = names[0];
-    } else if (!process.stdin.isTTY) {
+    } else if (data.default && data.workspaces[data.default]) {
       name = data.default;
+    } else if (!process.stdin.isTTY) {
+      console.error(`Multiple workspaces found and no valid default set in ${pointerFile}.`);
+      process.exit(1);
     } else {
       name = await pickWorkspace(names);
     }
