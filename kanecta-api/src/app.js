@@ -40,10 +40,18 @@ function readAppConfig() {
   }
 }
 
+// Cloud workspaces own a Postgres connection pool (and S3 client) — opening one
+// per request exhausts Postgres' connection limit within minutes. Cache the
+// opened datastore (keyed by resolved identity) and reuse it across requests;
+// re-open only if the resolved workspace/path changes.
+let _datastoreCache = null; // { key, promise }
+
 async function openDatastore(res) {
   // Workspace mode: ~/.config/kanecta/config.json has named workspaces → resolve
   // by KANECTA_WORKSPACE env (set by ensure-datastore's launcher) or config.default
   const appCfg = readAppConfig();
+
+  let key, opener, errorPrefix;
   if (appCfg?.workspaces) {
     const name = process.env.KANECTA_WORKSPACE || appCfg.default;
     const workspace = appCfg.workspaces[name];
@@ -51,23 +59,34 @@ async function openDatastore(res) {
       res.status(503).json({ error: `Workspace '${name}' not found in ~/.config/kanecta/config.json` });
       return null;
     }
-    try {
-      return await Datastore.openWorkspace(workspace);
-    } catch (err) {
-      res.status(503).json({ error: `Failed to open workspace '${name}': ${err.message}` });
+    key = `workspace:${name}`;
+    opener = () => Datastore.openWorkspace(workspace);
+    errorPrefix = `Failed to open workspace '${name}'`;
+  } else {
+    // Filesystem fallback (no config.json yet — first run, or pre-migration)
+    const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+    if (!Datastore.isDatastore(root)) {
+      res.status(503).json({
+        error: `No Kanecta datastore found at ${root}. Run: cd kanecta-cli && npm run cli init --owner you@example.com`,
+      });
       return null;
     }
+    key = `fs:${root}`;
+    opener = () => Datastore.open(root);
+    errorPrefix = `Failed to open datastore at ${root}`;
   }
 
-  // Filesystem fallback (no config.json yet — first run, or pre-migration)
-  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
-  if (!Datastore.isDatastore(root)) {
-    res.status(503).json({
-      error: `No Kanecta datastore found at ${root}. Run: cd kanecta-cli && npm run cli init --owner you@example.com`,
-    });
+  if (!_datastoreCache || _datastoreCache.key !== key) {
+    _datastoreCache = { key, promise: Promise.resolve().then(opener) };
+  }
+
+  try {
+    return await _datastoreCache.promise;
+  } catch (err) {
+    _datastoreCache = null;
+    res.status(503).json({ error: `${errorPrefix}: ${err.message}` });
     return null;
   }
-  return Datastore.open(root);
 }
 
 function isUuid(str) {
