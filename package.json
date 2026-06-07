@@ -26,6 +26,7 @@
     "kanecta-cli",
     "kanecta-mcp",
     "kanecta-apps/kanecta-app-studio",
+    "kanecta-apps/kanecta-app-studio-debian",
     "kanecta-apps/kanecta-app-claude"
   ],
   "devDependencies": {
