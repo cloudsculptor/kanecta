@@ -41,7 +41,18 @@ function resolveDatastorePath() {
   throw new Error(`No Kanecta datastores found in ${APP_CONFIG_PATH}`);
 }
 
-function openDs() {
+async function openDs() {
+  // KANECTA_DATASTORE env var explicitly forces filesystem mode (used by tests and CLI overrides)
+  if (!process.env.KANECTA_DATASTORE) {
+    const XDG_CONFIG = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
+    const cloudFile = path.join(XDG_CONFIG, 'kanecta', 'cloud.json');
+    if (fs.existsSync(cloudFile)) {
+      const cloudConfig = JSON.parse(fs.readFileSync(cloudFile, 'utf8'));
+      const ds = await Datastore.openCloud(cloudConfig);
+      const cfg = readConfig();
+      return { ds, cfg, datastorePath: null };
+    }
+  }
   const datastorePath = resolveDatastorePath();
   const cfg = readConfig();
   return { ds: Datastore.open(datastorePath), cfg, datastorePath };
@@ -97,28 +108,32 @@ function detectSecrets(text) {
 
 const WIKILINK_RE = /\[\[([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\]\]/g;
 
-function resolveLinks(ds, value) {
+async function resolveLinks(ds, value) {
   if (!value || typeof value !== 'string') return value;
+  const matches = [...value.matchAll(WIKILINK_RE)];
+  if (!matches.length) return value;
+  const fetched = await Promise.all(matches.map(m => ds.get(m[1])));
+  const map = new Map(matches.map((m, i) => [m[1], fetched[i]]));
   return value.replace(WIKILINK_RE, (match, uuid) => {
-    const item = ds.get(uuid);
+    const item = map.get(uuid);
     return item ? `[[${uuid}|${item.value}]]` : match;
   });
 }
 
-function resolveItem(ds, item) {
+async function resolveItem(ds, item) {
   if (!item || typeof item.value !== 'string') return item;
-  return { ...item, value: resolveLinks(ds, item.value) };
+  return { ...item, value: await resolveLinks(ds, item.value) };
 }
 
 // ─── Tree helpers ─────────────────────────────────────────────────────────────
 
-function getAncestorChain(ds, id) {
+async function getAncestorChain(ds, id) {
   const ancestors = [];
   const seen = new Set([id]);
-  let item = ds.get(id);
+  let item = await ds.get(id);
   while (item && item.parentId && item.parentId !== item.id && !seen.has(item.parentId)) {
     seen.add(item.parentId);
-    const parent = ds.get(item.parentId);
+    const parent = await ds.get(item.parentId);
     if (!parent) break;
     ancestors.unshift({ id: parent.id, value: parent.value, type: parent.type });
     item = parent;
@@ -126,18 +141,18 @@ function getAncestorChain(ds, id) {
   return ancestors;
 }
 
-function collectSubtreeIds(ds, id) {
+async function collectSubtreeIds(ds, id) {
   const ids = [id];
-  for (const child of ds.children(id)) {
-    ids.push(...collectSubtreeIds(ds, child.id));
+  for (const child of await ds.children(id)) {
+    ids.push(...await collectSubtreeIds(ds, child.id));
   }
   return ids;
 }
 
-function cloneSubtree(ds, sourceId, targetParentId, actor) {
-  const source = ds.get(sourceId);
+async function cloneSubtree(ds, sourceId, targetParentId, actor) {
+  const source = await ds.get(sourceId);
   if (!source) return null;
-  const cloned = ds.create({
+  const cloned = await ds.create({
     parentId: targetParentId,
     value: source.value,
     type: source.type,
@@ -147,8 +162,8 @@ function cloneSubtree(ds, sourceId, targetParentId, actor) {
     license: source.license || null,
     owner: actor || source.owner,
   });
-  for (const child of ds.children(sourceId)) {
-    cloneSubtree(ds, child.id, cloned.id, actor);
+  for (const child of await ds.children(sourceId)) {
+    await cloneSubtree(ds, child.id, cloned.id, actor);
   }
   return cloned;
 }
@@ -697,19 +712,19 @@ function buildFunctionJson(args, existing = {}) {
 
 // ─── Handlers ─────────────────────────────────────────────────────────────────
 
-function ensureDateBucket(ds, cfg) {
+async function ensureDateBucket(ds, cfg) {
   const today = new Date().toISOString().slice(0, 10);
   if (cfg?.lastCaptureDate === today && cfg?.lastCaptureDateId) {
     return cfg.lastCaptureDateId;
   }
-  const bucket = ds.create({
+  const bucket = await ds.create({
     value: today,
     type: 'string',
     parentId: cfg?.capturesRootId || null,
     owner: cfg?.owner || ds.config.owner,
     tags: ['kanecta-date'],
   });
-  ds.setAlias(`kanecta-date-${today}`, bucket.id);
+  await ds.setAlias(`kanecta-date-${today}`, bucket.id);
   if (cfg) {
     cfg.lastCaptureDate = today;
     cfg.lastCaptureDateId = bucket.id;
@@ -718,15 +733,15 @@ function ensureDateBucket(ds, cfg) {
   return bucket.id;
 }
 
-function handleCapture(args, ds, cfg) {
+async function handleCapture(args, ds, cfg) {
   const { text, tags = [], type = 'text' } = args;
   const secrets = detectSecrets(text);
   if (secrets.length) {
     return { error: `Capture rejected — possible secret detected (${secrets.join(', ')}). Kanecta never stores secrets.` };
   }
-  const dateBucketId = ensureDateBucket(ds, cfg);
+  const dateBucketId = await ensureDateBucket(ds, cfg);
   const allTags = ['kanecta-capture', ...tags.filter(t => !['kanecta-capture', 'kanecta-date', 'kanecta-internal'].includes(t))];
-  const item = ds.create({
+  const item = await ds.create({
     value: text,
     type,
     parentId: dateBucketId,
@@ -775,47 +790,50 @@ function matchObjectData(objectData, q, fields) {
   return false;
 }
 
-function handleSearch(args, ds) {
+async function handleSearch(args, ds) {
   const { query, rootId, limit = 10, fields } = args;
   const q = query.toLowerCase();
+  const all = await ds.loadAll();
 
-  let candidates = ds.loadAll()
-    .filter(i => {
-      if (i.value && typeof i.value === 'string' && i.value.toLowerCase().includes(q)) {
-        return true;
-      }
-      if (i.type === 'object') {
-        const objectData = ds.readObjectJson(i.id);
-        if (matchObjectData(objectData, q, fields)) {
-          return true;
-        }
-      }
-      return false;
-    });
-
-  if (rootId) {
-    const subtreeIds = new Set(collectSubtreeIds(ds, rootId));
-    candidates = candidates.filter(i => subtreeIds.has(i.id));
+  const candidates = [];
+  for (const i of all) {
+    if (i.value && typeof i.value === 'string' && i.value.toLowerCase().includes(q)) {
+      candidates.push(i);
+      continue;
+    }
+    if (i.type === 'object') {
+      const objectData = await ds.readObjectJson(i.id);
+      if (matchObjectData(objectData, q, fields)) candidates.push(i);
+    }
   }
 
-  const results = candidates
-    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
-    .slice(0, limit)
-    .map(i => ({
-      id: i.id,
-      type: i.type,
-      tags: (i.tags || []).filter(t => !['kanecta-capture', 'kanecta-date', 'kanecta-internal'].includes(t)),
-      date: (i.createdAt || '').slice(0, 10),
-      value: resolveLinks(ds, i.value),
-      ancestors: getAncestorChain(ds, i.id),
-    }));
+  let filtered = candidates;
+  if (rootId) {
+    const subtreeIds = new Set(await collectSubtreeIds(ds, rootId));
+    filtered = candidates.filter(i => subtreeIds.has(i.id));
+  }
+
+  const results = await Promise.all(
+    filtered
+      .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+      .slice(0, limit)
+      .map(async i => ({
+        id: i.id,
+        type: i.type,
+        tags: (i.tags || []).filter(t => !['kanecta-capture', 'kanecta-date', 'kanecta-internal'].includes(t)),
+        date: (i.createdAt || '').slice(0, 10),
+        value: await resolveLinks(ds, i.value),
+        ancestors: await getAncestorChain(ds, i.id),
+      }))
+  );
 
   return { query, count: results.length, results };
 }
 
-function handleRecent(args, ds) {
+async function handleRecent(args, ds) {
   const { n = 10 } = args;
-  const items = ds.loadAll()
+  const all = await ds.loadAll();
+  const items = all
     .filter(i => (i.tags || []).includes('kanecta-capture'))
     .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
     .slice(0, n)
@@ -945,8 +963,8 @@ function sendError(id, code, message) {
   send({ jsonrpc: '2.0', id, error: { code, message } });
 }
 
-function dispatch(name, args) {
-  const { ds, cfg, datastorePath } = openDs();
+async function dispatch(name, args) {
+  const { ds, cfg, datastorePath } = await openDs();
   switch (name) {
     case 'kanecta_capture':
       return handleCapture(args, ds, cfg);
@@ -958,53 +976,56 @@ function dispatch(name, args) {
       return handleRecent(args, ds);
 
     case 'kanecta_get': {
-      const item = ds.resolve(args.ref);
+      const item = await ds.resolve(args.ref);
       return item ? resolveItem(ds, item) : { error: `Not found: ${args.ref}` };
     }
 
-    case 'kanecta_get_children':
-      return { items: ds.children(args.parentId ?? null).map(i => resolveItem(ds, i)) };
+    case 'kanecta_get_children': {
+      const children = await ds.children(args.parentId ?? null);
+      return { items: await Promise.all(children.map(i => resolveItem(ds, i))) };
+    }
 
     case 'kanecta_get_tree': {
-      const root = ds.resolve(args.ref);
+      const root = await ds.resolve(args.ref);
       if (!root) return { error: `Not found: ${args.ref}` };
+      const treeItems = await ds.tree(root.id, args.depth ?? 3);
       return {
-        tree: ds.tree(root.id, args.depth ?? 3).map(({ item, depth }) => ({
-          depth, id: item.id, value: resolveLinks(ds, item.value), type: item.type,
+        tree: await Promise.all(treeItems.map(async ({ item, depth }) => ({
+          depth, id: item.id, value: await resolveLinks(ds, item.value), type: item.type,
           tags: (item.tags || []).filter(t => t !== 'kanecta-internal'),
-        })),
+        }))),
       };
     }
 
     case 'kanecta_get_ancestors': {
-      const item = ds.get(args.id);
+      const item = await ds.get(args.id);
       if (!item) return { error: `Not found: ${args.id}` };
-      return { ancestors: getAncestorChain(ds, args.id) };
+      return { ancestors: await getAncestorChain(ds, args.id) };
     }
 
     case 'kanecta_add_item': {
       const { alias, ...createArgs } = args;
-      const item = ds.create(createArgs);
-      if (alias) ds.setAlias(alias, item.id);
+      const item = await ds.create(createArgs);
+      if (alias) await ds.setAlias(alias, item.id);
       return resolveItem(ds, item);
     }
 
     case 'kanecta_update_item': {
       const { id, objectData, ...changes } = args;
-      const updated = ds.update(id, changes, cfg?.owner);
-      if (objectData !== undefined) ds.writeObjectJson(id, objectData);
+      const updated = await ds.update(id, changes, cfg?.owner);
+      if (objectData !== undefined) await ds.writeObjectJson(id, objectData);
       return resolveItem(ds, updated);
     }
 
     case 'kanecta_complete_item': {
       const completedAt = args.completed ? new Date().toISOString() : null;
-      const updated = ds.update(args.id, { completedAt }, cfg?.owner);
+      const updated = await ds.update(args.id, { completedAt }, cfg?.owner);
       return resolveItem(ds, updated);
     }
 
     case 'kanecta_delete_item': {
-      const ids = collectSubtreeIds(ds, args.id).reverse();
-      for (const itemId of ids) ds.delete(itemId, cfg?.owner);
+      const ids = (await collectSubtreeIds(ds, args.id)).reverse();
+      for (const itemId of ids) await ds.delete(itemId, cfg?.owner);
       return { deleted: ids };
     }
 
@@ -1014,8 +1035,8 @@ function dispatch(name, args) {
       for (const [i, itemArgs] of args.items.entries()) {
         try {
           const { alias, ...createArgs } = itemArgs;
-          const item = ds.create(createArgs);
-          if (alias) ds.setAlias(alias, item.id);
+          const item = await ds.create(createArgs);
+          if (alias) await ds.setAlias(alias, item.id);
           created.push(item);
         } catch (err) {
           errors.push({ index: i, error: err.message });
@@ -1029,7 +1050,7 @@ function dispatch(name, args) {
       const errors = [];
       for (const [i, { id, ...changes }] of args.updates.entries()) {
         try {
-          updated.push(ds.update(id, changes, cfg?.owner));
+          updated.push(await ds.update(id, changes, cfg?.owner));
         } catch (err) {
           errors.push({ index: i, id, error: err.message });
         }
@@ -1039,16 +1060,16 @@ function dispatch(name, args) {
 
     case 'kanecta_clone': {
       const { sourceId, targetParentId } = args;
-      if (!ds.get(sourceId)) return { error: `Not found: ${sourceId}` };
-      if (!ds.get(targetParentId)) return { error: `Target parent not found: ${targetParentId}` };
-      const cloned = cloneSubtree(ds, sourceId, targetParentId, cfg?.owner);
+      if (!await ds.get(sourceId)) return { error: `Not found: ${sourceId}` };
+      if (!await ds.get(targetParentId)) return { error: `Target parent not found: ${targetParentId}` };
+      const cloned = await cloneSubtree(ds, sourceId, targetParentId, cfg?.owner);
       return cloned || { error: `Clone failed for: ${sourceId}` };
     }
 
     case 'kanecta_set_alias': {
       const { alias, targetId } = args;
-      if (!ds.get(targetId)) return { error: `Not found: ${targetId}` };
-      ds.setAlias(alias, targetId);
+      if (!await ds.get(targetId)) return { error: `Not found: ${targetId}` };
+      await ds.setAlias(alias, targetId);
       return { alias, targetId };
     }
 
@@ -1056,34 +1077,34 @@ function dispatch(name, args) {
       const { sourceId, type, targetId, note } = args;
       if (!ds.relTypes.includes(type))
         return { error: `Invalid relationship type: ${type}. Valid: ${ds.relTypes.join(', ')}` };
-      if (!ds.get(sourceId)) return { error: `Source not found: ${sourceId}` };
-      if (!ds.get(targetId)) return { error: `Target not found: ${targetId}` };
-      return ds.relate(sourceId, type, targetId, { note, createdBy: cfg?.owner });
+      if (!await ds.get(sourceId)) return { error: `Source not found: ${sourceId}` };
+      if (!await ds.get(targetId)) return { error: `Target not found: ${targetId}` };
+      return await ds.relate(sourceId, type, targetId, { note, createdBy: cfg?.owner });
     }
 
     case 'kanecta_get_relationships': {
-      if (!ds.get(args.id)) return { error: `Not found: ${args.id}` };
-      return ds.relationships(args.id);
+      if (!await ds.get(args.id)) return { error: `Not found: ${args.id}` };
+      return await ds.relationships(args.id);
     }
 
     case 'kanecta_get_backlinks': {
-      if (!ds.get(args.id)) return { error: `Not found: ${args.id}` };
-      return ds.backlinks(args.id);
+      if (!await ds.get(args.id)) return { error: `Not found: ${args.id}` };
+      return await ds.backlinks(args.id);
     }
 
     case 'kanecta_annotate': {
       const { targetId, content, parentAnnotationId = null } = args;
-      if (!ds.get(targetId)) return { error: `Not found: ${targetId}` };
-      return ds.annotate(targetId, { content, author: cfg?.owner, parentAnnotationId });
+      if (!await ds.get(targetId)) return { error: `Not found: ${targetId}` };
+      return await ds.annotate(targetId, { content, author: cfg?.owner, parentAnnotationId });
     }
 
     case 'kanecta_get_annotations': {
-      if (!ds.get(args.targetId)) return { error: `Not found: ${args.targetId}` };
-      return { annotations: ds.annotations(args.targetId) };
+      if (!await ds.get(args.targetId)) return { error: `Not found: ${args.targetId}` };
+      return { annotations: await ds.annotations(args.targetId) };
     }
 
     case 'kanecta_by_tag':
-      return { tag: args.tag, items: ds.byTag(args.tag) };
+      return { tag: args.tag, items: await ds.byTag(args.tag) };
 
     case 'kanecta_query': {
       // Normalise known enum fields so filters are case-insensitive
@@ -1109,14 +1130,14 @@ function dispatch(name, args) {
 
       if (mode === 'count') {
         const { limit: _l, ...countArgs } = dsArgs;
-        const items = ds.query(countArgs);
+        const items = await ds.query(countArgs);
         return { count: items.length };
       }
 
       if (mode === 'group_by') {
         if (!group_by_field) return { error: 'group_by mode requires group_by_field' };
         const { limit: _l, ...groupArgs } = dsArgs;
-        const items = ds.query(groupArgs);
+        const items = await ds.query(groupArgs);
         const groups = {};
         for (const item of items) {
           const val = (item.objectData && item.objectData[group_by_field] !== undefined)
@@ -1128,39 +1149,44 @@ function dispatch(name, args) {
         return { groups };
       }
 
-      const items = ds.query(dsArgs);
-      return { items: items.map(item => resolveItem(ds, item)) };
+      const items = await ds.query(dsArgs);
+      return { items: await Promise.all(items.map(item => resolveItem(ds, item))) };
     }
-      
+
     case 'kanecta_create_type': {
-      const { metadata, schema } = ds.createType(args.value);
+      const { metadata, schema } = await ds.createType(args.value);
       return { ...metadata, schema };
     }
 
     case 'kanecta_list_types':
+      if (!datastorePath) return { error: 'kanecta_list_types requires filesystem mode' };
       return handleListTypes(datastorePath);
 
     case 'kanecta_get_type_schema':
+      if (!datastorePath) return { error: 'kanecta_get_type_schema requires filesystem mode' };
       return handleGetTypeSchema(datastorePath, args.id);
 
     case 'kanecta_update_type_schema':
+      if (!datastorePath) return { error: 'kanecta_update_type_schema requires filesystem mode' };
       return handleUpdateTypeSchema(datastorePath, args.id, args.schema);
 
     // ─── Function tools ────────────────────────────────────────────────────────
 
     case 'kanecta_get_function': {
-      const item = ds.get(args.id);
+      if (!datastorePath) return { error: 'kanecta_get_function requires filesystem mode' };
+      const item = await ds.get(args.id);
       if (!item) return { error: `Not found: ${args.id}` };
-      const fnData = ds.readFunctionJson(args.id);
+      const fnData = await ds.readFunctionJson(args.id);
       if (!fnData) return { error: `No function definition for: ${args.id}` };
       const dir = path.join(fnItemDir(datastorePath, args.id), 'function');
       return { ...fnData, scaffold: fnScaffoldStatus(dir) };
     }
 
     case 'kanecta_create_function': {
+      if (!datastorePath) return { error: 'kanecta_create_function requires filesystem mode' };
       const { parentId, name, compile = false, ...fnArgs } = args;
-      if (parentId && !ds.get(parentId)) return { error: `Parent not found: ${parentId}` };
-      const item = ds.create({
+      if (parentId && !await ds.get(parentId)) return { error: `Parent not found: ${parentId}` };
+      const item = await ds.create({
         parentId: parentId ?? null,
         value: name,
         type: VALID_TYPES.includes('function') ? 'function' : 'string',
@@ -1168,7 +1194,7 @@ function dispatch(name, args) {
       });
       const fnData = buildFunctionJson(fnArgs);
       const itemDir = fnItemDir(datastorePath, item.id);
-      ds.writeFunctionJson(item.id, fnData);
+      await ds.writeFunctionJson(item.id, fnData);
       generateFunctionScaffold(itemDir, name, fnData, datastorePath);
       const dir = path.join(itemDir, 'function');
       const result = { item, definition: fnData, scaffold: fnScaffoldStatus(dir) };
@@ -1177,13 +1203,14 @@ function dispatch(name, args) {
     }
 
     case 'kanecta_edit_function': {
+      if (!datastorePath) return { error: 'kanecta_edit_function requires filesystem mode' };
       const { id, compile = false, ...fnArgs } = args;
-      const item = ds.get(id);
+      const item = await ds.get(id);
       if (!item) return { error: `Not found: ${id}` };
-      const existing = ds.readFunctionJson(id) ?? {};
+      const existing = await ds.readFunctionJson(id) ?? {};
       const fnData = buildFunctionJson(fnArgs, existing);
       const itemDir = fnItemDir(datastorePath, id);
-      ds.writeFunctionJson(id, fnData);
+      await ds.writeFunctionJson(id, fnData);
       generateFunctionScaffold(itemDir, item.value ?? id, fnData, datastorePath);
       const dir = path.join(itemDir, 'function');
       const result = { definition: fnData, scaffold: fnScaffoldStatus(dir) };
@@ -1192,10 +1219,11 @@ function dispatch(name, args) {
     }
 
     case 'kanecta_execute_function': {
+      if (!datastorePath) return { error: 'kanecta_execute_function requires filesystem mode' };
       const { id, args: fnArgs = {} } = args;
-      const item = ds.get(id);
+      const item = await ds.get(id);
       if (!item) return { error: `Not found: ${id}` };
-      const fnData = ds.readFunctionJson(id) ?? {};
+      const fnData = await ds.readFunctionJson(id) ?? {};
       const dir = path.join(fnItemDir(datastorePath, id), 'function');
       const distIndex = path.join(dir, 'dist', 'index.js');
 
@@ -1301,21 +1329,18 @@ function runMcpServer() {
 
       if (method === 'tools/call') {
         const { name, arguments: args = {} } = params;
-        let result;
-        try {
-          result = dispatch(name, args);
-        } catch (err) {
+        dispatch(name, args).then(result => {
+          const text = result?.error
+            ? `Error: ${result.error}`
+            : JSON.stringify(result, null, 2);
+          sendResult(id, { content: [{ type: 'text', text }], isError: !!result?.error });
+        }).catch(err => {
           if (err.code === -32601) {
             sendError(id, -32601, err.message);
-            continue;
+          } else {
+            sendResult(id, { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true });
           }
-          sendResult(id, { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true });
-          continue;
-        }
-        const text = result?.error
-          ? `Error: ${result.error}`
-          : JSON.stringify(result, null, 2);
-        sendResult(id, { content: [{ type: 'text', text }], isError: !!result?.error });
+        });
         continue;
       }
 
