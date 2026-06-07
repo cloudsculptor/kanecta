@@ -1,6 +1,6 @@
 {
   "name": "@kanecta/studio",
-  "version": "0.1.5",
+  "version": "1.3.0",
   "type": "module",
   "exports": {
     "./server": "./src/server.cjs"
@@ -31,6 +31,7 @@
     "@emotion/react": "^11.13.3",
     "@emotion/styled": "^11.13.0",
     "@kanecta/api": "^1.0.0",
+    "@kanecta/api-client": "*",
     "@kanecta/specification": "^1.2.0",
     "@monaco-editor/react": "^4.7.0",
     "@mui/icons-material": "^9.0.1",
@@ -46,6 +47,7 @@
     "ag-grid-community": "35.3.1",
     "ag-grid-react": "35.3.1",
     "ajv": "8.20.0",
+    "keycloak-js": "^26.2.4",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-force-graph": "^1.48.2",

@@ -4,9 +4,13 @@
     "description": "A single step in a pipeline — captures function, inputs, outputs, outcome and a reference to its log",
     "keywords": "pipeline step function execution inputs outputs outcome log",
     "tags": "pipeline,automation",
-    "ai-instructions": {
+    "skills": {
       "claude": "The 'logs' field is a UUID pointing to a Logs item whose children are LogItem instances. The 'dependsOn' array contains step indices (integers) that must reach outcome 'success' before this step runs. 'inputs' and 'outputs' are arbitrary objects whose shape is determined by the function being called."
-    }
+    },
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -20,28 +24,29 @@
     "additionalProperties": false,
     "properties": {
       "name": {
+        "x-id": "dcef2120-ce87-4f8d-9732-4b89aa45e961",
         "type": "string"
       },
       "stepIndex": {
+        "x-id": "de372bb0-2849-4af3-8ea3-fe97ef3c5829",
         "type": "integer"
       },
       "function": {
+        "x-id": "a768a7cc-0621-4c8e-a269-dfc2d7c66449",
         "type": "string",
         "format": "uuid"
       },
       "dependsOn": {
+        "x-id": "6455de46-26da-48d7-8c69-07c8c415fd1e",
         "type": "array",
         "items": {
-          "type": "integer"
-        }
-      },
-      "inputs": {
-        "type": "object"
-      },
-      "outputs": {
-        "type": "object"
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "UUIDs of Pipeline Step items this step depends on."
       },
       "outcome": {
+        "x-id": "7265bfce-54dc-488e-a2cc-cead5e8b243d",
         "type": "string",
         "enum": [
           "pending",
@@ -52,24 +57,42 @@
         ]
       },
       "error": {
+        "x-id": "59dffed0-cfeb-4000-86d5-ebaec403f7be",
         "type": "string"
       },
       "retryCount": {
+        "x-id": "0f7611d5-7967-4d8c-b72c-ac819249f40c",
         "type": "integer",
         "minimum": 0
       },
       "startedAt": {
+        "x-id": "1823231d-3cb4-4002-9513-901539793153",
         "type": "string",
         "format": "date-time"
       },
       "completedAt": {
+        "x-id": "0b53f370-6ca3-4a23-873c-16913bc9af1d",
         "type": "string",
         "format": "date-time"
       },
       "logs": {
+        "x-id": "6dc004d1-1634-47d9-b35b-1d0839a74380",
         "type": "string",
         "format": "uuid"
+      },
+      "inputs": {
+        "x-id": "72cc5299-9cfd-42e1-bbfd-5a9559e852fc",
+        "type": "string",
+        "description": "Serialised input data (parked as string until shape is defined)."
+      },
+      "outputs": {
+        "x-id": "3332c924-8501-4610-9674-cafc09af528b",
+        "type": "string",
+        "description": "Serialised output data (parked as string until shape is defined)."
       }
     }
-  }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_2fedaf24_a222_47ec_97e2_724651edc08c\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"step_index\" INTEGER,\n    \"function\" UUID,\n    \"depends_on\" UUID[] NOT NULL DEFAULT '{}',\n    \"outcome\" TEXT,\n    \"error\" TEXT,\n    \"retry_count\" INTEGER,\n    \"started_at\" TEXT,\n    \"completed_at\" TEXT,\n    \"logs\" UUID,\n    \"inputs\" TEXT,\n    \"outputs\" TEXT,\n    CONSTRAINT \"pk_obj_2fedaf24_a222_47ec_97e2_724651edc08c\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_2fedaf24a22247ec_item\" FOREIGN KEY (item_id) REFERENCES items(id),\n    CONSTRAINT \"fk_2fedaf24a22247ec_function\" FOREIGN KEY (\"function\") REFERENCES items(id),\n    CONSTRAINT \"fk_2fedaf24a22247ec_logs\" FOREIGN KEY (\"logs\") REFERENCES items(id)\n)"
+  ]
 }

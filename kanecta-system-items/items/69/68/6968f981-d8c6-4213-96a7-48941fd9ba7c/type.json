@@ -9,7 +9,11 @@
       "checklist",
       "workflow",
       "runbook"
-    ]
+    ],
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -23,21 +27,26 @@
     ],
     "properties": {
       "title": {
+        "x-id": "763ccf21-a560-40b2-a57a-df3a8ce8d488",
         "type": "string"
       },
       "purpose": {
+        "x-id": "069ffaf5-5727-4aaa-807e-cf4b4fbb10f4",
         "type": "string",
         "description": "What this procedure achieves and why it exists"
       },
       "owner": {
+        "x-id": "7d6ff6c9-e002-4866-a5d4-065ffdd2e2ea",
         "type": "string",
         "format": "email",
         "description": "Person responsible for keeping this procedure up to date"
       },
       "team": {
+        "x-id": "38f175cf-32b7-47a7-9881-479f74235c3b",
         "type": "string"
       },
       "status": {
+        "x-id": "16694b9a-1047-44a6-b6b8-3de763380313",
         "type": "string",
         "enum": [
           "Draft",
@@ -47,124 +56,56 @@
         ]
       },
       "version": {
+        "x-id": "eb9725f9-c964-4cee-8bdf-44fc5e26161d",
         "type": "string"
       },
       "lastReviewed": {
+        "x-id": "bd1c9a37-7381-4c0a-bf46-0ce93048182e",
         "type": "string",
         "format": "date"
       },
       "nextReview": {
+        "x-id": "6e239990-9967-4d29-a151-17d6e78a4f37",
         "type": "string",
         "format": "date"
       },
       "frequency": {
+        "x-id": "9ca826ed-ed60-4d12-ac75-cbe87094e4aa",
         "type": "string",
         "description": "How often this procedure is performed, e.g. daily, per release, on demand"
       },
       "estimatedDuration": {
+        "x-id": "d467fe8f-ea11-4cba-875a-941b96ffba50",
         "type": "string",
         "description": "Typical time to complete, e.g. 30 minutes, 2 hours"
       },
-      "roles": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": [
-            "role",
-            "responsibility"
-          ],
-          "properties": {
-            "role": {
-              "type": "string",
-              "description": "Job title or team role"
-            },
-            "responsibility": {
-              "type": "string",
-              "description": "What this role does in the procedure"
-            }
-          }
-        },
-        "description": "People or roles involved and their responsibilities"
-      },
       "prerequisites": {
+        "x-id": "64227799-c4f4-4d43-954e-1a1573a03393",
         "type": "array",
         "items": {
           "type": "string"
         },
         "description": "What must be in place or completed before starting"
       },
-      "steps": {
-        "type": "array",
-        "minItems": 1,
-        "items": {
-          "type": "object",
-          "required": [
-            "title",
-            "instructions"
-          ],
-          "properties": {
-            "title": {
-              "type": "string"
-            },
-            "instructions": {
-              "type": "string",
-              "contentMediaType": "text/markdown"
-            },
-            "role": {
-              "type": "string",
-              "description": "Who performs this step"
-            },
-            "expectedOutcome": {
-              "type": "string"
-            },
-            "warnings": {
-              "type": "string"
-            },
-            "optional": {
-              "type": "boolean",
-              "default": false
-            }
-          }
-        }
-      },
-      "decisionPoints": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": [
-            "condition",
-            "ifYes",
-            "ifNo"
-          ],
-          "properties": {
-            "condition": {
-              "type": "string"
-            },
-            "ifYes": {
-              "type": "string"
-            },
-            "ifNo": {
-              "type": "string"
-            }
-          }
-        },
-        "description": "Branch points where the procedure takes different paths"
-      },
       "expectedOutcome": {
+        "x-id": "f5407a91-582b-4edc-95c6-730017b801e9",
         "type": "string",
         "description": "What a successful completion looks like"
       },
       "failureMode": {
+        "x-id": "bcaa2c3a-167f-4121-b0c9-81f78be28d2d",
         "type": "string",
         "contentMediaType": "text/markdown",
         "description": "What to do if the procedure fails or cannot be completed"
       },
       "aiSkill": {
+        "x-id": "5fb01e66-60a9-45c3-a869-cfb882254e34",
         "type": "string",
         "format": "uuid",
         "description": "UUID of the Kanecta skill item that implements this procedure for AI execution"
       },
       "relatedProcedures": {
+        "x-id": "d512e1c5-d6ae-4d01-b373-1b45cca9fa59",
         "type": "array",
         "items": {
           "type": "string",
@@ -173,6 +114,7 @@
         "uniqueItems": true
       },
       "references": {
+        "x-id": "dd5f48f1-dfed-40e2-a83a-11c48a9c33dc",
         "type": "array",
         "items": {
           "type": "string"
@@ -180,6 +122,7 @@
         "description": "Links to relevant documentation, tools or systems"
       },
       "tags": {
+        "x-id": "37c1ae23-45ac-4e11-bbbd-bea1b5b0ca7e",
         "type": "array",
         "items": {
           "type": "string"
@@ -187,5 +130,8 @@
         "uniqueItems": true
       }
     }
-  }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_6968f981_d8c6_4213_96a7_48941fd9ba7c\" (\n    item_id UUID NOT NULL,\n    \"title\" TEXT,\n    \"purpose\" TEXT,\n    \"owner\" TEXT,\n    \"team\" TEXT,\n    \"status\" TEXT,\n    \"version\" TEXT,\n    \"last_reviewed\" TEXT,\n    \"next_review\" TEXT,\n    \"frequency\" TEXT,\n    \"estimated_duration\" TEXT,\n    \"prerequisites\" TEXT[] NOT NULL DEFAULT '{}',\n    \"expected_outcome\" TEXT,\n    \"failure_mode\" TEXT,\n    \"ai_skill\" UUID,\n    \"related_procedures\" UUID[] NOT NULL DEFAULT '{}',\n    \"references\" TEXT[] NOT NULL DEFAULT '{}',\n    \"tags\" TEXT[] NOT NULL DEFAULT '{}',\n    CONSTRAINT \"pk_obj_6968f981_d8c6_4213_96a7_48941fd9ba7c\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_6968f981d8c64213_item\" FOREIGN KEY (item_id) REFERENCES items(id),\n    CONSTRAINT \"fk_6968f981d8c64213_ai_skill\" FOREIGN KEY (\"ai_skill\") REFERENCES items(id)\n)"
+  ]
 }

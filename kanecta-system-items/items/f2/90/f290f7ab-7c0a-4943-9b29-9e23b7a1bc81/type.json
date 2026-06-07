@@ -1,0 +1,63 @@
+{
+  "meta": {
+    "icon": "TableChart",
+    "description": "A column definition in a database table.",
+    "keywords": "database table column",
+    "tags": "database,table,column",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Database Table Column",
+    "type": "object",
+    "properties": {
+      "name": {
+        "x-id": "87b2f874-cae3-409e-8180-d53ab8a6da40",
+        "type": "string",
+        "description": "Column name."
+      },
+      "dataType": {
+        "x-id": "3a6eef4b-fc05-43fc-89b0-9803131ad86a",
+        "type": "string",
+        "description": "SQL data type (e.g. VARCHAR(255), UUID)."
+      },
+      "nullable": {
+        "x-id": "44ca284e-3854-460f-b57d-5690debc1c7b",
+        "type": "boolean",
+        "description": "Allows NULL."
+      },
+      "primaryKey": {
+        "x-id": "296e834f-2328-4531-92c2-d5d045230df2",
+        "type": "boolean",
+        "description": "Part of the primary key."
+      },
+      "foreignKey": {
+        "x-id": "77a71da5-1292-4571-ba48-5feba61059c6",
+        "type": "boolean",
+        "description": "Is a foreign key."
+      },
+      "unique": {
+        "x-id": "aee9cccd-f2bd-4509-a3f5-9466dc1869de",
+        "type": "boolean",
+        "description": "Has a unique constraint."
+      },
+      "default": {
+        "x-id": "6b3474cb-83c5-41c5-b6e6-e5eb88b68acc",
+        "type": "string",
+        "description": "Default value expression."
+      },
+      "description": {
+        "x-id": "74b676c9-d27c-4349-a0a9-616eff230437",
+        "type": "string",
+        "description": "Purpose of this column."
+      }
+    },
+    "required": []
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_f290f7ab_7c0a_4943_9b29_9e23b7a1bc81\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"data_type\" TEXT,\n    \"nullable\" BOOLEAN,\n    \"primary_key\" BOOLEAN,\n    \"foreign_key\" BOOLEAN,\n    \"unique\" BOOLEAN,\n    \"default\" TEXT,\n    \"description\" TEXT,\n    CONSTRAINT \"pk_obj_f290f7ab_7c0a_4943_9b29_9e23b7a1bc81\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_f290f7ab7c0a4943_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

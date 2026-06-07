@@ -1,4 +1,5 @@
-import { makeClient } from './client';
+import { createApiClient, ApiError } from '@kanecta/api-client';
+import keycloak from '../auth/keycloak';
 import { itemsApi } from './items';
 import { aliasesApi } from './aliases';
 import { relationshipsApi } from './relationships';
@@ -15,7 +16,7 @@ import { viewApi } from './view';
 import { layoutsApi } from './layouts';
 export type { ViewSettings } from './view';
 
-export { ApiError } from './client';
+export { ApiError };
 export type { AliasEntry } from './aliases';
 export type { TypeDefinition } from './types';
 export type { ClipboardEntry } from './breadcrumb';
@@ -24,13 +25,18 @@ export type { ClaudeEvent, ApprovalNeededEvent, ToolRanEvent } from './claude';
 export type { AppSettings } from './settings';
 
 export function createApi(baseUrl: string) {
-  const client = makeClient(baseUrl);
+  // `keycloak.token` is undefined when unauthenticated or when auth is
+  // disabled (VITE_AUTH_DISABLED=true) — the client then sends no
+  // Authorization header, matching the backend's AUTH_DISABLED bypass.
+  // Read it lazily (not just once) since KeycloakProvider refreshes it
+  // in place as the session continues.
+  const client = createApiClient({ baseUrl, token: () => keycloak.token });
   return {
     config: {
-      get: () => client.get<{ datastorePath: string; vscodeAvailable: boolean }>('/config'),
-      openPath: (path: string) => client.post<{ ok: boolean }>('/open-path', { path }),
-      openInBrowser: (path: string) => client.post<{ ok: boolean }>('/open-in-browser', { path }),
-      openInVscode: (path: string) => client.post<{ ok: boolean }>('/open-in-vscode', { path }),
+      get: () => client.config.get(),
+      openPath: (path: string) => client.config.openPath(path),
+      openInBrowser: (path: string) => client.config.openInBrowser(path),
+      openInVscode: (path: string) => client.config.openInVSCode(path),
     },
     items: itemsApi(client),
     aliases: aliasesApi(client),
@@ -41,7 +47,7 @@ export function createApi(baseUrl: string) {
     breadcrumb: breadcrumbApi(client),
     starred: starredApi(client),
     skills: skillsApi(client),
-    claude: claudeApi(client, baseUrl),
+    claude: claudeApi(client),
     settings: settingsApi(client),
     systemItems: systemItemsApi(client),
     view: viewApi(client),

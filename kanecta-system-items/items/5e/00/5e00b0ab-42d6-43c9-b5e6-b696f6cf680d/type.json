@@ -1,1 +1,73 @@
-{"meta":{"icon":"DirectionsRun","description":"A sprint — a time-boxed iteration with a goal and set of tickets","keywords":"sprint iteration scrum agile kanban","tags":"software,development,agile"},"jsonSchema":{"$schema":"http://json-schema.org/draft-07/schema#","title":"Sprint","type":"object","required":["name","startDate","endDate"],"properties":{"name":{"type":"string"},"number":{"type":"integer","minimum":1},"goal":{"type":"string"},"startDate":{"type":"string","format":"date"},"endDate":{"type":"string","format":"date"},"team":{"type":"string"},"status":{"type":"string","enum":["planned","active","completed","cancelled"]},"tickets":{"type":"array","items":{"type":"string"}},"velocity":{"type":"number","minimum":0},"notes":{"type":"string"}}}}
+{
+  "meta": {
+    "icon": "DirectionsRun",
+    "description": "A sprint — a time-boxed iteration with a goal and set of tickets",
+    "keywords": "sprint iteration scrum agile kanban",
+    "tags": "software,development,agile"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Sprint",
+    "type": "object",
+    "required": [
+      "name",
+      "startDate",
+      "endDate"
+    ],
+    "properties": {
+      "name": {
+        "x-id": "db152a19-3688-45c9-af29-0e9b6b30de42",
+        "type": "string"
+      },
+      "number": {
+        "x-id": "c99b5c66-9e94-43d6-9cbd-a17a83a65269",
+        "type": "integer",
+        "minimum": 1
+      },
+      "goal": {
+        "x-id": "883b39be-a11e-4fc6-bd58-07e9011925d4",
+        "type": "string"
+      },
+      "startDate": {
+        "x-id": "de53ef05-bc3b-4e4e-8822-8d992b74002e",
+        "type": "string",
+        "format": "date"
+      },
+      "endDate": {
+        "x-id": "43451667-7e07-456f-bace-08515ea7fcfb",
+        "type": "string",
+        "format": "date"
+      },
+      "team": {
+        "x-id": "2125f3aa-84f1-440f-8b26-2e4e6b6c8822",
+        "type": "string"
+      },
+      "status": {
+        "x-id": "f7c1e70d-56ea-4fe0-a392-3cc7805f43f3",
+        "type": "string",
+        "enum": [
+          "planned",
+          "active",
+          "completed",
+          "cancelled"
+        ]
+      },
+      "tickets": {
+        "x-id": "c6d13601-3009-4468-8169-a38dc54dc059",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "velocity": {
+        "x-id": "8ae8e9b2-9ced-4fd7-90a4-82a427ceea90",
+        "type": "number",
+        "minimum": 0
+      },
+      "notes": {
+        "x-id": "8a66e2dc-891d-4afc-af34-bfeadc28a619",
+        "type": "string"
+      }
+    }
+  }
+}

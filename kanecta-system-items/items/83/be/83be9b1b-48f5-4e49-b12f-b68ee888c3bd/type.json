@@ -1,0 +1,38 @@
+{
+  "meta": {
+    "icon": "TrackChanges",
+    "description": "A measurable key result for a goal.",
+    "keywords": "goal key result",
+    "tags": "goal,key,result",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Goal Key Result",
+    "type": "object",
+    "properties": {
+      "kr": {
+        "x-id": "1efdd138-b8f4-49cf-b15e-d53ef9a2ad28",
+        "type": "string",
+        "description": "Key result description."
+      },
+      "target": {
+        "x-id": "2835fda3-fdab-4016-80f5-4ac0770618fb",
+        "type": "string",
+        "description": "Target value."
+      },
+      "current": {
+        "x-id": "f0e83990-0a82-46d6-a602-f9dc5118cbf2",
+        "type": "string",
+        "description": "Current progress value."
+      }
+    },
+    "required": []
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_83be9b1b_48f5_4e49_b12f_b68ee888c3bd\" (\n    item_id UUID NOT NULL,\n    \"kr\" TEXT,\n    \"target\" TEXT,\n    \"current\" TEXT,\n    CONSTRAINT \"pk_obj_83be9b1b_48f5_4e49_b12f_b68ee888c3bd\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_83be9b1b48f54e49_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

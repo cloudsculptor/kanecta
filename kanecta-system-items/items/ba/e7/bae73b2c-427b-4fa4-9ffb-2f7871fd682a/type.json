@@ -1,0 +1,33 @@
+{
+  "meta": {
+    "icon": "Checklist",
+    "description": "A single action-and-expected-result step in a test case.",
+    "keywords": "test case step",
+    "tags": "test,case,step",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Test Case Step",
+    "type": "object",
+    "properties": {
+      "action": {
+        "x-id": "8eddf034-cd6c-40b3-8ac1-aabb40d0fbfc",
+        "type": "string",
+        "description": "Action to perform."
+      },
+      "expectedResult": {
+        "x-id": "8aa25833-a02d-4fe0-b79f-09c500fc4546",
+        "type": "string",
+        "description": "Expected result after the action."
+      }
+    },
+    "required": []
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_bae73b2c_427b_4fa4_9ffb_2f7871fd682a\" (\n    item_id UUID NOT NULL,\n    \"action\" TEXT,\n    \"expected_result\" TEXT,\n    CONSTRAINT \"pk_obj_bae73b2c_427b_4fa4_9ffb_2f7871fd682a\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_bae73b2c427b4fa4_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

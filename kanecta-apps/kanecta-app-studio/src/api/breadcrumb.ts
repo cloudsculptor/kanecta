@@ -1,4 +1,4 @@
-import type { ApiClient } from './client';
+import type { KanectaApiClient } from '@kanecta/api-client';
 
 export interface ClipboardEntry {
   id: string;
@@ -8,13 +8,13 @@ export interface ClipboardEntry {
   timestamp: string;
 }
 
-export function breadcrumbApi(client: ApiClient) {
+export function breadcrumbApi(client: KanectaApiClient) {
   return {
-    getClipboard: () => client.get<ClipboardEntry[]>('/breadcrumb/clipboard'),
+    getClipboard: () => client.breadcrumb.getClipboard() as unknown as Promise<ClipboardEntry[]>,
     addClipboard: (id: string, name: string, type: string, typeId: string) =>
-      client.post<{ ok: boolean }>('/breadcrumb/clipboard', { id, name, type, typeId }),
-    getViewed: () => client.get<ClipboardEntry[]>('/breadcrumb/viewed'),
+      client.breadcrumb.addClipboard({ id, name, type, typeId }),
+    getViewed: () => client.breadcrumb.getViewed() as unknown as Promise<ClipboardEntry[]>,
     addViewed: (id: string, name: string, type: string, typeId: string) =>
-      client.post<{ ok: boolean }>('/breadcrumb/viewed', { id, name, type, typeId }),
+      client.breadcrumb.addViewed({ id, name, type, typeId }),
   };
 }

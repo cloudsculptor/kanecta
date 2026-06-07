@@ -1,1 +1,80 @@
-{"meta":{"icon":"Gavel","description":"Architecture Decision Record — captures a significant technical decision, its context and consequences","keywords":"ADR architecture decision record design","tags":"software,development,architecture"},"jsonSchema":{"$schema":"http://json-schema.org/draft-07/schema#","title":"ADR","type":"object","required":["title","status","decision"],"properties":{"title":{"type":"string"},"date":{"type":"string","format":"date"},"status":{"type":"string","enum":["proposed","accepted","deprecated","superseded"]},"context":{"type":"string"},"decision":{"type":"string"},"rationale":{"type":"string"},"consequences":{"type":"string"},"alternatives":{"type":"array","items":{"type":"object","required":["option"],"properties":{"option":{"type":"string"},"tradeoffs":{"type":"string"}}}},"deciders":{"type":"array","items":{"type":"string"}},"supersededBy":{"type":"string"},"tags":{"type":"array","items":{"type":"string"}}}}}
+{
+  "meta": {
+    "icon": "Gavel",
+    "description": "Architecture Decision Record — captures a significant technical decision, its context and consequences",
+    "keywords": "ADR architecture decision record design",
+    "tags": "software,development,architecture",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ADR",
+    "type": "object",
+    "required": [
+      "title",
+      "status",
+      "decision"
+    ],
+    "properties": {
+      "title": {
+        "x-id": "6505b3f7-7f7f-4266-b907-d8f8fe6d8438",
+        "type": "string"
+      },
+      "date": {
+        "x-id": "5ffd2a48-0ad7-4ace-91ff-d98667e8719e",
+        "type": "string",
+        "format": "date"
+      },
+      "status": {
+        "x-id": "5e29a2d7-ebce-40b9-807e-5e8434fc4277",
+        "type": "string",
+        "enum": [
+          "proposed",
+          "accepted",
+          "deprecated",
+          "superseded"
+        ]
+      },
+      "context": {
+        "x-id": "8a279444-3b52-46b8-bf27-59db2275e07c",
+        "type": "string"
+      },
+      "decision": {
+        "x-id": "715ca01f-a518-485b-bddb-d0df11d47d22",
+        "type": "string"
+      },
+      "rationale": {
+        "x-id": "06528131-bf9b-460b-a889-a94f90b86742",
+        "type": "string"
+      },
+      "consequences": {
+        "x-id": "7334041a-9f5a-468a-a29a-785b618bff9b",
+        "type": "string"
+      },
+      "deciders": {
+        "x-id": "1173c5d7-b194-4aa9-b3c0-d662b22a8852",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "supersededBy": {
+        "x-id": "c4c2df37-0ae2-4149-a1b3-931ae0a789de",
+        "type": "string"
+      },
+      "tags": {
+        "x-id": "80427e84-2066-45f0-b840-34e563193441",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_355125cf_9d78_4939_92a8_26176764e5c3\" (\n    item_id UUID NOT NULL,\n    \"title\" TEXT,\n    \"date\" TEXT,\n    \"status\" TEXT,\n    \"context\" TEXT,\n    \"decision\" TEXT,\n    \"rationale\" TEXT,\n    \"consequences\" TEXT,\n    \"deciders\" TEXT[] NOT NULL DEFAULT '{}',\n    \"superseded_by\" TEXT,\n    \"tags\" TEXT[] NOT NULL DEFAULT '{}',\n    CONSTRAINT \"pk_obj_355125cf_9d78_4939_92a8_26176764e5c3\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_355125cf9d784939_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

@@ -1,4 +1,4 @@
-import type { ApiClient } from './client';
+import type { KanectaApiClient } from '@kanecta/api-client';
 
 export interface AppSettings {
   themeName: string;
@@ -11,9 +11,9 @@ export interface AppSettings {
   locationBorder: string;
 }
 
-export function settingsApi(client: ApiClient) {
+export function settingsApi(client: KanectaApiClient) {
   return {
-    get: () => client.get<AppSettings>('/app/studio/settings'),
-    save: (settings: AppSettings) => client.post<{ ok: boolean }>('/app/studio/settings', settings),
+    get: () => client.settings.get() as unknown as Promise<AppSettings>,
+    save: (settings: AppSettings) => client.settings.save(settings),
   };
 }

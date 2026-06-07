@@ -12,6 +12,13 @@
 // Object key layout mirrors the filesystem sharding scheme:
 //   files/<hex[0:2]>/<hex[2:4]>/<item-id>/<filename>
 
+const {
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  ListObjectsV2Command,
+} = require('@aws-sdk/client-s3');
+
 class S3Adapter {
   constructor({ client, bucket }) {
     this._client = client;
@@ -20,20 +27,52 @@ class S3Adapter {
 
   // ─── File operations ───────────────────────────────────────────────────────
 
-  async putFile(_itemId, _filename, _body, _opts) {
-    throw new Error('S3Adapter.putFile() not yet implemented');
+  async putFile(itemId, filename, body, opts = {}) {
+    await this._client.send(new PutObjectCommand({
+      Bucket: this._bucket,
+      Key: this._objectKey(itemId, filename),
+      Body: body,
+      ContentType: opts.mimeType,
+    }));
   }
 
-  async getFile(_itemId, _filename) {
-    throw new Error('S3Adapter.getFile() not yet implemented');
+  async getFile(itemId, filename) {
+    let res;
+    try {
+      res = await this._client.send(new GetObjectCommand({
+        Bucket: this._bucket,
+        Key: this._objectKey(itemId, filename),
+      }));
+    } catch (err) {
+      if (err.name === 'NoSuchKey') return null;
+      throw err;
+    }
+    return Buffer.concat(await res.Body.toArray());
   }
 
-  async deleteFile(_itemId, _filename) {
-    throw new Error('S3Adapter.deleteFile() not yet implemented');
+  async deleteFile(itemId, filename) {
+    await this._client.send(new DeleteObjectCommand({
+      Bucket: this._bucket,
+      Key: this._objectKey(itemId, filename),
+    }));
   }
 
-  async listFiles(_itemId) {
-    throw new Error('S3Adapter.listFiles() not yet implemented');
+  async listFiles(itemId) {
+    const prefix = this._objectKey(itemId, '');
+    const filenames = [];
+    let continuationToken;
+    do {
+      const res = await this._client.send(new ListObjectsV2Command({
+        Bucket: this._bucket,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+      }));
+      for (const obj of res.Contents ?? []) {
+        filenames.push(obj.Key.slice(prefix.length));
+      }
+      continuationToken = res.IsTruncated ? res.NextContinuationToken : undefined;
+    } while (continuationToken);
+    return filenames;
   }
 
   // ─── Internal helpers ──────────────────────────────────────────────────────

@@ -2,6 +2,7 @@
 'use strict';
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const readline = require('readline');
 const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE } = require('@kanecta/lib');
@@ -215,7 +216,24 @@ function findDatastore(explicit) {
   return null;
 }
 
+function readAppConfig() {
+  const XDG_CONFIG = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
+  try {
+    return JSON.parse(fs.readFileSync(path.join(XDG_CONFIG, 'kanecta', 'config.json'), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
 async function openDatastore(flags) {
+  // Workspace mode: no explicit --datastore/KANECTA_DATASTORE override → use the
+  // default workspace from ~/.config/kanecta/config.json (filesystem or cloud).
+  if (!flags['datastore'] && !process.env.KANECTA_DATASTORE) {
+    const appCfg = readAppConfig();
+    const workspace = appCfg?.workspaces?.[appCfg.default];
+    if (workspace) return Datastore.openWorkspace(workspace);
+  }
+
   const root = findDatastore(flags['datastore']);
   if (!root) {
     if (flags['datastore']) {
@@ -295,10 +313,10 @@ function confirm(question) {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function collectSubtreeIds(ds, id) {
+async function collectSubtreeIds(ds, id) {
   const ids = [id];
-  for (const child of ds.children(id)) {
-    ids.push(...collectSubtreeIds(ds, child.id));
+  for (const child of await ds.children(id)) {
+    ids.push(...await collectSubtreeIds(ds, child.id));
   }
   return ids;
 }
@@ -320,7 +338,7 @@ async function cmdGet(positional, flags) {
   const ds = await openDatastore(flags);
   const ref = positional[0];
   if (!ref) die('Usage: kanecta get <id|alias>');
-  const item = ds.resolve(ref);
+  const item = await ds.resolve(ref);
   if (!item) die(`Not found: ${ref}`);
   if (flags['json']) {
     console.log(JSON.stringify(item, null, 2));
@@ -341,7 +359,7 @@ async function cmdCreate(positional, flags) {
 
   let parentId = null;
   if (flags['parent']) {
-    const parent = ds.resolve(flags['parent']);
+    const parent = await ds.resolve(flags['parent']);
     if (!parent) die(`Parent not found: ${flags['parent']}`);
     parentId = parent.id;
   }
@@ -349,7 +367,7 @@ async function cmdCreate(positional, flags) {
   const tags = [].concat(flags['tag'] || []);
   const sortOrder = flags['sort-order'] != null ? parseInt(flags['sort-order'], 10) : undefined;
 
-  const item = ds.create({
+  const item = await ds.create({
     parentId,
     value: flags['value'] || null,
     type,
@@ -361,7 +379,7 @@ async function cmdCreate(positional, flags) {
   });
 
   if (flags['alias']) {
-    ds.setAlias(flags['alias'], item.id);
+    await ds.setAlias(flags['alias'], item.id);
     console.log(`Alias set: ${flags['alias']} → ${item.id}`);
   }
 
@@ -374,7 +392,7 @@ async function cmdUpdate(positional, flags) {
   const ref = positional[0];
   if (!ref) die('Usage: kanecta update <id|alias> [options]');
 
-  const item = ds.resolve(ref);
+  const item = await ds.resolve(ref);
   if (!item) die(`Not found: ${ref}`);
 
   const changes = {};
@@ -392,7 +410,7 @@ async function cmdUpdate(positional, flags) {
     if (flags['parent'] === 'none') {
       changes.parentId = null;
     } else {
-      const parent = ds.resolve(flags['parent']);
+      const parent = await ds.resolve(flags['parent']);
       if (!parent) die(`Parent not found: ${flags['parent']}`);
       changes.parentId = parent.id;
     }
@@ -425,7 +443,7 @@ async function cmdUpdate(positional, flags) {
 
   if (Object.keys(changes).length === 0) die('No changes specified.');
 
-  const updated = ds.update(item.id, changes);
+  const updated = await ds.update(item.id, changes);
   console.log(`Updated: ${updated.id}`);
   printItem(updated);
 }
@@ -435,14 +453,14 @@ async function cmdDelete(positional, flags) {
   const ref = positional[0];
   if (!ref) die('Usage: kanecta delete <id|alias>');
 
-  const item = ds.resolve(ref);
+  const item = await ds.resolve(ref);
   if (!item) die(`Not found: ${ref}`);
 
-  const subtreeIds = collectSubtreeIds(ds, item.id);
+  const subtreeIds = await collectSubtreeIds(ds, item.id);
   const childCount = subtreeIds.length - 1;
 
   if (!flags['force']) {
-    const warnings = ds.deleteWarnings(item.id);
+    const warnings = await ds.deleteWarnings(item.id);
     if (warnings.length) {
       console.warn('Warning:');
       for (const w of warnings) console.warn(`  ${w}`);
@@ -456,7 +474,7 @@ async function cmdDelete(positional, flags) {
   }
 
   for (const id of subtreeIds.reverse()) {
-    ds.delete(id);
+    await ds.delete(id);
   }
   const suffix = childCount > 0 ? ` (+ ${childCount} children)` : '';
   console.log(`Deleted: ${item.id}  "${item.value ?? ''}"${suffix}`);
@@ -466,12 +484,12 @@ async function cmdTree(positional, flags) {
   const ds = await openDatastore(flags);
   let rootId = null;
   if (positional[0]) {
-    const item = ds.resolve(positional[0]);
+    const item = await ds.resolve(positional[0]);
     if (!item) die(`Not found: ${positional[0]}`);
     rootId = item.id;
   }
   const maxDepth = flags['depth'] != null ? parseInt(flags['depth'], 10) : Infinity;
-  const nodes = ds.tree(rootId, maxDepth);
+  const nodes = await ds.tree(rootId, maxDepth);
   if (nodes.length === 0) console.log('(empty)');
   else printTree(nodes, !!flags['ids']);
 }
@@ -483,18 +501,18 @@ async function cmdAlias(positional, flags) {
   if (sub === 'set') {
     const alias = positional[1], ref = positional[2];
     if (!alias || !ref) die('Usage: kanecta alias set <alias> <id|alias>');
-    const item = ds.resolve(ref);
+    const item = await ds.resolve(ref);
     if (!item) die(`Not found: ${ref}`);
-    ds.setAlias(alias, item.id);
+    await ds.setAlias(alias, item.id);
     console.log(`${alias} → ${item.id}`);
   } else if (sub === 'get') {
     const alias = positional[1];
     if (!alias) die('Usage: kanecta alias get <alias>');
-    const id = ds.resolveAlias(alias);
+    const id = await ds.resolveAlias(alias);
     if (!id) die(`Alias not found: ${alias}`);
     console.log(id);
   } else if (sub === 'list') {
-    const aliases = ds.listAliases();
+    const aliases = await ds.listAliases();
     if (aliases.length === 0) { console.log('(no aliases)'); return; }
     for (const { alias, targetId } of aliases) {
       console.log(`${alias.padEnd(30)} ${targetId}`);
@@ -502,7 +520,7 @@ async function cmdAlias(positional, flags) {
   } else if (sub === 'remove') {
     const alias = positional[1];
     if (!alias) die('Usage: kanecta alias remove <alias>');
-    ds.removeAlias(alias);
+    await ds.removeAlias(alias);
     console.log(`Removed alias: ${alias}`);
   } else {
     die('Usage: kanecta alias <set|get|list|remove> ...');
@@ -513,9 +531,9 @@ async function cmdAnnotate(positional, flags) {
   const ds = await openDatastore(flags);
   const ref = positional[0], content = positional.slice(1).join(' ') || flags['content'];
   if (!ref || !content) die('Usage: kanecta annotate <id|alias> <content>');
-  const item = ds.resolve(ref);
+  const item = await ds.resolve(ref);
   if (!item) die(`Not found: ${ref}`);
-  const annotation = ds.annotate(item.id, {
+  const annotation = await ds.annotate(item.id, {
     content,
     parentAnnotationId: flags['reply-to'] || null,
   });
@@ -532,9 +550,9 @@ async function cmdAnnotations(positional, flags) {
   const ds = await openDatastore(flags);
   const ref = positional[0];
   if (!ref) die('Usage: kanecta annotations <id|alias>');
-  const item = ds.resolve(ref);
+  const item = await ds.resolve(ref);
   if (!item) die(`Not found: ${ref}`);
-  const list = ds.annotations(item.id);
+  const list = await ds.annotations(item.id);
   if (list.length === 0) { console.log('(no annotations)'); return; }
   for (const a of list) {
     const thread = a.parentAnnotationId ? ` (reply to ${a.parentAnnotationId})` : '';
@@ -548,11 +566,11 @@ async function cmdRelate(positional, flags) {
   const [srcRef, type, tgtRef] = positional;
   if (!srcRef || !type || !tgtRef) die('Usage: kanecta relate <source> <type> <target> [--note <text>]');
   if (!ds.relTypes.includes(type)) die(`Invalid relationship type: ${type}\nValid: ${ds.relTypes.join(', ')}`);
-  const src = ds.resolve(srcRef);
+  const src = await ds.resolve(srcRef);
   if (!src) die(`Source not found: ${srcRef}`);
-  const tgt = ds.resolve(tgtRef);
+  const tgt = await ds.resolve(tgtRef);
   if (!tgt) die(`Target not found: ${tgtRef}`);
-  const rel = ds.relate(src.id, type, tgt.id, { note: flags['note'] || null });
+  const rel = await ds.relate(src.id, type, tgt.id, { note: flags['note'] || null });
   console.log(`Relationship created: ${rel.id}`);
   console.log(`  ${src.id} --[${type}]--> ${tgt.id}`);
   if (rel.note) console.log(`  Note: ${rel.note}`);
@@ -562,9 +580,9 @@ async function cmdRelationships(positional, flags) {
   const ds = await openDatastore(flags);
   const ref = positional[0];
   if (!ref) die('Usage: kanecta relationships <id|alias>');
-  const item = ds.resolve(ref);
+  const item = await ds.resolve(ref);
   if (!item) die(`Not found: ${ref}`);
-  const rels = ds.relationships(item.id);
+  const rels = await ds.relationships(item.id);
   const outbound = rels.outbound || [];
   const inbound = rels.inbound || [];
   if (outbound.length === 0 && inbound.length === 0) { console.log('(no relationships)'); return; }
@@ -584,9 +602,9 @@ async function cmdBacklinks(positional, flags) {
   const ds = await openDatastore(flags);
   const ref = positional[0];
   if (!ref) die('Usage: kanecta backlinks <id|alias>');
-  const item = ds.resolve(ref);
+  const item = await ds.resolve(ref);
   if (!item) die(`Not found: ${ref}`);
-  const ids = ds.backlinks(item.id);
+  const ids = await ds.backlinks(item.id);
   if (ids.length === 0) { console.log('(no backlinks)'); return; }
   console.log(`${ids.length} item(s) link to ${item.id}:`);
   for (const id of ids) console.log(`  ${id}`);
@@ -596,9 +614,9 @@ async function cmdHistory(positional, flags) {
   const ds = await openDatastore(flags);
   const ref = positional[0];
   if (!ref) die('Usage: kanecta history <id|alias>');
-  const item = ds.resolve(ref);
+  const item = await ds.resolve(ref);
   if (!item) die(`Not found: ${ref}`);
-  const entries = ds.history(item.id);
+  const entries = await ds.history(item.id);
   if (entries.length === 0) { console.log('(no history)'); return; }
   for (const e of entries) {
     console.log(`[${e.changeType.toUpperCase()}] ${e.snapshotAt}  by ${e.changedBy}`);
@@ -610,7 +628,7 @@ async function cmdTagList(positional, flags) {
   const ds = await openDatastore(flags);
   const tag = positional[0];
   if (!tag) die('Usage: kanecta tag list <tag>');
-  const ids = ds.byTag(tag);
+  const ids = await ds.byTag(tag);
   if (ids.length === 0) { console.log(`(no items tagged "${tag}")`); return; }
   console.log(`${ids.length} item(s) tagged "${tag}":`);
   for (const id of ids) console.log(`  ${id}`);
@@ -620,12 +638,12 @@ async function cmdExport(positional, flags) {
   const ds = await openDatastore(flags);
   let rootId = null;
   if (positional[0]) {
-    const item = ds.resolve(positional[0]);
+    const item = await ds.resolve(positional[0]);
     if (!item) die(`Not found: ${positional[0]}`);
     rootId = item.id;
   }
   const maxDepth = flags['depth'] != null ? parseInt(flags['depth'], 10) : Infinity;
-  const nodes = ds.tree(rootId, maxDepth);
+  const nodes = await ds.tree(rootId, maxDepth);
   const lines = [];
   for (const { item, depth } of nodes) {
     const indent = '  '.repeat(depth);
@@ -655,12 +673,12 @@ async function cmdSearch(positional, flags) {
 
   let items;
   if (flags['root']) {
-    const rootItem = ds.resolve(flags['root']);
+    const rootItem = await ds.resolve(flags['root']);
     if (!rootItem) die(`Root not found: ${flags['root']}`);
-    const subtreeIds = new Set(collectSubtreeIds(ds, rootItem.id));
-    items = ds.loadAll().filter(i => subtreeIds.has(i.id));
+    const subtreeIds = new Set(await collectSubtreeIds(ds, rootItem.id));
+    items = (await ds.loadAll()).filter(i => subtreeIds.has(i.id));
   } else {
-    items = ds.loadAll();
+    items = await ds.loadAll();
   }
 
   const results = items
@@ -681,7 +699,7 @@ async function cmdByType(positional, flags) {
   const ds = await openDatastore(flags);
   const typeId = positional[0];
   if (!typeId) die('Usage: kanecta by-type <typeId>');
-  const ids = ds.byType(typeId);
+  const ids = await ds.byType(typeId);
   if (ids.length === 0) { console.log(`(no items with type-id "${typeId}")`); return; }
   console.log(`${ids.length} item(s) with type-id "${typeId}":`);
   for (const id of ids) console.log(`  ${id}`);
@@ -689,7 +707,7 @@ async function cmdByType(positional, flags) {
 
 async function cmdRebuildIndexes(positional, flags) {
   const ds = await openDatastore(flags);
-  const count = ds.rebuildIndexes();
+  const count = await ds.rebuildIndexes();
   console.log(`Rebuilt indexes from ${count} items.`);
 }
 

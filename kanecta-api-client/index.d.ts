@@ -151,9 +151,52 @@ export interface FunctionRunResult {
   logs: string;
 }
 
-export interface ClauseSession {
+export interface ClaudeSession {
   id: string;
 }
+
+export interface ApprovalNeededEvent {
+  type: 'approval_needed';
+  toolName: string;
+  toolInput: Record<string, unknown>;
+  toolUseId: string;
+}
+
+export interface ToolRanEvent {
+  type: 'tool_ran';
+  toolName: string;
+  toolInput: Record<string, unknown>;
+  toolUseId: string;
+}
+
+export interface RawEvent {
+  type: 'raw';
+  event: Record<string, unknown>;
+}
+
+export interface DoneEvent {
+  type: 'done';
+  result?: string;
+  code?: number | null;
+}
+
+export interface StderrEvent {
+  type: 'stderr';
+  text: string;
+}
+
+export interface ApprovalResolvedEvent {
+  type: 'approval_resolved';
+  approved: boolean;
+}
+
+export type ClaudeEvent =
+  | ApprovalNeededEvent
+  | ToolRanEvent
+  | RawEvent
+  | DoneEvent
+  | StderrEvent
+  | ApprovalResolvedEvent;
 
 export interface ConfigResponse {
   datastorePath: string;
@@ -271,6 +314,7 @@ export interface ItemsApi {
   uncomplete(id: string, actor?: string): Promise<KanectaItem>;
   getFunction(id: string): Promise<FunctionDefinition>;
   saveFunction(id: string, payload: FunctionDefinition): Promise<{ ok: boolean }>;
+  getFunctionPackageJson(id: string): Promise<Record<string, unknown> | null>;
   getFunctionScaffold(id: string): Promise<FunctionScaffoldStatus>;
   compileFunction(id: string): Promise<{ success: boolean; output: string }>;
   runFunction(id: string, args?: Record<string, unknown>): Promise<FunctionRunResult>;
@@ -333,19 +377,31 @@ export interface StarredPayload {
   typeId?: string;
 }
 
-export interface StudioApi {
-  getStarred(): Promise<StarredEntry[]>;
-  addStarred(payload: StarredPayload): Promise<{ ok: boolean }>;
-  removeStarred(id: string): Promise<{ ok: boolean }>;
-  getView(id: string): Promise<Record<string, unknown> | null>;
-  saveView(id: string, payload: { levels: unknown }): Promise<{ ok: boolean }>;
-  getSyncSystemItems(): Promise<SyncSystemItem[]>;
-  importSystemItems(folderIds: string[]): Promise<{ imported: Array<{ id: string; value: string }>; errors: Array<{ folderId: string; error: string }> }>;
-  exportSystemItems(typeIds: string[]): Promise<{ exported: Array<{ id: string }>; errors: Array<{ id: string; error: string }> }>;
-  getSettings(): Promise<StudioSettings>;
-  saveSettings(payload: Partial<StudioSettings> & { themeName: string }): Promise<{ ok: boolean }>;
-  getLayouts(): Promise<LayoutData>;
-  saveLayouts(payload: LayoutData): Promise<{ ok: boolean }>;
+export interface StarredApi {
+  get(): Promise<StarredEntry[]>;
+  add(payload: StarredPayload): Promise<{ ok: boolean }>;
+  remove(id: string): Promise<{ ok: boolean }>;
+}
+
+export interface ViewApi {
+  get(id: string): Promise<Record<string, unknown> | null>;
+  save(id: string, payload: { levels: unknown }): Promise<{ ok: boolean }>;
+}
+
+export interface SystemItemsApi {
+  getSync(): Promise<SyncSystemItem[]>;
+  import(folderIds: string[]): Promise<{ imported: Array<{ id: string; value: string }>; errors: Array<{ folderId: string; error: string }> }>;
+  export(typeIds: string[]): Promise<{ exported: Array<{ id: string }>; errors: Array<{ id: string; error: string }> }>;
+}
+
+export interface SettingsApi {
+  get(): Promise<StudioSettings>;
+  save(payload: Partial<StudioSettings> & { themeName: string }): Promise<{ ok: boolean }>;
+}
+
+export interface LayoutsApi {
+  get(): Promise<LayoutData>;
+  save(payload: LayoutData): Promise<{ ok: boolean }>;
 }
 
 export interface SkillsApi {
@@ -355,22 +411,35 @@ export interface SkillsApi {
 }
 
 export interface ClaudeApi {
-  createSession(prompt: string, workingDir?: string): Promise<ClauseSession>;
+  createSession(prompt: string, workingDir?: string): Promise<ClaudeSession>;
+  /** URL suitable for `new EventSource(url)` */
+  streamUrl(id: string): string;
   /** Returns a raw fetch Response with Content-Type: text/event-stream */
   streamSession(id: string): Promise<Response>;
   respond(id: string, approved: boolean): Promise<{ ok: boolean }>;
   cancelSession(id: string): Promise<{ ok: boolean }>;
 }
 
+// ─── Errors ──────────────────────────────────────────────────────────────────
+
+export declare class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string);
+}
+
 // ─── Main client ─────────────────────────────────────────────────────────────
+
+// A static token, or a (possibly async) getter for the current token —
+// needed for deployments where it's refreshed in place (e.g. Keycloak).
+export type ApiClientToken = string | (() => string | null | undefined | Promise<string | null | undefined>);
 
 export interface ApiClientOptions {
   baseUrl?: string;
-  token?: string;
+  token?: ApiClientToken;
 }
 
 export declare class KanectaApiClient {
-  constructor(baseUrl: string, token?: string);
+  constructor(baseUrl: string, token?: ApiClientToken);
   readonly config: ConfigApi;
   readonly items: ItemsApi;
   readonly tree: TreeApi;
@@ -379,7 +448,11 @@ export declare class KanectaApiClient {
   readonly tags: TagsApi;
   readonly types: TypesApi;
   readonly breadcrumb: BreadcrumbApi;
-  readonly studio: StudioApi;
+  readonly starred: StarredApi;
+  readonly view: ViewApi;
+  readonly systemItems: SystemItemsApi;
+  readonly settings: SettingsApi;
+  readonly layouts: LayoutsApi;
   readonly skills: SkillsApi;
   readonly claude: ClaudeApi;
   search(q: string, options?: SearchOptions): Promise<SearchResult>;

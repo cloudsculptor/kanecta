@@ -1,0 +1,33 @@
+{
+  "meta": {
+    "icon": "Cloud",
+    "description": "A deployed instance of a service or application in a specific environment.",
+    "keywords": "deployment",
+    "tags": "deployment",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Deployment",
+    "type": "object",
+    "properties": {
+      "environment": {
+        "x-id": "0b800a95-9b2c-4a54-9b3b-6bca322109e2",
+        "type": "string",
+        "description": "Deployment environment name."
+      },
+      "url": {
+        "x-id": "9259a3e0-0f16-45e4-b9e3-afdaa129cec3",
+        "type": "string",
+        "description": "URL of the deployed instance."
+      }
+    },
+    "required": []
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_562c6baa_22cc_457d_a62a_048d583397eb\" (\n    item_id UUID NOT NULL,\n    \"environment\" TEXT,\n    \"url\" TEXT,\n    CONSTRAINT \"pk_obj_562c6baa_22cc_457d_a62a_048d583397eb\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_562c6baa22cc457d_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

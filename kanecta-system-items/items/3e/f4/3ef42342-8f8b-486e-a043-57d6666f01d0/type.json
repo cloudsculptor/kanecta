@@ -1,1 +1,71 @@
-{"meta":{"icon":"ManageAccounts","description":"A stakeholder — a person with interest or influence in a project","keywords":"stakeholder contact influence interest engagement","tags":"people,organisation,project"},"jsonSchema":{"$schema":"http://json-schema.org/draft-07/schema#","title":"Stakeholder","type":"object","required":["name"],"properties":{"name":{"type":"string"},"email":{"type":"string","format":"email"},"jobTitle":{"type":"string"},"organisation":{"type":"string"},"influence":{"type":"string","enum":["high","medium","low"]},"interest":{"type":"string","enum":["high","medium","low"]},"role":{"type":"string"},"preferredContact":{"type":"string","enum":["email","slack","phone","meeting"]},"notes":{"type":"string"}}}}
+{
+  "meta": {
+    "icon": "ManageAccounts",
+    "description": "A stakeholder — a person with interest or influence in a project",
+    "keywords": "stakeholder contact influence interest engagement",
+    "tags": "people,organisation,project"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Stakeholder",
+    "type": "object",
+    "required": [
+      "name"
+    ],
+    "properties": {
+      "name": {
+        "x-id": "f781df8f-2be4-4c93-8a64-be5dcb0dc59e",
+        "type": "string"
+      },
+      "email": {
+        "x-id": "52939771-6649-41a2-b277-1b1b9246cf85",
+        "type": "string",
+        "format": "email"
+      },
+      "jobTitle": {
+        "x-id": "8f3453a1-fac8-45d0-a4e1-13ca2a8784ff",
+        "type": "string"
+      },
+      "organisation": {
+        "x-id": "20722d08-da51-415c-b92f-494a07421774",
+        "type": "string"
+      },
+      "influence": {
+        "x-id": "8c5636c2-d9bf-438a-afb0-a7c49a3bf5da",
+        "type": "string",
+        "enum": [
+          "high",
+          "medium",
+          "low"
+        ]
+      },
+      "interest": {
+        "x-id": "f024fc4d-2775-4b10-961b-061215f6cd85",
+        "type": "string",
+        "enum": [
+          "high",
+          "medium",
+          "low"
+        ]
+      },
+      "role": {
+        "x-id": "54e7df10-8200-45bc-a4a7-179b4f139860",
+        "type": "string"
+      },
+      "preferredContact": {
+        "x-id": "f29aba1a-63e5-4347-b210-eefdcab19e37",
+        "type": "string",
+        "enum": [
+          "email",
+          "slack",
+          "phone",
+          "meeting"
+        ]
+      },
+      "notes": {
+        "x-id": "c63efdf0-86c9-4197-a74c-07e1410555eb",
+        "type": "string"
+      }
+    }
+  }
+}

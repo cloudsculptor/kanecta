@@ -1,0 +1,190 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://kanecta.org/specification/kanecta-function-v1",
+  "title": "Kanecta Function",
+  "description": "Schema for a Kanecta function.json file. Stored alongside metadata.json for items of type 'function'. Captures a TypeScript-compatible function signature and optional implementation. The function name is stored in the item's metadata.json value field. Parameter and return types may be TypeScript type annotations (string) or Kanecta type references (UUID).",
+  "type": "object",
+  "required": ["parameters"],
+  "oneOf": [
+    { "required": ["returnType"] },
+    { "required": ["returnTypeId"] }
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "description": {
+      "type": "string",
+      "description": "JSDoc-style description of what the function does."
+    },
+    "async": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the function is async."
+    },
+    "ai": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the function invokes AI during its internal operations."
+    },
+    "skill": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID of a Kanecta skill item. When present, the function delegates to that skill instead of (or in addition to) body."
+    },
+    "typeParameters": {
+      "type": "array",
+      "description": "Generic type parameters (e.g. <T extends string = string>).",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Type parameter name (e.g. 'T', 'K', 'TValue')."
+          },
+          "constraint": {
+            "type": "string",
+            "description": "Constraint on the type parameter (e.g. 'extends string', 'extends keyof T')."
+          },
+          "default": {
+            "type": "string",
+            "description": "Default type (e.g. 'string', 'unknown')."
+          }
+        }
+      }
+    },
+    "parameters": {
+      "type": "array",
+      "description": "Ordered list of function parameters. Each parameter must have either type (TypeScript annotation) or typeId (Kanecta type UUID), but not both.",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "oneOf": [
+          { "required": ["type"] },
+          { "required": ["typeId"] }
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Parameter name."
+          },
+          "type": {
+            "type": "string",
+            "description": "TypeScript primitive type only. Accepted base types: string, number, boolean, null, undefined, void, never, unknown, any, symbol, bigint. Compositions of these are allowed: arrays (string[]), unions (string | null), Promise wrappers (Promise<string>), and generic type parameters declared in typeParameters (T, T | null). Object types — named (User, FetchOptions) or inline ({ name: string }) — are not permitted here; use typeId instead.",
+            "not": { "pattern": "\\{" }
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID of a Kanecta type definition. Resolves to the type's JSON schema at runtime. Use this for any object type — named or structured. Mutually exclusive with type."
+          },
+          "optional": {
+            "type": "boolean",
+            "default": false,
+            "description": "Whether the parameter is optional (? suffix in TypeScript)."
+          },
+          "rest": {
+            "type": "boolean",
+            "default": false,
+            "description": "Whether this is a rest parameter (...args)."
+          },
+          "defaultValue": {
+            "type": "string",
+            "description": "Default value expression as a source string (e.g. '0', '\"hello\"', '[]')."
+          },
+          "description": {
+            "type": "string",
+            "description": "JSDoc @param description for this parameter."
+          }
+        }
+      }
+    },
+    "returnType": {
+      "type": "string",
+      "description": "TypeScript primitive return type only. Same rules as parameter type: primitives and their compositions (void, string, Promise<string>, T | null, etc.) are accepted. Object types must use returnTypeId instead.",
+      "not": { "pattern": "\\{" }
+    },
+    "returnTypeId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID of a Kanecta type definition for the return value. Use this for any object type. Mutually exclusive with returnType."
+    },
+    "throws": {
+      "type": "array",
+      "description": "Error types this function may throw.",
+      "items": {
+        "type": "object",
+        "required": ["type"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Error type name (e.g. 'Error', 'TypeError', 'ValidationError')."
+          },
+          "description": {
+            "type": "string",
+            "description": "When this error is thrown."
+          }
+        }
+      }
+    },
+    "deprecated": {
+      "type": "string",
+      "description": "Deprecation notice. Present and non-empty when the function is deprecated."
+    },
+    "body": {
+      "type": "string",
+      "description": "Function body as source code. Omit when describing a signature only."
+    },
+    "includeKanectaSdk": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether to include @kanecta/sdk as a dependency and import createClient in the generated scaffold. Defaults to true."
+    },
+    "dependencies": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Additional npm packages to install in the function scaffold (e.g. [\"axios@^1.0.0\", \"lodash\"]). Each entry is a package name with optional version specifier."
+    }
+  },
+  "examples": [
+    {
+      "description": "Fetch a user by ID from the API.",
+      "async": true,
+      "ai": false,
+      "typeParameters": [
+        { "name": "T", "constraint": "extends User", "default": "User" }
+      ],
+      "parameters": [
+        { "name": "id", "type": "string", "description": "The user UUID." },
+        { "name": "options", "typeId": "c3d4e5f6-a7b8-9012-cdef-123456789012", "optional": true, "description": "Fetch options (Kanecta FetchOptions type)." }
+      ],
+      "returnType": "Promise<T>",
+      "throws": [
+        { "type": "NotFoundError", "description": "When no user exists with that ID." }
+      ],
+      "body": "const res = await fetch(`/api/users/${id}`);\nif (!res.ok) throw new NotFoundError(id);\nreturn res.json() as T;"
+    },
+    {
+      "description": "Create a new contact record from a Kanecta-typed input.",
+      "async": true,
+      "ai": false,
+      "parameters": [
+        { "name": "contact", "typeId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890", "description": "Contact data conforming to the Contact Kanecta type." }
+      ],
+      "returnTypeId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+    },
+    {
+      "description": "Summarise a document using AI.",
+      "async": true,
+      "ai": true,
+      "skill": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+      "parameters": [
+        { "name": "document", "type": "string", "description": "Raw document text to summarise." },
+        { "name": "maxWords", "type": "number", "optional": true, "defaultValue": "200" }
+      ],
+      "returnType": "Promise<string>"
+    }
+  ]
+}

@@ -134,8 +134,33 @@ npm run build
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `KANECTA_API_URL` | `http://localhost:3000` | Primary API endpoint |
+| `VITE_KEYCLOAK_URL` | — | Base URL of the Keycloak server (e.g. `https://keycloak.example.com`) |
+| `VITE_KEYCLOAK_REALM` | — | Keycloak realm to authenticate against |
+| `VITE_KEYCLOAK_CLIENT_ID` | — | Public client ID registered in that realm |
+| `VITE_AUTH_DISABLED` | — | Set to `true` to skip Keycloak entirely for local dev — no login screen, no avatar menu, no `Authorization` header sent. Pairs with the API's `AUTH_DISABLED=true`. Never set in a real deployment. |
 
 Additional workspaces are configured inside the app's settings panel.
+
+### Authentication
+
+Studio authenticates against a Keycloak instance supplied by whoever deploys
+it — there's no built-in default realm. `VITE_KEYCLOAK_URL`,
+`VITE_KEYCLOAK_REALM`, and `VITE_KEYCLOAK_CLIENT_ID` must all be set (the
+client should be a public client with PKCE enabled). Once signed in, an
+avatar and account menu appear in the top-right of the top bar showing the
+user's name, email, and primary role, with a sign-out action.
+
+For local development without a Keycloak instance, set `VITE_AUTH_DISABLED=true`
+(and the API's `AUTH_DISABLED=true`) to run unauthenticated — the avatar/login
+UI is hidden entirely and no `Authorization` header is sent.
+
+To develop and test against a real Keycloak instance, the `kanecta-keycloak`
+workspace package stands up Keycloak + Postgres + MinIO via Docker Compose
+with a pre-seeded test realm:
+
+```bash
+npm run docker:up -w kanecta-keycloak
+```
 
 ---
 

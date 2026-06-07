@@ -1,4 +1,4 @@
-import type { ApiClient } from './client';
+import type { KanectaApiClient } from '@kanecta/api-client';
 import type { KanectaItem, KanectaItemWithChildren } from '../types/kanecta';
 
 type TreeEntry = { item: KanectaItem; depth: number };
@@ -32,16 +32,13 @@ function entriesToNested(entries: TreeEntry[]): KanectaItemWithChildren[] {
   return roots;
 }
 
-export function treeApi(client: ApiClient) {
+export function treeApi(client: KanectaApiClient) {
   return {
     full: async (depth?: number): Promise<KanectaItemWithChildren[]> => {
-      const entries = await client.get<TreeEntry[]>(
-        `/tree${depth != null ? `?depth=${depth}` : ''}`,
-      );
+      const entries = (await client.tree.get(depth)) as TreeEntry[];
       return entriesToNested(Array.isArray(entries) ? entries : []);
     },
 
-    rebuildIndexes: () =>
-      client.post<{ rebuilt: boolean; itemCount: number }>('/rebuild-indexes'),
+    rebuildIndexes: () => client.rebuildIndexes(),
   };
 }

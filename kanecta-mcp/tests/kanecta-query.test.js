@@ -32,42 +32,42 @@ afterEach(() => {
 });
 
 /** Create an item with the given objectData in the temp store. */
-function seed(value, objectData) {
-  const item = ds.create({ value, type: 'object' });
-  ds.writeObjectJson(item.id, objectData);
+async function seed(value, objectData) {
+  const item = await ds.create({ value, type: 'object' });
+  await ds.writeObjectJson(item.id, objectData);
   return item;
 }
 
 // ─── Case normalisation — severity ───────────────────────────────────────────
 
 describe('severity normalisation in where filter', () => {
-  beforeEach(() => {
-    seed('item-p1', { severity: 'P1', status: 'open' });
-    seed('item-p2', { severity: 'P2', status: 'open' });
+  beforeEach(async () => {
+    await seed('item-p1', { severity: 'P1', status: 'open' });
+    await seed('item-p2', { severity: 'P2', status: 'open' });
   });
 
-  test('lowercase severity matches same items as uppercase', () => {
-    const lower = dispatch('kanecta_query', { type: 'object', where: { severity: 'p1' } });
-    const upper = dispatch('kanecta_query', { type: 'object', where: { severity: 'P1' } });
+  test('lowercase severity matches same items as uppercase', async () => {
+    const lower = await dispatch('kanecta_query', { type: 'object', where: { severity: 'p1' } });
+    const upper = await dispatch('kanecta_query', { type: 'object', where: { severity: 'P1' } });
     expect(lower.items).toHaveLength(upper.items.length);
     expect(lower.items.map(i => i.value)).toEqual(upper.items.map(i => i.value));
   });
 
-  test('lowercase severity returns the correct item', () => {
-    const res = dispatch('kanecta_query', { type: 'object', where: { severity: 'p2' } });
+  test('lowercase severity returns the correct item', async () => {
+    const res = await dispatch('kanecta_query', { type: 'object', where: { severity: 'p2' } });
     expect(res.items).toHaveLength(1);
     expect(res.items[0].value).toBe('item-p2');
   });
 
-  test('op-style severity predicate normalises value to uppercase', () => {
+  test('op-style severity predicate normalises value to uppercase', async () => {
     // where: {severity: {op: '!=', value: 'p1'}} should exclude P1 and return only P2
-    const res = dispatch('kanecta_query', { type: 'object', where: { severity: { op: '!=', value: 'p1' } } });
+    const res = await dispatch('kanecta_query', { type: 'object', where: { severity: { op: '!=', value: 'p1' } } });
     expect(res.items).toHaveLength(1);
     expect(res.items[0].value).toBe('item-p2');
   });
 
-  test('uppercase severity continues to work (no regression)', () => {
-    const res = dispatch('kanecta_query', { type: 'object', where: { severity: 'P1' } });
+  test('uppercase severity continues to work (no regression)', async () => {
+    const res = await dispatch('kanecta_query', { type: 'object', where: { severity: 'P1' } });
     expect(res.items).toHaveLength(1);
     expect(res.items[0].value).toBe('item-p1');
   });
@@ -76,33 +76,33 @@ describe('severity normalisation in where filter', () => {
 // ─── Case normalisation — status ─────────────────────────────────────────────
 
 describe('status normalisation in where filter', () => {
-  beforeEach(() => {
-    seed('item-open',  { status: 'open',  severity: 'P1' });
-    seed('item-fixed', { status: 'fixed', severity: 'P1' });
+  beforeEach(async () => {
+    await seed('item-open',  { status: 'open',  severity: 'P1' });
+    await seed('item-fixed', { status: 'fixed', severity: 'P1' });
   });
 
-  test('uppercase status matches same items as lowercase', () => {
-    const upper = dispatch('kanecta_query', { type: 'object', where: { status: 'OPEN' } });
-    const lower = dispatch('kanecta_query', { type: 'object', where: { status: 'open' } });
+  test('uppercase status matches same items as lowercase', async () => {
+    const upper = await dispatch('kanecta_query', { type: 'object', where: { status: 'OPEN' } });
+    const lower = await dispatch('kanecta_query', { type: 'object', where: { status: 'open' } });
     expect(upper.items).toHaveLength(lower.items.length);
     expect(upper.items.map(i => i.value)).toEqual(lower.items.map(i => i.value));
   });
 
-  test('mixed-case status normalises to lowercase', () => {
-    const res = dispatch('kanecta_query', { type: 'object', where: { status: 'Fixed' } });
+  test('mixed-case status normalises to lowercase', async () => {
+    const res = await dispatch('kanecta_query', { type: 'object', where: { status: 'Fixed' } });
     expect(res.items).toHaveLength(1);
     expect(res.items[0].value).toBe('item-fixed');
   });
 
-  test('op-style status predicate normalises value to lowercase', () => {
+  test('op-style status predicate normalises value to lowercase', async () => {
     // where: {status: {op: '!=', value: 'FIXED'}} should exclude fixed, return open
-    const res = dispatch('kanecta_query', { type: 'object', where: { status: { op: '!=', value: 'FIXED' } } });
+    const res = await dispatch('kanecta_query', { type: 'object', where: { status: { op: '!=', value: 'FIXED' } } });
     expect(res.items).toHaveLength(1);
     expect(res.items[0].value).toBe('item-open');
   });
 
-  test('lowercase status continues to work (no regression)', () => {
-    const res = dispatch('kanecta_query', { type: 'object', where: { status: 'open' } });
+  test('lowercase status continues to work (no regression)', async () => {
+    const res = await dispatch('kanecta_query', { type: 'object', where: { status: 'open' } });
     expect(res.items).toHaveLength(1);
     expect(res.items[0].value).toBe('item-open');
   });
@@ -136,58 +136,58 @@ describe('aggregation modes ignore the default 50-item limit (regression)', () =
 // ─── mode="count" ─────────────────────────────────────────────────────────────
 
 describe('mode="count"', () => {
-  beforeEach(() => {
-    seed('item-1', { severity: 'P1', status: 'open' });
-    seed('item-2', { severity: 'P2', status: 'open' });
-    seed('item-3', { severity: 'P1', status: 'fixed' });
+  beforeEach(async () => {
+    await seed('item-1', { severity: 'P1', status: 'open' });
+    await seed('item-2', { severity: 'P2', status: 'open' });
+    await seed('item-3', { severity: 'P1', status: 'fixed' });
   });
 
-  test('returns an object with count, not an items array', () => {
-    const res = dispatch('kanecta_query', { type: 'object', mode: 'count' });
+  test('returns an object with count, not an items array', async () => {
+    const res = await dispatch('kanecta_query', { type: 'object', mode: 'count' });
     expect(res).toHaveProperty('count');
     expect(res).not.toHaveProperty('items');
   });
 
-  test('count with no filter equals total item count', () => {
-    const res = dispatch('kanecta_query', { type: 'object', mode: 'count' });
+  test('count with no filter equals total item count', async () => {
+    const res = await dispatch('kanecta_query', { type: 'object', mode: 'count' });
     expect(res.count).toBe(3);
   });
 
-  test('count with severity filter returns filtered count', () => {
-    const res = dispatch('kanecta_query', { type: 'object', mode: 'count', where: { severity: 'P1' } });
+  test('count with severity filter returns filtered count', async () => {
+    const res = await dispatch('kanecta_query', { type: 'object', mode: 'count', where: { severity: 'P1' } });
     expect(res.count).toBe(2);
   });
 
-  test('count with status filter returns filtered count', () => {
-    const res = dispatch('kanecta_query', { type: 'object', mode: 'count', where: { status: 'open' } });
+  test('count with status filter returns filtered count', async () => {
+    const res = await dispatch('kanecta_query', { type: 'object', mode: 'count', where: { status: 'open' } });
     expect(res.count).toBe(2);
   });
 
-  test('count with combined where filters', () => {
-    const res = dispatch('kanecta_query', { type: 'object', mode: 'count', where: { severity: 'P1', status: 'open' } });
+  test('count with combined where filters', async () => {
+    const res = await dispatch('kanecta_query', { type: 'object', mode: 'count', where: { severity: 'P1', status: 'open' } });
     expect(res.count).toBe(1);
   });
 
-  test('count returns zero when nothing matches', () => {
-    const res = dispatch('kanecta_query', { type: 'object', mode: 'count', where: { severity: 'P4' } });
+  test('count returns zero when nothing matches', async () => {
+    const res = await dispatch('kanecta_query', { type: 'object', mode: 'count', where: { severity: 'P4' } });
     expect(res.count).toBe(0);
   });
 
-  test('count ignores the limit param — returns all matches', () => {
+  test('count ignores the limit param — returns all matches', async () => {
     // limit:1 must not cap the count at 1
-    const res = dispatch('kanecta_query', { type: 'object', mode: 'count', limit: 1 });
+    const res = await dispatch('kanecta_query', { type: 'object', mode: 'count', limit: 1 });
     expect(res.count).toBe(3);
   });
 
-  test('count works with lowercase severity (normalisation + count together)', () => {
-    const lower = dispatch('kanecta_query', { type: 'object', mode: 'count', where: { severity: 'p1' } });
-    const upper = dispatch('kanecta_query', { type: 'object', mode: 'count', where: { severity: 'P1' } });
+  test('count works with lowercase severity (normalisation + count together)', async () => {
+    const lower = await dispatch('kanecta_query', { type: 'object', mode: 'count', where: { severity: 'p1' } });
+    const upper = await dispatch('kanecta_query', { type: 'object', mode: 'count', where: { severity: 'P1' } });
     expect(lower.count).toBe(upper.count);
     expect(lower.count).toBe(2);
   });
 
-  test('count works with uppercase status (normalisation + count together)', () => {
-    const upper = dispatch('kanecta_query', { type: 'object', mode: 'count', where: { status: 'OPEN' } });
+  test('count works with uppercase status (normalisation + count together)', async () => {
+    const upper = await dispatch('kanecta_query', { type: 'object', mode: 'count', where: { status: 'OPEN' } });
     expect(upper.count).toBe(2);
   });
 });
@@ -195,43 +195,43 @@ describe('mode="count"', () => {
 // ─── mode="group_by" ──────────────────────────────────────────────────────────
 
 describe('mode="group_by"', () => {
-  beforeEach(() => {
-    seed('item-1', { severity: 'P1', status: 'open',        screen_id: 'gear' });
-    seed('item-2', { severity: 'P2', status: 'open',        screen_id: 'gear' });
-    seed('item-3', { severity: 'P1', status: 'fixed',       screen_id: 'activities' });
-    seed('item-4', { severity: 'P3', status: 'in_progress', screen_id: 'settings' });
-    seed('item-5', { severity: 'P2', status: 'fixed',       screen_id: 'activities' });
+  beforeEach(async () => {
+    await seed('item-1', { severity: 'P1', status: 'open',        screen_id: 'gear' });
+    await seed('item-2', { severity: 'P2', status: 'open',        screen_id: 'gear' });
+    await seed('item-3', { severity: 'P1', status: 'fixed',       screen_id: 'activities' });
+    await seed('item-4', { severity: 'P3', status: 'in_progress', screen_id: 'settings' });
+    await seed('item-5', { severity: 'P2', status: 'fixed',       screen_id: 'activities' });
   });
 
-  test('returns an object with groups, not an items array', () => {
-    const res = dispatch('kanecta_query', { type: 'object', mode: 'group_by', group_by_field: 'severity' });
+  test('returns an object with groups, not an items array', async () => {
+    const res = await dispatch('kanecta_query', { type: 'object', mode: 'group_by', group_by_field: 'severity' });
     expect(res).toHaveProperty('groups');
     expect(res).not.toHaveProperty('items');
   });
 
-  test('group by severity produces correct bucket counts', () => {
-    const res = dispatch('kanecta_query', { type: 'object', mode: 'group_by', group_by_field: 'severity' });
+  test('group by severity produces correct bucket counts', async () => {
+    const res = await dispatch('kanecta_query', { type: 'object', mode: 'group_by', group_by_field: 'severity' });
     expect(res.groups).toEqual({ P1: 2, P2: 2, P3: 1 });
   });
 
-  test('group by status produces correct bucket counts', () => {
-    const res = dispatch('kanecta_query', { type: 'object', mode: 'group_by', group_by_field: 'status' });
+  test('group by status produces correct bucket counts', async () => {
+    const res = await dispatch('kanecta_query', { type: 'object', mode: 'group_by', group_by_field: 'status' });
     expect(res.groups).toEqual({ open: 2, fixed: 2, in_progress: 1 });
   });
 
-  test('group by screen_id produces correct bucket counts', () => {
-    const res = dispatch('kanecta_query', { type: 'object', mode: 'group_by', group_by_field: 'screen_id' });
+  test('group by screen_id produces correct bucket counts', async () => {
+    const res = await dispatch('kanecta_query', { type: 'object', mode: 'group_by', group_by_field: 'screen_id' });
     expect(res.groups).toEqual({ gear: 2, activities: 2, settings: 1 });
   });
 
-  test('bucket counts sum to total item count', () => {
-    const res = dispatch('kanecta_query', { type: 'object', mode: 'group_by', group_by_field: 'severity' });
+  test('bucket counts sum to total item count', async () => {
+    const res = await dispatch('kanecta_query', { type: 'object', mode: 'group_by', group_by_field: 'severity' });
     const total = Object.values(res.groups).reduce((sum, n) => sum + n, 0);
     expect(total).toBe(5);
   });
 
-  test('group_by with where filter only buckets matching items', () => {
-    const res = dispatch('kanecta_query', {
+  test('group_by with where filter only buckets matching items', async () => {
+    const res = await dispatch('kanecta_query', {
       type: 'object',
       mode: 'group_by',
       group_by_field: 'severity',
@@ -240,27 +240,27 @@ describe('mode="group_by"', () => {
     expect(res.groups).toEqual({ P1: 1, P2: 1 });
   });
 
-  test('items missing the group_by_field go into an "unknown" bucket', () => {
-    seed('item-no-severity', { status: 'open' }); // no severity field
-    const res = dispatch('kanecta_query', { type: 'object', mode: 'group_by', group_by_field: 'severity' });
+  test('items missing the group_by_field go into an "unknown" bucket', async () => {
+    await seed('item-no-severity', { status: 'open' }); // no severity field
+    const res = await dispatch('kanecta_query', { type: 'object', mode: 'group_by', group_by_field: 'severity' });
     expect(res.groups).toHaveProperty('unknown');
     expect(res.groups.unknown).toBe(1);
   });
 
-  test('group_by ignores the limit param — groups all matches', () => {
-    const res = dispatch('kanecta_query', { type: 'object', mode: 'group_by', group_by_field: 'severity', limit: 1 });
+  test('group_by ignores the limit param — groups all matches', async () => {
+    const res = await dispatch('kanecta_query', { type: 'object', mode: 'group_by', group_by_field: 'severity', limit: 1 });
     const total = Object.values(res.groups).reduce((sum, n) => sum + n, 0);
     expect(total).toBe(5); // all 5 items, not capped at 1
   });
 
-  test('missing group_by_field returns an error', () => {
-    const res = dispatch('kanecta_query', { mode: 'group_by' });
+  test('missing group_by_field returns an error', async () => {
+    const res = await dispatch('kanecta_query', { mode: 'group_by' });
     expect(res).toHaveProperty('error');
     expect(res.error).toMatch(/group_by_field/);
   });
 
-  test('group_by with uppercase status filter (normalisation + group_by together)', () => {
-    const res = dispatch('kanecta_query', {
+  test('group_by with uppercase status filter (normalisation + group_by together)', async () => {
+    const res = await dispatch('kanecta_query', {
       type: 'object',
       mode: 'group_by',
       group_by_field: 'severity',
@@ -272,8 +272,8 @@ describe('mode="group_by"', () => {
     expect(res.groups).toEqual({ P1: 1, P2: 1 });
   });
 
-  test('group_by with lowercase severity filter (normalisation + group_by together)', () => {
-    const res = dispatch('kanecta_query', {
+  test('group_by with lowercase severity filter (normalisation + group_by together)', async () => {
+    const res = await dispatch('kanecta_query', {
       type: 'object',
       mode: 'group_by',
       group_by_field: 'status',
@@ -287,39 +287,39 @@ describe('mode="group_by"', () => {
 // ─── Normal query unchanged ────────────────────────────────────────────────────
 
 describe('normal query (no mode) — unchanged behaviour', () => {
-  beforeEach(() => {
-    seed('item-a', { severity: 'P1', status: 'open' });
-    seed('item-b', { severity: 'P2', status: 'fixed' });
+  beforeEach(async () => {
+    await seed('item-a', { severity: 'P1', status: 'open' });
+    await seed('item-b', { severity: 'P2', status: 'fixed' });
   });
 
-  test('returns items array, not count or groups', () => {
-    const res = dispatch('kanecta_query', { type: 'object' });
+  test('returns items array, not count or groups', async () => {
+    const res = await dispatch('kanecta_query', { type: 'object' });
     expect(res).toHaveProperty('items');
     expect(Array.isArray(res.items)).toBe(true);
     expect(res).not.toHaveProperty('count');
     expect(res).not.toHaveProperty('groups');
   });
 
-  test('returns all seeded items when filtered by type', () => {
-    const res = dispatch('kanecta_query', { type: 'object' });
+  test('returns all seeded items when filtered by type', async () => {
+    const res = await dispatch('kanecta_query', { type: 'object' });
     expect(res.items).toHaveLength(2);
   });
 
-  test('where filter still works normally', () => {
-    const res = dispatch('kanecta_query', { type: 'object', where: { severity: 'P1' } });
+  test('where filter still works normally', async () => {
+    const res = await dispatch('kanecta_query', { type: 'object', where: { severity: 'P1' } });
     expect(res.items).toHaveLength(1);
     expect(res.items[0].value).toBe('item-a');
   });
 
-  test('returned items include objectData inline', () => {
-    const res = dispatch('kanecta_query', { type: 'object', where: { severity: 'P1' } });
+  test('returned items include objectData inline', async () => {
+    const res = await dispatch('kanecta_query', { type: 'object', where: { severity: 'P1' } });
     expect(res.items[0]).toHaveProperty('objectData');
     expect(res.items[0].objectData.severity).toBe('P1');
     expect(res.items[0].objectData.status).toBe('open');
   });
 
-  test('limit param is respected in normal mode', () => {
-    const res = dispatch('kanecta_query', { type: 'object', limit: 1 });
+  test('limit param is respected in normal mode', async () => {
+    const res = await dispatch('kanecta_query', { type: 'object', limit: 1 });
     expect(res.items).toHaveLength(1);
   });
 });
