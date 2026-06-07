@@ -688,6 +688,14 @@ class FilesystemAdapter {
     return { metadata, schema: resolvedSchema };
   }
 
+  readTypeJson(id) {
+    return this._readJson(path.join(this._typeDir(id), 'type.json'), null);
+  }
+
+  writeTypeJson(id, data) {
+    this._writeJson(path.join(this._typeDir(id), 'type.json'), data);
+  }
+
   // ─── Aliases ───────────────────────────────────────────────────────────────
 
   setAlias(alias, id) {
