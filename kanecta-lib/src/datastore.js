@@ -137,6 +137,13 @@ class Datastore {
   getRoot()                            { return this._adapter.getRoot(); }
   getDataRoot()                        { return this._adapter.getDataRoot(); }
 
+  // ─── File store ────────────────────────────────────────────────────────────
+
+  putFile(itemId, filename, body, opts)  { return this._adapter.putFile(itemId, filename, body, opts); }
+  getFile(itemId, filename)              { return this._adapter.getFile(itemId, filename); }
+  deleteFile(itemId, filename)           { return this._adapter.deleteFile(itemId, filename); }
+  listFiles(itemId)                      { return this._adapter.listFiles(itemId); }
+
   // ─── Index maintenance ─────────────────────────────────────────────────────
 
   rebuildIndexes()                     { return this._adapter.rebuildIndexes(); }

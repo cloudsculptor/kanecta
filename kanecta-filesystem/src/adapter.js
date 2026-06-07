@@ -228,6 +228,22 @@ class FilesystemAdapter {
     this._writeJson(path.join(this._itemDir(id), 'function.json'), data);
   }
 
+  // ─── File store (no-op stubs — filesystem adapter stores files on disk directly) ─
+
+  putFile(_itemId, _filename, _body, _opts) {
+    throw new Error('putFile is not supported in filesystem mode');
+  }
+
+  getFile(_itemId, _filename) {
+    return null;
+  }
+
+  deleteFile(_itemId, _filename) {}
+
+  listFiles(_itemId) {
+    return [];
+  }
+
   // ─── Link extraction ───────────────────────────────────────────────────────
 
   _parseLinks(value) {
