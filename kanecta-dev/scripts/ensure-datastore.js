@@ -204,21 +204,51 @@ async function wizard() {
   console.log('│         Kanecta — First Run Setup        │');
   console.log('└──────────────────────────────────────────┘\n');
   console.log('No datastore configured. How would you like to proceed?\n');
-  console.log('  1. Create a new datastore');
-  console.log('  2. Use an existing directory');
+  console.log('  1. Create a new datastore (filesystem)');
+  console.log('  2. Use an existing filesystem datastore');
   console.log('  3. Import from a zip file');
-  console.log('  4. Exit\n');
+  console.log('  4. Connect to a Postgres + S3 cloud datastore');
+  console.log('  5. Exit\n');
 
-  const choice = await ask(rl, 'Choice [1-4]: ');
+  const choice = await ask(rl, 'Choice [1-5]: ');
 
   // ── Collect all inputs before doing anything ──────────────────────────────
 
   let datastorePath;
   let zipPath = null;
   let owner = null;
-  let mode; // 'create' | 'existing' | 'zip'
+  let cloudConfig = null;
+  let mode; // 'create' | 'existing' | 'zip' | 'cloud'
 
-  if (choice === '1') {
+  if (choice === '4') {
+    mode = 'cloud';
+    console.log('\nCloud datastore setup — you will need a Postgres connection string and S3-compatible credentials.\n');
+
+    const pgConn = await ask(rl, 'Postgres connection string (e.g. postgres://user:pass@host:5432/db): ');
+    if (!pgConn) { console.error('Connection string required.'); rl.close(); process.exit(1); }
+
+    const s3Endpoint = await ask(rl, 'S3 endpoint URL (e.g. http://localhost:45900 for MinIO): ');
+    const s3Key      = await ask(rl, 'S3 access key ID: ');
+    const s3Secret   = await ask(rl, 'S3 secret access key: ');
+    const s3Bucket   = await ask(rl, 'S3 bucket name [kanecta]: ') || 'kanecta';
+    const isNew      = await ask(rl, 'Is this a brand-new database? (creates schema + root nodes) [y/N]: ');
+    owner = isNew.toLowerCase() === 'y'
+      ? await ask(rl, 'Owner identifier (email or domain): ')
+      : null;
+
+    cloudConfig = {
+      pg:  { connectionString: pgConn },
+      s3:  { endpoint: s3Endpoint, accessKeyId: s3Key, secretAccessKey: s3Secret, bucket: s3Bucket },
+      new: isNew.toLowerCase() === 'y',
+    };
+    datastorePath = 'cloud'; // placeholder — not a real path
+
+  } else if (choice === '5') {
+    rl.close();
+    console.log('Aborted.');
+    process.exit(0);
+
+  } else if (choice === '1') {
     mode = 'create';
     const dirInput = await ask(rl, 'Datastore parent directory [~/]:');
     const dir = dirInput || '~/';
@@ -274,6 +304,8 @@ async function wizard() {
     process.exit(0);
   }
 
+
+
   const frontendPortInput = await ask(rl, 'Frontend port [9743]: ');
   const studioPort = parseInt(frontendPortInput || '9743', 10);
   const apiPortInput = await ask(rl, `API port [${studioPort + 1}]: `);
@@ -303,6 +335,8 @@ async function wizard() {
     ? `register ${datastorePath} in pointer file`
     : mode === 'zip'
     ? `extract zip and create datastore at ${datastorePath}`
+    : mode === 'cloud'
+    ? `connect to Postgres at ${cloudConfig.pg.connectionString.replace(/:\/\/[^@]+@/, '://<credentials>@')}`
     : `create datastore at ${datastorePath}`;
 
   const confirm = await ask(rl, `OK to ${action} and write ${POINTER_LOCATIONS[0]}? [Y/n]: `);
@@ -314,7 +348,23 @@ async function wizard() {
 
   // ── Create ────────────────────────────────────────────────────────────────
 
-  if (mode === 'create') {
+  if (mode === 'cloud') {
+    const cloudFile = path.join(XDG_CONFIG, 'kanecta', 'cloud.json');
+    fs.mkdirSync(path.dirname(cloudFile), { recursive: true });
+    fs.writeFileSync(cloudFile, JSON.stringify(cloudConfig, null, 2) + '\n', 'utf8');
+    console.log(`\n✓ Cloud config written to ${cloudFile}`);
+    console.log('  Postgres + S3 will be used as the datastore backend.');
+    if (cloudConfig.new) {
+      const { Datastore } = require('@kanecta/lib');
+      await Datastore.initCloud(cloudConfig, owner);
+      console.log('  ✓ Schema migrated and root nodes created.');
+    }
+    rl.close();
+    // For cloud mode, write a sentinel pointer so the app knows the mode.
+    writePointer('cloud', studioPort, apiPort, systemItemsDir);
+    return { datastorePath: 'cloud', apiPort, studioPort, systemItemsDir };
+
+  } else if (mode === 'create') {
     fs.mkdirSync(datastorePath, { recursive: true });
     Datastore.init(datastorePath, owner);
     console.log(`\n✓ Created datastore at ${datastorePath}`);
