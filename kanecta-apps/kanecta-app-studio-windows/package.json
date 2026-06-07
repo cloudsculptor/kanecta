@@ -1,0 +1,41 @@
+{
+  "name": "kanecta-studio-windows",
+  "version": "1.3.0",
+  "private": true,
+  "description": "Desktop wrapper for Kanecta Studio, packaged as a Windows installer",
+  "main": "main.cjs",
+  "author": {
+    "name": "Kanecta",
+    "email": "richardsempire@gmail.com"
+  },
+  "homepage": "https://github.com/cloudsculptor/kanecta",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "42.3.3",
+    "electron-builder": "^26.15.0"
+  },
+  "license": "MIT",
+  "build": {
+    "appId": "com.kanecta.studio",
+    "productName": "Kanecta Studio",
+    "files": [
+      "main.cjs"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.ico",
+      "signExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}
