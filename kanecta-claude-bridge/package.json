@@ -1,6 +1,6 @@
 {
   "name": "@kanecta/claude-bridge",
-  "version": "0.1.0",
+  "version": "1.3.0",
   "description": "Kanecta Claude bridge — spawns and manages Claude CLI sessions over SSE",
   "main": "src/index.js",
   "files": [
