@@ -535,7 +535,7 @@ app.get('/items/:id/children', async (req, res) => {
   const ds = await openDatastore(res);
   if (!ds) return;
   if (!isSyntheticId(id) && !await ds.get(id)) return res.status(404).json({ error: 'Item not found' });
-  res.json(await withChildCounts(ds, ds.children(id)));
+  res.json(await withChildCounts(ds, await ds.children(id)));
 });
 
 // GET /items/:id/object — read the object.json for a typed object item
