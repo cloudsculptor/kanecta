@@ -858,6 +858,124 @@ class PostgresAdapter {
     }
   }
 
+  // ─── Function data (functions + child tables) ────────────────────────────────
+
+  async readFunctionJson(id) {
+    const { rows } = await this._pool.query('SELECT * FROM functions WHERE item_id = $1', [id]);
+    const fn = rows[0];
+    if (!fn) return null;
+
+    const [{ rows: typeParamRows }, { rows: paramRows }, { rows: throwRows }] = await Promise.all([
+      this._pool.query(
+        `SELECT name, constraint_expr, default_type FROM function_type_parameters
+         WHERE function_id = $1 ORDER BY sort_order`, [id],
+      ),
+      this._pool.query(
+        `SELECT name, type, type_id, optional, rest, default_value, description FROM function_parameters
+         WHERE function_id = $1 ORDER BY sort_order`, [id],
+      ),
+      this._pool.query(
+        `SELECT type, description FROM function_throws
+         WHERE function_id = $1 ORDER BY sort_order`, [id],
+      ),
+    ]);
+
+    const result = {};
+    if (fn.description != null)    result.description = fn.description;
+    if (fn.is_async)               result.async = true;
+    if (fn.is_ai)                  result.ai = true;
+    if (fn.skill_id)               result.skill = fn.skill_id;
+    if (typeParamRows.length) {
+      result.typeParameters = typeParamRows.map(r => {
+        const tp = { name: r.name };
+        if (r.constraint_expr != null) tp.constraint = r.constraint_expr;
+        if (r.default_type != null)    tp.default = r.default_type;
+        return tp;
+      });
+    }
+    result.parameters = paramRows.map(r => {
+      const p = { name: r.name };
+      if (r.type != null)          p.type = r.type;
+      if (r.type_id != null)       p.typeId = r.type_id;
+      if (r.optional)              p.optional = true;
+      if (r.rest)                  p.rest = true;
+      if (r.default_value != null) p.defaultValue = r.default_value;
+      if (r.description != null)   p.description = r.description;
+      return p;
+    });
+    if (fn.return_type != null)    result.returnType = fn.return_type;
+    if (fn.return_type_id != null) result.returnTypeId = fn.return_type_id;
+    if (throwRows.length) {
+      result.throws = throwRows.map(r => ({
+        type: r.type,
+        ...(r.description != null ? { description: r.description } : {}),
+      }));
+    }
+    if (fn.deprecated_notice != null) result.deprecated = fn.deprecated_notice;
+    if (fn.body != null)              result.body = fn.body;
+    if (!fn.include_kanecta_sdk)      result.includeKanectaSdk = false;
+    if (fn.dependencies?.length)      result.dependencies = fn.dependencies;
+    return result;
+  }
+
+  async writeFunctionJson(id, data) {
+    const {
+      description = null,
+      async: isAsync = false,
+      ai = false,
+      skill = null,
+      typeParameters = [],
+      parameters = [],
+      returnType = null,
+      returnTypeId = null,
+      throws = [],
+      deprecated = null,
+      body = null,
+      includeKanectaSdk = true,
+      dependencies = [],
+    } = data;
+
+    await this._pool.query(
+      `INSERT INTO functions (
+         item_id, description, is_async, is_ai, skill_id, return_type, return_type_id,
+         deprecated_notice, body, include_kanecta_sdk, dependencies
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       ON CONFLICT (item_id) DO UPDATE SET
+         description = $2, is_async = $3, is_ai = $4, skill_id = $5,
+         return_type = $6, return_type_id = $7, deprecated_notice = $8,
+         body = $9, include_kanecta_sdk = $10, dependencies = $11`,
+      [id, description, isAsync, ai, skill, returnType, returnTypeId, deprecated, body, includeKanectaSdk, dependencies],
+    );
+
+    await Promise.all([
+      this._pool.query('DELETE FROM function_type_parameters WHERE function_id = $1', [id]),
+      this._pool.query('DELETE FROM function_parameters WHERE function_id = $1', [id]),
+      this._pool.query('DELETE FROM function_throws WHERE function_id = $1', [id]),
+    ]);
+
+    for (const [i, tp] of typeParameters.entries()) {
+      await this._pool.query(
+        `INSERT INTO function_type_parameters (id, function_id, sort_order, name, constraint_expr, default_type)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        [crypto.randomUUID(), id, i, tp.name, tp.constraint ?? null, tp.default ?? null],
+      );
+    }
+    for (const [i, p] of parameters.entries()) {
+      await this._pool.query(
+        `INSERT INTO function_parameters (id, function_id, sort_order, name, type, type_id, optional, rest, default_value, description)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [crypto.randomUUID(), id, i, p.name, p.type ?? null, p.typeId ?? null, p.optional ?? false, p.rest ?? false, p.defaultValue ?? null, p.description ?? null],
+      );
+    }
+    for (const [i, t] of throws.entries()) {
+      await this._pool.query(
+        `INSERT INTO function_throws (id, function_id, sort_order, type, description)
+         VALUES ($1,$2,$3,$4,$5)`,
+        [crypto.randomUUID(), id, i, t.type, t.description ?? null],
+      );
+    }
+  }
+
   // ─── Type definitions ─────────────────────────────────────────────────────────
 
   async createType(value, { schema, createdBy, id: explicitId } = {}) {
