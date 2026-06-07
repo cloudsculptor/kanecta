@@ -23,6 +23,7 @@ const ITEM_METHODS = [
   'history', 'byTag', 'byType', 'listRelationships',
   'loadAll', 'children', 'tree', 'query', 'rebuildIndexes',
   'readObjectJson', 'writeObjectJson', 'readFunctionJson', 'writeFunctionJson',
+  'readTypeJson', 'writeTypeJson',
   'getRoot', 'getDataRoot',
 ];
 

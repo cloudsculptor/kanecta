@@ -156,6 +156,8 @@ class Datastore {
   async writeObjectJson(id, data)            { return this._adapter.writeObjectJson(id, data); }
   async readFunctionJson(id)                 { return this._adapter.readFunctionJson(id); }
   async writeFunctionJson(id, data)          { return this._adapter.writeFunctionJson(id, data); }
+  async readTypeJson(id)                     { return this._adapter.readTypeJson(id); }
+  async writeTypeJson(id, data)              { return this._adapter.writeTypeJson(id, data); }
   async getRoot()                            { return this._adapter.getRoot(); }
   async getDataRoot()                        { return this._adapter.getDataRoot(); }
 

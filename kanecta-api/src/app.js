@@ -1001,47 +1001,29 @@ app.get('/tags/:tag', async (req, res) => {
 
 // GET /types — list all type definitions from <datastore>/.kanecta/types/
 app.get('/types', async (req, res) => {
-  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
-  const typesDir = path.join(root, '.kanecta', 'types');
-  if (!fs.existsSync(typesDir)) return res.json([]);
-
-  const results = [];
+  const ds = await openDatastore(res);
+  if (!ds) return;
   try {
-    for (const shard1 of fs.readdirSync(typesDir)) {
-      const s1 = path.join(typesDir, shard1);
-      if (!fs.statSync(s1).isDirectory()) continue;
-      for (const shard2 of fs.readdirSync(s1)) {
-        const s2 = path.join(s1, shard2);
-        if (!fs.statSync(s2).isDirectory()) continue;
-        for (const id of fs.readdirSync(s2)) {
-          const metaPath = path.join(s2, id, 'metadata.json');
-          if (!fs.existsSync(metaPath)) continue;
-          try {
-            const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-            const typePath = path.join(s2, id, 'type.json');
-            if (fs.existsSync(typePath)) {
-              const typeDef = JSON.parse(fs.readFileSync(typePath, 'utf8'));
-              if (typeDef.meta) {
-                meta.icon           = typeDef.meta.icon ?? null;
-                meta.description    = typeDef.meta.description ?? null;
-                meta.details        = typeDef.meta.details ?? null;
-                meta.keywords       = typeDef.meta.keywords ?? null;
-                meta.tags           = typeDef.meta.tags ?? null;
-                meta.primaryField   = typeDef.meta.primaryField ?? null;
-                meta['ai-instructions'] = typeDef.meta['ai-instructions'] ?? null;
-              }
-            }
-            results.push(meta);
-          } catch (_) { /* skip malformed */ }
-        }
-      }
-    }
+    const items = await ds.query({ type: 'type' });
+    const results = await Promise.all(items.map(async (item) => {
+      const typeDef = await ds.readTypeJson(item.id).catch(() => null);
+      const meta = typeDef?.meta;
+      return {
+        ...item,
+        icon:               meta?.icon ?? null,
+        description:        meta?.description ?? null,
+        details:            meta?.details ?? null,
+        keywords:           meta?.keywords ?? null,
+        tags:               meta?.tags ?? null,
+        primaryField:       meta?.primaryField ?? null,
+        'ai-instructions':  meta?.skills?.claude ?? meta?.['ai-instructions'] ?? null,
+      };
+    }));
+    results.sort((a, b) => (a.value || '').localeCompare(b.value || ''));
+    res.json(results);
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
-
-  results.sort((a, b) => (a.value || '').localeCompare(b.value || ''));
-  res.json(results);
 });
 
 // POST /types — create a new type definition
@@ -1093,12 +1075,11 @@ function validateTypeSchema(schema) {
 app.put('/types/:id/schema', async (req, res) => {
   const { id } = req.params;
   if (!UUID_RE.test(id)) return res.status(400).json({ error: 'Invalid UUID format' });
-  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
-  const typesDir = path.join(root, '.kanecta', 'types');
-  const shard1 = id.slice(0, 2);
-  const shard2 = id.slice(2, 4);
-  const schemaPath = path.join(typesDir, shard1, shard2, id, 'type.json');
-  if (!fs.existsSync(schemaPath)) return res.status(404).json({ error: 'Schema not found' });
+  const ds = await openDatastore(res);
+  if (!ds) return;
+
+  const existing = await ds.readTypeJson(id);
+  if (!existing) return res.status(404).json({ error: 'Schema not found' });
 
   let schema;
   try {
@@ -1111,25 +1092,23 @@ app.put('/types/:id/schema', async (req, res) => {
   if (validationError) return res.status(400).json({ error: validationError });
 
   try {
-    fs.writeFileSync(schemaPath, JSON.stringify(schema, null, 2));
+    await ds.writeTypeJson(id, schema);
     res.json(schema);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /types/:id — get the metadata.json for a type
+// GET /types/:id — get the metadata for a type
 app.get('/types/:id', async (req, res) => {
   const { id } = req.params;
   if (!UUID_RE.test(id)) return res.status(400).json({ error: 'Invalid UUID format' });
-  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
-  const typesDir = path.join(root, '.kanecta', 'types');
-  const shard1 = id.slice(0, 2);
-  const shard2 = id.slice(2, 4);
-  const metaPath = path.join(typesDir, shard1, shard2, id, 'metadata.json');
-  if (!fs.existsSync(metaPath)) return res.status(404).json({ error: 'Type not found' });
+  const ds = await openDatastore(res);
+  if (!ds) return;
   try {
-    res.json(JSON.parse(fs.readFileSync(metaPath, 'utf8')));
+    const item = await ds.get(id);
+    if (!item || item.type !== 'type') return res.status(404).json({ error: 'Type not found' });
+    res.json(item);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1139,14 +1118,11 @@ app.get('/types/:id', async (req, res) => {
 app.get('/types/:id/schema', async (req, res) => {
   const { id } = req.params;
   if (!UUID_RE.test(id)) return res.status(400).json({ error: 'Invalid UUID format' });
-  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
-  const typesDir = path.join(root, '.kanecta', 'types');
-  const shard1 = id.slice(0, 2);
-  const shard2 = id.slice(2, 4);
-  const schemaPath = path.join(typesDir, shard1, shard2, id, 'type.json');
-  if (!fs.existsSync(schemaPath)) return res.status(404).json({ error: 'Schema not found' });
+  const ds = await openDatastore(res);
+  if (!ds) return;
   try {
-    const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
+    const schema = await ds.readTypeJson(id);
+    if (!schema) return res.status(404).json({ error: 'Schema not found' });
     res.json(schema);
   } catch (err) {
     res.status(500).json({ error: err.message });

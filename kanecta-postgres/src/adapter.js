@@ -1018,23 +1018,27 @@ class PostgresAdapter {
          item_id, table_name,
          meta_icon, meta_description, meta_details, meta_keywords, meta_tags,
          meta_primary_field, meta_ai_instructions_claude,
-         json_schema, sync, superseded_by, implements, extends
+         meta_functions_consumed_by, meta_functions_produced_by,
+         json_schema, sql_schema, sync, superseded_by, implements, extends
        ) VALUES (
          $1, $2,
          $3, $4, $5, $6, $7,
          $8, $9,
-         $10, $11, $12, $13, $14
+         $10, $11,
+         $12, $13, $14, $15, $16, $17
        )
        ON CONFLICT (item_id) DO UPDATE SET
          table_name = $2,
          meta_icon = $3, meta_description = $4, meta_details = $5, meta_keywords = $6, meta_tags = $7,
          meta_primary_field = $8, meta_ai_instructions_claude = $9,
-         json_schema = $10, sync = $11, superseded_by = $12, implements = $13, extends = $14`,
+         meta_functions_consumed_by = $10, meta_functions_produced_by = $11,
+         json_schema = $12, sql_schema = $13, sync = $14, superseded_by = $15, implements = $16, extends = $17`,
       [
         id, tableName,
         meta.icon ?? null, meta.description ?? '', meta.details ?? null, meta.keywords ?? null, meta.tags ?? null,
         meta.primaryField ?? null, meta.skills?.claude ?? null,
-        JSON.stringify(resolvedSchema.jsonSchema),
+        meta.functions?.consumedBy ?? [], meta.functions?.producedBy ?? [],
+        JSON.stringify(resolvedSchema.jsonSchema), resolvedSchema.sqlSchema ?? [],
         meta.sync ?? [], meta.supersededBy ?? [], meta.implements ?? [], meta.extends ?? [],
       ],
     );
@@ -1052,6 +1056,48 @@ class PostgresAdapter {
 
     const metadata = await this.get(id);
     return { metadata, schema: resolvedSchema };
+  }
+
+  async readTypeJson(id) {
+    const { rows } = await this._pool.query('SELECT * FROM types WHERE item_id = $1', [id]);
+    const t = rows[0];
+    if (!t) return null;
+
+    const meta = {
+      icon: t.meta_icon ?? '',
+      description: t.meta_description ?? '',
+      details: t.meta_details ?? '',
+      keywords: t.meta_keywords ?? '',
+      tags: t.meta_tags ?? '',
+      primaryField: t.meta_primary_field ?? '',
+      skills: { claude: t.meta_ai_instructions_claude ?? '' },
+      functions: { consumedBy: t.meta_functions_consumed_by ?? [], producedBy: t.meta_functions_produced_by ?? [] },
+      sync: t.sync ?? [],
+      supersededBy: t.superseded_by ?? [],
+      implements: t.implements ?? [],
+      extends: t.extends ?? [],
+    };
+
+    return { meta, jsonSchema: t.json_schema, sqlSchema: t.sql_schema ?? [] };
+  }
+
+  async writeTypeJson(id, data) {
+    const meta = data.meta ?? {};
+    await this._pool.query(
+      `UPDATE types SET
+         meta_icon = $2, meta_description = $3, meta_details = $4, meta_keywords = $5, meta_tags = $6,
+         meta_primary_field = $7, meta_ai_instructions_claude = $8,
+         meta_functions_consumed_by = $9, meta_functions_produced_by = $10,
+         json_schema = $11, sync = $12, superseded_by = $13, implements = $14, extends = $15
+       WHERE item_id = $1`,
+      [
+        id,
+        meta.icon ?? null, meta.description ?? '', meta.details ?? null, meta.keywords ?? null, meta.tags ?? null,
+        meta.primaryField ?? null, meta.skills?.claude ?? null,
+        meta.functions?.consumedBy ?? [], meta.functions?.producedBy ?? [],
+        JSON.stringify(data.jsonSchema), meta.sync ?? [], meta.supersededBy ?? [], meta.implements ?? [], meta.extends ?? [],
+      ],
+    );
   }
 
   // Attaches the generic FTS trigger (see migrations/013_search_index.sql) to
