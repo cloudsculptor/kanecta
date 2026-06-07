@@ -1,5 +1,6 @@
 {
   "id": "0411d6fb-3160-4db6-bd91-93c6260689b2",
+  "specVersion": "1.3.0",
   "parentId": null,
   "value": "Feature Flag",
   "type": "type",

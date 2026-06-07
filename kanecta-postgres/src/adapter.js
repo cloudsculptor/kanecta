@@ -9,6 +9,7 @@
 //   const adapter = await PostgresAdapter.open(pool);           // existing DB
 
 const crypto = require('crypto');
+const { version: specVersion } = require('@kanecta/specification');
 const { createEmbeddingProvider, reciprocalRankFusion } = require('./embeddings');
 
 const ROOT_ID        = '00000000-0000-0000-0000-000000000000';
@@ -28,6 +29,7 @@ function rowToItem(row) {
   if (!row) return null;
   return {
     id:                  row.id,
+    specVersion:         row.spec_version,
     parentId:            row.parent_id,
     value:               row.value,
     type:                row.type,
@@ -160,11 +162,11 @@ class PostgresAdapter {
     const owner = this.config.owner;
     const value = type === 'data_root' ? "Your name or organisation's name here" : type;
     await this._pool.query(
-      `INSERT INTO items (id, parent_id, value, type, owner, license, sort_order,
+      `INSERT INTO items (id, spec_version, parent_id, value, type, owner, license, sort_order,
          created_at, modified_at, created_by, modified_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8,$5,$5)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$6,$6)
        ON CONFLICT (id) DO NOTHING`,
-      [id, parentId, value, type, owner, DEFAULT_LICENSE, sortOrder, now],
+      [id, specVersion, parentId, value, type, owner, DEFAULT_LICENSE, sortOrder, now],
     );
     await this._snapshot(id, 'create', owner, now);
     return this.get(id);
@@ -237,12 +239,12 @@ class PostgresAdapter {
 
     await this._pool.query(
       `INSERT INTO items
-         (id, parent_id, value, type, type_id, owner, license, sort_order,
+         (id, spec_version, parent_id, value, type, type_id, owner, license, sort_order,
           confidence, status, tags, created_at, modified_at, created_by, modified_by,
           due_at, visibility, aspect)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12,$13,$13,$14,'private',$15)`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$13,$14,$14,$15,'private',$16)`,
       [
-        id, parentId, value,
+        id, specVersion, parentId, value,
         type, type === 'object' ? typeId : null,
         ownerVal, license ?? DEFAULT_LICENSE,
         sortOrder, confidence, status, tags,
@@ -985,11 +987,11 @@ class PostgresAdapter {
     const actor = createdBy || owner;
 
     await this._pool.query(
-      `INSERT INTO items (id, parent_id, value, type, owner, license, sort_order,
+      `INSERT INTO items (id, spec_version, parent_id, value, type, owner, license, sort_order,
          created_at, modified_at, created_by, modified_by)
-       VALUES ($1, $1, $2, 'type', $3, $4, 0, $5, $5, $3, $3)
+       VALUES ($1, $2, $1, $3, 'type', $4, $5, 0, $6, $6, $4, $4)
        ON CONFLICT (id) DO NOTHING`,
-      [id, value.trim(), owner, DEFAULT_LICENSE, now],
+      [id, specVersion, value.trim(), owner, DEFAULT_LICENSE, now],
     );
 
     const resolvedSchema = schema || {
