@@ -1,4 +1,5 @@
 import { createApiClient, ApiError } from '@kanecta/api-client';
+import keycloak from '../auth/keycloak';
 import { itemsApi } from './items';
 import { aliasesApi } from './aliases';
 import { relationshipsApi } from './relationships';
@@ -24,7 +25,12 @@ export type { ClaudeEvent, ApprovalNeededEvent, ToolRanEvent } from './claude';
 export type { AppSettings } from './settings';
 
 export function createApi(baseUrl: string) {
-  const client = createApiClient({ baseUrl });
+  // `keycloak.token` is undefined when unauthenticated or when auth is
+  // disabled (VITE_AUTH_DISABLED=true) — the client then sends no
+  // Authorization header, matching the backend's AUTH_DISABLED bypass.
+  // Read it lazily (not just once) since KeycloakProvider refreshes it
+  // in place as the session continues.
+  const client = createApiClient({ baseUrl, token: () => keycloak.token });
   return {
     config: {
       get: () => client.config.get(),

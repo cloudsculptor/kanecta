@@ -6,6 +6,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import type { ViewType } from '../../types/ui';
 import { useLocation } from '../../context/LocationContext';
 import { api } from '../../api';
+import { AccountMenu } from './AccountMenu';
 import './TopBar.scss';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -85,6 +86,9 @@ export function TopBar({ onQuickCapture, onCommandPalette, onViewSelect, activeV
         <SettingsIcon />
         <span className="TopBar-item-label">Settings</span>
       </button>
+      <div className="TopBar-account">
+        <AccountMenu />
+      </div>
     </nav>
   );
 }

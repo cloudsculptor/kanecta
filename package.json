@@ -13,6 +13,7 @@
     "kanecta-specification",
     "kanecta-filesystem",
     "kanecta-postgres",
+    "kanecta-keycloak",
     "kanecta-database",
     "kanecta-s3",
     "kanecta-cloud",

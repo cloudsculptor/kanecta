@@ -54,6 +54,13 @@
     min-width: 0;
   }
 
+  &-account {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+    padding-right: 8px;
+  }
+
   &-input {
     width: 100%;
     border: none;

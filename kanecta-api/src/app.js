@@ -4,6 +4,7 @@ const express = require('express');
 const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE } = require('@kanecta/lib');
 const claude = require('@kanecta/ai');
 const { generateFunctionScaffold, toCamelCase } = require('./generateFunctionCode');
+const { requireAuth } = require('./middleware/auth');
 const { spawnSync, spawn } = require('child_process');
 const { createHash } = require('crypto');
 
@@ -25,6 +26,7 @@ function writeBuildHash(fnDir) {
 
 const app = express();
 app.use(express.json());
+app.use(requireAuth);
 
 const path = require('path');
 const fs = require('fs');
