@@ -13,14 +13,14 @@
       "type": "object",
       "minProperties": 1,
       "description": "Map of workspace name → { mode, datastore?, cloud? }",
-      "modes": ["FILESYSTEM", "CLOUD", "DUAL_FILESYSTEM_PRIMARY", "DUAL_CLOUD_PRIMARY"],
+      "modes": ["FILESYSTEM", "CLOUD", "REMOTE", "DUAL_FILESYSTEM_PRIMARY", "DUAL_CLOUD_PRIMARY"],
       "entrySchema": {
         "type": "object",
         "required": ["mode"],
         "properties": {
           "mode": {
             "type": "string",
-            "description": "Storage strategy: FILESYSTEM | CLOUD | DUAL_FILESYSTEM_PRIMARY | DUAL_CLOUD_PRIMARY"
+            "description": "Storage strategy: FILESYSTEM | CLOUD | REMOTE | DUAL_FILESYSTEM_PRIMARY | DUAL_CLOUD_PRIMARY"
           },
           "datastore": {
             "type": "string",
@@ -29,6 +29,10 @@
           "cloud": {
             "type": "object",
             "description": "Postgres + S3 connection config { pg, s3, embeddings? } — required for CLOUD and DUAL_* modes"
+          },
+          "remote": {
+            "type": "object",
+            "description": "Remote Kanecta instance connection { url, apiUrl } — required for REMOTE mode"
           }
         }
       }
