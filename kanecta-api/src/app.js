@@ -30,7 +30,22 @@ const path = require('path');
 const fs = require('fs');
 const DEFAULT_DATASTORE = path.join(process.env.HOME || process.env.USERPROFILE, '.kanecta');
 
-function openDatastore(res) {
+async function openDatastore(res) {
+  // Cloud mode: ~/.config/kanecta/cloud.json exists → use Postgres + S3
+  const os = require('os');
+  const XDG_CONFIG = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
+  const cloudFile  = path.join(XDG_CONFIG, 'kanecta', 'cloud.json');
+  if (fs.existsSync(cloudFile)) {
+    try {
+      const cloudConfig = JSON.parse(fs.readFileSync(cloudFile, 'utf8'));
+      return await Datastore.openCloud(cloudConfig);
+    } catch (err) {
+      res.status(503).json({ error: `Failed to open cloud datastore: ${err.message}` });
+      return null;
+    }
+  }
+
+  // Filesystem mode
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
   if (!Datastore.isDatastore(root)) {
     res.status(503).json({
@@ -149,7 +164,7 @@ function matchObjectData(objectData, q, fields) {
 }
 
 // GET /config — datastore configuration visible to the studio
-app.get('/config', (req, res) => {
+app.get('/config', async (req, res) => {
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
   const whichCmd = process.platform === 'win32' ? 'where' : 'which';
   const vscodeCheck = spawnSync(whichCmd, ['code'], { encoding: 'utf8' });
@@ -157,7 +172,7 @@ app.get('/config', (req, res) => {
 });
 
 // POST /open-in-vscode — open a path in VS Code
-app.post('/open-in-vscode', (req, res) => {
+app.post('/open-in-vscode', async (req, res) => {
   const { path: targetPath } = req.body;
   if (!targetPath || typeof targetPath !== 'string') {
     return res.status(400).json({ error: 'path is required' });
@@ -167,7 +182,7 @@ app.post('/open-in-vscode', (req, res) => {
 });
 
 // POST /open-path — open a local directory in the OS file manager
-app.post('/open-path', (req, res) => {
+app.post('/open-path', async (req, res) => {
   const { path: targetPath } = req.body;
   if (!targetPath || typeof targetPath !== 'string') {
     return res.status(400).json({ error: 'path is required' });
@@ -178,7 +193,7 @@ app.post('/open-path', (req, res) => {
 });
 
 // POST /open-in-browser — open a file:// URL in the default web browser
-app.post('/open-in-browser', (req, res) => {
+app.post('/open-in-browser', async (req, res) => {
   const { path: targetPath } = req.body;
   if (!targetPath || typeof targetPath !== 'string') {
     return res.status(400).json({ error: 'path is required' });
@@ -210,8 +225,8 @@ app.post('/open-in-browser', (req, res) => {
 });
 
 // GET /search?q=&rootId=&limit=&fields= — full-text search with optional subtree scope, ancestor breadcrumb, and fields scoping
-app.get('/search', (req, res) => {
-  const ds = openDatastore(res);
+app.get('/search', async (req, res) => {
+  const ds = await openDatastore(res);
   if (!ds) return;
   const { q, rootId, limit = '10', fields } = req.query;
   if (!q) return res.status(400).json({ error: 'q is required' });
@@ -262,8 +277,8 @@ app.get('/search', (req, res) => {
 // ─── Items ────────────────────────────────────────────────────────────────────
 
 // GET /items — list children of data_root (the user's top-level items)
-app.get('/items', (req, res) => {
-  const ds = openDatastore(res);
+app.get('/items', async (req, res) => {
+  const ds = await openDatastore(res);
   if (!ds) return;
   const dataRoot = ds.getDataRoot();
   const items = dataRoot ? ds.children(dataRoot.id) : [];
@@ -271,8 +286,8 @@ app.get('/items', (req, res) => {
 });
 
 // POST /items/bulk — create multiple items in one call
-app.post('/items/bulk', (req, res) => {
-  const ds = openDatastore(res);
+app.post('/items/bulk', async (req, res) => {
+  const ds = await openDatastore(res);
   if (!ds) return;
   const { items } = req.body;
   if (!Array.isArray(items) || items.length === 0)
@@ -306,8 +321,8 @@ app.post('/items/bulk', (req, res) => {
 });
 
 // POST /items — create item
-app.post('/items', (req, res) => {
-  const ds = openDatastore(res);
+app.post('/items', async (req, res) => {
+  const ds = await openDatastore(res);
   if (!ds) return;
   const { parentId = null, value = null, type = 'string', typeId = null,
     owner, license = null, sortOrder, confidence = null, status = null, tags = [],
@@ -332,8 +347,8 @@ app.post('/items', (req, res) => {
 });
 
 // PATCH /items/bulk — update multiple items in one call
-app.patch('/items/bulk', (req, res) => {
-  const ds = openDatastore(res);
+app.patch('/items/bulk', async (req, res) => {
+  const ds = await openDatastore(res);
   if (!ds) return;
   const { updates } = req.body;
   if (!Array.isArray(updates) || updates.length === 0)
@@ -360,8 +375,8 @@ app.patch('/items/bulk', (req, res) => {
 });
 
 // GET /items/stats — type counts and quality score across all items (excludes *_root types)
-app.get('/items/stats', (req, res) => {
-  const ds = openDatastore(res);
+app.get('/items/stats', async (req, res) => {
+  const ds = await openDatastore(res);
   if (!ds) return;
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
 
@@ -419,8 +434,8 @@ app.get('/items/stats', (req, res) => {
 });
 
 // GET /items/root — get the data_root item
-app.get('/items/root', (req, res) => {
-  const ds = openDatastore(res);
+app.get('/items/root', async (req, res) => {
+  const ds = await openDatastore(res);
   if (!ds) return;
   const dataRoot = ds.getDataRoot();
   if (!dataRoot) return res.status(404).json({ error: 'data_root not found' });
@@ -428,10 +443,10 @@ app.get('/items/root', (req, res) => {
 });
 
 // GET /items/:id — get item (accepts real UUIDs and synthetic IDs)
-app.get('/items/:id', (req, res) => {
+app.get('/items/:id', async (req, res) => {
   const { id } = req.params;
   if (!isValidId(id)) return res.status(400).json({ error: 'Invalid ID format' });
-  const ds = openDatastore(res);
+  const ds = await openDatastore(res);
   if (!ds) return;
   const item = ds.get(id);
   if (!item) return res.status(404).json({ error: 'Item not found' });
@@ -439,10 +454,10 @@ app.get('/items/:id', (req, res) => {
 });
 
 // PUT /items/:id — update item
-app.put('/items/:id', (req, res) => {
+app.put('/items/:id', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
-  const ds = openDatastore(res);
+  const ds = await openDatastore(res);
   if (!ds) return;
   if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
 
@@ -477,10 +492,10 @@ app.put('/items/:id', (req, res) => {
 });
 
 // DELETE /items/:id — delete item and all descendants (?force=true to skip reference conflict check)
-app.delete('/items/:id', (req, res) => {
+app.delete('/items/:id', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
-  const ds = openDatastore(res);
+  const ds = await openDatastore(res);
   if (!ds) return;
   if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
 
@@ -499,20 +514,20 @@ app.delete('/items/:id', (req, res) => {
 });
 
 // GET /items/:id/children — list children of item (accepts real UUIDs and synthetic IDs)
-app.get('/items/:id/children', (req, res) => {
+app.get('/items/:id/children', async (req, res) => {
   const { id } = req.params;
   if (!isValidId(id)) return res.status(400).json({ error: 'Invalid ID format' });
-  const ds = openDatastore(res);
+  const ds = await openDatastore(res);
   if (!ds) return;
   if (!isSyntheticId(id) && !ds.get(id)) return res.status(404).json({ error: 'Item not found' });
   res.json(withChildCounts(ds, ds.children(id)));
 });
 
 // GET /items/:id/object — read the object.json for a typed object item
-app.get('/items/:id/object', (req, res) => {
+app.get('/items/:id/object', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
-  const ds = openDatastore(res);
+  const ds = await openDatastore(res);
   if (!ds) return;
   const obj = ds.readObjectJson(id);
   if (!obj) return res.status(404).json({ error: 'No object data for this item' });
@@ -520,10 +535,10 @@ app.get('/items/:id/object', (req, res) => {
 });
 
 // PUT /items/:id/object — write or replace the object.json for a typed object item
-app.put('/items/:id/object', (req, res) => {
+app.put('/items/:id/object', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
-  const ds = openDatastore(res);
+  const ds = await openDatastore(res);
   if (!ds) return;
   if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
   ds.writeObjectJson(id, req.body);
@@ -531,10 +546,10 @@ app.put('/items/:id/object', (req, res) => {
 });
 
 // POST /items/:id/complete — mark item as completed (sets completedAt to now)
-app.post('/items/:id/complete', (req, res) => {
+app.post('/items/:id/complete', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
-  const ds = openDatastore(res);
+  const ds = await openDatastore(res);
   if (!ds) return;
   if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
   const updated = ds.update(id, { completedAt: new Date().toISOString() }, req.body.actor);
@@ -542,10 +557,10 @@ app.post('/items/:id/complete', (req, res) => {
 });
 
 // POST /items/:id/uncomplete — clear completed state (sets completedAt to null)
-app.post('/items/:id/uncomplete', (req, res) => {
+app.post('/items/:id/uncomplete', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
-  const ds = openDatastore(res);
+  const ds = await openDatastore(res);
   if (!ds) return;
   if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
   const updated = ds.update(id, { completedAt: null }, req.body.actor);
@@ -553,7 +568,7 @@ app.post('/items/:id/uncomplete', (req, res) => {
 });
 
 // GET /items/:id/function/package-json — read the package.json inside the function scaffold directory
-app.get('/items/:id/function/package-json', (req, res) => {
+app.get('/items/:id/function/package-json', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
@@ -569,7 +584,7 @@ app.get('/items/:id/function/package-json', (req, res) => {
 
 // GET /items/:id/function/scaffold — check whether the function/ code scaffold directory exists
 // Returns { exists, stale } where stale=true means the compiled dist is out of date with function.json
-app.get('/items/:id/function/scaffold', (req, res) => {
+app.get('/items/:id/function/scaffold', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
@@ -590,10 +605,10 @@ app.get('/items/:id/function/scaffold', (req, res) => {
 
 
 // GET /items/:id/function — read the function.json for a function item
-app.get('/items/:id/function', (req, res) => {
+app.get('/items/:id/function', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
-  const ds = openDatastore(res);
+  const ds = await openDatastore(res);
   if (!ds) return;
   const fn = ds.readFunctionJson(id);
   if (!fn) return res.status(404).json({ error: 'No function data for this item' });
@@ -601,10 +616,10 @@ app.get('/items/:id/function', (req, res) => {
 });
 
 // PUT /items/:id/function — write or replace the function.json and regenerate code scaffold
-app.put('/items/:id/function', (req, res) => {
+app.put('/items/:id/function', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
-  const ds = openDatastore(res);
+  const ds = await openDatastore(res);
   if (!ds) return;
   const item = ds.get(id);
   if (!item) return res.status(404).json({ error: 'Item not found' });
@@ -623,7 +638,7 @@ app.put('/items/:id/function', (req, res) => {
 });
 
 // POST /items/:id/function/compile — npm install + tsc in the function scaffold directory
-app.post('/items/:id/function/compile', (req, res) => {
+app.post('/items/:id/function/compile', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
@@ -663,7 +678,7 @@ app.post('/items/:id/function/compile', (req, res) => {
 });
 
 // POST /items/:id/function/run — check hash, rebuild if stale, then execute the function
-app.post('/items/:id/function/run', (req, res) => {
+app.post('/items/:id/function/run', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
 
@@ -676,7 +691,7 @@ app.post('/items/:id/function/run', (req, res) => {
     return res.status(404).json({ error: 'Function scaffold not found. Save the function first.' });
   }
 
-  const ds = openDatastore(res);
+  const ds = await openDatastore(res);
   if (!ds) return;
   const item = ds.get(id);
   if (!item) return res.status(404).json({ error: 'Item not found' });
@@ -761,10 +776,10 @@ Promise.resolve(mod[${JSON.stringify(fnName)}](...values))
 });
 
 // GET /items/:id/tree — tree rooted at item (?depth=n)
-app.get('/items/:id/tree', (req, res) => {
+app.get('/items/:id/tree', async (req, res) => {
   const { id } = req.params;
   if (!isValidId(id)) return res.status(400).json({ error: 'Invalid ID format' });
-  const ds = openDatastore(res);
+  const ds = await openDatastore(res);
   if (!ds) return;
   if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
   const maxDepth = req.query.depth != null ? parseInt(req.query.depth, 10) : Infinity;
@@ -774,20 +789,20 @@ app.get('/items/:id/tree', (req, res) => {
 });
 
 // GET /items/:id/ancestors — full path from root down to this item's parent
-app.get('/items/:id/ancestors', (req, res) => {
+app.get('/items/:id/ancestors', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
-  const ds = openDatastore(res);
+  const ds = await openDatastore(res);
   if (!ds) return;
   if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
   res.json(getAncestorChain(ds, id));
 });
 
 // POST /items/:id/clone — deep-copy item and all descendants under a new parent
-app.post('/items/:id/clone', (req, res) => {
+app.post('/items/:id/clone', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
-  const ds = openDatastore(res);
+  const ds = await openDatastore(res);
   if (!ds) return;
   if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
 
@@ -801,20 +816,20 @@ app.post('/items/:id/clone', (req, res) => {
 });
 
 // GET /items/:id/annotations — list annotations
-app.get('/items/:id/annotations', (req, res) => {
+app.get('/items/:id/annotations', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
-  const ds = openDatastore(res);
+  const ds = await openDatastore(res);
   if (!ds) return;
   if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
   res.json(ds.annotations(id));
 });
 
 // POST /items/:id/annotations — add annotation
-app.post('/items/:id/annotations', (req, res) => {
+app.post('/items/:id/annotations', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
-  const ds = openDatastore(res);
+  const ds = await openDatastore(res);
   if (!ds) return;
   if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
   const { content, author, parentAnnotationId = null } = req.body;
@@ -824,30 +839,30 @@ app.post('/items/:id/annotations', (req, res) => {
 });
 
 // GET /items/:id/relationships — get relationships
-app.get('/items/:id/relationships', (req, res) => {
+app.get('/items/:id/relationships', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
-  const ds = openDatastore(res);
+  const ds = await openDatastore(res);
   if (!ds) return;
   if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
   res.json(ds.relationships(id));
 });
 
 // GET /items/:id/backlinks — get backlinks
-app.get('/items/:id/backlinks', (req, res) => {
+app.get('/items/:id/backlinks', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
-  const ds = openDatastore(res);
+  const ds = await openDatastore(res);
   if (!ds) return;
   if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
   res.json(ds.backlinks(id));
 });
 
 // GET /items/:id/history — get change history
-app.get('/items/:id/history', (req, res) => {
+app.get('/items/:id/history', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
-  const ds = openDatastore(res);
+  const ds = await openDatastore(res);
   if (!ds) return;
   if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
   res.json(ds.history(id));
@@ -856,8 +871,8 @@ app.get('/items/:id/history', (req, res) => {
 // ─── Tree ─────────────────────────────────────────────────────────────────────
 
 // GET /tree — full tree from all roots (?depth=n)
-app.get('/tree', (req, res) => {
-  const ds = openDatastore(res);
+app.get('/tree', async (req, res) => {
+  const ds = await openDatastore(res);
   if (!ds) return;
   const maxDepth = req.query.depth != null ? parseInt(req.query.depth, 10) : Infinity;
   if (isNaN(maxDepth) || maxDepth < 0)
@@ -868,8 +883,8 @@ app.get('/tree', (req, res) => {
 // ─── Aliases ──────────────────────────────────────────────────────────────────
 
 // GET /aliases — list all aliases, optionally filtered by ?targetId=
-app.get('/aliases', (req, res) => {
-  const ds = openDatastore(res);
+app.get('/aliases', async (req, res) => {
+  const ds = await openDatastore(res);
   if (!ds) return;
   const all = ds.listAliases();
   if (req.query.targetId) {
@@ -879,8 +894,8 @@ app.get('/aliases', (req, res) => {
 });
 
 // GET /aliases/:alias — resolve alias to UUID
-app.get('/aliases/:alias', (req, res) => {
-  const ds = openDatastore(res);
+app.get('/aliases/:alias', async (req, res) => {
+  const ds = await openDatastore(res);
   if (!ds) return;
   const alias = req.params.alias.toLowerCase();
   const targetId = ds.resolveAlias(alias);
@@ -889,8 +904,8 @@ app.get('/aliases/:alias', (req, res) => {
 });
 
 // POST /aliases — set alias { alias, targetId }
-app.post('/aliases', (req, res) => {
-  const ds = openDatastore(res);
+app.post('/aliases', async (req, res) => {
+  const ds = await openDatastore(res);
   if (!ds) return;
   const { targetId } = req.body;
   const alias = typeof req.body.alias === 'string' ? req.body.alias.toLowerCase() : req.body.alias;
@@ -903,8 +918,8 @@ app.post('/aliases', (req, res) => {
 });
 
 // DELETE /aliases/:alias — remove alias
-app.delete('/aliases/:alias', (req, res) => {
-  const ds = openDatastore(res);
+app.delete('/aliases/:alias', async (req, res) => {
+  const ds = await openDatastore(res);
   if (!ds) return;
   const alias = req.params.alias.toLowerCase();
   if (!ds.resolveAlias(alias))
@@ -916,15 +931,15 @@ app.delete('/aliases/:alias', (req, res) => {
 // ─── Relationships ────────────────────────────────────────────────────────────
 
 // GET /relationships — list all relationships
-app.get('/relationships', (req, res) => {
-  const ds = openDatastore(res);
+app.get('/relationships', async (req, res) => {
+  const ds = await openDatastore(res);
   if (!ds) return;
   res.json(ds.listRelationships());
 });
 
 // POST /relationships — create relationship { sourceId, type, targetId, note? }
-app.post('/relationships', (req, res) => {
-  const ds = openDatastore(res);
+app.post('/relationships', async (req, res) => {
+  const ds = await openDatastore(res);
   if (!ds) return;
   const { sourceId, type, targetId, note = null, createdBy } = req.body;
   if (!sourceId || !type || !targetId)
@@ -942,8 +957,8 @@ app.post('/relationships', (req, res) => {
 // ─── Tags ─────────────────────────────────────────────────────────────────────
 
 // GET /tags/:tag — list item IDs with this tag
-app.get('/tags/:tag', (req, res) => {
-  const ds = openDatastore(res);
+app.get('/tags/:tag', async (req, res) => {
+  const ds = await openDatastore(res);
   if (!ds) return;
   res.json(ds.byTag(req.params.tag));
 });
@@ -951,7 +966,7 @@ app.get('/tags/:tag', (req, res) => {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 // GET /types — list all type definitions from <datastore>/.kanecta/types/
-app.get('/types', (req, res) => {
+app.get('/types', async (req, res) => {
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
   const typesDir = path.join(root, '.kanecta', 'types');
   if (!fs.existsSync(typesDir)) return res.json([]);
@@ -996,8 +1011,8 @@ app.get('/types', (req, res) => {
 });
 
 // POST /types — create a new type definition
-app.post('/types', (req, res) => {
-  const ds = openDatastore(res);
+app.post('/types', async (req, res) => {
+  const ds = await openDatastore(res);
   if (!ds) return;
   const { value } = req.body;
   if (!value || typeof value !== 'string' || !value.trim()) {
@@ -1041,7 +1056,7 @@ function validateTypeSchema(schema) {
 }
 
 // PUT /types/:id/schema — save updated type.json schema
-app.put('/types/:id/schema', (req, res) => {
+app.put('/types/:id/schema', async (req, res) => {
   const { id } = req.params;
   if (!UUID_RE.test(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
@@ -1070,7 +1085,7 @@ app.put('/types/:id/schema', (req, res) => {
 });
 
 // GET /types/:id — get the metadata.json for a type
-app.get('/types/:id', (req, res) => {
+app.get('/types/:id', async (req, res) => {
   const { id } = req.params;
   if (!UUID_RE.test(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
@@ -1087,7 +1102,7 @@ app.get('/types/:id', (req, res) => {
 });
 
 // GET /types/:id/schema — get the type.json schema for a type
-app.get('/types/:id/schema', (req, res) => {
+app.get('/types/:id/schema', async (req, res) => {
   const { id } = req.params;
   if (!UUID_RE.test(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
@@ -1175,12 +1190,12 @@ function appendBreadcrumb(name, id, itemName, type, typeId) {
 ensureHistoryDir();
 
 // GET /breadcrumb/clipboard
-app.get('/breadcrumb/clipboard', (_req, res) => {
+app.get('/breadcrumb/clipboard', async (_req, res) => {
   res.json(readBreadcrumb('clipboard').reverse());
 });
 
 // POST /breadcrumb/clipboard — append { id, name, type, typeId }
-app.post('/breadcrumb/clipboard', (req, res) => {
+app.post('/breadcrumb/clipboard', async (req, res) => {
   const { id, name, type = '', typeId = '' } = req.body;
   if (!id || !name) return res.status(400).json({ error: 'id and name required' });
   appendBreadcrumb('clipboard', id, name, type, typeId);
@@ -1188,12 +1203,12 @@ app.post('/breadcrumb/clipboard', (req, res) => {
 });
 
 // GET /breadcrumb/viewed
-app.get('/breadcrumb/viewed', (_req, res) => {
+app.get('/breadcrumb/viewed', async (_req, res) => {
   res.json(readBreadcrumb('viewed').reverse());
 });
 
 // POST /breadcrumb/viewed — append { id, name, type, typeId }
-app.post('/breadcrumb/viewed', (req, res) => {
+app.post('/breadcrumb/viewed', async (req, res) => {
   const { id, name, type = '', typeId = '' } = req.body;
   if (!id || !name) return res.status(400).json({ error: 'id and name required' });
   appendBreadcrumb('viewed', id, name, type, typeId);
@@ -1237,12 +1252,12 @@ function writeStarred(entries) {
 }
 
 // GET /app/studio/starred
-app.get('/app/studio/starred', (_req, res) => {
+app.get('/app/studio/starred', async (_req, res) => {
   res.json(readStarred().reverse());
 });
 
 // POST /app/studio/starred — upsert { id, name, type?, typeId? }
-app.post('/app/studio/starred', (req, res) => {
+app.post('/app/studio/starred', async (req, res) => {
   const { id, name, type = '', typeId = '' } = req.body;
   if (!id || !name) return res.status(400).json({ error: 'id and name required' });
   const entries = readStarred().filter((e) => e.id !== id);
@@ -1253,7 +1268,7 @@ app.post('/app/studio/starred', (req, res) => {
 });
 
 // DELETE /app/studio/starred/:id
-app.delete('/app/studio/starred/:id', (req, res) => {
+app.delete('/app/studio/starred/:id', async (req, res) => {
   const { id } = req.params;
   const entries = readStarred().filter((e) => e.id !== id);
   writeStarred(entries);
@@ -1268,7 +1283,7 @@ function viewDir(root, id) {
 }
 
 // GET /app/studio/view/:id
-app.get('/app/studio/view/:id', (req, res) => {
+app.get('/app/studio/view/:id', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID' });
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
@@ -1282,7 +1297,7 @@ app.get('/app/studio/view/:id', (req, res) => {
 });
 
 // PUT /app/studio/view/:id
-app.put('/app/studio/view/:id', (req, res) => {
+app.put('/app/studio/view/:id', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID' });
   const { levels } = req.body;
@@ -1296,7 +1311,7 @@ app.put('/app/studio/view/:id', (req, res) => {
 
 // ─── Sync Types ──────────────────────────────────────────────────────────────
 
-app.get('/app/studio/sync-system-items', (_req, res) => {
+app.get('/app/studio/sync-system-items', async (_req, res) => {
   const commonDir = process.env.KANECTA_SYSTEM_ITEMS_DIR;
   if (!commonDir || !fs.existsSync(commonDir)) return res.json([]);
 
@@ -1345,10 +1360,10 @@ app.get('/app/studio/sync-system-items', (_req, res) => {
   res.json(results);
 });
 
-app.post('/app/studio/sync-system-items/import', (req, res) => {
+app.post('/app/studio/sync-system-items/import', async (req, res) => {
   const commonDir = process.env.KANECTA_SYSTEM_ITEMS_DIR;
   if (!commonDir) return res.status(400).json({ error: 'KANECTA_SYSTEM_ITEMS_DIR not configured' });
-  const ds = openDatastore(res);
+  const ds = await openDatastore(res);
   if (!ds) return;
   const { folderIds } = req.body;
   if (!Array.isArray(folderIds) || folderIds.length === 0) return res.status(400).json({ error: 'folderIds required' });
@@ -1369,7 +1384,7 @@ app.post('/app/studio/sync-system-items/import', (req, res) => {
   res.json({ imported, errors });
 });
 
-app.post('/app/studio/sync-system-items/export', (req, res) => {
+app.post('/app/studio/sync-system-items/export', async (req, res) => {
   const commonDir = process.env.KANECTA_SYSTEM_ITEMS_DIR;
   if (!commonDir) return res.status(400).json({ error: 'KANECTA_SYSTEM_ITEMS_DIR not configured' });
   const { typeIds } = req.body;
@@ -1424,11 +1439,11 @@ function readSettings() {
   }
 }
 
-app.get('/app/studio/settings', (_req, res) => {
+app.get('/app/studio/settings', async (_req, res) => {
   res.json(readSettings());
 });
 
-app.post('/app/studio/settings', (req, res) => {
+app.post('/app/studio/settings', async (req, res) => {
   const { themeName, sidebarBg, sidebarFg, sidebarFgSelected, contentBg, contentBorder, showContentBorder, locationBorder } = req.body;
   if (!themeName) return res.status(400).json({ error: 'themeName required' });
   fs.writeFileSync(settingsFilePath(), JSON.stringify({ themeName, sidebarBg, sidebarFg, sidebarFgSelected, contentBg, contentBorder, showContentBorder: showContentBorder ?? true, locationBorder: locationBorder ?? '#cccccc' }, null, 2));
@@ -1454,7 +1469,7 @@ function defaultLayoutData() {
   };
 }
 
-app.get('/app/studio/layouts', (_req, res) => {
+app.get('/app/studio/layouts', async (_req, res) => {
   const filePath = layoutsFilePath();
   if (!fs.existsSync(filePath)) return res.json(defaultLayoutData());
   try {
@@ -1464,7 +1479,7 @@ app.get('/app/studio/layouts', (_req, res) => {
   }
 });
 
-app.put('/app/studio/layouts', (req, res) => {
+app.put('/app/studio/layouts', async (req, res) => {
   fs.writeFileSync(layoutsFilePath(), JSON.stringify(req.body, null, 2));
   res.json({ ok: true });
 });
@@ -1483,7 +1498,7 @@ function safeSkillId(id) {
 }
 
 // GET /skills — list all .md files sorted by title
-app.get('/skills', (req, res) => {
+app.get('/skills', async (req, res) => {
   try {
     const files = fs.readdirSync(SKILLS_DIR).filter(f => f.endsWith('.md'));
     const skills = files.map(filename => {
@@ -1498,7 +1513,7 @@ app.get('/skills', (req, res) => {
 });
 
 // GET /skills/:id — get a single skill file with content
-app.get('/skills/:id', (req, res) => {
+app.get('/skills/:id', async (req, res) => {
   const { id } = req.params;
   if (!safeSkillId(id)) return res.status(400).json({ error: 'Invalid skill id' });
   try {
@@ -1511,7 +1526,7 @@ app.get('/skills/:id', (req, res) => {
 });
 
 // PUT /skills/:id — update a skill file
-app.put('/skills/:id', (req, res) => {
+app.put('/skills/:id', async (req, res) => {
   const { id } = req.params;
   const { content } = req.body;
   if (!safeSkillId(id)) return res.status(400).json({ error: 'Invalid skill id' });
@@ -1528,8 +1543,8 @@ app.put('/skills/:id', (req, res) => {
 // ─── Index ────────────────────────────────────────────────────────────────────
 
 // POST /rebuild-indexes — rebuild all index caches from data/
-app.post('/rebuild-indexes', (req, res) => {
-  const ds = openDatastore(res);
+app.post('/rebuild-indexes', async (req, res) => {
+  const ds = await openDatastore(res);
   if (!ds) return;
   const itemCount = ds.rebuildIndexes();
   res.json({ rebuilt: true, itemCount });
@@ -1537,7 +1552,7 @@ app.post('/rebuild-indexes', (req, res) => {
 
 // ─── Claude CLI sessions ──────────────────────────────────────────────────────
 
-app.post('/claude/sessions', (req, res) => {
+app.post('/claude/sessions', async (req, res) => {
   const { prompt, workingDir } = req.body;
   if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
     return res.status(400).json({ error: 'prompt is required' });
@@ -1546,7 +1561,7 @@ app.post('/claude/sessions', (req, res) => {
   res.status(201).json({ id });
 });
 
-app.get('/claude/sessions/:id/stream', (req, res) => {
+app.get('/claude/sessions/:id/stream', async (req, res) => {
   const { id } = req.params;
   if (!claude.getSession(id)) return res.status(404).json({ error: 'Session not found' });
 
@@ -1566,7 +1581,7 @@ app.get('/claude/sessions/:id/stream', (req, res) => {
   req.on('close', () => claude.unsubscribe(id, write));
 });
 
-app.post('/claude/sessions/:id/respond', (req, res) => {
+app.post('/claude/sessions/:id/respond', async (req, res) => {
   const { id } = req.params;
   const { approved } = req.body;
   if (typeof approved !== 'boolean') return res.status(400).json({ error: 'approved (boolean) is required' });
@@ -1575,7 +1590,7 @@ app.post('/claude/sessions/:id/respond', (req, res) => {
   res.json({ ok: true });
 });
 
-app.delete('/claude/sessions/:id', (req, res) => {
+app.delete('/claude/sessions/:id', async (req, res) => {
   const ok = claude.cancelSession(req.params.id);
   if (!ok) return res.status(404).json({ error: 'Session not found' });
   res.json({ ok: true });

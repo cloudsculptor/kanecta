@@ -12,7 +12,7 @@ class Datastore {
 
   // Filesystem-specific path properties (only valid in FILE mode).
   get root() { return this._adapter.root; }
-  get k() { return this._adapter.k; }
+  get k()    { return this._adapter.k; }
 
   get config() { return this._adapter.config; }
 
@@ -20,16 +20,66 @@ class Datastore {
     return FilesystemAdapter.isDatastore(location);
   }
 
+  // Open a cloud (Postgres + S3) datastore.
+  // `cloudConfig` must have:
+  //   { pg: { connectionString }, s3: { endpoint, accessKeyId, secretAccessKey, bucket } }
+  static async openCloud(cloudConfig) {
+    const { Pool }             = require('pg');
+    const { S3Client }         = require('@aws-sdk/client-s3');
+    const { PostgresAdapter }  = require('@kanecta/database');
+    const { S3Adapter }        = require('@kanecta/s3');
+    const { CloudAdapter }     = require('@kanecta/cloud');
+
+    const pool = new Pool({ connectionString: cloudConfig.pg.connectionString });
+    const items = await PostgresAdapter.open(pool);
+
+    const s3Cfg = cloudConfig.s3;
+    const s3client = new S3Client({
+      endpoint:        s3Cfg.endpoint,
+      region:          s3Cfg.region ?? 'us-east-1',
+      credentials:     { accessKeyId: s3Cfg.accessKeyId, secretAccessKey: s3Cfg.secretAccessKey },
+      forcePathStyle:  true,
+    });
+    const files = new S3Adapter({ client: s3client, bucket: s3Cfg.bucket });
+
+    const adapter = await CloudAdapter.open({ items, files });
+    return new Datastore(adapter);
+  }
+
+  // Init a new cloud datastore (runs migrations, creates root nodes).
+  static async initCloud(cloudConfig, owner) {
+    const { Pool }             = require('pg');
+    const { S3Client }         = require('@aws-sdk/client-s3');
+    const { PostgresAdapter }  = require('@kanecta/database');
+    const { S3Adapter }        = require('@kanecta/s3');
+    const { CloudAdapter }     = require('@kanecta/cloud');
+
+    const pool = new Pool({ connectionString: cloudConfig.pg.connectionString });
+    const items = await PostgresAdapter.init(pool, owner);
+
+    const s3Cfg = cloudConfig.s3;
+    const s3client = new S3Client({
+      endpoint:        s3Cfg.endpoint,
+      region:          s3Cfg.region ?? 'us-east-1',
+      credentials:     { accessKeyId: s3Cfg.accessKeyId, secretAccessKey: s3Cfg.secretAccessKey },
+      forcePathStyle:  true,
+    });
+    const files = new S3Adapter({ client: s3client, bucket: s3Cfg.bucket });
+
+    const adapter = await CloudAdapter.init({ items, files });
+    return new Datastore(adapter);
+  }
+
   static init(location, owner, { items = 'FILE', files = 'FILE' } = {}) {
     if (items === 'REMOTE' || files === 'REMOTE') {
-      throw new Error('REMOTE mode adapters are not yet installed. Set items and files to "FILE".');
+      throw new Error('Use Datastore.initCloud(cloudConfig, owner) for cloud mode.');
     }
     return new Datastore(FilesystemAdapter.init(location, owner));
   }
 
   static open(location, { items = 'FILE', files = 'FILE' } = {}) {
     if (items === 'REMOTE' || files === 'REMOTE') {
-      throw new Error('REMOTE mode adapters are not yet installed. Set items and files to "FILE".');
+      throw new Error('Use Datastore.openCloud(cloudConfig) for cloud mode.');
     }
     return new Datastore(FilesystemAdapter.open(location));
   }
