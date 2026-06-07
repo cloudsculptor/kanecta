@@ -2,7 +2,7 @@
 
 const {
   FilesystemAdapter,
-  ROOT_ID, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE,
+  ROOT_ID, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE, DEFAULT_LICENSE,
 } = require('@kanecta/filesystem');
 
 class Datastore {
@@ -128,7 +128,7 @@ class Datastore {
   // ─── Tree ──────────────────────────────────────────────────────────────────
 
   async loadAll()                            { return this._adapter.loadAll(); }
-  async children(parentId)                   { return this._adapter.children(parentId); }
+  async children(parentId, aspect)           { return this._adapter.children(parentId, aspect); }
   async tree(rootId, maxDepth)               { return this._adapter.tree(rootId, maxDepth); }
   async readObjectJson(id)                   { return this._adapter.readObjectJson(id); }
   async writeObjectJson(id, data)            { return this._adapter.writeObjectJson(id, data); }
@@ -149,4 +149,4 @@ class Datastore {
   async rebuildIndexes()                     { return this._adapter.rebuildIndexes(); }
 }
 
-module.exports = { Datastore, ROOT_ID, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE };
+module.exports = { Datastore, ROOT_ID, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE, DEFAULT_LICENSE };

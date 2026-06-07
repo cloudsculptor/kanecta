@@ -29,6 +29,7 @@ const VALID_REL_TYPES = [
   'blocks', 'blocked-by', 'prerequisite-for', 'derived-from', 'supersedes',
 ];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DEFAULT_LICENSE = 'bb3bf137-d8a9-4264-9fb7-ac373b1d4739'; // All Rights Reserved (Copyright)
 const LINK_SOURCE = '\\[\\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\\]\\]';
 
 class FilesystemAdapter {
@@ -51,7 +52,7 @@ class FilesystemAdapter {
     const k = path.join(root, '.kanecta');
     fs.mkdirSync(k, { recursive: true });
     for (const d of dirs) fs.mkdirSync(path.join(k, d), { recursive: true });
-    const config = { owner, specVersion: '1.2.0' };
+    const config = { owner, specVersion: '1.3.0' };
     fs.writeFileSync(
       path.join(k, 'config', 'config.json'),
       JSON.stringify(config, null, 2) + '\n',
@@ -336,7 +337,7 @@ class FilesystemAdapter {
     const owner = this.config.owner;
     const item = {
       id, parentId, value: type === 'data_root' ? "Your name or organisation's name here" : type, type,
-      typeId: null, owner, license: null, sortOrder,
+      typeId: null, owner, license: DEFAULT_LICENSE, visibility: 'private', aspect: null, sortOrder,
       confidence: null, tags: [],
       createdAt: now.toISOString(), modifiedAt: now.toISOString(),
       createdBy: owner, modifiedBy: owner,
@@ -401,7 +402,7 @@ class FilesystemAdapter {
   create({
     parentId, value = null, type = 'string', typeId = null,
     owner, license = null, sortOrder, confidence = null, status = null, tags = [],
-    createdBy, objectData = null, dueAt = null,
+    createdBy, objectData = null, dueAt = null, visibility = 'private', aspect = null,
   } = {}) {
     if (WELL_KNOWN_TYPES.has(type)) {
       throw new Error(`Type '${type}' is a well-known root type and cannot be created via create()`);
@@ -419,7 +420,7 @@ class FilesystemAdapter {
     const actor = createdBy || ownerVal;
 
     if (sortOrder == null) {
-      const siblings = this.children(parentId);
+      const siblings = this.children(parentId, aspect);
       sortOrder = siblings.length === 0 ? 0 : Math.max(...siblings.map(s => s.sortOrder)) + 1;
     }
 
@@ -430,7 +431,9 @@ class FilesystemAdapter {
       type,
       typeId: type === 'object' ? (typeId || null) : null,
       owner: ownerVal,
-      license,
+      license: license ?? DEFAULT_LICENSE,
+      visibility,
+      aspect,
       sortOrder,
       confidence,
       status,
@@ -565,6 +568,8 @@ class FilesystemAdapter {
     if ('confidence' in changes) updated.confidence = changes.confidence;
     if ('status' in changes) updated.status = changes.status;
     if ('license' in changes) updated.license = changes.license;
+    if ('visibility' in changes) updated.visibility = changes.visibility;
+    if ('aspect' in changes) updated.aspect = changes.aspect;
     if ('completedAt' in changes) updated.completedAt = changes.completedAt;
     if ('dueAt' in changes) updated.dueAt = changes.dueAt;
 
@@ -878,7 +883,7 @@ class FilesystemAdapter {
     return items;
   }
 
-  children(parentId) {
+  children(parentId, aspect = null) {
     // C3: synthetic parent — navigate into the nested object field
     if (this._isSyntheticId(parentId)) {
       const { realId, fieldPath } = this._parseSyntheticId(parentId);
@@ -901,7 +906,7 @@ class FilesystemAdapter {
     }
 
     const realChildren = this.loadAll()
-      .filter(i => i.parentId === parentId && i.id !== parentId)
+      .filter(i => i.parentId === parentId && i.id !== parentId && (i.aspect ?? null) === aspect)
       .sort((a, b) => a.sortOrder - b.sortOrder);
 
     // C3: prepend synthetic children from object.json if present
@@ -1131,4 +1136,4 @@ class FilesystemAdapter {
   }
 }
 
-module.exports = { FilesystemAdapter, ROOT_ID, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE };
+module.exports = { FilesystemAdapter, ROOT_ID, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE, DEFAULT_LICENSE };
