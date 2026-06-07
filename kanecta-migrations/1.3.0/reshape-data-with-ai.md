@@ -75,7 +75,16 @@ For each affected type, show the owner:
      suggest it when the data clearly warrants a long-term home, and note that
      it means proposing a new type in `kanecta-system-items` too.
 
-Don't pick for them — lay out the trade-offs for *this* type's data and ask.
+**Kanecta recommended approach:** if the orphaned field is an **array of objects**
+(each entry has more than one field), the answer is option 4 + option 1 — create a
+new standalone type for the concept and convert each array entry to a real child item
+under the parent. This is the pattern that fits the v1.3.0 flat-type model best, and
+it is almost always the right call. Arrays of **primitives** (plain strings, UUIDs) can
+be folded into a text field (option 2) or dropped (option 3) — they do not need their
+own type.
+
+Don't pick for them — lay out the trade-offs for *this* type's data and ask. But if the
+data is a complex array, lead with the recommended approach.
 
 **3. Apply the chosen reshape**
 
@@ -112,6 +121,17 @@ current (v1.2.0) shape, explain what v1.3.0 requires (flat properties only,
 `kanecta-specification/1.3.0/file-specs/type.json` and the validator's rules),
 and help them redraft it — including reshaping any existing instance data to
 match, following the same options as step 2.
+
+**5b. Watch for stale `required` entries in system types**
+
+After stripping an orphaned field from item data, if the migration script still reports
+`[required] <field>: Required field is missing or null` for that item, the field was
+removed from `properties` but left in `required` — a bug in the system-items type
+definition. The JSON Schema spec allows this (it doesn't enforce that `required` entries
+exist in `properties`), so the type itself passes validation while every item that
+correctly dropped the field fails. The fix is in `kanecta-system-items`, not the data:
+remove the stale entry from `required` and re-run the migration script (it will
+propagate the corrected type to the datastore automatically).
 
 **6. Final check**
 
