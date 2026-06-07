@@ -29,6 +29,7 @@
     "kanecta-apps/kanecta-app-studio-debian",
     "kanecta-apps/kanecta-app-studio-windows",
     "kanecta-apps/kanecta-app-studio-mac",
+    "kanecta-apps/kanecta-app-studio-vscode-plugin",
     "kanecta-apps/kanecta-app-claude"
   ],
   "devDependencies": {
