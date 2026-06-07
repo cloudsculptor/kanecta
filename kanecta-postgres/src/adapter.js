@@ -9,6 +9,7 @@
 //   const adapter = await PostgresAdapter.open(pool);           // existing DB
 
 const crypto = require('crypto');
+const { createEmbeddingProvider, reciprocalRankFusion } = require('./embeddings');
 
 const ROOT_ID        = '00000000-0000-0000-0000-000000000000';
 const DEFAULT_LICENSE = 'bb3bf137-d8a9-4264-9fb7-ac373b1d4739';
@@ -67,26 +68,34 @@ function objTableName(typeId) {
 // ─── Adapter ──────────────────────────────────────────────────────────────────
 
 class PostgresAdapter {
-  constructor(pool) {
+  constructor(pool, { embeddings = null } = {}) {
     this._pool   = pool;
     this._config = null;
+    // Optional — null when cloud.json has no `embeddings` config (or it's
+    // unrecognised). FTS-only search keeps working either way; semantic search
+    // requires a provider (and `enabled: true`, the default) and throws a
+    // clear error without one — hybridSearch instead degrades to FTS-only.
+    this._embeddingProvider = createEmbeddingProvider(embeddings);
+    this._embeddingsEnabled = embeddings?.enabled !== false;
   }
 
   // ─── Lifecycle ──────────────────────────────────────────────────────────────
 
-  static async init(pool, owner) {
-    const adapter = new PostgresAdapter(pool);
+  static async init(pool, owner, { embeddings = null } = {}) {
+    const adapter = new PostgresAdapter(pool, { embeddings });
     await adapter._migrate();
     await adapter._ensureConfig(owner);
     await adapter._initRoots();
+    if (adapter._embeddingProvider) await adapter._ensureEmbeddingTable();
     return adapter;
   }
 
-  static async open(pool) {
-    const adapter = new PostgresAdapter(pool);
+  static async open(pool, { embeddings = null } = {}) {
+    const adapter = new PostgresAdapter(pool, { embeddings });
     const cfg = await adapter._loadConfig();
     if (!cfg) throw new Error('Not a Kanecta database: config missing or empty');
     adapter._config = cfg;
+    if (adapter._embeddingProvider) await adapter._ensureEmbeddingTable();
     return adapter;
   }
 
@@ -492,6 +501,211 @@ class PostgresAdapter {
       [query, rootId, limit],
     );
     return rows.map(rowToItem);
+  }
+
+  // ─── Semantic / hybrid search (pgvector) ─────────────────────────────────────
+  //
+  // `embeddings` in cloud.json configures *which provider to use for embedding*
+  // — separate from `embeddings.enabled`, which controls whether search
+  // actually queries vectors yet. The split matters because turning on a
+  // provider doesn't retroactively populate item_embeddings: the write
+  // triggers only queue items going forward, and a background worker
+  // (processPendingEmbeddings) has to drain that queue — and the
+  // from-cold-start backfill it queues in _ensureEmbeddingTable — before
+  // semantic results would actually mean anything. So `enabled` defaults to
+  // `true` (configure-and-go is the common case), but can be set `false` to
+  // keep generating embeddings in the background without using them in search
+  // yet — flip it on once `processPendingEmbeddings` reports an empty queue.
+
+  get embeddingsEnabled() {
+    return !!this._embeddingProvider && this._embeddingsEnabled;
+  }
+
+  // Generating embeddings (embedItem / processPendingEmbeddings) only needs a
+  // provider — it's deliberately independent of `enabled`, so a background
+  // worker can finish backfilling while search keeps using FTS only.
+  _requireEmbeddingProvider() {
+    if (!this._embeddingProvider) {
+      throw new Error(
+        'Semantic search requires an embedding provider — set `embeddings` in cloud.json ' +
+        "(e.g. { provider: 'voyage', apiKey: '...', model: 'voyage-3-lite', dimensions: 1024 })",
+      );
+    }
+    return this._embeddingProvider;
+  }
+
+  // Querying embeddings additionally needs `enabled` — see embeddingsEnabled
+  // getter's comment for why these are split.
+  _requireEmbeddingsEnabled() {
+    const provider = this._requireEmbeddingProvider();
+    if (!this._embeddingsEnabled) {
+      throw new Error(
+        "Semantic search is disabled (`embeddings.enabled: false` in cloud.json) — " +
+        'typically because the backfill is still running; set it to `true` once ' +
+        'processPendingEmbeddings reports an empty queue.',
+      );
+    }
+    return provider;
+  }
+
+  // Vector nearest-neighbour search, ranked by cosine distance, optionally
+  // scoped to a subtree. Mirrors search()'s shape and options.
+  async semanticSearch(query, { rootId = null, limit = 10 } = {}) {
+    const provider = this._requireEmbeddingsEnabled();
+    const [queryEmbedding] = await provider.embed([query]);
+    const vectorLiteral = `[${queryEmbedding.join(',')}]`;
+
+    const { rows } = await this._pool.query(
+      `WITH RECURSIVE subtree AS (
+         SELECT id FROM items WHERE id = $3
+         UNION ALL
+         SELECT i.id FROM items i JOIN subtree s ON i.parent_id = s.id AND i.id != i.parent_id
+       )
+       SELECT i.*, (e.embedding OPERATOR(public.<=>) $1::public.vector) AS distance
+       FROM items i
+       JOIN item_embeddings e ON e.item_id = i.id AND e.model = $2
+       WHERE ($3::uuid IS NULL OR i.id IN (SELECT id FROM subtree))
+       ORDER BY distance ASC
+       LIMIT $4`,
+      [vectorLiteral, provider.model, rootId, limit],
+    );
+    return rows.map(rowToItem);
+  }
+
+  // Combines FTS and vector search results with Reciprocal Rank Fusion — BM25
+  // catches exact terminology (acronyms, system names), vector catches
+  // conceptual similarity; RRF merges the two rankings without needing the
+  // (incomparable) raw scores to be normalised against each other.
+  //
+  // Degrades to FTS-only when semantic search isn't available yet (no
+  // provider configured, or `enabled: false` during backfill) — "hybrid" is
+  // the recommended default mode, so callers shouldn't need to know or care
+  // which signals are currently live; they just get the best available.
+  async hybridSearch(query, { rootId = null, limit = 10 } = {}) {
+    if (!this.embeddingsEnabled) return this.search(query, { rootId, limit });
+
+    const fanOut = Math.max(limit * 2, 20);
+    const [ftsResults, vectorResults] = await Promise.all([
+      this.search(query, { rootId, limit: fanOut }),
+      this.semanticSearch(query, { rootId, limit: fanOut }),
+    ]);
+    return reciprocalRankFusion([ftsResults, vectorResults]).slice(0, limit);
+  }
+
+  // Creates the item_embeddings table sized for the configured provider's
+  // vector width (which is only known at runtime — see migration 014's
+  // header comment for why this can't be a static migration), and queues a
+  // backfill of any item this model hasn't embedded yet. Safe to call
+  // repeatedly — CREATE TABLE/INDEX IF NOT EXISTS, and the backfill only
+  // queues items missing *this model's* embedding.
+  async _ensureEmbeddingTable() {
+    const provider = this._embeddingProvider;
+    const dimensions = Number(provider.dimensions);
+    if (!Number.isInteger(dimensions) || dimensions <= 0) {
+      throw new Error(`Invalid embedding dimensions for provider '${provider.name}': ${provider.dimensions}`);
+    }
+
+    // pgvector's types/operator classes live in the schema it was installed
+    // into (`public`, per migration 014's CREATE EXTENSION) — schema-qualified
+    // here so this works regardless of the adapter's search_path (the test
+    // suite, for one, scopes search_path to a throwaway per-run schema).
+    await this._pool.query(`
+      CREATE TABLE IF NOT EXISTS item_embeddings (
+        item_id      UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+        model        TEXT NOT NULL,
+        embedding    public.VECTOR(${dimensions}) NOT NULL,
+        content_hash TEXT NOT NULL,
+        embedded_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY (item_id, model)
+      )
+    `);
+    await this._pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_item_embeddings_hnsw
+        ON item_embeddings USING hnsw (embedding public.vector_cosine_ops)
+    `);
+
+    await this._pool.query(
+      `INSERT INTO pending_embeddings (item_id)
+       SELECT i.id FROM items i
+       WHERE NOT EXISTS (
+         SELECT 1 FROM item_embeddings e WHERE e.item_id = i.id AND e.model = $1
+       )
+       ON CONFLICT (item_id) DO NOTHING`,
+      [provider.model],
+    );
+  }
+
+  // Builds the text an item is embedded from: its own value plus, for
+  // object-type items, their object data serialised as "field: value" lines —
+  // gives the embedding model field names as context rather than a bare blob.
+  async _embeddingContent(item) {
+    const parts = [];
+    if (item.value) parts.push(String(item.value));
+    if (item.type === 'object' && item.typeId) {
+      const data = await this.readObjectJson(item.id, item.typeId);
+      if (data) {
+        for (const [field, value] of Object.entries(data)) {
+          if (value != null && value !== '') parts.push(`${field}: ${value}`);
+        }
+      }
+    }
+    return parts.join('\n');
+  }
+
+  // Embeds a single item and upserts its vector, skipping the (paid, slow)
+  // provider call when the content hasn't changed since it was last embedded.
+  // Returns true if an embedding was generated, false if skipped.
+  async embedItem(id) {
+    const provider = this._requireEmbeddingProvider();
+    const item = await this.get(id);
+    if (!item) return false;
+
+    const content = await this._embeddingContent(item);
+    const contentHash = crypto.createHash('sha256').update(content).digest('hex');
+
+    const { rows } = await this._pool.query(
+      'SELECT content_hash FROM item_embeddings WHERE item_id = $1 AND model = $2',
+      [id, provider.model],
+    );
+    if (rows[0]?.content_hash === contentHash) return false;
+
+    const [embedding] = await provider.embed([content]);
+    const vectorLiteral = `[${embedding.join(',')}]`;
+    await this._pool.query(
+      `INSERT INTO item_embeddings (item_id, model, embedding, content_hash, embedded_at)
+       VALUES ($1, $2, $3::public.vector, $4, now())
+       ON CONFLICT (item_id, model) DO UPDATE
+         SET embedding = EXCLUDED.embedding, content_hash = EXCLUDED.content_hash, embedded_at = now()`,
+      [id, provider.model, vectorLiteral, contentHash],
+    );
+    return true;
+  }
+
+  // Drains the embedding queue — the background-worker entry point. Call this
+  // periodically (cron, a long-lived loop, whatever fits the deployment) to
+  // keep embeddings in sync with item writes without blocking them. Items
+  // whose content turned out unchanged are dequeued without an API call.
+  async processPendingEmbeddings({ limit = 50 } = {}) {
+    this._requireEmbeddingProvider();
+    const { rows } = await this._pool.query(
+      'SELECT item_id FROM pending_embeddings ORDER BY queued_at LIMIT $1', [limit],
+    );
+
+    let embedded = 0;
+    let skipped = 0;
+    let failed = 0;
+    for (const { item_id } of rows) {
+      try {
+        if (await this.embedItem(item_id)) embedded++; else skipped++;
+        await this._pool.query('DELETE FROM pending_embeddings WHERE item_id = $1', [item_id]);
+      } catch (e) {
+        // Leave it queued — a transient provider/network failure shouldn't
+        // drop the item; the next run retries it.
+        failed++;
+        console.warn(`processPendingEmbeddings: failed to embed ${item_id}:`, e.message);
+      }
+    }
+    return { processed: rows.length, embedded, skipped, failed };
   }
 
   async loadAll() {

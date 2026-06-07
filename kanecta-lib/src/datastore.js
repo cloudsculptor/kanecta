@@ -22,7 +22,11 @@ class Datastore {
 
   // Open a cloud (Postgres + S3) datastore.
   // `cloudConfig` must have:
-  //   { pg: { connectionString }, s3: { endpoint, accessKeyId, secretAccessKey, bucket } }
+  //   { pg: { connectionString }, s3: { endpoint, accessKeyId, secretAccessKey, bucket },
+  //     embeddings?: { provider, apiKey, model, dimensions } }
+  // `embeddings` is optional — full-text search works without it; semantic
+  // and hybrid search require a configured provider (see @kanecta/database's
+  // embeddings.js for supported providers, e.g. 'voyage', and 'mock' for tests).
   static async openCloud(cloudConfig) {
     const { Pool }             = require('pg');
     const { S3Client }         = require('@aws-sdk/client-s3');
@@ -31,7 +35,7 @@ class Datastore {
     const { CloudAdapter }     = require('@kanecta/cloud');
 
     const pool = new Pool({ connectionString: cloudConfig.pg.connectionString });
-    const items = await PostgresAdapter.open(pool);
+    const items = await PostgresAdapter.open(pool, { embeddings: cloudConfig.embeddings ?? null });
 
     const s3Cfg = cloudConfig.s3;
     const s3client = new S3Client({
@@ -55,7 +59,7 @@ class Datastore {
     const { CloudAdapter }     = require('@kanecta/cloud');
 
     const pool = new Pool({ connectionString: cloudConfig.pg.connectionString });
-    const items = await PostgresAdapter.init(pool, owner);
+    const items = await PostgresAdapter.init(pool, owner, { embeddings: cloudConfig.embeddings ?? null });
 
     const s3Cfg = cloudConfig.s3;
     const s3client = new S3Client({
