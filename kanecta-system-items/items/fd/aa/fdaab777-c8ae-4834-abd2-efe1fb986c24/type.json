@@ -11,7 +11,7 @@
     ]
   },
   "jsonSchema": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$schema": "http://json-schema.org/draft-07/schema#",
     "$id": "acceptance-criteria",
     "title": "Acceptance Criteria",
     "type": "object",
@@ -137,5 +137,8 @@
         "then"
       ]
     }
-  }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_fdaab777_c8ae_4834_abd2_efe1fb986c24\" (\n    item_id UUID NOT NULL,\n    \"statement\" TEXT,\n    \"format\" TEXT,\n    \"status\" TEXT,\n    \"given\" TEXT,\n    \"when\" TEXT,\n    \"then\" TEXT,\n    \"priority\" TEXT,\n    \"dev_complete\" BOOLEAN,\n    \"epic\" UUID,\n    \"ticket\" UUID,\n    \"agreed_by\" TEXT,\n    \"agreed_at\" DATE,\n    \"verified_by\" TEXT,\n    \"verified_at\" DATE,\n    \"test_cases\" UUID[] NOT NULL DEFAULT '{}',\n    \"notes\" TEXT,\n    \"attachments\" TEXT[] NOT NULL DEFAULT '{}',\n    CONSTRAINT \"pk_obj_fdaab777_c8ae_4834_abd2_efe1fb986c24\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_fdaab777c8ae4834_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
 }

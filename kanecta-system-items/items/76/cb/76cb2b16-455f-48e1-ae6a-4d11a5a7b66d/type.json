@@ -11,7 +11,7 @@
     ]
   },
   "jsonSchema": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$schema": "http://json-schema.org/draft-07/schema#",
     "$id": "person",
     "title": "Person",
     "type": "object",
@@ -100,5 +100,8 @@
         "format": "date"
       }
     }
-  }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_76cb2b16_455f_48e1_ae6a_4d11a5a7b66d\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"preferred_name\" TEXT,\n    \"email\" TEXT,\n    \"phone\" TEXT,\n    \"job_title\" TEXT,\n    \"organisation\" TEXT,\n    \"team\" TEXT,\n    \"location\" TEXT,\n    \"timezone\" TEXT,\n    \"pronouns\" TEXT,\n    \"github\" TEXT,\n    \"slack\" TEXT,\n    \"linkedin\" TEXT,\n    \"avatar\" TEXT,\n    \"skills\" TEXT[] NOT NULL DEFAULT '{}',\n    \"bio\" TEXT,\n    \"start_date\" DATE,\n    CONSTRAINT \"pk_obj_76cb2b16_455f_48e1_ae6a_4d11a5a7b66d\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_76cb2b16455f48e1_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
 }

@@ -100,5 +100,8 @@
         "description": "Systems or modules where this concept applies, e.g. Landonline, Notices Service"
       }
     }
-  }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_a397e9a4_f576_4623_b0dc_fc4b9513c572\" (\n    item_id UUID NOT NULL,\n    \"abbreviation\" TEXT,\n    \"aliases\" TEXT[] NOT NULL DEFAULT '{}',\n    \"category\" TEXT,\n    \"status\" TEXT,\n    \"brief_summary\" TEXT,\n    \"comprehensive_summary\" TEXT,\n    \"sources\" UUID[] NOT NULL DEFAULT '{}',\n    \"related_concepts\" UUID[] NOT NULL DEFAULT '{}',\n    \"applicable_systems\" TEXT[] NOT NULL DEFAULT '{}',\n    CONSTRAINT \"pk_obj_a397e9a4_f576_4623_b0dc_fc4b9513c572\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_a397e9a4f5764623_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
 }

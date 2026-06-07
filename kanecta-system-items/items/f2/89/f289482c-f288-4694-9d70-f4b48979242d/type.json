@@ -58,5 +58,8 @@
         "description": "UUIDs of Confluence Page items belonging to this space"
       }
     }
-  }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_f289482c_f288_4694_9d70_f4b48979242d\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"space_key\" TEXT,\n    \"cloud_id\" TEXT,\n    \"space_url\" TEXT,\n    \"pages\" UUID[] NOT NULL DEFAULT '{}',\n    CONSTRAINT \"pk_obj_f289482c_f288_4694_9d70_f4b48979242d\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_f289482cf2884694_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
 }
