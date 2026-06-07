@@ -110,6 +110,7 @@ Each item folder contains:
 ```json
 {
   "id": "string (UUID v4)",
+  "specVersion": "string (semver, e.g. '1.3.0')",
   "parentId": "string (UUID v4) or null",
   "value": "string or null",
   "type": "string",
@@ -138,6 +139,7 @@ Each item folder contains:
 | Field | Required | Description |
 |---|---|---|
 | `id` | yes | Unique identifier for this item (UUID v4) |
+| `specVersion` | yes | Version of the Kanecta specification this record conforms to (e.g. `"1.3.0"`). Set at creation time; tooling uses it to pick the right schema/migration rules when reading older records |
 | `parentId` | yes | UUID of parent item. Never null — the `root` node is self-referential (`parentId` equals its own `id`) |
 | `value` | no | Item content. Text string, UUID reference (for symlinks), or null |
 | `type` | yes | Item type. See [Item Types](#item-types) below for the canonical list. |
@@ -347,7 +349,7 @@ Stores configuration as JSON files.
 ```json
 {
   "owner": "user@example.com",
-  "specVersion": "1.1"
+  "specVersion": "1.3.0"
 }
 ```
 
@@ -584,6 +586,7 @@ Each custom type is stored as a pair of files under its UUID shard path.
 ```json
 {
   "id": "a1b2c3d4-e5f6-4abc-9def-123456789012",
+  "specVersion": "1.3.0",
   "parentId": "...",
   "value": "Person",
   "type": "type",

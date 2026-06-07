@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const { metadata: metadataSpec } = require('@kanecta/specification');
+const { version: specVersion, metadata: metadataSpec } = require('@kanecta/specification');
 
 function validateMetadata(obj) {
   if (typeof obj !== 'object' || obj === null) return 'metadata must be a JSON object';
@@ -336,7 +336,7 @@ class FilesystemAdapter {
     const now = new Date();
     const owner = this.config.owner;
     const item = {
-      id, parentId, value: type === 'data_root' ? "Your name or organisation's name here" : type, type,
+      id, specVersion, parentId, value: type === 'data_root' ? "Your name or organisation's name here" : type, type,
       typeId: null, owner, license: DEFAULT_LICENSE, visibility: 'private', aspect: null, sortOrder,
       confidence: null, tags: [],
       createdAt: now.toISOString(), modifiedAt: now.toISOString(),
@@ -426,6 +426,7 @@ class FilesystemAdapter {
 
     const item = {
       id,
+      specVersion,
       parentId,
       value,
       type,
@@ -640,6 +641,7 @@ class FilesystemAdapter {
 
     const metadata = {
       id,
+      specVersion,
       parentId: null,
       value: value.trim(),
       type: 'type',

@@ -7,10 +7,12 @@ const crypto = require('crypto');
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ISO8601_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const SEMVER_RE = /^\d+\.\d+\.\d+$/;
 
 function isUUID(v)    { return typeof v === 'string' && UUID_RE.test(v); }
 function isISO8601(v) { return typeof v === 'string' && ISO8601_RE.test(v); }
 function isDate(v)    { return typeof v === 'string' && DATE_RE.test(v); }
+function isSemver(v)  { return typeof v === 'string' && SEMVER_RE.test(v); }
 function e(path, message, rule) { return { path, message, rule }; }
 
 // Valid item type strings — mirrors 1.3.0/types/primitive.json
@@ -223,12 +225,16 @@ function validateMetadata(meta) {
   }
 
   // Other required fields must be non-null
-  for (const f of ['id', 'value', 'type', 'owner', 'license', 'createdAt', 'modifiedAt']) {
+  for (const f of ['id', 'specVersion', 'value', 'type', 'owner', 'license', 'createdAt', 'modifiedAt']) {
     if (meta[f] == null) errors.push(e(f, `Required field "${f}" is missing or null`, 'required'));
   }
 
   if (meta.id != null && !isUUID(meta.id)) {
     errors.push(e('id', `id must be a valid UUID, got "${meta.id}"`, 'format:uuid'));
+  }
+
+  if (meta.specVersion != null && !isSemver(meta.specVersion)) {
+    errors.push(e('specVersion', `specVersion must be a semver string (e.g. "1.3.0"), got "${meta.specVersion}"`, 'format:semver'));
   }
 
   if (meta.license != null && !isUUID(meta.license)) {
