@@ -78,7 +78,7 @@ DECLARE
 BEGIN
     FOR tbl IN
         SELECT tablename FROM pg_tables
-        WHERE schemaname = 'public' AND tablename LIKE 'obj\_%' ESCAPE '\'
+        WHERE schemaname = current_schema() AND tablename LIKE 'obj\_%' ESCAPE '\'
     LOOP
         IF NOT EXISTS (
             SELECT 1 FROM pg_trigger
@@ -108,7 +108,7 @@ DECLARE
 BEGIN
     FOR tbl IN
         SELECT tablename FROM pg_tables
-        WHERE schemaname = 'public' AND tablename LIKE 'obj\_%' ESCAPE '\'
+        WHERE schemaname = current_schema() AND tablename LIKE 'obj\_%' ESCAPE '\'
     LOOP
         EXECUTE format(
             'INSERT INTO search_index (item_id, object_tsv) ' ||

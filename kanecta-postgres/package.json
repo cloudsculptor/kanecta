@@ -8,7 +8,7 @@
     "migrations/"
   ],
   "scripts": {
-    "test": "echo \"No tests yet\" && exit 0",
+    "test": "jest --runInBand",
     "docker:up": "node scripts/ensure-running.js",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f postgres"
@@ -30,6 +30,7 @@
     "pg": ">=8.0.0"
   },
   "devDependencies": {
+    "jest": "^30.4.2",
     "pg": "^8.0.0"
   }
 }
