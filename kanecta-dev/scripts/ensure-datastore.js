@@ -555,10 +555,13 @@ async function main() {
   // 1. Explicit env override
   let datastorePath = resolveFromEnv();
   if (datastorePath) {
-    console.log(`✓ Datastore: ${datastorePath}`);
-    checkSpecVersion(datastorePath);
-    await syncSystemItems(datastorePath, process.env.KANECTA_SYSTEM_ITEMS_DIR);
-
+    if (datastorePath !== 'cloud') {
+      console.log(`✓ Datastore: ${datastorePath}`);
+      checkSpecVersion(datastorePath);
+      await syncSystemItems(datastorePath, process.env.KANECTA_SYSTEM_ITEMS_DIR);
+    } else {
+      console.log('✓ Datastore: cloud (Postgres + S3)');
+    }
     return launch(datastorePath, 9744, 9743);
   }
 
@@ -575,6 +578,10 @@ async function main() {
       } else {
         datastorePath = await pickDatastore(data.datastores);
       }
+    }
+    if (datastorePath === 'cloud') {
+      console.log('✓ Datastore: cloud (Postgres + S3)');
+      return launch(datastorePath, data.apiPort ?? 9744, data.studioPort ?? 9743, data.systemItemsDir);
     }
     if (!Datastore.isDatastore(datastorePath)) {
       console.error(`Datastore not found at configured path: ${datastorePath}`);
@@ -593,8 +600,10 @@ async function main() {
     process.exit(1);
   }
   const wizardResult = await wizard();
-  checkSpecVersion(wizardResult.datastorePath);
-  await syncSystemItems(wizardResult.datastorePath, wizardResult.systemItemsDir);
+  if (wizardResult.datastorePath !== 'cloud') {
+    checkSpecVersion(wizardResult.datastorePath);
+    await syncSystemItems(wizardResult.datastorePath, wizardResult.systemItemsDir);
+  }
   launch(wizardResult.datastorePath, wizardResult.apiPort, wizardResult.studioPort, wizardResult.systemItemsDir);
 }
 

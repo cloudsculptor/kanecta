@@ -97,6 +97,10 @@ class PostgresAdapter {
 
   get relTypes() { return VALID_REL_TYPES; }
 
+  addRelTypes(_names) {
+    // No-op in Postgres mode — relationship types are defined in VALID_REL_TYPES.
+  }
+
   // ─── Migrations ─────────────────────────────────────────────────────────────
 
   async _migrate() {
