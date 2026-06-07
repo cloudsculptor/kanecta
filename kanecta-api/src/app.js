@@ -30,22 +30,36 @@ const path = require('path');
 const fs = require('fs');
 const DEFAULT_DATASTORE = path.join(process.env.HOME || process.env.USERPROFILE, '.kanecta');
 
-async function openDatastore(res) {
-  // Cloud mode: ~/.config/kanecta/cloud.json exists → use Postgres + S3
+function readAppConfig() {
   const os = require('os');
   const XDG_CONFIG = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
-  const cloudFile  = path.join(XDG_CONFIG, 'kanecta', 'cloud.json');
-  if (fs.existsSync(cloudFile)) {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(XDG_CONFIG, 'kanecta', 'config.json'), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+async function openDatastore(res) {
+  // Workspace mode: ~/.config/kanecta/config.json has named workspaces → resolve
+  // by KANECTA_WORKSPACE env (set by ensure-datastore's launcher) or config.default
+  const appCfg = readAppConfig();
+  if (appCfg?.workspaces) {
+    const name = process.env.KANECTA_WORKSPACE || appCfg.default;
+    const workspace = appCfg.workspaces[name];
+    if (!workspace) {
+      res.status(503).json({ error: `Workspace '${name}' not found in ~/.config/kanecta/config.json` });
+      return null;
+    }
     try {
-      const cloudConfig = JSON.parse(fs.readFileSync(cloudFile, 'utf8'));
-      return await Datastore.openCloud(cloudConfig);
+      return await Datastore.openWorkspace(workspace);
     } catch (err) {
-      res.status(503).json({ error: `Failed to open cloud datastore: ${err.message}` });
+      res.status(503).json({ error: `Failed to open workspace '${name}': ${err.message}` });
       return null;
     }
   }
 
-  // Filesystem mode
+  // Filesystem fallback (no config.json yet — first run, or pre-migration)
   const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
   if (!Datastore.isDatastore(root)) {
     res.status(503).json({

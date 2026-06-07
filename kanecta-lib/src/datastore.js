@@ -88,6 +88,24 @@ class Datastore {
     return new Datastore(FilesystemAdapter.open(location));
   }
 
+  // Open a datastore from a workspace config: { mode, datastore?, cloud? }.
+  // `mode` selects which backend(s) to open — see ~/.config/kanecta/config.json
+  // `workspaces.<name>` shape. This is the single dispatch point so consumers
+  // don't need to branch on mode themselves.
+  static async openWorkspace(workspace) {
+    switch (workspace.mode) {
+      case 'FILESYSTEM':
+        return Datastore.open(workspace.datastore);
+      case 'CLOUD':
+        return Datastore.openCloud(workspace.cloud);
+      case 'DUAL_FILESYSTEM_PRIMARY':
+      case 'DUAL_CLOUD_PRIMARY':
+        throw new Error(`Workspace mode '${workspace.mode}' is not yet implemented.`);
+      default:
+        throw new Error(`Unknown workspace mode: '${workspace.mode}'`);
+    }
+  }
+
   // ─── Item CRUD ─────────────────────────────────────────────────────────────
 
   async create(opts)                         { return this._adapter.create(opts); }
