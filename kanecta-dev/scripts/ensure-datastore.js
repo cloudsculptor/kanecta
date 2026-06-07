@@ -23,6 +23,39 @@ const POINTER_SPEC = JSON.parse(
   fs.readFileSync(path.join(__dirname, '../pointer-file-spec.json'), 'utf8'),
 );
 
+function checkWorkspacesFormat(workspaces, propSpec, errors) {
+  if (typeof workspaces !== 'object' || workspaces === null || Array.isArray(workspaces)) {
+    errors.push('"workspaces" must be an object');
+    return;
+  }
+  const names = Object.keys(workspaces);
+  if (propSpec.minProperties && names.length < propSpec.minProperties) {
+    errors.push(`"workspaces" must have at least ${propSpec.minProperties} entr${propSpec.minProperties === 1 ? 'y' : 'ies'}`);
+    return;
+  }
+  for (const name of names) {
+    const ws = workspaces[name];
+    const prefix = `workspaces.${name}`;
+    if (typeof ws !== 'object' || ws === null || Array.isArray(ws)) {
+      errors.push(`"${prefix}" must be an object`);
+      continue;
+    }
+    if (!ws.mode) {
+      errors.push(`"${prefix}.mode" is required`);
+    } else if (!propSpec.modes.includes(ws.mode)) {
+      errors.push(`"${prefix}.mode" must be one of: ${propSpec.modes.join(', ')}`);
+    }
+    const needsDatastore = ws.mode === 'FILESYSTEM' || ws.mode === 'DUAL_FILESYSTEM_PRIMARY' || ws.mode === 'DUAL_CLOUD_PRIMARY';
+    const needsCloud      = ws.mode === 'CLOUD'      || ws.mode === 'DUAL_FILESYSTEM_PRIMARY' || ws.mode === 'DUAL_CLOUD_PRIMARY';
+    if (needsDatastore && typeof ws.datastore !== 'string') {
+      errors.push(`"${prefix}.datastore" must be a string (required for ${ws.mode} mode)`);
+    }
+    if (needsCloud && (typeof ws.cloud !== 'object' || ws.cloud === null || Array.isArray(ws.cloud))) {
+      errors.push(`"${prefix}.cloud" must be an object (required for ${ws.mode} mode)`);
+    }
+  }
+}
+
 function checkPointerFileFormat(data, sourceFile) {
   const spec = POINTER_SPEC;
   const errors = [];
@@ -38,7 +71,9 @@ function checkPointerFileFormat(data, sourceFile) {
     }
     const propSpec = spec.properties[key];
     if (!propSpec) continue;
-    if (propSpec.type === 'integer' && !Number.isInteger(val)) {
+    if (key === 'workspaces') {
+      checkWorkspacesFormat(val, propSpec, errors);
+    } else if (propSpec.type === 'integer' && !Number.isInteger(val)) {
       errors.push(`"${key}" must be an integer`);
     } else if (propSpec.type === 'string' && typeof val !== 'string') {
       errors.push(`"${key}" must be a string`);
@@ -80,23 +115,111 @@ function expandHome(p) {
   return p.replace(/^~/, HOME);
 }
 
+// Migrates the old { default, datastores: [...] } + separate cloud.json shape
+// into the merged { default, workspaces: { name -> { mode, datastore?, cloud? } } }
+// shape. Runs automatically the first time the old shape is detected — backs up
+// both old files (with a `.pre-workspace-refactor` suffix) and removes cloud.json
+// (its contents now live inside the matching workspace's `cloud` block).
+function migrateOldConfig(file, oldData) {
+  console.log(`\n  → Migrating ${file} to the workspace-based config format...`);
+
+  const cloudFile = path.join(XDG_CONFIG, 'kanecta', 'cloud.json');
+  const backupConfigFile = `${file}.pre-workspace-refactor`;
+  const backupCloudFile = `${cloudFile}.pre-workspace-refactor`;
+
+  fs.copyFileSync(file, backupConfigFile);
+  console.log(`    backed up ${file} → ${backupConfigFile}`);
+
+  const workspaces = {};
+  const usedNames = new Set();
+  const uniqueName = (base) => {
+    let name = base, n = 2;
+    while (usedNames.has(name)) name = `${base}-${n++}`;
+    usedNames.add(name);
+    return name;
+  };
+
+  // The old runtime gave `cloud.json` existence absolute priority — every consumer
+  // checked `fs.existsSync(cloud.json)` first and, if true, opened cloud mode
+  // regardless of what `datastores`/`default` said. So if cloud.json is present,
+  // CLOUD is the workspace that's actually active right now, even when the
+  // 'cloud' sentinel is missing from `datastores` (e.g. cloud.json was added
+  // by hand after `datastores` was already populated with filesystem paths).
+  const cloudFileExists = fs.existsSync(cloudFile);
+  let cloudWorkspaceName = null;
+  const loadCloudConfig = () => {
+    const { new: _isNew, ...rest } = JSON.parse(fs.readFileSync(cloudFile, 'utf8'));
+    if (!fs.existsSync(backupCloudFile)) {
+      fs.copyFileSync(cloudFile, backupCloudFile);
+      console.log(`    backed up ${cloudFile} → ${backupCloudFile}`);
+    }
+    return rest;
+  };
+
+  let defaultName = null;
+  for (const datastorePath of oldData.datastores) {
+    let name, workspace;
+    if (datastorePath === 'cloud') {
+      name = uniqueName('cloud');
+      workspace = { mode: 'CLOUD', cloud: cloudFileExists ? loadCloudConfig() : {} };
+      cloudWorkspaceName = name;
+    } else {
+      name = uniqueName(path.basename(datastorePath) || 'datastore');
+      workspace = { mode: 'FILESYSTEM', datastore: datastorePath };
+    }
+    workspaces[name] = workspace;
+    if (datastorePath === oldData.default) defaultName = name;
+  }
+
+  // cloud.json existed but no 'cloud' sentinel was found — the user was actually
+  // running in cloud mode (per the old priority rule). Add the workspace and make
+  // it the default, since that's the mode that was actually active.
+  if (cloudFileExists && !cloudWorkspaceName) {
+    cloudWorkspaceName = uniqueName('cloud');
+    workspaces[cloudWorkspaceName] = { mode: 'CLOUD', cloud: loadCloudConfig() };
+    console.log(`    note: ${cloudFile} existed without a 'cloud' entry in datastores —`);
+    console.log(`    your setup was actually running in CLOUD mode (cloud.json took priority over`);
+    console.log(`    the filesystem datastore), so workspace '${cloudWorkspaceName}' is now the default.`);
+    defaultName = cloudWorkspaceName;
+  }
+
+  if (!defaultName) defaultName = Object.keys(workspaces)[0];
+
+  const newData = {
+    default: defaultName,
+    workspaces,
+    studioPort: oldData.studioPort ?? 9743,
+    apiPort: oldData.apiPort ?? 9744,
+    ...(oldData.systemItemsDir ? { systemItemsDir: oldData.systemItemsDir } : {}),
+  };
+
+  fs.writeFileSync(file, JSON.stringify(newData, null, 2) + '\n', 'utf8');
+  if (fs.existsSync(cloudFile)) fs.unlinkSync(cloudFile);
+
+  console.log(`  ✓ Migrated — workspaces: ${Object.keys(workspaces).join(', ')} (default: ${defaultName})`);
+  console.log(`    ${cloudFile} removed (now redundant — its config lives in the workspace's \`cloud\` block)\n`);
+
+  return newData;
+}
+
 function readPointer(file) {
   try {
     const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-    if (data.default && Array.isArray(data.datastores)) return data;
+    if (data.default && data.workspaces && typeof data.workspaces === 'object' && !Array.isArray(data.workspaces)) {
+      return data;
+    }
+    if (data.default && Array.isArray(data.datastores)) return migrateOldConfig(file, data);
   } catch {}
   return null;
 }
 
-function writePointer(datastorePath, apiPort, studioPort, systemItemsDir) {
+function writePointer(name, workspace, apiPort, studioPort, systemItemsDir) {
   const file = POINTER_LOCATIONS[0];
   const isNew = !fs.existsSync(file);
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  let data = readPointer(file) || { default: null, datastores: [], studioPort: 9743, apiPort: 9744 };
-  if (!data.datastores.includes(datastorePath)) {
-    data.datastores.push(datastorePath);
-  }
-  data.default = datastorePath;
+  let data = readPointer(file) || { default: null, workspaces: {}, studioPort: 9743, apiPort: 9744 };
+  data.workspaces[name] = workspace;
+  data.default = name;
   data.apiPort = apiPort;
   data.studioPort = studioPort;
   if (systemItemsDir) data.systemItemsDir = systemItemsDir;
@@ -122,11 +245,12 @@ function resolveFromPointers() {
   for (const file of POINTER_LOCATIONS) {
     console.log(`  checking ${file}`);
     const data = readPointer(file);
-    if (!data || data.datastores.length === 0) {
+    const names = data ? Object.keys(data.workspaces) : [];
+    if (names.length === 0) {
       console.log(`  ✗ not found`);
       continue;
     }
-    console.log(`  ✓ found (${data.datastores.length} datastore${data.datastores.length > 1 ? 's' : ''})`);
+    console.log(`  ✓ found (${names.length} workspace${names.length > 1 ? 's' : ''})`);
     return { file, data };
   }
   return null;
@@ -182,19 +306,19 @@ function ask(rl, question) {
   return new Promise((resolve) => rl.question(question, (a) => resolve(a.trim())));
 }
 
-async function pickDatastore(datastores) {
+async function pickWorkspace(names) {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  console.log('\nMultiple datastores found. Which one would you like to use?\n');
-  datastores.forEach((p, i) => console.log(`  ${i + 1}. ${p}`));
+  console.log('\nMultiple workspaces found. Which one would you like to use?\n');
+  names.forEach((n, i) => console.log(`  ${i + 1}. ${n}`));
   console.log();
-  const answer = await ask(rl, `Choice [1-${datastores.length}]: `);
+  const answer = await ask(rl, `Choice [1-${names.length}]: `);
   rl.close();
   const idx = parseInt(answer, 10) - 1;
-  if (isNaN(idx) || idx < 0 || idx >= datastores.length) {
+  if (isNaN(idx) || idx < 0 || idx >= names.length) {
     console.error('Invalid choice.');
     process.exit(1);
   }
-  return datastores[idx];
+  return names[idx];
 }
 
 async function wizard() {
@@ -218,6 +342,7 @@ async function wizard() {
   let zipPath = null;
   let owner = null;
   let cloudConfig = null;
+  let isNewCloudDb = false;
   let mode; // 'create' | 'existing' | 'zip' | 'cloud'
 
   if (choice === '4') {
@@ -231,15 +356,15 @@ async function wizard() {
     const s3Key      = await ask(rl, 'S3 access key ID: ');
     const s3Secret   = await ask(rl, 'S3 secret access key: ');
     const s3Bucket   = await ask(rl, 'S3 bucket name [kanecta]: ') || 'kanecta';
-    const isNew      = await ask(rl, 'Is this a brand-new database? (creates schema + root nodes) [y/N]: ');
-    owner = isNew.toLowerCase() === 'y'
+    const isNewAnswer = await ask(rl, 'Is this a brand-new database? (creates schema + root nodes) [y/N]: ');
+    isNewCloudDb = isNewAnswer.toLowerCase() === 'y';
+    owner = isNewCloudDb
       ? await ask(rl, 'Owner identifier (email or domain): ')
       : null;
 
     cloudConfig = {
-      pg:  { connectionString: pgConn },
-      s3:  { endpoint: s3Endpoint, accessKeyId: s3Key, secretAccessKey: s3Secret, bucket: s3Bucket },
-      new: isNew.toLowerCase() === 'y',
+      pg: { connectionString: pgConn },
+      s3: { endpoint: s3Endpoint, accessKeyId: s3Key, secretAccessKey: s3Secret, bucket: s3Bucket },
     };
     datastorePath = 'cloud'; // placeholder — not a real path
 
@@ -304,7 +429,15 @@ async function wizard() {
     process.exit(0);
   }
 
+  // ── Workspace naming ───────────────────────────────────────────────────────
 
+  const defaultWorkspaceName = mode === 'cloud' ? 'cloud' : (path.basename(datastorePath) || 'kanecta');
+  let workspaceName;
+  while (true) {
+    workspaceName = await ask(rl, `Workspace name [${defaultWorkspaceName}]: `) || defaultWorkspaceName;
+    if (NAME_RE.test(workspaceName)) break;
+    console.log('  Invalid name. Use letters, numbers, and hyphens only.');
+  }
 
   const frontendPortInput = await ask(rl, 'Frontend port [9743]: ');
   const studioPort = parseInt(frontendPortInput || '9743', 10);
@@ -318,6 +451,7 @@ async function wizard() {
   // ── Summary + confirmation ─────────────────────────────────────────────────
 
   const summary = {
+    workspace: workspaceName,
     datastore: datastorePath,
     ...(owner ? { owner } : {}),
     ...(zipPath ? { importFrom: zipPath } : {}),
@@ -349,20 +483,16 @@ async function wizard() {
   // ── Create ────────────────────────────────────────────────────────────────
 
   if (mode === 'cloud') {
-    const cloudFile = path.join(XDG_CONFIG, 'kanecta', 'cloud.json');
-    fs.mkdirSync(path.dirname(cloudFile), { recursive: true });
-    fs.writeFileSync(cloudFile, JSON.stringify(cloudConfig, null, 2) + '\n', 'utf8');
-    console.log(`\n✓ Cloud config written to ${cloudFile}`);
-    console.log('  Postgres + S3 will be used as the datastore backend.');
-    if (cloudConfig.new) {
+    console.log('\n✓ Cloud datastore configured — Postgres + S3 will be used as the backend.');
+    if (isNewCloudDb) {
       const { Datastore } = require('@kanecta/lib');
       await Datastore.initCloud(cloudConfig, owner);
       console.log('  ✓ Schema migrated and root nodes created.');
     }
     rl.close();
-    // For cloud mode, write a sentinel pointer so the app knows the mode.
-    writePointer('cloud', studioPort, apiPort, systemItemsDir);
-    return { datastorePath: 'cloud', apiPort, studioPort, systemItemsDir };
+    const workspace = { mode: 'CLOUD', cloud: cloudConfig };
+    writePointer(workspaceName, workspace, apiPort, studioPort, systemItemsDir);
+    return { name: workspaceName, workspace, apiPort, studioPort, systemItemsDir };
 
   } else if (mode === 'create') {
     fs.mkdirSync(datastorePath, { recursive: true });
@@ -387,8 +517,9 @@ async function wizard() {
   }
 
   rl.close();
-  writePointer(datastorePath, apiPort, studioPort, systemItemsDir);
-  return { datastorePath, apiPort, studioPort, systemItemsDir };
+  const workspace = { mode: 'FILESYSTEM', datastore: datastorePath };
+  writePointer(workspaceName, workspace, apiPort, studioPort, systemItemsDir);
+  return { name: workspaceName, workspace, apiPort, studioPort, systemItemsDir };
 }
 
 async function syncSystemItems(datastorePath, systemItemsDir) {
@@ -493,7 +624,10 @@ async function syncSystemItems(datastorePath, systemItemsDir) {
   }
 }
 
-async function launch(datastorePath, apiPort, studioPort, systemItemsDir) {
+// `workspaceName` is null when launched via an explicit KANECTA_DATASTORE env
+// override (no named workspace involved); `datastorePath` is null for pure-cloud
+// workspaces (no filesystem path to expose).
+async function launch(workspaceName, datastorePath, apiPort, studioPort, systemItemsDir) {
   const [apiFree, studioFree] = await Promise.all([
     checkPortFree(apiPort),
     checkPortFree(studioPort),
@@ -537,7 +671,8 @@ async function launch(datastorePath, apiPort, studioPort, systemItemsDir) {
       cwd: repoRoot,
       env: {
         ...process.env,
-        KANECTA_DATASTORE: datastorePath,
+        ...(workspaceName ? { KANECTA_WORKSPACE: workspaceName } : {}),
+        ...(datastorePath ? { KANECTA_DATASTORE: datastorePath } : {}),
         PORT: String(apiPort),
         KANECTA_API_URL: `http://localhost:${apiPort}`,
         ...(systemItemsDir ? { KANECTA_SYSTEM_ITEMS_DIR: systemItemsDir } : {}),
@@ -552,17 +687,13 @@ async function launch(datastorePath, apiPort, studioPort, systemItemsDir) {
 async function main() {
   console.log('\nKanecta — locating datastore...');
 
-  // 1. Explicit env override
+  // 1. Explicit env override — forces filesystem mode at this path
   let datastorePath = resolveFromEnv();
   if (datastorePath) {
-    if (datastorePath !== 'cloud') {
-      console.log(`✓ Datastore: ${datastorePath}`);
-      checkSpecVersion(datastorePath);
-      await syncSystemItems(datastorePath, process.env.KANECTA_SYSTEM_ITEMS_DIR);
-    } else {
-      console.log('✓ Datastore: cloud (Postgres + S3)');
-    }
-    return launch(datastorePath, 9744, 9743);
+    console.log(`✓ Datastore: ${datastorePath}`);
+    checkSpecVersion(datastorePath);
+    await syncSystemItems(datastorePath, process.env.KANECTA_SYSTEM_ITEMS_DIR);
+    return launch(null, datastorePath, 9744, 9743);
   }
 
   // 2. Pointer files
@@ -570,28 +701,35 @@ async function main() {
   if (pointer) {
     const { file: pointerFile, data } = pointer;
     checkPointerFileFormat(data, pointerFile);
-    if (data.datastores.length === 1) {
-      datastorePath = data.datastores[0];
+    const names = Object.keys(data.workspaces);
+    let name;
+    if (names.length === 1) {
+      name = names[0];
+    } else if (!process.stdin.isTTY) {
+      name = data.default;
     } else {
-      if (!process.stdin.isTTY) {
-        datastorePath = data.default;
-      } else {
-        datastorePath = await pickDatastore(data.datastores);
-      }
+      name = await pickWorkspace(names);
     }
-    if (datastorePath === 'cloud') {
-      console.log('✓ Datastore: cloud (Postgres + S3)');
-      return launch(datastorePath, data.apiPort ?? 9744, data.studioPort ?? 9743, data.systemItemsDir);
-    }
-    if (!Datastore.isDatastore(datastorePath)) {
-      console.error(`Datastore not found at configured path: ${datastorePath}`);
+
+    const workspace = data.workspaces[name];
+    if (!workspace) {
+      console.error(`Workspace '${name}' not found in ${pointerFile}`);
       process.exit(1);
     }
-    console.log(`✓ Datastore: ${datastorePath}`);
-    checkSpecVersion(datastorePath);
-    await syncSystemItems(datastorePath, data.systemItemsDir);
 
-    return launch(datastorePath, data.apiPort ?? 9744, data.studioPort ?? 9743, data.systemItemsDir);
+    if (workspace.mode === 'CLOUD') {
+      console.log(`✓ Workspace: ${name} (cloud — Postgres + S3)`);
+      return launch(name, null, data.apiPort ?? 9744, data.studioPort ?? 9743, data.systemItemsDir);
+    }
+    if (!Datastore.isDatastore(workspace.datastore)) {
+      console.error(`Datastore not found at configured path: ${workspace.datastore}`);
+      process.exit(1);
+    }
+    console.log(`✓ Workspace: ${name} (${workspace.datastore})`);
+    checkSpecVersion(workspace.datastore);
+    await syncSystemItems(workspace.datastore, data.systemItemsDir);
+
+    return launch(name, workspace.datastore, data.apiPort ?? 9744, data.studioPort ?? 9743, data.systemItemsDir);
   }
 
   // 3. First-run wizard
@@ -600,11 +738,12 @@ async function main() {
     process.exit(1);
   }
   const wizardResult = await wizard();
-  if (wizardResult.datastorePath !== 'cloud') {
-    checkSpecVersion(wizardResult.datastorePath);
-    await syncSystemItems(wizardResult.datastorePath, wizardResult.systemItemsDir);
+  const workspace = wizardResult.workspace;
+  if (workspace.mode !== 'CLOUD') {
+    checkSpecVersion(workspace.datastore);
+    await syncSystemItems(workspace.datastore, wizardResult.systemItemsDir);
   }
-  launch(wizardResult.datastorePath, wizardResult.apiPort, wizardResult.studioPort, wizardResult.systemItemsDir);
+  launch(wizardResult.name, workspace.datastore ?? null, wizardResult.apiPort, wizardResult.studioPort, wizardResult.systemItemsDir);
 }
 
 main().catch((err) => {

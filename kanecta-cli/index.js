@@ -216,15 +216,22 @@ function findDatastore(explicit) {
   return null;
 }
 
+function readAppConfig() {
+  const XDG_CONFIG = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
+  try {
+    return JSON.parse(fs.readFileSync(path.join(XDG_CONFIG, 'kanecta', 'config.json'), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
 async function openDatastore(flags) {
-  // Cloud mode: cloud.json present and no explicit datastore override
+  // Workspace mode: no explicit --datastore/KANECTA_DATASTORE override → use the
+  // default workspace from ~/.config/kanecta/config.json (filesystem or cloud).
   if (!flags['datastore'] && !process.env.KANECTA_DATASTORE) {
-    const XDG_CONFIG = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
-    const cloudFile = path.join(XDG_CONFIG, 'kanecta', 'cloud.json');
-    if (fs.existsSync(cloudFile)) {
-      const cloudConfig = JSON.parse(fs.readFileSync(cloudFile, 'utf8'));
-      return Datastore.openCloud(cloudConfig);
-    }
+    const appCfg = readAppConfig();
+    const workspace = appCfg?.workspaces?.[appCfg.default];
+    if (workspace) return Datastore.openWorkspace(workspace);
   }
 
   const root = findDatastore(flags['datastore']);

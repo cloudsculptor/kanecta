@@ -26,36 +26,37 @@ function writeConfig(cfg) {
   fs.writeFileSync(MCP_CONFIG_PATH, JSON.stringify(cfg, null, 2) + '\n');
 }
 
-function resolveDatastorePath() {
-  if (process.env.KANECTA_DATASTORE) {
-    return process.env.KANECTA_DATASTORE.replace(/^~/, os.homedir());
-  }
+function resolveWorkspace() {
   const appCfg = readAppConfig();
-  const datastores = (appCfg?.datastores ?? []).map(p => p.replace(/^~/, os.homedir()));
-  if (datastores.length === 1) return datastores[0];
-  if (datastores.length > 1) {
+  const workspaces = appCfg?.workspaces ?? {};
+  const names = Object.keys(workspaces);
+  const requested = process.env.KANECTA_WORKSPACE || appCfg?.default;
+  if (requested) {
+    if (!workspaces[requested]) {
+      throw new Error(`Workspace '${requested}' not found in ${APP_CONFIG_PATH} — known workspaces:\n${names.join('\n')}`);
+    }
+    return workspaces[requested];
+  }
+  if (names.length === 1) return workspaces[names[0]];
+  if (names.length > 1) {
     throw new Error(
-      `Multiple Kanecta datastores configured in ${APP_CONFIG_PATH} — set KANECTA_DATASTORE to one of:\n${datastores.join('\n')}`
+      `Multiple Kanecta workspaces configured in ${APP_CONFIG_PATH} — set KANECTA_WORKSPACE to one of:\n${names.join('\n')}`
     );
   }
-  throw new Error(`No Kanecta datastores found in ${APP_CONFIG_PATH}`);
+  throw new Error(`No Kanecta workspaces found in ${APP_CONFIG_PATH}`);
 }
 
 async function openDs() {
   // KANECTA_DATASTORE env var explicitly forces filesystem mode (used by tests and CLI overrides)
-  if (!process.env.KANECTA_DATASTORE) {
-    const XDG_CONFIG = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
-    const cloudFile = path.join(XDG_CONFIG, 'kanecta', 'cloud.json');
-    if (fs.existsSync(cloudFile)) {
-      const cloudConfig = JSON.parse(fs.readFileSync(cloudFile, 'utf8'));
-      const ds = await Datastore.openCloud(cloudConfig);
-      const cfg = readConfig();
-      return { ds, cfg, datastorePath: null };
-    }
+  if (process.env.KANECTA_DATASTORE) {
+    const datastorePath = process.env.KANECTA_DATASTORE.replace(/^~/, os.homedir());
+    const cfg = readConfig();
+    return { ds: Datastore.open(datastorePath), cfg, datastorePath };
   }
-  const datastorePath = resolveDatastorePath();
+  const workspace = resolveWorkspace();
+  const ds = await Datastore.openWorkspace(workspace);
   const cfg = readConfig();
-  return { ds: Datastore.open(datastorePath), cfg, datastorePath };
+  return { ds, cfg, datastorePath: workspace.datastore ? workspace.datastore.replace(/^~/, os.homedir()) : null };
 }
 
 // ─── Function runner API server (temporary until functions use kanecta-lib directly) ──
@@ -1362,7 +1363,7 @@ function runMcpServer() {
   process.stdin.on('end', () => process.exit(0));
 }
 
-module.exports = { runMcpServer, TOOLS, resolveDatastorePath, dispatch };
+module.exports = { runMcpServer, TOOLS, resolveWorkspace, dispatch };
 
 if (require.main === module) {
   runMcpServer();

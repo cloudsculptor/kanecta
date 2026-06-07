@@ -71,7 +71,7 @@ class PostgresAdapter {
   constructor(pool, { embeddings = null } = {}) {
     this._pool   = pool;
     this._config = null;
-    // Optional — null when cloud.json has no `embeddings` config (or it's
+    // Optional — null when the workspace has no `cloud.embeddings` config (or it's
     // unrecognised). FTS-only search keeps working either way; semantic search
     // requires a provider (and `enabled: true`, the default) and throws a
     // clear error without one — hybridSearch instead degrades to FTS-only.
@@ -505,7 +505,7 @@ class PostgresAdapter {
 
   // ─── Semantic / hybrid search (pgvector) ─────────────────────────────────────
   //
-  // `embeddings` in cloud.json configures *which provider to use for embedding*
+  // The workspace's `cloud.embeddings` config selects *which provider to use for embedding*
   // — separate from `embeddings.enabled`, which controls whether search
   // actually queries vectors yet. The split matters because turning on a
   // provider doesn't retroactively populate item_embeddings: the write
@@ -527,7 +527,7 @@ class PostgresAdapter {
   _requireEmbeddingProvider() {
     if (!this._embeddingProvider) {
       throw new Error(
-        'Semantic search requires an embedding provider — set `embeddings` in cloud.json ' +
+        'Semantic search requires an embedding provider — set `cloud.embeddings` in the workspace config ' +
         "(e.g. { provider: 'voyage', apiKey: '...', model: 'voyage-3-lite', dimensions: 1024 })",
       );
     }
@@ -540,7 +540,7 @@ class PostgresAdapter {
     const provider = this._requireEmbeddingProvider();
     if (!this._embeddingsEnabled) {
       throw new Error(
-        "Semantic search is disabled (`embeddings.enabled: false` in cloud.json) — " +
+        "Semantic search is disabled (`cloud.embeddings.enabled: false` in the workspace config) — " +
         'typically because the backfill is still running; set it to `true` once ' +
         'processPendingEmbeddings reports an empty queue.',
       );

@@ -8,7 +8,7 @@
 // own (Claude is chat-only), so this is built to plug in whichever provider
 // you actually have a key for (Voyage AI is the Anthropic-recommended one).
 //
-// Config shape (cloud.json `embeddings` key):
+// Config shape (workspace `cloud.embeddings` block in ~/.config/kanecta/config.json):
 //   { provider: 'voyage', apiKey: '...', model: 'voyage-3-lite', dimensions: 1024 }
 //   { provider: 'mock' }   — deterministic fake vectors, used in tests
 
@@ -87,7 +87,7 @@ class VoyageEmbeddingProvider extends EmbeddingProvider {
   }
 }
 
-// Builds a provider from cloud.json's `embeddings` config. Returns null when
+// Builds a provider from the workspace's `cloud.embeddings` config. Returns null when
 // embeddings aren't configured — callers should treat semantic/hybrid search
 // as unavailable in that case (FTS keeps working regardless).
 function createEmbeddingProvider(config) {

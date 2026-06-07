@@ -2,18 +2,36 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "description": "Kanecta pointer file — ~/.config/kanecta/config.json",
   "type": "object",
-  "required": ["default", "datastores", "studioPort", "apiPort"],
+  "required": ["default", "workspaces", "studioPort", "apiPort"],
   "additionalProperties": false,
   "properties": {
     "default": {
       "type": "string",
-      "description": "Path to the active datastore"
+      "description": "Name of the active workspace (key into `workspaces`)"
     },
-    "datastores": {
-      "type": "array",
-      "items": { "type": "string" },
-      "minItems": 1,
-      "description": "All known datastore paths"
+    "workspaces": {
+      "type": "object",
+      "minProperties": 1,
+      "description": "Map of workspace name → { mode, datastore?, cloud? }",
+      "modes": ["FILESYSTEM", "CLOUD", "DUAL_FILESYSTEM_PRIMARY", "DUAL_CLOUD_PRIMARY"],
+      "entrySchema": {
+        "type": "object",
+        "required": ["mode"],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "description": "Storage strategy: FILESYSTEM | CLOUD | DUAL_FILESYSTEM_PRIMARY | DUAL_CLOUD_PRIMARY"
+          },
+          "datastore": {
+            "type": "string",
+            "description": "Filesystem datastore path — required for FILESYSTEM and DUAL_* modes"
+          },
+          "cloud": {
+            "type": "object",
+            "description": "Postgres + S3 connection config { pg, s3, embeddings? } — required for CLOUD and DUAL_* modes"
+          }
+        }
+      }
     },
     "studioPort": {
       "type": "integer",
