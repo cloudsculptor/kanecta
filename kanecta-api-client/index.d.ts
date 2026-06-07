@@ -429,13 +429,17 @@ export declare class ApiError extends Error {
 
 // ─── Main client ─────────────────────────────────────────────────────────────
 
+// A static token, or a (possibly async) getter for the current token —
+// needed for deployments where it's refreshed in place (e.g. Keycloak).
+export type ApiClientToken = string | (() => string | null | undefined | Promise<string | null | undefined>);
+
 export interface ApiClientOptions {
   baseUrl?: string;
-  token?: string;
+  token?: ApiClientToken;
 }
 
 export declare class KanectaApiClient {
-  constructor(baseUrl: string, token?: string);
+  constructor(baseUrl: string, token?: ApiClientToken);
   readonly config: ConfigApi;
   readonly items: ItemsApi;
   readonly tree: TreeApi;

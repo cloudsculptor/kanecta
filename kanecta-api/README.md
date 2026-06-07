@@ -22,6 +22,35 @@ The server listens on **port 3001** by default. Override with `PORT`:
 PORT=4000 npm start
 ```
 
+## Authentication
+
+Every route requires a valid Keycloak access token (`Authorization: Bearer <token>`),
+verified against the realm's JWKS. The realm is provided by whoever deploys
+Kanecta — there is no default, so set both of these:
+
+```bash
+KEYCLOAK_URL=https://keycloak.example.com KEYCLOAK_REALM=my-realm npm start
+```
+
+`req.user` is populated from the token's claims: `{ id, name, roles, email_verified }`.
+
+For local development without a Keycloak instance, set `AUTH_DISABLED=true` to
+bypass verification entirely — every request is treated as an authenticated
+local admin (`req.user = { id: 'local-dev', name: 'Local Dev', roles: ['admin'], email_verified: true }`).
+Never set this in a real deployment.
+
+```bash
+AUTH_DISABLED=true npm start
+```
+
+To develop and test against a real Keycloak instance, the `kanecta-keycloak`
+workspace package stands up Keycloak + Postgres + MinIO via Docker Compose
+with a pre-seeded test realm:
+
+```bash
+npm run docker:up -w kanecta-keycloak
+```
+
 ## Endpoints
 
 ### Search

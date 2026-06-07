@@ -18,11 +18,13 @@ beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'kanecta-api-test-'));
   ds = Datastore.init(tmpRoot, 'test@example.com');
   process.env.KANECTA_DATASTORE = tmpRoot;
+  process.env.AUTH_DISABLED = 'true';
 });
 
 afterEach(() => {
   fs.rmSync(tmpRoot, { recursive: true, force: true });
   delete process.env.KANECTA_DATASTORE;
+  delete process.env.AUTH_DISABLED;
 });
 
 // ─── Items ────────────────────────────────────────────────────────────────────

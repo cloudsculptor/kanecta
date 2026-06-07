@@ -1,0 +1,31 @@
+.AccountMenu {
+  &-trigger {
+    padding: 4px;
+  }
+
+  &-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 0.8125rem;
+    background: var(--sidebar-fg-selected, #1976d2);
+  }
+
+  &-login {
+    color: var(--sidebar-fg);
+  }
+
+  &-header {
+    cursor: default;
+    opacity: 1 !important;
+  }
+
+  &-email {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+
+  &-role-chip {
+    text-transform: capitalize;
+  }
+}

@@ -9,14 +9,22 @@ class ApiError extends Error {
 }
 
 class KanectaApiClient {
+  // `token` may be a static string, or a (possibly async) function returning
+  // the current token — needed for Keycloak-backed deployments, where the
+  // access token expires and is refreshed in place behind the scenes.
   constructor(baseUrl, token) {
     this._base = baseUrl.replace(/\/$/, '');
     this._token = token;
   }
 
+  async _resolveToken() {
+    return typeof this._token === 'function' ? await this._token() : this._token;
+  }
+
   async _fetch(method, path, body) {
     const headers = { 'Content-Type': 'application/json' };
-    if (this._token) headers['Authorization'] = `Bearer ${this._token}`;
+    const token = await this._resolveToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
     const res = await fetch(`${this._base}${path}`, {
       method,
       headers,
@@ -237,9 +245,10 @@ class KanectaApiClient {
       // URL suitable for `new EventSource(url)`
       streamUrl: (id) => `${c._base}/claude/sessions/${id}/stream`,
       // Returns a raw fetch Response with an event-stream body
-      streamSession: (id) => {
+      streamSession: async (id) => {
         const headers = { Accept: 'text/event-stream' };
-        if (c._token) headers['Authorization'] = `Bearer ${c._token}`;
+        const token = await c._resolveToken();
+        if (token) headers['Authorization'] = `Bearer ${token}`;
         return fetch(`${c._base}/claude/sessions/${id}/stream`, { headers });
       },
       respond: (id, approved) =>
@@ -253,7 +262,9 @@ class KanectaApiClient {
  * Create a Kanecta API client.
  *
  * Reads KANECTA_API_URL (default http://localhost:3001) and KANECTA_TOKEN
- * from the environment unless overridden via options.
+ * from the environment unless overridden via options. `options.token` may
+ * also be a (possibly async) function returning the current token, for
+ * deployments where it's refreshed in place (e.g. Keycloak).
  */
 function createApiClient(options = {}) {
   const env = typeof process !== 'undefined' && process.env ? process.env : {};

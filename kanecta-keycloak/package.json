@@ -1,0 +1,22 @@
+{
+  "name": "@kanecta/keycloak-dev",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local Keycloak + Postgres + MinIO stack for developing and testing Kanecta's auth integration",
+  "scripts": {
+    "docker:up": "node scripts/ensure-running.js",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f"
+  },
+  "keywords": [
+    "kanecta",
+    "keycloak",
+    "auth",
+    "dev"
+  ],
+  "author": "Richie Thomas <richardsempire@gmail.com>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

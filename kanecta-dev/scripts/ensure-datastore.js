@@ -676,6 +676,12 @@ async function launch(workspaceName, datastorePath, apiPort, studioPort, systemI
         PORT: String(apiPort),
         KANECTA_API_URL: `http://localhost:${apiPort}`,
         ...(systemItemsDir ? { KANECTA_SYSTEM_ITEMS_DIR: systemItemsDir } : {}),
+        // `npm start` from source has no Keycloak instance to point at — force
+        // both sides into auth-disabled mode so the local dev loop never needs
+        // one. Real auth is only exercised by deploying with KEYCLOAK_URL/
+        // VITE_KEYCLOAK_URL set (or against the kanecta-keycloak dev stack).
+        AUTH_DISABLED: 'true',
+        VITE_AUTH_DISABLED: 'true',
       },
       stdio: 'inherit',
     },
