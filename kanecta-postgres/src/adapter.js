@@ -672,20 +672,65 @@ class PostgresAdapter {
       },
     };
 
+    // The `types` table mirrors type.json's `meta` as flattened meta_* columns
+    // (see migrations/002_status_types_and_functions.sql) rather than storing
+    // it as a JSONB blob — and has no column for sqlSchema at all: in Postgres
+    // mode the obj_<typeId> table itself (named via table_name) is the
+    // canonical record of a type's storage shape, immutable once created.
+    const meta = resolvedSchema.meta ?? {};
+    const tableName = resolvedSchema.sqlSchema?.length ? objTableName(id) : null;
+
     await this._pool.query(
-      `INSERT INTO types (item_id, json_schema, sql_schema, meta)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (item_id) DO UPDATE SET json_schema=$2, sql_schema=$3, meta=$4`,
+      `INSERT INTO types (
+         item_id, table_name,
+         meta_icon, meta_description, meta_details, meta_keywords, meta_tags,
+         meta_primary_field, meta_ai_instructions_claude,
+         json_schema, sync, superseded_by, implements, extends
+       ) VALUES (
+         $1, $2,
+         $3, $4, $5, $6, $7,
+         $8, $9,
+         $10, $11, $12, $13, $14
+       )
+       ON CONFLICT (item_id) DO UPDATE SET
+         table_name = $2,
+         meta_icon = $3, meta_description = $4, meta_details = $5, meta_keywords = $6, meta_tags = $7,
+         meta_primary_field = $8, meta_ai_instructions_claude = $9,
+         json_schema = $10, sync = $11, superseded_by = $12, implements = $13, extends = $14`,
       [
-        id,
+        id, tableName,
+        meta.icon ?? null, meta.description ?? '', meta.details ?? null, meta.keywords ?? null, meta.tags ?? null,
+        meta.primaryField ?? null, meta.skills?.claude ?? null,
         JSON.stringify(resolvedSchema.jsonSchema),
-        JSON.stringify(resolvedSchema.sqlSchema ?? []),
-        JSON.stringify(resolvedSchema.meta ?? {}),
+        meta.sync ?? [], meta.supersededBy ?? [], meta.implements ?? [], meta.extends ?? [],
       ],
     );
 
+    // Run the type's own sqlSchema DDL to create its obj_<typeId> table —
+    // without this, writeObjectJson has nowhere to persist object data and
+    // silently no-ops (catches and logs a warning instead of failing loudly).
+    if (resolvedSchema.sqlSchema?.length) {
+      for (const ddl of resolvedSchema.sqlSchema) {
+        const createIfNotExists = ddl.replace(/^CREATE TABLE\s+/i, 'CREATE TABLE IF NOT EXISTS ');
+        await this._pool.query(createIfNotExists);
+      }
+      await this._attachObjectSearchTrigger(objTableName(id));
+    }
+
     const metadata = await this.get(id);
     return { metadata, schema: resolvedSchema };
+  }
+
+  // Attaches the generic FTS trigger (see migrations/013_search_index.sql) to
+  // a freshly created obj_* table — mirrors what the startup migration does
+  // for tables that already existed, so newly created types stay covered too.
+  async _attachObjectSearchTrigger(tableName) {
+    await this._pool.query(`DROP TRIGGER IF EXISTS trg_object_search_vector ON "${tableName}"`);
+    await this._pool.query(
+      `CREATE TRIGGER trg_object_search_vector
+         AFTER INSERT OR UPDATE OR DELETE ON "${tableName}"
+         FOR EACH ROW EXECUTE FUNCTION kanecta_update_object_search_vector()`,
+    );
   }
 
   // ─── Index maintenance ────────────────────────────────────────────────────────
