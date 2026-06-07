@@ -1,4 +1,4 @@
-import type { ApiClient } from './client';
+import type { KanectaApiClient } from '@kanecta/api-client';
 import type {
   KanectaItem,
   Annotation,
@@ -9,73 +9,66 @@ import type {
   CreateAnnotationPayload,
 } from '../types/kanecta';
 
-export function itemsApi(client: ApiClient) {
+export function itemsApi(client: KanectaApiClient) {
   return {
-    list: () => client.get<KanectaItem[]>('/items'),
+    list: () => client.items.list() as unknown as Promise<KanectaItem[]>,
 
-    root: () => client.get<KanectaItem>('/items/root'),
+    root: () => client.items.root() as unknown as Promise<KanectaItem>,
 
-    stats: () => client.get<{
-      total: number;
-      typedCount: number;
-      structured: Array<{ typeId: string; name: string; icon: string | null; count: number }>;
-      unstructured: Array<{ type: string; count: number }>;
-    }>('/items/stats'),
+    stats: () => client.items.stats(),
 
-    get: (id: string) => client.get<KanectaItem>(`/items/${id}`),
+    get: (id: string) => client.items.get(id) as unknown as Promise<KanectaItem>,
 
-    create: (payload: CreateItemPayload) => client.post<KanectaItem>('/items', payload),
+    create: (payload: CreateItemPayload) =>
+      client.items.create(payload as never) as unknown as Promise<KanectaItem>,
 
     update: (id: string, payload: UpdateItemPayload) =>
-      client.put<KanectaItem>(`/items/${id}`, payload),
+      client.items.update(id, payload as never) as unknown as Promise<KanectaItem>,
 
     delete: (id: string, force = false) =>
-      client.delete<{ deleted: string }>(`/items/${id}${force ? '?force=true' : ''}`),
+      client.items.delete(id, force) as unknown as Promise<{ deleted: string }>,
 
-    children: (id: string) => client.get<KanectaItem[]>(`/items/${id}/children`),
+    children: (id: string) => client.items.children(id) as unknown as Promise<KanectaItem[]>,
 
     tree: (id: string, depth?: number) =>
-      client.get<Array<{ item: KanectaItem; depth: number }>>(
-        `/items/${id}/tree${depth != null ? `?depth=${depth}` : ''}`,
-      ),
+      client.items.tree(id, depth) as Promise<Array<{ item: KanectaItem; depth: number }>>,
 
-    annotations: (id: string) => client.get<Annotation[]>(`/items/${id}/annotations`),
+    annotations: (id: string) => client.items.annotations(id) as unknown as Promise<Annotation[]>,
 
     annotate: (id: string, payload: CreateAnnotationPayload) =>
-      client.post<Annotation>(`/items/${id}/annotations`, payload),
+      client.items.annotate(id, payload as never) as unknown as Promise<Annotation>,
 
-    relationships: (id: string) => client.get<Relationship[]>(`/items/${id}/relationships`),
+    relationships: (id: string) =>
+      client.items.relationships(id) as unknown as Promise<Relationship[]>,
 
-    backlinks: (id: string) => client.get<KanectaItem[]>(`/items/${id}/backlinks`),
+    backlinks: (id: string) => client.items.backlinks(id) as unknown as Promise<KanectaItem[]>,
 
-    history: (id: string) => client.get<HistoryEntry[]>(`/items/${id}/history`),
+    history: (id: string) => client.items.history(id) as unknown as Promise<HistoryEntry[]>,
 
-    getObject: (id: string) =>
-      client.get<Record<string, unknown>>(`/items/${id}/object`),
+    getObject: (id: string) => client.items.getObject(id),
 
-    saveObject: (id: string, data: Record<string, unknown>) =>
-      client.put<{ ok: boolean }>(`/items/${id}/object`, data),
+    saveObject: (id: string, data: Record<string, unknown>) => client.items.saveObject(id, data),
 
-    getFunctionData: (id: string) =>
-      client.get<Record<string, unknown>>(`/items/${id}/function`),
+    getFunctionData: (id: string) => client.items.getFunction(id) as Promise<Record<string, unknown>>,
 
     saveFunctionData: (id: string, data: Record<string, unknown>) =>
-      client.put<{ ok: boolean }>(`/items/${id}/function`, data),
+      client.items.saveFunction(id, data as never),
 
-    getFunctionPackageJson: (id: string) =>
-      client.get<Record<string, unknown>>(`/items/${id}/function/package-json`),
+    getFunctionPackageJson: (id: string) => client.items.getFunctionPackageJson(id),
 
-    checkFunctionScaffold: (id: string) =>
-      client.get<{ exists: boolean; stale: boolean }>(`/items/${id}/function/scaffold`),
+    checkFunctionScaffold: (id: string) => client.items.getFunctionScaffold(id),
 
-    compileFunctionScaffold: (id: string) =>
-      client.post<{ success: boolean; output: string }>(`/items/${id}/function/compile`, {}),
+    compileFunctionScaffold: (id: string) => client.items.compileFunction(id),
 
     runFunctionScaffold: (id: string, args: Record<string, string>) =>
-      client.post<{ success: boolean; output: string | null; logs: string }>(`/items/${id}/function/run`, { args }),
+      client.items.runFunction(id, args) as unknown as Promise<{
+        success: boolean;
+        output: string | null;
+        logs: string;
+      }>,
 
-    complete: (id: string) => client.post<KanectaItem>(`/items/${id}/complete`, {}),
+    complete: (id: string) => client.items.complete(id) as unknown as Promise<KanectaItem>,
 
-    uncomplete: (id: string) => client.post<KanectaItem>(`/items/${id}/uncomplete`, {}),
+    uncomplete: (id: string) => client.items.uncomplete(id) as unknown as Promise<KanectaItem>,
   };
 }

@@ -1,1 +1,107 @@
-{"meta":{"icon":"BugReport","description":"A bug — a defect with reproduction steps, severity and fix version","keywords":"bug defect issue error regression","tags":"software,development,testing"},"jsonSchema":{"$schema":"http://json-schema.org/draft-07/schema#","title":"Bug","type":"object","required":["title","severity","status"],"properties":{"title":{"type":"string"},"description":{"type":"string"},"severity":{"type":"string","enum":["critical","high","medium","low"]},"priority":{"type":"string","enum":["critical","high","medium","low"]},"status":{"type":"string","enum":["Open","In Progress","Resolved","Closed","Won't Fix"]},"stepsToReproduce":{"type":"string"},"expectedBehaviour":{"type":"string"},"actualBehaviour":{"type":"string"},"affectedVersion":{"type":"string"},"fixVersion":{"type":"string"},"assignee":{"type":"string","format":"email"},"reporter":{"type":"string","format":"email"},"environment":{"type":"string"},"linkedTickets":{"type":"array","items":{"type":"string"}},"labels":{"type":"array","items":{"type":"string"}}}}}
+{
+  "meta": {
+    "icon": "BugReport",
+    "description": "A bug — a defect with reproduction steps, severity and fix version",
+    "keywords": "bug defect issue error regression",
+    "tags": "software,development,testing"
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Bug",
+    "type": "object",
+    "required": [
+      "title",
+      "severity",
+      "status"
+    ],
+    "properties": {
+      "title": {
+        "x-id": "61d60c30-9c7d-4cc7-bfa5-940c994c592b",
+        "type": "string"
+      },
+      "description": {
+        "x-id": "3713b8d5-ee8b-436f-a2c7-80d12f611608",
+        "type": "string"
+      },
+      "severity": {
+        "x-id": "ce72a0cd-f9e0-4468-b945-7ad62c19fdde",
+        "type": "string",
+        "enum": [
+          "critical",
+          "high",
+          "medium",
+          "low"
+        ]
+      },
+      "priority": {
+        "x-id": "4c8b5b05-635f-4af5-9804-13cfb4391d92",
+        "type": "string",
+        "enum": [
+          "critical",
+          "high",
+          "medium",
+          "low"
+        ]
+      },
+      "status": {
+        "x-id": "1af5a60a-95f3-433e-953d-088b6b911aab",
+        "type": "string",
+        "enum": [
+          "Open",
+          "In Progress",
+          "Resolved",
+          "Closed",
+          "Won't Fix"
+        ]
+      },
+      "stepsToReproduce": {
+        "x-id": "b880b88a-d888-4a9d-ade7-eaef4995ce24",
+        "type": "string"
+      },
+      "expectedBehaviour": {
+        "x-id": "70ec229f-8f2b-4619-811e-276800bc57ea",
+        "type": "string"
+      },
+      "actualBehaviour": {
+        "x-id": "9bc4e65e-3856-40c9-8b51-11df3d5bd829",
+        "type": "string"
+      },
+      "affectedVersion": {
+        "x-id": "b1b9b8a6-7d35-4903-a70a-447ec38b48db",
+        "type": "string"
+      },
+      "fixVersion": {
+        "x-id": "5bfbf94f-a19b-41ca-b78d-12d5c21cc9d7",
+        "type": "string"
+      },
+      "assignee": {
+        "x-id": "6dadd86b-77a0-459b-830a-b5d1a8dbb560",
+        "type": "string",
+        "format": "email"
+      },
+      "reporter": {
+        "x-id": "84e9971e-cbc5-4016-a4b1-1979d81fe7cf",
+        "type": "string",
+        "format": "email"
+      },
+      "environment": {
+        "x-id": "2a8e823d-8a1c-4560-b5fe-094df686332b",
+        "type": "string"
+      },
+      "linkedTickets": {
+        "x-id": "0a4fbabb-8d47-489a-8b0f-d902ec8b7003",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "labels": {
+        "x-id": "a274fbfd-8696-4602-97a6-f10434c0d29e",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

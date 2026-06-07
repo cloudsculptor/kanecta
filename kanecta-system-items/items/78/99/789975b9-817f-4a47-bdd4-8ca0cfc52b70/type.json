@@ -4,9 +4,13 @@
     "description": "Self-describing specification for a Kanecta pipeline — purpose, philosophy, step contracts, learning loops and planned integrations",
     "keywords": "pipeline spec about description steps learning loops integrations",
     "tags": "pipeline,documentation",
-    "ai-instructions": {
+    "skills": {
       "claude": "A Pipeline Spec is the 'about' document for a pipeline. It describes purpose, philosophy, each step's input/output contract, the improvement loops, and planned integrations. Referenced by the Pipeline item's 'about' field. Can be tagged org-context to inject pipeline knowledge into AI reasoning."
-    }
+    },
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -19,136 +23,30 @@
     "additionalProperties": false,
     "properties": {
       "purpose": {
+        "x-id": "6110fc04-964a-4a13-98fc-dc091bb6807c",
         "type": "string"
       },
       "philosophy": {
+        "x-id": "ba9eb3a4-a034-4719-9ad7-780700855723",
         "type": "string"
       },
       "version": {
+        "x-id": "81e936e1-fc3e-48cd-9798-d03eacf6d01b",
         "type": "string"
       },
       "inputType": {
+        "x-id": "3581707a-5049-4104-ab29-b4b2223ad55a",
         "type": "string",
         "description": "Human-readable name or UUID of the primary input type"
       },
       "outputType": {
+        "x-id": "464edf00-8f03-4a9c-bae7-0519d0097bbf",
         "type": "string",
         "description": "Human-readable name or UUID of the primary output type"
-      },
-      "steps": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": [
-            "name",
-            "status"
-          ],
-          "additionalProperties": false,
-          "properties": {
-            "name": {
-              "type": "string"
-            },
-            "description": {
-              "type": "string"
-            },
-            "consumes": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "produces": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "status": {
-              "type": "string",
-              "enum": [
-                "active",
-                "disabled",
-                "placeholder",
-                "side-branch"
-              ]
-            },
-            "loopsTo": {
-              "type": "string",
-              "description": "Step name this step loops back to"
-            }
-          }
-        }
-      },
-      "learningLoops": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": [
-            "name",
-            "type"
-          ],
-          "additionalProperties": false,
-          "properties": {
-            "name": {
-              "type": "string"
-            },
-            "description": {
-              "type": "string"
-            },
-            "type": {
-              "type": "string",
-              "enum": [
-                "internal",
-                "external"
-              ]
-            },
-            "effect": {
-              "type": "string",
-              "enum": [
-                "permanent",
-                "run-scoped"
-              ]
-            },
-            "status": {
-              "type": "string",
-              "enum": [
-                "active",
-                "placeholder"
-              ]
-            }
-          }
-        }
-      },
-      "integrations": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": [
-            "name",
-            "status"
-          ],
-          "additionalProperties": false,
-          "properties": {
-            "name": {
-              "type": "string"
-            },
-            "description": {
-              "type": "string"
-            },
-            "contributes": {
-              "type": "string"
-            },
-            "status": {
-              "type": "string",
-              "enum": [
-                "active",
-                "planned",
-                "in-progress"
-              ]
-            }
-          }
-        }
       }
     }
-  }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_789975b9_817f_4a47_bdd4_8ca0cfc52b70\" (\n    item_id UUID NOT NULL,\n    \"purpose\" TEXT,\n    \"philosophy\" TEXT,\n    \"version\" TEXT,\n    \"input_type\" TEXT,\n    \"output_type\" TEXT,\n    CONSTRAINT \"pk_obj_789975b9_817f_4a47_bdd4_8ca0cfc52b70\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_789975b9817f4a47_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
 }

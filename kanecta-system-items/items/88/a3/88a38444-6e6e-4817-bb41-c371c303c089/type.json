@@ -1,1 +1,70 @@
-{"meta":{"icon":"MenuBook","description":"A runbook — operational steps for a specific system event such as a deploy, incident or rollback","keywords":"runbook operational incident deploy on-call","tags":"software,development,operations"},"jsonSchema":{"$schema":"http://json-schema.org/draft-07/schema#","title":"Runbook","type":"object","required":["title","trigger","steps"],"properties":{"title":{"type":"string"},"trigger":{"type":"string"},"service":{"type":"string"},"severity":{"type":"string","enum":["P1","P2","P3","P4"]},"owner":{"type":"string","format":"email"},"steps":{"type":"array","minItems":1,"items":{"type":"object","required":["title","instructions"],"properties":{"title":{"type":"string"},"instructions":{"type":"string"},"expectedOutcome":{"type":"string"}}}},"escalationPath":{"type":"string"},"lastTested":{"type":"string","format":"date"},"tags":{"type":"array","items":{"type":"string"}}}}}
+{
+  "meta": {
+    "icon": "MenuBook",
+    "description": "A runbook — operational steps for a specific system event such as a deploy, incident or rollback",
+    "keywords": "runbook operational incident deploy on-call",
+    "tags": "software,development,operations",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Runbook",
+    "type": "object",
+    "required": [
+      "title",
+      "trigger",
+      "steps"
+    ],
+    "properties": {
+      "title": {
+        "x-id": "e8b56ed8-3bcf-405b-a01b-8b820b6a8141",
+        "type": "string"
+      },
+      "trigger": {
+        "x-id": "2c410899-cc7f-4cf0-b173-8a36b723aff9",
+        "type": "string"
+      },
+      "service": {
+        "x-id": "b847c5d1-0568-4168-9d34-008b6ed004ba",
+        "type": "string"
+      },
+      "severity": {
+        "x-id": "736a5038-52d3-40b0-b920-a05f2202cd5d",
+        "type": "string",
+        "enum": [
+          "P1",
+          "P2",
+          "P3",
+          "P4"
+        ]
+      },
+      "owner": {
+        "x-id": "6d4e1404-6674-4ef7-a391-a556af531e14",
+        "type": "string",
+        "format": "email"
+      },
+      "escalationPath": {
+        "x-id": "159c0d78-963e-4b06-aed4-0a96ccbf5066",
+        "type": "string"
+      },
+      "lastTested": {
+        "x-id": "2e356935-b890-4910-8bc3-b23720fbbffa",
+        "type": "string",
+        "format": "date"
+      },
+      "tags": {
+        "x-id": "715cb6a7-6a22-46ef-8491-088cacfdaf6d",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_88a38444_6e6e_4817_bb41_c371c303c089\" (\n    item_id UUID NOT NULL,\n    \"title\" TEXT,\n    \"trigger\" TEXT,\n    \"service\" TEXT,\n    \"severity\" TEXT,\n    \"owner\" TEXT,\n    \"escalation_path\" TEXT,\n    \"last_tested\" TEXT,\n    \"tags\" TEXT[] NOT NULL DEFAULT '{}',\n    CONSTRAINT \"pk_obj_88a38444_6e6e_4817_bb41_c371c303c089\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_88a384446e6e4817_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

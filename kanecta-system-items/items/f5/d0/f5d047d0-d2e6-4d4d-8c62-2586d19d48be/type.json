@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "icon": "PlayArrow",
+    "description": "A single function in a pipeline's ordered execution sequence.",
+    "keywords": "pipeline sequence step",
+    "tags": "pipeline,sequence,step",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Pipeline Sequence Step",
+    "type": "object",
+    "properties": {
+      "functionId": {
+        "x-id": "61bee58a-26bd-44e1-a9a8-1c9aacdcb155",
+        "type": "string",
+        "format": "uuid",
+        "typeId": "d9de814c-f93e-4473-b3aa-3d95691c5c88",
+        "description": "UUID of the Function item to execute."
+      },
+      "outputTypeId": {
+        "x-id": "b801fdcf-097c-4b74-9c08-eada52d6d102",
+        "type": "string",
+        "format": "uuid",
+        "description": "UUID of the type definition this step is expected to produce."
+      }
+    },
+    "required": []
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_f5d047d0_d2e6_4d4d_8c62_2586d19d48be\" (\n    item_id UUID NOT NULL,\n    \"function_id\" UUID,\n    \"output_type_id\" UUID,\n    CONSTRAINT \"pk_obj_f5d047d0_d2e6_4d4d_8c62_2586d19d48be\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_f5d047d0d2e64d4d_item\" FOREIGN KEY (item_id) REFERENCES items(id),\n    CONSTRAINT \"fk_f5d047d0d2e64d4d_function_id\" FOREIGN KEY (\"function_id\") REFERENCES items(id),\n    CONSTRAINT \"fk_f5d047d0d2e64d4d_output_type_id\" FOREIGN KEY (\"output_type_id\") REFERENCES items(id)\n)"
+  ]
+}

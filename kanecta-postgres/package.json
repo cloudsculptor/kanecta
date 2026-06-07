@@ -1,6 +1,6 @@
 {
   "name": "@kanecta/postgres",
-  "version": "0.1.0",
+  "version": "1.3.0",
   "description": "Kanecta postgres adapter — REMOTE mode items storage",
   "main": "src/index.js",
   "files": [
@@ -8,7 +8,10 @@
     "migrations/"
   ],
   "scripts": {
-    "test": "echo \"No tests yet\" && exit 0"
+    "test": "jest --runInBand",
+    "docker:up": "node scripts/ensure-running.js",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f postgres"
   },
   "keywords": [
     "kanecta",
@@ -25,5 +28,9 @@
   },
   "peerDependencies": {
     "pg": ">=8.0.0"
+  },
+  "devDependencies": {
+    "jest": "^30.4.2",
+    "pg": "^8.0.0"
   }
 }

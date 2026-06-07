@@ -1,1 +1,84 @@
-{"meta":{"icon":"Science","description":"A test case — a specific scenario with steps, expected outcome and pass/fail status","keywords":"test case QA scenario verification","tags":"software,development,testing"},"jsonSchema":{"$schema":"http://json-schema.org/draft-07/schema#","title":"Test Case","type":"object","required":["title"],"properties":{"title":{"type":"string"},"description":{"type":"string"},"preconditions":{"type":"array","items":{"type":"string"}},"steps":{"type":"array","items":{"type":"object","required":["action"],"properties":{"action":{"type":"string"},"expectedResult":{"type":"string"}}}},"expectedResult":{"type":"string"},"actualResult":{"type":"string"},"status":{"type":"string","enum":["not-run","pass","fail","blocked"]},"priority":{"type":"string","enum":["critical","high","medium","low"]},"linkedTicket":{"type":"string"},"automatable":{"type":"boolean","default":false},"tags":{"type":"array","items":{"type":"string"}}}}}
+{
+  "meta": {
+    "icon": "Science",
+    "description": "A test case — a specific scenario with steps, expected outcome and pass/fail status",
+    "keywords": "test case QA scenario verification",
+    "tags": "software,development,testing",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Test Case",
+    "type": "object",
+    "required": [
+      "title"
+    ],
+    "properties": {
+      "title": {
+        "x-id": "246d5d17-5a94-474a-a9ca-fd5e40583954",
+        "type": "string"
+      },
+      "description": {
+        "x-id": "2f972838-6c6e-414b-ba79-b1ba790c26f4",
+        "type": "string"
+      },
+      "preconditions": {
+        "x-id": "e97506e0-53d7-47f8-8d4c-632427ea7b44",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "expectedResult": {
+        "x-id": "6b17db96-5979-4a36-83b3-e5153a535c65",
+        "type": "string"
+      },
+      "actualResult": {
+        "x-id": "12406507-2cce-4700-8bde-3fb9bbba050c",
+        "type": "string"
+      },
+      "status": {
+        "x-id": "c991f7a2-d094-4ddb-b44a-02c40efcac58",
+        "type": "string",
+        "enum": [
+          "not-run",
+          "pass",
+          "fail",
+          "blocked"
+        ]
+      },
+      "priority": {
+        "x-id": "437ee0c0-adbd-4e84-8a59-320087984ac2",
+        "type": "string",
+        "enum": [
+          "critical",
+          "high",
+          "medium",
+          "low"
+        ]
+      },
+      "linkedTicket": {
+        "x-id": "fa0cd532-a890-4aa7-a3af-428b9c653dfa",
+        "type": "string"
+      },
+      "automatable": {
+        "x-id": "28c4a901-07aa-46a2-8e1b-2fce51ebf125",
+        "type": "boolean",
+        "default": false
+      },
+      "tags": {
+        "x-id": "3916df31-1289-477a-bed3-c650257fb18a",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_9549d28c_1067_44b9_b014_ec45806e76d9\" (\n    item_id UUID NOT NULL,\n    \"title\" TEXT,\n    \"description\" TEXT,\n    \"preconditions\" TEXT[] NOT NULL DEFAULT '{}',\n    \"expected_result\" TEXT,\n    \"actual_result\" TEXT,\n    \"status\" TEXT,\n    \"priority\" TEXT,\n    \"linked_ticket\" TEXT,\n    \"automatable\" BOOLEAN,\n    \"tags\" TEXT[] NOT NULL DEFAULT '{}',\n    CONSTRAINT \"pk_obj_9549d28c_1067_44b9_b014_ec45806e76d9\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_9549d28c106744b9_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

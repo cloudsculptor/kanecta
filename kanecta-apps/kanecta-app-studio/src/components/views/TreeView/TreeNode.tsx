@@ -25,6 +25,7 @@ import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import DriveFolderUploadIcon from '@mui/icons-material/DriveFolderUpload';
 import CodeIcon from '@mui/icons-material/Code';
 import EditNoteIcon from '@mui/icons-material/EditNote';
+import DriveFileMoveOutlinedIcon from '@mui/icons-material/DriveFileMoveOutlined';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { primitiveTypes } from '@kanecta/specification';
 
@@ -103,6 +104,10 @@ export function TreeNode({
   const [runFunctionOpen, setRunFunctionOpen] = useState(false);
   const [converting, setConverting] = useState(false);
   const [pendingConvert, setPendingConvert] = useState<string | null>(null);
+  const [moveParentOpen, setMoveParentOpen] = useState(false);
+  const [moveParentInput, setMoveParentInput] = useState('');
+  const [movingParent, setMovingParent] = useState(false);
+  const [moveParentError, setMoveParentError] = useState<string | null>(null);
   const [aliasOpen, setAliasOpen] = useState(false);
   const [aliasInput, setAliasInput] = useState('');
   const [aliasChecking, setAliasChecking] = useState(false);
@@ -171,6 +176,34 @@ const allConversionsDestructive = item.type === 'function';
       closeConvert();
     } finally {
       setConverting(false);
+    }
+  };
+
+  const openMoveParentDialog = () => {
+    setMoveParentInput(item.parentId ?? '');
+    setMoveParentError(null);
+    setMoveParentOpen(true);
+  };
+
+  const closeMoveParentDialog = () => {
+    setMoveParentOpen(false);
+    setMoveParentInput('');
+    setMoveParentError(null);
+  };
+
+  const handleMoveParentSubmit = async () => {
+    const parentId = moveParentInput.trim();
+    if (!parentId || parentId === item.parentId) return;
+    setMovingParent(true);
+    setMoveParentError(null);
+    try {
+      await getApi().items.update(item.id, { parentId });
+      void queryClient.invalidateQueries({ queryKey: ['tree-children'] });
+      closeMoveParentDialog();
+    } catch (err) {
+      setMoveParentError(err instanceof Error ? err.message : 'Failed to move item.');
+    } finally {
+      setMovingParent(false);
     }
   };
 
@@ -414,6 +447,13 @@ const allConversionsDestructive = item.type === 'function';
               </IconButton>
             </Tooltip>
           )}
+          {!isSynthetic && (
+            <Tooltip title="Change parent">
+              <IconButton size="small" data-testid="move-parent-btn" onClick={(e) => { e.stopPropagation(); openMoveParentDialog(); }}>
+                <DriveFileMoveOutlinedIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+              </IconButton>
+            </Tooltip>
+          )}
           {([
             { depth: 1,           Icon: LooksOneIcon,  label: 'Expand 1 level' },
             { depth: 2,           Icon: LooksTwoIcon,  label: 'Expand 2 levels' },
@@ -562,6 +602,35 @@ const allConversionsDestructive = item.type === 'function';
             <Button onClick={closeConvert} disabled={converting}>Cancel</Button>
           </DialogActions>
         )}
+      </Dialog>
+
+      <Dialog open={moveParentOpen} onClose={() => !movingParent && closeMoveParentDialog()} onClick={(e) => e.stopPropagation()} maxWidth="xs" fullWidth>
+        <DialogTitle>Change parent</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          <TextField
+            autoFocus
+            label="New parent ID"
+            size="small"
+            fullWidth
+            value={moveParentInput}
+            onChange={(e) => { setMoveParentInput(e.target.value); setMoveParentError(null); }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !movingParent) void handleMoveParentSubmit(); }}
+            disabled={movingParent}
+            placeholder="e.g. 3f1a2b4c-..."
+          />
+          {moveParentError && <Alert severity="error">{moveParentError}</Alert>}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeMoveParentDialog} disabled={movingParent}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={!moveParentInput.trim() || moveParentInput.trim() === item.parentId || movingParent}
+            onClick={() => void handleMoveParentSubmit()}
+            startIcon={movingParent ? <CircularProgress size={14} /> : undefined}
+          >
+            Save
+          </Button>
+        </DialogActions>
       </Dialog>
 
       <Dialog open={aliasOpen} onClose={closeAliasDialog} onClick={(e) => e.stopPropagation()} maxWidth="xs" fullWidth>

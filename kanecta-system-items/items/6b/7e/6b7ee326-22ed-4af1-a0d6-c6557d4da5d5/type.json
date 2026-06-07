@@ -8,7 +8,11 @@
       "architecture",
       "API",
       "design doc"
-    ]
+    ],
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -23,12 +27,15 @@
     ],
     "properties": {
       "title": {
+        "x-id": "c877cc46-ad78-4ca7-b0c3-1c0efbdd62ec",
         "type": "string"
       },
       "author": {
+        "x-id": "2fc2d731-dcca-4632-96f0-0edd7c4bcc79",
         "type": "string"
       },
       "status": {
+        "x-id": "b8b3532f-e651-4ce6-9099-6057c9398067",
         "type": "string",
         "enum": [
           "Draft",
@@ -38,6 +45,7 @@
         ]
       },
       "scope": {
+        "x-id": "187d0dcf-afc4-4928-8d7b-5dadc4f9edf5",
         "type": "string",
         "enum": [
           "APPLICATION",
@@ -47,242 +55,84 @@
         ]
       },
       "outcome": {
+        "x-id": "9988ee1e-9f20-44b6-86ce-51b3e5747755",
         "type": "string"
       },
       "lastReviewed": {
+        "x-id": "21720da7-c3ea-46ec-ae26-ab35579abfa0",
         "type": "string",
         "format": "date"
       },
       "nextReview": {
+        "x-id": "22d03884-b338-44df-a12e-3602a7dd5322",
         "type": "string",
         "format": "date"
       },
       "initiative": {
+        "x-id": "18071e6a-2674-414a-b617-c9a665f3ac4d",
         "type": "string"
       },
       "purpose": {
+        "x-id": "4d4a5e50-5243-4a2a-8710-de3925f895df",
         "type": "string"
       },
-      "references": {
-        "type": "object",
-        "properties": {
-          "currentState": {
-            "type": "string",
-            "format": "uri"
-          },
-          "futureState": {
-            "type": "string",
-            "format": "uri"
-          },
-          "figma": {
-            "type": "string",
-            "format": "uri"
-          },
-          "confluencePage": {
-            "type": "string",
-            "format": "uri"
-          },
-          "epics": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "uniqueItems": true
-          },
-          "backendRepo": {
-            "type": "string"
-          },
-          "frontendRepo": {
-            "type": "string"
-          },
-          "legacyScreen": {
-            "type": "string"
-          }
-        }
-      },
       "problemStatement": {
+        "x-id": "b93ad702-e6a5-46f6-804e-06f0ec09c748",
         "type": "string",
         "contentMediaType": "text/markdown"
       },
       "uiComponents": {
+        "x-id": "57e7d722-6ca1-444b-b93a-839342331638",
         "type": "string",
         "contentMediaType": "text/markdown"
       },
-      "dataStructures": {
-        "type": "object",
-        "properties": {
-          "tables": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "required": [
-                "name",
-                "access"
-              ],
-              "properties": {
-                "name": {
-                  "type": "string"
-                },
-                "access": {
-                  "type": "string",
-                  "enum": [
-                    "R",
-                    "RW",
-                    "W"
-                  ]
-                },
-                "description": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "erd": {
-            "type": "string"
-          },
-          "notes": {
-            "type": "string"
-          }
-        }
-      },
-      "backendImplementation": {
-        "type": "object",
-        "properties": {
-          "service": {
-            "type": "string"
-          },
-          "gradleModule": {
-            "type": "string"
-          },
-          "featureToggle": {
-            "type": "string"
-          },
-          "adminActionConstant": {
-            "type": "string"
-          },
-          "notes": {
-            "type": "string",
-            "contentMediaType": "text/markdown"
-          }
-        }
-      },
       "identifiedReuse": {
+        "x-id": "405743f4-b628-494a-b401-5901cf82c2b3",
         "type": "string",
         "contentMediaType": "text/markdown"
       },
       "businessLogic": {
+        "x-id": "80e46a2e-c945-43ad-93c4-bcccc2bdd4c5",
         "type": "string",
         "contentMediaType": "text/markdown"
       },
       "accessLevels": {
+        "x-id": "7670b89a-6ba7-491a-ba2d-b564a3d63f8f",
         "type": "string",
         "contentMediaType": "text/markdown"
       },
       "deleteBehaviour": {
+        "x-id": "5d082148-d06a-4863-9571-27ade325e67c",
         "type": "string",
         "contentMediaType": "text/markdown"
       },
       "validation": {
+        "x-id": "cbbcce17-557e-471f-84eb-de195716034d",
         "type": "string",
         "contentMediaType": "text/markdown"
       },
-      "apiEndpoints": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": [
-            "method",
-            "path",
-            "scope"
-          ],
-          "properties": {
-            "method": {
-              "type": "string",
-              "enum": [
-                "GET",
-                "POST",
-                "PUT",
-                "PATCH",
-                "DELETE"
-              ]
-            },
-            "path": {
-              "type": "string"
-            },
-            "scope": {
-              "type": "string"
-            },
-            "isNew": {
-              "type": "boolean"
-            },
-            "notes": {
-              "type": "string"
-            }
-          }
-        }
-      },
       "dbOperations": {
+        "x-id": "3fa71aed-7aab-49b0-9e15-81af35e5ad8e",
         "type": "string",
         "contentMediaType": "text/markdown"
       },
       "userAccessMatrix": {
+        "x-id": "4e0dd562-cc59-445e-8b55-b5e1bc082664",
         "type": "string",
         "contentMediaType": "text/markdown"
       },
-      "questions": {
+      "apiEndpoints": {
+        "x-id": "32764f32-1176-4ecb-a11b-a72eca77e168",
         "type": "array",
         "items": {
-          "type": "object",
-          "required": [
-            "question",
-            "status"
-          ],
-          "properties": {
-            "question": {
-              "type": "string"
-            },
-            "status": {
-              "type": "string",
-              "enum": [
-                "open",
-                "closed"
-              ]
-            },
-            "resolution": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "deliveryPlan": {
-        "type": "object",
-        "properties": {
-          "tickets": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "required": [
-                "title"
-              ],
-              "properties": {
-                "ticketKey": {
-                  "type": "string"
-                },
-                "title": {
-                  "type": "string"
-                },
-                "estimate": {
-                  "type": "number",
-                  "minimum": 0
-                }
-              }
-            }
-          },
-          "sequencingNotes": {
-            "type": "string"
-          }
-        }
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "UUIDs of API Endpoint items for this design."
       }
     }
-  }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_6b7ee326_22ed_4af1_a0d6_c6557d4da5d5\" (\n    item_id UUID NOT NULL,\n    \"title\" TEXT,\n    \"author\" TEXT,\n    \"status\" TEXT,\n    \"scope\" TEXT,\n    \"outcome\" TEXT,\n    \"last_reviewed\" TEXT,\n    \"next_review\" TEXT,\n    \"initiative\" TEXT,\n    \"purpose\" TEXT,\n    \"problem_statement\" TEXT,\n    \"ui_components\" TEXT,\n    \"identified_reuse\" TEXT,\n    \"business_logic\" TEXT,\n    \"access_levels\" TEXT,\n    \"delete_behaviour\" TEXT,\n    \"validation\" TEXT,\n    \"db_operations\" TEXT,\n    \"user_access_matrix\" TEXT,\n    \"api_endpoints\" UUID[] NOT NULL DEFAULT '{}',\n    CONSTRAINT \"pk_obj_6b7ee326_22ed_4af1_a0d6_c6557d4da5d5\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_6b7ee32622ed4af1_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
 }

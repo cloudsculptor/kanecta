@@ -1,0 +1,38 @@
+{
+  "meta": {
+    "icon": "Settings",
+    "description": "An environment-specific rollout configuration for a feature flag.",
+    "keywords": "feature flag environment",
+    "tags": "feature,flag,environment",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Feature Flag Environment",
+    "type": "object",
+    "properties": {
+      "environment": {
+        "x-id": "0846442d-dbef-4d4d-8569-61796a4f0d4f",
+        "type": "string",
+        "description": "Environment name (e.g. production, staging)."
+      },
+      "enabled": {
+        "x-id": "7434fc4b-261a-4e44-b23a-83916f7fe4be",
+        "type": "boolean",
+        "description": "Whether the flag is enabled in this environment."
+      },
+      "rolloutPercentage": {
+        "x-id": "17d75a34-b894-4732-8e4e-fb0bff35ec33",
+        "type": "integer",
+        "description": "Percentage of users who see the flag enabled (0–100)."
+      }
+    },
+    "required": []
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_5a94c719_d1f6_44c3_b806_ce0c225b2b30\" (\n    item_id UUID NOT NULL,\n    \"environment\" TEXT,\n    \"enabled\" BOOLEAN,\n    \"rollout_percentage\" INTEGER,\n    CONSTRAINT \"pk_obj_5a94c719_d1f6_44c3_b806_ce0c225b2b30\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_5a94c719d1f644c3_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

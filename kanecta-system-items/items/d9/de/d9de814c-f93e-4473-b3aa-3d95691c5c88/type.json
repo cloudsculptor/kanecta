@@ -11,7 +11,7 @@
       "code"
     ],
     "tags": "",
-    "ai-instructions": {
+    "skills": {
       "claude": "The 'arguments' array contains UUIDs referencing Argument type items. The 'returns' array accepts either a Kanecta type UUID or a TypeScript primitive string ('string', 'number', 'boolean', 'Date', 'any', 'unknown', 'void', 'null', 'undefined', 'never'). Multiple entries in 'returns' represent a union type. The 'function' field contains raw TypeScript source code. If 'async' is true, the return type should be wrapped in Promise<>."
     }
   },
@@ -26,15 +26,19 @@
     ],
     "properties": {
       "name": {
+        "x-id": "0f1c0e58-e576-4ce4-8d84-72eb21b4d03f",
         "type": "string"
       },
       "description": {
+        "x-id": "e54c7b3c-a7e4-4032-91dd-3bdf541976ea",
         "type": "string"
       },
       "prompt": {
+        "x-id": "ff9a90cc-ae41-4b20-8772-08369a6521a0",
         "type": "string"
       },
       "arguments": {
+        "x-id": "96f6401e-8732-44e7-adce-38cec2845e50",
         "type": "array",
         "items": {
           "type": "string",
@@ -43,6 +47,7 @@
         "uniqueItems": true
       },
       "returns": {
+        "x-id": "da8dca7d-a59c-4b3d-8fa3-d6292793f9ed",
         "type": "array",
         "items": {
           "type": "string"
@@ -50,12 +55,15 @@
         "uniqueItems": true
       },
       "returnNullable": {
+        "x-id": "816d57aa-b296-4da9-a991-255147a7c8f0",
         "type": "boolean"
       },
       "async": {
+        "x-id": "15af3cb6-962d-4887-af52-94f09d5ad787",
         "type": "boolean"
       },
       "throws": {
+        "x-id": "8e4e23ca-7bc4-4aae-92ca-551319afa8f0",
         "type": "array",
         "items": {
           "type": "string"
@@ -63,6 +71,7 @@
         "uniqueItems": true
       },
       "dependencies": {
+        "x-id": "436b1e04-d7e9-4456-8ba4-2244ff238bb8",
         "type": "array",
         "items": {
           "type": "string"
@@ -70,6 +79,7 @@
         "uniqueItems": true
       },
       "function": {
+        "x-id": "d374f3ad-a7ac-4bc6-8ed3-049032eedfc4",
         "type": "string",
         "contentMediaType": "text/typescript"
       }

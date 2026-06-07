@@ -29,6 +29,7 @@ import { QuickCapture } from '../components/shared/QuickCapture';
 import { CommandPalette } from '../components/shared/CommandPalette';
 import { SettingsPage } from './SettingsPage';
 import { LocationProvider } from '../context/LocationContext';
+import { KeycloakProvider } from '../auth/KeycloakProvider';
 import { useWorkspaceStore } from '../store/workspace';
 import { useSettingsStore, THEMES } from '../store/settings';
 import { useUiStore } from '../store/ui';
@@ -153,13 +154,15 @@ function StudioInner() {
 
 export function StudioPage() {
   return (
-    <QueryClientProvider client={qc}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <LocationProvider>
-          <StudioInner />
-        </LocationProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <KeycloakProvider>
+      <QueryClientProvider client={qc}>
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
+          <LocationProvider>
+            <StudioInner />
+          </LocationProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </KeycloakProvider>
   );
 }

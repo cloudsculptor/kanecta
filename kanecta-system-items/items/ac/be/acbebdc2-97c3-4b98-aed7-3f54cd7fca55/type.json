@@ -9,7 +9,11 @@
       "SQL",
       "columns",
       "indexes"
-    ]
+    ],
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -23,18 +27,22 @@
     ],
     "properties": {
       "name": {
+        "x-id": "d99b7fc4-7e34-46a8-a9c7-6697b22e14ca",
         "type": "string",
         "description": "Table name, e.g. crs_tsm_type_cfig"
       },
       "schema": {
+        "x-id": "57f523cf-9b06-4788-955a-195326039467",
         "type": "string",
         "description": "Schema or namespace, e.g. public, dbo, crs"
       },
       "database": {
+        "x-id": "35cf5c0d-8299-43c6-a03a-c50b787b9d1a",
         "type": "string",
         "description": "Database name or engine, e.g. crsprd, landonline"
       },
       "engine": {
+        "x-id": "35f11ea5-7ad3-469a-b249-66dd5984065d",
         "type": "string",
         "enum": [
           "PostgreSQL",
@@ -46,183 +54,30 @@
         ]
       },
       "description": {
+        "x-id": "b36f9c27-b2bc-4a31-ad3e-2201bd1b5ec9",
         "type": "string"
       },
-      "columns": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": [
-            "name",
-            "dataType"
-          ],
-          "properties": {
-            "name": {
-              "type": "string"
-            },
-            "dataType": {
-              "type": "string",
-              "description": "e.g. varchar(100), char(4), integer, boolean, lvarchar"
-            },
-            "nullable": {
-              "type": "boolean",
-              "default": true
-            },
-            "primaryKey": {
-              "type": "boolean",
-              "default": false
-            },
-            "foreignKey": {
-              "type": "object",
-              "properties": {
-                "table": {
-                  "type": "string"
-                },
-                "column": {
-                  "type": "string"
-                }
-              }
-            },
-            "unique": {
-              "type": "boolean",
-              "default": false
-            },
-            "default": {
-              "type": "string"
-            },
-            "description": {
-              "type": "string"
-            }
-          }
-        }
-      },
       "primaryKey": {
+        "x-id": "16247987-7312-466c-9449-7836281d976e",
         "type": "array",
         "items": {
           "type": "string"
         },
         "description": "Column name(s) that form the primary key"
       },
-      "indexes": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": [
-            "name",
-            "columns"
-          ],
-          "properties": {
-            "name": {
-              "type": "string"
-            },
-            "columns": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "unique": {
-              "type": "boolean",
-              "default": false
-            },
-            "type": {
-              "type": "string",
-              "enum": [
-                "btree",
-                "hash",
-                "gin",
-                "gist"
-              ]
-            }
-          }
-        }
-      },
-      "foreignKeys": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": [
-            "columns",
-            "referencedTable",
-            "referencedColumns"
-          ],
-          "properties": {
-            "name": {
-              "type": "string"
-            },
-            "columns": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "referencedTable": {
-              "type": "string"
-            },
-            "referencedColumns": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "onDelete": {
-              "type": "string",
-              "enum": [
-                "CASCADE",
-                "SET NULL",
-                "RESTRICT",
-                "NO ACTION"
-              ]
-            },
-            "onUpdate": {
-              "type": "string",
-              "enum": [
-                "CASCADE",
-                "SET NULL",
-                "RESTRICT",
-                "NO ACTION"
-              ]
-            }
-          }
-        }
-      },
-      "constraints": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": [
-            "name",
-            "type",
-            "expression"
-          ],
-          "properties": {
-            "name": {
-              "type": "string"
-            },
-            "type": {
-              "type": "string",
-              "enum": [
-                "CHECK",
-                "UNIQUE",
-                "NOT NULL"
-              ]
-            },
-            "expression": {
-              "type": "string"
-            }
-          }
-        }
-      },
       "audited": {
+        "x-id": "37a474ed-f980-4adb-a733-5fd5df32ea67",
         "type": "boolean",
         "default": false
       },
       "rowCount": {
+        "x-id": "c7ee10c3-6d01-4fab-b475-b053914dc7e4",
         "type": "integer",
         "minimum": 0,
         "description": "Approximate number of rows"
       },
       "access": {
+        "x-id": "f48d4259-32a8-4103-976f-826fbb6d93ca",
         "type": "string",
         "enum": [
           "R",
@@ -232,9 +87,13 @@
         "description": "Typical access pattern from application code"
       },
       "notes": {
+        "x-id": "08cdec69-3058-4453-80a5-985fccbb91a3",
         "type": "string",
         "contentMediaType": "text/markdown"
       }
     }
-  }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_acbebdc2_97c3_4b98_aed7_3f54cd7fca55\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"schema\" TEXT,\n    \"database\" TEXT,\n    \"engine\" TEXT,\n    \"description\" TEXT,\n    \"primary_key\" TEXT[] NOT NULL DEFAULT '{}',\n    \"audited\" BOOLEAN,\n    \"row_count\" INTEGER,\n    \"access\" TEXT,\n    \"notes\" TEXT,\n    CONSTRAINT \"pk_obj_acbebdc2_97c3_4b98_aed7_3f54cd7fca55\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_acbebdc297c34b98_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
 }

@@ -1,0 +1,33 @@
+{
+  "meta": {
+    "icon": "CompareArrows",
+    "description": "An alternative option considered in a decision or ADR.",
+    "keywords": "decision alternative",
+    "tags": "decision,alternative",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Decision Alternative",
+    "type": "object",
+    "properties": {
+      "option": {
+        "x-id": "8ec9e6a8-5cc3-4e7e-912f-1a4cf54c08e7",
+        "type": "string",
+        "description": "Description of the alternative."
+      },
+      "tradeoffs": {
+        "x-id": "8c777a13-c122-43e9-8e5e-a6141141b41e",
+        "type": "string",
+        "description": "Key tradeoffs of this option."
+      }
+    },
+    "required": []
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_acbace94_dee8_43da_854d_bfc1a656d1e6\" (\n    item_id UUID NOT NULL,\n    \"option\" TEXT,\n    \"tradeoffs\" TEXT,\n    CONSTRAINT \"pk_obj_acbace94_dee8_43da_854d_bfc1a656d1e6\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_acbace94dee843da_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

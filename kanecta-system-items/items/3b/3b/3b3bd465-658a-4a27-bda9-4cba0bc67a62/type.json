@@ -12,9 +12,13 @@
       "implementation"
     ],
     "tags": "",
-    "ai-instructions": {
+    "skills": {
       "claude": ""
-    }
+    },
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -27,52 +31,23 @@
     ],
     "properties": {
       "subject": {
+        "x-id": "41ee6deb-d755-4c00-b2b5-525658cbd7c8",
         "type": "string",
         "format": "uuid"
       },
       "assessedBy": {
+        "x-id": "288df104-ee33-4ce4-99fb-a62f7f817ddf",
         "type": "string"
       },
-      "blockers": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": [
-            "category",
-            "description",
-            "severity"
-          ],
-          "properties": {
-            "category": {
-              "type": "string",
-              "enum": [
-                "domain",
-                "codebase",
-                "repro",
-                "acceptance",
-                "context",
-                "other"
-              ]
-            },
-            "description": {
-              "type": "string"
-            },
-            "severity": {
-              "type": "string",
-              "enum": [
-                "blocking",
-                "significant",
-                "minor"
-              ]
-            }
-          }
-        }
-      },
       "readinessScore": {
+        "x-id": "65e763af-a8fc-4923-afe1-edc09f000894",
         "type": "number",
         "minimum": 0,
         "maximum": 10
       }
     }
-  }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_3b3bd465_658a_4a27_bda9_4cba0bc67a62\" (\n    item_id UUID NOT NULL,\n    \"subject\" UUID,\n    \"assessed_by\" TEXT,\n    \"readiness_score\" TEXT,\n    CONSTRAINT \"pk_obj_3b3bd465_658a_4a27_bda9_4cba0bc67a62\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_3b3bd465658a4a27_item\" FOREIGN KEY (item_id) REFERENCES items(id),\n    CONSTRAINT \"fk_3b3bd465658a4a27_subject\" FOREIGN KEY (\"subject\") REFERENCES items(id)\n)"
+  ]
 }

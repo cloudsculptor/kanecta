@@ -1,0 +1,48 @@
+{
+  "meta": {
+    "icon": "Loop",
+    "description": "A feedback or learning loop in a pipeline specification.",
+    "keywords": "learning loop",
+    "tags": "learning,loop",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Learning Loop",
+    "type": "object",
+    "properties": {
+      "name": {
+        "x-id": "58fc88fa-e2ce-43e9-bc45-8cda6a59ed62",
+        "type": "string",
+        "description": "Loop name."
+      },
+      "description": {
+        "x-id": "4d7efd77-1f5f-43cd-aeb7-f85bd56f809f",
+        "type": "string",
+        "description": "What is learned or fed back."
+      },
+      "type": {
+        "x-id": "8688d585-5d57-490f-b9da-dc8b1e3b2a61",
+        "type": "string",
+        "description": "Type of learning loop."
+      },
+      "effect": {
+        "x-id": "e19e7c4c-ecc8-466d-b196-6b0d8a1ead0c",
+        "type": "string",
+        "description": "Effect on the pipeline."
+      },
+      "status": {
+        "x-id": "baf7f52b-cc8d-49ab-a1f8-dd22e079e638",
+        "type": "string",
+        "description": "Status (e.g. planned, active)."
+      }
+    },
+    "required": []
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_4d061861_f599_4d64_9c9a_00a077a232da\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"description\" TEXT,\n    \"type\" TEXT,\n    \"effect\" TEXT,\n    \"status\" TEXT,\n    CONSTRAINT \"pk_obj_4d061861_f599_4d64_9c9a_00a077a232da\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_4d061861f5994d64_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

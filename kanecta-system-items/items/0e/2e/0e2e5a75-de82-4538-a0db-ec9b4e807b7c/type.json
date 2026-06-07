@@ -12,7 +12,7 @@
       "jira"
     ],
     "tags": "",
-    "ai-instructions": {
+    "skills": {
       "claude": ""
     }
   },
@@ -29,17 +29,21 @@
     ],
     "properties": {
       "title": {
+        "x-id": "c0d44062-200f-4761-82fa-cba22825e493",
         "type": "string"
       },
       "key": {
+        "x-id": "bef66b85-9ee2-44bb-b881-41498d92376a",
         "type": "string",
         "pattern": "^[A-Z]+-[0-9]+$"
       },
       "description": {
+        "x-id": "cb40f466-7d0d-41c2-85cd-48960cf8ee68",
         "type": "string",
         "contentMediaType": "text/markdown"
       },
       "issueType": {
+        "x-id": "99b93719-88ff-4cec-a0ab-87bde152e34c",
         "type": "string",
         "enum": [
           "Story",
@@ -50,6 +54,7 @@
         ]
       },
       "status": {
+        "x-id": "c17f4916-1ea0-4877-a094-09f67c1f9d26",
         "type": "string",
         "enum": [
           "Backlog",
@@ -61,6 +66,7 @@
         ]
       },
       "priority": {
+        "x-id": "a927a608-8bbe-4f13-b1de-b4a23b0e6295",
         "type": "string",
         "enum": [
           "Critical",
@@ -70,6 +76,7 @@
         ]
       },
       "resolution": {
+        "x-id": "2fad8b2a-e323-4687-84a6-100d8eec476c",
         "type": "string",
         "enum": [
           "Done",
@@ -79,32 +86,40 @@
         ]
       },
       "assignee": {
+        "x-id": "32fa2ab2-1788-433a-a082-82086b9693e9",
         "type": "string",
         "format": "email"
       },
       "reporter": {
+        "x-id": "ffe1922b-5283-4a1a-a4ec-c955539a3c6e",
         "type": "string",
         "format": "email"
       },
       "team": {
+        "x-id": "99bbdc03-eae3-4623-85f3-092bf8ccbe9b",
         "type": "string"
       },
       "epic": {
+        "x-id": "77873453-92bf-4125-9dfa-c0835a68eadf",
         "type": "string",
         "format": "uuid"
       },
       "parentTicket": {
+        "x-id": "2c0a7a89-e2c5-4c1b-a209-a7d89bbb1ede",
         "type": "string",
         "format": "uuid"
       },
       "sprint": {
+        "x-id": "76b47a5e-d5c2-4233-a883-55cbde4fd2d8",
         "type": "string"
       },
       "storyPoints": {
+        "x-id": "9a70a88b-4d52-4ae9-a9eb-14afae7c603b",
         "type": "number",
         "minimum": 0
       },
       "tShirtSize": {
+        "x-id": "baf6f7e2-7a5a-4143-8e5b-bbd4b759871c",
         "type": "string",
         "enum": [
           "XS",
@@ -115,6 +130,7 @@
         ]
       },
       "acceptanceCriteria": {
+        "x-id": "35c9212e-1995-45b3-a089-ba1d1dc0c49d",
         "type": "array",
         "items": {
           "type": "string",
@@ -123,6 +139,7 @@
         "uniqueItems": true
       },
       "subtasks": {
+        "x-id": "d9e29f31-163b-4614-af0b-550235316dc5",
         "type": "array",
         "items": {
           "type": "string",
@@ -131,6 +148,7 @@
         "uniqueItems": true
       },
       "blockedBy": {
+        "x-id": "2e11aaf4-4c11-4d45-a513-77470c94d2bc",
         "type": "array",
         "items": {
           "type": "string",
@@ -139,6 +157,7 @@
         "uniqueItems": true
       },
       "blocks": {
+        "x-id": "8a3daa71-ed83-48c8-9c31-e0e908de261d",
         "type": "array",
         "items": {
           "type": "string",
@@ -147,6 +166,7 @@
         "uniqueItems": true
       },
       "relatedTo": {
+        "x-id": "655a4709-ceac-4d84-bd9f-adaeb154f2f4",
         "type": "array",
         "items": {
           "type": "string",
@@ -155,6 +175,7 @@
         "uniqueItems": true
       },
       "labels": {
+        "x-id": "639ef35b-4dbb-4aa5-ae98-67d7ef6afba9",
         "type": "array",
         "items": {
           "type": "string"
@@ -162,6 +183,7 @@
         "uniqueItems": true
       },
       "components": {
+        "x-id": "9a77327b-4b87-483c-aba3-3f8e3186db4c",
         "type": "array",
         "items": {
           "type": "string"
@@ -169,6 +191,7 @@
         "uniqueItems": true
       },
       "fixVersions": {
+        "x-id": "1541c566-464e-4b64-8273-b8a34e0de5d4",
         "type": "array",
         "items": {
           "type": "string"
@@ -176,13 +199,18 @@
         "uniqueItems": true
       },
       "dueDate": {
+        "x-id": "3744aeaf-fe46-4c81-848f-62cd3948fa9d",
         "type": "string",
         "format": "date"
       },
       "resolvedAt": {
+        "x-id": "3f8f5c31-2882-427b-abe5-c4b24ed73f77",
         "type": "string",
         "format": "date-time"
       }
     }
-  }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_0e2e5a75_de82_4538_a0db_ec9b4e807b7c\" (\n    item_id UUID NOT NULL,\n    \"title\" TEXT,\n    \"key\" TEXT,\n    \"description\" TEXT,\n    \"issue_type\" TEXT,\n    \"status\" TEXT,\n    \"priority\" TEXT,\n    \"resolution\" TEXT,\n    \"assignee\" TEXT,\n    \"reporter\" TEXT,\n    \"team\" TEXT,\n    \"epic\" UUID,\n    \"parent_ticket\" UUID,\n    \"sprint\" TEXT,\n    \"story_points\" NUMERIC,\n    \"t_shirt_size\" TEXT,\n    \"acceptance_criteria\" TEXT[] NOT NULL DEFAULT '{}',\n    \"subtasks\" TEXT[] NOT NULL DEFAULT '{}',\n    \"blocked_by\" TEXT[] NOT NULL DEFAULT '{}',\n    \"blocks\" TEXT[] NOT NULL DEFAULT '{}',\n    \"related_to\" TEXT[] NOT NULL DEFAULT '{}',\n    \"labels\" TEXT[] NOT NULL DEFAULT '{}',\n    \"components\" TEXT[] NOT NULL DEFAULT '{}',\n    \"fix_versions\" TEXT[] NOT NULL DEFAULT '{}',\n    \"due_date\" TEXT,\n    \"resolved_at\" TIMESTAMPTZ,\n    CONSTRAINT \"pk_obj_0e2e5a75_de82_4538_a0db_ec9b4e807b7c\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_0e2e5a75de824538_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
 }

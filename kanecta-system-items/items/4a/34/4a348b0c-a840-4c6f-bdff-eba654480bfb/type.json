@@ -11,7 +11,7 @@
       "type"
     ],
     "tags": "",
-    "ai-instructions": {
+    "skills": {
       "claude": "The 'types' array accepts either: (1) a Kanecta type UUID referencing a type definition whose JSON schema will be converted to a TypeScript type, or (2) a TypeScript primitive string such as 'string', 'number', 'boolean', 'Date', 'any', 'unknown', 'void', 'null', 'undefined', 'never'."
     }
   },
@@ -26,9 +26,11 @@
     ],
     "properties": {
       "name": {
+        "x-id": "4eefb458-b6ae-4208-8bc8-026e627e72f1",
         "type": "string"
       },
       "types": {
+        "x-id": "fa5012af-eea1-4c18-89d4-07f8bd94719b",
         "type": "array",
         "items": {
           "type": "string"
@@ -36,18 +38,23 @@
         "uniqueItems": true
       },
       "description": {
+        "x-id": "1799df4c-d215-43ce-925b-649151b7ccfb",
         "type": "string"
       },
       "prompt": {
+        "x-id": "6d453a70-1f87-42e3-b223-e29864636543",
         "type": "string"
       },
       "nullable": {
+        "x-id": "58dc6d27-aafa-4f85-bc77-bf15fb7ad1f8",
         "type": "boolean"
       },
       "optional": {
+        "x-id": "98678be0-aee1-4034-aaf1-f5e34585f278",
         "type": "boolean"
       },
       "defaultValue": {
+        "x-id": "0ed12971-4ff6-44f7-b994-b6dc21696bab",
         "type": "string"
       }
     }

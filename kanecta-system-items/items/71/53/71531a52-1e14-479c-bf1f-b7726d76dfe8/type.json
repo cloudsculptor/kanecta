@@ -1,0 +1,59 @@
+{
+  "meta": {
+    "icon": "Link",
+    "description": "A foreign key constraint on a database table.",
+    "keywords": "database table foreign key",
+    "tags": "database,table,foreign,key",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Database Table Foreign Key",
+    "type": "object",
+    "properties": {
+      "name": {
+        "x-id": "b7261886-3160-4246-ae4f-fbff0fb346a3",
+        "type": "string",
+        "description": "Constraint name."
+      },
+      "columns": {
+        "x-id": "39b210d7-6386-4736-8a3a-c9cf5d3c3e84",
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Local column names."
+      },
+      "referencedTable": {
+        "x-id": "89602718-5ab5-4e09-a0b2-5aeac258bc10",
+        "type": "string",
+        "description": "Referenced table name."
+      },
+      "referencedColumns": {
+        "x-id": "918a3085-6c5d-461a-bc7f-825942946655",
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Referenced column names."
+      },
+      "onDelete": {
+        "x-id": "bad2798c-1717-490e-a2da-6849d22a3122",
+        "type": "string",
+        "description": "ON DELETE behaviour (e.g. CASCADE, SET NULL)."
+      },
+      "onUpdate": {
+        "x-id": "131d579b-a460-4d80-9211-e6cd038c3aff",
+        "type": "string",
+        "description": "ON UPDATE behaviour."
+      }
+    },
+    "required": []
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_71531a52_1e14_479c_bf1f_b7726d76dfe8\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"columns\" TEXT[] NOT NULL DEFAULT '{}',\n    \"referenced_table\" TEXT,\n    \"referenced_columns\" TEXT[] NOT NULL DEFAULT '{}',\n    \"on_delete\" TEXT,\n    \"on_update\" TEXT,\n    CONSTRAINT \"pk_obj_71531a52_1e14_479c_bf1f_b7726d76dfe8\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_71531a521e14479c_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}

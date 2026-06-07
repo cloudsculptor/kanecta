@@ -1,24 +1,40 @@
 'use strict';
 
+class ApiError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
 class KanectaApiClient {
+  // `token` may be a static string, or a (possibly async) function returning
+  // the current token — needed for Keycloak-backed deployments, where the
+  // access token expires and is refreshed in place behind the scenes.
   constructor(baseUrl, token) {
     this._base = baseUrl.replace(/\/$/, '');
     this._token = token;
   }
 
+  async _resolveToken() {
+    return typeof this._token === 'function' ? await this._token() : this._token;
+  }
+
   async _fetch(method, path, body) {
     const headers = { 'Content-Type': 'application/json' };
-    if (this._token) headers['Authorization'] = `Bearer ${this._token}`;
+    const token = await this._resolveToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
     const res = await fetch(`${this._base}${path}`, {
       method,
       headers,
       body: body != null ? JSON.stringify(body) : undefined,
     });
+    const responseBody = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      throw new Error(`Kanecta API ${res.status}: ${text}`);
+      throw new ApiError(res.status, responseBody.error ?? res.statusText);
     }
-    return res.json();
+    return responseBody;
   }
 
   // ─── Config / system ────────────────────────────────────────────────────────
@@ -75,6 +91,7 @@ class KanectaApiClient {
       uncomplete: (id, actor) => c._fetch('POST', `/items/${id}/uncomplete`, actor ? { actor } : {}),
       getFunction: (id) => c._fetch('GET', `/items/${id}/function`),
       saveFunction: (id, payload) => c._fetch('PUT', `/items/${id}/function`, payload),
+      getFunctionPackageJson: (id) => c._fetch('GET', `/items/${id}/function/package-json`),
       getFunctionScaffold: (id) => c._fetch('GET', `/items/${id}/function/scaffold`),
       compileFunction: (id) => c._fetch('POST', `/items/${id}/function/compile`, {}),
       runFunction: (id, args = {}) => c._fetch('POST', `/items/${id}/function/run`, { args }),
@@ -147,25 +164,57 @@ class KanectaApiClient {
     };
   }
 
-  // ─── Studio ──────────────────────────────────────────────────────────────────
+  // ─── Starred ─────────────────────────────────────────────────────────────────
 
-  get studio() {
+  get starred() {
     const c = this;
     return {
-      getStarred: () => c._fetch('GET', '/app/studio/starred'),
-      addStarred: (payload) => c._fetch('POST', '/app/studio/starred', payload),
-      removeStarred: (id) => c._fetch('DELETE', `/app/studio/starred/${id}`),
-      getView: (id) => c._fetch('GET', `/app/studio/view/${id}`),
-      saveView: (id, payload) => c._fetch('PUT', `/app/studio/view/${id}`, payload),
-      getSyncSystemItems: () => c._fetch('GET', '/app/studio/sync-system-items'),
-      importSystemItems: (folderIds) =>
+      get: () => c._fetch('GET', '/app/studio/starred'),
+      add: (payload) => c._fetch('POST', '/app/studio/starred', payload),
+      remove: (id) => c._fetch('DELETE', `/app/studio/starred/${id}`),
+    };
+  }
+
+  // ─── View ────────────────────────────────────────────────────────────────────
+
+  get view() {
+    const c = this;
+    return {
+      get: (id) => c._fetch('GET', `/app/studio/view/${id}`),
+      save: (id, payload) => c._fetch('PUT', `/app/studio/view/${id}`, payload),
+    };
+  }
+
+  // ─── System items ────────────────────────────────────────────────────────────
+
+  get systemItems() {
+    const c = this;
+    return {
+      getSync: () => c._fetch('GET', '/app/studio/sync-system-items'),
+      import: (folderIds) =>
         c._fetch('POST', '/app/studio/sync-system-items/import', { folderIds }),
-      exportSystemItems: (typeIds) =>
+      export: (typeIds) =>
         c._fetch('POST', '/app/studio/sync-system-items/export', { typeIds }),
-      getSettings: () => c._fetch('GET', '/app/studio/settings'),
-      saveSettings: (payload) => c._fetch('POST', '/app/studio/settings', payload),
-      getLayouts: () => c._fetch('GET', '/app/studio/layouts'),
-      saveLayouts: (payload) => c._fetch('PUT', '/app/studio/layouts', payload),
+    };
+  }
+
+  // ─── Settings ────────────────────────────────────────────────────────────────
+
+  get settings() {
+    const c = this;
+    return {
+      get: () => c._fetch('GET', '/app/studio/settings'),
+      save: (payload) => c._fetch('POST', '/app/studio/settings', payload),
+    };
+  }
+
+  // ─── Layouts ─────────────────────────────────────────────────────────────────
+
+  get layouts() {
+    const c = this;
+    return {
+      get: () => c._fetch('GET', '/app/studio/layouts'),
+      save: (payload) => c._fetch('PUT', '/app/studio/layouts', payload),
     };
   }
 
@@ -193,10 +242,13 @@ class KanectaApiClient {
     return {
       createSession: (prompt, workingDir) =>
         c._fetch('POST', '/claude/sessions', { prompt, workingDir }),
+      // URL suitable for `new EventSource(url)`
+      streamUrl: (id) => `${c._base}/claude/sessions/${id}/stream`,
       // Returns a raw fetch Response with an event-stream body
-      streamSession: (id) => {
+      streamSession: async (id) => {
         const headers = { Accept: 'text/event-stream' };
-        if (c._token) headers['Authorization'] = `Bearer ${c._token}`;
+        const token = await c._resolveToken();
+        if (token) headers['Authorization'] = `Bearer ${token}`;
         return fetch(`${c._base}/claude/sessions/${id}/stream`, { headers });
       },
       respond: (id, approved) =>
@@ -210,12 +262,15 @@ class KanectaApiClient {
  * Create a Kanecta API client.
  *
  * Reads KANECTA_API_URL (default http://localhost:3001) and KANECTA_TOKEN
- * from the environment unless overridden via options.
+ * from the environment unless overridden via options. `options.token` may
+ * also be a (possibly async) function returning the current token, for
+ * deployments where it's refreshed in place (e.g. Keycloak).
  */
 function createApiClient(options = {}) {
-  const baseUrl = options.baseUrl ?? process.env.KANECTA_API_URL ?? 'http://localhost:3001';
-  const token = options.token ?? process.env.KANECTA_TOKEN;
+  const env = typeof process !== 'undefined' && process.env ? process.env : {};
+  const baseUrl = options.baseUrl ?? env.KANECTA_API_URL ?? 'http://localhost:3001';
+  const token = options.token ?? env.KANECTA_TOKEN;
   return new KanectaApiClient(baseUrl, token);
 }
 
-module.exports = { createApiClient, KanectaApiClient };
+module.exports = { createApiClient, KanectaApiClient, ApiError };

@@ -1,1 +1,73 @@
-{"meta":{"icon":"Hub","description":"A deployed microservice or backend application","keywords":"service microservice backend application API","tags":"software,development,infrastructure"},"jsonSchema":{"$schema":"http://json-schema.org/draft-07/schema#","title":"Service","type":"object","required":["name"],"properties":{"name":{"type":"string"},"description":{"type":"string"},"repository":{"type":"string"},"language":{"type":"string"},"team":{"type":"string"},"owner":{"type":"string","format":"email"},"deployments":{"type":"array","items":{"type":"object","required":["environment","url"],"properties":{"environment":{"type":"string","enum":["development","staging","production"]},"url":{"type":"string","format":"uri"}}}},"dependencies":{"type":"array","items":{"type":"string"}},"healthCheckUrl":{"type":"string","format":"uri"},"runbook":{"type":"string"},"tags":{"type":"array","items":{"type":"string"}}}}}
+{
+  "meta": {
+    "icon": "Hub",
+    "description": "A deployed microservice or backend application",
+    "keywords": "service microservice backend application API",
+    "tags": "software,development,infrastructure",
+    "sync": [],
+    "supersededBy": [],
+    "implements": [],
+    "extends": []
+  },
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Service",
+    "type": "object",
+    "required": [
+      "name"
+    ],
+    "properties": {
+      "name": {
+        "x-id": "d22934bf-ff9d-4f55-bd3b-df5b9c7b4a6c",
+        "type": "string"
+      },
+      "description": {
+        "x-id": "fa56a31d-38d3-490f-82b9-c4481ac38698",
+        "type": "string"
+      },
+      "repository": {
+        "x-id": "0649f423-6ca1-4146-b0ef-ddb7591f687b",
+        "type": "string"
+      },
+      "language": {
+        "x-id": "4ca17b4b-6985-4e1b-9b27-1e714128b716",
+        "type": "string"
+      },
+      "team": {
+        "x-id": "3acab5b3-3fad-4910-9388-67fb688090d1",
+        "type": "string"
+      },
+      "owner": {
+        "x-id": "ac9d03ff-d122-4cb3-b716-21d72fce1137",
+        "type": "string",
+        "format": "email"
+      },
+      "dependencies": {
+        "x-id": "15d7beca-8012-4c04-9818-b9f81f35b8b1",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "healthCheckUrl": {
+        "x-id": "6b95c796-6fcc-4089-af05-118313b8747c",
+        "type": "string",
+        "format": "uri"
+      },
+      "runbook": {
+        "x-id": "53961495-26f5-4b06-9e67-7c41e217eb1d",
+        "type": "string"
+      },
+      "tags": {
+        "x-id": "2503d6af-8b5b-4e57-9762-52fa5564f14d",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_68b4c3a2_266c_4a4e_b7dc_507a06ba95a5\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"description\" TEXT,\n    \"repository\" TEXT,\n    \"language\" TEXT,\n    \"team\" TEXT,\n    \"owner\" TEXT,\n    \"dependencies\" TEXT[] NOT NULL DEFAULT '{}',\n    \"health_check_url\" TEXT,\n    \"runbook\" TEXT,\n    \"tags\" TEXT[] NOT NULL DEFAULT '{}',\n    CONSTRAINT \"pk_obj_68b4c3a2_266c_4a4e_b7dc_507a06ba95a5\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_68b4c3a2266c4a4e_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
+}
