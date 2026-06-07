@@ -72,5 +72,8 @@
         }
       }
     }
-  }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_7a52909c_07ba_4a90_9034_425dc9dc5028\" (\n    item_id UUID NOT NULL,\n    \"title\" TEXT,\n    \"description\" TEXT,\n    \"outcome\" TEXT,\n    \"status\" TEXT,\n    \"owner\" TEXT,\n    \"due_date\" DATE,\n    \"next_action\" TEXT,\n    \"areas\" TEXT[] NOT NULL DEFAULT '{}',\n    \"related_goals\" TEXT[] NOT NULL DEFAULT '{}',\n    \"tags\" TEXT[] NOT NULL DEFAULT '{}',\n    CONSTRAINT \"pk_obj_7a52909c_07ba_4a90_9034_425dc9dc5028\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_7a52909c07ba4a90_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
 }

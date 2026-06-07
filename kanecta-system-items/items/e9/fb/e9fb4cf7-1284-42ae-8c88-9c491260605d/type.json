@@ -103,5 +103,8 @@
         }
       }
     }
-  }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_e9fb4cf7_1284_42ae_8c88_9c491260605d\" (\n    item_id UUID NOT NULL,\n    \"title\" TEXT,\n    \"description\" TEXT,\n    \"severity\" TEXT,\n    \"priority\" TEXT,\n    \"status\" TEXT,\n    \"steps_to_reproduce\" TEXT,\n    \"expected_behaviour\" TEXT,\n    \"actual_behaviour\" TEXT,\n    \"affected_version\" TEXT,\n    \"fix_version\" TEXT,\n    \"assignee\" TEXT,\n    \"reporter\" TEXT,\n    \"environment\" TEXT,\n    \"linked_tickets\" TEXT[] NOT NULL DEFAULT '{}',\n    \"labels\" TEXT[] NOT NULL DEFAULT '{}',\n    CONSTRAINT \"pk_obj_e9fb4cf7_1284_42ae_8c88_9c491260605d\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_e9fb4cf7128442ae_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
 }

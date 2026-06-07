@@ -21,5 +21,8 @@
         "type": "string"
       }
     }
-  }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_2a4da60e_2832_4fcc_8d98_af3be86e419f\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    CONSTRAINT \"pk_obj_2a4da60e_2832_4fcc_8d98_af3be86e419f\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_2a4da60e28324fcc_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
 }

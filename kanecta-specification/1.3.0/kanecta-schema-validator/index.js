@@ -23,8 +23,8 @@ const ALL_ITEM_TYPES = new Set([
   // structured
   'object','decision','annotation','claim','question','task','note',
   'concept','entity','event',
-  // well-known
-  'root','system_root','app_root','system_type','primitive','structure',
+  // well-known (the five singleton root nodes — see specification.md)
+  'root','system_root','app_root','component_root','data_root',
   // type-definition records
   'type',
 ]);

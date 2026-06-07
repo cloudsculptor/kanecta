@@ -58,5 +58,8 @@
         }
       }
     }
-  }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_6359d7f8_378c_4174_8b8f_d5a7140f394f\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"description\" TEXT,\n    \"mission\" TEXT,\n    \"lead\" TEXT,\n    \"members\" TEXT[] NOT NULL DEFAULT '{}',\n    \"slack_channel\" TEXT,\n    \"confluence_space\" TEXT,\n    \"oncall_rotation\" TEXT,\n    \"tags\" TEXT[] NOT NULL DEFAULT '{}',\n    CONSTRAINT \"pk_obj_6359d7f8_378c_4174_8b8f_d5a7140f394f\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_6359d7f8378c4174_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
 }
