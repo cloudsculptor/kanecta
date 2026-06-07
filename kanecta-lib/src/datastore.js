@@ -86,67 +86,67 @@ class Datastore {
 
   // ─── Item CRUD ─────────────────────────────────────────────────────────────
 
-  create(opts)                         { return this._adapter.create(opts); }
-  get(id)                              { return this._adapter.get(id); }
-  update(id, changes, actor)           { return this._adapter.update(id, changes, actor); }
-  delete(id, actor)                    { return this._adapter.delete(id, actor); }
-  deleteWarnings(id)                   { return this._adapter.deleteWarnings(id); }
-  createType(value, opts)              { return this._adapter.createType(value, opts); }
+  async create(opts)                         { return this._adapter.create(opts); }
+  async get(id)                              { return this._adapter.get(id); }
+  async update(id, changes, actor)           { return this._adapter.update(id, changes, actor); }
+  async delete(id, actor)                    { return this._adapter.delete(id, actor); }
+  async deleteWarnings(id)                   { return this._adapter.deleteWarnings(id); }
+  async createType(value, opts)              { return this._adapter.createType(value, opts); }
 
   // ─── Aliases ───────────────────────────────────────────────────────────────
 
-  resolve(idOrAlias)                   { return this._adapter.resolve(idOrAlias); }
-  resolveAlias(alias)                  { return this._adapter.resolveAlias(alias); }
-  setAlias(alias, id)                  { return this._adapter.setAlias(alias, id); }
-  removeAlias(alias)                   { return this._adapter.removeAlias(alias); }
-  listAliases()                        { return this._adapter.listAliases(); }
+  async resolve(idOrAlias)                   { return this._adapter.resolve(idOrAlias); }
+  async resolveAlias(alias)                  { return this._adapter.resolveAlias(alias); }
+  async setAlias(alias, id)                  { return this._adapter.setAlias(alias, id); }
+  async removeAlias(alias)                   { return this._adapter.removeAlias(alias); }
+  async listAliases()                        { return this._adapter.listAliases(); }
 
   // ─── Annotations ───────────────────────────────────────────────────────────
 
-  annotate(targetId, opts)             { return this._adapter.annotate(targetId, opts); }
-  annotations(targetId)               { return this._adapter.annotations(targetId); }
+  async annotate(targetId, opts)             { return this._adapter.annotate(targetId, opts); }
+  async annotations(targetId)               { return this._adapter.annotations(targetId); }
 
   // ─── Relationships ─────────────────────────────────────────────────────────
 
-  relate(sourceId, type, targetId, opts) { return this._adapter.relate(sourceId, type, targetId, opts); }
-  get relTypes()                       { return this._adapter.relTypes; }
-  addRelTypes(names)                   { return this._adapter.addRelTypes(names); }
-  relationships(id)                    { return this._adapter.relationships(id); }
-  backlinks(id)                        { return this._adapter.backlinks(id); }
-  listRelationships()                  { return this._adapter.listRelationships(); }
+  async relate(sourceId, type, targetId, opts) { return this._adapter.relate(sourceId, type, targetId, opts); }
+  get relTypes()                             { return this._adapter.relTypes; }
+  async addRelTypes(names)                   { return this._adapter.addRelTypes(names); }
+  async relationships(id)                    { return this._adapter.relationships(id); }
+  async backlinks(id)                        { return this._adapter.backlinks(id); }
+  async listRelationships()                  { return this._adapter.listRelationships(); }
 
   // ─── History ───────────────────────────────────────────────────────────────
 
-  history(id)                          { return this._adapter.history(id); }
+  async history(id)                          { return this._adapter.history(id); }
 
   // ─── Queries ───────────────────────────────────────────────────────────────
 
-  byTag(tag)                           { return this._adapter.byTag(tag); }
-  byType(typeId)                       { return this._adapter.byType(typeId); }
-  query(opts)                          { return this._adapter.query(opts); }
+  async byTag(tag)                           { return this._adapter.byTag(tag); }
+  async byType(typeId)                       { return this._adapter.byType(typeId); }
+  async query(opts)                          { return this._adapter.query(opts); }
 
   // ─── Tree ──────────────────────────────────────────────────────────────────
 
-  loadAll()                            { return this._adapter.loadAll(); }
-  children(parentId)                   { return this._adapter.children(parentId); }
-  tree(rootId, maxDepth)               { return this._adapter.tree(rootId, maxDepth); }
-  readObjectJson(id)                   { return this._adapter.readObjectJson(id); }
-  writeObjectJson(id, data)            { return this._adapter.writeObjectJson(id, data); }
-  readFunctionJson(id)                 { return this._adapter.readFunctionJson(id); }
-  writeFunctionJson(id, data)          { return this._adapter.writeFunctionJson(id, data); }
-  getRoot()                            { return this._adapter.getRoot(); }
-  getDataRoot()                        { return this._adapter.getDataRoot(); }
+  async loadAll()                            { return this._adapter.loadAll(); }
+  async children(parentId)                   { return this._adapter.children(parentId); }
+  async tree(rootId, maxDepth)               { return this._adapter.tree(rootId, maxDepth); }
+  async readObjectJson(id)                   { return this._adapter.readObjectJson(id); }
+  async writeObjectJson(id, data)            { return this._adapter.writeObjectJson(id, data); }
+  async readFunctionJson(id)                 { return this._adapter.readFunctionJson(id); }
+  async writeFunctionJson(id, data)          { return this._adapter.writeFunctionJson(id, data); }
+  async getRoot()                            { return this._adapter.getRoot(); }
+  async getDataRoot()                        { return this._adapter.getDataRoot(); }
 
   // ─── File store ────────────────────────────────────────────────────────────
 
-  putFile(itemId, filename, body, opts)  { return this._adapter.putFile(itemId, filename, body, opts); }
-  getFile(itemId, filename)              { return this._adapter.getFile(itemId, filename); }
-  deleteFile(itemId, filename)           { return this._adapter.deleteFile(itemId, filename); }
-  listFiles(itemId)                      { return this._adapter.listFiles(itemId); }
+  async putFile(itemId, filename, body, opts)  { return this._adapter.putFile(itemId, filename, body, opts); }
+  async getFile(itemId, filename)              { return this._adapter.getFile(itemId, filename); }
+  async deleteFile(itemId, filename)           { return this._adapter.deleteFile(itemId, filename); }
+  async listFiles(itemId)                      { return this._adapter.listFiles(itemId); }
 
   // ─── Index maintenance ─────────────────────────────────────────────────────
 
-  rebuildIndexes()                     { return this._adapter.rebuildIndexes(); }
+  async rebuildIndexes()                     { return this._adapter.rebuildIndexes(); }
 }
 
 module.exports = { Datastore, ROOT_ID, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE };

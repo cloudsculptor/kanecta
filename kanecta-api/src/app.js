@@ -68,30 +68,30 @@ function isValidId(str) {
   return isUuid(str) || isSyntheticId(str);
 }
 
-function withChildCounts(ds, items) {
-  const all = ds.loadAll();
+async function withChildCounts(ds, items) {
+  const all = await ds.loadAll();
   const counts = new Map();
   for (const item of all) {
     if (item.id !== item.parentId && item.parentId != null) {
       counts.set(item.parentId, (counts.get(item.parentId) || 0) + 1);
     }
   }
-  return items.map(item => {
+  return Promise.all(items.map(async item => {
     if (item._synthetic) return item;
     const realCount = counts.get(item.id) || 0;
-    const obj = ds.readObjectJson(item.id);
+    const obj = await ds.readObjectJson(item.id);
     const synCount = obj ? Object.keys(obj).length : 0;
     return { ...item, childCount: realCount + synCount, _hasObject: synCount > 0 };
-  });
+  }));
 }
 
-function getAncestorChain(ds, id) {
+async function getAncestorChain(ds, id) {
   const ancestors = [];
   const seen = new Set([id]);
-  let item = ds.get(id);
+  let item = await ds.get(id);
   while (item && item.parentId && item.parentId !== item.id && !seen.has(item.parentId)) {
     seen.add(item.parentId);
-    const parent = ds.get(item.parentId);
+    const parent = await ds.get(item.parentId);
     if (!parent) break;
     ancestors.unshift({ id: parent.id, value: parent.value, type: parent.type });
     item = parent;
@@ -99,18 +99,18 @@ function getAncestorChain(ds, id) {
   return ancestors;
 }
 
-function collectSubtreeIds(ds, id) {
+async function collectSubtreeIds(ds, id) {
   const ids = [id];
-  for (const child of ds.children(id)) {
-    ids.push(...collectSubtreeIds(ds, child.id));
+  for (const child of await ds.children(id)) {
+    ids.push(...await collectSubtreeIds(ds, child.id));
   }
   return ids;
 }
 
-function cloneSubtree(ds, sourceId, targetParentId, actor) {
-  const source = ds.get(sourceId);
+async function cloneSubtree(ds, sourceId, targetParentId, actor) {
+  const source = await ds.get(sourceId);
   if (!source) return null;
-  const cloned = ds.create({
+  const cloned = await ds.create({
     parentId: targetParentId,
     value: source.value,
     type: source.type,
@@ -121,8 +121,8 @@ function cloneSubtree(ds, sourceId, targetParentId, actor) {
     license: source.license || null,
     owner: actor || source.owner,
   });
-  for (const child of ds.children(sourceId)) {
-    cloneSubtree(ds, child.id, cloned.id, actor);
+  for (const child of await ds.children(sourceId)) {
+    await cloneSubtree(ds, child.id, cloned.id, actor);
   }
   return cloned;
 }
@@ -235,7 +235,7 @@ app.get('/search', async (req, res) => {
     return res.status(400).json({ error: 'limit must be a positive integer' });
   if (rootId && !isUuid(rootId))
     return res.status(400).json({ error: 'Invalid UUID format for rootId' });
-  if (rootId && !ds.get(rootId))
+  if (rootId && !await ds.get(rootId))
     return res.status(404).json({ error: `rootId not found: ${rootId}` });
 
   let fieldsArr;
@@ -247,29 +247,29 @@ app.get('/search', async (req, res) => {
 
   const queryLower = q.toLowerCase();
 
-  let candidates = ds.loadAll()
-    .filter(i => {
-      if (i.value && typeof i.value === 'string' && i.value.toLowerCase().includes(queryLower)) {
-        return true;
-      }
-      if (i.type === 'object') {
-        const objectData = ds.readObjectJson(i.id);
-        if (matchObjectData(objectData, queryLower, fieldsArr)) {
-          return true;
-        }
-      }
-      return false;
-    });
+  const allItems = await ds.loadAll();
+  let candidates = [];
+  for (const i of allItems) {
+    if (i.value && typeof i.value === 'string' && i.value.toLowerCase().includes(queryLower)) {
+      candidates.push(i);
+    } else if (i.type === 'object') {
+      const objectData = await ds.readObjectJson(i.id);
+      if (matchObjectData(objectData, queryLower, fieldsArr)) candidates.push(i);
+    }
+  }
 
   if (rootId) {
-    const subtreeIds = new Set(collectSubtreeIds(ds, rootId));
+    const subtreeIds = new Set(await collectSubtreeIds(ds, rootId));
     candidates = candidates.filter(i => subtreeIds.has(i.id));
   }
 
-  const results = candidates
+  const sorted = candidates
     .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
-    .slice(0, maxResults)
-    .map(item => ({ ...item, ancestors: getAncestorChain(ds, item.id) }));
+    .slice(0, maxResults);
+
+  const results = await Promise.all(
+    sorted.map(async item => ({ ...item, ancestors: await getAncestorChain(ds, item.id) }))
+  );
 
   res.json({ query: q, count: results.length, results });
 });
@@ -280,9 +280,9 @@ app.get('/search', async (req, res) => {
 app.get('/items', async (req, res) => {
   const ds = await openDatastore(res);
   if (!ds) return;
-  const dataRoot = ds.getDataRoot();
-  const items = dataRoot ? ds.children(dataRoot.id) : [];
-  res.json(withChildCounts(ds, items));
+  const dataRoot = await ds.getDataRoot();
+  const items = dataRoot ? await ds.children(dataRoot.id) : [];
+  res.json(await withChildCounts(ds, items));
 });
 
 // POST /items/bulk — create multiple items in one call
@@ -308,8 +308,8 @@ app.post('/items/bulk', async (req, res) => {
       continue;
     }
     try {
-      const item = ds.create({ parentId, value, type, typeId, owner, license, sortOrder, confidence, status, tags, createdBy, objectData });
-      if (alias) ds.setAlias(alias, item.id);
+      const item = await ds.create({ parentId, value, type, typeId, owner, license, sortOrder, confidence, status, tags, createdBy, objectData });
+      if (alias) await ds.setAlias(alias, item.id);
       created.push(item);
     } catch (err) {
       errors.push({ index: i, error: err.message });
@@ -334,12 +334,12 @@ app.post('/items', async (req, res) => {
     return res.status(400).json({ error: `Invalid confidence: ${confidence}. Valid: ${VALID_CONFIDENCES.join(', ')}` });
   if (parentId !== null && !isUuid(parentId))
     return res.status(400).json({ error: `Invalid parentId: ${parentId}` });
-  if (parentId && !ds.get(parentId))
+  if (parentId && !await ds.get(parentId))
     return res.status(404).json({ error: `Parent not found: ${parentId}` });
 
   try {
-    const item = ds.create({ parentId, value, type, typeId, owner, license, sortOrder, confidence, status, tags, createdBy, objectData });
-    if (alias) ds.setAlias(alias, item.id);
+    const item = await ds.create({ parentId, value, type, typeId, owner, license, sortOrder, confidence, status, tags, createdBy, objectData });
+    if (alias) await ds.setAlias(alias, item.id);
     res.status(201).json(item);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -359,12 +359,12 @@ app.patch('/items/bulk', async (req, res) => {
   for (const [i, { id, ...changes }] of updates.entries()) {
     if (!id) { errors.push({ index: i, error: 'id is required' }); continue; }
     if (!isUuid(id)) { errors.push({ index: i, error: `Invalid UUID: ${id}` }); continue; }
-    if (!ds.get(id)) { errors.push({ index: i, id, error: 'Not found' }); continue; }
+    if (!await ds.get(id)) { errors.push({ index: i, id, error: 'Not found' }); continue; }
     if ('type' in changes && !VALID_TYPES.includes(changes.type)) {
       errors.push({ index: i, id, error: `Invalid type: ${changes.type}` }); continue;
     }
     try {
-      updated.push(ds.update(id, changes, req.body.actor));
+      updated.push(await ds.update(id, changes, req.body.actor));
     } catch (err) {
       errors.push({ index: i, id, error: err.message });
     }
@@ -437,7 +437,7 @@ app.get('/items/stats', async (req, res) => {
 app.get('/items/root', async (req, res) => {
   const ds = await openDatastore(res);
   if (!ds) return;
-  const dataRoot = ds.getDataRoot();
+  const dataRoot = await ds.getDataRoot();
   if (!dataRoot) return res.status(404).json({ error: 'data_root not found' });
   res.json(dataRoot);
 });
@@ -448,7 +448,7 @@ app.get('/items/:id', async (req, res) => {
   if (!isValidId(id)) return res.status(400).json({ error: 'Invalid ID format' });
   const ds = await openDatastore(res);
   if (!ds) return;
-  const item = ds.get(id);
+  const item = await ds.get(id);
   if (!item) return res.status(404).json({ error: 'Item not found' });
   res.json(item);
 });
@@ -459,7 +459,7 @@ app.put('/items/:id', async (req, res) => {
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const ds = await openDatastore(res);
   if (!ds) return;
-  if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
+  if (!await ds.get(id)) return res.status(404).json({ error: 'Item not found' });
 
   const body = req.body;
   const changes = {};
@@ -483,8 +483,8 @@ app.put('/items/:id', async (req, res) => {
   if ('completedAt' in body) changes.completedAt = body.completedAt;
 
   try {
-    const updated = ds.update(id, changes, body.actor);
-    if (body.objectData !== undefined) ds.writeObjectJson(id, body.objectData);
+    const updated = await ds.update(id, changes, body.actor);
+    if (body.objectData !== undefined) await ds.writeObjectJson(id, body.objectData);
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -497,19 +497,20 @@ app.delete('/items/:id', async (req, res) => {
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const ds = await openDatastore(res);
   if (!ds) return;
-  if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
+  if (!await ds.get(id)) return res.status(404).json({ error: 'Item not found' });
 
   const force = req.query.force === 'true' || req.query.force === '1';
-  const ids = collectSubtreeIds(ds, id);
+  const ids = await collectSubtreeIds(ds, id);
 
   if (!force) {
-    const warnings = ids.flatMap(itemId => ds.deleteWarnings(itemId));
+    const warningArrays = await Promise.all(ids.map(itemId => ds.deleteWarnings(itemId)));
+    const warnings = warningArrays.flat();
     if (warnings.length)
       return res.status(409).json({ error: 'Item or descendants have references. Use ?force=true to delete anyway.', warnings });
   }
 
   const deleted = ids.reverse();
-  for (const itemId of deleted) ds.delete(itemId);
+  for (const itemId of deleted) await ds.delete(itemId);
   res.json({ deleted });
 });
 
@@ -519,8 +520,8 @@ app.get('/items/:id/children', async (req, res) => {
   if (!isValidId(id)) return res.status(400).json({ error: 'Invalid ID format' });
   const ds = await openDatastore(res);
   if (!ds) return;
-  if (!isSyntheticId(id) && !ds.get(id)) return res.status(404).json({ error: 'Item not found' });
-  res.json(withChildCounts(ds, ds.children(id)));
+  if (!isSyntheticId(id) && !await ds.get(id)) return res.status(404).json({ error: 'Item not found' });
+  res.json(await withChildCounts(ds, ds.children(id)));
 });
 
 // GET /items/:id/object — read the object.json for a typed object item
@@ -529,7 +530,7 @@ app.get('/items/:id/object', async (req, res) => {
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const ds = await openDatastore(res);
   if (!ds) return;
-  const obj = ds.readObjectJson(id);
+  const obj = await ds.readObjectJson(id);
   if (!obj) return res.status(404).json({ error: 'No object data for this item' });
   res.json(obj);
 });
@@ -540,8 +541,8 @@ app.put('/items/:id/object', async (req, res) => {
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const ds = await openDatastore(res);
   if (!ds) return;
-  if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
-  ds.writeObjectJson(id, req.body);
+  if (!await ds.get(id)) return res.status(404).json({ error: 'Item not found' });
+  await ds.writeObjectJson(id, req.body);
   res.json({ ok: true });
 });
 
@@ -551,8 +552,8 @@ app.post('/items/:id/complete', async (req, res) => {
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const ds = await openDatastore(res);
   if (!ds) return;
-  if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
-  const updated = ds.update(id, { completedAt: new Date().toISOString() }, req.body.actor);
+  if (!await ds.get(id)) return res.status(404).json({ error: 'Item not found' });
+  const updated = await ds.update(id, { completedAt: new Date().toISOString() }, req.body.actor);
   res.json(updated);
 });
 
@@ -562,8 +563,8 @@ app.post('/items/:id/uncomplete', async (req, res) => {
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const ds = await openDatastore(res);
   if (!ds) return;
-  if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
-  const updated = ds.update(id, { completedAt: null }, req.body.actor);
+  if (!await ds.get(id)) return res.status(404).json({ error: 'Item not found' });
+  const updated = await ds.update(id, { completedAt: null }, req.body.actor);
   res.json(updated);
 });
 
@@ -610,7 +611,7 @@ app.get('/items/:id/function', async (req, res) => {
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const ds = await openDatastore(res);
   if (!ds) return;
-  const fn = ds.readFunctionJson(id);
+  const fn = await ds.readFunctionJson(id);
   if (!fn) return res.status(404).json({ error: 'No function data for this item' });
   res.json(fn);
 });
@@ -621,9 +622,9 @@ app.put('/items/:id/function', async (req, res) => {
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const ds = await openDatastore(res);
   if (!ds) return;
-  const item = ds.get(id);
+  const item = await ds.get(id);
   if (!item) return res.status(404).json({ error: 'Item not found' });
-  ds.writeFunctionJson(id, req.body);
+  await ds.writeFunctionJson(id, req.body);
   try {
     const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
     const s = id.replace(/-/g, '');
@@ -693,10 +694,10 @@ app.post('/items/:id/function/run', async (req, res) => {
 
   const ds = await openDatastore(res);
   if (!ds) return;
-  const item = ds.get(id);
+  const item = await ds.get(id);
   if (!item) return res.status(404).json({ error: 'Item not found' });
 
-  const fnData = ds.readFunctionJson(id) ?? {};
+  const fnData = await ds.readFunctionJson(id) ?? {};
   const currentHash = hashIndexTs(fnDir);
   const buildHash = readBuildHash(fnDir);
   const needsRebuild = !fs.existsSync(distIndex) || !currentHash || !buildHash || currentHash !== buildHash;
@@ -781,11 +782,11 @@ app.get('/items/:id/tree', async (req, res) => {
   if (!isValidId(id)) return res.status(400).json({ error: 'Invalid ID format' });
   const ds = await openDatastore(res);
   if (!ds) return;
-  if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
+  if (!await ds.get(id)) return res.status(404).json({ error: 'Item not found' });
   const maxDepth = req.query.depth != null ? parseInt(req.query.depth, 10) : Infinity;
   if (isNaN(maxDepth) || maxDepth < 0)
     return res.status(400).json({ error: 'depth must be a non-negative integer' });
-  res.json(ds.tree(id, maxDepth));
+  res.json(await ds.tree(id, maxDepth));
 });
 
 // GET /items/:id/ancestors — full path from root down to this item's parent
@@ -794,8 +795,8 @@ app.get('/items/:id/ancestors', async (req, res) => {
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const ds = await openDatastore(res);
   if (!ds) return;
-  if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
-  res.json(getAncestorChain(ds, id));
+  if (!await ds.get(id)) return res.status(404).json({ error: 'Item not found' });
+  res.json(await getAncestorChain(ds, id));
 });
 
 // POST /items/:id/clone — deep-copy item and all descendants under a new parent
@@ -804,14 +805,14 @@ app.post('/items/:id/clone', async (req, res) => {
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const ds = await openDatastore(res);
   if (!ds) return;
-  if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
+  if (!await ds.get(id)) return res.status(404).json({ error: 'Item not found' });
 
   const { targetParentId, actor } = req.body;
   if (!targetParentId) return res.status(400).json({ error: 'targetParentId is required' });
   if (!isUuid(targetParentId)) return res.status(400).json({ error: 'Invalid UUID format for targetParentId' });
-  if (!ds.get(targetParentId)) return res.status(404).json({ error: `Target parent not found: ${targetParentId}` });
+  if (!await ds.get(targetParentId)) return res.status(404).json({ error: `Target parent not found: ${targetParentId}` });
 
-  const cloned = cloneSubtree(ds, id, targetParentId, actor);
+  const cloned = await cloneSubtree(ds, id, targetParentId, actor);
   res.status(201).json(cloned);
 });
 
@@ -821,8 +822,8 @@ app.get('/items/:id/annotations', async (req, res) => {
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const ds = await openDatastore(res);
   if (!ds) return;
-  if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
-  res.json(ds.annotations(id));
+  if (!await ds.get(id)) return res.status(404).json({ error: 'Item not found' });
+  res.json(await ds.annotations(id));
 });
 
 // POST /items/:id/annotations — add annotation
@@ -831,10 +832,10 @@ app.post('/items/:id/annotations', async (req, res) => {
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const ds = await openDatastore(res);
   if (!ds) return;
-  if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
+  if (!await ds.get(id)) return res.status(404).json({ error: 'Item not found' });
   const { content, author, parentAnnotationId = null } = req.body;
   if (!content) return res.status(400).json({ error: 'content is required' });
-  const annotation = ds.annotate(id, { content, author, parentAnnotationId });
+  const annotation = await ds.annotate(id, { content, author, parentAnnotationId });
   res.status(201).json(annotation);
 });
 
@@ -844,8 +845,8 @@ app.get('/items/:id/relationships', async (req, res) => {
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const ds = await openDatastore(res);
   if (!ds) return;
-  if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
-  res.json(ds.relationships(id));
+  if (!await ds.get(id)) return res.status(404).json({ error: 'Item not found' });
+  res.json(await ds.relationships(id));
 });
 
 // GET /items/:id/backlinks — get backlinks
@@ -854,8 +855,8 @@ app.get('/items/:id/backlinks', async (req, res) => {
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const ds = await openDatastore(res);
   if (!ds) return;
-  if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
-  res.json(ds.backlinks(id));
+  if (!await ds.get(id)) return res.status(404).json({ error: 'Item not found' });
+  res.json(await ds.backlinks(id));
 });
 
 // GET /items/:id/history — get change history
@@ -864,8 +865,8 @@ app.get('/items/:id/history', async (req, res) => {
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const ds = await openDatastore(res);
   if (!ds) return;
-  if (!ds.get(id)) return res.status(404).json({ error: 'Item not found' });
-  res.json(ds.history(id));
+  if (!await ds.get(id)) return res.status(404).json({ error: 'Item not found' });
+  res.json(await ds.history(id));
 });
 
 // ─── Tree ─────────────────────────────────────────────────────────────────────
@@ -877,7 +878,7 @@ app.get('/tree', async (req, res) => {
   const maxDepth = req.query.depth != null ? parseInt(req.query.depth, 10) : Infinity;
   if (isNaN(maxDepth) || maxDepth < 0)
     return res.status(400).json({ error: 'depth must be a non-negative integer' });
-  res.json(ds.tree(null, maxDepth));
+  res.json(await ds.tree(null, maxDepth));
 });
 
 // ─── Aliases ──────────────────────────────────────────────────────────────────
@@ -886,7 +887,7 @@ app.get('/tree', async (req, res) => {
 app.get('/aliases', async (req, res) => {
   const ds = await openDatastore(res);
   if (!ds) return;
-  const all = ds.listAliases();
+  const all = await ds.listAliases();
   if (req.query.targetId) {
     return res.json(all.filter(a => a.targetId === req.query.targetId));
   }
@@ -898,7 +899,7 @@ app.get('/aliases/:alias', async (req, res) => {
   const ds = await openDatastore(res);
   if (!ds) return;
   const alias = req.params.alias.toLowerCase();
-  const targetId = ds.resolveAlias(alias);
+  const targetId = await ds.resolveAlias(alias);
   if (!targetId) return res.status(404).json({ error: `Alias not found: ${alias}` });
   res.json({ alias, targetId });
 });
@@ -912,8 +913,8 @@ app.post('/aliases', async (req, res) => {
   if (!alias) return res.status(400).json({ error: 'alias is required' });
   if (!targetId) return res.status(400).json({ error: 'targetId is required' });
   if (!isUuid(targetId)) return res.status(400).json({ error: 'Invalid UUID format for targetId' });
-  if (!ds.get(targetId)) return res.status(404).json({ error: `Item not found: ${targetId}` });
-  ds.setAlias(alias, targetId);
+  if (!await ds.get(targetId)) return res.status(404).json({ error: `Item not found: ${targetId}` });
+  await ds.setAlias(alias, targetId);
   res.status(201).json({ alias, targetId });
 });
 
@@ -922,9 +923,9 @@ app.delete('/aliases/:alias', async (req, res) => {
   const ds = await openDatastore(res);
   if (!ds) return;
   const alias = req.params.alias.toLowerCase();
-  if (!ds.resolveAlias(alias))
+  if (!await ds.resolveAlias(alias))
     return res.status(404).json({ error: `Alias not found: ${alias}` });
-  ds.removeAlias(alias);
+  await ds.removeAlias(alias);
   res.json({ removed: alias });
 });
 
@@ -934,7 +935,7 @@ app.delete('/aliases/:alias', async (req, res) => {
 app.get('/relationships', async (req, res) => {
   const ds = await openDatastore(res);
   if (!ds) return;
-  res.json(ds.listRelationships());
+  res.json(await ds.listRelationships());
 });
 
 // POST /relationships — create relationship { sourceId, type, targetId, note? }
@@ -948,9 +949,9 @@ app.post('/relationships', async (req, res) => {
   if (!isUuid(targetId)) return res.status(400).json({ error: 'Invalid UUID: targetId' });
   if (!ds.relTypes.includes(type))
     return res.status(400).json({ error: `Invalid relationship type: ${type}. Valid: ${ds.relTypes.join(', ')}` });
-  if (!ds.get(sourceId)) return res.status(404).json({ error: `Source not found: ${sourceId}` });
-  if (!ds.get(targetId)) return res.status(404).json({ error: `Target not found: ${targetId}` });
-  const rel = ds.relate(sourceId, type, targetId, { note, createdBy });
+  if (!await ds.get(sourceId)) return res.status(404).json({ error: `Source not found: ${sourceId}` });
+  if (!await ds.get(targetId)) return res.status(404).json({ error: `Target not found: ${targetId}` });
+  const rel = await ds.relate(sourceId, type, targetId, { note, createdBy });
   res.status(201).json(rel);
 });
 
@@ -960,7 +961,7 @@ app.post('/relationships', async (req, res) => {
 app.get('/tags/:tag', async (req, res) => {
   const ds = await openDatastore(res);
   if (!ds) return;
-  res.json(ds.byTag(req.params.tag));
+  res.json(await ds.byTag(req.params.tag));
 });
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -1019,7 +1020,7 @@ app.post('/types', async (req, res) => {
     return res.status(400).json({ error: 'value is required' });
   }
   try {
-    const { metadata } = ds.createType(value.trim());
+    const { metadata } = await ds.createType(value.trim());
     res.status(201).json({ ...metadata, icon: null, description: null, details: null, keywords: null, primaryField: null, 'ai-instructions': null });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1377,7 +1378,7 @@ app.post('/app/studio/sync-system-items/import', async (req, res) => {
       if (!fs.existsSync(typePath)) { errors.push({ folderId, error: 'type.json not found' }); continue; }
       const schema = JSON.parse(fs.readFileSync(typePath, 'utf8'));
       const title = schema.jsonSchema?.title || folderId;
-      const { metadata } = ds.createType(title, { schema, id: folderId });
+      const { metadata } = await ds.createType(title, { schema, id: folderId });
       imported.push({ id: metadata.id, value: title });
     } catch (err) { errors.push({ folderId, error: err.message }); }
   }
@@ -1546,7 +1547,7 @@ app.put('/skills/:id', async (req, res) => {
 app.post('/rebuild-indexes', async (req, res) => {
   const ds = await openDatastore(res);
   if (!ds) return;
-  const itemCount = ds.rebuildIndexes();
+  const itemCount = await ds.rebuildIndexes();
   res.json({ rebuilt: true, itemCount });
 });
 
