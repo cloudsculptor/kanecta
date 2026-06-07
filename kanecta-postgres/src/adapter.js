@@ -472,6 +472,28 @@ class PostgresAdapter {
     return rows.map(r => r.id);
   }
 
+  // Full-text search over every field of every item (own fields and, for
+  // object-type items, their obj_<typeId> row) — backed by the search_index
+  // table, which triggers keep in sync automatically as fields change.
+  async search(query, { rootId = null, limit = 10 } = {}) {
+    const { rows } = await this._pool.query(
+      `WITH RECURSIVE subtree AS (
+         SELECT id FROM items WHERE id = $2
+         UNION ALL
+         SELECT i.id FROM items i JOIN subtree s ON i.parent_id = s.id AND i.id != i.parent_id
+       )
+       SELECT i.*, ts_rank(si.tsv, plainto_tsquery('english', $1)) AS rank
+       FROM items i
+       JOIN search_index si ON si.item_id = i.id
+       WHERE si.tsv @@ plainto_tsquery('english', $1)
+         AND ($2::uuid IS NULL OR i.id IN (SELECT id FROM subtree))
+       ORDER BY rank DESC
+       LIMIT $3`,
+      [query, rootId, limit],
+    );
+    return rows.map(rowToItem);
+  }
+
   async loadAll() {
     const { rows } = await this._pool.query('SELECT * FROM items ORDER BY sort_order');
     return rows.map(rowToItem);

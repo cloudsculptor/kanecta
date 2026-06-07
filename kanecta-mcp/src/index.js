@@ -792,39 +792,50 @@ function matchObjectData(objectData, q, fields) {
 
 async function handleSearch(args, ds) {
   const { query, rootId, limit = 10, fields } = args;
-  const q = query.toLowerCase();
-  const all = await ds.loadAll();
 
-  const candidates = [];
-  for (const i of all) {
-    if (i.value && typeof i.value === 'string' && i.value.toLowerCase().includes(q)) {
-      candidates.push(i);
-      continue;
-    }
-    if (i.type === 'object') {
-      const objectData = await ds.readObjectJson(i.id);
-      if (matchObjectData(objectData, q, fields)) candidates.push(i);
-    }
-  }
+  // Adapters that maintain a native full-text index (e.g. Postgres, via
+  // search_index + triggers) expose ds.search — already ranked and limited.
+  // Field-restricted searches fall through to the generic scan below, since
+  // the native index covers whole rows rather than individual fields.
+  let ranked;
+  if (typeof ds.search === 'function' && !fields) {
+    ranked = await ds.search(query, { rootId, limit });
+  } else {
+    const q = query.toLowerCase();
+    const all = await ds.loadAll();
 
-  let filtered = candidates;
-  if (rootId) {
-    const subtreeIds = new Set(await collectSubtreeIds(ds, rootId));
-    filtered = candidates.filter(i => subtreeIds.has(i.id));
+    const candidates = [];
+    for (const i of all) {
+      if (i.value && typeof i.value === 'string' && i.value.toLowerCase().includes(q)) {
+        candidates.push(i);
+        continue;
+      }
+      if (i.type === 'object') {
+        const objectData = await ds.readObjectJson(i.id);
+        if (matchObjectData(objectData, q, fields)) candidates.push(i);
+      }
+    }
+
+    let filtered = candidates;
+    if (rootId) {
+      const subtreeIds = new Set(await collectSubtreeIds(ds, rootId));
+      filtered = candidates.filter(i => subtreeIds.has(i.id));
+    }
+
+    ranked = filtered
+      .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+      .slice(0, limit);
   }
 
   const results = await Promise.all(
-    filtered
-      .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
-      .slice(0, limit)
-      .map(async i => ({
-        id: i.id,
-        type: i.type,
-        tags: (i.tags || []).filter(t => !['kanecta-capture', 'kanecta-date', 'kanecta-internal'].includes(t)),
-        date: (i.createdAt || '').slice(0, 10),
-        value: await resolveLinks(ds, i.value),
-        ancestors: await getAncestorChain(ds, i.id),
-      }))
+    ranked.map(async i => ({
+      id: i.id,
+      type: i.type,
+      tags: (i.tags || []).filter(t => !['kanecta-capture', 'kanecta-date', 'kanecta-internal'].includes(t)),
+      date: (i.createdAt || '').slice(0, 10),
+      value: await resolveLinks(ds, i.value),
+      ancestors: await getAncestorChain(ds, i.id),
+    }))
   );
 
   return { query, count: results.length, results };
