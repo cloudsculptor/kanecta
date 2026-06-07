@@ -703,15 +703,19 @@ async function main() {
     checkPointerFileFormat(data, pointerFile);
     const names = Object.keys(data.workspaces);
     let name;
+    let selectionReason;
     if (names.length === 1) {
       name = names[0];
+      selectionReason = 'only workspace';
     } else if (data.default && data.workspaces[data.default]) {
       name = data.default;
+      selectionReason = 'default';
     } else if (!process.stdin.isTTY) {
       console.error(`Multiple workspaces found and no valid default set in ${pointerFile}.`);
       process.exit(1);
     } else {
       name = await pickWorkspace(names);
+      selectionReason = 'selected';
     }
 
     const workspace = data.workspaces[name];
@@ -721,14 +725,14 @@ async function main() {
     }
 
     if (workspace.mode === 'CLOUD') {
-      console.log(`✓ Workspace: ${name} (cloud — Postgres + S3)`);
+      console.log(`✓ Workspace: ${name} (${selectionReason}; cloud — Postgres + S3)`);
       return launch(name, null, data.apiPort ?? 9744, data.studioPort ?? 9743, data.systemItemsDir);
     }
     if (!Datastore.isDatastore(workspace.datastore)) {
       console.error(`Datastore not found at configured path: ${workspace.datastore}`);
       process.exit(1);
     }
-    console.log(`✓ Workspace: ${name} (${workspace.datastore})`);
+    console.log(`✓ Workspace: ${name} (${selectionReason}; ${workspace.datastore})`);
     checkSpecVersion(workspace.datastore);
     await syncSystemItems(workspace.datastore, data.systemItemsDir);
 
