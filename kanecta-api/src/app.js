@@ -422,7 +422,7 @@ app.get('/items/stats', async (req, res) => {
   const unstructuredMap = {};
   let total = 0;
 
-  for (const item of ds.loadAll()) {
+  for (const item of await ds.loadAll()) {
     const raw = item.type;
     if (!raw || ROOT_TYPES.has(raw)) continue;
     total++;
