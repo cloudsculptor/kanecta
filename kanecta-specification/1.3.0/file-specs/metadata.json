@@ -110,6 +110,12 @@
       "type": ["string", "null"],
       "default": null,
       "description": "Dimension this item occupies under its parent. Null means the item belongs to the main tree. Any other string names an alternative dimension (e.g. 'settings', 'hidden', 'archive'). UIs show only null-aspect children by default; a user or application switches aspect to see a different dimension's children. An item belongs to exactly one aspect. sortOrder is scoped per-aspect — siblings in different aspects are ordered independently. Aspect names are free-form conventions; none are reserved by the spec."
+    },
+    "template": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "default": null,
+      "description": "UUID of the type or item this item's tree was copied from via a template action. References the source type's UUID when templating a typed object (type: 'object'), or the source item's UUID when templating an unstructured tree. Null if this item was not produced by templating."
     }
   },
   "examples": [
