@@ -196,6 +196,7 @@ export default function EventSubmitForm({ open, onClose, onSubmitted }: Props) {
               fullWidth
               multiline
               minRows={3}
+              helperText={`${description.trim().length}/50 characters minimum`}
             />
 
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
