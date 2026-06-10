@@ -2,6 +2,12 @@ import keycloak from "../auth/keycloak";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
+async function throwIfNotOk(res: Response) {
+  if (res.ok) return;
+  const body = await res.json().catch(() => null);
+  throw new Error(body?.error ?? `${res.status} ${res.statusText}`);
+}
+
 async function authFetch(path: string, init: RequestInit = {}) {
   const token = keycloak.token;
   const res = await fetch(`${BASE}${path}`, {
@@ -12,7 +18,7 @@ async function authFetch(path: string, init: RequestInit = {}) {
       ...init.headers,
     },
   });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  await throwIfNotOk(res);
   return res.json();
 }
 
@@ -25,7 +31,7 @@ async function authFetchNoContentType(path: string, init: RequestInit = {}) {
       ...init.headers,
     },
   });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  await throwIfNotOk(res);
   return res.json();
 }
 
