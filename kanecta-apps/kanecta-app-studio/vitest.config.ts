@@ -13,6 +13,10 @@ export default defineConfig({
       '@emotion/styled': `${studioModules}/@emotion/styled`,
       '@emotion/react': `${studioModules}/@emotion/react`,
       '@emotion/cache': `${studioModules}/@emotion/cache`,
+      // react-transition-group/TransitionGroupContext is a directory with no
+      // "exports" field; Node 22 ESM resolution rejects bare directory imports.
+      // Point directly at the CJS file to bypass it.
+      'react-transition-group/TransitionGroupContext': `${studioModules}/react-transition-group/cjs/TransitionGroupContext.js`,
     },
   },
   test: {
@@ -23,7 +27,7 @@ export default defineConfig({
     // when root-hoisted packages try to import peer deps missing from root.
     server: {
       deps: {
-        inline: [/^@mui\//, /^@emotion\//, /^react-transition-group/],
+        inline: [/^@mui\//, /^@emotion\//],
       },
     },
     coverage: {
