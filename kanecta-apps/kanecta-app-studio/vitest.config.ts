@@ -23,7 +23,7 @@ export default defineConfig({
     // when root-hoisted packages try to import peer deps missing from root.
     server: {
       deps: {
-        inline: [/^@mui\//, /^@emotion\//],
+        inline: [/^@mui\//, /^@emotion\//, /^react-transition-group/],
       },
     },
     coverage: {
