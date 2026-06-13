@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import AlertTitle from "@mui/material/AlertTitle";
 import Box from "@mui/material/Box";
@@ -21,10 +21,10 @@ const ACTION_COLOR: Record<string, "success" | "warning" | "info" | "default" | 
   Archived: "error",
 };
 
-const breadcrumbParents = [{ name: "Groups", path: "/groups" }];
-
 export default function PageVersion() {
   const { slug, version: versionParam } = useParams<{ slug: string; version: string }>();
+  const { pathname } = useLocation();
+  const isSiteContext = pathname.startsWith("/site-pages/");
   const roles = useUserRoles();
   const { initialized } = useKeycloak();
   const navigate = useNavigate();
@@ -34,15 +34,21 @@ export default function PageVersion() {
   const [error, setError] = useState("");
 
   const isTeam = hasRole(roles, "team");
+  const isModerator = hasRole(roles, "moderator");
+  const canView = isTeam || isModerator;
+
+  const breadcrumbParents = isSiteContext ? [] : [{ name: "Groups", path: "/groups" }];
+  const currentPagePath = isSiteContext ? `/${slug}` : `/groups/resilience/${slug}`;
+  const historyPath = isSiteContext ? `/site-pages/${slug}/history` : `/groups/resilience/${slug}/history`;
 
   useEffect(() => {
     if (!initialized) return;
-    if (!isTeam) { navigate("/", { replace: true }); return; }
+    if (!canView) { navigate("/", { replace: true }); return; }
     getPageVersion(slug!, parseInt(versionParam!, 10))
       .then(setData)
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [initialized, isTeam, slug, versionParam, navigate]);
+  }, [initialized, canView, slug, versionParam, navigate]);
 
   return (
     <>
@@ -76,10 +82,10 @@ export default function PageVersion() {
             <div className="pages-header">
               <h2>{data.title}</h2>
               <div className="page-version__actions">
-                <Link to={`/groups/resilience/${slug}`} className="pages-outline-btn">
+                <Link to={currentPagePath} className="pages-outline-btn">
                   View current page
                 </Link>
-                <Link to={`/groups/resilience/${slug}/history`} className="pages-outline-btn">
+                <Link to={historyPath} className="pages-outline-btn">
                   ← History
                 </Link>
               </div>

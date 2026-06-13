@@ -31,7 +31,7 @@ export interface Page {
   licence_id: string | null;
   licence_name: string | null;
   version: number;
-  owner_type: "private" | "group" | "business";
+  owner_type: "private" | "group" | "business" | "site";
   owner_id: string | null;
   group_name: string | null;
 }
@@ -46,7 +46,7 @@ export interface PageSummary {
   public: boolean;
   licence_id: string | null;
   version: number;
-  owner_type: "private" | "group" | "business";
+  owner_type: "private" | "group" | "business" | "site";
   owner_id: string | null;
 }
 
