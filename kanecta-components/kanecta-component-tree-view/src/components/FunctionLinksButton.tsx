@@ -5,9 +5,9 @@ import {
 } from '@mui/material';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import { useWorkspaceStore } from '../../../store/workspace';
+import { useTreeViewContext } from '../context';
 import { RunFunctionDialog } from './RunFunctionDialog';
-import type { KanectaItem } from '../../../types/kanecta';
+import type { KanectaItem } from '../types';
 
 interface FunctionLink {
   id: string;
@@ -21,7 +21,7 @@ interface Props {
 }
 
 export function FunctionLinksButton({ item }: Props) {
-  const { getApi } = useWorkspaceStore();
+  const { api } = useTreeViewContext();
   const [links, setLinks] = useState<FunctionLink[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -35,7 +35,7 @@ export function FunctionLinksButton({ item }: Props) {
     setLinks([]);
     setSelectedIndex(0);
 
-    getApi().types.schema(item.typeId)
+    api.types.schema(item.typeId)
       .then(async (schema) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const meta = (schema as any)?.meta;
@@ -50,7 +50,7 @@ export function FunctionLinksButton({ item }: Props) {
 
         const resolved = await Promise.all(
           entries.map(async ({ id, group }) => {
-            const fnItem = await getApi().items.get(id).catch(() => null);
+            const fnItem = await api.items.get(id).catch(() => null);
             if (!fnItem) return null;
             return { id, name: fnItem.value, fnItem, group } satisfies FunctionLink;
           }),

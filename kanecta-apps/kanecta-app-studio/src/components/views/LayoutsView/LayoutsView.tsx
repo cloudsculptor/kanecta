@@ -25,9 +25,10 @@ import ViewListIcon from '@mui/icons-material/ViewList';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import SplitscreenIcon from '@mui/icons-material/Splitscreen';
-import { LocationContext } from '../../../context/LocationContext';
+import { LocationContext, useLocation } from '../../../context/LocationContext';
 import { useWorkspaceStore } from '../../../store/workspace';
-import { TreeView } from '../TreeView/TreeView';
+import { useUiStore } from '../../../store/ui';
+import { TreeView } from '@kanecta/component-tree-view';
 import { TableView } from '../TableView/TableView';
 import { BoardView } from '../BoardView/BoardView';
 import { GalleryView } from '../GalleryView/GalleryView';
@@ -92,9 +93,27 @@ function PaneLocationWrapper({
 
 // ─── View renderer ────────────────────────────────────────────────────────────
 
+function PaneTreeView({ paneId }: { paneId: string }) {
+  const { getApi, activeWorkspaceId } = useWorkspaceStore();
+  const { focusedItemId, setFocusedItem, vscodeAvailable } = useUiStore();
+  const { setItemId, openOverlay } = useLocation();
+  return (
+    <TreeView
+      panelId={paneId}
+      api={getApi()}
+      workspaceKey={activeWorkspaceId ?? undefined}
+      focusedItemId={focusedItemId}
+      vscodeAvailable={vscodeAvailable}
+      onFocusItem={(id) => setFocusedItem(id)}
+      onSelectItem={(id) => setItemId(id)}
+      onOpenOverlay={openOverlay}
+    />
+  );
+}
+
 function renderPaneView(viewType: string, paneId: string): ReactNode {
   switch (viewType) {
-    case 'tree': return <TreeView panelId={paneId} />;
+    case 'tree': return <PaneTreeView paneId={paneId} />;
     case 'table': return <TableView />;
     case 'types': return <TypesView />;
     case 'board': return <BoardView panelId={paneId} />;

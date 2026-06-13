@@ -6,8 +6,8 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import { useWorkspaceStore } from '../../../store/workspace';
-import type { KanectaItem } from '../../../types/kanecta';
+import { useTreeViewContext } from '../context';
+import type { KanectaItem } from '../types';
 
 interface Param {
   name: string;
@@ -35,7 +35,7 @@ interface Props {
 }
 
 export function RunFunctionDialog({ open, onClose, item, onOpenEdit }: Props) {
-  const { getApi } = useWorkspaceStore();
+  const { api } = useTreeViewContext();
   const [fnData, setFnData] = useState<FunctionData | null>(null);
   const [args, setArgs] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -59,9 +59,9 @@ export function RunFunctionDialog({ open, onClose, item, onOpenEdit }: Props) {
     setLogs(null);
     setPackageJson(null);
     Promise.all([
-      getApi().items.getFunctionData(item.id),
-      getApi().items.checkFunctionScaffold(item.id).catch(() => ({ exists: false, stale: false })),
-      getApi().items.getFunctionPackageJson(item.id).catch(() => null),
+      api.items.getFunctionData(item.id),
+      api.items.checkFunctionScaffold(item.id).catch(() => ({ exists: false, stale: false })),
+      api.items.getFunctionPackageJson(item.id).catch(() => null),
     ])
       .then(([data, scaffold, pkg]) => {
         if (!data) return;
@@ -77,7 +77,7 @@ export function RunFunctionDialog({ open, onClose, item, onOpenEdit }: Props) {
       })
       .catch(() => setError('Failed to load function definition.'))
       .finally(() => setLoading(false));
-  }, [open, item.id, getApi]);
+  }, [open, item.id, api]);
 
   const params = fnData?.parameters ?? [];
   const returnLabel = fnData?.returnType ?? fnData?.returnTypeId ?? 'unknown';
@@ -92,7 +92,7 @@ export function RunFunctionDialog({ open, onClose, item, onOpenEdit }: Props) {
     setError(null);
     setRunSuccess(null);
     try {
-      const result = await getApi().items.runFunctionScaffold(item.id, args);
+      const result = await api.items.runFunctionScaffold(item.id, args);
       setOutput(result.output);
       setLogs(result.logs);
       setRunSuccess(result.success);

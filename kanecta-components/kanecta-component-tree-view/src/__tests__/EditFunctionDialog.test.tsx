@@ -2,31 +2,42 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { EditFunctionDialog } from '../EditFunctionDialog';
-import type { KanectaItem } from '../../../../types/kanecta';
+import { EditFunctionDialog } from '../components/EditFunctionDialog';
+import { TreeViewContext } from '../context';
+import type { TreeViewApi, KanectaItem } from '../types';
 
-// ── Hoisted mocks ─────────────────────────────────────────────────────────────
-// getApi must be a stable reference — if it changes every render it becomes a
-// useEffect dependency that re-fires the load, keeping the spinner forever.
+// ── Fixtures ──────────────────────────────────────────────────────────────────
 
-const { api, getApi } = vi.hoisted(() => {
-  const api = {
-    items: {
-      getFunctionData: vi.fn(),
-      checkFunctionScaffold: vi.fn(),
-      saveFunctionData: vi.fn(),
-      compileFunctionScaffold: vi.fn(),
-    },
-  };
-  const getApi = () => api;
-  return { api, getApi };
-});
+const theme = createTheme();
 
-vi.mock('../../../../store/workspace', () => ({
-  useWorkspaceStore: () => ({ getApi }),
-}));
+const api = {
+  items: {
+    getFunctionData: vi.fn(),
+    checkFunctionScaffold: vi.fn(),
+    saveFunctionData: vi.fn(),
+    compileFunctionScaffold: vi.fn(),
+  },
+};
 
-vi.mock('../BodyConflictDialog', () => ({
+const contextValue = {
+  api: api as unknown as TreeViewApi,
+  workspaceKey: undefined,
+  vscodeAvailable: false,
+  focusedItemId: null,
+  onFocusItem: () => {},
+  onSelectItem: () => {},
+  onOpenOverlay: () => {},
+};
+
+const Wrapper = ({ children }: { children: React.ReactNode }) => (
+  <ThemeProvider theme={theme}>
+    <TreeViewContext.Provider value={contextValue}>
+      {children}
+    </TreeViewContext.Provider>
+  </ThemeProvider>
+);
+
+vi.mock('../components/BodyConflictDialog', () => ({
   BodyConflictDialog: ({ open, onUseForm, onUseDisk }: {
     open: boolean; onUseForm: () => void; onUseDisk: () => void;
     onClose: () => void; diskBody: string; formBody: string;
@@ -38,13 +49,6 @@ vi.mock('../BodyConflictDialog', () => ({
       </div>
     ) : null,
 }));
-
-// ── Fixtures ──────────────────────────────────────────────────────────────────
-
-const theme = createTheme();
-const Wrapper = ({ children }: { children: React.ReactNode }) => (
-  <ThemeProvider theme={theme}>{children}</ThemeProvider>
-);
 
 const mockItem: KanectaItem = {
   id: '12345678-1234-1234-1234-123456789abc',
@@ -180,8 +184,20 @@ describe('EditFunctionDialog', () => {
     await userEvent.click(screen.getByRole('button', { name: /Save & Compile/i }));
     await waitFor(() => expect(screen.getByText('Build succeeded')).toBeInTheDocument());
 
-    rerender(<ThemeProvider theme={theme}><EditFunctionDialog open={false} onClose={vi.fn()} item={mockItem} /></ThemeProvider>);
-    rerender(<ThemeProvider theme={theme}><EditFunctionDialog open={true} onClose={vi.fn()} item={mockItem} /></ThemeProvider>);
+    rerender(
+      <ThemeProvider theme={theme}>
+        <TreeViewContext.Provider value={contextValue}>
+          <EditFunctionDialog open={false} onClose={vi.fn()} item={mockItem} />
+        </TreeViewContext.Provider>
+      </ThemeProvider>,
+    );
+    rerender(
+      <ThemeProvider theme={theme}>
+        <TreeViewContext.Provider value={contextValue}>
+          <EditFunctionDialog open={true} onClose={vi.fn()} item={mockItem} />
+        </TreeViewContext.Provider>
+      </ThemeProvider>,
+    );
     await waitFor(() => expect(screen.queryByRole('progressbar')).not.toBeInTheDocument(), { timeout: 3000 });
     expect(screen.queryByText('Build succeeded')).not.toBeInTheDocument();
   });

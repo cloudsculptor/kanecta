@@ -1,13 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ViewMeta } from '../../../lib/viewMeta';
-import { useViewLocation, useLocation } from '../../../context/LocationContext';
-
-export const TreeViewMeta: ViewMeta = {
-  uuid: 'b3a2c1d0-e4f5-4a6b-9c7d-8e0f1a2b3c4d',
-  name: 'tree',
-  label: 'Tree',
-  icon: 'AccountTree',
-};
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
@@ -32,30 +23,43 @@ import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import { TreeNode } from './TreeNode';
 import { CopyAsDialog } from './CopyAsDialog';
-import { Breadcrumb } from '../../shared/Breadcrumb';
-import type { BreadcrumbItem } from '../../shared/Breadcrumb';
-import type { KanectaItem } from '../../../types/kanecta';
-import { useWorkspaceStore } from '../../../store/workspace';
-import { useUiStore } from '../../../store/ui';
+import { Breadcrumb } from './Breadcrumb';
+import type { BreadcrumbItem } from './Breadcrumb';
+import type { KanectaItem } from '../types';
+import type { TreeViewApi } from '../types';
+import { useTreeViewContext, TreeViewContext } from '../context';
 import './TreeView.scss';
 
-interface TreeViewProps {
+export const TreeViewMeta = {
+  uuid: 'b3a2c1d0-e4f5-4a6b-9c7d-8e0f1a2b3c4d',
+  name: 'tree',
+  label: 'Tree',
+  icon: 'AccountTree',
+} as const;
+
+export interface TreeViewProps {
   panelId: string;
   zoomedItemId?: string;
+  api: TreeViewApi;
+  workspaceKey?: string;
+  focusedItemId?: string | null;
+  vscodeAvailable?: boolean;
+  onFocusItem?: (id: string) => void;
+  onSelectItem?: (id: string | null) => void;
+  onOpenOverlay?: () => void;
 }
 
-function useTreeData(parentId: string | null, workspaceId?: string) {
-  const { getApi } = useWorkspaceStore();
-  const api = getApi(workspaceId);
+function useTreeData(parentId: string | null, workspaceKey?: string) {
+  const { api } = useTreeViewContext();
   return useQuery({
-    queryKey: ['tree-children', parentId, workspaceId],
+    queryKey: ['tree-children', parentId, workspaceKey],
     queryFn: () => (parentId ? api.items.children(parentId) : api.items.list()),
   });
 }
 
 interface TreeBranchProps {
   parentId: string | null;
-  workspaceId?: string;
+  workspaceKey?: string;
   expandedIds: Set<string>;
   focusedId: string | null;
   focusNewItemId: string | null;
@@ -75,13 +79,11 @@ interface TreeBranchProps {
   onRecordViewed: (item: KanectaItem, type: string, typeId: string) => void;
   onCopyObject: (item: KanectaItem) => Promise<void>;
   onCopyAs: (item: KanectaItem) => void;
-  setItemId: (id: string | null) => void;
-  openOverlay: () => void;
 }
 
 function TreeBranch({
   parentId,
-  workspaceId,
+  workspaceKey,
   expandedIds,
   focusedId,
   focusNewItemId,
@@ -101,10 +103,8 @@ function TreeBranch({
   onRecordViewed,
   onCopyObject,
   onCopyAs,
-  setItemId,
-  openOverlay,
 }: TreeBranchProps) {
-  const { data: items = [], isLoading, error } = useTreeData(parentId, workspaceId);
+  const { data: items = [], isLoading, error } = useTreeData(parentId, workspaceKey);
 
   if (isLoading) return <div style={{ padding: '4px 8px', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Loading…</div>;
   if (error) return <div style={{ padding: '4px 8px', fontSize: '0.8rem', color: '#c62828' }}>Error loading items</div>;
@@ -135,13 +135,11 @@ function TreeBranch({
           onRecordViewed={(type, typeId) => onRecordViewed(item, type, typeId)}
           onCopyObject={item._hasObject ? () => onCopyObject(item) : undefined}
           onCopyAs={() => onCopyAs(item)}
-          setItemId={setItemId}
-          openOverlay={openOverlay}
         >
           {expandedIds.has(item.id) && (
             <TreeBranch
               parentId={item.id}
-              workspaceId={workspaceId}
+              workspaceKey={workspaceKey}
               expandedIds={expandedIds}
               focusedId={focusedId}
               focusNewItemId={focusNewItemId}
@@ -161,8 +159,6 @@ function TreeBranch({
               onRecordViewed={onRecordViewed}
               onCopyObject={onCopyObject}
               onCopyAs={onCopyAs}
-              setItemId={setItemId}
-              openOverlay={openOverlay}
             />
           )}
         </TreeNode>
@@ -171,13 +167,18 @@ function TreeBranch({
   );
 }
 
-export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
-  useViewLocation(TreeViewMeta.uuid);
-  const { setItemId, openOverlay } = useLocation();
-  const { getApi, activeWorkspaceId } = useWorkspaceStore();
-  const { setFocusedItem, focusedItemId } = useUiStore();
+export function TreeView({
+  panelId,
+  zoomedItemId,
+  api,
+  workspaceKey,
+  focusedItemId,
+  vscodeAvailable,
+  onFocusItem,
+  onSelectItem,
+  onOpenOverlay,
+}: TreeViewProps) {
   const qc = useQueryClient();
-  const api = getApi();
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [zoomStack, setZoomStack] = useState<BreadcrumbItem[]>([]);
@@ -229,7 +230,7 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
       const match = window.location.hash.match(/^#\/tree\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
       if (!match) return;
       const id = match[1];
-      void getApi().items.get(id)
+      void api.items.get(id)
         .then((item) => setZoomStack([{ id, label: item.value }]))
         .catch(() => {});
     };
@@ -246,18 +247,18 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
   }, [rootId]);
 
   const { data: rootItems = [], isLoading, error } = useQuery({
-    queryKey: ['tree-children', rootId, activeWorkspaceId],
+    queryKey: ['tree-children', rootId, workspaceKey],
     queryFn: () => (rootId ? api.items.children(rootId) : api.items.list()),
   });
 
   const { data: dataRoot } = useQuery({
-    queryKey: ['data-root', activeWorkspaceId],
+    queryKey: ['data-root', workspaceKey],
     queryFn: () => api.items.root(),
     enabled: rootId === null,
   });
 
   const { data: rootItem } = useQuery({
-    queryKey: ['item', rootId, activeWorkspaceId],
+    queryKey: ['item', rootId, workspaceKey],
     queryFn: () => api.items.get(rootId!),
     enabled: rootId !== null,
   });
@@ -273,7 +274,7 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
     mutationFn: (payload: { value: string; parentId?: string }) =>
       api.items.create({ value: payload.value, type: 'text', parentId: payload.parentId }),
     onMutate: async (vars) => {
-      const key = ['tree-children', vars.parentId ?? null, activeWorkspaceId];
+      const key = ['tree-children', vars.parentId ?? null, workspaceKey];
       await qc.cancelQueries({ queryKey: key });
       const previous = qc.getQueryData(key);
       const tempId = `temp-${Date.now()}`;
@@ -293,7 +294,7 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
       return { previous, key, tempId };
     },
     onSuccess: (newItem, vars, context) => {
-      const key = ['tree-children', vars.parentId ?? null, activeWorkspaceId];
+      const key = ['tree-children', vars.parentId ?? null, workspaceKey];
       qc.setQueryData(key, (old: KanectaItem[] = []) =>
         old.map((item) => (item.id === context?.tempId ? newItem : item))
       );
@@ -329,9 +330,9 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
   const saveRootEdit = useCallback(async () => {
     if (!dataRoot || !editRootValue.trim()) { cancelRootEdit(); return; }
     await updateMutation.mutateAsync({ id: dataRoot.id, value: editRootValue.trim() });
-    void qc.invalidateQueries({ queryKey: ['data-root', activeWorkspaceId] });
+    void qc.invalidateQueries({ queryKey: ['data-root', workspaceKey] });
     setIsEditingRoot(false);
-  }, [dataRoot, editRootValue, updateMutation, qc, activeWorkspaceId, cancelRootEdit]);
+  }, [dataRoot, editRootValue, updateMutation, qc, workspaceKey, cancelRootEdit]);
 
   const deleteMutation = useMutation({
     mutationFn: ({ id }: { id: string; parentId: string | null }) =>
@@ -394,8 +395,8 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
   }, [rootId]);
 
   const handleFocus = useCallback(
-    (item: KanectaItem) => { setFocusedItem(item.id); },
-    [setFocusedItem],
+    (item: KanectaItem) => { onFocusItem?.(item.id); },
+    [onFocusItem],
   );
 
   const handleEdit = useCallback(
@@ -502,9 +503,9 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
   ];
 
   const branchProps = {
-    workspaceId: activeWorkspaceId,
+    workspaceKey,
     expandedIds,
-    focusedId: focusedItemId,
+    focusedId: focusedItemId ?? null,
     focusNewItemId,
     onClearFocusNewItem: () => setFocusNewItemId(null),
     onToggle: handleToggle,
@@ -522,197 +523,207 @@ export function TreeView({ panelId, zoomedItemId }: TreeViewProps) {
     onRecordViewed: handleRecordViewed,
     onCopyObject: handleCopyObject,
     onCopyAs: handleCopyAs,
-    setItemId,
-    openOverlay,
+  };
+
+  const contextValue = {
+    api,
+    workspaceKey,
+    vscodeAvailable: vscodeAvailable ?? false,
+    focusedItemId: focusedItemId ?? null,
+    onFocusItem: onFocusItem ?? (() => {}),
+    onSelectItem: onSelectItem ?? (() => {}),
+    onOpenOverlay: onOpenOverlay ?? (() => {}),
   };
 
   return (
-    <>
-    <div className="TreeView" data-testid={`tree-view-${panelId}`}>
-      {zoomStack.length > 0 && (
-        <div className="TreeView-breadcrumb">
-          <Breadcrumb
-            items={breadcrumb}
-            onNavigate={(id) => {
-              if (id === 'root') { setZoomStack([]); setExpandedIds(new Set()); }
-              else handleBreadcrumbNav(id);
-            }}
-          />
-          <div className="TreeView-breadcrumb-actions">
-            <Tooltip title={isStarred ? 'Unstar' : 'Star'}>
-              <IconButton size="small" className={`TreeView-breadcrumb-btn${isStarred ? ' TreeView-breadcrumb-btn--starred' : ''}`} onClick={() => void handleStar()}>
-                {isStarred ? <StarIcon sx={{ fontSize: 16 }} /> : <StarBorderIcon sx={{ fontSize: 16 }} />}
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Copy ID">
-              <IconButton size="small" className="TreeView-breadcrumb-btn" onClick={handleCopyId}>
-                <ContentCopyIcon sx={{ fontSize: 16 }} />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Copy URL">
-              <IconButton size="small" className="TreeView-breadcrumb-btn" onClick={handleCopyUrl}>
-                <LinkIcon sx={{ fontSize: 16 }} />
-              </IconButton>
-            </Tooltip>
+    <TreeViewContext.Provider value={contextValue}>
+      <>
+      <div className="TreeView" data-testid={`tree-view-${panelId}`}>
+        {zoomStack.length > 0 && (
+          <div className="TreeView-breadcrumb">
+            <Breadcrumb
+              items={breadcrumb}
+              onNavigate={(id) => {
+                if (id === 'root') { setZoomStack([]); setExpandedIds(new Set()); }
+                else handleBreadcrumbNav(id);
+              }}
+            />
+            <div className="TreeView-breadcrumb-actions">
+              <Tooltip title={isStarred ? 'Unstar' : 'Star'}>
+                <IconButton size="small" className={`TreeView-breadcrumb-btn${isStarred ? ' TreeView-breadcrumb-btn--starred' : ''}`} onClick={() => void handleStar()}>
+                  {isStarred ? <StarIcon sx={{ fontSize: 16 }} /> : <StarBorderIcon sx={{ fontSize: 16 }} />}
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Copy ID">
+                <IconButton size="small" className="TreeView-breadcrumb-btn" onClick={handleCopyId}>
+                  <ContentCopyIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Copy URL">
+                <IconButton size="small" className="TreeView-breadcrumb-btn" onClick={handleCopyUrl}>
+                  <LinkIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </Tooltip>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <div className="TreeView-heading">
-        {rootId === null ? (
-          isEditingRoot ? (
-            <>
-              <input
-                ref={rootEditRef}
-                className="TreeView-heading-input"
-                value={editRootValue}
-                autoFocus
-                onChange={e => setEditRootValue(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); void saveRootEdit(); }
-                  if (e.key === 'Escape') cancelRootEdit();
-                }}
-              />
-              <div className="TreeView-heading-actions TreeNode-actions" style={{ visibility: 'visible' }}>
-                <Tooltip title="Save">
-                  <IconButton size="small" onClick={() => void saveRootEdit()}>
-                    <CheckIcon sx={{ fontSize: 16 }} />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Cancel">
-                  <IconButton size="small" onClick={cancelRootEdit}>
-                    <CloseIcon sx={{ fontSize: 16 }} />
-                  </IconButton>
-                </Tooltip>
-              </div>
-            </>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>{dataRoot?.value ?? 'Home'}</span>
-              {dataRoot && (
-                <div className="TreeView-heading-actions TreeNode-actions">
-                  <Tooltip title="Rename">
-                    <IconButton size="small" onClick={startRootEdit} sx={{ padding: '2px', marginTop: '-4px' }}>
-                      <EditIcon sx={{ width: '24px !important', height: '24px !important', color: '#999' }} />
+        <div className="TreeView-heading">
+          {rootId === null ? (
+            isEditingRoot ? (
+              <>
+                <input
+                  ref={rootEditRef}
+                  className="TreeView-heading-input"
+                  value={editRootValue}
+                  autoFocus
+                  onChange={e => setEditRootValue(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); void saveRootEdit(); }
+                    if (e.key === 'Escape') cancelRootEdit();
+                  }}
+                />
+                <div className="TreeView-heading-actions TreeNode-actions" style={{ visibility: 'visible' }}>
+                  <Tooltip title="Save">
+                    <IconButton size="small" onClick={() => void saveRootEdit()}>
+                      <CheckIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Cancel">
+                    <IconButton size="small" onClick={cancelRootEdit}>
+                      <CloseIcon sx={{ fontSize: 16 }} />
                     </IconButton>
                   </Tooltip>
                 </div>
+              </>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>{dataRoot?.value ?? 'Home'}</span>
+                {dataRoot && (
+                  <div className="TreeView-heading-actions TreeNode-actions">
+                    <Tooltip title="Rename">
+                      <IconButton size="small" onClick={startRootEdit} sx={{ padding: '2px', marginTop: '-4px' }}>
+                        <EditIcon sx={{ width: '24px !important', height: '24px !important', color: '#999' }} />
+                      </IconButton>
+                    </Tooltip>
+                  </div>
+                )}
+              </div>
+            )
+          ) : (
+            <span className="TreeView-heading-label">
+              {breadcrumb[breadcrumb.length - 1].label}
+            </span>
+          )}
+          {rootId !== null && rootItem && (
+            <div className="TreeView-heading-actions TreeNode-actions">
+              <Tooltip title="Copy ID">
+                <IconButton size="small" onClick={() => { void navigator.clipboard.writeText(rootItem.id); void api.breadcrumb.addClipboard(rootItem.id, rootItem.value, rootItem.type, rootItem.typeId ?? ''); }}>
+                  <ContentCopyIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Copy value">
+                <IconButton size="small" onClick={() => { void navigator.clipboard.writeText(rootItem.value); }}>
+                  <DifferenceOutlinedIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+                </IconButton>
+              </Tooltip>
+              {rootItem.typeId && (
+                <Tooltip title="Copy type ID">
+                  <IconButton size="small" onClick={() => { void navigator.clipboard.writeText(rootItem.typeId!); }}>
+                    <CategoryIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+                  </IconButton>
+                </Tooltip>
               )}
+              {rootItem._hasObject && (
+                <Tooltip title="Copy object JSON">
+                  <IconButton size="small" onClick={() => { void handleCopyObject(rootItem); }}>
+                    <DataObjectIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+                  </IconButton>
+                </Tooltip>
+              )}
+              <Tooltip title="Copy as">
+                <IconButton size="small" onClick={() => handleCopyAs(rootItem)}>
+                  <FileCopyOutlinedIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+                </IconButton>
+              </Tooltip>
+              {([
+                { depth: 1,              Icon: LooksOneIcon,  label: 'Expand 1 level' },
+                { depth: 2,              Icon: LooksTwoIcon,  label: 'Expand 2 levels' },
+                { depth: 3,              Icon: Looks3Icon,    label: 'Expand 3 levels' },
+                { depth: 4,              Icon: Looks4Icon,    label: 'Expand 4 levels' },
+                { depth: 5,              Icon: Looks5Icon,    label: 'Expand 5 levels' },
+                { depth: 'all' as const, Icon: AddBoxIcon,    label: 'Expand all' },
+              ] as const).map(({ depth, Icon, label }) => (
+                <Tooltip key={String(depth)} title={label}>
+                  <IconButton size="small" onClick={() => {
+                    void handleExpandToDepth(rootItem, depth);
+                    void api.view.save(rootItem.id, depth).then(() => {
+                      qc.setQueryData(['view-settings', rootItem.id], { levels: depth });
+                    });
+                  }}>
+                    <Icon sx={{ fontSize: '18px', width: '18px', height: '18px', color: rootSavedLevel === depth ? 'var(--color-primary, #1976d2)' : undefined }} />
+                  </IconButton>
+                </Tooltip>
+              ))}
+              <Tooltip title="Add child">
+                <IconButton size="small" onClick={() => handleAddChild(rootItem)}>
+                  <AddIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Delete">
+                <IconButton size="small" onClick={() => setConfirmDeleteRoot(true)}>
+                  <DeleteIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
+                </IconButton>
+              </Tooltip>
             </div>
-          )
-        ) : (
-          <span className="TreeView-heading-label">
-            {breadcrumb[breadcrumb.length - 1].label}
-          </span>
-        )}
-        {rootId !== null && rootItem && (
-          <div className="TreeView-heading-actions TreeNode-actions">
-            <Tooltip title="Copy ID">
-              <IconButton size="small" onClick={() => { void navigator.clipboard.writeText(rootItem.id); void api.breadcrumb.addClipboard(rootItem.id, rootItem.value, rootItem.type, rootItem.typeId ?? ''); }}>
-                <ContentCopyIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Copy value">
-              <IconButton size="small" onClick={() => { void navigator.clipboard.writeText(rootItem.value); }}>
-                <DifferenceOutlinedIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
-              </IconButton>
-            </Tooltip>
-            {rootItem.typeId && (
-              <Tooltip title="Copy type ID">
-                <IconButton size="small" onClick={() => { void navigator.clipboard.writeText(rootItem.typeId!); }}>
-                  <CategoryIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
-                </IconButton>
-              </Tooltip>
-            )}
-            {rootItem._hasObject && (
-              <Tooltip title="Copy object JSON">
-                <IconButton size="small" onClick={() => { void handleCopyObject(rootItem); }}>
-                  <DataObjectIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
-                </IconButton>
-              </Tooltip>
-            )}
-            <Tooltip title="Copy as">
-              <IconButton size="small" onClick={() => handleCopyAs(rootItem)}>
-                <FileCopyOutlinedIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
-              </IconButton>
-            </Tooltip>
-            {([
-              { depth: 1,              Icon: LooksOneIcon,  label: 'Expand 1 level' },
-              { depth: 2,              Icon: LooksTwoIcon,  label: 'Expand 2 levels' },
-              { depth: 3,              Icon: Looks3Icon,    label: 'Expand 3 levels' },
-              { depth: 4,              Icon: Looks4Icon,    label: 'Expand 4 levels' },
-              { depth: 5,              Icon: Looks5Icon,    label: 'Expand 5 levels' },
-              { depth: 'all' as const, Icon: AddBoxIcon,    label: 'Expand all' },
-            ] as const).map(({ depth, Icon, label }) => (
-              <Tooltip key={String(depth)} title={label}>
-                <IconButton size="small" onClick={() => {
-                  void handleExpandToDepth(rootItem, depth);
-                  void api.view.save(rootItem.id, depth).then(() => {
-                    qc.setQueryData(['view-settings', rootItem.id], { levels: depth });
-                  });
-                }}>
-                  <Icon sx={{ fontSize: '18px', width: '18px', height: '18px', color: rootSavedLevel === depth ? 'var(--color-primary, #1976d2)' : undefined }} />
-                </IconButton>
-              </Tooltip>
-            ))}
-            <Tooltip title="Add child">
-              <IconButton size="small" onClick={() => handleAddChild(rootItem)}>
-                <AddIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Delete">
-              <IconButton size="small" onClick={() => setConfirmDeleteRoot(true)}>
-                <DeleteIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
-              </IconButton>
-            </Tooltip>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
 
-      <Dialog open={confirmDeleteRoot} onClose={() => setConfirmDeleteRoot(false)}>
-        <DialogTitle>Delete "{rootItem?.value}"?</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            This will also delete all of its descendants. This cannot be undone.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmDeleteRoot(false)}>Cancel</Button>
-          <Button color="error" onClick={() => { setConfirmDeleteRoot(false); if (rootItem) handleDelete(rootItem); }}>Delete</Button>
-        </DialogActions>
-      </Dialog>
+        <Dialog open={confirmDeleteRoot} onClose={() => setConfirmDeleteRoot(false)}>
+          <DialogTitle>Delete "{rootItem?.value}"?</DialogTitle>
+          <DialogContent>
+            <DialogContentText>
+              This will also delete all of its descendants. This cannot be undone.
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setConfirmDeleteRoot(false)}>Cancel</Button>
+            <Button color="error" onClick={() => { setConfirmDeleteRoot(false); if (rootItem) handleDelete(rootItem); }}>Delete</Button>
+          </DialogActions>
+        </Dialog>
 
-      <div className="TreeView-content">
-        {isLoading && <div className="TreeView-loading">Loading…</div>}
-        {error && <div className="TreeView-error">Failed to load items</div>}
-        {!isLoading && !error && rootItems.length === 0 && (
-          <div className="TreeView-empty">
-            <span>No items yet</span>
-          </div>
-        )}
+        <div className="TreeView-content">
+          {isLoading && <div className="TreeView-loading">Loading…</div>}
+          {error && <div className="TreeView-error">Failed to load items</div>}
+          {!isLoading && !error && rootItems.length === 0 && (
+            <div className="TreeView-empty">
+              <span>No items yet</span>
+            </div>
+          )}
 
-        {!isLoading && !error && (
-          <TreeBranch parentId={rootId} {...branchProps} />
-        )}
+          {!isLoading && !error && (
+            <TreeBranch parentId={rootId} {...branchProps} />
+          )}
 
-        <div className="TreeNode">
-          <div
-            className="TreeNode-row"
-            onClick={() => createMutation.mutate({ value: '', parentId: rootId ?? undefined })}
-          >
-            <button className="TreeNode-toggle TreeNode-toggle--leaf" tabIndex={-1} aria-hidden="true" />
-            <AddIcon className="TreeNode-bullet" />
+          <div className="TreeNode">
+            <div
+              className="TreeNode-row"
+              onClick={() => createMutation.mutate({ value: '', parentId: rootId ?? undefined })}
+            >
+              <button className="TreeNode-toggle TreeNode-toggle--leaf" tabIndex={-1} aria-hidden="true" />
+              <AddIcon className="TreeNode-bullet" />
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <CopyAsDialog
-      item={copyAsItem}
-      open={copyAsItem !== null}
-      onClose={() => setCopyAsItem(null)}
-      fetchTree={fetchTreeForDialog}
-    />
-    </>
+      <CopyAsDialog
+        item={copyAsItem}
+        open={copyAsItem !== null}
+        onClose={() => setCopyAsItem(null)}
+        fetchTree={fetchTreeForDialog}
+      />
+      </>
+    </TreeViewContext.Provider>
   );
 }

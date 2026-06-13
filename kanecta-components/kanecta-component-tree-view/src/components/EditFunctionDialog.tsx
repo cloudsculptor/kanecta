@@ -12,10 +12,9 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import CodeIcon from '@mui/icons-material/Code';
 import { functionSpec } from '@kanecta/specification';
-import { useWorkspaceStore } from '../../../store/workspace';
-import { useUiStore } from '../../../store/ui';
+import { useTreeViewContext } from '../context';
 import { BodyConflictDialog } from './BodyConflictDialog';
-import type { KanectaItem } from '../../../types/kanecta';
+import type { KanectaItem } from '../types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const specProps = (functionSpec as any).properties;
@@ -274,8 +273,7 @@ interface Props {
 }
 
 export function EditFunctionDialog({ open, onClose, item, onOpenRun }: Props) {
-  const { getApi } = useWorkspaceStore();
-  const { vscodeAvailable } = useUiStore();
+  const { api, vscodeAvailable } = useTreeViewContext();
   const [form, setForm] = useState<FormState>(EMPTY);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -309,21 +307,21 @@ export function EditFunctionDialog({ open, onClose, item, onOpenRun }: Props) {
     setCompileResult(null);
     setExternallyModified(false);
     Promise.all([
-      getApi().items.getFunctionData(item.id).catch(() => null),
-      getApi().items.checkFunctionScaffold(item.id).catch(() => ({ exists: false, stale: false })),
+      api.items.getFunctionData(item.id).catch(() => null),
+      api.items.checkFunctionScaffold(item.id).catch(() => ({ exists: false, stale: false })),
     ]).then(([data, scaffold]) => {
       const loaded = data ? fromRaw(data) : EMPTY;
       setForm(loaded);
       loadedBodyRef.current = loaded.body;
       setScaffoldExists(scaffold.exists);
     }).finally(() => setLoading(false));
-  }, [open, item.id, getApi]);
+  }, [open, item.id, api]);
 
   useEffect(() => {
     if (!open) return;
     const interval = setInterval(async () => {
       try {
-        const diskData = await getApi().items.getFunctionData(item.id).catch(() => null);
+        const diskData = await api.items.getFunctionData(item.id).catch(() => null);
         const currentDiskBody = (diskData?.body as string | undefined) ?? '';
         const loadedBody = loadedBodyRef.current ?? '';
         setExternallyModified(currentDiskBody !== loadedBody);
@@ -332,17 +330,17 @@ export function EditFunctionDialog({ open, onClose, item, onOpenRun }: Props) {
       }
     }, 3000);
     return () => clearInterval(interval);
-  }, [open, item.id, getApi]);
+  }, [open, item.id, api]);
 
   const openInVscode = useCallback(async () => {
     if (!datastorePathRef.current) {
-      const cfg = await getApi().config.get();
+      const cfg = await api.config.get();
       datastorePathRef.current = cfg.datastorePath as string;
     }
     const stripped = item.id.replace(/-/g, '');
     const path = `${datastorePathRef.current}/.kanecta/data/${stripped.slice(0, 2)}/${stripped.slice(2, 4)}/${item.id}/function/index.ts`;
-    void getApi().config.openInVscode(path);
-  }, [item.id, getApi]);
+    void api.config.openInVscode(path);
+  }, [item.id, api]);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setIsDirty(true);
@@ -386,7 +384,7 @@ export function EditFunctionDialog({ open, onClose, item, onOpenRun }: Props) {
     setSaving(true);
     setError(null);
     try {
-      await getApi().items.saveFunctionData(item.id, toRaw(form));
+      await api.items.saveFunctionData(item.id, toRaw(form));
     } catch {
       setError('Failed to save. Please try again.');
     } finally {
@@ -399,7 +397,7 @@ export function EditFunctionDialog({ open, onClose, item, onOpenRun }: Props) {
     setError(null);
     setCompileResult(null);
     try {
-      await getApi().items.saveFunctionData(item.id, toRaw(form));
+      await api.items.saveFunctionData(item.id, toRaw(form));
     } catch {
       setError('Failed to save. Please try again.');
       setSaving(false);
@@ -408,7 +406,7 @@ export function EditFunctionDialog({ open, onClose, item, onOpenRun }: Props) {
     setSaving(false);
     setCompiling(true);
     try {
-      const result = await getApi().items.compileFunctionScaffold(item.id);
+      const result = await api.items.compileFunctionScaffold(item.id);
       setCompileResult(result);
     } catch {
       setCompileResult({ success: false, output: 'Compile request failed. Check the server.' });
@@ -427,7 +425,7 @@ export function EditFunctionDialog({ open, onClose, item, onOpenRun }: Props) {
 
   const checkBodyConflictThenSave = async () => {
     try {
-      const diskData = await getApi().items.getFunctionData(item.id).catch(() => null);
+      const diskData = await api.items.getFunctionData(item.id).catch(() => null);
       const currentDiskBody = (diskData?.body as string | undefined) ?? '';
       const formBody = form.body ?? '';
       if (currentDiskBody !== formBody && (currentDiskBody || formBody)) {

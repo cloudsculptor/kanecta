@@ -2,35 +2,39 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { RunFunctionDialog } from '../RunFunctionDialog';
-import type { KanectaItem } from '../../../../types/kanecta';
-
-// ── Hoisted mocks ─────────────────────────────────────────────────────────────
-// getApi must be a stable reference — if it changes every render it becomes a
-// useEffect dependency that re-fires the load, keeping the spinner forever.
-
-const { api, getApi } = vi.hoisted(() => {
-  const api = {
-    items: {
-      getFunctionData: vi.fn(),
-      runFunctionScaffold: vi.fn(),
-      checkFunctionScaffold: vi.fn(),
-      getFunctionPackageJson: vi.fn(),
-    },
-  };
-  const getApi = () => api;
-  return { api, getApi };
-});
-
-vi.mock('../../../../store/workspace', () => ({
-  useWorkspaceStore: () => ({ getApi }),
-}));
+import { RunFunctionDialog } from '../components/RunFunctionDialog';
+import { TreeViewContext } from '../context';
+import type { TreeViewApi, KanectaItem } from '../types';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
 const theme = createTheme();
+
+const api = {
+  items: {
+    getFunctionData: vi.fn(),
+    runFunctionScaffold: vi.fn(),
+    checkFunctionScaffold: vi.fn(),
+    getFunctionPackageJson: vi.fn(),
+  },
+};
+
+const contextValue = {
+  api: api as unknown as TreeViewApi,
+  workspaceKey: undefined,
+  vscodeAvailable: false,
+  focusedItemId: null,
+  onFocusItem: () => {},
+  onSelectItem: () => {},
+  onOpenOverlay: () => {},
+};
+
 const Wrapper = ({ children }: { children: React.ReactNode }) => (
-  <ThemeProvider theme={theme}>{children}</ThemeProvider>
+  <ThemeProvider theme={theme}>
+    <TreeViewContext.Provider value={contextValue}>
+      {children}
+    </TreeViewContext.Provider>
+  </ThemeProvider>
 );
 
 const mockItem: KanectaItem = {
@@ -178,8 +182,20 @@ describe('RunFunctionDialog', () => {
     await userEvent.click(screen.getByRole('button', { name: /^Run$/ }));
     await waitFor(() => screen.getByText('"cached"'));
 
-    rerender(<ThemeProvider theme={theme}><RunFunctionDialog open={false} onClose={vi.fn()} item={mockItem} /></ThemeProvider>);
-    rerender(<ThemeProvider theme={theme}><RunFunctionDialog open={true} onClose={vi.fn()} item={mockItem} /></ThemeProvider>);
+    rerender(
+      <ThemeProvider theme={theme}>
+        <TreeViewContext.Provider value={contextValue}>
+          <RunFunctionDialog open={false} onClose={vi.fn()} item={mockItem} />
+        </TreeViewContext.Provider>
+      </ThemeProvider>,
+    );
+    rerender(
+      <ThemeProvider theme={theme}>
+        <TreeViewContext.Provider value={contextValue}>
+          <RunFunctionDialog open={true} onClose={vi.fn()} item={mockItem} />
+        </TreeViewContext.Provider>
+      </ThemeProvider>,
+    );
     await waitFor(() => expect(screen.queryByRole('progressbar')).not.toBeInTheDocument(), { timeout: 3000 });
     expect(screen.queryByText('"cached"')).not.toBeInTheDocument();
     expect(screen.queryByText(/Logs — success/i)).not.toBeInTheDocument();

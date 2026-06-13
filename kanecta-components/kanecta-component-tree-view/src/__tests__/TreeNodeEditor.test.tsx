@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { TreeNodeEditor } from '../TreeNodeEditor';
+import { TreeNodeEditor } from '../components/TreeNodeEditor';
 
 const noop = () => {};
 const asyncNoop = async () => {};
