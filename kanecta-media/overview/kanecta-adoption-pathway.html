@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kanecta: From Knowledge Graph to Organisational Intelligence</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --k-bg:      #ffffff;
+      --k-surface: #f6f6fb;
+      --k-card:    #ffffff;
+      --k-border:  #e4e4ef;
+      --k-accent:  #5b54e8;
+      --k-accent2: #00a88a;
+      --k-accent3: #d94f6b;
+      --k-text:    #2a2a3d;
+      --k-muted:   #6b6b8a;
+      --k-heading: #12121e;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--k-bg);
+      color: var(--k-text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-size: 16px;
+      line-height: 1.7;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      background: linear-gradient(135deg, #f0efff 0%, #faf5ff 50%, #f0fbf8 100%);
+      border-bottom: 1px solid var(--k-border);
+      padding: 100px 24px 80px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 20% 50%, rgba(91,84,232,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 50%, rgba(0,168,138,0.06) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .hero-tag {
+      display: inline-block;
+      background: rgba(91,84,232,0.08);
+      border: 1px solid rgba(91,84,232,0.25);
+      color: var(--k-accent);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 6px 16px;
+      border-radius: 100px;
+      margin-bottom: 28px;
+    }
+
+    .hero h1 {
+      font-size: clamp(2rem, 5vw, 3.6rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      max-width: 820px;
+      margin: 0 auto 24px;
+      background: linear-gradient(135deg, #12121e 0%, #5b54e8 60%, #00a88a 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-sub {
+      font-size: 1.15rem;
+      color: var(--k-muted);
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* ── Layout ── */
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    section {
+      padding: 72px 0;
+      border-bottom: 1px solid var(--k-border);
+    }
+
+    section:last-child { border-bottom: none; }
+
+    /* ── Section headings ── */
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--k-accent);
+      margin-bottom: 12px;
+    }
+
+    h2 {
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--k-heading);
+      margin-bottom: 24px;
+    }
+
+    p { color: var(--k-text); margin-bottom: 20px; }
+    p:last-child { margin-bottom: 0; }
+
+    strong { color: var(--k-heading); font-weight: 600; }
+    em { color: var(--k-accent); font-style: italic; }
+
+    /* ── Highlight box ── */
+    .highlight {
+      background: linear-gradient(135deg, rgba(91,84,232,0.05), rgba(0,168,138,0.04));
+      border: 1px solid rgba(91,84,232,0.2);
+      border-radius: 12px;
+      padding: 28px 32px;
+      margin: 32px 0;
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: var(--k-heading);
+      line-height: 1.6;
+    }
+
+    .highlight span {
+      background: linear-gradient(90deg, #5b54e8, #00a88a);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-weight: 700;
+    }
+
+    /* ── Feature cards ── */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+      margin: 36px 0;
+    }
+
+    .card {
+      background: var(--k-surface);
+      border: 1px solid var(--k-border);
+      border-radius: 12px;
+      padding: 28px 24px;
+      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    }
+
+    .card:hover {
+      border-color: rgba(91,84,232,0.4);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(91,84,232,0.08);
+    }
+
+    .card-icon {
+      font-size: 28px;
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    .card h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--k-heading);
+      margin-bottom: 10px;
+    }
+
+    .card p {
+      font-size: 0.9rem;
+      color: var(--k-muted);
+      margin: 0;
+      line-height: 1.6;
+    }
+
+    /* ── Tech pillars ── */
+    .pillars {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+      margin: 36px 0;
+    }
+
+    .pillar {
+      background: var(--k-surface);
+      border: 1px solid var(--k-border);
+      border-radius: 12px;
+      padding: 28px 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .pillar::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+    }
+
+    .pillar:nth-child(1)::before { background: var(--k-accent); }
+    .pillar:nth-child(2)::before { background: var(--k-accent2); }
+    .pillar:nth-child(3)::before { background: var(--k-accent3); }
+
+    .pillar h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--k-heading);
+      margin-bottom: 8px;
+    }
+
+    .pillar .pillar-tech {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .pillar:nth-child(1) .pillar-tech { color: var(--k-accent); }
+    .pillar:nth-child(2) .pillar-tech { color: var(--k-accent2); }
+    .pillar:nth-child(3) .pillar-tech { color: var(--k-accent3); }
+
+    .pillar p {
+      font-size: 0.88rem;
+      color: var(--k-muted);
+      margin: 0;
+      line-height: 1.6;
+    }
+
+    /* ── Agent flow ── */
+    .agent-steps {
+      list-style: none;
+      counter-reset: steps;
+      margin: 32px 0;
+    }
+
+    .agent-steps li {
+      counter-increment: steps;
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      padding: 20px 0;
+      border-bottom: 1px solid var(--k-border);
+    }
+
+    .agent-steps li:last-child { border-bottom: none; }
+
+    .agent-steps li::before {
+      content: counter(steps);
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--k-accent), #8c7aff);
+      color: white;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 2px;
+    }
+
+    .agent-steps li p {
+      margin: 0;
+      font-size: 0.95rem;
+    }
+
+    .agent-steps li strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    /* ── Adoption pathway ── */
+    .stages {
+      margin: 36px 0;
+      position: relative;
+    }
+
+    .stages::before {
+      content: '';
+      position: absolute;
+      left: 23px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: linear-gradient(to bottom, var(--k-accent), var(--k-accent2));
+      opacity: 0.2;
+    }
+
+    .stage {
+      display: flex;
+      gap: 28px;
+      align-items: flex-start;
+      margin-bottom: 40px;
+      position: relative;
+    }
+
+    .stage:last-child { margin-bottom: 0; }
+
+    .stage-num {
+      flex-shrink: 0;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--k-bg);
+      border: 2px solid var(--k-accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--k-accent);
+      position: relative;
+      z-index: 1;
+    }
+
+    .stage:nth-child(2) .stage-num { border-color: #8c7aff; color: #8c7aff; }
+    .stage:nth-child(3) .stage-num { border-color: var(--k-accent2); color: var(--k-accent2); }
+    .stage:nth-child(4) .stage-num { border-color: var(--k-accent3); color: var(--k-accent3); }
+
+    .stage-body h3 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--k-heading);
+      margin-bottom: 10px;
+      padding-top: 10px;
+    }
+
+    .stage-body p {
+      font-size: 0.92rem;
+      color: var(--k-muted);
+      margin-bottom: 14px;
+    }
+
+    .stage-body ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .stage-body ul li {
+      font-size: 0.88rem;
+      color: var(--k-muted);
+      padding: 5px 0 5px 20px;
+      position: relative;
+    }
+
+    .stage-body ul li::before {
+      content: '→';
+      position: absolute;
+      left: 0;
+      color: var(--k-accent);
+    }
+
+    /* ── Pipeline flow ── */
+    .pipeline {
+      background: var(--k-surface);
+      border: 1px solid var(--k-border);
+      border-radius: 12px;
+      padding: 28px 32px;
+      margin: 28px 0;
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: 0.88rem;
+      line-height: 2;
+    }
+
+    .pipeline-step {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--k-muted);
+    }
+
+    .pipeline-step.trigger { color: var(--k-accent2); font-weight: 600; }
+    .pipeline-step .arrow { color: var(--k-accent); opacity: 0.7; }
+    .pipeline-step .label { color: var(--k-text); }
+    .pipeline-step .detail { color: var(--k-muted); font-size: 0.82rem; }
+
+    /* ── Why now ── */
+    .why-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+      margin: 36px 0;
+    }
+
+    .why-item {
+      background: var(--k-surface);
+      border: 1px solid var(--k-border);
+      border-radius: 12px;
+      padding: 24px;
+    }
+
+    .why-item h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--k-heading);
+      margin-bottom: 10px;
+    }
+
+    .why-item p {
+      font-size: 0.88rem;
+      color: var(--k-muted);
+      margin: 0;
+    }
+
+    /* ── Closing ── */
+    .closing {
+      background: linear-gradient(135deg, rgba(91,84,232,0.04), rgba(0,168,138,0.03));
+      border: 1px solid rgba(91,84,232,0.15);
+      border-radius: 16px;
+      padding: 48px 40px;
+      text-align: center;
+      margin: 36px 0;
+    }
+
+    .closing p {
+      font-size: 1.05rem;
+      max-width: 600px;
+      margin: 0 auto 20px;
+    }
+
+    .closing .final {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: var(--k-heading);
+      margin: 0 auto;
+    }
+
+    .closing .final em {
+      font-style: normal;
+      background: linear-gradient(90deg, #5b54e8, #00a88a);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      .hero { padding: 64px 20px 56px; }
+      section { padding: 48px 0; }
+      .closing { padding: 32px 24px; }
+      .stages::before { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-tag">Architecture &amp; Strategy</div>
+    <h1>From Knowledge Graph to Organisational Intelligence</h1>
+    <p class="hero-sub">How Kanecta becomes the connective layer that makes your organisation's knowledge queryable, persistent, and AI-ready.</p>
+  </div>
+
+  <!-- The Opportunity -->
+  <section>
+    <div class="container">
+      <div class="section-label">The Problem</div>
+      <h2>Knowledge accumulates in silos</h2>
+      <p>Most organisations running large, long-lived software projects scatter their knowledge across disconnected tools — tickets in Jira, documentation in Confluence, code in GitHub, decisions in people's heads. These systems don't talk to each other in any meaningful way.</p>
+      <p>An engineer joining the team can read the tickets and the docs, but has no way to understand <em>why</em> things are the way they are, how decisions connect to code, or what was tried and rejected.</p>
+      <div class="highlight">
+        This is a solvable problem. The solution is a knowledge graph — a unified, structured store where everything connects to everything, and where the reasoning behind decisions is captured alongside the decisions themselves. <span>Kanecta is that knowledge graph.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- What makes Kanecta different -->
+  <section>
+    <div class="container">
+      <div class="section-label">Differentiation</div>
+      <h2>Everything is an item, and everything connects</h2>
+      <p>Most tools optimise for one dimension — Jira for task tracking, Confluence for documentation, Notion for notes, Neo4j for graph queries. Each is best-in-class at its slice and blind to everything else.</p>
+      <p>In Kanecta, a Jira ticket is an item. An architectural decision is an item. A code component is an item. A team member's area of expertise is an item. The relationship between a ticket and the architectural decision that constrains it is also an item — typed, directional, carrying its own metadata and reasoning.</p>
+      <div class="cards">
+        <div class="card">
+          <span class="card-icon">🔗</span>
+          <h3>Cross-silo queries</h3>
+          <p>"What architectural decisions are upstream of this component?" is a graph traversal. Unanswerable in siloed tools. Trivial in Kanecta.</p>
+        </div>
+        <div class="card">
+          <span class="card-icon">🧠</span>
+          <h3>Reasoning captured</h3>
+          <p>Decision items record what was decided, why, what was rejected, and who decided. Six years of that compounds into irreplaceable institutional memory.</p>
+        </div>
+        <div class="card">
+          <span class="card-icon">🤖</span>
+          <h3>AI reads and writes</h3>
+          <p>The same store humans maintain is the store AI agents draw from — and contribute back to. Every agent insight is persisted for next time.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Technical foundation -->
+  <section>
+    <div class="container">
+      <div class="section-label">Technical Foundation</div>
+      <h2>Three capabilities, one database</h2>
+      <p>Kanecta runs on Postgres — giving it three complementary search and query capabilities without managing multiple systems. The combined pipeline means the right information surfaces even when connections are implicit, terminology varies, or the explicit relationship was never created.</p>
+      <div class="pillars">
+        <div class="pillar">
+          <div class="pillar-tech">Relational · SQL</div>
+          <h3>Structured queries</h3>
+          <p>Standard SQL for filtering, joining, and aggregating. Items, relationships, history, types — all queryable with full SQL expressiveness.</p>
+        </div>
+        <div class="pillar">
+          <div class="pillar-tech">Graph · Apache AGE</div>
+          <h3>Graph traversal</h3>
+          <p>Cypher-based multi-hop queries. "Find everything connected to this ticket within three hops." Single statement. Any depth.</p>
+        </div>
+        <div class="pillar">
+          <div class="pillar-tech">Vector · pg_vector</div>
+          <h3>Semantic search</h3>
+          <p>Vector embeddings on every item. "Find items whose meaning is close to this concept" — regardless of whether the exact words match.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- What this means for an AI agent -->
+  <section>
+    <div class="container">
+      <div class="section-label">AI Agents</div>
+      <h2>The difference between assisting and compounding</h2>
+      <p>Today, AI agents working on software tasks start cold. They read a ticket, they read some code, they make their best guess at what matters. They have no memory of what was tried before, no access to the reasoning behind past decisions.</p>
+      <p>With a rich Kanecta knowledge graph, an agent working on a ticket can:</p>
+      <ol class="agent-steps">
+        <li>
+          <p><strong>Traverse the graph</strong> from the ticket UUID — reaching acceptance criteria, related design decisions, affected components, component owners, past PRs, known constraints.</p>
+        </li>
+        <li>
+          <p><strong>Surface semantic matches</strong> — past decisions and patterns that share meaning but weren't explicitly linked, found via vector similarity.</p>
+        </li>
+        <li>
+          <p><strong>Arrive with full context</strong> — not just what the ticket asks for, but why this approach, what was rejected, who to consult, what's fragile nearby.</p>
+        </li>
+        <li>
+          <p><strong>Write back</strong> — recording decisions made, constraints discovered, relationships created — so the next agent or human finds the graph richer than they left it.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- Adoption pathway -->
+  <section>
+    <div class="container">
+      <div class="section-label">Adoption Pathway</div>
+      <h2>Four stages to organisational intelligence</h2>
+      <div class="stages">
+
+        <div class="stage">
+          <div class="stage-num">1</div>
+          <div class="stage-body">
+            <h3>Core team — cloud knowledge graph</h3>
+            <p>A small core team begins using Kanecta with a shared Postgres instance on AWS, configured with Apache AGE and pg_vector. The foundation: a live, queryable knowledge graph replacing informal knowledge held in people's heads.</p>
+            <ul>
+              <li>Architectural decisions with full reasoning</li>
+              <li>Relationships between tickets, Confluence pages, and code components</li>
+              <li>Team expertise mapping — who knows what, who owns what</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="stage">
+          <div class="stage-num">2</div>
+          <div class="stage-body">
+            <h3>Wider team access</h3>
+            <p>Architects, business analysts, product owners, and tech leads are added. Each brings a different angle of knowledge that enriches the graph. The value begins to compound.</p>
+            <ul>
+              <li>BA captures business reasoning — AI agents can traverse it later</li>
+              <li>Architects record technology decisions — context for every engineer</li>
+              <li>Non-technical users contribute through the UI — no technical knowledge required</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="stage">
+          <div class="stage-num">3</div>
+          <div class="stage-body">
+            <h3>Full organisation</h3>
+            <p>All engineers and non-engineers onboarded. Jira, Confluence, and GitHub are modelled as items in the graph — tickets, pages, and pull requests become first-class nodes connected to the knowledge that explains them.</p>
+            <ul>
+              <li>Kanecta becomes the connective tissue of organisational knowledge</li>
+              <li>Not replacing Jira or Confluence — making them navigable together</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="stage">
+          <div class="stage-num">4</div>
+          <div class="stage-body">
+            <h3>Agentic pipelines</h3>
+            <p>With a rich knowledge graph in place, agentic pipelines become viable. A Jira-to-PR pipeline — where an AI agent receives a ticket, traverses the graph, implements the change, and writes its reasoning back — is an engineering task with clear infrastructure.</p>
+            <div class="pipeline">
+              <div class="pipeline-step trigger">Jira ticket moves to Ready</div>
+              <div class="pipeline-step"><span class="arrow">→</span> <span class="label">Agent traverses knowledge graph</span> <span class="detail">(ticket → decisions → components → constraints)</span></div>
+              <div class="pipeline-step"><span class="arrow">→</span> <span class="label">Agent plans, writes decision item to graph</span></div>
+              <div class="pipeline-step"><span class="arrow">→</span> <span class="label">Agent implements, creates PR</span></div>
+              <div class="pipeline-step"><span class="arrow">→</span> <span class="label">PR linked to ticket in graph</span></div>
+              <div class="pipeline-step"><span class="arrow">→</span> <span class="label">Decisions and discoveries written back</span></div>
+            </div>
+            <p style="font-size:0.88rem;">Each run makes the graph richer. Each subsequent agent — or human — working in the same area finds better context than the last.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Why now -->
+  <section>
+    <div class="container">
+      <div class="section-label">Timing</div>
+      <h2>Why now</h2>
+      <div class="why-grid">
+        <div class="why-item">
+          <h3>🧩 AI capability</h3>
+          <p>Large language models can now traverse structured context and produce code that reflects genuine understanding. The bottleneck is no longer capability — it is context. A knowledge graph is context infrastructure.</p>
+        </div>
+        <div class="why-item">
+          <h3>🔧 Tooling maturity</h3>
+          <p>Postgres, Apache AGE, pg_vector, the Model Context Protocol, LangGraph — all production-ready. This is not prototype technology.</p>
+        </div>
+        <div class="why-item">
+          <h3>⏳ Cost of waiting</h3>
+          <p>A large, long-lived project accumulates knowledge debt in proportion to its size and duration. The longer it runs without a structured knowledge layer, the more expensive every transition, onboarding, and change becomes.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Closing -->
+  <section>
+    <div class="container">
+      <div class="closing">
+        <p>Six years of a well-maintained Kanecta knowledge graph is a compounding asset. Every decision captured is context available to every future engineer, analyst, and AI agent who works on the project.</p>
+        <p>The graph does not make the organisation dependent on any vendor. It is self-hosted, open-source, owned entirely by the organisation. <strong>The knowledge is yours.</strong></p>
+        <p class="final">The question is not whether a knowledge graph is valuable.<br>The question is whether to build it <em>now</em> or pay a larger price later.</p>
+      </div>
+    </div>
+  </section>
+
+</body>
+</html>
