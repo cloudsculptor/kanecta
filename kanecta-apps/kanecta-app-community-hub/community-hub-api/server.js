@@ -1,6 +1,7 @@
 import express from "express";
 import { createServer } from "http";
 import { Server as SocketIO } from "socket.io";
+import pool from "./db.js";
 import discussionsRouter from "./routes/discussions.js";
 import pushRouter from "./routes/push.js";
 import financesRouter from "./routes/finances.js";
@@ -51,5 +52,14 @@ const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
   console.log(`Featherston API running on port ${PORT}`);
 });
+
+async function shutdown() {
+  httpServer.close();
+  await pool.end();
+  process.exit(0);
+}
+
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
 
 export { app, httpServer };
