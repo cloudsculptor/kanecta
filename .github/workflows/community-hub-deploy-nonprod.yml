@@ -5,6 +5,7 @@ on:
     branches: [test]
     paths:
       - 'kanecta-apps/kanecta-app-community-hub/**'
+  workflow_dispatch:
 
 jobs:
   deploy:
