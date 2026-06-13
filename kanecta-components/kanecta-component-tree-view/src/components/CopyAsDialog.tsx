@@ -5,9 +5,7 @@ import {
 } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CloseIcon from '@mui/icons-material/Close';
-import type { KanectaItem } from '../../../types/kanecta';
-
-type TreeEntry = { item: KanectaItem; depth: number };
+import type { KanectaItem, TreeEntry } from '../types';
 
 interface CopyAsDialogProps {
   item: KanectaItem | null;

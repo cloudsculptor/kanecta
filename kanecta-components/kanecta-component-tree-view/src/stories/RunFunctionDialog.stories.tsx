@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { fn, userEvent, within, waitFor, expect } from 'storybook/test';
-import { RunFunctionDialog } from './RunFunctionDialog';
-import { useWorkspaceStore } from '../../../store/workspace';
-import type { KanectaItem } from '../../../types/kanecta';
+import { RunFunctionDialog } from '../components/RunFunctionDialog';
+import { TreeViewContext } from '../context';
+import type { TreeViewApi, KanectaItem } from '../types';
 
 const theme = createTheme();
 
@@ -37,6 +37,25 @@ const functionItem: KanectaItem = {
 const getFunctionDataSpy = fn();
 const runFunctionScaffoldSpy = fn();
 
+function makeContextValue() {
+  return {
+    api: {
+      items: {
+        getFunctionData: getFunctionDataSpy,
+        runFunctionScaffold: runFunctionScaffoldSpy,
+        checkFunctionScaffold: () => Promise.resolve({ exists: true, stale: false }),
+        getFunctionPackageJson: () => Promise.resolve(null),
+      },
+    } as unknown as TreeViewApi,
+    workspaceKey: undefined,
+    vscodeAvailable: false,
+    focusedItemId: null,
+    onFocusItem: () => {},
+    onSelectItem: () => {},
+    onOpenOverlay: () => {},
+  };
+}
+
 function mockApi(data: Record<string, unknown> | null, delay = 0) {
   getFunctionDataSpy.mockImplementation(() =>
     delay > 0
@@ -44,16 +63,6 @@ function mockApi(data: Record<string, unknown> | null, delay = 0) {
       : Promise.resolve(data),
   );
   runFunctionScaffoldSpy.mockResolvedValue({ success: true, output: '"ok"', logs: '' });
-  useWorkspaceStore.setState({
-    getApi: (() => ({
-      items: {
-        getFunctionData: getFunctionDataSpy,
-        runFunctionScaffold: runFunctionScaffoldSpy,
-        checkFunctionScaffold: () => Promise.resolve({ exists: true, stale: false }),
-        getFunctionPackageJson: () => Promise.resolve(null),
-      },
-    })) as unknown as ReturnType<typeof useWorkspaceStore.getState>['getApi'],
-  });
 }
 
 // ─── Data fixtures ────────────────────────────────────────────────────────────
@@ -120,7 +129,7 @@ function getDialog() {
 
 export const NoParameters: Story = {
   name: 'No parameters — Run is immediately enabled',
-  decorators: [(Story) => { mockApi(noParamsData); return <Story />; }],
+  decorators: [(Story) => { mockApi(noParamsData); return <TreeViewContext.Provider value={makeContextValue()}><Story /></TreeViewContext.Provider>; }],
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'triggerBuild' }} onClose={() => {}} />
   ),
@@ -134,7 +143,7 @@ export const NoParameters: Story = {
 
 export const PrimitiveParameters: Story = {
   name: 'Primitive parameters — one required, one optional',
-  decorators: [(Story) => { mockApi(primitiveParamsData); return <Story />; }],
+  decorators: [(Story) => { mockApi(primitiveParamsData); return <TreeViewContext.Provider value={makeContextValue()}><Story /></TreeViewContext.Provider>; }],
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'fetchUser' }} onClose={() => {}} />
   ),
@@ -150,7 +159,7 @@ export const PrimitiveParameters: Story = {
 
 export const AllOptionalParameters: Story = {
   name: 'All optional parameters — Run enabled without filling any',
-  decorators: [(Story) => { mockApi(allOptionalData); return <Story />; }],
+  decorators: [(Story) => { mockApi(allOptionalData); return <TreeViewContext.Provider value={makeContextValue()}><Story /></TreeViewContext.Provider>; }],
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'notify' }} onClose={() => {}} />
   ),
@@ -163,7 +172,7 @@ export const AllOptionalParameters: Story = {
 
 export const KanectaTypedParameters: Story = {
   name: 'Kanecta-typed parameter — shows typeId as helper text',
-  decorators: [(Story) => { mockApi(kanectaTypedData); return <Story />; }],
+  decorators: [(Story) => { mockApi(kanectaTypedData); return <TreeViewContext.Provider value={makeContextValue()}><Story /></TreeViewContext.Provider>; }],
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'createContact' }} onClose={() => {}} />
   ),
@@ -180,7 +189,7 @@ export const KanectaTypedParameters: Story = {
 
 export const RestParameter: Story = {
   name: 'Rest parameter — shows ...rest label',
-  decorators: [(Story) => { mockApi(restParamData); return <Story />; }],
+  decorators: [(Story) => { mockApi(restParamData); return <TreeViewContext.Provider value={makeContextValue()}><Story /></TreeViewContext.Provider>; }],
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'log' }} onClose={() => {}} />
   ),
@@ -192,7 +201,7 @@ export const RestParameter: Story = {
 
 export const AIFunction: Story = {
   name: 'AI function with optional param — Run enabled',
-  decorators: [(Story) => { mockApi(aiData); return <Story />; }],
+  decorators: [(Story) => { mockApi(aiData); return <TreeViewContext.Provider value={makeContextValue()}><Story /></TreeViewContext.Provider>; }],
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'summarise' }} onClose={() => {}} />
   ),
@@ -206,7 +215,7 @@ export const AIFunction: Story = {
 
 export const RunDisabledUntilRequiredFilled: Story = {
   name: 'Run disabled until required field is filled',
-  decorators: [(Story) => { mockApi(primitiveParamsData); return <Story />; }],
+  decorators: [(Story) => { mockApi(primitiveParamsData); return <TreeViewContext.Provider value={makeContextValue()}><Story /></TreeViewContext.Provider>; }],
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'fetchUser' }} onClose={() => {}} />
   ),
@@ -233,7 +242,7 @@ const optionalDefaultData = {
 
 export const OptionalDefaultDoesNotBlockRun: Story = {
   name: 'Optional param with defaultValue does not block Run',
-  decorators: [(Story) => { mockApi(optionalDefaultData); return <Story />; }],
+  decorators: [(Story) => { mockApi(optionalDefaultData); return <TreeViewContext.Provider value={makeContextValue()}><Story /></TreeViewContext.Provider>; }],
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'fetchUser' }} onClose={() => {}} />
   ),
@@ -247,7 +256,7 @@ export const OptionalDefaultDoesNotBlockRun: Story = {
 
 export const RunButtonFills: Story = {
   name: 'Filling all required args enables Run',
-  decorators: [(Story) => { mockApi(kanectaTypedData); return <Story />; }],
+  decorators: [(Story) => { mockApi(kanectaTypedData); return <TreeViewContext.Provider value={makeContextValue()}><Story /></TreeViewContext.Provider>; }],
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'createContact' }} onClose={() => {}} />
   ),
@@ -262,7 +271,7 @@ export const RunButtonFills: Story = {
 
 export const ReturnTypeShown: Story = {
   name: 'Return type is shown at the bottom',
-  decorators: [(Story) => { mockApi(primitiveParamsData); return <Story />; }],
+  decorators: [(Story) => { mockApi(primitiveParamsData); return <TreeViewContext.Provider value={makeContextValue()}><Story /></TreeViewContext.Provider>; }],
   render: () => (
     <RunFunctionDialog open item={{ ...functionItem, value: 'fetchUser' }} onClose={() => {}} />
   ),
@@ -275,7 +284,7 @@ export const ReturnTypeShown: Story = {
 
 export const LoadingState: Story = {
   name: 'Loading state — spinner shown while fetching',
-  decorators: [(Story) => { mockApi(primitiveParamsData, 2000); return <Story />; }],
+  decorators: [(Story) => { mockApi(primitiveParamsData, 2000); return <TreeViewContext.Provider value={makeContextValue()}><Story /></TreeViewContext.Provider>; }],
   render: () => (
     <RunFunctionDialog open item={functionItem} onClose={() => {}} />
   ),

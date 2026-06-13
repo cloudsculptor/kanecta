@@ -3,9 +3,9 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { userEvent, expect, fn, within, waitFor } from 'storybook/test';
-import { TreeNode } from './TreeNode';
-import { useWorkspaceStore } from '../../../store/workspace';
-import type { KanectaItem } from '../../../types/kanecta';
+import { TreeNode } from '../components/TreeNode';
+import { TreeViewContext } from '../context';
+import type { TreeViewApi, KanectaItem, AliasEntry } from '../types';
 
 const qc = new QueryClient();
 const theme = createTheme();
@@ -41,32 +41,108 @@ const baseItem: KanectaItem = {
   modifiedAt: new Date().toISOString(),
 };
 
+const noopApi: TreeViewApi = {
+  items: {
+    list: () => Promise.resolve([]),
+    root: () => Promise.resolve({} as KanectaItem),
+    get: () => Promise.resolve({} as KanectaItem),
+    children: () => Promise.resolve([]),
+    tree: () => Promise.resolve([]),
+    create: () => Promise.resolve({} as KanectaItem),
+    update: () => Promise.resolve({} as KanectaItem),
+    delete: () => Promise.resolve({ deleted: '' }),
+    getObject: () => Promise.resolve(null),
+    getFunctionData: () => Promise.resolve(null),
+    saveFunctionData: () => Promise.resolve({ ok: true }),
+    runFunctionScaffold: () => Promise.resolve({ success: true, output: null, logs: '' }),
+    compileFunctionScaffold: () => Promise.resolve({ success: true, output: '' }),
+    checkFunctionScaffold: () => Promise.resolve({ exists: false, stale: false }),
+    getFunctionPackageJson: () => Promise.resolve(null),
+  },
+  aliases: {
+    list: () => Promise.resolve([]),
+    listForItem: () => Promise.resolve([]),
+    resolve: () => Promise.resolve({} as AliasEntry),
+    set: () => Promise.resolve({} as AliasEntry),
+    remove: () => Promise.resolve({ removed: '' }),
+  },
+  breadcrumb: {
+    addClipboard: () => Promise.resolve({ ok: true }),
+    addViewed: () => Promise.resolve({ ok: true }),
+  },
+  starred: {
+    list: () => Promise.resolve([]),
+    add: () => Promise.resolve({ ok: true }),
+    remove: () => Promise.resolve({ ok: true }),
+  },
+  view: {
+    get: () => Promise.resolve(null),
+    save: () => Promise.resolve({ ok: true }),
+  },
+  types: {
+    schema: () => Promise.resolve(null),
+  },
+  tree: {
+    full: () => Promise.resolve([]),
+  },
+  config: {
+    get: () => Promise.resolve({ vscodeAvailable: false, datastorePath: '' }),
+    openPath: () => Promise.resolve({ ok: true }),
+    openInBrowser: () => Promise.resolve({ ok: true }),
+    openInVscode: () => Promise.resolve({ ok: true }),
+  },
+};
+
+interface ContextValue {
+  api: TreeViewApi;
+  workspaceKey: string | undefined;
+  vscodeAvailable: boolean;
+  focusedItemId: string | null;
+  onFocusItem: (id: string) => void;
+  onSelectItem: (id: string | null) => void;
+  onOpenOverlay: () => void;
+}
+
+function makeContextValue(apiOverride?: Partial<TreeViewApi>): ContextValue {
+  return {
+    api: { ...noopApi, ...apiOverride } as TreeViewApi,
+    workspaceKey: 'test-workspace',
+    vscodeAvailable: false,
+    focusedItemId: null,
+    onFocusItem: () => {},
+    onSelectItem: () => {},
+    onOpenOverlay: () => {},
+  };
+}
+
+const defaultContextValue: ContextValue = makeContextValue();
+
 function TreeNodeDemo({ item, confidence }: { item: KanectaItem; confidence?: KanectaItem['confidence'] }) {
   const [expanded, setExpanded] = useState(false);
   const [focused, setFocused] = useState(false);
   return (
-    <TreeNode
-      item={{ ...item, confidence: confidence ?? item.confidence }}
-      isExpanded={expanded}
-      hasChildren={(item.childCount ?? 0) > 0}
-      isFocused={focused}
-      onToggle={() => setExpanded((e) => !e)}
-      onFocus={() => setFocused((f) => !f)}
-      onZoom={() => alert('zoom')}
-      onAddChild={() => alert('add child')}
-      onAddSibling={() => alert('add sibling')}
-      onDelete={() => alert('delete')}
-      onEdit={async (v) => alert(`edit: ${v}`)}
-      onIndent={() => alert('indent')}
-      onOutdent={() => alert('outdent')}
-      onNavigateToId={() => {}}
-      onExpandToDepth={() => {}}
-      onRecordClipboard={() => {}}
-      onRecordViewed={() => {}}
-      onCopyAs={() => {}}
-      setItemId={() => {}}
-      openOverlay={() => {}}
-    />
+    <TreeViewContext.Provider value={defaultContextValue}>
+      <TreeNode
+        item={{ ...item, confidence: confidence ?? item.confidence }}
+        isExpanded={expanded}
+        hasChildren={(item.childCount ?? 0) > 0}
+        isFocused={focused}
+        onToggle={() => setExpanded((e) => !e)}
+        onFocus={() => setFocused((f) => !f)}
+        onZoom={() => alert('zoom')}
+        onAddChild={() => alert('add child')}
+        onAddSibling={() => alert('add sibling')}
+        onDelete={() => alert('delete')}
+        onEdit={async (v) => alert(`edit: ${v}`)}
+        onIndent={() => alert('indent')}
+        onOutdent={() => alert('outdent')}
+        onNavigateToId={() => {}}
+        onExpandToDepth={() => {}}
+        onRecordClipboard={() => {}}
+        onRecordViewed={() => {}}
+        onCopyAs={() => {}}
+      />
+    </TreeViewContext.Provider>
   );
 }
 
@@ -105,34 +181,34 @@ export const ClickToEdit: Story = {
       const [focused, setFocused] = useState(false);
       const [expanded, setExpanded] = useState(false);
       return (
-        <div>
-          <p style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
-            Click the label text to begin editing. Press Enter, Tab, or click away to commit.
-          </p>
-          <TreeNode
-            item={{ ...baseItem, value }}
-            isExpanded={expanded}
-            hasChildren={true}
-            isFocused={focused}
-            onToggle={() => setExpanded((e) => !e)}
-            onFocus={() => setFocused((f) => !f)}
-            onZoom={() => {}}
-            onAddChild={() => {}}
-            onAddSibling={() => {}}
-            onDelete={() => {}}
-            onEdit={async (v) => setValue(v)}
-            onIndent={() => {}}
-            onOutdent={() => {}}
-            onNavigateToId={() => {}}
-            onExpandToDepth={() => {}}
-            onRecordClipboard={() => {}}
-            onRecordViewed={() => {}}
-            onCopyAs={() => {}}
-            setItemId={() => {}}
-            openOverlay={() => {}}
-          />
-          <p style={{ fontSize: 11, color: '#999', marginTop: 8 }}>Current value: <strong>{value}</strong></p>
-        </div>
+        <TreeViewContext.Provider value={defaultContextValue}>
+          <div>
+            <p style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
+              Click the label text to begin editing. Press Enter, Tab, or click away to commit.
+            </p>
+            <TreeNode
+              item={{ ...baseItem, value }}
+              isExpanded={expanded}
+              hasChildren={true}
+              isFocused={focused}
+              onToggle={() => setExpanded((e) => !e)}
+              onFocus={() => setFocused((f) => !f)}
+              onZoom={() => {}}
+              onAddChild={() => {}}
+              onAddSibling={() => {}}
+              onDelete={() => {}}
+              onEdit={async (v) => setValue(v)}
+              onIndent={() => {}}
+              onOutdent={() => {}}
+              onNavigateToId={() => {}}
+              onExpandToDepth={() => {}}
+              onRecordClipboard={() => {}}
+              onRecordViewed={() => {}}
+              onCopyAs={() => {}}
+            />
+            <p style={{ fontSize: 11, color: '#999', marginTop: 8 }}>Current value: <strong>{value}</strong></p>
+          </div>
+        </TreeViewContext.Provider>
       );
     }
     return <EditDemo />;
@@ -146,33 +222,33 @@ export const EditShortItems: Story = {
     function MultiDemo() {
       const [values, setValues] = useState(items);
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {values.map((v, i) => (
-            <TreeNode
-              key={i}
-              item={{ ...baseItem, id: String(i), value: v, childCount: 0 }}
-              isExpanded={false}
-              hasChildren={false}
-              isFocused={false}
-              onToggle={() => {}}
-              onFocus={() => {}}
-              onZoom={() => {}}
-              onAddChild={() => {}}
-              onAddSibling={() => {}}
-              onDelete={() => {}}
-              onEdit={async (next) => setValues((vs) => vs.map((x, j) => (j === i ? next : x)))}
-              onIndent={() => {}}
-              onOutdent={() => {}}
-              onNavigateToId={() => {}}
-              onExpandToDepth={() => {}}
-              onRecordClipboard={() => {}}
-              onRecordViewed={() => {}}
-              onCopyAs={() => {}}
-              setItemId={() => {}}
-              openOverlay={() => {}}
-            />
-          ))}
-        </div>
+        <TreeViewContext.Provider value={defaultContextValue}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {values.map((v, i) => (
+              <TreeNode
+                key={i}
+                item={{ ...baseItem, id: String(i), value: v, childCount: 0 }}
+                isExpanded={false}
+                hasChildren={false}
+                isFocused={false}
+                onToggle={() => {}}
+                onFocus={() => {}}
+                onZoom={() => {}}
+                onAddChild={() => {}}
+                onAddSibling={() => {}}
+                onDelete={() => {}}
+                onEdit={async (next) => setValues((vs) => vs.map((x, j) => (j === i ? next : x)))}
+                onIndent={() => {}}
+                onOutdent={() => {}}
+                onNavigateToId={() => {}}
+                onExpandToDepth={() => {}}
+                onRecordClipboard={() => {}}
+                onRecordViewed={() => {}}
+                onCopyAs={() => {}}
+              />
+            ))}
+          </div>
+        </TreeViewContext.Provider>
       );
     }
     return <MultiDemo />;
@@ -195,8 +271,6 @@ const noopProps = {
   onRecordClipboard: () => {},
   onRecordViewed: () => {},
   onCopyAs: () => {},
-  setItemId: () => {},
-  openOverlay: () => {},
 };
 
 // Spies defined at module level so play functions can reference them
@@ -210,30 +284,32 @@ export const TabCallsIndentOnSecondSibling: Story = {
     function Demo() {
       const [focused, setFocused] = useState<string | null>(null);
       return (
-        <div>
-          <p style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
-            <strong>Steps:</strong> Click "Second item" to enter edit mode, then press Tab.<br />
-            <strong>Expected:</strong> onIndent is called once; no tab character is inserted.
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TreeNode
-              {...noopProps}
-              item={{ ...baseItem, id: '1', value: 'First item', childCount: 0 }}
-              isFocused={focused === '1'}
-              onFocus={() => setFocused('1')}
-              onEdit={async () => {}}
-              onIndent={fn()}
-            />
-            <TreeNode
-              {...noopProps}
-              item={{ ...baseItem, id: '2', value: 'Second item', childCount: 0 }}
-              isFocused={focused === '2'}
-              onFocus={() => setFocused('2')}
-              onEdit={async () => {}}
-              onIndent={indentSpy}
-            />
+        <TreeViewContext.Provider value={defaultContextValue}>
+          <div>
+            <p style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
+              <strong>Steps:</strong> Click "Second item" to enter edit mode, then press Tab.<br />
+              <strong>Expected:</strong> onIndent is called once; no tab character is inserted.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <TreeNode
+                {...noopProps}
+                item={{ ...baseItem, id: '1', value: 'First item', childCount: 0 }}
+                isFocused={focused === '1'}
+                onFocus={() => setFocused('1')}
+                onEdit={async () => {}}
+                onIndent={fn()}
+              />
+              <TreeNode
+                {...noopProps}
+                item={{ ...baseItem, id: '2', value: 'Second item', childCount: 0 }}
+                isFocused={focused === '2'}
+                onFocus={() => setFocused('2')}
+                onEdit={async () => {}}
+                onIndent={indentSpy}
+              />
+            </div>
           </div>
-        </div>
+        </TreeViewContext.Provider>
       );
     }
     return <Demo />;
@@ -265,21 +341,23 @@ export const TabOnFirstItemStillCallsIndent: Story = {
     function Demo() {
       const [focused, setFocused] = useState(false);
       return (
-        <div>
-          <p style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
-            <strong>Steps:</strong> Click "Only item" to enter edit mode, then press Tab.<br />
-            <strong>Expected:</strong> onIndent is called. The handler (not TreeNode) is responsible
-            for doing nothing when there is no previous sibling.
-          </p>
-          <TreeNode
-            {...noopProps}
-            item={{ ...baseItem, id: '1', value: 'Only item', childCount: 0 }}
-            isFocused={focused}
-            onFocus={() => setFocused(true)}
-            onEdit={async () => {}}
-            onIndent={indentSpy}
-          />
-        </div>
+        <TreeViewContext.Provider value={defaultContextValue}>
+          <div>
+            <p style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
+              <strong>Steps:</strong> Click "Only item" to enter edit mode, then press Tab.<br />
+              <strong>Expected:</strong> onIndent is called. The handler (not TreeNode) is responsible
+              for doing nothing when there is no previous sibling.
+            </p>
+            <TreeNode
+              {...noopProps}
+              item={{ ...baseItem, id: '1', value: 'Only item', childCount: 0 }}
+              isFocused={focused}
+              onFocus={() => setFocused(true)}
+              onEdit={async () => {}}
+              onIndent={indentSpy}
+            />
+          </div>
+        </TreeViewContext.Provider>
       );
     }
     return <Demo />;
@@ -303,34 +381,36 @@ export const TabCommitsEditThenIndents: Story = {
       const [focused, setFocused] = useState<string | null>(null);
       const [values, setValues] = useState(['First item', 'Second item']);
       return (
-        <div>
-          <p style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
-            <strong>Steps:</strong> Click "Second item", clear the text, type "Updated text", press Tab.<br />
-            <strong>Expected:</strong> onEdit is called with "Updated text" before onIndent fires.
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TreeNode
-              {...noopProps}
-              item={{ ...baseItem, id: '1', value: values[0], childCount: 0 }}
-              isFocused={focused === '1'}
-              onFocus={() => setFocused('1')}
-              onEdit={async (v) => setValues((prev) => [v, prev[1]])}
-              onIndent={fn()}
-            />
-            <TreeNode
-              {...noopProps}
-              item={{ ...baseItem, id: '2', value: values[1], childCount: 0 }}
-              isFocused={focused === '2'}
-              onFocus={() => setFocused('2')}
-              onEdit={editSpy}
-              onIndent={indentAfterEditSpy}
-            />
+        <TreeViewContext.Provider value={defaultContextValue}>
+          <div>
+            <p style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
+              <strong>Steps:</strong> Click "Second item", clear the text, type "Updated text", press Tab.<br />
+              <strong>Expected:</strong> onEdit is called with "Updated text" before onIndent fires.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <TreeNode
+                {...noopProps}
+                item={{ ...baseItem, id: '1', value: values[0], childCount: 0 }}
+                isFocused={focused === '1'}
+                onFocus={() => setFocused('1')}
+                onEdit={async (v) => setValues((prev) => [v, prev[1]])}
+                onIndent={fn()}
+              />
+              <TreeNode
+                {...noopProps}
+                item={{ ...baseItem, id: '2', value: values[1], childCount: 0 }}
+                isFocused={focused === '2'}
+                onFocus={() => setFocused('2')}
+                onEdit={editSpy}
+                onIndent={indentAfterEditSpy}
+              />
+            </div>
+            <p style={{ fontSize: 11, color: '#999', marginTop: 8 }}>
+              onEdit called: <strong>{String(editSpy.mock.calls.length > 0)}</strong> —
+              onIndent called: <strong>{String(indentAfterEditSpy.mock.calls.length > 0)}</strong>
+            </p>
           </div>
-          <p style={{ fontSize: 11, color: '#999', marginTop: 8 }}>
-            onEdit called: <strong>{String(editSpy.mock.calls.length > 0)}</strong> —
-            onIndent called: <strong>{String(indentAfterEditSpy.mock.calls.length > 0)}</strong>
-          </p>
-        </div>
+        </TreeViewContext.Provider>
       );
     }
     return <Demo />;
@@ -373,24 +453,22 @@ function makeConvertItem(overrides?: Partial<KanectaItem>): KanectaItem {
   };
 }
 
-function ConvertDemo({ item }: { item: KanectaItem }) {
-  return (
-    <TreeNode
-      {...noopProps}
-      item={item}
-      isFocused={false}
-      onFocus={() => {}}
-      onEdit={async () => {}}
-      onIndent={() => {}}
-    />
-  );
-}
-
-function mockApi(resolvedItem: KanectaItem) {
-  convertUpdateSpy.mockResolvedValue(resolvedItem);
-  useWorkspaceStore.setState({
-    getApi: (() => ({ items: { update: convertUpdateSpy } })) as unknown as ReturnType<typeof useWorkspaceStore.getState>['getApi'],
+function ConvertDemo({ item, updateSpy }: { item: KanectaItem; updateSpy: ReturnType<typeof fn> }) {
+  const ctx = makeContextValue({
+    items: { ...noopApi.items, update: updateSpy },
   });
+  return (
+    <TreeViewContext.Provider value={ctx}>
+      <TreeNode
+        {...noopProps}
+        item={item}
+        isFocused={false}
+        onFocus={() => {}}
+        onEdit={async () => {}}
+        onIndent={() => {}}
+      />
+    </TreeViewContext.Provider>
+  );
 }
 
 async function openConvertDialog(canvasElement: HTMLElement) {
@@ -402,9 +480,11 @@ async function openConvertDialog(canvasElement: HTMLElement) {
 
 export const ConvertDialogSafeItem: Story = {
   name: 'Convert dialog — safe item (text type)',
-  render: () => <ConvertDemo item={makeConvertItem()} />,
+  render: () => {
+    convertUpdateSpy.mockResolvedValue(makeConvertItem({ type: 'heading' }));
+    return <ConvertDemo item={makeConvertItem()} updateSpy={convertUpdateSpy} />;
+  },
   play: async ({ canvasElement }) => {
-    mockApi(makeConvertItem({ type: 'heading' }));
     await openConvertDialog(canvasElement);
 
     const dialog = within(document.body).getByRole('dialog');
@@ -429,9 +509,11 @@ export const ConvertDialogSafeItem: Story = {
 
 export const ConvertDialogFunctionItem: Story = {
   name: 'Convert dialog — destructive (function type) shows warning',
-  render: () => <ConvertDemo item={makeConvertItem({ type: 'function' })} />,
+  render: () => {
+    convertUpdateSpy.mockResolvedValue(makeConvertItem({ type: 'text' }));
+    return <ConvertDemo item={makeConvertItem({ type: 'function' })} updateSpy={convertUpdateSpy} />;
+  },
   play: async ({ canvasElement }) => {
-    mockApi(makeConvertItem({ type: 'text' }));
     await openConvertDialog(canvasElement);
 
     const dialog = within(document.body).getByRole('dialog');
@@ -451,10 +533,12 @@ export const ConvertDialogFunctionItem: Story = {
 
 export const ConvertSafeTypeClick: Story = {
   name: 'Convert — clicking safe type calls update and closes dialog',
-  render: () => <ConvertDemo item={makeConvertItem()} />,
-  play: async ({ canvasElement }) => {
+  render: () => {
     convertUpdateSpy.mockClear();
-    mockApi(makeConvertItem({ type: 'heading' }));
+    convertUpdateSpy.mockResolvedValue(makeConvertItem({ type: 'heading' }));
+    return <ConvertDemo item={makeConvertItem()} updateSpy={convertUpdateSpy} />;
+  },
+  play: async ({ canvasElement }) => {
     await openConvertDialog(canvasElement);
 
     const dialog = within(document.body).getByRole('dialog');
@@ -471,10 +555,12 @@ export const ConvertSafeTypeClick: Story = {
 
 export const ConvertFromFunctionShowsConfirmation: Story = {
   name: 'Convert from function — clicking chip shows confirmation, not immediate convert',
-  render: () => <ConvertDemo item={makeConvertItem({ type: 'function' })} />,
-  play: async ({ canvasElement }) => {
+  render: () => {
     convertUpdateSpy.mockClear();
-    mockApi(makeConvertItem({ type: 'text' }));
+    convertUpdateSpy.mockResolvedValue(makeConvertItem({ type: 'text' }));
+    return <ConvertDemo item={makeConvertItem({ type: 'function' })} updateSpy={convertUpdateSpy} />;
+  },
+  play: async ({ canvasElement }) => {
     await openConvertDialog(canvasElement);
 
     const dialog = within(document.body).getByRole('dialog');
@@ -492,10 +578,12 @@ export const ConvertFromFunctionShowsConfirmation: Story = {
 
 export const ConvertFromFunctionConfirm: Story = {
   name: 'Convert from function — confirming calls update and closes dialog',
-  render: () => <ConvertDemo item={makeConvertItem({ type: 'function' })} />,
-  play: async ({ canvasElement }) => {
+  render: () => {
     convertUpdateSpy.mockClear();
-    mockApi(makeConvertItem({ type: 'text' }));
+    convertUpdateSpy.mockResolvedValue(makeConvertItem({ type: 'text' }));
+    return <ConvertDemo item={makeConvertItem({ type: 'function' })} updateSpy={convertUpdateSpy} />;
+  },
+  play: async ({ canvasElement }) => {
     await openConvertDialog(canvasElement);
 
     const dialog = within(document.body).getByRole('dialog');
@@ -515,10 +603,12 @@ export const ConvertFromFunctionConfirm: Story = {
 
 export const ConvertFromFunctionBack: Story = {
   name: 'Convert from function — Back dismisses confirmation without converting',
-  render: () => <ConvertDemo item={makeConvertItem({ type: 'function' })} />,
-  play: async ({ canvasElement }) => {
+  render: () => {
     convertUpdateSpy.mockClear();
-    mockApi(makeConvertItem({ type: 'text' }));
+    convertUpdateSpy.mockResolvedValue(makeConvertItem({ type: 'text' }));
+    return <ConvertDemo item={makeConvertItem({ type: 'function' })} updateSpy={convertUpdateSpy} />;
+  },
+  play: async ({ canvasElement }) => {
     await openConvertDialog(canvasElement);
 
     const dialog = within(document.body).getByRole('dialog');
@@ -543,15 +633,17 @@ const expandSpy = fn();
 
 function ExpandDemo() {
   return (
-    <TreeNode
-      {...noopProps}
-      item={{ ...baseItem, id: 'expand-item', value: 'Expand me', childCount: 5 }}
-      isFocused={false}
-      onFocus={() => {}}
-      onEdit={async () => {}}
-      onIndent={() => {}}
-      onExpandToDepth={expandSpy}
-    />
+    <TreeViewContext.Provider value={defaultContextValue}>
+      <TreeNode
+        {...noopProps}
+        item={{ ...baseItem, id: 'expand-item', value: 'Expand me', childCount: 5 }}
+        isFocused={false}
+        onFocus={() => {}}
+        onEdit={async () => {}}
+        onIndent={() => {}}
+        onExpandToDepth={expandSpy}
+      />
+    </TreeViewContext.Provider>
   );
 }
 
@@ -627,15 +719,6 @@ export const ExpandLevelNoSavedColor: Story = {
 
 const configGetSpy = fn();
 
-function mockConfigApi(datastorePath: string) {
-  configGetSpy.mockResolvedValue({ datastorePath });
-  useWorkspaceStore.setState({
-    getApi: (() => ({
-      config: { get: configGetSpy },
-    })) as unknown as ReturnType<typeof useWorkspaceStore.getState>['getApi'],
-  });
-}
-
 // Item whose UUID is known so we can assert the exact expected path
 const diskItem: KanectaItem = {
   ...baseItem,
@@ -644,16 +727,27 @@ const diskItem: KanectaItem = {
   childCount: 0,
 };
 
-function DiskLocationDemo({ item = diskItem }: { item?: KanectaItem }) {
+function DiskLocationDemo({ item = diskItem, datastorePath = '/home/user/my-datastore' }: { item?: KanectaItem; datastorePath?: string }) {
+  configGetSpy.mockResolvedValue({ vscodeAvailable: false, datastorePath });
+  const ctx = makeContextValue({
+    config: {
+      get: configGetSpy,
+      openPath: () => Promise.resolve({ ok: true }),
+      openInBrowser: () => Promise.resolve({ ok: true }),
+      openInVscode: () => Promise.resolve({ ok: true }),
+    },
+  });
   return (
-    <TreeNode
-      {...noopProps}
-      item={item}
-      isFocused={false}
-      onFocus={() => {}}
-      onEdit={async () => {}}
-      onIndent={() => {}}
-    />
+    <TreeViewContext.Provider value={ctx}>
+      <TreeNode
+        {...noopProps}
+        item={item}
+        isFocused={false}
+        onFocus={() => {}}
+        onEdit={async () => {}}
+        onIndent={() => {}}
+      />
+    </TreeViewContext.Provider>
   );
 }
 
@@ -661,7 +755,6 @@ export const CopyDiskLocationButton: Story = {
   name: 'Copy disk location — button present on hover',
   render: () => <DiskLocationDemo />,
   play: async ({ canvasElement }) => {
-    mockConfigApi('/home/user/my-datastore');
     await userEvent.hover(within(canvasElement).getByText('Disk location item'));
     await expect(within(canvasElement).getByRole('button', { name: 'Copy disk location' })).toBeTruthy();
   },
@@ -669,10 +762,8 @@ export const CopyDiskLocationButton: Story = {
 
 export const CopyDiskLocationCallsConfigOnFirstClick: Story = {
   name: 'Copy disk location — fetches /config on first click',
-  render: () => <DiskLocationDemo />,
+  render: () => { configGetSpy.mockClear(); return <DiskLocationDemo datastorePath="/home/user/datastore" />; },
   play: async ({ canvasElement }) => {
-    configGetSpy.mockClear();
-    mockConfigApi('/home/user/datastore');
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText: fn() },
       configurable: true,
@@ -685,11 +776,8 @@ export const CopyDiskLocationCallsConfigOnFirstClick: Story = {
 
 export const CopyDiskLocationCorrectPath: Story = {
   name: 'Copy disk location — copies correct sharded path to clipboard',
-  render: () => <DiskLocationDemo />,
+  render: () => { configGetSpy.mockClear(); return <DiskLocationDemo datastorePath="/home/user/datastore" />; },
   play: async ({ canvasElement }) => {
-    configGetSpy.mockClear();
-    mockConfigApi('/home/user/datastore');
-
     // UUID: a1b2c3d4-e5f6-7890-abcd-ef1234567890
     // Stripped: a1b2c3d4e5f67890abcdef1234567890
     // shard1 = a1, shard2 = b2
@@ -710,10 +798,8 @@ export const CopyDiskLocationCorrectPath: Story = {
 
 export const CopyDiskLocationCachesConfig: Story = {
   name: 'Copy disk location — /config is only fetched once across multiple clicks',
-  render: () => <DiskLocationDemo />,
+  render: () => { configGetSpy.mockClear(); return <DiskLocationDemo datastorePath="/home/user/datastore" />; },
   play: async ({ canvasElement }) => {
-    configGetSpy.mockClear();
-    mockConfigApi('/home/user/datastore');
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText: fn() },
       configurable: true,
@@ -734,7 +820,6 @@ export const CopyDiskLocationAfterCopyId: Story = {
   name: 'Copy disk location — appears after Copy value in action bar',
   render: () => <DiskLocationDemo />,
   play: async ({ canvasElement }) => {
-    mockConfigApi('/home/user/datastore');
     await userEvent.hover(within(canvasElement).getByText('Disk location item'));
 
     // MUI Tooltip doesn't set [title] on the child; use [aria-label] on the IconButtons instead

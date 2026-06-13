@@ -1,0 +1,62 @@
+.Breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  flex-wrap: wrap;
+  padding: 4px 8px 4px 16px;
+
+  &-fragment {
+    display: flex;
+    align-items: center;
+  }
+
+  &-home-icon {
+    width: 24px !important;
+    height: 24px !important;
+    font-size: 24px !important;
+    opacity: 0.5;
+  }
+
+  &-item {
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 0;
+    color: inherit;
+    font-size: inherit;
+    line-height: 1;
+    padding-top: 4px;
+    display: flex;
+    align-items: center;
+
+    &--icon {
+      padding-top: 0;
+    }
+
+    &:hover {
+      color: var(--color-primary);
+      text-decoration: underline;
+    }
+
+    &--current {
+      color: var(--color-text);
+      font-weight: 500;
+      cursor: default;
+
+      &:hover {
+        color: var(--color-text);
+        text-decoration: none;
+      }
+    }
+  }
+
+  &-sep {
+    opacity: 0.4;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    margin: 0 2px;
+  }
+}

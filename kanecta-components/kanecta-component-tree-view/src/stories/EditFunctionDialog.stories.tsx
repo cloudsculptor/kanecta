@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { fn, userEvent, within, waitFor, expect } from 'storybook/test';
-import { EditFunctionDialog } from './EditFunctionDialog';
-import { useWorkspaceStore } from '../../../store/workspace';
-import type { KanectaItem } from '../../../types/kanecta';
+import { EditFunctionDialog } from '../components/EditFunctionDialog';
+import { TreeViewContext } from '../context';
+import type { TreeViewApi, KanectaItem } from '../types';
 
 const theme = createTheme();
 
@@ -37,6 +37,26 @@ const functionItem: KanectaItem = {
 const getObjectSpy = fn();
 const saveObjectSpy = fn();
 
+function makeContextValue(itemsOverride: Partial<TreeViewApi['items']> = {}) {
+  return {
+    api: {
+      items: {
+        getFunctionData: getObjectSpy,
+        saveFunctionData: saveObjectSpy,
+        checkFunctionScaffold: () => Promise.resolve({ exists: true, stale: false }),
+        getFunctionPackageJson: () => Promise.resolve(null),
+        ...itemsOverride,
+      },
+    } as unknown as TreeViewApi,
+    workspaceKey: undefined,
+    vscodeAvailable: false,
+    focusedItemId: null,
+    onFocusItem: () => {},
+    onSelectItem: () => {},
+    onOpenOverlay: () => {},
+  };
+}
+
 function mockApi(data: Record<string, unknown> | null, saveDelay = 0) {
   getObjectSpy.mockResolvedValue(data);
   saveObjectSpy.mockImplementation(() =>
@@ -44,16 +64,6 @@ function mockApi(data: Record<string, unknown> | null, saveDelay = 0) {
       ? new Promise((r) => setTimeout(() => r({ ok: true }), saveDelay))
       : Promise.resolve({ ok: true }),
   );
-  useWorkspaceStore.setState({
-    getApi: (() => ({
-      items: {
-        getFunctionData: getObjectSpy,
-        saveFunctionData: saveObjectSpy,
-        checkFunctionScaffold: () => Promise.resolve({ exists: true, stale: false }),
-        getFunctionPackageJson: () => Promise.resolve(null),
-      },
-    })) as unknown as ReturnType<typeof useWorkspaceStore.getState>['getApi'],
-  });
 }
 
 // ─── Data fixtures ────────────────────────────────────────────────────────────
@@ -114,7 +124,7 @@ const deprecatedData = {
 
 export const Empty: Story = {
   name: 'Empty — new function (no existing data)',
-  decorators: [(Story) => { mockApi(null); return <Story />; }],
+  decorators: [(Story) => { mockApi(null); return <TreeViewContext.Provider value={makeContextValue()}><Story /></TreeViewContext.Provider>; }],
   render: () => (
     <EditFunctionDialog open item={functionItem} onClose={() => {}} />
   ),
@@ -122,7 +132,7 @@ export const Empty: Story = {
 
 export const Minimal: Story = {
   name: 'Minimal — parameters: [], returnType: void',
-  decorators: [(Story) => { mockApi(minimalData); return <Story />; }],
+  decorators: [(Story) => { mockApi(minimalData); return <TreeViewContext.Provider value={makeContextValue()}><Story /></TreeViewContext.Provider>; }],
   render: () => (
     <EditFunctionDialog open item={functionItem} onClose={() => {}} />
   ),
@@ -130,7 +140,7 @@ export const Minimal: Story = {
 
 export const WithPrimitiveParameters: Story = {
   name: 'With primitive parameters and type parameter',
-  decorators: [(Story) => { mockApi(fetchUserData); return <Story />; }],
+  decorators: [(Story) => { mockApi(fetchUserData); return <TreeViewContext.Provider value={makeContextValue()}><Story /></TreeViewContext.Provider>; }],
   render: () => (
     <EditFunctionDialog open item={{ ...functionItem, value: 'fetchUser' }} onClose={() => {}} />
   ),
@@ -138,7 +148,7 @@ export const WithPrimitiveParameters: Story = {
 
 export const AsyncWithAIAndSkill: Story = {
   name: 'Async + AI + skill UUID',
-  decorators: [(Story) => { mockApi(summariseData); return <Story />; }],
+  decorators: [(Story) => { mockApi(summariseData); return <TreeViewContext.Provider value={makeContextValue()}><Story /></TreeViewContext.Provider>; }],
   render: () => (
     <EditFunctionDialog open item={{ ...functionItem, value: 'summarise' }} onClose={() => {}} />
   ),
@@ -146,7 +156,7 @@ export const AsyncWithAIAndSkill: Story = {
 
 export const WithKanectaTypedParams: Story = {
   name: 'Kanecta-typed parameter and return type',
-  decorators: [(Story) => { mockApi(kanectaTypedData); return <Story />; }],
+  decorators: [(Story) => { mockApi(kanectaTypedData); return <TreeViewContext.Provider value={makeContextValue()}><Story /></TreeViewContext.Provider>; }],
   render: () => (
     <EditFunctionDialog open item={{ ...functionItem, value: 'createContact' }} onClose={() => {}} />
   ),
@@ -154,7 +164,7 @@ export const WithKanectaTypedParams: Story = {
 
 export const Deprecated: Story = {
   name: 'Deprecated function',
-  decorators: [(Story) => { mockApi(deprecatedData); return <Story />; }],
+  decorators: [(Story) => { mockApi(deprecatedData); return <TreeViewContext.Provider value={makeContextValue()}><Story /></TreeViewContext.Provider>; }],
   render: () => (
     <EditFunctionDialog open item={{ ...functionItem, value: 'getUser' }} onClose={() => {}} />
   ),
@@ -164,7 +174,7 @@ export const Deprecated: Story = {
 
 export const SaveDisabledWhenReturnTypeEmpty: Story = {
   name: 'Save is disabled when returnType is empty',
-  decorators: [(Story) => { mockApi({ parameters: [], returnType: '' }); return <Story />; }],
+  decorators: [(Story) => { mockApi({ parameters: [], returnType: '' }); return <TreeViewContext.Provider value={makeContextValue()}><Story /></TreeViewContext.Provider>; }],
   render: () => (
     <EditFunctionDialog open item={functionItem} onClose={() => {}} />
   ),
@@ -177,7 +187,7 @@ export const SaveDisabledWhenReturnTypeEmpty: Story = {
 
 export const SaveEnabledWithValidData: Story = {
   name: 'Save is enabled when form is valid',
-  decorators: [(Story) => { mockApi(minimalData); return <Story />; }],
+  decorators: [(Story) => { mockApi(minimalData); return <TreeViewContext.Provider value={makeContextValue()}><Story /></TreeViewContext.Provider>; }],
   render: () => (
     <EditFunctionDialog open item={functionItem} onClose={() => {}} />
   ),
@@ -192,7 +202,7 @@ export const SaveEnabledWithValidData: Story = {
 
 export const SaveCallsSaveObject: Story = {
   name: 'Save calls saveObject with form data',
-  decorators: [(Story) => { saveObjectSpy.mockClear(); mockApi(minimalData); return <Story />; }],
+  decorators: [(Story) => { saveObjectSpy.mockClear(); mockApi(minimalData); return <TreeViewContext.Provider value={makeContextValue()}><Story /></TreeViewContext.Provider>; }],
   render: () => (
     <EditFunctionDialog open item={functionItem} onClose={() => {}} />
   ),
@@ -215,7 +225,7 @@ export const SaveCallsSaveObject: Story = {
 
 export const AddAndRemoveParameter: Story = {
   name: 'Add parameter row, fill name + type, remove it',
-  decorators: [(Story) => { mockApi(minimalData); return <Story />; }],
+  decorators: [(Story) => { mockApi(minimalData); return <TreeViewContext.Provider value={makeContextValue()}><Story /></TreeViewContext.Provider>; }],
   render: () => (
     <EditFunctionDialog open item={functionItem} onClose={() => {}} />
   ),
@@ -242,7 +252,7 @@ export const AddAndRemoveParameter: Story = {
 
 export const SwitchReturnTypeToKanecta: Story = {
   name: 'Switching return type to Kanecta type shows UUID field',
-  decorators: [(Story) => { mockApi(minimalData); return <Story />; }],
+  decorators: [(Story) => { mockApi(minimalData); return <TreeViewContext.Provider value={makeContextValue()}><Story /></TreeViewContext.Provider>; }],
   render: () => (
     <EditFunctionDialog open item={functionItem} onClose={() => {}} />
   ),

@@ -33,13 +33,12 @@ import { TreeNodeEditor } from './TreeNodeEditor';
 import { EditFunctionDialog } from './EditFunctionDialog';
 import { RunFunctionDialog } from './RunFunctionDialog';
 import { FunctionLinksButton } from './FunctionLinksButton';
-import { ItemValue } from '../../shared/ItemValue';
-import { DynamicIcon } from '../../shared/DynamicIcon';
-import { useItemLookup } from '../../../hooks/useItemLookup';
-import { useWorkspaceStore } from '../../../store/workspace';
-import { useUiStore } from '../../../store/ui';
-import { TYPE_ICONS } from '../../../lib/typeIcons';
-import type { KanectaItem, ItemType } from '../../../types/kanecta';
+import { ItemValue } from './ItemValue';
+import { DynamicIcon } from './DynamicIcon';
+import { useItemLookup } from '../hooks/useItemLookup';
+import { useTreeViewContext } from '../context';
+import { TYPE_ICONS } from '../lib/typeIcons';
+import type { KanectaItem } from '../types';
 import './TreeNode.scss';
 
 interface TreeNodeProps {
@@ -65,8 +64,6 @@ interface TreeNodeProps {
   isFocused: boolean;
   autoFocusEdit?: boolean;
   onAutoFocused?: () => void;
-  setItemId: (id: string | null) => void;
-  openOverlay: () => void;
 }
 
 export function TreeNode({
@@ -92,8 +89,6 @@ export function TreeNode({
   isFocused,
   autoFocusEdit,
   onAutoFocused,
-  setItemId,
-  openOverlay,
 }: TreeNodeProps) {
   const [editing, setEditing] = useState(false);
   const [initialDraft, setInitialDraft] = useState('');
@@ -118,13 +113,12 @@ export function TreeNode({
   const [isHovered, setIsHovered] = useState(false);
   const diskConfigRef = useRef<{ datastorePath: string } | null>(null);
   const resolveId = useItemLookup();
-  const { getApi } = useWorkspaceStore();
-  const { vscodeAvailable } = useUiStore();
+  const { api, vscodeAvailable, onSelectItem: setItemId, onOpenOverlay: openOverlay } = useTreeViewContext();
   const queryClient = useQueryClient();
 
   const { data: allAliases = [] } = useQuery({
     queryKey: ['aliases'],
-    queryFn: () => getApi().aliases.list(),
+    queryFn: () => api.aliases.list(),
     staleTime: 30_000,
   });
   const itemAliasCount = allAliases.filter(a => a.targetId === item.id).length;
@@ -132,7 +126,7 @@ export function TreeNode({
 
   const getDiskPath = async () => {
     if (!datastorePathRef.current) {
-      const cfg = await getApi().config.get();
+      const cfg = await api.config.get();
       datastorePathRef.current = cfg.datastorePath;
     }
     const stripped = item.id.replace(/-/g, '');
@@ -142,15 +136,15 @@ export function TreeNode({
   };
 
   const openDiskLocation = async () => {
-    void getApi().config.openPath(await getDiskPath());
+    void api.config.openPath(await getDiskPath());
   };
 
   const openDiskLocationInBrowser = async () => {
-    void getApi().config.openInBrowser(await getDiskPath());
+    void api.config.openInBrowser(await getDiskPath());
   };
 
   const openInVscode = async () => {
-    void getApi().config.openInVscode(await getDiskPath());
+    void api.config.openInVscode(await getDiskPath());
   };
 
 const allConversionsDestructive = item.type === 'function';
@@ -168,7 +162,7 @@ const allConversionsDestructive = item.type === 'function';
   const handleConvert = async (targetType: string) => {
     setConverting(true);
     try {
-      const updated = await getApi().items.update(item.id, { type: targetType as ItemType });
+      const updated = await api.items.update(item.id, { type: targetType });
       queryClient.setQueriesData<KanectaItem[]>(
         { queryKey: ['tree-children'] },
         (old) => old?.map((i) => (i.id === item.id ? updated : i)),
@@ -197,7 +191,7 @@ const allConversionsDestructive = item.type === 'function';
     setMovingParent(true);
     setMoveParentError(null);
     try {
-      await getApi().items.update(item.id, { parentId });
+      await api.items.update(item.id, { parentId });
       void queryClient.invalidateQueries({ queryKey: ['tree-children'] });
       closeMoveParentDialog();
     } catch (err) {
@@ -213,7 +207,7 @@ const allConversionsDestructive = item.type === 'function';
     setAliasLoadError(false);
     setAliasOpen(true);
     try {
-      const entries = await getApi().aliases.listForItem(item.id);
+      const entries = await api.aliases.listForItem(item.id);
       setExistingAliases(entries.map(e => e.alias));
     } catch {
       setAliasLoadError(true);
@@ -233,7 +227,7 @@ const allConversionsDestructive = item.type === 'function';
     setAliasChecking(true);
     setAliasConflict(null);
     try {
-      const existing = await getApi().aliases.resolve(alias);
+      const existing = await api.aliases.resolve(alias);
       if (existing.targetId === item.id) {
         // already points here — just add it to the displayed list
         setExistingAliases(prev => prev.includes(alias) ? prev : [...prev, alias]);
@@ -241,7 +235,7 @@ const allConversionsDestructive = item.type === 'function';
       } else {
         let existingValue: string | undefined;
         try {
-          const existingItem = await getApi().items.get(existing.targetId);
+          const existingItem = await api.items.get(existing.targetId);
           existingValue = existingItem.value;
         } catch { /* item may be missing */ }
         setAliasConflict({ alias: existing.alias, targetId: existing.targetId, value: existingValue });
@@ -256,7 +250,7 @@ const allConversionsDestructive = item.type === 'function';
   const saveAlias = async (alias: string) => {
     setAliasSaving(true);
     try {
-      await getApi().aliases.set(alias, item.id);
+      await api.aliases.set(alias, item.id);
       setExistingAliases(prev => prev.includes(alias) ? prev : [...prev, alias]);
       setAliasInput('');
       setAliasConflict(null);
@@ -268,7 +262,7 @@ const allConversionsDestructive = item.type === 'function';
 
   const removeAlias = async (alias: string) => {
     try {
-      await getApi().aliases.remove(alias);
+      await api.aliases.remove(alias);
       setExistingAliases(prev => prev.filter(a => a !== alias));
       void queryClient.invalidateQueries({ queryKey: ['aliases'] });
     } catch { /* ignore */ }
@@ -276,7 +270,7 @@ const allConversionsDestructive = item.type === 'function';
 
   const copyDiskLocation = async () => {
     if (!diskConfigRef.current) {
-      diskConfigRef.current = await getApi().config.get();
+      diskConfigRef.current = await api.config.get();
     }
     const { datastorePath } = diskConfigRef.current;
     const stripped = item.id.replace(/-/g, '');
@@ -551,7 +545,7 @@ const allConversionsDestructive = item.type === 'function';
           </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: pendingConvert ? 2 : 0 }}>
             {primitiveTypes.filter((t) => t !== item.type).map((t) => {
-              const Icon = TYPE_ICONS[t as ItemType];
+              const Icon = TYPE_ICONS[t];
               const isPending = pendingConvert === t;
               return (
                 <Box
