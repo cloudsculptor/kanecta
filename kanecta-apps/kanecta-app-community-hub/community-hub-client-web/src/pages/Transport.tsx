@@ -1,9 +1,11 @@
 import PageLayout from "../components/PageLayout";
 import CC0Notice from "../components/CC0Notice";
+import SiteEditablePage from "../components/SiteEditablePage";
 
 export default function Transport() {
   return (
     <PageLayout pageName="Transport" showComingSoon={false}>
+      <SiteEditablePage slug="transport">
       <h3>Train</h3>
       <p>
         Featherston is served by the{" "}
@@ -46,6 +48,7 @@ export default function Transport() {
         </li>
       </ul>
       <CC0Notice />
+      </SiteEditablePage>
     </PageLayout>
   );
 }

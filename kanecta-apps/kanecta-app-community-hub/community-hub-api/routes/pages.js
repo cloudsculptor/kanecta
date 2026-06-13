@@ -212,7 +212,6 @@ router.post("/", requireAuth, requireTeam, wrap(async (req, res) => {
 // ── Update page ───────────────────────────────────────────────────────────────
 router.put("/:slug", requireAuth, requireTeam, wrap(async (req, res) => {
   const { title, content_json, new_slug, licence_id, public: isPublic, owner_type, owner_id } = req.body;
-  const targetSlug = new_slug ?? req.params.slug;
 
   if (new_slug !== undefined && !SLUG_RE.test(new_slug))
     return res.status(400).json({ error: "Invalid slug" });
@@ -222,15 +221,27 @@ router.put("/:slug", requireAuth, requireTeam, wrap(async (req, res) => {
     await client.query("BEGIN");
 
     const { rows: existing } = await client.query(
-      "SELECT id, content_json, public, version FROM pages WHERE slug = $1", [req.params.slug]
+      "SELECT id, content_json, public, version, owner_type FROM pages WHERE slug = $1", [req.params.slug]
     );
     if (!existing.length) {
       await client.query("ROLLBACK");
       return res.status(404).json({ error: "Not found" });
     }
 
+    const isSitePage = existing[0].owner_type === "site";
+    if (isSitePage) {
+      const userRoles = req.user.roles || [];
+      if (!userRoles.includes("admin") && !userRoles.includes("moderator")) {
+        await client.query("ROLLBACK");
+        return res.status(403).json({ error: "Site pages can only be edited by moderators" });
+      }
+    }
+
+    // Site pages: slug is locked, always public
+    const targetSlug = isSitePage ? req.params.slug : (new_slug ?? req.params.slug);
+
     const oldPublic = existing[0].public;
-    const newPublic = isPublic !== undefined ? isPublic : oldPublic;
+    const newPublic = isSitePage ? true : (isPublic !== undefined ? isPublic : oldPublic);
     const newVersion = existing[0].version + 1;
 
     let action = "Updated";
@@ -290,9 +301,13 @@ router.put("/:slug", requireAuth, requireTeam, wrap(async (req, res) => {
 // ── Delete page (soft delete) ─────────────────────────────────────────────────
 router.delete("/:slug", requireAuth, requireTeam, wrap(async (req, res) => {
   const { rows: existing } = await pool.query(
-    "SELECT id FROM pages WHERE slug = $1 AND deleted_at IS NULL", [req.params.slug]
+    "SELECT id, owner_type FROM pages WHERE slug = $1 AND deleted_at IS NULL", [req.params.slug]
   );
   if (!existing.length) return res.status(404).json({ error: "Not found" });
+
+  if (existing[0].owner_type === "site") {
+    return res.status(403).json({ error: "Site pages cannot be deleted" });
+  }
 
   await pool.query(
     "UPDATE pages SET deleted_at = NOW() WHERE slug = $1", [req.params.slug]
