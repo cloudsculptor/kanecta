@@ -30,10 +30,12 @@ app.use(requireAuth);
 
 const path = require('path');
 const fs = require('fs');
-const DEFAULT_DATASTORE = path.join(process.env.HOME || process.env.USERPROFILE, '.kanecta');
+const os = require('os');
+const _expandHome = (p) => (p && typeof p === 'string' ? p.replace(/^~(?=$|\/)/, os.homedir()) : p);
+const DEFAULT_DATASTORE = path.join(os.homedir(), '.kanecta');
+const KANECTA_DATASTORE = _expandHome(process.env.KANECTA_DATASTORE);
 
 function readAppConfig() {
-  const os = require('os');
   const XDG_CONFIG = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
   try {
     return JSON.parse(fs.readFileSync(path.join(XDG_CONFIG, 'kanecta', 'config.json'), 'utf8'));
@@ -66,7 +68,7 @@ async function openDatastore(res) {
     errorPrefix = `Failed to open workspace '${name}'`;
   } else {
     // Filesystem fallback (no config.json yet — first run, or pre-migration)
-    const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+    const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
     if (!Datastore.isDatastore(root)) {
       res.status(503).json({
         error: `No Kanecta datastore found at ${root}. Run: cd kanecta-cli && npm run cli init --owner you@example.com`,
@@ -200,7 +202,7 @@ function matchObjectData(objectData, q, fields) {
 
 // GET /config — datastore configuration visible to the studio
 app.get('/config', async (req, res) => {
-  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
   const whichCmd = process.platform === 'win32' ? 'where' : 'which';
   const vscodeCheck = spawnSync(whichCmd, ['code'], { encoding: 'utf8' });
   res.json({ datastorePath: root, vscodeAvailable: vscodeCheck.status === 0 });
@@ -413,7 +415,7 @@ app.patch('/items/bulk', async (req, res) => {
 app.get('/items/stats', async (req, res) => {
   const ds = await openDatastore(res);
   if (!ds) return;
-  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
 
   // Build typeId → { name, icon } from types directory
   const typeInfo = {};
@@ -607,7 +609,7 @@ app.post('/items/:id/uncomplete', async (req, res) => {
 app.get('/items/:id/function/package-json', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
-  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
   const s = id.replace(/-/g, '');
   const pkgPath = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id, 'function', 'package.json');
   if (!fs.existsSync(pkgPath)) return res.status(404).json({ error: 'package.json not found' });
@@ -623,7 +625,7 @@ app.get('/items/:id/function/package-json', async (req, res) => {
 app.get('/items/:id/function/scaffold', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
-  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
   const s = id.replace(/-/g, '');
   const itemDir = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id);
   const fnDir = path.join(itemDir, 'function');
@@ -661,7 +663,7 @@ app.put('/items/:id/function', async (req, res) => {
   if (!item) return res.status(404).json({ error: 'Item not found' });
   await ds.writeFunctionJson(id, req.body);
   try {
-    const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+    const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
     const s = id.replace(/-/g, '');
     const itemDir = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id);
     const fnDir = path.join(itemDir, 'function');
@@ -677,7 +679,7 @@ app.put('/items/:id/function', async (req, res) => {
 app.post('/items/:id/function/compile', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
-  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
   const s = id.replace(/-/g, '');
   const itemDir = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id);
   const fnDir = path.join(itemDir, 'function');
@@ -718,7 +720,7 @@ app.post('/items/:id/function/run', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
 
-  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
   const s = id.replace(/-/g, '');
   const fnDir = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id, 'function');
   const distIndex = path.join(fnDir, 'dist', 'index.js');
@@ -1138,7 +1140,7 @@ const BREADCRUMB_MAX = 100;
 const HISTORY_NAMES = ['clipboard', 'viewed'];
 
 function historyDir() {
-  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
   return path.join(root, '.kanecta', 'app', 'studio', 'history');
 }
 
@@ -1230,7 +1232,7 @@ app.post('/breadcrumb/viewed', async (req, res) => {
 // ─── Starred ─────────────────────────────────────────────────────────────────
 
 function starredFilePath() {
-  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
   const studioDir = path.join(root, '.kanecta', 'app', 'studio');
   const dir = path.join(studioDir, 'starred');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -1298,7 +1300,7 @@ function viewDir(root, id) {
 app.get('/app/studio/view/:id', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID' });
-  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
   const file = path.join(viewDir(root, id), 'view.json');
   if (!fs.existsSync(file)) return res.json(null);
   try {
@@ -1314,7 +1316,7 @@ app.put('/app/studio/view/:id', async (req, res) => {
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID' });
   const { levels } = req.body;
   if (levels == null) return res.status(400).json({ error: 'levels required' });
-  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
   const dir = viewDir(root, id);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'view.json'), JSON.stringify({ levels }, null, 2));
@@ -1401,7 +1403,7 @@ app.post('/app/studio/sync-system-items/export', async (req, res) => {
   if (!commonDir) return res.status(400).json({ error: 'KANECTA_SYSTEM_ITEMS_DIR not configured' });
   const { typeIds } = req.body;
   if (!Array.isArray(typeIds) || typeIds.length === 0) return res.status(400).json({ error: 'typeIds required' });
-  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
   const exported = [];
   const errors = [];
   for (const id of typeIds) {
@@ -1426,7 +1428,7 @@ app.post('/app/studio/sync-system-items/export', async (req, res) => {
 const DEFAULT_SETTINGS = { themeName: 'Green', sidebarBg: '#20a138', sidebarFg: '#ffffff', sidebarFgSelected: '#5a6a60', contentBg: '#ffffff', contentBorder: '#20a138', showContentBorder: false, locationBorder: '#15712a' };
 
 function settingsFilePath() {
-  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
   const dir = path.join(root, '.kanecta', 'app', 'studio', 'settings');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   return path.join(dir, 'settings.json');
@@ -1465,7 +1467,7 @@ app.post('/app/studio/settings', async (req, res) => {
 // ─── Layouts ─────────────────────────────────────────────────────────────────
 
 function layoutsFilePath() {
-  const root = process.env.KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
   const dir = path.join(root, '.kanecta', 'app', 'studio', 'layouts');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   return path.join(dir, 'layouts.json');
