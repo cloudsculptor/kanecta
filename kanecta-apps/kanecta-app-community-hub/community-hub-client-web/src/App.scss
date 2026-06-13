@@ -5050,3 +5050,21 @@ $bp-tablet: 768px;
     margin-bottom: 6px;
   }
 }
+
+.test-env-banner {
+  background: #92400e;
+  color: #fef3c7;
+  text-align: center;
+  font-size: 13px;
+  padding: 6px 16px;
+  line-height: 1.4;
+
+  &__link {
+    color: #fef3c7;
+    font-weight: 600;
+
+    &:hover {
+      color: #fff;
+    }
+  }
+}
