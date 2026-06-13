@@ -1521,7 +1521,7 @@ async function dispatch(name, args) {
         // limit:0 means "no limit / return all" per the adapter contract. Merely STRIPPING
         // limit leaves it undefined, which the adapter treats as the default cap of 50 — so
         // count silently under-counted any bucket larger than 50. Pass 0 to count all matches.
-        const items = ds.query({ ...dsArgs, limit: 0 });
+        const items = await ds.query({ ...dsArgs, limit: 0 });
         return { count: items.length };
       }
 
@@ -1529,7 +1529,7 @@ async function dispatch(name, args) {
         if (!group_by_field)
           return { error: 'group_by mode requires group_by_field' };
         // limit:0 = return all (see the count-mode note above) — otherwise buckets cap at 50.
-        const items = ds.query({ ...dsArgs, limit: 0 });
+        const items = await ds.query({ ...dsArgs, limit: 0 });
         const groups = {};
         for (const item of items) {
           const val =
