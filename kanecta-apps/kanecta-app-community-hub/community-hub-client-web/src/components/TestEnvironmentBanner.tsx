@@ -5,7 +5,8 @@ export default function TestEnvironmentBanner() {
 
   return (
     <div className="test-env-banner">
-      <strong>Test site:</strong> you can make changes without affecting the live site. Live site is at{" "}
+      <strong>Test site</strong> — changes here are not real.{" "}
+      The live community hub is at{" "}
       <a href="https://featherston.co.nz" className="test-env-banner__link">
         featherston.co.nz
       </a>
