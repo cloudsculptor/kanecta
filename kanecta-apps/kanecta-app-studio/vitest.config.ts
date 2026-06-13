@@ -1,7 +1,9 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { createRequire } from 'module';
 
+const require = createRequire(import.meta.url);
 const studioModules = path.resolve('./node_modules');
 
 export default defineConfig({
@@ -13,6 +15,10 @@ export default defineConfig({
       '@emotion/styled': `${studioModules}/@emotion/styled`,
       '@emotion/react': `${studioModules}/@emotion/react`,
       '@emotion/cache': `${studioModules}/@emotion/cache`,
+      // react-transition-group/TransitionGroupContext is a directory with no
+      // "exports" field; Node 22 ESM resolution rejects bare directory imports.
+      // resolve() finds the package wherever npm hoisted it (root or local).
+      'react-transition-group/TransitionGroupContext': require.resolve('react-transition-group/cjs/TransitionGroupContext.js'),
     },
   },
   test: {
