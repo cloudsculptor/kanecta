@@ -3,7 +3,7 @@ import pool from "../db.js";
 
 let messaging = null;
 
-if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+if (process.env.FIREBASE_SERVICE_ACCOUNT && process.env.FCM_DISABLED !== "true") {
   try {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
     const app = admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
