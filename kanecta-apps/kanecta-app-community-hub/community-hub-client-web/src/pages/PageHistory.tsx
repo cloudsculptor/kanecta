@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import Chip from "@mui/material/Chip";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -21,10 +21,10 @@ const ACTION_COLOR: Record<string, "success" | "warning" | "info" | "default" | 
   Archived: "error",
 };
 
-const breadcrumbParents = [{ name: "Groups", path: "/groups" }];
-
 export default function PageHistory() {
   const { slug } = useParams<{ slug: string }>();
+  const { pathname } = useLocation();
+  const isSiteContext = pathname.startsWith("/site-pages/");
   const roles = useUserRoles();
   const { initialized } = useKeycloak();
   const navigate = useNavigate();
@@ -34,15 +34,21 @@ export default function PageHistory() {
   const [error, setError] = useState("");
 
   const isTeam = hasRole(roles, "team");
+  const isModerator = hasRole(roles, "moderator");
+  const canView = isTeam || isModerator;
+
+  const breadcrumbParents = isSiteContext ? [] : [{ name: "Groups", path: "/groups" }];
+  const editPath = isSiteContext ? `/site-pages/${slug}/edit` : `/groups/resilience/${slug}/edit`;
+  const versionBasePath = isSiteContext ? `/site-pages/${slug}/v` : `/groups/resilience/${slug}/v`;
 
   useEffect(() => {
     if (!initialized) return;
-    if (!isTeam) { navigate("/", { replace: true }); return; }
+    if (!canView) { navigate("/", { replace: true }); return; }
     listPageHistory(slug!)
       .then(setHistory)
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [initialized, isTeam, slug, navigate]);
+  }, [initialized, canView, slug, navigate]);
 
   return (
     <>
@@ -51,7 +57,7 @@ export default function PageHistory() {
       <main className="page-content">
         <div className="pages-header">
           <h2>Page history</h2>
-          <Link to={`/groups/resilience/${slug}/edit`} className="pages-outline-btn">← Edit page</Link>
+          <Link to={editPath} className="pages-outline-btn">← Edit page</Link>
         </div>
         {error && <p className="pages-error">{error}</p>}
         {loading ? (
@@ -75,7 +81,7 @@ export default function PageHistory() {
                   key={entry.id}
                   hover
                   sx={{ cursor: "pointer" }}
-                  onClick={() => navigate(`/groups/resilience/${slug}/v/${entry.version}`)}
+                  onClick={() => navigate(`${versionBasePath}/${entry.version}`)}
                 >
                   <TableCell>
                     <Chip
