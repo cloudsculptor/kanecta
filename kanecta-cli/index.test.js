@@ -903,6 +903,15 @@ test('cli: doctor --check restricts to a subset', async () => {
   assert.match(out, /No integrity problems/);
 });
 
+test('cli: doctor --check orphan-type-id selects the check and finds the orphan', async () => {
+  const ds = tmpDs();
+  await ds.create({ type: 'object', typeId: 'deadbeef-0000-4000-8000-000000000000', objectData: {} });
+  // Explicitly naming the real check must wire through and detect (exit 1).
+  const out = cliErr(ds, 'doctor', '--check', 'orphan-type-id');
+  assert.match(out, /orphan-type-id/);
+  assert.match(out, /no type definition/);
+});
+
 test('cli: unknown command exits non-zero with helpful message', () => {
   const ds = tmpDs();
   const err = cliErr(ds, 'frobnicate');
