@@ -944,6 +944,11 @@ const TOOLS = [
           description:
             'Required when mode="group_by": objectData field to bucket by, e.g. "severity", "status", "screen_id".',
         },
+        strictTypes: {
+          type: 'boolean',
+          description:
+            'Optional. When true, querying a type name that is not a registered type definition (or built-in primitive) throws instead of returning an empty result. Default false: returns empty but includes a "warning" field so a typo or missing type definition is visible rather than silent.',
+        },
       },
     },
   },
@@ -1534,7 +1539,9 @@ async function dispatch(name, args) {
         // limit leaves it undefined, which the adapter treats as the default cap of 50 — so
         // count silently under-counted any bucket larger than 50. Pass 0 to count all matches.
         const items = await ds.query({ ...dsArgs, limit: 0 });
-        return { count: items.length };
+        const out = { count: items.length };
+        if (items.warning) out.warning = items.warning;
+        return out;
       }
 
       if (mode === 'group_by') {
@@ -1551,13 +1558,17 @@ async function dispatch(name, args) {
           const key = String(val);
           groups[key] = (groups[key] || 0) + 1;
         }
-        return { groups };
+        const out = { groups };
+        if (items.warning) out.warning = items.warning;
+        return out;
       }
 
       const items = await ds.query(dsArgs);
-      return {
+      const out = {
         items: await Promise.all(items.map((item) => resolveItem(ds, item))),
       };
+      if (items.warning) out.warning = items.warning;
+      return out;
     }
 
     case 'kanecta_create_type': {
