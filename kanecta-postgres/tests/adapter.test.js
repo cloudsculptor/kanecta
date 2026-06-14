@@ -191,6 +191,41 @@ test('update to an orphan typeId warns by default and throws under strict (uncha
   expect(after.typeId).toBeNull();
 });
 
+// ─── strictTypes / resolveTypeId ──────────────────────────────────────────────
+
+test('resolveTypeId classifies primitive / registered / unknown names', async () => {
+  const typeId = crypto.randomUUID();
+  const tableName = `obj_${typeId.replace(/-/g, '_')}`;
+  await adapter.createType('Gizmo', {
+    schema: {
+      meta: {},
+      jsonSchema: { type: 'object', properties: {}, required: [], additionalProperties: false },
+      sqlSchema: [`CREATE TABLE "${tableName}" (item_id UUID PRIMARY KEY REFERENCES items(id))`],
+    },
+    createdBy: OWNER,
+    id: typeId,
+  });
+
+  expect(await adapter.resolveTypeId('text')).toEqual({ primitive: true });
+  expect(await adapter.resolveTypeId('Gizmo')).toEqual({ id: typeId });
+  expect(await adapter.resolveTypeId('no-such-type')).toEqual({ unknown: true });
+});
+
+test('query warns by default and throws under strictTypes for an unknown type', async () => {
+  // Default: empty result + a non-enumerable warning, no throw.
+  const res = await adapter.query({ type: 'no-such-type-xyz' });
+  expect(res).toHaveLength(0);
+  expect(res.warning).toMatch(/unknown type "no-such-type-xyz"/);
+
+  // Strict: throws UnknownTypeError.
+  await expect(adapter.query({ type: 'no-such-type-xyz', strictTypes: true }))
+    .rejects.toMatchObject({ name: 'UnknownTypeError', code: 'UNKNOWN_TYPE' });
+
+  // A built-in primitive never warns.
+  const noteRes = await adapter.query({ type: 'note' });
+  expect(noteRes.warning).toBeUndefined();
+});
+
 // ─── checkIntegrity ───────────────────────────────────────────────────────────
 
 test('checkIntegrity flags orphan-type-id when an object type_id has no type def', async () => {
