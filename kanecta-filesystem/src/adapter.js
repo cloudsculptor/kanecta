@@ -1091,32 +1091,23 @@ class FilesystemAdapter {
       items = items.filter(item => subtreeIds.has(item.id));
     }
 
-    // 2. Type Filtering (resolving custom types)
+    // 2. Type Filtering. Resolve the name once (distinguishing "no such type"
+    // from "type exists but empty"), then filter by the resolved id instead of
+    // re-reading each candidate's type metadata.
     if (type) {
-      // Distinguish "no such type" from "type exists but empty". An unregistered,
-      // non-primitive name would otherwise filter to an empty result silently.
       const resolved = this.resolveTypeId(type);
       if (resolved.unknown) {
         if (strictTypes) throw new UnknownTypeError(type);
         typeWarning = `unknown type "${type}" — not a registered type definition; run \`kanecta doctor\``;
+        items = []; // nothing can match an unregistered, non-primitive name
+      } else if (resolved.id !== undefined) {
+        // Registered custom type → typed objects carrying that typeId.
+        items = items.filter(item => item.type === 'object' && item.typeId === resolved.id);
+      } else {
+        // Built-in primitive → items of that type, excluding typed objects
+        // (whose effective type is their custom type name, matched above).
+        items = items.filter(item => item.type === type && !(item.type === 'object' && item.typeId));
       }
-
-      const typeCache = new Map();
-      const getTypeName = (typeId) => {
-        if (!typeId) return null;
-        if (typeCache.has(typeId)) return typeCache.get(typeId);
-        const name = this._getTypeName(typeId);
-        typeCache.set(typeId, name);
-        return name;
-      };
-
-      items = items.filter(item => {
-        if (item.type === 'object' && item.typeId) {
-          const typeName = getTypeName(item.typeId);
-          return typeName === type;
-        }
-        return item.type === type;
-      });
     }
 
     // 3. Where Clause Filter & Attach objectData inline

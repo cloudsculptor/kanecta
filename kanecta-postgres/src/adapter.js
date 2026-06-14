@@ -1181,4 +1181,4 @@ class PostgresAdapter {
   }
 }
 
-module.exports = { PostgresAdapter, UnknownTypeError, ROOT_ID, WELL_KNOWN_TYPES, VALID_REL_TYPES, UUID_RE };
+module.exports = { PostgresAdapter, UnknownTypeError, PRIMITIVE_TYPES, ROOT_ID, WELL_KNOWN_TYPES, VALID_REL_TYPES, UUID_RE };
