@@ -403,6 +403,7 @@ class FilesystemAdapter {
     parentId, value = null, type = 'string', typeId = null,
     owner, license = null, sortOrder, confidence = null, status = null, tags = [],
     createdBy, objectData = null, dueAt = null, visibility = 'private', aspect = null,
+    strict,
   } = {}) {
     if (WELL_KNOWN_TYPES.has(type)) {
       throw new Error(`Type '${type}' is a well-known root type and cannot be created via create()`);
@@ -449,6 +450,13 @@ class FilesystemAdapter {
       dueAt,
     };
 
+    // Referential-integrity guard BEFORE any write, so strict mode refuses the
+    // write atomically (no partial node left behind).
+    let typeWarning = null;
+    if (type === 'object' && typeId && this._getTypeName(typeId) === null) {
+      typeWarning = this._guardTypeIdRef(typeId, strict); // throws under strict
+    }
+
     this._writeMetadata(path.join(this._itemDir(id), 'metadata.json'), item);
 
     // C1 + C2: for typed objects, always write meta.json and object.json
@@ -466,6 +474,11 @@ class FilesystemAdapter {
     for (const link of this._parseLinks(value)) this._addBacklink(link, id);
     for (const tag of tags) this._addTagEntry(tag, id);
     this._snapshot(item, 'create', actor, now);
+
+    // Non-enumerable so the persisted metadata and JSON of the item are unchanged.
+    if (typeWarning) {
+      Object.defineProperty(item, 'warning', { value: typeWarning, enumerable: false, configurable: true });
+    }
 
     return item;
   }
@@ -525,9 +538,27 @@ class FilesystemAdapter {
     return id ? this.get(id) : null;
   }
 
-  update(id, changes, actor) {
+  update(id, changes, actor, { strict } = {}) {
     const current = this.get(id);
     this._assertEditable(current, id);
+
+    // Referential-integrity guard BEFORE snapshot/index mutations, so strict
+    // mode refuses the write atomically. Compute the prospective new typeId.
+    // NOTE: gated on the typeId actually *changing* — strict only blocks newly
+    // introduced orphan references, it does NOT re-validate an item that already
+    // carries an orphan typeId (legacy data, or one written in warn-mode) when
+    // you edit its other fields. `doctor` remains the backstop for those.
+    let prospectiveTypeId;
+    if ('type' in changes && changes.type !== current.type) {
+      prospectiveTypeId = changes.type === 'object' ? (changes.typeId || null) : null;
+    } else if ('typeId' in changes && current.type === 'object') {
+      prospectiveTypeId = changes.typeId;
+    }
+    let typeWarning = null;
+    if (prospectiveTypeId && prospectiveTypeId !== current.typeId && this._getTypeName(prospectiveTypeId) === null) {
+      typeWarning = this._guardTypeIdRef(prospectiveTypeId, strict); // throws under strict
+    }
+
     actor = actor || this.config.owner;
     const now = new Date();
 
@@ -585,6 +616,11 @@ class FilesystemAdapter {
     updated.modifiedBy = actor;
 
     this._writeMetadata(path.join(this._itemDir(id), 'metadata.json'), updated);
+
+    if (typeWarning) {
+      Object.defineProperty(updated, 'warning', { value: typeWarning, enumerable: false, configurable: true });
+    }
+
     return updated;
   }
 
@@ -979,6 +1015,22 @@ class FilesystemAdapter {
     const f = path.join(this.k, 'types', hex.slice(0, 2), hex.slice(2, 4), typeId, 'metadata.json');
     const meta = this._readJson(f, null);
     return meta ? meta.value : null;
+  }
+
+  // Referential-integrity guard for object writes. Called only when `typeId`
+  // has no type definition. Strict (per-call `strict`, else the datastore-level
+  // `config.strictTypeIds`) → throw and refuse the write; otherwise return a
+  // warning string and let the write proceed (warn-by-default, non-breaking).
+  _guardTypeIdRef(typeId, strict) {
+    const effectiveStrict = strict !== undefined ? !!strict : !!this.config.strictTypeIds;
+    if (effectiveStrict) {
+      const err = new Error(`unknown typeId "${typeId}" — no registered type definition`);
+      err.name = 'UnknownTypeError';
+      err.code = 'UNKNOWN_TYPE';
+      err.typeId = typeId;
+      throw err;
+    }
+    return `typeId ${typeId} has no type definition — node written anyway; run \`kanecta doctor\``;
   }
 
   _evaluatePredicate(fieldValue, op, expectedValue) {
