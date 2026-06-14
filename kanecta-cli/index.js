@@ -122,6 +122,11 @@ COMMANDS
     Rebuild all index caches (links/, tags/, types/) by scanning data/.
     Use after manual edits or a partial import.
 
+  doctor [--check <name>]... [--json]
+    Read-only integrity scan. Reports inconsistencies the store accepts silently.
+    Exits non-zero if any error-severity finding is present (CI-usable).
+    Checks: orphan-type-id (object nodes whose typeId has no type definition).
+
 ITEM TYPES
   string      Short text value
   number      Numeric value
@@ -155,6 +160,8 @@ EXAMPLES
   kanecta search "work process" --limit 10
   kanecta by-type f1a00001-b45e-4c3d-9e7f-000000000002
   kanecta rebuild-indexes
+  kanecta doctor
+  kanecta doctor --check orphan-type-id --json
 `.trimStart();
 
 // ─── Arg parser ───────────────────────────────────────────────────────────────
@@ -183,7 +190,7 @@ function parseArgs(argv) {
           flags[key] = true;
         } else {
           // Repeatable flags: tag, add-tag, remove-tag
-          const repeatableFlags = ['tag', 'add-tag', 'remove-tag'];
+          const repeatableFlags = ['tag', 'add-tag', 'remove-tag', 'check'];
           if (repeatableFlags.includes(key)) {
             if (!flags[key]) flags[key] = [];
             flags[key].push(next);
@@ -711,6 +718,43 @@ async function cmdRebuildIndexes(positional, flags) {
   console.log(`Rebuilt indexes from ${count} items.`);
 }
 
+function printDoctorFindings(findings) {
+  if (findings.length === 0) {
+    console.log('✓ No integrity problems found.');
+    return;
+  }
+  const byCheck = new Map();
+  for (const f of findings) {
+    if (!byCheck.has(f.check)) byCheck.set(f.check, []);
+    byCheck.get(f.check).push(f);
+  }
+  const errors = findings.filter(f => f.severity === 'error').length;
+  const warns = findings.length - errors;
+  for (const [check, group] of byCheck) {
+    console.log(`\n${check} (${group.length}):`);
+    for (const f of group) {
+      const tag = f.severity === 'error' ? 'ERROR' : 'warn';
+      console.log(`  [${tag}] ${f.message}`);
+      if (f.fix) console.log(`         fix: ${f.fix}`);
+    }
+  }
+  console.log(`\n${errors} error(s), ${warns} warning(s).`);
+}
+
+async function cmdDoctor(positional, flags) {
+  const ds = await openDatastore(flags);
+  const checks = flags['check']
+    ? (Array.isArray(flags['check']) ? flags['check'] : [flags['check']])
+    : undefined;
+  const findings = await ds.checkIntegrity({ checks });
+  if (flags['json']) {
+    console.log(JSON.stringify(findings, null, 2));
+  } else {
+    printDoctorFindings(findings);
+  }
+  process.exitCode = findings.some(f => f.severity === 'error') ? 1 : 0;
+}
+
 // ─── Dispatch ─────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -749,6 +793,7 @@ async function main() {
     case 'search':         await cmdSearch(rest, flags); break;
     case 'by-type':        await cmdByType(rest, flags); break;
     case 'rebuild-indexes': await cmdRebuildIndexes(rest, flags); break;
+    case 'doctor':         await cmdDoctor(rest, flags); break;
     default:
       die(`Unknown command: ${cmd}\nRun \`kanecta --help\` for usage.`);
   }

@@ -1130,6 +1130,39 @@ class PostgresAdapter {
     const { rows: [{ count }] } = await this._pool.query('SELECT COUNT(*) FROM items');
     return parseInt(count);
   }
+
+  // ─── Integrity checks ──────────────────────────────────────────────────────
+
+  // Read-only health scan. Returns a flat array of findings:
+  //   { check, severity: 'error' | 'warn', nodeId?, typeId?, message, fix? }
+  // `checks` (optional) restricts the run to the named subset; default runs all.
+  async checkIntegrity({ checks } = {}) {
+    const wanted = Array.isArray(checks) && checks.length ? new Set(checks) : null;
+    const run = (name) => !wanted || wanted.has(name);
+    const findings = [];
+
+    // orphan-type-id: object nodes whose type_id has no type definition.
+    if (run('orphan-type-id')) {
+      const { rows } = await this._pool.query(
+        `SELECT i.id, i.type_id
+           FROM items i
+           LEFT JOIN items t ON t.id = i.type_id AND t.type = 'type'
+          WHERE i.type = 'object' AND i.type_id IS NOT NULL AND t.id IS NULL`,
+      );
+      for (const row of rows) {
+        findings.push({
+          check: 'orphan-type-id',
+          severity: 'error',
+          nodeId: row.id,
+          typeId: row.type_id,
+          message: `object ${row.id} references typeId ${row.type_id}, which has no type definition`,
+          fix: 'register the missing type definition, or remove/retype the node',
+        });
+      }
+    }
+
+    return findings;
+  }
 }
 
 module.exports = { PostgresAdapter, ROOT_ID, WELL_KNOWN_TYPES, VALID_REL_TYPES, UUID_RE };
