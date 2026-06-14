@@ -544,6 +544,10 @@ class FilesystemAdapter {
 
     // Referential-integrity guard BEFORE snapshot/index mutations, so strict
     // mode refuses the write atomically. Compute the prospective new typeId.
+    // NOTE: gated on the typeId actually *changing* — strict only blocks newly
+    // introduced orphan references, it does NOT re-validate an item that already
+    // carries an orphan typeId (legacy data, or one written in warn-mode) when
+    // you edit its other fields. `doctor` remains the backstop for those.
     let prospectiveTypeId;
     if ('type' in changes && changes.type !== current.type) {
       prospectiveTypeId = changes.type === 'object' ? (changes.typeId || null) : null;
