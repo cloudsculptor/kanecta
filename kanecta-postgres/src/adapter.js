@@ -306,6 +306,9 @@ class PostgresAdapter {
     this._assertEditable(current, id);
 
     // Referential-integrity guard before any write (throws under strict).
+    // Gated on the typeId actually *changing*: strict blocks newly introduced
+    // orphan references only, not an item that already carries an orphan typeId
+    // (legacy / warn-mode data) being edited otherwise. `doctor` is the backstop.
     const newType   = 'type'   in changes ? changes.type   : current.type;
     const newTypeId = 'typeId' in changes ? changes.typeId : current.typeId;
     let typeWarning = null;
