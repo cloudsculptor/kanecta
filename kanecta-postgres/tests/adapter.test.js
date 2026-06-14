@@ -176,6 +176,49 @@ test('query warns by default and throws under strictTypes for an unknown type', 
   expect(noteRes.warning).toBeUndefined();
 });
 
+// ─── checkIntegrity ───────────────────────────────────────────────────────────
+
+test('checkIntegrity flags orphan-type-id when an object type_id has no type def', async () => {
+  const typeId = crypto.randomUUID();
+  const tableName = `obj_${typeId.replace(/-/g, '_')}`;
+  const schema = {
+    meta: {},
+    jsonSchema: {
+      '$schema': 'http://json-schema.org/draft-07/schema#',
+      title: 'Sprocket', type: 'object', properties: { label: { type: 'string' } },
+      required: [], additionalProperties: false,
+    },
+    sqlSchema: [
+      `CREATE TABLE "${tableName}" (
+         item_id UUID NOT NULL,
+         "label" TEXT,
+         CONSTRAINT "pk_${tableName}" PRIMARY KEY (item_id),
+         CONSTRAINT "fk_${tableName}_item" FOREIGN KEY (item_id) REFERENCES items(id)
+       )`,
+    ],
+  };
+  await adapter.createType('Sprocket', { schema, createdBy: OWNER, id: typeId });
+  const obj = await adapter.create({
+    type: 'object', typeId, value: 'a sprocket', createdBy: OWNER, objectData: { label: 'x' },
+  });
+
+  // Registered type → not flagged.
+  let findings = await adapter.checkIntegrity({ checks: ['orphan-type-id'] });
+  expect(findings.find(f => f.nodeId === obj.id)).toBeUndefined();
+
+  // Orphan it: point type_id at an unregistered type. There is no FK on
+  // items.type_id, so this write succeeds — exactly the bug doctor detects.
+  const bogus = crypto.randomUUID();
+  await pool.query('UPDATE items SET type_id = $1 WHERE id = $2', [bogus, obj.id]);
+
+  findings = await adapter.checkIntegrity({ checks: ['orphan-type-id'] });
+  const f = findings.find(x => x.nodeId === obj.id);
+  expect(f).toBeTruthy();
+  expect(f.check).toBe('orphan-type-id');
+  expect(f.severity).toBe('error');
+  expect(f.typeId).toBe(bogus);
+});
+
 test('createType attaches the FTS trigger to the new obj_* table', async () => {
   const typeId = crypto.randomUUID();
   const tableName = `obj_${typeId.replace(/-/g, '_')}`;

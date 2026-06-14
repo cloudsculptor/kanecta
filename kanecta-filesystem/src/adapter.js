@@ -1197,6 +1197,41 @@ class FilesystemAdapter {
     }
     return all.length;
   }
+
+  // ─── Integrity checks ──────────────────────────────────────────────────────
+
+  // Read-only health scan. Returns a flat array of findings:
+  //   { check, severity: 'error' | 'warn', nodeId?, typeId?, message, fix? }
+  // `checks` (optional) restricts the run to the named subset; default runs all.
+  checkIntegrity({ checks } = {}) {
+    const wanted = Array.isArray(checks) && checks.length ? new Set(checks) : null;
+    const run = (name) => !wanted || wanted.has(name);
+    const findings = [];
+
+    // orphan-type-id: object nodes whose typeId has no type definition.
+    if (run('orphan-type-id')) {
+      const typeNameCache = new Map();
+      const typeName = (typeId) => {
+        if (!typeNameCache.has(typeId)) typeNameCache.set(typeId, this._getTypeName(typeId));
+        return typeNameCache.get(typeId);
+      };
+      for (const item of this.loadAll()) {
+        if (item.type !== 'object' || !item.typeId) continue;
+        if (typeName(item.typeId) === null) {
+          findings.push({
+            check: 'orphan-type-id',
+            severity: 'error',
+            nodeId: item.id,
+            typeId: item.typeId,
+            message: `object ${item.id} references typeId ${item.typeId}, which has no type definition`,
+            fix: 'register the missing type definition, or remove/retype the node',
+          });
+        }
+      }
+    }
+
+    return findings;
+  }
 }
 
 module.exports = { FilesystemAdapter, UnknownTypeError, ROOT_ID, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE, DEFAULT_LICENSE };
