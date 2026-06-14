@@ -172,6 +172,10 @@ class Datastore {
   // ─── Index maintenance ─────────────────────────────────────────────────────
 
   async rebuildIndexes()                     { return this._adapter.rebuildIndexes(); }
+
+  // ─── Integrity checks ────────────────────────────────────────────────────────
+
+  async checkIntegrity(opts)                 { return this._adapter.checkIntegrity(opts); }
 }
 
 module.exports = { Datastore, ROOT_ID, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE, DEFAULT_LICENSE };
