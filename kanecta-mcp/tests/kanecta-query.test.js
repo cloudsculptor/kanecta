@@ -119,13 +119,13 @@ describe('aggregation modes ignore the default 50-item limit (regression)', () =
     }
   });
 
-  test('count returns all 60 matches, not 50', () => {
-    const res = dispatch('kanecta_query', { type: 'object', mode: 'count' });
+  test('count returns all 60 matches, not 50', async () => {
+    const res = await dispatch('kanecta_query', { type: 'object', mode: 'count' });
     expect(res.count).toBe(60);
   });
 
-  test('group_by buckets sum to all 60 matches, not 50', () => {
-    const res = dispatch('kanecta_query', { type: 'object', mode: 'group_by', group_by_field: 'severity' });
+  test('group_by buckets sum to all 60 matches, not 50', async () => {
+    const res = await dispatch('kanecta_query', { type: 'object', mode: 'group_by', group_by_field: 'severity' });
     const total = Object.values(res.groups).reduce((a, b) => a + b, 0);
     expect(total).toBe(60);
     expect(res.groups.P1).toBe(30);
@@ -321,5 +321,49 @@ describe('normal query (no mode) — unchanged behaviour', () => {
   test('limit param is respected in normal mode', async () => {
     const res = await dispatch('kanecta_query', { type: 'object', limit: 1 });
     expect(res.items).toHaveLength(1);
+  });
+});
+
+// ─── strictTypes: fail loud on an unregistered type name ──────────────────────
+
+describe('strictTypes / unknown type handling', () => {
+  test('unknown type name warns by default and returns an empty result', async () => {
+    const res = await dispatch('kanecta_query', { type: 'definitely-not-a-type' });
+    expect(res.items).toHaveLength(0);
+    expect(res.warning).toMatch(/unknown type "definitely-not-a-type"/);
+    expect(res.warning).toMatch(/kanecta doctor/);
+  });
+
+  test('unknown type name throws under strictTypes', async () => {
+    await expect(
+      dispatch('kanecta_query', { type: 'definitely-not-a-type', strictTypes: true }),
+    ).rejects.toThrow(/unknown type "definitely-not-a-type"/);
+  });
+
+  test('a registered custom type does NOT warn (registered-but-empty stays silent)', async () => {
+    const { metadata } = await ds.createType('gadget');
+    const obj = await ds.create({ type: 'object', typeId: metadata.id });
+    await ds.writeObjectJson(obj.id, { label: 'g1' });
+
+    const res = await dispatch('kanecta_query', { type: 'gadget' });
+    expect(res.warning).toBeUndefined();
+    expect(res.items.map(i => i.id)).toContain(obj.id);
+
+    // ...and an empty-but-registered type also stays silent (no false positive).
+    await ds.createType('emptytype');
+    const empty = await dispatch('kanecta_query', { type: 'emptytype' });
+    expect(empty.warning).toBeUndefined();
+    expect(empty.items).toHaveLength(0);
+  });
+
+  test('a built-in primitive type name does NOT warn', async () => {
+    const res = await dispatch('kanecta_query', { type: 'object' });
+    expect(res.warning).toBeUndefined();
+  });
+
+  test('count mode also surfaces the warning for an unknown type', async () => {
+    const res = await dispatch('kanecta_query', { type: 'nope-not-real', mode: 'count' });
+    expect(res.count).toBe(0);
+    expect(res.warning).toMatch(/unknown type "nope-not-real"/);
   });
 });

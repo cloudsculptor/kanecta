@@ -146,6 +146,7 @@ class Datastore {
   async byTag(tag)                           { return this._adapter.byTag(tag); }
   async byType(typeId)                       { return this._adapter.byType(typeId); }
   async query(opts)                          { return this._adapter.query(opts); }
+  async resolveTypeId(name)                  { return this._adapter.resolveTypeId(name); }
 
   // ─── Tree ──────────────────────────────────────────────────────────────────
 
