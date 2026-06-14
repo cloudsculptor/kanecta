@@ -90,15 +90,58 @@ You need entries in **both** the global `mcpServers` key and the project-level k
 
 The server resolves the datastore path in this order:
 
-1. `KANECTA_DATASTORE` environment variable
-2. `~/.kanecta-config.json` → `datastorePath`
-3. Default: `~/.kanecta/`
+1. A per-call `datastore` argument, resolved against the `KANECTA_DATASTORES` registry (see [Multiple datastores](#multiple-datastores-one-server-many-stores))
+2. `KANECTA_DATASTORE` environment variable
+3. `~/.kanecta-config.json` → `datastorePath`
+4. Default: `~/.kanecta/`
 
 Initialise a datastore with:
 
 ```bash
 node kanecta-cli/index.js init ~/.kanecta --owner you@example.com
 ```
+
+---
+
+## Multiple datastores (one server, many stores)
+
+A single server instance can serve several datastores. Register them as a JSON map of
+name → path via the `KANECTA_DATASTORES` environment variable, then pass an optional
+`datastore` argument to any tool to target one of them:
+
+```json
+{
+  "mcpServers": {
+    "kanecta": {
+      "command": "npx",
+      "args": ["-y", "@kanecta/mcp"],
+      "env": {
+        "KANECTA_DATASTORE": "/path/to/default/store",
+        "KANECTA_DATASTORES": "{\"store-a\":\"/path/to/a\",\"store-b\":\"~/data/b\"}"
+      }
+    }
+  }
+}
+```
+
+```jsonc
+// Target a named store for a single call:
+kanecta_query({ type: "decision", datastore: "store-a" })
+
+// Omit `datastore` and the call uses the default store exactly as before:
+kanecta_query({ type: "decision" })
+```
+
+- `datastore` is optional on **every** tool.
+- **Omitting it is fully back-compatible** — resolution falls through to `KANECTA_DATASTORE`
+  / the configured workspace, identical to a single-datastore server. Configuring
+  `KANECTA_DATASTORES` never changes the behavior of calls that omit `datastore`.
+- A `~` prefix in a registry path is expanded to the user's home directory.
+- An unknown `datastore` name returns an error listing the configured names.
+
+Alternatively, run a second server instance with its own `KANECTA_DATASTORE` and a distinct
+server name — but that doubles the tool surface if both load in one session. The registry keeps
+everything under a single tool namespace.
 
 ---
 
