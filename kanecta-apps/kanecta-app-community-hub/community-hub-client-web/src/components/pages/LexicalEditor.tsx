@@ -28,7 +28,7 @@ export default function LexicalEditor({ initialState, onChange, editable = true,
   const initialConfig = {
     namespace: "PageEditor",
     nodes: EDITOR_NODES,
-    editorState: initialState ? JSON.stringify(initialState) : null,
+    editorState: initialState && "root" in initialState ? JSON.stringify(initialState) : null,
     editable,
     onError: (error: Error) => console.error("[Lexical]", error),
     theme: {
