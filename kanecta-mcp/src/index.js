@@ -379,6 +379,11 @@ const TOOLS = [
           description:
             'Field values for typed objects (type: "object"). Written to object.json and rendered as synthetic children in the tree.',
         },
+        strict: {
+          type: 'boolean',
+          description:
+            'Optional. When true, writing an object whose typeId has no registered type definition throws instead of writing. Default false: the write succeeds but the result includes a "warning".',
+        },
       },
     },
   },
@@ -428,6 +433,11 @@ const TOOLS = [
           type: 'object',
           description:
             'Replace the object.json field values for a typed object item.',
+        },
+        strict: {
+          type: 'boolean',
+          description:
+            'Optional. When true, changing typeId to one with no registered type definition throws instead of writing. Default false: the write succeeds but the result includes a "warning".',
         },
       },
       required: ['id'],
@@ -1374,14 +1384,16 @@ async function dispatch(name, args) {
       const { alias, ...createArgs } = args;
       const item = await ds.create(createArgs);
       if (alias) await ds.setAlias(alias, item.id);
-      return resolveItem(ds, item);
+      const out = await resolveItem(ds, item);
+      return item.warning ? { ...out, warning: item.warning } : out;
     }
 
     case 'kanecta_update_item': {
-      const { id, objectData, ...changes } = args;
-      const updated = await ds.update(id, changes, cfg?.owner);
+      const { id, objectData, strict, ...changes } = args;
+      const updated = await ds.update(id, changes, cfg?.owner, { strict });
       if (objectData !== undefined) await ds.writeObjectJson(id, objectData);
-      return resolveItem(ds, updated);
+      const out = await resolveItem(ds, updated);
+      return updated.warning ? { ...out, warning: updated.warning } : out;
     }
 
     case 'kanecta_complete_item': {

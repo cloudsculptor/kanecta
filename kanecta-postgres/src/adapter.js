@@ -230,13 +230,44 @@ class PostgresAdapter {
     return rowToItem(rows[0] ?? null);
   }
 
+  // True if `typeId` refers to an existing type definition (type='type' row).
+  async _typeDefExists(typeId) {
+    if (!typeId) return false;
+    const { rows } = await this._pool.query(
+      `SELECT 1 FROM items WHERE id = $1 AND type = 'type' LIMIT 1`, [typeId],
+    );
+    return rows.length > 0;
+  }
+
+  // Referential-integrity guard for object writes whose typeId has no type def.
+  // Strict (per-call `strict`, else datastore-level `config.strictTypeIds`) →
+  // throw and refuse; otherwise return a warning and let the write proceed.
+  _guardTypeIdRef(typeId, strict) {
+    const effectiveStrict = strict !== undefined ? !!strict : !!this.config.strictTypeIds;
+    if (effectiveStrict) {
+      const err = new Error(`unknown typeId "${typeId}" — no registered type definition`);
+      err.name = 'UnknownTypeError';
+      err.code = 'UNKNOWN_TYPE';
+      err.typeId = typeId;
+      throw err;
+    }
+    return `typeId ${typeId} has no type definition — node written anyway; run \`kanecta doctor\``;
+  }
+
   async create({
     parentId, value = null, type = 'string', typeId = null,
     owner, license = null, sortOrder, confidence = null, status = null,
     tags = [], createdBy, objectData = null, dueAt = null, aspect = null,
+    strict,
   } = {}) {
     if (WELL_KNOWN_TYPES.has(type))
       throw new Error(`Type '${type}' is well-known and cannot be created via create()`);
+
+    // Referential-integrity guard before any write (throws under strict).
+    let typeWarning = null;
+    if (type === 'object' && typeId && !(await this._typeDefExists(typeId))) {
+      typeWarning = this._guardTypeIdRef(typeId, strict);
+    }
 
     if (parentId == null) {
       const dr = await this.getDataRoot();
@@ -283,12 +314,28 @@ class PostgresAdapter {
 
     const item = await this.get(id);
     await this._snapshot(item, 'create', actor, now);
+    if (typeWarning) {
+      Object.defineProperty(item, 'warning', { value: typeWarning, enumerable: false, configurable: true });
+    }
     return item;
   }
 
-  async update(id, changes, actor) {
+  async update(id, changes, actor, { strict } = {}) {
     const current = await this.get(id);
     this._assertEditable(current, id);
+
+    // Referential-integrity guard before any write (throws under strict).
+    // Gated on the typeId actually *changing*: strict blocks newly introduced
+    // orphan references only, not an item that already carries an orphan typeId
+    // (legacy / warn-mode data) being edited otherwise. `doctor` is the backstop.
+    const newType   = 'type'   in changes ? changes.type   : current.type;
+    const newTypeId = 'typeId' in changes ? changes.typeId : current.typeId;
+    let typeWarning = null;
+    if (newType === 'object' && newTypeId && newTypeId !== current.typeId
+        && !(await this._typeDefExists(newTypeId))) {
+      typeWarning = this._guardTypeIdRef(newTypeId, strict);
+    }
+
     actor = actor || this.config.owner;
     const now = new Date();
     await this._snapshot(current, 'update', actor, now);
@@ -333,7 +380,11 @@ class PostgresAdapter {
       );
     }
 
-    return this.get(id);
+    const result = await this.get(id);
+    if (typeWarning && result) {
+      Object.defineProperty(result, 'warning', { value: typeWarning, enumerable: false, configurable: true });
+    }
+    return result;
   }
 
   async deleteWarnings(id) {
