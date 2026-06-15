@@ -9,6 +9,7 @@ import LandscapeIcon from "@mui/icons-material/Landscape";
 import { useKeycloak } from "../auth/KeycloakProvider";
 import { useUserRoles, primaryRole, type UserRole } from "../auth/useUserRole";
 import keycloak from "../auth/keycloak";
+import TestEnvironmentBanner from "./TestEnvironmentBanner";
 
 const ROLE_LABEL: Record<UserRole, string> = {
   admin: "Admin",
@@ -36,6 +37,8 @@ export default function Header() {
   const roleChipLabel = primary ? ROLE_LABEL[primary] : "Member";
 
   return (
+    <>
+    <TestEnvironmentBanner />
     <header className="site-header">
       <div className="site-header__brand" onClick={() => navigate("/")} role="link" tabIndex={0} onKeyDown={(e) => e.key === "Enter" && navigate("/")}>
         <LandscapeIcon className="site-header__mountain" />
@@ -132,5 +135,6 @@ export default function Header() {
         )}
       </div>
     </header>
+    </>
   );
 }

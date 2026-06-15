@@ -1,0 +1,55 @@
+name: Deploy Community Hub (nonprod)
+
+on:
+  push:
+    branches: [test]
+    paths:
+      - 'kanecta-apps/kanecta-app-community-hub/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: kanecta-apps/kanecta-app-community-hub/community-hub-client-web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: kanecta-apps/kanecta-app-community-hub/community-hub-client-web
+
+      - name: Build
+        run: npm run build
+        working-directory: kanecta-apps/kanecta-app-community-hub/community-hub-client-web
+        env:
+          VITE_KEYCLOAK_URL: ${{ secrets.VITE_KEYCLOAK_URL }}
+          VITE_KEYCLOAK_REALM: ${{ secrets.VITE_KEYCLOAK_REALM }}
+          VITE_KEYCLOAK_CLIENT_ID: ${{ secrets.VITE_KEYCLOAK_CLIENT_ID_NONPROD }}
+          VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy frontend
+        run: |
+          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key" \
+            kanecta-apps/kanecta-app-community-hub/community-hub-client-web/dist/ \
+            root@${{ secrets.DEPLOY_HOST }}:/var/www/featherston-test/
+
+      - name: Deploy API
+        run: |
+          rsync -az --delete --exclude node_modules --exclude ecosystem.config.cjs -e "ssh -i ~/.ssh/deploy_key" \
+            kanecta-apps/kanecta-app-community-hub/community-hub-api/ \
+            root@${{ secrets.DEPLOY_HOST }}:/opt/featherston-api-nonprod/
+          ssh -i ~/.ssh/deploy_key root@${{ secrets.DEPLOY_HOST }} \
+            "cd /opt/featherston-api-nonprod && npm install --omit=dev && pm2 restart featherston-api-nonprod && pm2 save"
