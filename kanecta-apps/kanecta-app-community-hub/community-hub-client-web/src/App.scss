@@ -5054,10 +5054,42 @@ $bp-tablet: 768px;
 .test-env-banner {
   background: #dc2626;
   color: #fff;
-  text-align: center;
   font-size: 13px;
   padding: 6px 16px;
   line-height: 1.4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  &__label {
+    font-weight: 700;
+  }
+
+  &__meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    opacity: 0.9;
+  }
+
+  &__pr {
+    font-style: italic;
+  }
+
+  &__branch,
+  &__sha {
+    background: rgba(0,0,0,0.25);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 11px;
+    font-family: monospace;
+  }
+
+  &__live {
+    margin-left: 4px;
+  }
 
   &__link {
     color: #fff;

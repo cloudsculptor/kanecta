@@ -2,9 +2,10 @@ name: Deploy Community Hub (nonprod)
 
 on:
   push:
-    branches: [test]
+    branches: ['test/community-hub*']
     paths:
       - 'kanecta-apps/kanecta-app-community-hub/**'
+      - '.github/workflows/community-hub-deploy-nonprod.yml'
   workflow_dispatch:
 
 jobs:
@@ -32,6 +33,20 @@ jobs:
           VITE_KEYCLOAK_REALM: ${{ secrets.VITE_KEYCLOAK_REALM }}
           VITE_KEYCLOAK_CLIENT_ID: ${{ secrets.VITE_KEYCLOAK_CLIENT_ID_NONPROD }}
           VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
+
+      - name: Write build info
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_TITLE=$(gh pr list --head "${{ github.ref_name }}" --json title --jq '.[0].title // ""' 2>/dev/null || echo "")
+          jq -n \
+            --arg branch "${{ github.ref_name }}" \
+            --arg sha "${{ github.sha }}" \
+            --arg shortSha "${GITHUB_SHA:0:7}" \
+            --arg prTitle "$PR_TITLE" \
+            --arg deployedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{branch: $branch, sha: $sha, shortSha: $shortSha, prTitle: $prTitle, deployedAt: $deployedAt}' \
+            > kanecta-apps/kanecta-app-community-hub/community-hub-client-web/dist/build-info.json
 
       - name: Configure SSH
         run: |
