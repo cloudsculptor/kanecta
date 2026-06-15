@@ -141,6 +141,56 @@ test('object data persists through writeObjectJson/readObjectJson once the table
   expect(objectData).toEqual({ label: 'sprocket' });
 });
 
+// ─── typeId referential integrity ─────────────────────────────────────────────
+
+const ORPHAN_TYPE_ID = 'deadbeef-0000-4000-8000-000000000000';
+
+test('create warns by default and throws under strict for an orphan typeId', async () => {
+  // Default: written, with a non-enumerable warning.
+  const before = await adapter.create({ type: 'object', typeId: ORPHAN_TYPE_ID, createdBy: OWNER });
+  expect(before.warning).toMatch(/has no type definition/);
+  expect(await adapter.get(before.id)).toBeTruthy();
+
+  // Strict per-call: throws and writes nothing.
+  const { rows: countBefore } = await pool.query(`SELECT COUNT(*)::int AS n FROM items`);
+  await expect(
+    adapter.create({ type: 'object', typeId: ORPHAN_TYPE_ID, strict: true, createdBy: OWNER }),
+  ).rejects.toMatchObject({ name: 'UnknownTypeError', code: 'UNKNOWN_TYPE' });
+  const { rows: countAfter } = await pool.query(`SELECT COUNT(*)::int AS n FROM items`);
+  expect(countAfter[0].n).toBe(countBefore[0].n);
+});
+
+test('create with a registered typeId does not warn', async () => {
+  const typeId = crypto.randomUUID();
+  const tableName = `obj_${typeId.replace(/-/g, '_')}`;
+  await adapter.createType('Cog', {
+    schema: {
+      meta: {},
+      jsonSchema: { type: 'object', properties: {}, required: [], additionalProperties: false },
+      sqlSchema: [`CREATE TABLE "${tableName}" (item_id UUID PRIMARY KEY REFERENCES items(id))`],
+    },
+    createdBy: OWNER,
+    id: typeId,
+  });
+  const item = await adapter.create({ type: 'object', typeId, createdBy: OWNER });
+  expect(item.warning).toBeUndefined();
+});
+
+test('update to an orphan typeId warns by default and throws under strict (unchanged)', async () => {
+  const item = await adapter.create({ value: 'x', type: 'note', createdBy: OWNER });
+
+  const warned = await adapter.update(item.id, { type: 'object', typeId: ORPHAN_TYPE_ID }, OWNER);
+  expect(warned.warning).toMatch(/has no type definition/);
+
+  const fresh = await adapter.create({ value: 'y', type: 'note', createdBy: OWNER });
+  await expect(
+    adapter.update(fresh.id, { type: 'object', typeId: ORPHAN_TYPE_ID }, OWNER, { strict: true }),
+  ).rejects.toMatchObject({ name: 'UnknownTypeError' });
+  const after = await adapter.get(fresh.id);
+  expect(after.type).toBe('note');
+  expect(after.typeId).toBeNull();
+});
+
 // ─── strictTypes / resolveTypeId ──────────────────────────────────────────────
 
 test('resolveTypeId classifies primitive / registered / unknown names', async () => {
