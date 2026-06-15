@@ -110,7 +110,7 @@ class Datastore {
 
   async create(opts)                         { return this._adapter.create(opts); }
   async get(id)                              { return this._adapter.get(id); }
-  async update(id, changes, actor)           { return this._adapter.update(id, changes, actor); }
+  async update(id, changes, actor, opts)     { return this._adapter.update(id, changes, actor, opts); }
   async delete(id, actor)                    { return this._adapter.delete(id, actor); }
   async deleteWarnings(id)                   { return this._adapter.deleteWarnings(id); }
   async createType(value, opts)              { return this._adapter.createType(value, opts); }
