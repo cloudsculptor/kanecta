@@ -69,5 +69,8 @@
         "type": "string"
       }
     }
-  }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_5e00b0ab_42d6_43c9_b5e6_b696f6cf680d\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"number\" INTEGER,\n    \"goal\" TEXT,\n    \"start_date\" DATE,\n    \"end_date\" DATE,\n    \"team\" TEXT,\n    \"status\" TEXT,\n    \"tickets\" TEXT[] NOT NULL DEFAULT '{}',\n    \"velocity\" NUMERIC,\n    \"notes\" TEXT,\n    CONSTRAINT \"pk_obj_5e00b0ab_42d6_43c9_b5e6_b696f6cf680d\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_5e00b0ab42d643c9_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
 }

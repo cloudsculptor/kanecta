@@ -113,19 +113,19 @@ describe('status normalisation in where filter', () => {
 // which the adapter reads as the default cap of 50 — silently under-counting any bucket > 50.
 // The 2-3 item fixtures elsewhere can't catch this, so exercise it with > 50 items.
 describe('aggregation modes ignore the default 50-item limit (regression)', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     for (let i = 0; i < 60; i++) {
-      seed(`bulk-${i}`, { severity: i % 2 === 0 ? 'P1' : 'P2', status: 'open' });
+      await seed(`bulk-${i}`, { severity: i % 2 === 0 ? 'P1' : 'P2', status: 'open' });
     }
   });
 
-  test('count returns all 60 matches, not 50', () => {
-    const res = dispatch('kanecta_query', { type: 'object', mode: 'count' });
+  test('count returns all 60 matches, not 50', async () => {
+    const res = await dispatch('kanecta_query', { type: 'object', mode: 'count' });
     expect(res.count).toBe(60);
   });
 
-  test('group_by buckets sum to all 60 matches, not 50', () => {
-    const res = dispatch('kanecta_query', { type: 'object', mode: 'group_by', group_by_field: 'severity' });
+  test('group_by buckets sum to all 60 matches, not 50', async () => {
+    const res = await dispatch('kanecta_query', { type: 'object', mode: 'group_by', group_by_field: 'severity' });
     const total = Object.values(res.groups).reduce((a, b) => a + b, 0);
     expect(total).toBe(60);
     expect(res.groups.P1).toBe(30);

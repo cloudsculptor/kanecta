@@ -54,5 +54,8 @@
         "description": "Full page content as markdown"
       }
     }
-  }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_36ea658e_3577_4748_bca5_349789174df8\" (\n    item_id UUID NOT NULL,\n    \"url\" TEXT,\n    \"title\" TEXT,\n    \"harvested_at\" TIMESTAMPTZ,\n    \"harvest_skill\" UUID,\n    \"content\" TEXT,\n    CONSTRAINT \"pk_obj_36ea658e_3577_4748_bca5_349789174df8\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_36ea658e35774748_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
 }

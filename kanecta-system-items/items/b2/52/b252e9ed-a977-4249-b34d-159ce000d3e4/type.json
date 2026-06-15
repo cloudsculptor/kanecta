@@ -70,5 +70,8 @@
         "type": "string"
       }
     }
-  }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_b252e9ed_a977_4249_b34d_159ce000d3e4\" (\n    item_id UUID NOT NULL,\n    \"title\" TEXT,\n    \"description\" TEXT,\n    \"source\" TEXT,\n    \"destination\" TEXT,\n    \"data_type\" TEXT,\n    \"protocol\" TEXT,\n    \"direction\" TEXT,\n    \"frequency\" TEXT,\n    \"authentication\" TEXT,\n    \"notes\" TEXT,\n    CONSTRAINT \"pk_obj_b252e9ed_a977_4249_b34d_159ce000d3e4\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_b252e9eda9774249_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
 }

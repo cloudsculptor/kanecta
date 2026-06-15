@@ -4,12 +4,16 @@
   "title": "Kanecta Item Metadata",
   "description": "Schema for a Kanecta metadata.json file. Stored at .kanecta/data/{shard1}/{shard2}/{uuid}/metadata.json for items, and .kanecta/types/{shard1}/{shard2}/{uuid}/metadata.json for type definition records.",
   "type": "object",
-  "required": ["id", "parentId", "value", "type", "owner", "license", "createdAt", "modifiedAt"],
+  "required": ["id", "specVersion", "parentId", "value", "type", "owner", "license", "createdAt", "modifiedAt"],
   "additionalProperties": false,
   "properties": {
     "id": {
       "type": "string",
       "description": "UUID of this item."
+    },
+    "specVersion": {
+      "type": "string",
+      "description": "Version of the Kanecta specification this record conforms to (e.g. '1.3.0'). Set at creation time; tooling uses it to pick the right schema/migration rules when reading older records."
     },
     "parentId": {
       "type": ["string", "null"],
@@ -106,11 +110,18 @@
       "type": ["string", "null"],
       "default": null,
       "description": "Dimension this item occupies under its parent. Null means the item belongs to the main tree. Any other string names an alternative dimension (e.g. 'settings', 'hidden', 'archive'). UIs show only null-aspect children by default; a user or application switches aspect to see a different dimension's children. An item belongs to exactly one aspect. sortOrder is scoped per-aspect — siblings in different aspects are ordered independently. Aspect names are free-form conventions; none are reserved by the spec."
+    },
+    "template": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "default": null,
+      "description": "UUID of the type or item this item's tree was copied from via a template action. References the source type's UUID when templating a typed object (type: 'object'), or the source item's UUID when templating an unstructured tree. Null if this item was not produced by templating."
     }
   },
   "examples": [
     {
       "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "specVersion": "1.3.0",
       "parentId": "00000000-0000-0000-0000-000000000001",
       "value": "Richie Thomas",
       "type": "object",
@@ -132,6 +143,7 @@
     },
     {
       "id": "f1e2d3c4-b5a6-7890-abcd-ef1234567890",
+      "specVersion": "1.3.0",
       "parentId": null,
       "value": "Person",
       "type": "type",

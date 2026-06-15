@@ -14,8 +14,8 @@
     "dist": "electron-builder --linux deb"
   },
   "devDependencies": {
-    "electron": "42.3.3",
-    "electron-builder": "^26.15.0"
+    "electron": "42.4.0",
+    "electron-builder": "^26.15.2"
   },
   "license": "MIT",
   "build": {

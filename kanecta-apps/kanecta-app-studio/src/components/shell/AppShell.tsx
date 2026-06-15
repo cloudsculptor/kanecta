@@ -21,7 +21,7 @@ export function AppShell({
   onOpenCommandPalette,
 }: AppShellProps) {
   const { layout, updatePanel } = useUiStore();
-  const { sidebarBg, sidebarFg, sidebarFgSelected, contentBg, contentBorder, showContentBorder, locationBorder } = useSettingsStore();
+  const { themeName, sidebarBg, sidebarFg, sidebarFgSelected, contentBg, contentBorder, showContentBorder, locationBorder } = useSettingsStore();
 
   const activeView = layout.panels[0]?.viewType ?? 'tree';
 
@@ -50,6 +50,10 @@ export function AppShell({
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [onOpenQuickCapture, onOpenCommandPalette]);
+
+  useEffect(() => {
+    document.body.setAttribute('data-theme', themeName.toLowerCase());
+  }, [themeName]);
 
   return (
     <div className="AppShell" style={{ '--sidebar-bg': sidebarBg, '--sidebar-fg': sidebarFg, '--sidebar-fg-selected': sidebarFgSelected, '--content-bg': contentBg, '--content-border': contentBorder, '--location-border': locationBorder } as React.CSSProperties}>

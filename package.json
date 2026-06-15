@@ -28,14 +28,17 @@
     "kanecta-apps/kanecta-app-studio",
     "kanecta-apps/kanecta-app-studio-debian",
     "kanecta-apps/kanecta-app-studio-windows",
-    "kanecta-apps/kanecta-app-claude"
+    "kanecta-apps/kanecta-app-studio-mac",
+    "kanecta-apps/kanecta-app-studio-vscode-plugin",
+    "kanecta-apps/kanecta-app-claude",
+    "kanecta-components/kanecta-component-tree-view"
   ],
   "devDependencies": {
     "@changesets/cli": "^2.31.0",
     "@dnd-kit/core": "^6.3.1",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
-    "@storybook/react-vite": "^10.4.2",
+    "@storybook/react-vite": "^10.4.3",
     "concurrently": "^10.0.3",
     "husky": "^9.1.7",
     "storybook": "^10.3.5"

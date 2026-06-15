@@ -73,5 +73,8 @@
         "type": "string"
       }
     }
-  }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_a28275ab_79a3_4b71_a663_3ff2d577d6e4\" (\n    item_id UUID NOT NULL,\n    \"version\" TEXT,\n    \"name\" TEXT,\n    \"date\" DATE,\n    \"status\" TEXT,\n    \"environment\" TEXT,\n    \"services\" TEXT[] NOT NULL DEFAULT '{}',\n    \"changelog\" TEXT,\n    \"tickets\" TEXT[] NOT NULL DEFAULT '{}',\n    \"deployed_by\" TEXT,\n    \"rollback_plan\" TEXT,\n    CONSTRAINT \"pk_obj_a28275ab_79a3_4b71_a663_3ff2d577d6e4\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_a28275ab79a34b71_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
 }

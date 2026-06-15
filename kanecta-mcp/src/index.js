@@ -47,6 +47,25 @@ function writeConfig(cfg) {
   fs.writeFileSync(MCP_CONFIG_PATH, JSON.stringify(cfg, null, 2) + '\n');
 }
 
+// Optional registry of named datastores, supplied as a JSON map of name→path via the
+// KANECTA_DATASTORES env var, e.g. {"store-a":"/data/a","store-b":"~/data/b"}. This lets a
+// single server instance serve several datastores, selected per call (see the `datastore`
+// tool argument). When unset, the server behaves exactly as a single-datastore server.
+function readDatastoreRegistry() {
+  const raw = process.env.KANECTA_DATASTORES;
+  if (!raw) return null;
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error('KANECTA_DATASTORES must be valid JSON — a map of name→path, e.g. {"store-a":"/data/a"}');
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('KANECTA_DATASTORES must be a JSON object mapping datastore names to paths');
+  }
+  return parsed;
+}
+
 function resolveWorkspace() {
   const appCfg = readAppConfig();
   const workspaces = appCfg?.workspaces ?? {};
@@ -69,7 +88,23 @@ function resolveWorkspace() {
   throw new Error(`No Kanecta workspaces found in ${APP_CONFIG_PATH}`);
 }
 
-async function openDs() {
+async function openDs(selector) {
+  // Per-call datastore selection (multi-datastore support). When a selector is supplied it must
+  // name an entry in the KANECTA_DATASTORES registry; that store is opened in filesystem mode.
+  // When the selector is omitted the resolution below is byte-for-byte the original behavior, so
+  // single-datastore deployments are completely unaffected.
+  if (selector !== undefined && selector !== null && selector !== '') {
+    const registry = readDatastoreRegistry();
+    if (!registry || !Object.prototype.hasOwnProperty.call(registry, selector)) {
+      const known = registry ? Object.keys(registry).join(', ') || '(empty)' : '(none configured)';
+      throw new Error(
+        `Unknown datastore '${selector}'. Configure KANECTA_DATASTORES as a JSON map of name→path. Known datastores: ${known}`
+      );
+    }
+    const datastorePath = String(registry[selector]).replace(/^~/, os.homedir());
+    const cfg = readConfig();
+    return { ds: Datastore.open(datastorePath), cfg, datastorePath };
+  }
   // KANECTA_DATASTORE env var explicitly forces filesystem mode (used by tests and CLI overrides)
   if (process.env.KANECTA_DATASTORE) {
     const datastorePath = process.env.KANECTA_DATASTORE.replace(
@@ -939,6 +974,21 @@ const TOOLS = [
   },
 ];
 
+// Every tool accepts an optional `datastore` selector, injected here so the single source of
+// truth is one description rather than 30+ duplicated schema fragments. Omitting it targets the
+// default datastore, preserving the original single-datastore behavior.
+const DATASTORE_ARG = {
+  type: 'string',
+  description:
+    'Optional: name of a datastore in the KANECTA_DATASTORES registry to target for this call. Omit to use the default datastore (KANECTA_DATASTORE env or configured workspace).',
+};
+for (const tool of TOOLS) {
+  if (tool.inputSchema && tool.inputSchema.type === 'object') {
+    tool.inputSchema.properties = tool.inputSchema.properties || {};
+    tool.inputSchema.properties.datastore = DATASTORE_ARG;
+  }
+}
+
 // ─── Function helpers ─────────────────────────────────────────────────────────
 
 function fnItemDir(datastorePath, id) {
@@ -1319,7 +1369,13 @@ function sendError(id, code, message) {
 }
 
 async function dispatch(name, args) {
-  const { ds, cfg, datastorePath } = await openDs();
+  // Pull the optional per-call datastore selector out of the arguments before they reach any
+  // handler, so it can never be mistaken for a tool parameter (e.g. a kanecta_query where-clause).
+  let datastore;
+  if (args && typeof args === 'object' && !Array.isArray(args)) {
+    ({ datastore, ...args } = args);
+  }
+  const { ds, cfg, datastorePath } = await openDs(datastore);
   switch (name) {
     case 'kanecta_capture':
       return handleCapture(args, ds, cfg);
@@ -1799,7 +1855,7 @@ function runMcpServer() {
   process.stdin.on('end', () => process.exit(0));
 }
 
-module.exports = { runMcpServer, TOOLS, resolveWorkspace, dispatch };
+module.exports = { runMcpServer, TOOLS, resolveWorkspace, readDatastoreRegistry, openDs, dispatch };
 
 if (require.main === module) {
   runMcpServer();

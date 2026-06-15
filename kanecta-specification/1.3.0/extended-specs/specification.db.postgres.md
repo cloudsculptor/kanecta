@@ -178,6 +178,16 @@ This turns "get an item's children" from a lookup/join on `parent_id` into a sin
 
 `children` is kept in lock-step with `parent_id` by a database trigger (`trg_items_sync_children` / `items_sync_children()`, defined in `003_items_children_cache.sql`) rather than in application code — this guarantees correctness under *any* write path, including raw-SQL tools that bypass the adapter (e.g. the filesystem→postgres migration script). On `INSERT` the new row's id is appended to its parent's `children`; on `UPDATE` of `parent_id` it is moved from the old parent's array to the new parent's; on `DELETE` it is removed from its parent's array. The root item is self-referential (`parent_id = id`) and is excluded from its own `children` array. If `children` and `parent_id` ever disagree, `parent_id` wins — `children` can always be rebuilt with `array_agg(id) GROUP BY parent_id`.
 
+### spec_version — per-item column on items
+
+`metadata.json` requires every record to carry `specVersion` (e.g. `'1.3.0'`) — the version of the Kanecta specification that record's shape conforms to, recorded at creation time so tooling can pick the right schema/migration rules when reading older records. Migration `017_item_spec_version.sql` adds it as a plain column on `items`:
+
+```sql
+ALTER TABLE items ADD COLUMN IF NOT EXISTS spec_version TEXT NOT NULL DEFAULT '1.3.0';
+```
+
+Existing rows are backfilled to `'1.3.0'` (the version they were created under); `create()`/`createType()` stamp new rows with the running `@kanecta/specification` package's `version`. This is distinct from the singleton `schema_version` table below, which tracks the *database schema's* version, not individual items' spec conformance.
+
 ### schema_version — app/database lock-step check
 
 A singleton `schema_version` table (added in `004_schema_version.sql`) records the schema's current version as a `major.minor.patch` string (e.g. `'1.1.1'`):

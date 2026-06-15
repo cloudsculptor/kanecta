@@ -233,9 +233,10 @@ function writePointer(name, workspace, apiPort, studioPort, systemItemsDir) {
 }
 
 function resolveFromEnv() {
-  const p = process.env.KANECTA_DATASTORE;
-  console.log(`  checking KANECTA_DATASTORE env → ${p || '(not set)'}`);
-  if (!p) return null;
+  const raw = process.env.KANECTA_DATASTORE;
+  console.log(`  checking KANECTA_DATASTORE env → ${raw || '(not set)'}`);
+  if (!raw) return null;
+  const p = expandHome(raw);
   if (Datastore.isDatastore(p)) return p;
   console.log(`  ✗ not a valid datastore`);
   return null;
@@ -669,20 +670,24 @@ async function launch(workspaceName, datastorePath, apiPort, studioPort, systemI
     ],
     {
       cwd: repoRoot,
-      env: {
-        ...process.env,
-        ...(workspaceName ? { KANECTA_WORKSPACE: workspaceName } : {}),
-        ...(datastorePath ? { KANECTA_DATASTORE: datastorePath } : {}),
-        PORT: String(apiPort),
-        KANECTA_API_URL: `http://localhost:${apiPort}`,
-        ...(systemItemsDir ? { KANECTA_SYSTEM_ITEMS_DIR: systemItemsDir } : {}),
+      env: (() => {
+        // Build child env from scratch so a stale or mis-quoted KANECTA_DATASTORE
+        // in the parent shell (e.g. unexpanded tilde) can't leak into the server.
+        const e = { ...process.env };
+        delete e.KANECTA_DATASTORE;
+        if (workspaceName) e.KANECTA_WORKSPACE = workspaceName;
+        if (datastorePath) e.KANECTA_DATASTORE = datastorePath;
+        e.PORT = String(apiPort);
+        e.KANECTA_API_URL = `http://localhost:${apiPort}`;
+        if (systemItemsDir) e.KANECTA_SYSTEM_ITEMS_DIR = systemItemsDir;
         // `npm start` from source has no Keycloak instance to point at — force
         // both sides into auth-disabled mode so the local dev loop never needs
         // one. Real auth is only exercised by deploying with KEYCLOAK_URL/
         // VITE_KEYCLOAK_URL set (or against the kanecta-keycloak dev stack).
-        AUTH_DISABLED: 'true',
-        VITE_AUTH_DISABLED: 'true',
-      },
+        e.AUTH_DISABLED = 'true';
+        e.VITE_AUTH_DISABLED = 'true';
+        return e;
+      })(),
       stdio: 'inherit',
     },
   );

@@ -1,0 +1,135 @@
+= AWS Database Options
+:toc: left
+:toc-title: Contents
+:toclevels: 2
+:sectnums:
+:icons: font
+
+== Overview
+
+AWS offers managed database services across several categories.
+This document surveys the options and explains which is the right choice for Kanecta.
+
+== Relational
+
+=== Amazon RDS
+
+Managed relational database supporting PostgreSQL, MySQL, MariaDB, Oracle, and SQL Server.
+Handles backups, patching, and failover automatically.
+The most common starting point for standard workloads.
+
+=== Amazon Aurora
+
+AWS's cloud-native relational engine, PostgreSQL- and MySQL-compatible.
+Faster than standard RDS, with automatic storage scaling and multi-AZ by default.
+Aurora Serverless v2 adds auto-scaling compute — useful for bursty MCP query workloads.
+
+=== Amazon Redshift
+
+Columnar data warehouse optimised for analytics (OLAP).
+Not for transactional workloads.
+Relevant only if Kanecta data needs feeding into a separate analytics pipeline.
+
+== Key-Value and Document
+
+=== Amazon DynamoDB
+
+Fully managed NoSQL with key-value and document model.
+Single-digit millisecond latency at any scale.
+Strong choice when access patterns are predictable.
+Pricing can surprise at scale.
+No joins, no full-text search, no recursive queries — none of which suit Kanecta's data model.
+
+=== Amazon DocumentDB
+
+MongoDB-compatible document store.
+Not actually MongoDB under the hood.
+
+== In-Memory and Cache
+
+=== Amazon ElastiCache
+
+Managed Redis or Memcached.
+Used for caching, sessions, and counters.
+Not a primary datastore — relevant as a warm cache layer on top of a primary store.
+
+=== Amazon MemoryDB
+
+Redis-compatible but durable (persists to disk).
+Useful when Redis speed and DB-level durability are both required.
+
+== Graph
+
+=== Amazon Neptune
+
+Managed graph database supporting Gremlin, openCypher, and SPARQL.
+The closest AWS equivalent to Neo4j.
+
+Kanecta's vNext spec describes relationships as first-class items with `source` and `target` fields,
+which maps naturally to a property graph. In practice the fit is partial:
+
+[cols="1,1"]
+|===
+| Maps well | Falls apart
+
+| Multi-hop relationship traversal
+| Per-type `obj_<uuid>` tables — no equivalent; type constraints are lost
+
+| Backlink lookups
+| Full-text search — Neptune has no FTS; requires a separate OpenSearch cluster
+
+| ReBAC permission checks (Zanzibar-style graph walk)
+| History and activity logs — not graph problems; Neptune offers nothing over a flat table
+
+| Shortest path between items
+| Relationships between relationships — Neptune edges cannot have edges
+
+|
+| Schema migrations — no equivalent to numbered `.sql` files
+
+|
+| Rich entity filtering — Gremlin is verbose compared to SQL `WHERE`
+|===
+
+The right role for Neptune, if graph traversal becomes a bottleneck, is as a _read-optimised projection_:
+an index exported from Postgres and rebuildable on demand — not the primary store.
+
+== Wide-Column
+
+=== Amazon Keyspaces
+
+Apache Cassandra-compatible managed service.
+High write throughput and tunable consistency.
+Designed for time-series and event data at massive scale.
+Not a natural fit for Kanecta's relational item model.
+
+== Recommendation
+
+*Amazon RDS for PostgreSQL, or Aurora PostgreSQL.*
+
+The Kanecta 1.3.0 spec ships a PostgreSQL implementation that uses native UUID types,
+JSONB history snapshots, GIN-indexed tag arrays, `pg_trgm` and `tsvector` for full-text search,
+deferred foreign keys for the self-referential root, and `gen_random_uuid()`.
+It is not database-agnostic SQL — it is written for Postgres.
+
+[cols="1,1"]
+|===
+| RDS PostgreSQL | Aurora PostgreSQL
+
+| Simpler setup
+| Automatic storage scaling
+
+| Lower cost for steady traffic
+| Faster failover, better availability
+
+| Good starting point
+| Aurora Serverless v2 for bursty workloads
+|===
+
+The `core-data-model-architecture.md` vNext spec explicitly evaluates Postgres against the alternatives
+and concludes: _"< 1 TB, < 10k writes/sec — Postgres is fine, probably ideal."_
+A personal or organisational knowledge base will not approach that ceiling.
+
+For file attachments, pair RDS or Aurora with S3.
+The `files` table in the spec already supports an `external_path` column pointing to
+an object store rather than inlining blobs.

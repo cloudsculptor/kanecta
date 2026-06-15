@@ -64,5 +64,8 @@
         "type": "string"
       }
     }
-  }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_84ae4882_8668_4e2a_85d0_918b4bf310bb\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"type\" TEXT,\n    \"base_url\" TEXT,\n    \"status\" TEXT,\n    \"services\" TEXT[] NOT NULL DEFAULT '{}',\n    \"owner\" TEXT,\n    \"access_instructions\" TEXT,\n    \"config_notes\" TEXT,\n    CONSTRAINT \"pk_obj_84ae4882_8668_4e2a_85d0_918b4bf310bb\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_84ae488286684e2a_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
 }

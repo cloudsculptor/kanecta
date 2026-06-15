@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kanecta vs Neo4j</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Georgia', serif;
+      background: #faf9f7;
+      color: #1a1a1a;
+      line-height: 1.7;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 56px 64px 48px;
+    }
+    header .eyebrow {
+      font-family: 'Helvetica Neue', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #8899bb;
+      margin-bottom: 18px;
+    }
+    header h1 {
+      font-size: 38px;
+      font-weight: normal;
+      letter-spacing: -0.5px;
+      line-height: 1.2;
+      margin-bottom: 16px;
+    }
+    header h1 em {
+      font-style: normal;
+      color: #7eb6ff;
+    }
+    header .subtitle {
+      font-family: 'Helvetica Neue', sans-serif;
+      font-size: 15px;
+      color: #aab8cc;
+      max-width: 620px;
+    }
+
+    /* ── Layout ── */
+    main {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 64px 40px 80px;
+    }
+
+    section { margin-bottom: 72px; }
+
+    h2 {
+      font-family: 'Helvetica Neue', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #7eb6ff;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #e8e4de;
+    }
+
+    h3 {
+      font-family: 'Helvetica Neue', sans-serif;
+      font-size: 18px;
+      font-weight: 600;
+      color: #1a1a2e;
+      margin: 32px 0 10px;
+    }
+
+    p {
+      font-size: 16px;
+      color: #333;
+      max-width: 680px;
+      margin-bottom: 16px;
+    }
+    p:last-child { margin-bottom: 0; }
+
+    /* ── Callout ── */
+    .callout {
+      background: #f0f4ff;
+      border-left: 4px solid #7eb6ff;
+      border-radius: 0 8px 8px 0;
+      padding: 24px 28px;
+      margin: 36px 0;
+    }
+    .callout p {
+      font-size: 17px;
+      color: #1a1a2e;
+      font-style: italic;
+      margin: 0;
+      max-width: none;
+    }
+
+    /* ── Verdict grid ── */
+    .verdict-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px;
+      background: #e8e4de;
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 28px 0;
+    }
+    .verdict-col {
+      background: #fff;
+      padding: 28px 28px 32px;
+    }
+    .verdict-col:first-child { border-radius: 10px 0 0 10px; }
+    .verdict-col:last-child  { border-radius: 0 10px 10px 0; }
+    .verdict-col .col-label {
+      font-family: 'Helvetica Neue', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      margin-bottom: 18px;
+    }
+    .verdict-col.works  .col-label { color: #3a8a5a; }
+    .verdict-col.doesnt .col-label { color: #c05a5a; }
+    .verdict-col ul { list-style: none; padding: 0; }
+    .verdict-col ul li {
+      font-family: 'Helvetica Neue', sans-serif;
+      font-size: 14px;
+      color: #333;
+      line-height: 1.5;
+      padding: 6px 0;
+      border-bottom: 1px solid #f0ede8;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .verdict-col ul li:last-child { border-bottom: none; }
+    .verdict-col ul li .icon { flex-shrink: 0; margin-top: 1px; font-style: normal; }
+    .verdict-col.works  ul li .icon { color: #3a8a5a; }
+    .verdict-col.doesnt ul li .icon { color: #c05a5a; }
+
+    /* ── Verdict banner ── */
+    .verdict-banner {
+      background: #1a1a2e;
+      color: #fff;
+      border-radius: 10px;
+      padding: 32px 36px;
+      margin: 36px 0;
+    }
+    .verdict-banner .verdict-label {
+      font-family: 'Helvetica Neue', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #7eb6ff;
+      margin-bottom: 12px;
+    }
+    .verdict-banner p {
+      font-size: 16px;
+      color: #ccd;
+      max-width: 600px;
+      margin: 0;
+      line-height: 1.65;
+    }
+    .verdict-banner p strong { color: #fff; }
+
+    /* ── AI comparison ── */
+    .ai-compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px;
+      background: #e8e4de;
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 28px 0;
+    }
+    .ai-col {
+      background: #fff;
+      padding: 28px 28px 32px;
+    }
+    .ai-col:first-child { border-radius: 10px 0 0 10px; }
+    .ai-col:last-child  { border-radius: 0 10px 10px 0; }
+    .ai-col.winner { background: #f4f8ff; }
+    .ai-col .col-header {
+      font-family: 'Helvetica Neue', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-bottom: 4px;
+    }
+    .ai-col .col-sub {
+      font-family: 'Helvetica Neue', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #aaa;
+      margin-bottom: 20px;
+    }
+    .ai-col.winner .col-sub { color: #4a90d9; }
+    .ai-col ul { list-style: none; padding: 0; }
+    .ai-col ul li {
+      font-family: 'Helvetica Neue', sans-serif;
+      font-size: 14px;
+      color: #333;
+      line-height: 1.5;
+      padding: 7px 0;
+      border-bottom: 1px solid #f0ede8;
+    }
+    .ai-col ul li:last-child { border-bottom: none; }
+    .ai-col ul li strong {
+      display: block;
+      color: #1a1a2e;
+      font-size: 13px;
+      margin-bottom: 2px;
+    }
+
+    .winner-callout {
+      background: #f0f4ff;
+      border: 2px solid #7eb6ff;
+      border-radius: 10px;
+      padding: 28px 32px;
+      margin: 28px 0;
+      text-align: center;
+    }
+    .winner-callout .winner-label {
+      font-family: 'Helvetica Neue', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #4a90d9;
+      margin-bottom: 10px;
+    }
+    .winner-callout .winner-text {
+      font-size: 20px;
+      color: #1a1a2e;
+      font-weight: normal;
+      line-height: 1.4;
+    }
+    .winner-callout .winner-text em {
+      font-style: normal;
+      color: #4a90d9;
+      font-weight: bold;
+    }
+
+    blockquote {
+      border-left: 3px solid #d8d2c8;
+      padding-left: 20px;
+      margin: 24px 0;
+      font-style: italic;
+      color: #555;
+      font-size: 15px;
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid #e8e4de;
+      padding: 32px 64px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    footer span {
+      font-family: 'Helvetica Neue', sans-serif;
+      font-size: 12px;
+      color: #aaa;
+    }
+    footer .wordmark {
+      font-family: 'Helvetica Neue', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: #1a1a2e;
+    }
+
+    @media (max-width: 700px) {
+      header { padding: 40px 24px 36px; }
+      main   { padding: 40px 24px 60px; }
+      .verdict-grid  { grid-template-columns: 1fr; }
+      .verdict-col:first-child { border-radius: 10px 10px 0 0; }
+      .verdict-col:last-child  { border-radius: 0 0 10px 10px; }
+      .ai-compare { grid-template-columns: 1fr; }
+      .ai-col:first-child { border-radius: 10px 10px 0 0; }
+      .ai-col:last-child  { border-radius: 0 0 10px 10px; }
+      footer { flex-direction: column; gap: 12px; padding: 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <p class="eyebrow">Comparisons with Other Tools</p>
+  <h1>Kanecta vs <em>Neo4j</em>.</h1>
+  <p class="subtitle">
+    Neo4j is the most mature property graph database. Kanecta's vNext spec describes
+    its relationship model as nearly mechanical to export to Neo4j. Here is an honest
+    assessment of the fit — and which model serves AI agents better.
+  </p>
+</header>
+
+<main>
+
+  <!-- ── Section 1: Neo4j comparison ── -->
+  <section>
+    <h2>Neo4j as a datastore for Kanecta</h2>
+
+    <p>
+      Kanecta's vNext spec mentions Neo4j by name. The first-class relationships design
+      describes the export as "almost mechanical" — relationship items have source, target,
+      and a type label, which maps directly to Neo4j edges:
+    </p>
+
+    <blockquote>
+      "Export is mechanical — one Cypher statement per relationship item:
+      MATCH (a {id: $source}), (b {id: $target}) CREATE (a)-[:DEPENDS_ON { label: $label }]-&gt;(b)"
+    </blockquote>
+
+    <h3>Where Neo4j is genuinely strong</h3>
+
+    <p>
+      Cypher is more readable and expressive than SQL for graph patterns.
+      Multi-hop traversal — "find everything reachable from X within N hops matching label Y" —
+      is one query. Neo4j also ships built-in full-text search via Lucene indexes,
+      which means no separate OpenSearch cluster. And the tooling (Neo4j Browser, Bloom)
+      is excellent for visual exploration.
+    </p>
+
+    <div class="verdict-grid">
+
+      <div class="verdict-col works">
+        <div class="col-label">Maps well</div>
+        <ul>
+          <li><span class="icon">✓</span> Multi-hop relationship traversal — one Cypher query</li>
+          <li><span class="icon">✓</span> Backlink lookups — graph traversal over inline [[uuid]] references</li>
+          <li><span class="icon">✓</span> ReBAC permission checks — Zanzibar-style graph walk over permission items</li>
+          <li><span class="icon">✓</span> Built-in FTS via Lucene — no separate service needed</li>
+          <li><span class="icon">✓</span> Expressive Cypher over Gremlin</li>
+          <li><span class="icon">✓</span> The vNext spec already describes the export shape</li>
+        </ul>
+      </div>
+
+      <div class="verdict-col doesnt">
+        <div class="col-label">Falls apart</div>
+        <ul>
+          <li><span class="icon">✗</span> Edges cannot have edges — the spec calls this out as the known mismatch; relationship items can themselves be related in Kanecta</li>
+          <li><span class="icon">✗</span> Per-type tables (<code>obj_&lt;uuid&gt;</code>) — no equivalent; type-level constraints and indexes are lost</li>
+          <li><span class="icon">✗</span> History and the activity log — not graph problems; Neo4j gives you nothing over a flat table for bitemporal queries</li>
+          <li><span class="icon">✗</span> Schema migrations — no equivalent to numbered .sql files run in order</li>
+          <li><span class="icon">✗</span> Not AWS-native — AuraDB adds cross-region latency; self-hosting on EC2 adds ops burden</li>
+        </ul>
+      </div>
+
+    </div>
+
+    <div class="verdict-banner">
+      <div class="verdict-label">Verdict</div>
+      <p>
+        Neo4j covers the graph traversal cases well and is a better fit than Neptune.
+        But Kanecta is primarily a <strong>rich entity store with graph features</strong>,
+        not a graph database with entity features. The 80% that is entity queries, history,
+        per-type tables, and migrations still fights the model.
+        Neo4j belongs as a <strong>projection index</strong> — exported from Postgres,
+        rebuildable on demand — not the primary store.
+      </p>
+    </div>
+
+  </section>
+
+  <!-- ── Section 2: AI comparison ── -->
+  <section>
+    <h2>Which model is better for AI?</h2>
+
+    <p>
+      Kanecta is explicitly designed as a human-AI bridge. The spec states it plainly:
+      <em>"structured enough for AI to work with efficiently, transparent enough for
+      humans to audit and understand."</em> How does each model serve an AI agent?
+    </p>
+
+    <div class="winner-callout">
+      <div class="winner-label">Conclusion</div>
+      <div class="winner-text">Kanecta's model wins for AI.<br><em>Not because it's a graph — because it's consistent.</em></div>
+    </div>
+
+    <div class="ai-compare">
+
+      <div class="ai-col winner">
+        <div class="col-header">Kanecta (items model)</div>
+        <div class="col-sub">Winner</div>
+        <ul>
+          <li>
+            <strong>One mental model, no special cases</strong>
+            Types, relationships, permissions, history, functions — all items. An AI learns the model once and applies it everywhere. No context-switching between node/edge/label concepts.
+          </li>
+          <li>
+            <strong>The system describes itself</strong>
+            Types are items. Functions are items. An AI can read a type item to discover what fields its instances have, then act on both through identical operations. Neo4j's schema is implicit.
+          </li>
+          <li>
+            <strong>Function items</strong>
+            Stored functions are first-class items. The vNext spec notes: "A stored function doesn't have to be executable code — it can be a description that Claude executes at runtime." AI can discover and execute stored behaviour through the same interface it uses for everything else.
+          </li>
+          <li>
+            <strong>Decision items</strong>
+            The <code>decision</code> type captures what was decided, why, what was rejected, and tradeoffs. Institutional memory designed for AI reasoning, not just retrieval.
+          </li>
+          <li>
+            <strong>Aliases and value</strong>
+            Every item has a human-readable <code>value</code> and optional named aliases. AI can refer to items by name rather than UUID, always has a display string without a secondary lookup.
+          </li>
+          <li>
+            <strong>MCP interface abstracts storage</strong>
+            An AI agent never writes SQL or Cypher. It calls <code>kanecta_get</code>, <code>kanecta_search</code>, <code>kanecta_relate</code>. The underlying store is invisible. What matters is the conceptual model — and Kanecta's is simpler.
+          </li>
+        </ul>
+      </div>
+
+      <div class="ai-col">
+        <div class="col-header">Neo4j (property graph)</div>
+        <div class="col-sub">One real advantage</div>
+        <ul>
+          <li>
+            <strong>Complex multi-hop traversal</strong>
+            "Find everything reachable from X within 3 hops matching label Y" is one Cypher query. In Kanecta it requires a recursive CTE or multiple MCP calls. If the primary AI use case is deep knowledge graph exploration, Neo4j wins this specific pattern.
+          </li>
+          <li>
+            <strong>Natural language maps to graph</strong>
+            Questions like "how is A related to B?" feel natural to express in Cypher. An AI writing graph queries directly would find Cypher readable.
+          </li>
+          <li>
+            <strong>Explicit node/edge distinction</strong>
+            In theory, typed edges vs nodes is cleaner for AI reasoning. In practice, Kanecta's uniform item model is simpler to hold in a context window.
+          </li>
+          <li>
+            <strong>Visual exploration</strong>
+            Neo4j Bloom is good for human-AI collaborative exploration. Less relevant for automated AI agent use.
+          </li>
+        </ul>
+      </div>
+
+    </div>
+
+    <div class="callout">
+      <p>
+        Graph traversal is one query type. Kanecta's AI workload is the full lifecycle
+        of knowledge: capture, structure, relate, reason about, execute, audit.
+        The items model serves all of it through a single consistent interface.
+        Neo4j serves one of those operations better and fights the rest.
+      </p>
+    </div>
+
+    <p>
+      The strongest framing comes from the vNext spec itself. Kanecta independently
+      arrived at the same place as Smalltalk ("one kind of thing, consistent rules,
+      no special cases"), RDF (first-class relationships, reification), and property
+      graphs (typed edges with properties) — without the baggage of any of them.
+      The payoff: a simpler storage model, a simpler query model, and a system
+      that gets more powerful as it grows rather than more complicated.
+    </p>
+
+  </section>
+
+</main>
+
+<footer>
+  <span>Kanecta — Comparisons with Other Tools</span>
+  <span class="wordmark">KANECTA</span>
+</footer>
+
+</body>
+</html>

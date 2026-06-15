@@ -84,5 +84,8 @@
         "contentMediaType": "text/typescript"
       }
     }
-  }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_d9de814c_f93e_4473_b3aa_3d95691c5c88\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"description\" TEXT,\n    \"prompt\" TEXT,\n    \"arguments\" UUID[] NOT NULL DEFAULT '{}',\n    \"returns\" TEXT[] NOT NULL DEFAULT '{}',\n    \"return_nullable\" BOOLEAN,\n    \"async\" BOOLEAN,\n    \"throws\" TEXT[] NOT NULL DEFAULT '{}',\n    \"dependencies\" TEXT[] NOT NULL DEFAULT '{}',\n    \"function\" TEXT,\n    CONSTRAINT \"pk_obj_d9de814c_f93e_4473_b3aa_3d95691c5c88\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_d9de814cf93e4473_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
 }

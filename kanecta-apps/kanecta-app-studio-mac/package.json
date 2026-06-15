@@ -1,0 +1,36 @@
+{
+  "name": "kanecta-studio-mac",
+  "version": "1.3.0",
+  "private": true,
+  "description": "Desktop wrapper for Kanecta Studio, packaged as a macOS app",
+  "main": "main.cjs",
+  "author": {
+    "name": "Kanecta",
+    "email": "richardsempire@gmail.com"
+  },
+  "homepage": "https://github.com/cloudsculptor/kanecta",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --mac zip"
+  },
+  "devDependencies": {
+    "electron": "42.4.0",
+    "electron-builder": "^26.15.2"
+  },
+  "license": "MIT",
+  "build": {
+    "appId": "com.kanecta.studio",
+    "productName": "Kanecta Studio",
+    "files": [
+      "main.cjs"
+    ],
+    "mac": {
+      "target": [
+        "zip"
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.productivity",
+      "identity": null
+    }
+  }
+}

@@ -4,7 +4,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AppShell } from '../components/shell/AppShell';
 import { PanelWorkspace } from '../components/workspace/PanelWorkspace';
-import { TreeView } from '../components/views/TreeView/TreeView';
+import { TreeView } from '@kanecta/component-tree-view';
 import { TableView } from '../components/views/TableView/TableView';
 import { BoardView } from '../components/views/BoardView/BoardView';
 import { GalleryView } from '../components/views/GalleryView/GalleryView';
@@ -50,10 +50,10 @@ const theme = createTheme({
 function StudioInner() {
   const [quickCaptureOpen, setQuickCaptureOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const { getApi } = useWorkspaceStore();
+  const { getApi, activeWorkspaceId } = useWorkspaceStore();
   const { applyTheme } = useSettingsStore();
-  const { setVscodeAvailable } = useUiStore();
-  const { setItemId } = useLocation();
+  const { setVscodeAvailable, focusedItemId, setFocusedItem, vscodeAvailable } = useUiStore();
+  const { setItemId, openOverlay } = useLocation();
 
   useLiveActivity();
 
@@ -99,7 +99,18 @@ function StudioInner() {
 
   const renderView = (panelId: string, viewType: string) => {
     switch (viewType) {
-      case 'tree': return <TreeView panelId={panelId} />;
+      case 'tree': return (
+        <TreeView
+          panelId={panelId}
+          api={getApi()}
+          workspaceKey={activeWorkspaceId ?? undefined}
+          focusedItemId={focusedItemId}
+          vscodeAvailable={vscodeAvailable}
+          onFocusItem={(id) => setFocusedItem(id)}
+          onSelectItem={(id) => setItemId(id)}
+          onOpenOverlay={openOverlay}
+        />
+      );
       case 'table': return <TableView />;
       case 'types': return <TypesView />;
       case 'board': return <BoardView panelId={panelId} />;
