@@ -141,6 +141,84 @@ test('object data persists through writeObjectJson/readObjectJson once the table
   expect(objectData).toEqual({ label: 'sprocket' });
 });
 
+// ─── strictTypes / resolveTypeId ──────────────────────────────────────────────
+
+test('resolveTypeId classifies primitive / registered / unknown names', async () => {
+  const typeId = crypto.randomUUID();
+  const tableName = `obj_${typeId.replace(/-/g, '_')}`;
+  await adapter.createType('Gizmo', {
+    schema: {
+      meta: {},
+      jsonSchema: { type: 'object', properties: {}, required: [], additionalProperties: false },
+      sqlSchema: [`CREATE TABLE "${tableName}" (item_id UUID PRIMARY KEY REFERENCES items(id))`],
+    },
+    createdBy: OWNER,
+    id: typeId,
+  });
+
+  expect(await adapter.resolveTypeId('text')).toEqual({ primitive: true });
+  expect(await adapter.resolveTypeId('Gizmo')).toEqual({ id: typeId });
+  expect(await adapter.resolveTypeId('no-such-type')).toEqual({ unknown: true });
+});
+
+test('query warns by default and throws under strictTypes for an unknown type', async () => {
+  // Default: empty result + a non-enumerable warning, no throw.
+  const res = await adapter.query({ type: 'no-such-type-xyz' });
+  expect(res).toHaveLength(0);
+  expect(res.warning).toMatch(/unknown type "no-such-type-xyz"/);
+
+  // Strict: throws UnknownTypeError.
+  await expect(adapter.query({ type: 'no-such-type-xyz', strictTypes: true }))
+    .rejects.toMatchObject({ name: 'UnknownTypeError', code: 'UNKNOWN_TYPE' });
+
+  // A built-in primitive never warns.
+  const noteRes = await adapter.query({ type: 'note' });
+  expect(noteRes.warning).toBeUndefined();
+});
+
+// ─── checkIntegrity ───────────────────────────────────────────────────────────
+
+test('checkIntegrity flags orphan-type-id when an object type_id has no type def', async () => {
+  const typeId = crypto.randomUUID();
+  const tableName = `obj_${typeId.replace(/-/g, '_')}`;
+  const schema = {
+    meta: {},
+    jsonSchema: {
+      '$schema': 'http://json-schema.org/draft-07/schema#',
+      title: 'Sprocket', type: 'object', properties: { label: { type: 'string' } },
+      required: [], additionalProperties: false,
+    },
+    sqlSchema: [
+      `CREATE TABLE "${tableName}" (
+         item_id UUID NOT NULL,
+         "label" TEXT,
+         CONSTRAINT "pk_${tableName}" PRIMARY KEY (item_id),
+         CONSTRAINT "fk_${tableName}_item" FOREIGN KEY (item_id) REFERENCES items(id)
+       )`,
+    ],
+  };
+  await adapter.createType('Sprocket', { schema, createdBy: OWNER, id: typeId });
+  const obj = await adapter.create({
+    type: 'object', typeId, value: 'a sprocket', createdBy: OWNER, objectData: { label: 'x' },
+  });
+
+  // Registered type → not flagged.
+  let findings = await adapter.checkIntegrity({ checks: ['orphan-type-id'] });
+  expect(findings.find(f => f.nodeId === obj.id)).toBeUndefined();
+
+  // Orphan it: point type_id at an unregistered type. There is no FK on
+  // items.type_id, so this write succeeds — exactly the bug doctor detects.
+  const bogus = crypto.randomUUID();
+  await pool.query('UPDATE items SET type_id = $1 WHERE id = $2', [bogus, obj.id]);
+
+  findings = await adapter.checkIntegrity({ checks: ['orphan-type-id'] });
+  const f = findings.find(x => x.nodeId === obj.id);
+  expect(f).toBeTruthy();
+  expect(f.check).toBe('orphan-type-id');
+  expect(f.severity).toBe('error');
+  expect(f.typeId).toBe(bogus);
+});
+
 test('createType attaches the FTS trigger to the new obj_* table', async () => {
   const typeId = crypto.randomUUID();
   const tableName = `obj_${typeId.replace(/-/g, '_')}`;

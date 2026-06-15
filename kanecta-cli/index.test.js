@@ -864,6 +864,54 @@ test('cli: rebuild-indexes reports item count', () => {
   assert.ok(out.includes('40'));
 });
 
+// ─── doctor (integrity checks) ────────────────────────────────────────────────
+
+test('cli: doctor reports clean store and exits zero', async () => {
+  const ds = tmpDs();
+  const { metadata } = await ds.createType('widget');
+  await ds.create({ type: 'object', typeId: metadata.id, objectData: { a: 1 } });
+  const out = cli(ds, 'doctor');
+  assert.match(out, /No integrity problems/);
+});
+
+test('cli: doctor flags orphan-type-id and exits non-zero', async () => {
+  const ds = tmpDs();
+  await ds.create({ type: 'object', typeId: 'deadbeef-0000-4000-8000-000000000000', objectData: {} });
+  const out = cliErr(ds, 'doctor'); // exits 1 → cliErr captures stdout
+  assert.match(out, /orphan-type-id/);
+  assert.match(out, /ERROR/);
+  assert.match(out, /no type definition/);
+});
+
+test('cli: doctor --json emits the findings array', async () => {
+  const ds = tmpDs();
+  const orphan = await ds.create({ type: 'object', typeId: 'deadbeef-0000-4000-8000-000000000000', objectData: {} });
+  const out = cliErr(ds, 'doctor', '--json'); // exits 1
+  const findings = JSON.parse(out);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].check, 'orphan-type-id');
+  assert.equal(findings[0].severity, 'error');
+  assert.equal(findings[0].nodeId, orphan.id);
+  assert.equal(findings[0].typeId, 'deadbeef-0000-4000-8000-000000000000');
+});
+
+test('cli: doctor --check restricts to a subset', async () => {
+  const ds = tmpDs();
+  await ds.create({ type: 'object', typeId: 'deadbeef-0000-4000-8000-000000000000', objectData: {} });
+  // Restricting to a not-yet-implemented check skips orphan-type-id → clean, exit 0.
+  const out = cli(ds, 'doctor', '--check', 'type-index-drift');
+  assert.match(out, /No integrity problems/);
+});
+
+test('cli: doctor --check orphan-type-id selects the check and finds the orphan', async () => {
+  const ds = tmpDs();
+  await ds.create({ type: 'object', typeId: 'deadbeef-0000-4000-8000-000000000000', objectData: {} });
+  // Explicitly naming the real check must wire through and detect (exit 1).
+  const out = cliErr(ds, 'doctor', '--check', 'orphan-type-id');
+  assert.match(out, /orphan-type-id/);
+  assert.match(out, /no type definition/);
+});
+
 test('cli: unknown command exits non-zero with helpful message', () => {
   const ds = tmpDs();
   const err = cliErr(ds, 'frobnicate');
