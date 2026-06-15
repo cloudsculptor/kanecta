@@ -23,6 +23,25 @@ const VALID_REL_TYPES = [
   'blocks', 'blocked-by', 'prerequisite-for', 'derived-from', 'supersedes',
 ];
 
+// Built-in type names. Mirrors VALID_TYPES in @kanecta/filesystem's adapter.js
+// (kept local to avoid a cross-package dependency) — keep the two in sync.
+const PRIMITIVE_TYPES = new Set([
+  'string', 'number', 'text', 'heading', 'file', 'symlink', 'url', 'image', 'function', 'markdown', 'runner',
+  'object', 'decision', 'annotation', 'claim', 'question', 'task', 'note', 'concept', 'entity', 'event',
+  'root', 'system_root', 'app_root', 'component_root', 'data_root',
+]);
+
+// Mirror of @kanecta/filesystem's UnknownTypeError — same name/code/shape so
+// callers and the MCP layer can branch on it identically across adapters.
+class UnknownTypeError extends Error {
+  constructor(typeName) {
+    super(`unknown type "${typeName}" — not a registered type definition`);
+    this.name = 'UnknownTypeError';
+    this.code = 'UNKNOWN_TYPE';
+    this.typeName = typeName;
+  }
+}
+
 // ─── Row → item shape ─────────────────────────────────────────────────────────
 
 function rowToItem(row) {
@@ -750,10 +769,32 @@ class PostgresAdapter {
     return rows.map(r => ({ item: rowToItem(r), depth: r.depth }));
   }
 
-  async query({ type, where, rootId, sort, limit } = {}) {
+  // Resolve a type *name* used in a query. Mirrors the filesystem adapter:
+  //   { primitive: true } | { id } | { unknown: true }
+  async resolveTypeId(name) {
+    if (!name) return { unknown: true };
+    if (PRIMITIVE_TYPES.has(name)) return { primitive: true };
+    const { rows } = await this._pool.query(
+      `SELECT id FROM items WHERE value = $1 AND type = 'type' LIMIT 1`, [name],
+    );
+    if (rows.length) return { id: rows[0].id };
+    return { unknown: true };
+  }
+
+  async query({ type, where, rootId, sort, limit, strictTypes } = {}) {
     const conditions = [];
     const params     = [];
     let   p          = 1;
+    let   typeWarning = null;
+
+    if (type) {
+      // Distinguish "no such type" from "type exists but empty" (see fs adapter).
+      const resolved = await this.resolveTypeId(type);
+      if (resolved.unknown) {
+        if (strictTypes) throw new UnknownTypeError(type);
+        typeWarning = `unknown type "${type}" — not a registered type definition; run \`kanecta doctor\``;
+      }
+    }
 
     if (rootId) {
       conditions.push(
@@ -814,7 +855,15 @@ class PostgresAdapter {
     }
 
     const finalLimit = (limit > 0) ? limit : (limit === undefined ? 50 : 0);
-    return finalLimit > 0 ? items.slice(0, finalLimit) : items;
+    const result = finalLimit > 0 ? items.slice(0, finalLimit) : items;
+
+    // Warn-by-default channel (non-enumerable; return value unchanged for
+    // existing callers — the MCP layer reads `result.warning`).
+    if (typeWarning) {
+      Object.defineProperty(result, 'warning', { value: typeWarning, enumerable: false, configurable: true });
+    }
+
+    return result;
   }
 
   // ─── Object data (obj_* tables) ───────────────────────────────────────────────
@@ -1132,6 +1181,39 @@ class PostgresAdapter {
     const { rows: [{ count }] } = await this._pool.query('SELECT COUNT(*) FROM items');
     return parseInt(count);
   }
+
+  // ─── Integrity checks ──────────────────────────────────────────────────────
+
+  // Read-only health scan. Returns a flat array of findings:
+  //   { check, severity: 'error' | 'warn', nodeId?, typeId?, message, fix? }
+  // `checks` (optional) restricts the run to the named subset; default runs all.
+  async checkIntegrity({ checks } = {}) {
+    const wanted = Array.isArray(checks) && checks.length ? new Set(checks) : null;
+    const run = (name) => !wanted || wanted.has(name);
+    const findings = [];
+
+    // orphan-type-id: object nodes whose type_id has no type definition.
+    if (run('orphan-type-id')) {
+      const { rows } = await this._pool.query(
+        `SELECT i.id, i.type_id
+           FROM items i
+           LEFT JOIN items t ON t.id = i.type_id AND t.type = 'type'
+          WHERE i.type = 'object' AND i.type_id IS NOT NULL AND t.id IS NULL`,
+      );
+      for (const row of rows) {
+        findings.push({
+          check: 'orphan-type-id',
+          severity: 'error',
+          nodeId: row.id,
+          typeId: row.type_id,
+          message: `object ${row.id} references typeId ${row.type_id}, which has no type definition`,
+          fix: 'register the missing type definition, or remove/retype the node',
+        });
+      }
+    }
+
+    return findings;
+  }
 }
 
-module.exports = { PostgresAdapter, ROOT_ID, WELL_KNOWN_TYPES, VALID_REL_TYPES, UUID_RE };
+module.exports = { PostgresAdapter, UnknownTypeError, PRIMITIVE_TYPES, ROOT_ID, WELL_KNOWN_TYPES, VALID_REL_TYPES, UUID_RE };
