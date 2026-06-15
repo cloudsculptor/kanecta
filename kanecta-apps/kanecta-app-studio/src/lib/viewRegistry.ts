@@ -1,5 +1,5 @@
 import type { ViewMeta } from './viewMeta';
-import { TreeViewMeta } from '../components/views/TreeView/TreeView';
+import { TreeViewMeta } from '@kanecta/component-tree-view';
 import { TableViewMeta } from '../components/views/TableView/TableView';
 import { TypesViewMeta } from '../components/views/TemplatesView/TypesView';
 import { BoardViewMeta } from '../components/views/BoardView/BoardView';

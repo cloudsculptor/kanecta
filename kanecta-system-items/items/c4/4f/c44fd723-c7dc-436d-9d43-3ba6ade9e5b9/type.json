@@ -66,5 +66,8 @@
         }
       }
     }
-  }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_c44fd723_c7dc_436d_9d43_3ba6ade9e5b9\" (\n    item_id UUID NOT NULL,\n    \"title\" TEXT,\n    \"context\" TEXT,\n    \"due_date\" DATE,\n    \"status\" TEXT,\n    \"project\" TEXT,\n    \"energy\" TEXT,\n    \"duration\" TEXT,\n    \"waiting_for\" TEXT,\n    \"tags\" TEXT[] NOT NULL DEFAULT '{}',\n    CONSTRAINT \"pk_obj_c44fd723_c7dc_436d_9d43_3ba6ade9e5b9\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_c44fd723c7dc436d_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
 }

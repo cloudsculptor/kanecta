@@ -1,5 +1,6 @@
 {
   "id": "f290f7ab-7c0a-4943-9b29-9e23b7a1bc81",
+  "specVersion": "1.3.0",
   "parentId": null,
   "value": "Database Table Column",
   "type": "type",

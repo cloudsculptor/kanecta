@@ -67,5 +67,8 @@
         "type": "string"
       }
     }
-  }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_3ef42342_8f8b_486e_a043_57d6666f01d0\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT,\n    \"email\" TEXT,\n    \"job_title\" TEXT,\n    \"organisation\" TEXT,\n    \"influence\" TEXT,\n    \"interest\" TEXT,\n    \"role\" TEXT,\n    \"preferred_contact\" TEXT,\n    \"notes\" TEXT,\n    CONSTRAINT \"pk_obj_3ef42342_8f8b_486e_a043_57d6666f01d0\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_3ef423428f8b486e_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
 }

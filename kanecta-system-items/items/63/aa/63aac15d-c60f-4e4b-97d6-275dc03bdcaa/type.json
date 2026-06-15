@@ -91,5 +91,8 @@
         }
       }
     }
-  }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_63aac15d_c60f_4e4b_97d6_275dc03bdcaa\" (\n    item_id UUID NOT NULL,\n    \"title\" TEXT,\n    \"description\" TEXT,\n    \"category\" TEXT,\n    \"likelihood\" TEXT,\n    \"impact\" TEXT,\n    \"risk_score\" INTEGER,\n    \"mitigation\" TEXT,\n    \"owner\" TEXT,\n    \"status\" TEXT,\n    \"review_date\" DATE,\n    \"related_tickets\" TEXT[] NOT NULL DEFAULT '{}',\n    CONSTRAINT \"pk_obj_63aac15d_c60f_4e4b_97d6_275dc03bdcaa\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_63aac15dc60f4e4b_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
 }

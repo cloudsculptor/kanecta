@@ -1,5 +1,6 @@
 {
   "id": "ce3e5d15-d503-47b7-bf87-ce214731fcb5",
+  "specVersion": "1.3.0",
   "parentId": null,
   "value": "Database Table Index",
   "type": "type",

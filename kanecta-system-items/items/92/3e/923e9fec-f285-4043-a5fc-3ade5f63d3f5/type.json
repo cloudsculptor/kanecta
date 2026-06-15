@@ -108,5 +108,8 @@
         "description": "UUID of the Skill item used to harvest this page"
       }
     }
-  }
+  },
+  "sqlSchema": [
+    "CREATE TABLE \"obj_923e9fec_f285_4043_a5fc_3ade5f63d3f5\" (\n    item_id UUID NOT NULL,\n    \"page_id\" TEXT,\n    \"cloud_id\" TEXT,\n    \"space_key\" TEXT,\n    \"space_name\" TEXT,\n    \"title\" TEXT,\n    \"status\" TEXT,\n    \"version\" INTEGER,\n    \"version_at\" TIMESTAMPTZ,\n    \"author_id\" TEXT,\n    \"parent_page_id\" TEXT,\n    \"web_url\" TEXT,\n    \"content\" TEXT,\n    \"harvested_at\" TIMESTAMPTZ,\n    \"harvest_skill\" UUID,\n    CONSTRAINT \"pk_obj_923e9fec_f285_4043_a5fc_3ade5f63d3f5\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_923e9fecf2854043_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+  ]
 }

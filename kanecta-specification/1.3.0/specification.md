@@ -110,6 +110,7 @@ Each item folder contains:
 ```json
 {
   "id": "string (UUID v4)",
+  "specVersion": "string (semver, e.g. '1.3.0')",
   "parentId": "string (UUID v4) or null",
   "value": "string or null",
   "type": "string",
@@ -129,7 +130,8 @@ Each item folder contains:
   "subscriptionSource": "string or null",
   "completedAt": "string (ISO8601) or null",
   "dueAt": "string (ISO8601) or null",
-  "aspect": "string or null"
+  "aspect": "string or null",
+  "template": "string (UUID v4) or null"
 }
 ```
 
@@ -138,6 +140,7 @@ Each item folder contains:
 | Field | Required | Description |
 |---|---|---|
 | `id` | yes | Unique identifier for this item (UUID v4) |
+| `specVersion` | yes | Version of the Kanecta specification this record conforms to (e.g. `"1.3.0"`). Set at creation time; tooling uses it to pick the right schema/migration rules when reading older records |
 | `parentId` | yes | UUID of parent item. Never null — the `root` node is self-referential (`parentId` equals its own `id`) |
 | `value` | no | Item content. Text string, UUID reference (for symlinks), or null |
 | `type` | yes | Item type. See [Item Types](#item-types) below for the canonical list. |
@@ -159,10 +162,23 @@ Each item folder contains:
 | `completedAt` | no | ISO8601 timestamp when this item was marked as completed. Null if not completed |
 | `visibility` | no | Coarse default access level: `private`, `organisation`, or `public`. Fast-path check, layered under by fine-grained per-principal grants — see [Future Extensibility](#5-future-extensibility) |
 | `aspect` | no | Dimension this item occupies under its parent. `null` = main tree (default). Any other string names an alternative dimension (e.g. `"settings"`, `"hidden"`, `"archive"`). An item belongs to exactly one aspect. `sortOrder` is scoped per-aspect. Aspect names are free-form; none are reserved |
+| `template` | no | UUID of the type or item this item's tree was copied from via a template action, or null. References a type's UUID when templating a typed object, or an item's UUID when templating an unstructured tree. See [Templates](#templates) |
 
 **Understanding aspects**
 
 Think of aspects as named drawers built into every item. The main drawer (`null`) is what the user always sees when browsing the tree. Other drawers — `"settings"`, `"hidden"`, `"context"` — sit alongside it, invisible until explicitly opened. A settings panel for a project lives in that project's `"settings"` aspect; archived children live in `"archive"`; a scratchpad lives in `"draft"`. The parent item doesn't need to know what aspects its children use — aspects are declared by the children, not the parent. This means any item can sprout new dimensions without the parent being modified.
+
+### Templates
+
+An item is either **typed** — an instance of a custom type, validated against a JSON schema (`type: "object"`, `typeId` set) — or **unstructured** — a free-form tree of plain primitive nodes (e.g. `text`, `heading`) with no schema behind it. Typed data is higher-quality and more reusable; unstructured data is faster to produce and needs no upfront schema design.
+
+**Templating** bridges the two. A *template action* takes any item — typed or unstructured — and copies its subtree to a new location as plain unstructured nodes, stripping away any type information in the copy. The result is a fresh, fillable-in tree shaped like the original: a stamp or cookie-cutter that can be reapplied to the same source as many times as needed. For example, an unstructured "Person" tree (with "Name" and "Phone Number" text-node children) can be templated to produce another blank Person-shaped tree ready to fill in — and a typed `Person` object can likewise be templated into an unstructured tree with the same shape as its schema, for quick, low-friction reuse without committing to the type.
+
+The copy's `template` field (see [Field Definitions](#field-definitions)) records where it came from:
+- The UUID of the **source item**, when templating an unstructured tree.
+- The UUID of the **source type**, when templating a typed object — so the copy is traceably "shaped like" that type even though it is itself unstructured.
+
+This keeps a traceable link between a templated tree and its origin without any separate `.kanecta/templates/` storage — templating is just an ordinary subtree copy plus one metadata field.
 
 ### function.json Schema
 
@@ -347,7 +363,7 @@ Stores configuration as JSON files.
 ```json
 {
   "owner": "user@example.com",
-  "specVersion": "1.1"
+  "specVersion": "1.3.0"
 }
 ```
 
@@ -584,6 +600,7 @@ Each custom type is stored as a pair of files under its UUID shard path.
 ```json
 {
   "id": "a1b2c3d4-e5f6-4abc-9def-123456789012",
+  "specVersion": "1.3.0",
   "parentId": "...",
   "value": "Person",
   "type": "type",
@@ -916,7 +933,6 @@ On every create, update, or delete:
 
 - **Access control**: `visibility` (`private`/`organisation`/`public`, see [Field Definitions](#field-definitions)) is the coarse, no-lookup fast path; fine-grained per-principal `read`/`write`/`subscribe` grants layer on top (modelled in postgres as `item_grants` — see `specification.db.postgres.md`). Grants are stored as plain `(item, permission, principal)` tuples with opaque principal UUIDs — deliberately the same shape a relationship-based access control (ReBAC / Zanzibar-style) system uses, so that group membership, cascading grants down a subtree, and permission-hierarchy resolution can all be layered on as graph traversals over the existing data later, without reshaping what's already stored. Principals are not assumed to be Kanecta items or tied to any specific identity provider (e.g. Keycloak) — identity sources can change without rewriting grants.
 - **Sync**: `.kanecta/sync/` for tracking remote changes and changelogs
-- **Templates**: `.kanecta/templates/` for reusable item templates
 - **Changelog**: Append-only operation log for efficient multi-user sync
 - **Reactions**: Lightweight emoji-style reactions distinct from annotations
 - **Encrypted items**: Per-item encryption for sensitive data within shared datastores
