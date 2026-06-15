@@ -106,6 +106,9 @@ export default function App() {
       <Route path="/groups/resilience/new" element={<PageEdit />} />
       <Route path="/pages/:slug/edit" element={<PageEdit />} />
       <Route path="/groups/resilience/:slug/edit" element={<PageEdit />} />
+      <Route path="/site-pages/:slug/edit" element={<PageEdit />} />
+      <Route path="/site-pages/:slug/history" element={<PageHistory />} />
+      <Route path="/site-pages/:slug/v/:version" element={<PageVersion />} />
 
       {/* Governance — public */}
       <Route path="/governance" element={<Governance />} />
