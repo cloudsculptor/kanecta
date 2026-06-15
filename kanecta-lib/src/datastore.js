@@ -110,7 +110,7 @@ class Datastore {
 
   async create(opts)                         { return this._adapter.create(opts); }
   async get(id)                              { return this._adapter.get(id); }
-  async update(id, changes, actor)           { return this._adapter.update(id, changes, actor); }
+  async update(id, changes, actor, opts)     { return this._adapter.update(id, changes, actor, opts); }
   async delete(id, actor)                    { return this._adapter.delete(id, actor); }
   async deleteWarnings(id)                   { return this._adapter.deleteWarnings(id); }
   async createType(value, opts)              { return this._adapter.createType(value, opts); }
@@ -146,6 +146,7 @@ class Datastore {
   async byTag(tag)                           { return this._adapter.byTag(tag); }
   async byType(typeId)                       { return this._adapter.byType(typeId); }
   async query(opts)                          { return this._adapter.query(opts); }
+  async resolveTypeId(name)                  { return this._adapter.resolveTypeId(name); }
 
   // ─── Tree ──────────────────────────────────────────────────────────────────
 
@@ -171,6 +172,10 @@ class Datastore {
   // ─── Index maintenance ─────────────────────────────────────────────────────
 
   async rebuildIndexes()                     { return this._adapter.rebuildIndexes(); }
+
+  // ─── Integrity checks ────────────────────────────────────────────────────────
+
+  async checkIntegrity(opts)                 { return this._adapter.checkIntegrity(opts); }
 }
 
 module.exports = { Datastore, ROOT_ID, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE, DEFAULT_LICENSE };

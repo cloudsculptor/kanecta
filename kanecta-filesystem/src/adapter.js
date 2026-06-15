@@ -32,6 +32,18 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const DEFAULT_LICENSE = 'bb3bf137-d8a9-4264-9fb7-ac373b1d4739'; // All Rights Reserved (Copyright)
 const LINK_SOURCE = '\\[\\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\\]\\]';
 
+// Thrown by query({ strictTypes: true }) when a named type isn't a registered
+// type definition (and isn't a built-in primitive type). Shape is mirrored by
+// the Postgres adapter so callers/MCP can branch on `.name`/`.code` identically.
+class UnknownTypeError extends Error {
+  constructor(typeName) {
+    super(`unknown type "${typeName}" — not a registered type definition`);
+    this.name = 'UnknownTypeError';
+    this.code = 'UNKNOWN_TYPE';
+    this.typeName = typeName;
+  }
+}
+
 class FilesystemAdapter {
   constructor(root) {
     this.root = path.resolve(root);
@@ -403,6 +415,7 @@ class FilesystemAdapter {
     parentId, value = null, type = 'string', typeId = null,
     owner, license = null, sortOrder, confidence = null, status = null, tags = [],
     createdBy, objectData = null, dueAt = null, visibility = 'private', aspect = null,
+    strict,
   } = {}) {
     if (WELL_KNOWN_TYPES.has(type)) {
       throw new Error(`Type '${type}' is a well-known root type and cannot be created via create()`);
@@ -450,6 +463,13 @@ class FilesystemAdapter {
       dueAt,
     };
 
+    // Referential-integrity guard BEFORE any write, so strict mode refuses the
+    // write atomically (no partial node left behind).
+    let typeWarning = null;
+    if (type === 'object' && typeId && this._getTypeName(typeId) === null) {
+      typeWarning = this._guardTypeIdRef(typeId, strict); // throws under strict
+    }
+
     this._writeMetadata(path.join(this._itemDir(id), 'metadata.json'), item);
 
     // C1 + C2: for typed objects, always write meta.json and object.json
@@ -467,6 +487,11 @@ class FilesystemAdapter {
     for (const link of this._parseLinks(value)) this._addBacklink(link, id);
     for (const tag of tags) this._addTagEntry(tag, id);
     this._snapshot(item, 'create', actor, now);
+
+    // Non-enumerable so the persisted metadata and JSON of the item are unchanged.
+    if (typeWarning) {
+      Object.defineProperty(item, 'warning', { value: typeWarning, enumerable: false, configurable: true });
+    }
 
     return item;
   }
@@ -526,9 +551,27 @@ class FilesystemAdapter {
     return id ? this.get(id) : null;
   }
 
-  update(id, changes, actor) {
+  update(id, changes, actor, { strict } = {}) {
     const current = this.get(id);
     this._assertEditable(current, id);
+
+    // Referential-integrity guard BEFORE snapshot/index mutations, so strict
+    // mode refuses the write atomically. Compute the prospective new typeId.
+    // NOTE: gated on the typeId actually *changing* — strict only blocks newly
+    // introduced orphan references, it does NOT re-validate an item that already
+    // carries an orphan typeId (legacy data, or one written in warn-mode) when
+    // you edit its other fields. `doctor` remains the backstop for those.
+    let prospectiveTypeId;
+    if ('type' in changes && changes.type !== current.type) {
+      prospectiveTypeId = changes.type === 'object' ? (changes.typeId || null) : null;
+    } else if ('typeId' in changes && current.type === 'object') {
+      prospectiveTypeId = changes.typeId;
+    }
+    let typeWarning = null;
+    if (prospectiveTypeId && prospectiveTypeId !== current.typeId && this._getTypeName(prospectiveTypeId) === null) {
+      typeWarning = this._guardTypeIdRef(prospectiveTypeId, strict); // throws under strict
+    }
+
     actor = actor || this.config.owner;
     const now = new Date();
 
@@ -586,6 +629,11 @@ class FilesystemAdapter {
     updated.modifiedBy = actor;
 
     this._writeMetadata(path.join(this._itemDir(id), 'metadata.json'), updated);
+
+    if (typeWarning) {
+      Object.defineProperty(updated, 'warning', { value: typeWarning, enumerable: false, configurable: true });
+    }
+
     return updated;
   }
 
@@ -983,6 +1031,58 @@ class FilesystemAdapter {
     return meta ? meta.value : null;
   }
 
+  // Referential-integrity guard for object writes. Called only when `typeId`
+  // has no type definition. Strict (per-call `strict`, else the datastore-level
+  // `config.strictTypeIds`) → throw and refuse the write; otherwise return a
+  // warning string and let the write proceed (warn-by-default, non-breaking).
+  _guardTypeIdRef(typeId, strict) {
+    const effectiveStrict = strict !== undefined ? !!strict : !!this.config.strictTypeIds;
+    if (effectiveStrict) {
+      const err = new Error(`unknown typeId "${typeId}" — no registered type definition`);
+      err.name = 'UnknownTypeError';
+      err.code = 'UNKNOWN_TYPE';
+      err.typeId = typeId;
+      throw err;
+    }
+    return `typeId ${typeId} has no type definition — node written anyway; run \`kanecta doctor\``;
+  }
+
+  // All registered type definitions as { id, value }. A types/<id>/ dir that
+  // holds only an items.json index (no metadata.json) is NOT a definition and
+  // is skipped — that's exactly the orphan case doctor reports.
+  _listTypeDefs() {
+    const out = [];
+    const base = path.join(this.k, 'types');
+    let shards;
+    try { shards = fs.readdirSync(base); } catch { return out; }
+    for (const s1 of shards) {
+      const p1 = path.join(base, s1);
+      if (!fs.statSync(p1).isDirectory()) continue;
+      for (const s2 of fs.readdirSync(p1)) {
+        const p2 = path.join(p1, s2);
+        if (!fs.statSync(p2).isDirectory()) continue;
+        for (const id of fs.readdirSync(p2)) {
+          const meta = this._readJson(path.join(p2, id, 'metadata.json'), null);
+          if (meta && meta.value != null) out.push({ id: meta.id ?? id, value: meta.value });
+        }
+      }
+    }
+    return out;
+  }
+
+  // Resolve a type *name* used in a query. Returns one of:
+  //   { primitive: true }     — a built-in type (string/text/object/…)
+  //   { id }                  — a registered custom type definition
+  //   { unknown: true }       — neither: a typo or a missing type definition
+  resolveTypeId(name) {
+    if (!name) return { unknown: true };
+    if (VALID_TYPES.includes(name)) return { primitive: true };
+    for (const def of this._listTypeDefs()) {
+      if (def.value === name) return { id: def.id };
+    }
+    return { unknown: true };
+  }
+
   _evaluatePredicate(fieldValue, op, expectedValue) {
     switch (op) {
       case '=':
@@ -1017,8 +1117,9 @@ class FilesystemAdapter {
     }
   }
 
-  query({ type, where, rootId, sort, limit } = {}) {
+  query({ type, where, rootId, sort, limit, strictTypes } = {}) {
     let items = this.loadAll();
+    let typeWarning = null;
 
     // 1. Root ID Scoping (including rootId itself and all descendants)
     if (rootId) {
@@ -1044,24 +1145,23 @@ class FilesystemAdapter {
       items = items.filter(item => subtreeIds.has(item.id));
     }
 
-    // 2. Type Filtering (resolving custom types)
+    // 2. Type Filtering. Resolve the name once (distinguishing "no such type"
+    // from "type exists but empty"), then filter by the resolved id instead of
+    // re-reading each candidate's type metadata.
     if (type) {
-      const typeCache = new Map();
-      const getTypeName = (typeId) => {
-        if (!typeId) return null;
-        if (typeCache.has(typeId)) return typeCache.get(typeId);
-        const name = this._getTypeName(typeId);
-        typeCache.set(typeId, name);
-        return name;
-      };
-
-      items = items.filter(item => {
-        if (item.type === 'object' && item.typeId) {
-          const typeName = getTypeName(item.typeId);
-          return typeName === type;
-        }
-        return item.type === type;
-      });
+      const resolved = this.resolveTypeId(type);
+      if (resolved.unknown) {
+        if (strictTypes) throw new UnknownTypeError(type);
+        typeWarning = `unknown type "${type}" — not a registered type definition; run \`kanecta doctor\``;
+        items = []; // nothing can match an unregistered, non-primitive name
+      } else if (resolved.id !== undefined) {
+        // Registered custom type → typed objects carrying that typeId.
+        items = items.filter(item => item.type === 'object' && item.typeId === resolved.id);
+      } else {
+        // Built-in primitive → items of that type, excluding typed objects
+        // (whose effective type is their custom type name, matched above).
+        items = items.filter(item => item.type === type && !(item.type === 'object' && item.typeId));
+      }
     }
 
     // 3. Where Clause Filter & Attach objectData inline
@@ -1126,6 +1226,13 @@ class FilesystemAdapter {
       items = items.slice(0, finalLimit);
     }
 
+    // Warn-by-default channel: a non-enumerable property so the empty-result
+    // return value is unchanged for existing callers (length/iteration/JSON of
+    // the array itself are all untouched). The MCP layer reads `items.warning`.
+    if (typeWarning) {
+      Object.defineProperty(items, 'warning', { value: typeWarning, enumerable: false, configurable: true });
+    }
+
     return items;
   }
 
@@ -1144,6 +1251,41 @@ class FilesystemAdapter {
     }
     return all.length;
   }
+
+  // ─── Integrity checks ──────────────────────────────────────────────────────
+
+  // Read-only health scan. Returns a flat array of findings:
+  //   { check, severity: 'error' | 'warn', nodeId?, typeId?, message, fix? }
+  // `checks` (optional) restricts the run to the named subset; default runs all.
+  checkIntegrity({ checks } = {}) {
+    const wanted = Array.isArray(checks) && checks.length ? new Set(checks) : null;
+    const run = (name) => !wanted || wanted.has(name);
+    const findings = [];
+
+    // orphan-type-id: object nodes whose typeId has no type definition.
+    if (run('orphan-type-id')) {
+      const typeNameCache = new Map();
+      const typeName = (typeId) => {
+        if (!typeNameCache.has(typeId)) typeNameCache.set(typeId, this._getTypeName(typeId));
+        return typeNameCache.get(typeId);
+      };
+      for (const item of this.loadAll()) {
+        if (item.type !== 'object' || !item.typeId) continue;
+        if (typeName(item.typeId) === null) {
+          findings.push({
+            check: 'orphan-type-id',
+            severity: 'error',
+            nodeId: item.id,
+            typeId: item.typeId,
+            message: `object ${item.id} references typeId ${item.typeId}, which has no type definition`,
+            fix: 'register the missing type definition, or remove/retype the node',
+          });
+        }
+      }
+    }
+
+    return findings;
+  }
 }
 
-module.exports = { FilesystemAdapter, ROOT_ID, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE, DEFAULT_LICENSE };
+module.exports = { FilesystemAdapter, UnknownTypeError, ROOT_ID, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE, DEFAULT_LICENSE };
