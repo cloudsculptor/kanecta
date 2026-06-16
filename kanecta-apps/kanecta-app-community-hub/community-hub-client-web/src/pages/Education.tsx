@@ -1,8 +1,10 @@
 import PageLayout from "../components/PageLayout";
+import SiteEditablePage from "../components/SiteEditablePage";
 
 export default function Education() {
   return (
-    <PageLayout pageName="Education" showComingSoon={false}>
+    <PageLayout pageName="Education" showComingSoon={false} showHeading={false}>
+      <SiteEditablePage slug="education" title="Education">
       <p>
         Schools, early childhood services, and learning resources in Featherston.
       </p>
@@ -146,6 +148,7 @@ export default function Education() {
           — directory of all schools and early childhood services in the South Wairarapa district
         </li>
       </ul>
+      </SiteEditablePage>
     </PageLayout>
   );
 }
