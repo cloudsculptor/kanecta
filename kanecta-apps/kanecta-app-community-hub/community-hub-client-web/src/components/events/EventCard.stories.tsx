@@ -109,3 +109,12 @@ export const Mobile: Story = {
   args: { event: BASE, past: false },
   parameters: { viewport: { defaultViewport: "mobile2" } },
 };
+
+/** Moderator view — delete button visible. */
+export const WithModeratorDelete: Story = {
+  args: {
+    event: BASE,
+    past: false,
+    onDelete: async () => { await new Promise((r) => setTimeout(r, 1000)); },
+  },
+};

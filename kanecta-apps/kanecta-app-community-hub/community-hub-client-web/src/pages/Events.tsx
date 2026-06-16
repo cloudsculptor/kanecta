@@ -13,6 +13,7 @@ import EventEditDialog from "../components/events/EventEditDialog";
 import { getEvents, getMyEvents, deleteEvent, AREAS, type Event, type MyEvent } from "../api/events";
 import { useKeycloak } from "../auth/KeycloakProvider";
 import keycloak from "../auth/keycloak";
+import { useUserRoles, hasRole } from "../auth/useUserRole";
 import { formatNZDate, parseNZDate } from "../utils/dates";
 
 const SAMPLE_EVENT: Event = {
@@ -121,6 +122,8 @@ function MyEventRow({ event, onDeleted, onEdit }: { event: MyEvent; onDeleted: (
 
 export default function Events() {
   const { authenticated } = useKeycloak();
+  const roles = useUserRoles();
+  const isModerator = hasRole(roles, "moderator");
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -214,7 +217,15 @@ export default function Events() {
           </Divider>
           <div className="events-list">
             {groupEvents.map((event) => (
-              <EventCard key={event.id} event={event} past={isEventPast(event)} />
+              <EventCard
+                key={event.id}
+                event={event}
+                past={isEventPast(event)}
+                onDelete={isModerator ? async () => {
+                  await deleteEvent(event.id);
+                  setEvents((prev) => prev.filter((e) => e.id !== event.id));
+                } : undefined}
+              />
             ))}
           </div>
         </section>
