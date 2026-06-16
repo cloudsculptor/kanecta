@@ -1,8 +1,10 @@
 import PageLayout from "../components/PageLayout";
+import SiteEditablePage from "../components/SiteEditablePage";
 
 export default function LocalGovernment() {
   return (
-    <PageLayout pageName="Local Government" showComingSoon={false}>
+    <PageLayout pageName="Local Government" showComingSoon={false} showHeading={false}>
+      <SiteEditablePage slug="local-government" title="Local Government">
       <h3>South Wairarapa District Council</h3>
       <p>
         The South Wairarapa District Council (SWDC) is the local authority for Featherston
@@ -90,6 +92,7 @@ export default function LocalGovernment() {
           — information on insulation subsidies, heating assistance, and warmer homes support
         </li>
       </ul>
+      </SiteEditablePage>
     </PageLayout>
   );
 }
