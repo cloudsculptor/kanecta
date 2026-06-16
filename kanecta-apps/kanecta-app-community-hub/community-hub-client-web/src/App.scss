@@ -3950,6 +3950,10 @@ $bp-tablet: 768px;
     &::placeholder { color: var(--border); font-weight: 400; }
   }
 
+  &__title-display {
+    margin: 0 0 8px;
+  }
+
   &__form {
     display: flex;
     flex-direction: column;
@@ -5052,6 +5056,18 @@ $bp-tablet: 768px;
 }
 
 .site-page {
+  &__heading-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+
+  &__title {
+    margin: 0;
+  }
+
   &__edit-bar {
     display: flex;
     justify-content: flex-end;
@@ -5068,7 +5084,18 @@ $bp-tablet: 768px;
     font-size: 13px;
     font-weight: 600;
     text-decoration: none;
+    white-space: nowrap;
+    flex-shrink: 0;
     &:hover { background: var(--accent-bg); text-decoration: none; }
+  }
+
+  &__content .lex-editor {
+    border: none;
+    border-radius: 0;
+
+    .lex-content {
+      padding: 0;
+    }
   }
 }
 

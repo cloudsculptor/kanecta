@@ -228,13 +228,18 @@ export default function PageEdit() {
         {error && <p className="pages-error">{error}</p>}
         {uploadError && <p className="pages-error">{uploadError} <button type="button" onClick={() => setUploadError("")}>✕</button></p>}
         <form onSubmit={handleSave} className="page-edit__form">
-          <input
-            className="page-edit__title-input"
-            type="text"
-            value={title}
-            onChange={(e) => { setTitle(e.target.value); markDirty(); }}
-            placeholder="Page title"
-          />
+          {isSitePage
+            ? <h2 className="page-edit__title-display">{title}</h2>
+            : (
+              <input
+                className="page-edit__title-input"
+                type="text"
+                value={title}
+                onChange={(e) => { setTitle(e.target.value); markDirty(); }}
+                placeholder="Page title"
+              />
+            )
+          }
 
           {!isSitePage && (
             <div className="page-edit__field">
