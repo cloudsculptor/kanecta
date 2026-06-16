@@ -4924,6 +4924,7 @@ $bp-tablet: 768px;
   }
 
   &__body {
+    position: relative;
     padding: 20px 24px;
 
     @media (max-width: 768px) {
@@ -4936,6 +4937,7 @@ $bp-tablet: 768px;
     font-weight: 600;
     color: var(--text-h);
     margin: 0 0 6px;
+    padding-right: 28px;
   }
 
   &__date {
@@ -5001,51 +5003,72 @@ $bp-tablet: 768px;
     }
   }
 
-  &__actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 24px;
-    border-top: 1px solid var(--border);
-    background: color-mix(in srgb, var(--bg) 97%, red);
+  &__menu {
+    position: absolute;
+    top: 20px;
+    right: 24px;
 
     @media (max-width: 768px) {
-      padding: 10px 16px;
+      top: 16px;
+      right: 16px;
     }
   }
 
-  &__delete-btn {
-    font-size: 13px;
-    font-weight: 500;
-    color: #c62828;
+  &__menu-trigger {
     background: none;
-    border: 1px solid #c62828;
-    border-radius: 4px;
-    padding: 3px 10px;
+    border: none;
     cursor: pointer;
-    transition: background 0.15s;
+    color: var(--text);
+    font-size: 13px;
+    letter-spacing: 1px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    line-height: 1;
+    opacity: 0.4;
+    transition: opacity 0.15s, background 0.15s;
+
+    &:hover {
+      opacity: 1;
+      background: var(--accent-bg);
+    }
+  }
+
+  &__menu-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    min-width: 140px;
+    z-index: 10;
+    overflow: hidden;
+  }
+
+  &__menu-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    padding: 10px 14px;
+    font-size: 14px;
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.12s;
 
     &:hover:not(:disabled) {
-      background: rgba(198, 40, 40, 0.08);
+      background: var(--accent-bg);
     }
 
     &:disabled {
       opacity: 0.5;
       cursor: default;
     }
-  }
 
-  &__delete-cancel {
-    font-size: 13px;
-    color: var(--text);
-    background: none;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 3px 10px;
-    cursor: pointer;
-
-    &:hover {
-      background: var(--accent-bg);
+    &--danger {
+      color: #c62828;
     }
   }
 }
