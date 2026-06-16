@@ -144,6 +144,8 @@ router.post("/", requireAuth, wrap(async (req, res) => {
           organiser_name, organiser_email, organiser_phone, area } = req.body;
   if (!title?.trim()) return res.status(400).json({ error: "Title is required" });
   if (!start_date) return res.status(400).json({ error: "Start date is required" });
+  const today = new Date().toISOString().slice(0, 10);
+  if (start_date < today) return res.status(400).json({ error: "Start date cannot be in the past" });
   const desc = description?.trim() || "";
   if (desc.length < 50) return res.status(400).json({ error: "Description must be at least 50 characters" });
   if (desc.length > 1000) return res.status(400).json({ error: "Description must be 1000 characters or fewer" });

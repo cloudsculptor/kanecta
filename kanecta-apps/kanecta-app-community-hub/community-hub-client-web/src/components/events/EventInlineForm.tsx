@@ -27,9 +27,16 @@ function nzToIso(nz: string): string {
   return `${y}-${m}-${d}`;
 }
 
-function dateError(nz: string): string | undefined {
+function todayIso(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function dateError(nz: string, checkPast = false): string | undefined {
   if (!nz || nz.length < 10) return undefined;
-  if (!nzToIso(nz)) return "Enter a valid date as DD/MM/YYYY";
+  const iso = nzToIso(nz);
+  if (!iso) return "Enter a valid date as DD/MM/YYYY";
+  if (checkPast && iso < todayIso()) return "Start date cannot be in the past";
   return undefined;
 }
 
@@ -180,6 +187,7 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
     if (desc.length > 1000) { setError("Description must be 1000 characters or fewer"); return; }
     const isoStart = nzToIso(startDate);
     if (!isoStart) { setError("Start date must be in DD/MM/YYYY format"); return; }
+    if (isoStart < todayIso()) { setError("Start date cannot be in the past"); return; }
     if (!organiserName.trim()) { setError("Organiser name is required"); return; }
     if (!organiserEmail.trim()) { setError("Organiser email is required"); return; }
     if (!organiserPhone.trim()) { setError("Organiser phone is required"); return; }
@@ -304,8 +312,8 @@ export default function EventInlineForm({ authenticated, emailVerified, onSubmit
                 onChange={(e) => setStartDate(formatDateInput(e.target.value))}
                 placeholder="DD/MM/YYYY"
                 slotProps={{ htmlInput: { maxLength: 10 } }}
-                error={!!dateError(startDate)}
-                helperText={dateError(startDate)}
+                error={!!dateError(startDate, true)}
+                helperText={dateError(startDate, true)}
                 fullWidth
                 disabled={locked}
               />
