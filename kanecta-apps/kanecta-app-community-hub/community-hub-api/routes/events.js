@@ -43,7 +43,7 @@ async function attachFiles(events) {
 }
 
 // ── GET /api/events ────────────────────────────────────────────────────────────
-// Public. Returns approved events not yet soft-deleted (end_date + 30 days).
+// Public. Returns approved, non-deleted events whose end date is today or future.
 
 router.get("/", wrap(async (req, res) => {
   const { rows } = await pool.query(
@@ -51,7 +51,8 @@ router.get("/", wrap(async (req, res) => {
             address, lat, lng, website, phone, email, area, submitted_at
      FROM events
      WHERE status = 'approved'
-       AND COALESCE(end_date, start_date) + INTERVAL '30 days' > CURRENT_DATE
+       AND deleted_at IS NULL
+       AND COALESCE(end_date, start_date) >= CURRENT_DATE
      ORDER BY start_date ASC`
   );
   const events = await attachFiles(rows);
@@ -66,6 +67,7 @@ router.get("/mine", requireAuth, wrap(async (req, res) => {
     `SELECT id, title, start_date, start_time, end_date, status, decline_reason, submitted_at
      FROM events
      WHERE submitted_by_id = $1
+       AND deleted_at IS NULL
      ORDER BY submitted_at DESC`,
     [req.user.id]
   );
@@ -73,32 +75,21 @@ router.get("/mine", requireAuth, wrap(async (req, res) => {
 }));
 
 // ── DELETE /api/events/:id ─────────────────────────────────────────────────────
-// Auth + owner (or moderator). Deletes the event and its files.
+// Auth + owner (or moderator). Soft-deletes the event.
 
 router.delete("/:id", requireAuth, wrap(async (req, res) => {
   const { rows } = await pool.query(
-    "SELECT submitted_by_id FROM events WHERE id = $1",
+    "SELECT submitted_by_id, deleted_at FROM events WHERE id = $1",
     [req.params.id]
   );
-  if (!rows.length) return res.status(404).json({ error: "Event not found" });
+  if (!rows.length || rows[0].deleted_at) return res.status(404).json({ error: "Event not found" });
 
   const isModerator = req.user.roles.includes("moderator") || req.user.roles.includes("admin");
   if (rows[0].submitted_by_id !== req.user.id && !isModerator) {
     return res.status(403).json({ error: "Not your event" });
   }
 
-  // Delete associated files from Spaces
-  const { rows: fileRows } = await pool.query(
-    `SELECT f.id, f.storage_key FROM event_files ef
-     JOIN files f ON f.id = ef.file_id
-     WHERE ef.event_id = $1`,
-    [req.params.id]
-  );
-  for (const f of fileRows) {
-    await deleteFile({ storageKey: f.storage_key, fileId: f.id, pool }).catch(() => {});
-  }
-
-  await pool.query("DELETE FROM events WHERE id = $1", [req.params.id]);
+  await pool.query("UPDATE events SET deleted_at = NOW() WHERE id = $1", [req.params.id]);
   res.json({ ok: true });
 }));
 
@@ -113,6 +104,7 @@ router.get("/pending", requireAuth, requireModerator, wrap(async (req, res) => {
             submitted_by_name, submitted_at
      FROM events
      WHERE status = 'pending'
+       AND deleted_at IS NULL
      ORDER BY submitted_at ASC`
   );
   const events = await attachFiles(rows);
@@ -128,7 +120,7 @@ router.get("/:id", requireAuth, wrap(async (req, res) => {
             address, lat, lng, website, phone, email, area, status,
             organiser_name, organiser_email, organiser_phone,
             submitted_by_id, submitted_at
-     FROM events WHERE id = $1`,
+     FROM events WHERE id = $1 AND deleted_at IS NULL`,
     [req.params.id]
   );
   if (!rows.length) return res.status(404).json({ error: "Event not found" });
@@ -152,6 +144,8 @@ router.post("/", requireAuth, wrap(async (req, res) => {
           organiser_name, organiser_email, organiser_phone, area } = req.body;
   if (!title?.trim()) return res.status(400).json({ error: "Title is required" });
   if (!start_date) return res.status(400).json({ error: "Start date is required" });
+  const today = new Date().toISOString().slice(0, 10);
+  if (start_date < today) return res.status(400).json({ error: "Start date cannot be in the past" });
   const desc = description?.trim() || "";
   if (desc.length < 50) return res.status(400).json({ error: "Description must be at least 50 characters" });
   if (desc.length > 1000) return res.status(400).json({ error: "Description must be 1000 characters or fewer" });
@@ -352,7 +346,7 @@ router.patch("/:id/approve", requireAuth, requireModerator, wrap(async (req, res
   const { rows } = await pool.query(
     `UPDATE events
      SET status = 'approved', reviewed_by_id = $1, reviewed_by_name = $2, reviewed_at = NOW()
-     WHERE id = $3 AND status = 'pending'
+     WHERE id = $3 AND status = 'pending' AND deleted_at IS NULL
      RETURNING id`,
     [req.user.id, req.user.name, req.params.id]
   );
@@ -368,7 +362,7 @@ router.patch("/:id/decline", requireAuth, requireModerator, wrap(async (req, res
     `UPDATE events
      SET status = 'declined', decline_reason = $1,
          reviewed_by_id = $2, reviewed_by_name = $3, reviewed_at = NOW()
-     WHERE id = $4 AND status = 'pending'
+     WHERE id = $4 AND status = 'pending' AND deleted_at IS NULL
      RETURNING id`,
     [decline_reason?.trim() || null, req.user.id, req.user.name, req.params.id]
   );

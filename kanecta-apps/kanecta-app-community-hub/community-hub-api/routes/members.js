@@ -14,7 +14,7 @@ const SYSTEM_ROLES = new Set([
   `default-roles-${REALM}`,
 ]);
 
-const APP_ROLES = ["admin", "team", "moderator", "treasurer", "resilience"];
+const APP_ROLES = ["admin", "team", "moderator", "treasurer", "resilience", "tester"];
 
 const requireAdmin = requireRole("admin");
 const requireModeratorOrAdmin = requireRole("moderator", "admin");
