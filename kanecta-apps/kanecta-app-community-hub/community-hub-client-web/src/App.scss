@@ -4996,6 +4996,54 @@ $bp-tablet: 768px;
       }
     }
   }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 24px;
+    border-top: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 97%, red);
+
+    @media (max-width: 768px) {
+      padding: 10px 16px;
+    }
+  }
+
+  &__delete-btn {
+    font-size: 13px;
+    font-weight: 500;
+    color: #c62828;
+    background: none;
+    border: 1px solid #c62828;
+    border-radius: 4px;
+    padding: 3px 10px;
+    cursor: pointer;
+    transition: background 0.15s;
+
+    &:hover:not(:disabled) {
+      background: rgba(198, 40, 40, 0.08);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+  }
+
+  &__delete-cancel {
+    font-size: 13px;
+    color: var(--text);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 3px 10px;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--accent-bg);
+    }
+  }
 }
 
 // ── Tree of Trust ─────────────────────────────────────────────────────────────
