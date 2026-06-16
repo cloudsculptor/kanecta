@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { type Event } from "../../api/events";
 import { formatEventDate, formatNZTime } from "../../utils/dates";
 
 interface Props {
   event: Event;
   past?: boolean;
+  onDelete?: () => Promise<void>;
 }
 
 function formatDateRange(event: Event): string {
@@ -16,7 +18,20 @@ function formatDateRange(event: Event): string {
   return `${start} – ${formatEventDate(event.end_date, event.end_time)}`;
 }
 
-export default function EventCard({ event, past = false }: Props) {
+export default function EventCard({ event, past = false, onDelete }: Props) {
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (!confirming) { setConfirming(true); return; }
+    setDeleting(true);
+    try {
+      await onDelete!();
+    } catch {
+      setDeleting(false);
+      setConfirming(false);
+    }
+  }
   const gallery = event.gallery_images.slice().sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
 
   return (
@@ -69,6 +84,26 @@ export default function EventCard({ event, past = false }: Props) {
           </div>
         )}
       </div>
+
+      {onDelete && (
+        <div className="event-card__actions">
+          <button
+            className="event-card__delete-btn"
+            onClick={handleDelete}
+            disabled={deleting}
+          >
+            {deleting ? "Deleting…" : confirming ? "Confirm delete" : "Delete"}
+          </button>
+          {confirming && !deleting && (
+            <button
+              className="event-card__delete-cancel"
+              onClick={() => setConfirming(false)}
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+      )}
     </article>
   );
 }
