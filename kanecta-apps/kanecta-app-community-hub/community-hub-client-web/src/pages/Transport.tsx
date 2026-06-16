@@ -4,8 +4,8 @@ import SiteEditablePage from "../components/SiteEditablePage";
 
 export default function Transport() {
   return (
-    <PageLayout pageName="Transport" showComingSoon={false}>
-      <SiteEditablePage slug="transport">
+    <PageLayout pageName="Transport" showComingSoon={false} showHeading={false}>
+      <SiteEditablePage slug="transport" title="Transport">
       <h3>Train</h3>
       <p>
         Featherston is served by the{" "}
