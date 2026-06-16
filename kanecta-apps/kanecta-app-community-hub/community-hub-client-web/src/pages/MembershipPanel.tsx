@@ -21,6 +21,7 @@ const ROLE_LABELS: Record<string, string> = {
   moderator: "Moderator",
   treasurer: "Treasurer",
   resilience: "Resilience",
+  tester: "Tester",
 };
 
 const ROLE_COLOURS: Record<string, "default" | "primary" | "secondary" | "success" | "warning" | "error" | "info"> = {
@@ -29,6 +30,7 @@ const ROLE_COLOURS: Record<string, "default" | "primary" | "secondary" | "succes
   moderator: "error",
   treasurer: "success",
   resilience: "info",
+  tester: "secondary",
 };
 
 interface TrustDialogProps {

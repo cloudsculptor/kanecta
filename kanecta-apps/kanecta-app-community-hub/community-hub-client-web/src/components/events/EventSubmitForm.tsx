@@ -55,10 +55,16 @@ export default function EventSubmitForm({ open, onClose, onSubmitted }: Props) {
     onClose();
   }
 
+  function todayIso(): string {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+
   async function ensureEventId(): Promise<string> {
     if (eventId) return eventId;
     if (!title.trim()) throw new Error("Please enter a title before uploading images.");
     if (!startDate) throw new Error("Please enter a start date before uploading images.");
+    if (startDate < todayIso()) throw new Error("Start date cannot be in the past.");
     const { id } = await submitEvent({
       title: title.trim(),
       description: description.trim() || undefined,
@@ -132,6 +138,7 @@ export default function EventSubmitForm({ open, onClose, onSubmitted }: Props) {
   async function handleSubmit() {
     if (!title.trim()) { setError("Title is required"); return; }
     if (!startDate) { setError("Start date is required"); return; }
+    if (startDate < todayIso()) { setError("Start date cannot be in the past"); return; }
     setError(null);
     setSubmitting(true);
     try {
