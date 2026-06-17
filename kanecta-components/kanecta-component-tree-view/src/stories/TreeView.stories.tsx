@@ -105,13 +105,19 @@ function makeApi(overrides: Partial<TreeViewApi['items']> = {}): TreeViewApi {
   };
 }
 
-// ─── Edit persistence bug regression ─────────────────────────────────────────
+// ─── Edit persistence / flash regression ─────────────────────────────────────
 //
-// Regression: after committing an inline edit the label immediately reverted
-// to the original text until the page was refreshed. Root cause: updateMutation
-// only invalidated ['item', id] but tree nodes live in ['tree-children'] caches
-// which were never touched. Fix: setQueriesData across all tree-children caches
-// on mutation success.
+// Regression 1: after committing an inline edit the label reverted to the
+// original text until a page refresh. Root cause: updateMutation only
+// invalidated ['item', id]; tree nodes live in ['tree-children'] caches which
+// were never touched.
+//
+// Regression 2: even after fixing persistence, there was a momentary flash
+// where the old value briefly reappeared between setEditing(false) and the
+// async save completing. Root cause: setQueriesData was called in onSuccess
+// (after the API round-trip) rather than in onMutate (synchronously, before
+// the API call). Because onMutate is synchronous it batches with setEditing in
+// the same React render, eliminating the flash.
 
 const updateSpy = fn();
 
@@ -153,15 +159,15 @@ export const EditValuePersistsAfterCommit: Story = {
     // Commit by pressing Tab (blur fires onCommit)
     await userEvent.keyboard('{Tab}');
 
-    // The API update must have been called with the new value
+    // The old value must be gone immediately — no flash while the API call is in flight.
+    // onMutate is synchronous so the cache update batches with setEditing(false) in
+    // the same React render. If this assertion flickers the fix has regressed.
+    await expect(canvas.queryByText('Original value')).toBeNull();
+
+    // After the save completes the new value must still be shown
     await waitFor(() =>
       expect(updateSpy).toHaveBeenCalledWith('item-1', { value: 'Updated value' }),
     );
-
-    // The label must show the new value — not revert to the original
-    await waitFor(() => expect(canvas.getByText('Updated value')).toBeTruthy());
-
-    // The old value must no longer appear in the label
-    await expect(canvas.queryByText('Original value')).toBeNull();
+    await expect(canvas.getByText('Updated value')).toBeTruthy();
   },
 };

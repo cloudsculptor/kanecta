@@ -308,12 +308,23 @@ export function TreeView({
   const updateMutation = useMutation({
     mutationFn: ({ id, value }: { id: string; value: string }) =>
       api.items.update(id, { value }),
-    onSuccess: (_data, vars) => {
+    onMutate: ({ id, value }) => {
+      const previousData = qc.getQueriesData<KanectaItem[]>({ queryKey: ['tree-children'] });
       qc.setQueriesData<KanectaItem[]>(
         { queryKey: ['tree-children'] },
-        (old) => old?.map((i) => (i.id === vars.id ? { ...i, value: vars.value } : i)),
+        (old) => old?.map((i) => (i.id === id ? { ...i, value } : i)),
       );
+      return { previousData };
+    },
+    onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ['item', vars.id] });
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousData) {
+        for (const [key, data] of context.previousData) {
+          qc.setQueryData(key, data);
+        }
+      }
     },
   });
 
