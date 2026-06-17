@@ -110,14 +110,15 @@ function makeApi(overrides: Partial<TreeViewApi['items']> = {}): TreeViewApi {
 // Regression 1: after committing an inline edit the label reverted to the
 // original text until a page refresh. Root cause: updateMutation only
 // invalidated ['item', id]; tree nodes live in ['tree-children'] caches which
-// were never touched.
+// were never touched. Fixed by calling setQueriesData in onSuccess.
 //
 // Regression 2: even after fixing persistence, there was a momentary flash
-// where the old value briefly reappeared between setEditing(false) and the
-// async save completing. Root cause: setQueriesData was called in onSuccess
-// (after the API round-trip) rather than in onMutate (synchronously, before
-// the API call). Because onMutate is synchronous it batches with setEditing in
-// the same React render, eliminating the flash.
+// where the old value briefly reappeared. Root cause: TanStack Query calls
+// onMutate with `await` internally, so even a synchronous onMutate creates a
+// microtask gap — setEditing(false) renders the old value in one paint before
+// the cache update arrives. Fixed by a local pendingValue state in TreeNode:
+// setEditing(false) and setPendingValue(newValue) are called synchronously so
+// React 18 batches them into one render that shows the new text immediately.
 
 const updateSpy = fn();
 

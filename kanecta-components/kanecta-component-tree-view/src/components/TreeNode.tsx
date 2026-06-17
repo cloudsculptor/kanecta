@@ -91,6 +91,7 @@ export function TreeNode({
   onAutoFocused,
 }: TreeNodeProps) {
   const [editing, setEditing] = useState(false);
+  const [pendingValue, setPendingValue] = useState<string | null>(null);
   const [initialDraft, setInitialDraft] = useState('');
   const draftRef = useRef('');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -294,10 +295,20 @@ const allConversionsDestructive = item.type === 'function';
   }, []);
 
   const commitEdit = async () => {
-    setEditing(false);
     const value = draftRef.current;
-    if (value !== item.value && value.trim()) {
-      await onEdit(value.trim());
+    const changed = value !== item.value && value.trim() !== '';
+    // Both state updates are synchronous — React 18 batches them into one render,
+    // so the label immediately shows the new text with no intermediate flash.
+    setEditing(false);
+    if (changed) setPendingValue(value.trim());
+    if (changed) {
+      try {
+        await onEdit(value.trim());
+      } finally {
+        // Cache is updated by onSuccess before mutateAsync resolves,
+        // so item.value is already correct when we clear pendingValue.
+        setPendingValue(null);
+      }
     }
   };
 
@@ -349,7 +360,7 @@ const allConversionsDestructive = item.type === 'function';
           <span
             className="TreeNode-label"
           >
-            <ItemValue value={item.value} resolveId={resolveId} onNavigate={onNavigateToId} />
+            <ItemValue value={pendingValue ?? item.value} resolveId={resolveId} onNavigate={onNavigateToId} />
           </span>
         )}
 
