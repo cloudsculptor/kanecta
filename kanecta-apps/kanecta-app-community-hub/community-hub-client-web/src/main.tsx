@@ -7,12 +7,14 @@ import "./App.scss";
 import App from "./App.tsx";
 
 if ("serviceWorker" in navigator) {
-  if (window.location.hostname === "featherston.co.nz") {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
-  } else {
+  const isNonProd = window.location.hostname !== "featherston.co.nz";
+  if (isNonProd) {
+    // Unregister any existing SW so stale PWA installs don't survive deploys
     navigator.serviceWorker.getRegistrations().then((regs) => {
       regs.forEach((r) => r.unregister());
     });
+  } else {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
   }
 }
 
