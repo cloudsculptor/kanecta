@@ -1,6 +1,6 @@
 {
   "id": "71531a52-1e14-479c-bf1f-b7726d76dfe8",
-  "specVersion": "1.3.0",
+  "specVersion": "1.4.0",
   "parentId": null,
   "value": "Database Table Foreign Key",
   "type": "type",
