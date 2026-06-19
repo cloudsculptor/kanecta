@@ -1,0 +1,93 @@
+= Procedure: Creating a New Kanecta Version
+:date: 2026-06-21
+:created-for-version: 1.4.0
+
+NOTE: This procedure was written while creating version {created-for-version} on {date}. Steps may have evolved since then — treat this as a guide, not a guarantee.
+
+== Overview
+
+This document describes the generic steps for bumping Kanecta to a new major or minor spec version (e.g. 1.3.0 → 1.4.0). It covers the monorepo plumbing — branching, spec scaffolding, version pinning, and commits. It does not cover the content of the spec changes themselves.
+
+== Step 1 — Create a branch
+
+Create a feature branch for the new version work:
+
+[source,bash]
+----
+git checkout -b feature/v<NEW_VERSION>-with-merge
+git push -u origin feature/v<NEW_VERSION>-with-merge
+----
+
+== Step 2 — Scaffold the new spec directory
+
+Copy the previous version's specification directory as the baseline for the new one:
+
+[source,bash]
+----
+cp -r kanecta-specification/<PREV_VERSION>/ kanecta-specification/<NEW_VERSION>/
+----
+
+Then clear the README in the new directory and replace it with a minimal placeholder:
+
+[source,asciidoc]
+----
+= Kanecta Datastore Specification — v<NEW_VERSION>
+
+Under development.
+----
+
+== Step 3 — Update `kanecta-specification/package.json`
+
+Make the following changes:
+
+* Bump `"version"` to the new version.
+* Add a new default `./validator` export pointing at the new version's schema validator.
+* Add a versioned `./\<NEW_VERSION>/validator` export.
+* Add `"./\<NEW_VERSION>/*": "./\<NEW_VERSION>/*"` to the exports map.
+* Add `"<NEW_VERSION>/"` to the `"files"` array.
+* Keep all previous version exports intact for backward compatibility.
+
+== Step 4 — Update `kanecta-specification/index.mjs`
+
+Update all import paths to reference the new version directory instead of the previous one.
+
+== Step 5 — Global version string replacement
+
+Run a find-and-replace across the monorepo to update all remaining references from the old version to the new one.
+
+IMPORTANT: The following must be excluded from the replacement:
+
+* `kanecta-specification/<PREV_VERSION>/` and earlier — spec files for historical versions must not be touched.
+* `kanecta-migrations/` — migration scripts are version-specific and must remain as-is.
+* Any migration scripts in `kanecta-lib/scripts/` that reference the old version by name.
+* `node_modules/` and `package-lock.json` files.
+* `kanecta-specification/vNext/` — architecture notes reference historical versions for context.
+
+After the replacement, manually review `kanecta-specification/package.json` to ensure backward-compat exports were not accidentally overwritten (see Step 3).
+
+== Step 6 — Commit in logical groups
+
+Organise commits by concern rather than making one large commit:
+
+. `feat(spec)` — new spec directory scaffold and package.json/index.mjs updates
+. `chore(version)` — package version bumps across all packages
+. `chore(version)` — spec_version string updates in adapters and tests
+. `chore(system-items)` — spec_version bump in system item metadata files
+. Any new packages or structural changes as separate `feat` commits
+
+== Step 7 — Update the spec content
+
+With the plumbing in place, update the specification documents in `kanecta-specification/<NEW_VERSION>/` to describe the actual changes in this version. At minimum:
+
+* Update `specification.md` with any data model or filesystem changes.
+* Update `extended-specs/specification.db.md` and `specification.db.postgres.md` if the database schema changes.
+* Update `file-specs/metadata.json` JSON Schema if the metadata format changes.
+
+== Step 8 — Push and open a PR
+
+[source,bash]
+----
+git push
+----
+
+Open a PR from the feature branch into `master`. Mark it `DO NOT MERGE` until the version is ready to ship.
