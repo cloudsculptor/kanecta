@@ -146,7 +146,7 @@ class PostgresAdapter {
 
   async _ensureConfig(owner) {
     await this._pool.query(
-      `INSERT INTO config (key, value) VALUES ('owner', $1), ('spec_version', '1.3.0')
+      `INSERT INTO config (key, value) VALUES ('owner', $1), ('spec_version', '1.4.0')
        ON CONFLICT (key) DO NOTHING`,
       [owner],
     );
