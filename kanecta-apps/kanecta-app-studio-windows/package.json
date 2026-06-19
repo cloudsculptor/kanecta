@@ -1,6 +1,6 @@
 {
   "name": "kanecta-studio-windows",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "description": "Desktop wrapper for Kanecta Studio, packaged as a Windows installer",
   "main": "main.cjs",

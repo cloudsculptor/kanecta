@@ -1,6 +1,6 @@
 {
   "name": "@kanecta/ai",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Kanecta AI layer — exposes Claude integration to kanecta-api via kanecta-claude-bridge",
   "main": "index.js",
   "files": [

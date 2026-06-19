@@ -1,6 +1,6 @@
 {
   "name": "kanecta-studio-debian",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "description": "Desktop wrapper for Kanecta Studio, packaged as a .deb for Debian/Ubuntu",
   "main": "main.cjs",

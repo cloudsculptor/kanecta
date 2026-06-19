@@ -1,6 +1,6 @@
 {
   "name": "@kanecta/api",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Kanecta HTTP API — exposes all datastore operations over REST",
   "main": "src/server.js",
   "scripts": {
