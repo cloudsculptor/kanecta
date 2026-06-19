@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://kanecta.org/specification/kanecta-items-v1",
+  "title": "Kanecta Items Index",
+  "description": "Schema for a Kanecta items.json index file. Used in two locations: .kanecta/tags/{shard1}/{shard2}/{tag}/items.json (lists all items carrying that tag), and .kanecta/types/{shard1}/{shard2}/{uuid}/items.json (lists all items of that custom type). Both share the same shape.",
+  "type": "object",
+  "required": ["items"],
+  "additionalProperties": false,
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "UUIDs of items associated with this index entry. Order is not significant."
+    }
+  },
+  "examples": [
+    {
+      "items": [
+        "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+      ]
+    }
+  ]
+}

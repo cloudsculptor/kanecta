@@ -1,8 +1,8 @@
-import types from './1.3.0/types/primitive.json' with { type: 'json' };
-import typeSpec from './1.3.0/file-specs/type.json' with { type: 'json' };
-import itemsSpec from './1.3.0/file-specs/items.json' with { type: 'json' };
-import metadataSpec from './1.3.0/file-specs/metadata.json' with { type: 'json' };
-import functionSpec from './1.3.0/file-specs/function.json' with { type: 'json' };
+import types from './1.4.0/types/primitive.json' with { type: 'json' };
+import typeSpec from './1.4.0/file-specs/type.json' with { type: 'json' };
+import itemsSpec from './1.4.0/file-specs/items.json' with { type: 'json' };
+import metadataSpec from './1.4.0/file-specs/metadata.json' with { type: 'json' };
+import functionSpec from './1.4.0/file-specs/function.json' with { type: 'json' };
 import pkg from './package.json' with { type: 'json' };
 
 export const version = pkg.version;

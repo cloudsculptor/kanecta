@@ -1,1 +1,3 @@
-# Version 1.4.0 under development
+# Kanecta Datastore Specification — v1.4.0
+
+Under development.

@@ -1,0 +1,167 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://kanecta.org/specification/kanecta-metadata-v1",
+  "title": "Kanecta Item Metadata",
+  "description": "Schema for a Kanecta metadata.json file. Stored at .kanecta/data/{shard1}/{shard2}/{uuid}/metadata.json for items, and .kanecta/types/{shard1}/{shard2}/{uuid}/metadata.json for type definition records.",
+  "type": "object",
+  "required": ["id", "specVersion", "parentId", "value", "type", "owner", "license", "createdAt", "modifiedAt"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "UUID of this item."
+    },
+    "specVersion": {
+      "type": "string",
+      "description": "Version of the Kanecta specification this record conforms to (e.g. '1.4.0'). Set at creation time; tooling uses it to pick the right schema/migration rules when reading older records."
+    },
+    "parentId": {
+      "type": ["string", "null"],
+      "description": "UUID of the parent item. Root item points to itself. Null for type definition records."
+    },
+    "value": {
+      "type": ["string", "null"],
+      "description": "Primary content or label of the item."
+    },
+    "type": {
+      "type": "string",
+      "description": "Item type. One of the VALID_TYPES values for regular items, or 'type' for type definition records."
+    },
+    "typeId": {
+      "type": ["string", "null"],
+      "description": "UUID of the custom type definition. Set for items of type 'object'. Null otherwise."
+    },
+    "owner": {
+      "type": "string",
+      "description": "Owner identifier (e.g. an email address or domain)."
+    },
+    "license": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID reference to this item's licence. Always set — defaults to 'All Rights Reserved (Copyright)' when nothing else is chosen, mirroring real-world default copyright. References a row in a fixed, shipped reference set of common licences (public domain, Creative Commons, common software licences); see specification.db.postgres.md for the storage model and the rationale for not yet modelling licences as standalone Kanecta type items."
+    },
+    "sortOrder": {
+      "type": ["number", "null"],
+      "description": "Numeric sort position among siblings. Null for type definition records."
+    },
+    "confidence": {
+      "type": ["string", "null"],
+      "enum": [null, "experimental", "exploring", "decided", "locked", "low", "medium", "high", "verified"],
+      "description": "Confidence level of the item's content."
+    },
+    "status": {
+      "type": ["string", "null"],
+      "description": "Arbitrary status string (e.g. 'active', 'archived', 'draft'). Null if not set."
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Tags associated with this item."
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when this item was created."
+    },
+    "modifiedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when this item was last modified."
+    },
+    "createdBy": {
+      "type": ["string", "null"],
+      "description": "Identifier of the actor who created this item."
+    },
+    "modifiedBy": {
+      "type": ["string", "null"],
+      "description": "Identifier of the actor who last modified this item."
+    },
+    "cachedAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when remote content was last cached locally."
+    },
+    "subscribedAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when this item subscribed to a remote source."
+    },
+    "subscriptionSource": {
+      "type": ["string", "null"],
+      "description": "URI of the remote source this item subscribes to."
+    },
+    "completedAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when this item was marked as completed. Null if not completed."
+    },
+    "dueAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when this item is due. Null if no due date is set."
+    },
+    "visibility": {
+      "type": "string",
+      "enum": ["private", "organisation", "public"],
+      "default": "private",
+      "description": "Coarse default access level, checked before any fine-grained grants. 'private' = owner and explicitly-granted principals only; 'organisation' = visible to anyone in the owner's organisation; 'public' = visible to anyone. Fine-grained per-principal read/write/subscribe grants layer on top of this and can extend (but never narrow) what visibility allows — see specification.db.postgres.md for the access-control storage model."
+    },
+    "aspect": {
+      "type": ["string", "null"],
+      "default": null,
+      "description": "Dimension this item occupies under its parent. Null means the item belongs to the main tree. Any other string names an alternative dimension (e.g. 'settings', 'hidden', 'archive'). UIs show only null-aspect children by default; a user or application switches aspect to see a different dimension's children. An item belongs to exactly one aspect. sortOrder is scoped per-aspect — siblings in different aspects are ordered independently. Aspect names are free-form conventions; none are reserved by the spec."
+    },
+    "template": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "default": null,
+      "description": "UUID of the type or item this item's tree was copied from via a template action. References the source type's UUID when templating a typed object (type: 'object'), or the source item's UUID when templating an unstructured tree. Null if this item was not produced by templating."
+    }
+  },
+  "examples": [
+    {
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "specVersion": "1.4.0",
+      "parentId": "00000000-0000-0000-0000-000000000001",
+      "value": "Richie Thomas",
+      "type": "object",
+      "typeId": "f1e2d3c4-b5a6-7890-abcd-ef1234567890",
+      "owner": "richardsempire@gmail.com",
+      "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+      "sortOrder": 0,
+      "confidence": "decided",
+      "status": "active",
+      "tags": ["people", "team"],
+      "createdAt": "2025-01-01T00:00:00.000Z",
+      "modifiedAt": "2025-06-01T00:00:00.000Z",
+      "createdBy": "richardsempire@gmail.com",
+      "modifiedBy": "richardsempire@gmail.com",
+      "cachedAt": null,
+      "subscribedAt": null,
+      "subscriptionSource": null,
+      "visibility": "organisation"
+    },
+    {
+      "id": "f1e2d3c4-b5a6-7890-abcd-ef1234567890",
+      "specVersion": "1.4.0",
+      "parentId": null,
+      "value": "Person",
+      "type": "type",
+      "typeId": null,
+      "owner": "richardsempire@gmail.com",
+      "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+      "sortOrder": null,
+      "confidence": null,
+      "status": null,
+      "tags": [],
+      "createdAt": "2025-01-01T00:00:00.000Z",
+      "modifiedAt": "2025-01-01T00:00:00.000Z",
+      "createdBy": "richardsempire@gmail.com",
+      "modifiedBy": "richardsempire@gmail.com",
+      "cachedAt": null,
+      "subscribedAt": null,
+      "subscriptionSource": null,
+      "visibility": "private"
+    }
+  ]
+}
