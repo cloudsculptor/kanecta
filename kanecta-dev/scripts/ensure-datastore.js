@@ -329,13 +329,14 @@ async function wizard() {
   console.log('│         Kanecta — First Run Setup        │');
   console.log('└──────────────────────────────────────────┘\n');
   console.log('No datastore configured. How would you like to proceed?\n');
-  console.log('  1. Create a new datastore (filesystem)');
-  console.log('  2. Use an existing filesystem datastore');
-  console.log('  3. Import from a zip file');
-  console.log('  4. Connect to a Postgres + S3 cloud datastore');
-  console.log('  5. Exit\n');
+  console.log('  1. Create a new datastore (filesystem + SQLite)');
+  console.log('  2. Create a new datastore (filesystem)');
+  console.log('  3. Use an existing filesystem datastore');
+  console.log('  4. Import from a zip file');
+  console.log('  5. Connect to a Postgres + S3 cloud datastore');
+  console.log('  6. Exit\n');
 
-  const choice = await ask(rl, 'Choice [1-5]: ');
+  const choice = await ask(rl, 'Choice [1-6]: ');
 
   // ── Collect all inputs before doing anything ──────────────────────────────
 
@@ -344,9 +345,9 @@ async function wizard() {
   let owner = null;
   let cloudConfig = null;
   let isNewCloudDb = false;
-  let mode; // 'create' | 'existing' | 'zip' | 'cloud'
+  let mode; // 'create-sqlite' | 'create' | 'existing' | 'zip' | 'cloud'
 
-  if (choice === '4') {
+  if (choice === '5') {
     mode = 'cloud';
     console.log('\nCloud datastore setup — you will need a Postgres connection string and S3-compatible credentials.\n');
 
@@ -369,13 +370,13 @@ async function wizard() {
     };
     datastorePath = 'cloud'; // placeholder — not a real path
 
-  } else if (choice === '5') {
+  } else if (choice === '6') {
     rl.close();
     console.log('Aborted.');
     process.exit(0);
 
   } else if (choice === '1') {
-    mode = 'create';
+    mode = 'create-sqlite';
     const dirInput = await ask(rl, 'Datastore parent directory [~/]:');
     const dir = dirInput || '~/';
 
@@ -393,6 +394,24 @@ async function wizard() {
     datastorePath = path.join(expandHome(dir), name);
 
   } else if (choice === '2') {
+    mode = 'create';
+    const dirInput = await ask(rl, 'Datastore parent directory [~/]:');
+    const dir = dirInput || '~/';
+
+    let name;
+    while (true) {
+      name = await ask(rl, 'Datastore name (letters, numbers, hyphens only) [kanecta]: ') || 'kanecta';
+      if (NAME_RE.test(name)) break;
+      console.log('  Invalid name. Use letters, numbers, and hyphens only.');
+    }
+
+    console.log('  (used to mark data ownership — not for communication. Should be globally unique: an email or domain is ideal.)');
+    owner = await ask(rl, 'Owner identifier: ');
+    if (!owner) { console.error('Owner identifier required.'); rl.close(); process.exit(1); }
+
+    datastorePath = path.join(expandHome(dir), name);
+
+  } else if (choice === '3') {
     mode = 'existing';
     const dir = await ask(rl, 'Path to datastore: ');
     datastorePath = expandHome(dir);
@@ -402,7 +421,7 @@ async function wizard() {
       process.exit(1);
     }
 
-  } else if (choice === '3') {
+  } else if (choice === '4') {
     mode = 'zip';
     const zipInput = await ask(rl, 'Path to zip file: ');
     zipPath = expandHome(zipInput);
@@ -472,6 +491,8 @@ async function wizard() {
     ? `extract zip and create datastore at ${datastorePath}`
     : mode === 'cloud'
     ? `connect to Postgres at ${cloudConfig.pg.connectionString.replace(/:\/\/[^@]+@/, '://<credentials>@')}`
+    : mode === 'create-sqlite'
+    ? `create datastore (filesystem + SQLite) at ${datastorePath}`
     : `create datastore at ${datastorePath}`;
 
   const confirm = await ask(rl, `OK to ${action} and write ${POINTER_LOCATIONS[0]}? [Y/n]: `);
@@ -494,6 +515,11 @@ async function wizard() {
     const workspace = { mode: 'CLOUD', cloud: cloudConfig };
     writePointer(workspaceName, workspace, apiPort, studioPort, systemItemsDir);
     return { name: workspaceName, workspace, apiPort, studioPort, systemItemsDir };
+
+  } else if (mode === 'create-sqlite') {
+    fs.mkdirSync(datastorePath, { recursive: true });
+    Datastore.init(datastorePath, owner); // TODO: replace with SQLiteFilesystemAdapter init
+    console.log(`\n✓ Created datastore (filesystem + SQLite) at ${datastorePath}`);
 
   } else if (mode === 'create') {
     fs.mkdirSync(datastorePath, { recursive: true });
