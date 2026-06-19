@@ -1,6 +1,6 @@
 {
   "id": "5a94c719-d1f6-44c3-b806-ce0c225b2b30",
-  "specVersion": "1.3.0",
+  "specVersion": "1.4.0",
   "parentId": null,
   "value": "Feature Flag Environment",
   "type": "type",
