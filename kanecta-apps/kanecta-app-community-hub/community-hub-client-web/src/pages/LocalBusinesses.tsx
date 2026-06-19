@@ -1,8 +1,10 @@
 import PageLayout from "../components/PageLayout";
+import SiteEditablePage from "../components/SiteEditablePage";
 
 export default function LocalBusinesses() {
   return (
-    <PageLayout pageName="Local Businesses" showComingSoon={false}>
+    <PageLayout pageName="Local Businesses" showComingSoon={false} showHeading={false}>
+      <SiteEditablePage slug="local-businesses" title="Local Businesses">
       <h3>Local Businesses &amp; Services</h3>
       <p>
         Support and explore the local economy of Featherston and the South
@@ -17,6 +19,7 @@ export default function LocalBusinesses() {
           attractions in Featherston
         </li>
       </ul>
+      </SiteEditablePage>
     </PageLayout>
   );
 }

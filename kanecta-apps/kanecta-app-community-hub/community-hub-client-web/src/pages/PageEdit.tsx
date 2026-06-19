@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -28,7 +28,7 @@ import keycloak from "../auth/keycloak";
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
 const GROUP_NAME = "Resilience Group";
 
-const breadcrumbParents = [{ name: "Groups", path: "/groups" }];
+const resilienceBreadcrumb = [{ name: "Groups", path: "/groups" }];
 
 function currentUserName(): string {
   const p = keycloak.tokenParsed as Record<string, string> | undefined;
@@ -52,7 +52,9 @@ function rawLicenceId(composite: string): string | null {
 
 export default function PageEdit() {
   const { slug: routeSlug } = useParams<{ slug?: string }>();
+  const { pathname } = useLocation();
   const isNew = !routeSlug;
+  const isRouteForSitePage = pathname.startsWith("/site-pages/");
 
   const roles = useUserRoles();
   const { initialized } = useKeycloak();
@@ -82,6 +84,11 @@ export default function PageEdit() {
   const originalSlugRef = useRef("");
 
   const isTeam = hasRole(roles, "team");
+  const isModerator = hasRole(roles, "moderator");
+  // ownerType is populated after load; isRouteForSitePage covers the pre-load state
+  const isSitePage = ownerType === "site" || isRouteForSitePage;
+  const canEdit = isSitePage ? isModerator : isTeam;
+  const breadcrumbParents = isSitePage ? [] : resilienceBreadcrumb;
   const userName = currentUserName();
   const year = new Date().getFullYear();
 
@@ -90,7 +97,7 @@ export default function PageEdit() {
 
   useEffect(() => {
     if (!initialized) return;
-    if (!isTeam) { navigate("/", { replace: true }); return; }
+    if (!isTeam && !isModerator) { navigate("/", { replace: true }); return; }
 
     if (isNew) {
       listLicences()
@@ -119,7 +126,7 @@ export default function PageEdit() {
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [initialized, isTeam, isNew, routeSlug, navigate]);
+  }, [initialized, isTeam, isModerator, isNew, routeSlug, navigate]);
 
   function markDirty() { setIsDirty(true); }
 
@@ -173,17 +180,17 @@ export default function PageEdit() {
         });
       } else {
         await updatePage(originalSlugRef.current, {
-          slug: slug !== originalSlugRef.current ? slug : undefined,
+          slug: isSitePage ? undefined : (slug !== originalSlugRef.current ? slug : undefined),
           title,
           content_json: contentRef.current,
           licence_id: lid,
-          public: isPublic,
+          public: isSitePage ? undefined : isPublic,
           owner_type: ownerType,
           owner_id: ownerId,
         });
       }
       setIsDirty(false);
-      navigate("/groups/resilience");
+      navigate(isSitePage ? `/${originalSlugRef.current}` : "/groups/resilience");
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -191,11 +198,22 @@ export default function PageEdit() {
     }
   }
 
+  if (!loading && !canEdit) {
+    return (
+      <>
+        <Header />
+        <Breadcrumb pageName="Forbidden" parents={breadcrumbParents} />
+        <main className="page-content"><p className="pages-error">You do not have permission to edit this page.</p></main>
+        <Footer />
+      </>
+    );
+  }
+
   if (loading) {
     return (
       <>
         <Header />
-        <Breadcrumb pageName="Resilience" parents={breadcrumbParents} />
+        <Breadcrumb pageName={isSitePage ? title || slug : "Resilience"} parents={breadcrumbParents} />
         <main className="page-content"><p>Loading…</p></main>
         <Footer />
       </>
@@ -205,38 +223,45 @@ export default function PageEdit() {
   return (
     <>
       <Header />
-      <Breadcrumb pageName="Resilience" parents={breadcrumbParents} />
+      <Breadcrumb pageName={isSitePage ? title || slug : "Resilience"} parents={breadcrumbParents} />
       <main className="page-content page-edit">
         {error && <p className="pages-error">{error}</p>}
         {uploadError && <p className="pages-error">{uploadError} <button type="button" onClick={() => setUploadError("")}>✕</button></p>}
         <form onSubmit={handleSave} className="page-edit__form">
-          <input
-            className="page-edit__title-input"
-            type="text"
-            value={title}
-            onChange={(e) => { setTitle(e.target.value); markDirty(); }}
-            placeholder="Page title"
-          />
-
-          <div className="page-edit__field">
-            <label className="page-edit__label" htmlFor="pe-slug">
-              Page path
-              <span className="page-edit__hint"> (a–z, 0–9, hyphens)</span>
-            </label>
-            <div className="page-edit__slug-preview">
-              <span className="page-edit__slug-prefix">/groups/resilience/</span>
+          {isSitePage
+            ? <h2 className="page-edit__title-display">{title}</h2>
+            : (
               <input
-                id="pe-slug"
-                className={`page-edit__input${slugError ? " page-edit__input--error" : ""}`}
+                className="page-edit__title-input"
                 type="text"
-                value={slug}
-                required
-                onChange={(e) => handleSlugChange(e.target.value)}
-                placeholder="my-page-name"
+                value={title}
+                onChange={(e) => { setTitle(e.target.value); markDirty(); }}
+                placeholder="Page title"
               />
+            )
+          }
+
+          {!isSitePage && (
+            <div className="page-edit__field">
+              <label className="page-edit__label" htmlFor="pe-slug">
+                Page path
+                <span className="page-edit__hint"> (a–z, 0–9, hyphens)</span>
+              </label>
+              <div className="page-edit__slug-preview">
+                <span className="page-edit__slug-prefix">/groups/resilience/</span>
+                <input
+                  id="pe-slug"
+                  className={`page-edit__input${slugError ? " page-edit__input--error" : ""}`}
+                  type="text"
+                  value={slug}
+                  required
+                  onChange={(e) => handleSlugChange(e.target.value)}
+                  placeholder="my-page-name"
+                />
+              </div>
+              {slugError && <p className="page-edit__field-error">{slugError}</p>}
             </div>
-            {slugError && <p className="page-edit__field-error">{slugError}</p>}
-          </div>
+          )}
 
           <div className="page-edit__field">
             <label className="page-edit__label">Content</label>
@@ -250,16 +275,18 @@ export default function PageEdit() {
           <div className="page-edit__field page-edit__publishing">
             <h3 className="page-edit__section-heading">Publishing</h3>
 
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={isPublic}
-                  onChange={handleTogglePublic}
-                  color="success"
-                />
-              }
-              label={isPublic ? "Public" : "Private"}
-            />
+            {!isSitePage && (
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={isPublic}
+                    onChange={handleTogglePublic}
+                    color="success"
+                  />
+                }
+                label={isPublic ? "Public" : "Private"}
+              />
+            )}
 
             <FormControl fullWidth size="small" sx={{ mt: 2 }}>
               <InputLabel id="pe-licence-label">Licence</InputLabel>
@@ -331,7 +358,7 @@ export default function PageEdit() {
                 )}
                 <Button
                   component={Link}
-                  to={`/groups/resilience/${slug}/history`}
+                  to={isSitePage ? `/site-pages/${slug}/history` : `/groups/resilience/${slug}/history`}
                   onClick={handleHistoryClick}
                   startIcon={<HistoryIcon />}
                   variant="outlined"
@@ -348,7 +375,7 @@ export default function PageEdit() {
             <button type="submit" className="page-edit__save" disabled={saving || !!slugError}>
               {saving ? "Saving…" : "Save page"}
             </button>
-            <button type="button" className="page-edit__cancel" onClick={() => navigate("/groups/resilience")}>
+            <button type="button" className="page-edit__cancel" onClick={() => navigate(isSitePage ? `/${originalSlugRef.current}` : "/groups/resilience")}>
               Cancel
             </button>
           </div>
