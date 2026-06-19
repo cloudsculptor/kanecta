@@ -1,9 +1,10 @@
 'use strict';
 
 const {
-  FilesystemAdapter,
   ROOT_ID, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE, DEFAULT_LICENSE,
 } = require('@kanecta/filesystem');
+
+const datastoreUtils = require('@kanecta/datastore-utils');
 
 class Datastore {
   constructor(adapter) {
@@ -17,7 +18,7 @@ class Datastore {
   get config() { return this._adapter.config; }
 
   static isDatastore(location) {
-    return FilesystemAdapter.isDatastore(location);
+    return datastoreUtils.isDatastore(location);
   }
 
   // Open a cloud (Postgres + S3) datastore.
@@ -28,49 +29,13 @@ class Datastore {
   // and hybrid search require a configured provider (see @kanecta/database's
   // embeddings.js for supported providers, e.g. 'voyage', and 'mock' for tests).
   static async openCloud(cloudConfig) {
-    const { Pool }             = require('pg');
-    const { S3Client }         = require('@aws-sdk/client-s3');
-    const { PostgresAdapter }  = require('@kanecta/database');
-    const { S3Adapter }        = require('@kanecta/s3');
-    const { CloudAdapter }     = require('@kanecta/cloud');
-
-    const pool = new Pool({ connectionString: cloudConfig.pg.connectionString });
-    const items = await PostgresAdapter.open(pool, { embeddings: cloudConfig.embeddings ?? null });
-
-    const s3Cfg = cloudConfig.s3;
-    const s3client = new S3Client({
-      endpoint:        s3Cfg.endpoint,
-      region:          s3Cfg.region ?? 'us-east-1',
-      credentials:     { accessKeyId: s3Cfg.accessKeyId, secretAccessKey: s3Cfg.secretAccessKey },
-      forcePathStyle:  true,
-    });
-    const files = new S3Adapter({ client: s3client, bucket: s3Cfg.bucket });
-
-    const adapter = await CloudAdapter.open({ items, files });
+    const adapter = await datastoreUtils.openCloudAdapter(cloudConfig);
     return new Datastore(adapter);
   }
 
   // Init a new cloud datastore (runs migrations, creates root nodes).
   static async initCloud(cloudConfig, owner) {
-    const { Pool }             = require('pg');
-    const { S3Client }         = require('@aws-sdk/client-s3');
-    const { PostgresAdapter }  = require('@kanecta/database');
-    const { S3Adapter }        = require('@kanecta/s3');
-    const { CloudAdapter }     = require('@kanecta/cloud');
-
-    const pool = new Pool({ connectionString: cloudConfig.pg.connectionString });
-    const items = await PostgresAdapter.init(pool, owner, { embeddings: cloudConfig.embeddings ?? null });
-
-    const s3Cfg = cloudConfig.s3;
-    const s3client = new S3Client({
-      endpoint:        s3Cfg.endpoint,
-      region:          s3Cfg.region ?? 'us-east-1',
-      credentials:     { accessKeyId: s3Cfg.accessKeyId, secretAccessKey: s3Cfg.secretAccessKey },
-      forcePathStyle:  true,
-    });
-    const files = new S3Adapter({ client: s3client, bucket: s3Cfg.bucket });
-
-    const adapter = await CloudAdapter.init({ items, files });
+    const adapter = await datastoreUtils.createCloudAdapter(cloudConfig, owner);
     return new Datastore(adapter);
   }
 
@@ -78,14 +43,14 @@ class Datastore {
     if (items === 'REMOTE' || files === 'REMOTE') {
       throw new Error('Use Datastore.initCloud(cloudConfig, owner) for cloud mode.');
     }
-    return new Datastore(FilesystemAdapter.init(location, owner));
+    return new Datastore(datastoreUtils.createFilesystemAdapter(location, owner));
   }
 
   static open(location, { items = 'FILE', files = 'FILE' } = {}) {
     if (items === 'REMOTE' || files === 'REMOTE') {
       throw new Error('Use Datastore.openCloud(cloudConfig) for cloud mode.');
     }
-    return new Datastore(FilesystemAdapter.open(location));
+    return new Datastore(datastoreUtils.openFilesystemAdapter(location));
   }
 
   // Open a datastore from a workspace config: { mode, datastore?, cloud? }.
