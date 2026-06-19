@@ -25,6 +25,7 @@
     "access": "public"
   },
   "dependencies": {
+    "@kanecta/datastore-utils": "^1.4.0",
     "@kanecta/filesystem": "^1.0.0"
   },
   "devDependencies": {
