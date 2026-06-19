@@ -59,7 +59,7 @@ test('init: writes config.json with owner and specVersion', () => {
   const ds = tmpDs();
   const cfg = JSON.parse(fs.readFileSync(path.join(ds.k, 'config', 'config.json'), 'utf8'));
   assert.equal(cfg.owner, 'test@example.com');
-  assert.equal(cfg.specVersion, '1.3.0');
+  assert.equal(cfg.specVersion, '1.4.0');
 });
 
 test('init: isDatastore returns true for initialised root', () => {
@@ -99,7 +99,7 @@ test('create: writes metadata.json at correct shard path', async () => {
   assert.equal(written.value, 'hello');
 });
 
-test('create: defaults license, visibility, and aspect per spec 1.3.0', async () => {
+test('create: defaults license, visibility, and aspect per spec 1.4.0', async () => {
   const ds = tmpDs();
   const item = await ds.create({ value: 'hello', type: 'string' });
   assert.equal(item.license, DEFAULT_LICENSE);

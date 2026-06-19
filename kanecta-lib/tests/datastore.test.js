@@ -34,7 +34,7 @@ test('init creates a valid datastore', () => {
   expect(Datastore.isDatastore(ds.root)).toBe(true);
   const cfg = JSON.parse(fs.readFileSync(path.join(ds.k, 'config', 'config.json'), 'utf8'));
   expect(cfg.owner).toBe('test@example.com');
-  expect(cfg.specVersion).toBe('1.3.0');
+  expect(cfg.specVersion).toBe('1.4.0');
   fs.rmSync(ds.root, { recursive: true });
 });
 

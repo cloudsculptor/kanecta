@@ -64,7 +64,7 @@ class FilesystemAdapter {
     const k = path.join(root, '.kanecta');
     fs.mkdirSync(k, { recursive: true });
     for (const d of dirs) fs.mkdirSync(path.join(k, d), { recursive: true });
-    const config = { owner, specVersion: '1.3.0' };
+    const config = { owner, specVersion: '1.4.0' };
     fs.writeFileSync(
       path.join(k, 'config', 'config.json'),
       JSON.stringify(config, null, 2) + '\n',

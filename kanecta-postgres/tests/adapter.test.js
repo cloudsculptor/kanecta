@@ -43,7 +43,7 @@ afterAll(async () => {
 
 test('init sets up config and well-known roots', async () => {
   expect(adapter.config.owner).toBe(OWNER);
-  expect(adapter.config.spec_version).toBe('1.3.0');
+  expect(adapter.config.spec_version).toBe('1.4.0');
 
   const root = await adapter.getRoot();
   const dataRoot = await adapter.getDataRoot();
