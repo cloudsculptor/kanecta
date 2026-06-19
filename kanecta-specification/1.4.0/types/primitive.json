@@ -1,0 +1,34 @@
+{
+  "primitive": [
+    "string",
+    "number",
+    "text",
+    "heading",
+    "file",
+    "symlink",
+    "url",
+    "image",
+    "function",
+    "markdown",
+    "runner"
+  ],
+  "structured": [
+    "object",
+    "decision",
+    "annotation",
+    "claim",
+    "question",
+    "task",
+    "note",
+    "concept",
+    "entity",
+    "event"
+  ],
+  "wellKnown": [
+    "root",
+    "system_root",
+    "app_root",
+    "component_root",
+    "data_root"
+  ]
+}
