@@ -31,9 +31,12 @@ export interface Page {
   licence_id: string | null;
   licence_name: string | null;
   version: number;
-  owner_type: "private" | "group" | "business" | "site";
+
+  owner_type: string;
   owner_id: string | null;
   group_name: string | null;
+  /** Aliased from deleted_at — non-null means the item is archived */
+  archived_at: string | null;
 }
 
 export interface PageSummary {
@@ -46,8 +49,11 @@ export interface PageSummary {
   public: boolean;
   licence_id: string | null;
   version: number;
-  owner_type: "private" | "group" | "business" | "site";
+
+  owner_type: string;
   owner_id: string | null;
+  /** Aliased from deleted_at — non-null means the item is archived */
+  archived_at: string | null;
 }
 
 export interface UploadedFile {
@@ -76,12 +82,12 @@ export interface PageVersionData {
   title: string;
 }
 
-export function listPages(): Promise<PageSummary[]> {
-  return authFetch("/api/pages");
+export function listPages(includeArchived = false): Promise<PageSummary[]> {
+  return authFetch(`/api/pages${includeArchived ? "?includeArchived=true" : ""}`);
 }
 
-export function listPublicPages(): Promise<PageSummary[]> {
-  return fetch(`${BASE}/api/pages/public`).then((r) => r.json());
+export function listPublicPages(includeArchived = false): Promise<PageSummary[]> {
+  return fetch(`${BASE}/api/pages/public${includeArchived ? "?includeArchived=true" : ""}`).then((r) => r.json());
 }
 
 export function getPublicPage(slug: string): Promise<Page> {
@@ -143,6 +149,14 @@ export function updatePage(
 
 export function deletePage(slug: string): Promise<{ deleted: string }> {
   return authFetch(`/api/pages/${slug}`, { method: "DELETE" });
+}
+
+export function archivePage(slug: string): Promise<Page> {
+  return authFetch(`/api/pages/${slug}/archive`, { method: "PUT" });
+}
+
+export function unarchivePage(slug: string): Promise<Page> {
+  return authFetch(`/api/pages/${slug}/unarchive`, { method: "PUT" });
 }
 
 export function listPageHistory(slug: string): Promise<PageHistoryEntry[]> {
