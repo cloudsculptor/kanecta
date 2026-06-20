@@ -1,0 +1,78 @@
+import { useState } from 'react';
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import AddIcon from '@mui/icons-material/Add';
+import CheckIcon from '@mui/icons-material/Check';
+import Divider from '@mui/material/Divider';
+import Popover from '@mui/material/Popover';
+import { useWorkspaceStore } from '../../store/workspace';
+import './DatastoreSwitcher.scss';
+
+export function DatastoreSwitcher() {
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const { workspaces, activeWorkspaceId, setActiveWorkspace } = useWorkspaceStore();
+  const active = workspaces.find((w) => w.id === activeWorkspaceId);
+
+  const open = Boolean(anchor);
+
+  return (
+    <>
+      <button
+        className="DatastoreSwitcher"
+        onClick={(e) => setAnchor(e.currentTarget)}
+        aria-label="Switch datastore"
+        aria-expanded={open}
+        aria-haspopup="listbox"
+      >
+        <span
+          className="DatastoreSwitcher__dot"
+          style={{ background: active?.colour ?? '#888' }}
+        />
+        <span className="DatastoreSwitcher__name">{active?.name ?? 'Datastore'}</span>
+        <ArrowDropDownIcon className="DatastoreSwitcher__arrow" />
+      </button>
+
+      <Popover
+        open={open}
+        anchorEl={anchor}
+        onClose={() => setAnchor(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        slotProps={{ paper: { className: 'DatastoreSwitcher__panel' } }}
+      >
+        <div className="DatastoreSwitcher__panel-header">Datastores</div>
+        <ul className="DatastoreSwitcher__list" role="listbox" aria-label="Datastores">
+          {workspaces.map((w) => (
+            <li key={w.id}>
+              <button
+                className={`DatastoreSwitcher__option${w.id === activeWorkspaceId ? ' DatastoreSwitcher__option--active' : ''}`}
+                role="option"
+                aria-selected={w.id === activeWorkspaceId}
+                onClick={() => {
+                  setActiveWorkspace(w.id);
+                  setAnchor(null);
+                }}
+              >
+                <span className="DatastoreSwitcher__option-dot" style={{ background: w.colour }} />
+                <span className="DatastoreSwitcher__option-name">{w.name}</span>
+                {w.id === activeWorkspaceId && (
+                  <CheckIcon className="DatastoreSwitcher__option-check" />
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+        <Divider />
+        <button
+          className="DatastoreSwitcher__action"
+          onClick={() => {
+            setAnchor(null);
+            // TODO: open create-datastore dialog
+          }}
+        >
+          <AddIcon />
+          <span>Create new datastore</span>
+        </button>
+      </Popover>
+    </>
+  );
+}
