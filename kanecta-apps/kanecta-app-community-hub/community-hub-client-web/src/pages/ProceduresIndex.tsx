@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import PageLayout from "../components/PageLayout";
 import { getSiteNodeTree, type SiteNode } from "../api/site-nodes";
-import { useUserRole } from "../auth/useUserRole";
+import { useUserRoles, hasRole } from "../auth/useUserRole";
 import SiteNodeEditor from "../components/SiteNodeEditor";
 
 export default function ProceduresIndex() {
-  const role = useUserRole();
-  const isModerator = role === "MODERATOR";
+  const roles = useUserRoles();
+  const isModerator = hasRole(roles, "moderator");
   const [tree, setTree] = useState<SiteNode | null>(null);
   const [error, setError] = useState("");
 
