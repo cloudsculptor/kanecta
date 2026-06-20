@@ -42,8 +42,8 @@ const MOCK_REMOTE = { name: 'origin', description: 'Kanecta Internal - DigitalOc
 const MOCK_LOCAL = { name: 'local', description: 'Kanecta Internal - Filesystem + SQLite', branch: 'main' };
 const MOCK_TO_PUSH = { add: 2, edit: 1, del: 0 };
 const MOCK_AVAILABLE = [
-  { id: 'ws-work',     name: 'Work',     remote: 'work',     remoteDesc: 'My Company - AWS Postgres RDS',      local: 'shared-knowledge', localDesc: 'Work - Filesystem + SQLite',     branch: 'main' },
-  { id: 'ws-personal', name: 'Personal', remote: 'personal', remoteDesc: 'Personal - DigitalOcean Postgres',   local: 'side-project',     localDesc: 'Personal - Filesystem + SQLite', branch: 'experiment/ai-tagging' },
+  { id: 'ws-work',     name: 'Work shared',       remote: 'work',     remoteDesc: 'Work shared server',     local: 'shared-knowledge', branch: 'main' },
+  { id: 'ws-personal', name: 'Personal projects', remote: 'personal', remoteDesc: 'Personal cloud storage', local: 'side-project',     branch: 'experiment/ai-tagging' },
 ];
 const MOCK_BRANCHES = [
   { name: 'main', active: true },
@@ -179,7 +179,7 @@ export function DatastoreSwitcher() {
               </div>
               <div className="DatastoreSwitcher__available-row">
                 <StorageIcon className="DatastoreSwitcher__available-icon" />
-                <span className="DatastoreSwitcher__available-name">{ws.localDesc}</span>
+                <span className="DatastoreSwitcher__available-name">{ws.local}</span>
                 <span className="DatastoreSwitcher__available-sub">⎇ {ws.branch}</span>
               </div>
             </li>
