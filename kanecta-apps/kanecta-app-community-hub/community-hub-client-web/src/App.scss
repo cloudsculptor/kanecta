@@ -3106,6 +3106,9 @@ $bp-tablet: 768px;
   margin-bottom: 2rem;
 
   &__heading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-size: 16px;
     font-weight: 700;
     text-transform: uppercase;
@@ -3113,6 +3116,76 @@ $bp-tablet: 768px;
     color: var(--text);
     opacity: 0.5;
     margin: 0 0 10px;
+  }
+}
+
+// ── SiteNodeEditor ────────────────────────────────────────────────────────────
+.site-node-editor {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+
+  &__input {
+    flex: 1;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+  }
+
+  &__save-btn, &__cancel-btn {
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    font-size: 13px;
+  }
+
+  &__save-btn {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+    &:disabled { opacity: 0.5; cursor: default; }
+  }
+
+  &__cancel-btn {
+    background: transparent;
+    color: var(--text);
+  }
+
+  &__error {
+    color: #c0392b;
+    font-size: 12px;
+  }
+
+  &__rename-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text);
+    opacity: 0.4;
+    font-size: 13px;
+    padding: 0 2px;
+    &:hover { opacity: 1; }
+  }
+
+  &__add-btn {
+    display: block;
+    margin-top: 8px;
+    padding: 6px 12px;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    background: none;
+    color: var(--text);
+    opacity: 0.5;
+    cursor: pointer;
+    font-size: 13px;
+    width: 100%;
+    text-align: left;
+    &:hover { opacity: 1; background: var(--accent-bg); }
   }
 }
 
