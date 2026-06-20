@@ -127,6 +127,7 @@ export default function GovernancePageEdit({ type }: Props) {
     <PageLayout
       pageName={isNew ? `New ${type}` : `Edit: ${title}`}
       showComingSoon={false}
+      showHeading={false}
       parents={parents}
     >
       {error && <p className="pages-error">{error}</p>}
