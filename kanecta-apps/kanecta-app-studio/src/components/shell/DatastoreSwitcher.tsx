@@ -40,6 +40,10 @@ function DatastoreAvatar({ label, colour, size = 'md' }: AvatarProps) {
 const MOCK_REMOTE = { name: 'origin', description: 'DigitalOcean Postgres' };
 const MOCK_LOCAL = { name: 'local', description: 'richardsempire', branch: 'main' };
 const MOCK_TO_PUSH = { add: 2, edit: 1, del: 0 };
+const MOCK_AVAILABLE = [
+  { id: 'ws-linz',     remote: 'linz',     remoteDesc: 'Linz internal server',  local: 'shared-knowledge',  branch: 'main' },
+  { id: 'ws-personal', remote: 'personal', remoteDesc: 'Personal cloud storage', local: 'side-project',    branch: 'experiment/ai-tagging' },
+];
 const MOCK_BRANCHES = [
   { name: 'main', active: true },
   { name: 'linz-onboarding', active: false },
@@ -153,6 +157,35 @@ export function DatastoreSwitcher() {
               </span>
             </div>
           </div>
+        </div>
+
+        <Divider />
+
+        {/* ── Available Working Sets ── */}
+        <div className="DatastoreSwitcher__section-header">Available working sets</div>
+        <ul className="DatastoreSwitcher__available-list">
+          {MOCK_AVAILABLE.map((ws) => (
+            <li key={ws.id}>
+              <button className="DatastoreSwitcher__available-item">
+                <span className="DatastoreSwitcher__available-row">
+                  <CloudOutlinedIcon className="DatastoreSwitcher__available-icon" />
+                  <span className="DatastoreSwitcher__available-name">{ws.remote}</span>
+                  <span className="DatastoreSwitcher__available-sub">{ws.remoteDesc}</span>
+                </span>
+                <span className="DatastoreSwitcher__available-row">
+                  <StorageIcon className="DatastoreSwitcher__available-icon" />
+                  <span className="DatastoreSwitcher__available-name">{ws.local}</span>
+                  <span className="DatastoreSwitcher__available-sub">⎇ {ws.branch}</span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+        <div className="DatastoreSwitcher__available-add">
+          <button className="DatastoreSwitcher__available-add-btn">
+            <AddIcon />
+            <span>Add working set</span>
+          </button>
         </div>
 
         <Divider />
