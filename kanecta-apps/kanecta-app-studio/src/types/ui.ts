@@ -20,6 +20,7 @@ export type ViewType =
   | 'digest'
   | 'sync'
   | 'claude'
+  | 'pull-requests'
   | 'settings'
   | 'home'
   | 'diagram'
