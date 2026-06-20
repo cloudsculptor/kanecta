@@ -3777,6 +3777,17 @@ $bp-tablet: 768px;
       top: 50%;
       right: 20px;
       transform: translateY(-50%);
+      z-index: 1;
+    }
+
+    .sn-menu__trigger {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+
+    .sn-menu__dropdown {
+      z-index: 200;
     }
   }
 }
