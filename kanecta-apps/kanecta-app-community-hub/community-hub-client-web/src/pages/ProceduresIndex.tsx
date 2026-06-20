@@ -4,7 +4,7 @@ import PageLayout from "../components/PageLayout";
 import { getSiteNodeTree, swapSiteNodeOrder, deleteSiteNode, type SiteNode } from "../api/site-nodes";
 import { useUserRoles, hasRole } from "../auth/useUserRole";
 import SiteNodeEditor from "../components/SiteNodeEditor";
-import SiteNodeControls from "../components/SiteNodeControls";
+import SiteNodeMenu from "../components/SiteNodeMenu";
 
 export default function ProceduresIndex() {
   const roles = useUserRoles();
@@ -30,16 +30,14 @@ export default function ProceduresIndex() {
           <h3 className="policy-group__heading">
             {group.title}
             {isModerator && (
-              <>
-                <SiteNodeEditor mode="rename" node={group} onSaved={reload} />
-                <SiteNodeControls
-                  node={group}
-                  siblings={groups}
-                  index={gi}
-                  onMove={async (dir) => { await swapSiteNodeOrder(groups, group.id, dir); reload(); }}
-                  onDelete={async () => { await deleteSiteNode(group.id); reload(); }}
-                />
-              </>
+              <SiteNodeMenu
+                node={group}
+                siblings={groups}
+                index={gi}
+                onMove={async (dir) => { await swapSiteNodeOrder(groups, group.id, dir); reload(); }}
+                onDelete={async () => { await deleteSiteNode(group.id); reload(); }}
+                onSaved={reload}
+              />
             )}
           </h3>
           <div className="role-index">
@@ -53,16 +51,14 @@ export default function ProceduresIndex() {
                   <span className="role-index__arrow">→</span>
                 </Link>
                 {isModerator && (
-                  <div className="role-index__mod-controls">
-                    <SiteNodeEditor mode="rename" node={cat} onSaved={reload} />
-                    <SiteNodeControls
-                      node={cat}
-                      siblings={group.children}
-                      index={ci}
-                      onMove={async (dir) => { await swapSiteNodeOrder(group.children, cat.id, dir); reload(); }}
-                      onDelete={async () => { await deleteSiteNode(cat.id); reload(); }}
-                    />
-                  </div>
+                  <SiteNodeMenu
+                    node={cat}
+                    siblings={group.children}
+                    index={ci}
+                    onMove={async (dir) => { await swapSiteNodeOrder(group.children, cat.id, dir); reload(); }}
+                    onDelete={async () => { await deleteSiteNode(cat.id); reload(); }}
+                    onSaved={reload}
+                  />
                 )}
               </div>
             ))}
