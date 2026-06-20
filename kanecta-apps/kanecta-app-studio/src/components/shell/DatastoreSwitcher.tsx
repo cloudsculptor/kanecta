@@ -43,7 +43,7 @@ const MOCK_LOCAL = { name: 'local', description: 'Kanecta Internal - Filesystem 
 const MOCK_TO_PUSH = { add: 2, edit: 1, del: 0 };
 const MOCK_AVAILABLE = [
   { id: 'ws-work',     name: 'Work',     remote: 'work',     remoteDesc: 'Work shared server',     local: 'work',     branch: 'main' },
-  { id: 'ws-personal', name: 'Personal', remote: 'personal', remoteDesc: 'Personal cloud storage', local: 'personal', branch: 'experiment/ai-tagging' },
+  { id: 'ws-personal', name: 'Personal', remote: 'personal', remoteDesc: 'Personal cloud storage', local: 'personal', branch: 'draft/semantic-search' },
 ];
 const MOCK_BRANCHES = [
   { name: 'main', active: true },
