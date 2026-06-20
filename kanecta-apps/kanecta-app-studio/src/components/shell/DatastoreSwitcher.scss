@@ -1,3 +1,14 @@
+// GitHub colour tokens
+$gh-border:      #d0d7de;
+$gh-bg:          #ffffff;
+$gh-bg-subtle:   #f6f8fa;
+$gh-bg-hover:    #f3f4f6;
+$gh-text:        #24292f;
+$gh-text-muted:  #57606a;
+$gh-accent:      #0969da;
+$gh-green:       #1a7f37;
+$gh-shadow:      0 8px 24px rgba(140, 149, 159, 0.2);
+
 .DatastoreSwitcher {
   display: inline-flex;
   align-items: center;
@@ -31,7 +42,6 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 6px;
     color: #fff;
     font-weight: 700;
     letter-spacing: 0;
@@ -65,104 +75,222 @@
     opacity: 0.7;
   }
 
+  // ── Panel ──────────────────────────────────────────────
   &__panel {
-    min-width: 220px;
-    max-width: 320px;
+    width: 300px;
+    background: $gh-bg;
+    border: 1px solid $gh-border;
+    border-radius: 12px !important;
+    box-shadow: $gh-shadow !important;
+    overflow: hidden;
   }
 
-  &__panel-header {
-    padding: 10px 14px 6px;
+  &__section-header {
+    padding: 8px 16px 4px;
     font-size: 0.6875rem;
     font-weight: 600;
-    letter-spacing: 0.08em;
+    color: $gh-text-muted;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: #888;
   }
 
-  &__list {
-    list-style: none;
-    margin: 0;
-    padding: 4px 0;
+  // ── Working Set card ───────────────────────────────────
+  &__working-set {
+    margin: 4px 10px 10px;
+    border: 1px solid $gh-border;
+    border-radius: 6px;
+    overflow: hidden;
+    background: $gh-bg;
   }
 
-  &__option {
+  &__ws-row {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     width: 100%;
-    padding: 8px 14px;
+    padding: 8px 12px;
+    border: none;
+    background: none;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 0.8125rem;
+    color: $gh-text;
+    text-align: left;
+
+    &--remote {
+      cursor: pointer;
+      background: $gh-bg-subtle;
+
+      &:hover {
+        background: $gh-bg-hover;
+      }
+    }
+
+    &--branch {
+      cursor: default;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+  }
+
+  &__ws-icon {
+    font-size: 15px !important;
+    color: $gh-text-muted;
+    flex-shrink: 0;
+  }
+
+  &__ws-chevron {
+    font-size: 16px !important;
+    color: #c6cad0;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  &__ws-label {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    flex: 1;
+    overflow: hidden;
+
+    strong {
+      font-weight: 600;
+      font-size: 0.8125rem;
+    }
+  }
+
+  &__ws-sub {
+    font-size: 0.6875rem;
+    color: $gh-text-muted;
+  }
+
+  &__ws-divider {
+    height: 1px;
+    background: $gh-border;
+  }
+
+  &__ws-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    font-size: 0.6875rem;
+    border-top: 1px solid $gh-border;
+    background: $gh-bg-subtle;
+  }
+
+  &__ws-ahead {
+    color: $gh-text-muted;
+  }
+
+  &__ws-behind {
+    color: $gh-accent;
+    font-weight: 600;
+  }
+
+  &__ws-sep {
+    color: #c6cad0;
+  }
+
+  // ── Branch list ────────────────────────────────────────
+  &__branches {
+    list-style: none;
+    margin: 0;
+    padding: 4px 0 6px;
+  }
+
+  &__branch {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 16px;
     border: none;
     background: none;
     cursor: pointer;
     text-align: left;
-    font-size: 0.875rem;
-    font-family: inherit;
-    color: #333;
+    font-size: 0.8125rem;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: $gh-text;
 
     &:hover {
-      background: #f5f5f5;
+      background: $gh-bg-hover;
     }
 
     &--active {
       font-weight: 600;
     }
 
-    &-info {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      overflow: hidden;
-    }
+    &--add {
+      color: $gh-text-muted;
 
-    &-name {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      width: 100%;
-    }
-
-    &-path {
-      font-size: 0.6875rem;
-      color: #999;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      width: 100%;
-    }
-
-    &-path-error {
-      font-size: 0.6875rem;
-      color: #e53935;
-    }
-
-    &-check {
-      font-size: 16px !important;
-      color: #1976d2;
+      .DatastoreSwitcher__branch-add-icon {
+        font-size: 15px !important;
+        color: #adb5bd;
+      }
     }
   }
 
-  &__action {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    padding: 10px 14px;
-    border: none;
-    background: none;
-    cursor: pointer;
-    text-align: left;
-    font-size: 0.875rem;
-    font-family: inherit;
-    color: #555;
+  &__branch-glyph {
+    font-size: 0.8125rem;
+    color: $gh-text-muted;
+    flex-shrink: 0;
+    width: 16px;
+    text-align: center;
+  }
 
-    &:hover {
-      background: #f5f5f5;
-    }
+  &__branch-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__branch-check {
+    font-size: 14px !important;
+    color: $gh-accent;
+    flex-shrink: 0;
+  }
+
+  // ── Actions row ────────────────────────────────────────
+  &__actions {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 4px;
+    padding: 8px 10px 10px;
+    background: $gh-bg-subtle;
+    border-top: 1px solid $gh-border;
+  }
+
+  &__action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 7px 2px 5px;
+    border: 1px solid $gh-border;
+    background: $gh-bg;
+    cursor: pointer;
+    border-radius: 6px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 0.5625rem;
+    color: $gh-text-muted;
+    letter-spacing: 0.01em;
+    transition: border-color 80ms, background 80ms, color 80ms;
 
     .MuiSvgIcon-root {
-      font-size: 18px;
-      color: #888;
+      font-size: 15px !important;
+      color: $gh-text-muted;
+      transition: color 80ms;
+    }
+
+    &:hover {
+      background: $gh-bg;
+      border-color: $gh-accent;
+      color: $gh-accent;
+
+      .MuiSvgIcon-root {
+        color: $gh-accent;
+      }
     }
   }
 }

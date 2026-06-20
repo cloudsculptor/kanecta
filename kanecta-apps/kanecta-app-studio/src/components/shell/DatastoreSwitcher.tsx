@@ -1,11 +1,19 @@
 import { useEffect, useState } from 'react';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import CloudOutlinedIcon from '@mui/icons-material/CloudOutlined';
 import AddIcon from '@mui/icons-material/Add';
 import CheckIcon from '@mui/icons-material/Check';
 import ErrorOutlinedIcon from '@mui/icons-material/ErrorOutlined';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import DifferenceOutlinedIcon from '@mui/icons-material/DifferenceOutlined';
+import MergeTypeIcon from '@mui/icons-material/MergeType';
+import HistoryIcon from '@mui/icons-material/History';
+import CallMergeIcon from '@mui/icons-material/CallMerge';
 import Divider from '@mui/material/Divider';
 import Popover from '@mui/material/Popover';
-import { useQuery, useQueries } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useWorkspaceStore } from '../../store/workspace';
 import { api } from '../../api';
 import './DatastoreSwitcher.scss';
@@ -32,9 +40,19 @@ function DatastoreAvatar({ label, colour, size = 'md' }: AvatarProps) {
   );
 }
 
+// Hardcoded mock data — UI only, wired up later
+const MOCK_REMOTE = { name: 'origin', description: 'DigitalOcean Postgres' };
+const MOCK_AHEAD = 0;
+const MOCK_BEHIND = 3;
+const MOCK_BRANCHES = [
+  { name: 'richardsempire', active: true },
+  { name: 'linz-onboarding', active: false },
+  { name: 'experiment/ai-tagging', active: false },
+];
+
 export function DatastoreSwitcher() {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const { workspaces, activeWorkspaceId, setActiveWorkspace, updateWorkspace, getApi } = useWorkspaceStore();
+  const { workspaces, activeWorkspaceId, updateWorkspace } = useWorkspaceStore();
   const active = workspaces.find((w) => w.id === activeWorkspaceId);
 
   const open = Boolean(anchor);
@@ -45,7 +63,6 @@ export function DatastoreSwitcher() {
     retry: 1,
   });
 
-  // Cache path and derive display name from the actual datastore folder name
   useEffect(() => {
     if (activeConfig?.datastorePath) {
       const folderName = basename(activeConfig.datastorePath);
@@ -55,15 +72,6 @@ export function DatastoreSwitcher() {
       });
     }
   }, [activeConfig?.datastorePath, activeWorkspaceId, updateWorkspace]);
-
-  const workspaceConfigs = useQueries({
-    queries: workspaces.map((w) => ({
-      queryKey: ['config', w.id],
-      queryFn: () => getApi(w.id).config.get(),
-      enabled: open,
-      retry: 1,
-    })),
-  });
 
   const resolvedPath = activeConfig?.datastorePath ?? active?.datastorePath;
   const datastoreName = resolvedPath ? basename(resolvedPath) : (active?.name ?? null);
@@ -76,7 +84,7 @@ export function DatastoreSwitcher() {
         onClick={(e) => setAnchor(e.currentTarget)}
         aria-label="Switch datastore"
         aria-expanded={open}
-        aria-haspopup="listbox"
+        aria-haspopup="dialog"
       >
         {showError
           ? <ErrorOutlinedIcon className="DatastoreSwitcher__error-icon" />
@@ -96,49 +104,84 @@ export function DatastoreSwitcher() {
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
         slotProps={{ paper: { className: 'DatastoreSwitcher__panel' } }}
       >
-        <div className="DatastoreSwitcher__panel-header">Datastores</div>
-        <ul className="DatastoreSwitcher__list" role="listbox" aria-label="Datastores">
-          {workspaces.map((w, i) => {
-            const result = workspaceConfigs[i];
-            const path = result?.data?.datastorePath ?? w.datastorePath;
-            const pathError = result?.isError && !w.datastorePath;
-            const displayName = path ? basename(path) : w.name;
-            return (
-              <li key={w.id}>
-                <button
-                  className={`DatastoreSwitcher__option${w.id === activeWorkspaceId ? ' DatastoreSwitcher__option--active' : ''}`}
-                  role="option"
-                  aria-selected={w.id === activeWorkspaceId}
-                  onClick={() => {
-                    setActiveWorkspace(w.id);
-                    setAnchor(null);
-                  }}
-                >
-                  <DatastoreAvatar label={displayName} colour={w.colour} size="md" />
-                  <span className="DatastoreSwitcher__option-info">
-                    <span className="DatastoreSwitcher__option-name">{displayName}</span>
-                    {path && <span className="DatastoreSwitcher__option-path">{path}</span>}
-                    {pathError && <span className="DatastoreSwitcher__option-path-error">API unavailable</span>}
-                  </span>
-                  {w.id === activeWorkspaceId && (
-                    <CheckIcon className="DatastoreSwitcher__option-check" />
-                  )}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+
+        {/* ── Working Set ── */}
+        <div className="DatastoreSwitcher__section-header">Working Set</div>
+        <div className="DatastoreSwitcher__working-set">
+          <button className="DatastoreSwitcher__ws-row DatastoreSwitcher__ws-row--remote">
+            <CloudOutlinedIcon className="DatastoreSwitcher__ws-icon" />
+            <span className="DatastoreSwitcher__ws-label">
+              <strong>{MOCK_REMOTE.name}</strong>
+              <span className="DatastoreSwitcher__ws-sub">{MOCK_REMOTE.description}</span>
+            </span>
+            <ChevronRightIcon className="DatastoreSwitcher__ws-chevron" />
+          </button>
+          <div className="DatastoreSwitcher__ws-divider" />
+          <div className="DatastoreSwitcher__ws-row DatastoreSwitcher__ws-row--branch">
+            <span className="DatastoreSwitcher__branch-glyph">⎇</span>
+            <span className="DatastoreSwitcher__ws-label">
+              {MOCK_BRANCHES.find((b) => b.active)?.name ?? '—'}
+            </span>
+          </div>
+          <div className="DatastoreSwitcher__ws-status">
+            <span className="DatastoreSwitcher__ws-ahead">↑ {MOCK_AHEAD} to push</span>
+            <span className="DatastoreSwitcher__ws-sep">·</span>
+            <span className="DatastoreSwitcher__ws-behind">↓ {MOCK_BEHIND} to pull</span>
+          </div>
+        </div>
+
         <Divider />
-        <button
-          className="DatastoreSwitcher__action"
-          onClick={() => {
-            setAnchor(null);
-            // TODO: open create-datastore dialog
-          }}
-        >
-          <AddIcon />
-          <span>Create new datastore</span>
-        </button>
+
+        {/* ── Local Branches ── */}
+        <div className="DatastoreSwitcher__section-header">Local Branches</div>
+        <ul className="DatastoreSwitcher__branches">
+          {MOCK_BRANCHES.map((b) => (
+            <li key={b.name}>
+              <button className={`DatastoreSwitcher__branch${b.active ? ' DatastoreSwitcher__branch--active' : ''}`}>
+                <span className="DatastoreSwitcher__branch-glyph">⎇</span>
+                <span className="DatastoreSwitcher__branch-name">{b.name}</span>
+                {b.active && <CheckIcon className="DatastoreSwitcher__branch-check" />}
+              </button>
+            </li>
+          ))}
+          <li>
+            <button className="DatastoreSwitcher__branch DatastoreSwitcher__branch--add">
+              <AddIcon className="DatastoreSwitcher__branch-add-icon" />
+              <span className="DatastoreSwitcher__branch-name">New branch</span>
+            </button>
+          </li>
+        </ul>
+
+        <Divider />
+
+        {/* ── Actions ── */}
+        <div className="DatastoreSwitcher__actions">
+          <button className="DatastoreSwitcher__action-btn">
+            <ArrowDownwardIcon />
+            <span>Pull</span>
+          </button>
+          <button className="DatastoreSwitcher__action-btn">
+            <ArrowUpwardIcon />
+            <span>Push</span>
+          </button>
+          <button className="DatastoreSwitcher__action-btn">
+            <DifferenceOutlinedIcon />
+            <span>Diff</span>
+          </button>
+          <button className="DatastoreSwitcher__action-btn">
+            <MergeTypeIcon />
+            <span>Merge</span>
+          </button>
+          <button className="DatastoreSwitcher__action-btn">
+            <HistoryIcon />
+            <span>Log</span>
+          </button>
+          <button className="DatastoreSwitcher__action-btn">
+            <CallMergeIcon />
+            <span>PR</span>
+          </button>
+        </div>
+
       </Popover>
     </>
   );
