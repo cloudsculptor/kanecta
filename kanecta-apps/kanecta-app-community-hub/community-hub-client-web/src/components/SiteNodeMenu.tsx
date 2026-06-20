@@ -112,7 +112,7 @@ export default function SiteNodeMenu({ node, siblings, index, govType, onMove, o
   }
 
   return (
-    <div className="sn-menu" ref={ref}>
+    <div className={`sn-menu${open ? " sn-menu--open" : ""}`} ref={ref}>
       <button className="sn-menu__trigger" onClick={toggle} type="button" aria-label="Options">
         •••
       </button>
@@ -139,8 +139,14 @@ export default function SiteNodeMenu({ node, siblings, index, govType, onMove, o
                 Move down
               </button>
               <div className="sn-menu__divider" />
-              <button className="sn-menu__item sn-menu__item--danger" onClick={() => setView("delete-confirm")} type="button">
-                Delete
+              <button
+                className="sn-menu__item sn-menu__item--danger"
+                onClick={() => setView("delete-confirm")}
+                disabled={!isCategory(node) && node.children.length > 0}
+                title={!isCategory(node) && node.children.length > 0 ? "Remove all categories first" : undefined}
+                type="button"
+              >
+                Archive
               </button>
             </>
           )}
@@ -203,10 +209,10 @@ export default function SiteNodeMenu({ node, siblings, index, govType, onMove, o
 
           {view === "delete-confirm" && (
             <div className="sn-menu__edit-form">
-              <p className="sn-menu__confirm-text">Delete <strong>{node.title}</strong>?</p>
+              <p className="sn-menu__confirm-text">Archive <strong>{node.title}</strong>?</p>
               <div className="sn-menu__edit-actions">
                 <button className="sn-menu__save-btn sn-menu__save-btn--danger" onClick={handleDelete} disabled={busy} type="button">
-                  {busy ? "Deleting…" : "Delete"}
+                  {busy ? "Archiving…" : "Archive"}
                 </button>
                 <button className="sn-menu__cancel-btn" onClick={() => setView("menu")} type="button">Cancel</button>
               </div>

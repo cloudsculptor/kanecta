@@ -3779,7 +3779,7 @@ $bp-tablet: 768px;
       transform: translateY(-50%);
       z-index: 1;
 
-      &:has(.sn-menu__dropdown) {
+      &.sn-menu--open {
         z-index: 50;
       }
     }
