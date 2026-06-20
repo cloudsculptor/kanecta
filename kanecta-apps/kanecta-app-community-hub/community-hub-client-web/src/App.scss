@@ -3105,17 +3105,21 @@ $bp-tablet: 768px;
 .policy-group {
   margin-bottom: 2rem;
 
-  &__heading {
+  &__heading-row {
     display: flex;
     align-items: center;
     gap: 8px;
+    margin: 0 0 10px;
+  }
+
+  &__heading {
     font-size: 16px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     color: var(--text);
     opacity: 0.5;
-    margin: 0 0 10px;
+    margin: 0;
   }
 }
 
@@ -3766,11 +3770,14 @@ $bp-tablet: 768px;
   }
 
   &__item-wrap {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    position: relative;
 
-    .role-index__item { flex: 1; }
+    .sn-menu {
+      position: absolute;
+      top: 50%;
+      right: 20px;
+      transform: translateY(-50%);
+    }
   }
 }
 

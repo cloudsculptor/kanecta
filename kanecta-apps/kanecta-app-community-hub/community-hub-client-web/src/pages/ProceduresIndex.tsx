@@ -6,7 +6,6 @@ import { useUserRoles, hasRole } from "../auth/useUserRole";
 import SiteNodeEditor from "../components/SiteNodeEditor";
 import SiteNodeMenu from "../components/SiteNodeMenu";
 
-
 export default function ProceduresIndex() {
   const roles = useUserRoles();
   const isModerator = hasRole(roles, "moderator");
@@ -28,8 +27,8 @@ export default function ProceduresIndex() {
       {error && <p className="pages-error">{error}</p>}
       {groups.map((group, gi) => (
         <div key={group.id} className="policy-group">
-          <h3 className="policy-group__heading">
-            {group.title}
+          <div className="policy-group__heading-row">
+            <h3 className="policy-group__heading">{group.title}</h3>
             {isModerator && (
               <SiteNodeMenu
                 node={group}
@@ -41,7 +40,7 @@ export default function ProceduresIndex() {
                 onSaved={reload}
               />
             )}
-          </h3>
+          </div>
           <div className="role-index">
             {group.children.map((cat, ci) => (
               <div key={cat.id} className="role-index__item-wrap">
@@ -50,7 +49,7 @@ export default function ProceduresIndex() {
                   {cat.metadata.description && (
                     <span className="role-index__description">{cat.metadata.description}</span>
                   )}
-                  <span className="role-index__arrow">→</span>
+                  {!isModerator && <span className="role-index__arrow">→</span>}
                 </Link>
                 {isModerator && (
                   <SiteNodeMenu
