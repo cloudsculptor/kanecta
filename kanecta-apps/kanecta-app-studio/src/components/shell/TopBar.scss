@@ -55,16 +55,6 @@
     min-width: 0;
   }
 
-  &-account {
-    position: absolute;
-    top: 0;
-    right: 8px;
-    bottom: 0;
-    z-index: 1;
-    display: flex;
-    align-items: center;
-  }
-
   &-input {
     width: 100%;
     border: none;
