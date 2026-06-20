@@ -2,12 +2,10 @@
 .TopRightCorner,
 .BottomLeftCorner,
 .BottomRightCorner {
-  height: 80px;
   background: var(--sidebar-bg, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
   // TODO: remove debug shading
   outline: 3px dashed rgba(255, 255, 255, 0.4);
   outline-offset: -3px;
