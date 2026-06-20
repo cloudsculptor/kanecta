@@ -5,8 +5,6 @@ import HistoryIcon from '@mui/icons-material/History';
 import StarIcon from '@mui/icons-material/Star';
 import { useLocation } from '../../context/LocationContext';
 import type { ViewType } from '../../types/ui';
-import { BottomLeftCorner } from './BottomLeftCorner';
-import { BottomRightCorner } from './BottomRightCorner';
 import './BottomBar.scss';
 
 interface BottomBarProps {
@@ -31,7 +29,7 @@ export function BottomBar({ activeView, onViewSelect }: BottomBarProps) {
 
   return (
     <nav className={`BottomBar${overlayOpen ? ' BottomBar--raised' : ''}`}>
-      <BottomLeftCorner />
+      <nav className="BottomBar-bottomLeftCorner" />
       <div className="BottomBar-center">
         {item('starred', 'Starred', <StarIcon />)}
         {item('history', 'History', <HistoryIcon />)}
@@ -45,7 +43,7 @@ export function BottomBar({ activeView, onViewSelect }: BottomBarProps) {
         {item('layouts', 'Layouts', <DashboardIcon />)}
         {item('todo', 'Todo', <ChecklistIcon />)}
       </div>
-      <BottomRightCorner />
+      <nav className="BottomBar-bottomRightCorner" />
     </nav>
   );
 }

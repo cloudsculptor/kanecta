@@ -6,6 +6,16 @@
   overflow: hidden;
   background: var(--sidebar-bg, transparent);
 
+  &-topLeftCorner,
+  &-topRightCorner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    // TODO: remove debug shading
+    outline: 3px dashed rgba(255, 255, 255, 0.4);
+    outline-offset: -3px;
+  }
+
   &-center {
     display: flex;
     flex-direction: row;
