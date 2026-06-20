@@ -8,6 +8,7 @@ import MergeTypeIcon from '@mui/icons-material/MergeType';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import AltRouteIcon from '@mui/icons-material/AltRoute';
 import type { ViewType } from '../../types/ui';
 import './LeftBar.scss';
 
@@ -29,6 +30,7 @@ const NAV_ITEMS: NavItem[] = [
   { view: 'graph', label: 'Graph', icon: <BubbleChartIcon /> },
   { view: 'quality-control', label: 'Quality', icon: <FactCheckIcon /> },
   { view: 'claude', label: 'Claude', icon: <AutoAwesomeIcon /> },
+  { view: 'pull-requests', label: 'PR', icon: <AltRouteIcon /> },
 ];
 
 interface LeftBarProps {

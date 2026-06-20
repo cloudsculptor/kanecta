@@ -20,6 +20,7 @@ import { StarredView } from '../components/views/StarredView/StarredView';
 import { DigestView } from '../components/views/MissionControl/DigestView';
 import { AIInstructionsView } from '../components/views/AIInstructionsView/AIInstructionsView';
 import { ClaudeView } from '../components/views/ClaudeView/ClaudeView';
+import { PullRequestsView } from '../components/views/PullRequestsView/PullRequestsView';
 import { HomeView } from '../components/views/HomeView/HomeView';
 import { DiagramView } from '../components/views/DiagramView/DiagramView';
 import { FunctionsView } from '../components/views/FunctionsView/FunctionsView';
@@ -126,6 +127,7 @@ function StudioInner() {
       case 'digest': return <DigestView />;
       case 'ai-instructions': return <AIInstructionsView />;
       case 'claude': return <ClaudeView />;
+      case 'pull-requests': return <PullRequestsView />;
       case 'settings': return <SettingsPage />;
       case 'home': return <HomeView />;
       case 'diagram': return <DiagramView />;

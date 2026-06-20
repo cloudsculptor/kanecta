@@ -1,0 +1,564 @@
+// GitHub colour tokens (matching DatastoreSwitcher)
+$gh-border:        #d0d7de;
+$gh-bg:            #ffffff;
+$gh-bg-subtle:     #f6f8fa;
+$gh-bg-hover:      #f3f4f6;
+$gh-text:          #24292f;
+$gh-text-muted:    #57606a;
+$gh-accent:        #0969da;
+$gh-green:         #1f883d;
+$gh-green-bg:      #dafbe1;
+$gh-purple:        #8250df;
+$gh-purple-bg:     #fbefff;
+$gh-red:           #cf222e;
+$gh-shadow:        0 1px 0 rgba(27, 31, 36, 0.04);
+
+.PullRequestsView {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: $gh-bg;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 0.875rem;
+  color: $gh-text;
+
+  // ── Outer tab bar (GitHub repo nav style) ────────────────────────────────
+  &__tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid $gh-border;
+    background: $gh-bg-subtle;
+    padding: 0 16px;
+    flex-shrink: 0;
+  }
+
+  &__tab {
+    padding: 12px 16px;
+    border: none;
+    background: none;
+    font-family: inherit;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: $gh-text-muted;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    white-space: nowrap;
+
+    &:hover {
+      color: $gh-text;
+      background: rgba(175, 184, 193, 0.2);
+      border-radius: 6px 6px 0 0;
+    }
+
+    &--active {
+      color: $gh-text;
+      border-bottom-color: #fd8c73;
+      font-weight: 600;
+    }
+  }
+
+  &__content {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  // ── PR List tab ───────────────────────────────────────────────────────────
+  &__list-page {
+    max-width: 1012px;
+    margin: 0 auto;
+    padding: 24px 16px;
+  }
+
+  &__list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  &__list-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: $gh-text;
+    margin: 0;
+  }
+
+  &__new-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    background: $gh-green;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: 0 1px 0 rgba(27, 31, 36, 0.1);
+
+    .MuiSvgIcon-root { font-size: 14px !important; }
+
+    &:hover { background: darken(#1f883d, 5%); }
+  }
+
+  &__filter-bar {
+    border: 1px solid $gh-border;
+    border-radius: 6px 6px 0 0;
+    background: $gh-bg-subtle;
+  }
+
+  &__state-tabs {
+    display: flex;
+    gap: 0;
+    padding: 8px 16px;
+  }
+
+  &__state-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 8px;
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: $gh-text-muted;
+    cursor: pointer;
+    border-radius: 6px;
+
+    .MuiSvgIcon-root { font-size: 1em !important; }
+
+    &:hover { color: $gh-text; }
+
+    &--active {
+      color: $gh-text;
+      font-weight: 600;
+    }
+  }
+
+  &__count {
+    display: inline-block;
+    padding: 0 6px;
+    background: rgba(175, 184, 193, 0.2);
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: $gh-text-muted;
+  }
+
+  &__pr-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid $gh-border;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    overflow: hidden;
+  }
+
+  &__pr-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    border-top: 1px solid $gh-border;
+    background: $gh-bg;
+
+    &--first { border-top: none; }
+
+    &:hover { background: $gh-bg-subtle; }
+  }
+
+  &__pr-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__pr-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+  }
+
+  &__pr-title {
+    font-weight: 600;
+    font-size: 0.9375rem;
+    color: $gh-text;
+    cursor: pointer;
+    &:hover { color: $gh-accent; }
+  }
+
+  &__pr-meta {
+    font-size: 0.75rem;
+    color: $gh-text-muted;
+  }
+
+  &__pr-branch {
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    font-size: 0.6875rem;
+    background: $gh-bg-subtle;
+    border: 1px solid $gh-border;
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+
+  &__label {
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    white-space: nowrap;
+
+    &--enhancement { background: #dafbe1; color: #116329; border: 1px solid rgba(17, 99, 41, 0.2); }
+    &--bug         { background: #ffebe9; color: #a40e26; border: 1px solid rgba(164, 14, 38, 0.2); }
+  }
+
+  &__pr-comments {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    color: $gh-text-muted;
+    white-space: nowrap;
+
+    .MuiSvgIcon-root { font-size: 0.875rem !important; }
+  }
+
+  // ── PR Detail tab ─────────────────────────────────────────────────────────
+  &__detail-page {
+    max-width: 1012px;
+    margin: 0 auto;
+    padding: 24px 16px 0;
+  }
+
+  &__detail-header {
+    padding-bottom: 16px;
+    border-bottom: 1px solid $gh-border;
+  }
+
+  &__detail-title {
+    font-size: 1.5rem;
+    font-weight: 400;
+    color: $gh-text;
+    margin: 0 0 8px;
+    line-height: 1.4;
+  }
+
+  &__detail-number {
+    color: $gh-text-muted;
+    font-weight: 300;
+    margin-left: 8px;
+  }
+
+  &__detail-status-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  &__open-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    background: $gh-green;
+    color: #fff;
+    border-radius: 20px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    white-space: nowrap;
+
+    .MuiSvgIcon-root { font-size: 0.875rem !important; }
+  }
+
+  &__detail-meta {
+    font-size: 0.875rem;
+    color: $gh-text-muted;
+
+    code {
+      font-family: 'SFMono-Regular', Consolas, monospace;
+      font-size: 0.8125rem;
+      background: $gh-bg-subtle;
+      border: 1px solid $gh-border;
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: $gh-text;
+    }
+  }
+
+  // Sub-tabs (Conversation / Commits / Files changed)
+  &__detail-tabs {
+    display: flex;
+    border-bottom: 1px solid $gh-border;
+    margin-top: 0;
+    background: $gh-bg-subtle;
+    padding: 0;
+  }
+
+  &__detail-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 16px;
+    border: none;
+    background: none;
+    font-family: inherit;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: $gh-text-muted;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+
+    &:hover {
+      color: $gh-text;
+      background: rgba(175, 184, 193, 0.2);
+    }
+
+    &--active {
+      color: $gh-text;
+      border-bottom-color: #fd8c73;
+      font-weight: 600;
+      background: $gh-bg;
+    }
+  }
+
+  &__detail-tab-count {
+    display: inline-block;
+    padding: 0 6px;
+    background: rgba(175, 184, 193, 0.2);
+    border-radius: 20px;
+    font-size: 0.75rem;
+    color: $gh-text-muted;
+  }
+
+  &__detail-body {
+    padding: 16px 0;
+  }
+
+  // Conversation sub-tab
+  &__conversation {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  &__pr-desc-card {
+    border: 1px solid $gh-border;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  &__pr-desc-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: $gh-bg-subtle;
+    border-bottom: 1px solid $gh-border;
+    font-size: 0.875rem;
+  }
+
+  &__pr-desc-meta {
+    color: $gh-text-muted;
+    font-weight: 400;
+  }
+
+  &__pr-desc-body {
+    padding: 16px;
+    font-size: 0.875rem;
+    line-height: 1.6;
+
+    p { margin: 0 0 8px; }
+    ul { margin: 0; padding-left: 24px; }
+    li { margin-bottom: 4px; }
+    code {
+      font-family: 'SFMono-Regular', Consolas, monospace;
+      font-size: 0.8125rem;
+      background: $gh-bg-subtle;
+      border: 1px solid $gh-border;
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+  }
+
+  &__no-reviews {
+    text-align: center;
+    padding: 32px;
+    color: $gh-text-muted;
+    font-size: 0.875rem;
+    border: 1px solid $gh-border;
+    border-radius: 6px;
+  }
+
+  // Commits sub-tab
+  &__commit-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid $gh-border;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  &__commit-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 10px 16px;
+    border-bottom: 1px solid $gh-border;
+    background: $gh-bg;
+
+    &:last-child { border-bottom: none; }
+    &:hover { background: $gh-bg-subtle; }
+  }
+
+  &__commit-sha {
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    font-size: 0.75rem;
+    color: $gh-accent;
+    cursor: pointer;
+    flex-shrink: 0;
+    &:hover { text-decoration: underline; }
+  }
+
+  &__commit-msg {
+    flex: 1;
+    font-size: 0.875rem;
+    color: $gh-text;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__commit-meta {
+    font-size: 0.75rem;
+    color: $gh-text-muted;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  // Files changed sub-tab
+  &__files-changed {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  &__files-summary {
+    font-size: 0.875rem;
+    color: $gh-text-muted;
+    padding: 8px 0;
+  }
+
+  &__diff-file {
+    border: 1px solid $gh-border;
+    border-radius: 6px;
+    overflow: hidden;
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    font-size: 0.75rem;
+  }
+
+  &__diff-file-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: $gh-bg-subtle;
+    border-bottom: 1px solid $gh-border;
+    cursor: pointer;
+    user-select: none;
+    &:hover { background: $gh-bg-hover; }
+  }
+
+  &__diff-file-path {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8125rem;
+    color: $gh-text;
+  }
+
+  &__diff-new-badge {
+    padding: 1px 6px;
+    background: $gh-green-bg;
+    color: $gh-green;
+    border-radius: 4px;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  &__diff-stats {
+    display: flex;
+    gap: 6px;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  &__diff-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  &__diff-line {
+    &--add  { background: #e6ffec; }
+    &--del  { background: #ffebe9; }
+    &--context { background: $gh-bg; }
+  }
+
+  &__diff-gutter {
+    width: 20px;
+    text-align: center;
+    color: $gh-text-muted;
+    padding: 1px 6px;
+    user-select: none;
+    font-size: 0.6875rem;
+    border-right: 1px solid $gh-border;
+
+    .PullRequestsView__diff-line--add & { color: $gh-green; background: #ccffd8; }
+    .PullRequestsView__diff-line--del & { color: $gh-red;   background: #ffd7d5; }
+  }
+
+  &__diff-code {
+    padding: 1px 12px;
+    white-space: pre;
+    color: $gh-text;
+
+    .PullRequestsView__diff-line--add & { color: #116329; }
+    .PullRequestsView__diff-line--del & { color: #a40e26; }
+  }
+
+  &__diff-add { color: $gh-green; font-weight: 600; }
+  &__diff-del { color: $gh-red;   font-weight: 600; }
+
+  // ── Merge / Sync tab ──────────────────────────────────────────────────────
+  &__merge-page {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+  }
+
+  &__empty {
+    color: $gh-text-muted;
+    font-size: 0.875rem;
+  }
+
+  // ── PR state icons ────────────────────────────────────────────────────────
+  .PRIcon {
+    flex-shrink: 0;
+    margin-top: 2px;
+
+    &--open   { color: $gh-green !important; }
+    &--merged { color: $gh-purple !important; }
+    &--closed { color: $gh-red !important; }
+  }
+}

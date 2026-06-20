@@ -15,6 +15,7 @@ import BubbleChartIcon from '@mui/icons-material/BubbleChart';
 import FlightIcon from '@mui/icons-material/Flight';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import SyncIcon from '@mui/icons-material/Sync';
+import AltRouteIcon from '@mui/icons-material/AltRoute';
 function ClaudeIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -57,6 +58,7 @@ const NAV_ITEMS: NavEntry[] = [
   { view: 'calendar', label: 'Calendar', icon: <DateRangeIcon fontSize="small" /> },
   { view: 'mission-control', label: 'Mission Control', icon: <FlightIcon fontSize="small" /> },
   { view: 'claude', label: 'Claude CLI', icon: <ClaudeIcon /> },
+  { view: 'pull-requests', label: 'Pull Requests', icon: <AltRouteIcon fontSize="small" /> },
   { divider: true },
   { view: 'query', label: 'Query', icon: <ManageSearchIcon fontSize="small" />, disabled: true },
   { view: 'inbox', label: 'Inbox', icon: <InboxIcon fontSize="small" />, disabled: true },

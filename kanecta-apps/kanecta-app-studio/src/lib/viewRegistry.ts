@@ -15,6 +15,7 @@ import { StarredViewMeta } from '../components/views/StarredView/StarredView';
 import { DigestViewMeta } from '../components/views/MissionControl/DigestView';
 import { AIInstructionsViewMeta } from '../components/views/AIInstructionsView/AIInstructionsView';
 import { ClaudeViewMeta } from '../components/views/ClaudeView/ClaudeView';
+import { PullRequestsViewMeta } from '../components/views/PullRequestsView/PullRequestsView';
 import { SettingsViewMeta } from '../pages/SettingsPage';
 import { HomeViewMeta } from '../components/views/HomeView/HomeView';
 import { DiagramViewMeta } from '../components/views/DiagramView/DiagramView';
@@ -23,8 +24,8 @@ const ALL_METAS: ViewMeta[] = [
   TreeViewMeta, TableViewMeta, TypesViewMeta, BoardViewMeta, GalleryViewMeta,
   ListViewMeta, CalendarViewMeta, GraphViewMeta, CombinatorViewMeta,
   MissionControlMeta, QualityControlViewMeta, HistoryViewMeta, StarredViewMeta,
-  DigestViewMeta, AIInstructionsViewMeta, ClaudeViewMeta, SettingsViewMeta,
-  HomeViewMeta, DiagramViewMeta,
+  DigestViewMeta, AIInstructionsViewMeta, ClaudeViewMeta, PullRequestsViewMeta,
+  SettingsViewMeta, HomeViewMeta, DiagramViewMeta,
 ];
 
 export const VIEW_REGISTRY: Record<string, ViewMeta> = Object.fromEntries(
