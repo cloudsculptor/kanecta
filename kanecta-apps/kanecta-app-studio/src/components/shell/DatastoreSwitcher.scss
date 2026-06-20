@@ -359,45 +359,41 @@ $gh-shadow:      0 8px 24px rgba(140, 149, 159, 0.2);
 
   // ── Actions row ────────────────────────────────────────
   &__actions {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 4px;
-    padding: 8px 10px 10px;
+    padding: 10px 12px 12px;
     background: $gh-bg-subtle;
     border-top: 1px solid $gh-border;
   }
 
   &__action-btn {
-    display: flex;
-    flex-direction: row;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    padding: 8px 12px;
-    border: 1px solid $gh-border;
-    background: $gh-bg;
+    padding: 6px 16px;
+    border: 1px solid rgba(31, 35, 40, 0.15);
+    background: #1f883d;
     cursor: pointer;
     border-radius: 6px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    font-size: 0.5625rem;
-    color: $gh-text-muted;
-    letter-spacing: 0.01em;
-    transition: border-color 80ms, background 80ms, color 80ms;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 20px;
+    color: #ffffff;
+    box-shadow: 0 1px 0 rgba(31, 35, 40, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    transition: background 80ms;
 
     .MuiSvgIcon-root {
-      font-size: 15px !important;
-      color: $gh-text-muted;
-      transition: color 80ms;
+      font-size: 16px !important;
+      color: #ffffff;
     }
 
     &:hover {
-      background: $gh-bg;
-      border-color: $gh-accent;
-      color: $gh-accent;
+      background: #1a7f37;
+    }
 
-      .MuiSvgIcon-root {
-        color: $gh-accent;
-      }
+    &:active {
+      background: #196c2e;
+      box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.2);
     }
   }
 }

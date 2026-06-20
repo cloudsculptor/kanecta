@@ -41,13 +41,13 @@ const MOCK_REMOTE = { name: 'origin', description: 'DigitalOcean Postgres' };
 const MOCK_LOCAL = { name: 'local', description: 'richardsempire', branch: 'main' };
 const MOCK_TO_PUSH = { add: 2, edit: 1, del: 0 };
 const MOCK_AVAILABLE = [
-  { id: 'ws-linz',     remote: 'linz',     remoteDesc: 'Linz internal server',  local: 'shared-knowledge',  branch: 'main' },
-  { id: 'ws-personal', remote: 'personal', remoteDesc: 'Personal cloud storage', local: 'side-project',    branch: 'experiment/ai-tagging' },
+  { id: 'ws-work',     remote: 'work',     remoteDesc: 'Work shared server',     local: 'shared-knowledge', branch: 'main' },
+  { id: 'ws-personal', remote: 'personal', remoteDesc: 'Personal cloud storage', local: 'side-project',     branch: 'experiment/ai-tagging' },
 ];
 const MOCK_BRANCHES = [
   { name: 'main', active: true },
-  { name: 'linz-onboarding', active: false },
-  { name: 'experiment/ai-tagging', active: false },
+  { name: 'feature/ai-tagging', active: false },
+  { name: 'experiment/graph-viz', active: false },
 ];
 
 export function DatastoreSwitcher() {
@@ -194,7 +194,7 @@ export function DatastoreSwitcher() {
         <div className="DatastoreSwitcher__actions">
           <button className="DatastoreSwitcher__action-btn">
             <CallMergeIcon />
-            <span>Create PR</span>
+            <span>Create Pull Request</span>
           </button>
         </div>
 
