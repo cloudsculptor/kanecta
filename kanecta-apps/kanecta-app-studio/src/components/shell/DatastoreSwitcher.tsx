@@ -6,6 +6,7 @@ import Divider from '@mui/material/Divider';
 import Popover from '@mui/material/Popover';
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { useWorkspaceStore } from '../../store/workspace';
+import { api } from '../../api';
 import './DatastoreSwitcher.scss';
 
 function basename(p: string): string {
@@ -21,7 +22,7 @@ export function DatastoreSwitcher() {
 
   const { data: activeConfig } = useQuery({
     queryKey: ['config', activeWorkspaceId],
-    queryFn: () => getApi(activeWorkspaceId).config.get(),
+    queryFn: () => api.config.get(),
   });
 
   const workspaceConfigs = useQueries({
