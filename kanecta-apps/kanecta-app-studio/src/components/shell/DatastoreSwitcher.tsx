@@ -14,6 +14,24 @@ function basename(p: string): string {
   return p.replace(/\/+$/, '').split('/').pop() ?? p;
 }
 
+interface AvatarProps {
+  label: string;
+  colour: string;
+  size?: 'sm' | 'md';
+}
+
+function DatastoreAvatar({ label, colour, size = 'md' }: AvatarProps) {
+  return (
+    <span
+      className={`DatastoreSwitcher__avatar DatastoreSwitcher__avatar--${size}`}
+      style={{ background: colour }}
+      aria-hidden
+    >
+      {label[0]?.toUpperCase()}
+    </span>
+  );
+}
+
 export function DatastoreSwitcher() {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const { workspaces, activeWorkspaceId, setActiveWorkspace, updateWorkspace, getApi } = useWorkspaceStore();
@@ -27,10 +45,14 @@ export function DatastoreSwitcher() {
     retry: 1,
   });
 
-  // Cache the path in the workspace store so it survives API downtime
+  // Cache path and derive display name from the actual datastore folder name
   useEffect(() => {
     if (activeConfig?.datastorePath) {
-      updateWorkspace(activeWorkspaceId, { datastorePath: activeConfig.datastorePath });
+      const folderName = basename(activeConfig.datastorePath);
+      updateWorkspace(activeWorkspaceId, {
+        datastorePath: activeConfig.datastorePath,
+        name: folderName,
+      });
     }
   }, [activeConfig?.datastorePath, activeWorkspaceId, updateWorkspace]);
 
@@ -43,9 +65,8 @@ export function DatastoreSwitcher() {
     })),
   });
 
-  // Use live API path if available, fall back to cached store value
   const resolvedPath = activeConfig?.datastorePath ?? active?.datastorePath;
-  const datastoreName = resolvedPath ? basename(resolvedPath) : null;
+  const datastoreName = resolvedPath ? basename(resolvedPath) : (active?.name ?? null);
   const showError = activeConfigError && !active?.datastorePath;
 
   return (
@@ -59,7 +80,7 @@ export function DatastoreSwitcher() {
       >
         {showError
           ? <ErrorOutlinedIcon className="DatastoreSwitcher__error-icon" />
-          : <span className="DatastoreSwitcher__dot" style={{ background: active?.colour ?? '#888' }} />
+          : <DatastoreAvatar label={datastoreName ?? '?'} colour={active?.colour ?? '#888'} size="sm" />
         }
         <span className="DatastoreSwitcher__name">
           {showError ? 'Unavailable' : (datastoreName ?? '…')}
@@ -79,9 +100,9 @@ export function DatastoreSwitcher() {
         <ul className="DatastoreSwitcher__list" role="listbox" aria-label="Datastores">
           {workspaces.map((w, i) => {
             const result = workspaceConfigs[i];
-            // Live API path takes priority; fall back to cached store path
             const path = result?.data?.datastorePath ?? w.datastorePath;
             const pathError = result?.isError && !w.datastorePath;
+            const displayName = path ? basename(path) : w.name;
             return (
               <li key={w.id}>
                 <button
@@ -93,9 +114,9 @@ export function DatastoreSwitcher() {
                     setAnchor(null);
                   }}
                 >
-                  <span className="DatastoreSwitcher__option-dot" style={{ background: w.colour }} />
+                  <DatastoreAvatar label={displayName} colour={w.colour} size="md" />
                   <span className="DatastoreSwitcher__option-info">
-                    <span className="DatastoreSwitcher__option-name">{w.name}</span>
+                    <span className="DatastoreSwitcher__option-name">{displayName}</span>
                     {path && <span className="DatastoreSwitcher__option-path">{path}</span>}
                     {pathError && <span className="DatastoreSwitcher__option-path-error">API unavailable</span>}
                   </span>
