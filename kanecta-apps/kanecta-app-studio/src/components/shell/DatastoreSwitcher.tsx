@@ -37,9 +37,9 @@ function DatastoreAvatar({ label, colour, size = 'md' }: AvatarProps) {
 }
 
 // Hardcoded mock data — UI only, wired up later
-const MOCK_ACTIVE_NAME = 'richardsempire main';
-const MOCK_REMOTE = { name: 'origin', description: 'DigitalOcean Postgres' };
-const MOCK_LOCAL = { name: 'local', description: 'richardsempire', branch: 'main' };
+const MOCK_ACTIVE_NAME = 'Kanecta Internal';
+const MOCK_REMOTE = { name: 'origin', description: 'Kanecta Internal - DigitalOcean Postgres' };
+const MOCK_LOCAL = { name: 'local', description: 'Kanecta Internal - Filesystem + SQLite', branch: 'main' };
 const MOCK_TO_PUSH = { add: 2, edit: 1, del: 0 };
 const MOCK_AVAILABLE = [
   { id: 'ws-work',     name: 'Work shared',       remote: 'work',     remoteDesc: 'Work shared server',     local: 'shared-knowledge', branch: 'main' },
