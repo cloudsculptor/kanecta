@@ -1,11 +1,11 @@
 .AppShell {
   display: grid;
   grid-template-areas:
-    'top-left  top    top-right'
-    'left      body   right'
-    'bot-left  bottom bot-right';
+    'top    top    top'
+    'left   body   right'
+    'bottom bottom bottom';
   grid-template-rows: 80px 1fr 80px;
-  grid-template-columns: minmax(80px, max-content) 1fr minmax(80px, max-content);
+  grid-template-columns: 80px 1fr 80px;
   height: 100vh;
   width: 100vw;
   overflow: hidden;

@@ -4,10 +4,6 @@ import { LeftBar } from './LeftBar';
 import { RightBar } from './RightBar';
 import { BottomBar } from './BottomBar';
 import { ItemOverlay } from './ItemOverlay';
-import { TopLeftCorner } from './TopLeftCorner';
-import { TopRightCorner } from './TopRightCorner';
-import { BottomLeftCorner } from './BottomLeftCorner';
-import { BottomRightCorner } from './BottomRightCorner';
 import { useUiStore } from '../../store/ui';
 import { useSettingsStore } from '../../store/settings';
 import type { ViewType } from '../../types/ui';
@@ -62,22 +58,18 @@ export function AppShell({
   return (
     <div className="AppShell" style={{ '--sidebar-bg': sidebarBg, '--sidebar-fg': sidebarFg, '--sidebar-fg-selected': sidebarFgSelected, '--content-bg': contentBg, '--content-border': contentBorder, '--location-border': locationBorder } as React.CSSProperties}>
       <ItemOverlay />
-      <TopLeftCorner />
       <TopBar
         onQuickCapture={onOpenQuickCapture}
         onCommandPalette={onOpenCommandPalette}
         onViewSelect={handleViewSelect}
         activeView={activeView}
       />
-      <TopRightCorner />
       <LeftBar activeView={activeView} onViewSelect={handleViewSelect} />
       <main className="Content" style={{ background: contentBg, border: showContentBorder ? `1px solid ${contentBorder}` : 'none' }}>
         <div className="AppShell-main">{children}</div>
       </main>
       <RightBar activeView={activeView} onViewSelect={handleViewSelect} />
-      <BottomLeftCorner />
       <BottomBar activeView={activeView} onViewSelect={handleViewSelect} />
-      <BottomRightCorner />
     </div>
   );
 }

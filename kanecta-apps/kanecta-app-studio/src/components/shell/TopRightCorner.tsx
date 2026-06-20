@@ -3,8 +3,8 @@ import './Corners.scss';
 
 export function TopRightCorner() {
   return (
-    <div className="TopRightCorner">
+    <nav className="TopRightCorner">
       <AccountMenu />
-    </div>
+    </nav>
   );
 }

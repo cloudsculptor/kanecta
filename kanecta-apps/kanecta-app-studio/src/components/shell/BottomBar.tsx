@@ -5,6 +5,8 @@ import HistoryIcon from '@mui/icons-material/History';
 import StarIcon from '@mui/icons-material/Star';
 import { useLocation } from '../../context/LocationContext';
 import type { ViewType } from '../../types/ui';
+import { BottomLeftCorner } from './BottomLeftCorner';
+import { BottomRightCorner } from './BottomRightCorner';
 import './BottomBar.scss';
 
 interface BottomBarProps {
@@ -29,17 +31,21 @@ export function BottomBar({ activeView, onViewSelect }: BottomBarProps) {
 
   return (
     <nav className={`BottomBar${overlayOpen ? ' BottomBar--raised' : ''}`}>
-      {item('starred', 'Starred', <StarIcon />)}
-      {item('history', 'History', <HistoryIcon />)}
-      <Fab
-        onClick={() => overlayOpen ? closeOverlay() : openOverlay()}
-        aria-label="Home"
-        sx={{ bgcolor: '#ffffff', '&:hover': { bgcolor: '#f5f5f5' }, p: '6px', width: 56, height: 56, flexShrink: 0 }}
-      >
-        <img src="/logo.svg" alt="Kanecta" className="BottomBar-logo" />
-      </Fab>
-      {item('layouts', 'Layouts', <DashboardIcon />)}
-      {item('todo', 'Todo', <ChecklistIcon />)}
+      <BottomLeftCorner />
+      <div className="BottomBar-center">
+        {item('starred', 'Starred', <StarIcon />)}
+        {item('history', 'History', <HistoryIcon />)}
+        <Fab
+          onClick={() => overlayOpen ? closeOverlay() : openOverlay()}
+          aria-label="Home"
+          sx={{ bgcolor: '#ffffff', '&:hover': { bgcolor: '#f5f5f5' }, p: '6px', width: 56, height: 56, flexShrink: 0 }}
+        >
+          <img src="/logo.svg" alt="Kanecta" className="BottomBar-logo" />
+        </Fab>
+        {item('layouts', 'Layouts', <DashboardIcon />)}
+        {item('todo', 'Todo', <ChecklistIcon />)}
+      </div>
+      <BottomRightCorner />
     </nav>
   );
 }
