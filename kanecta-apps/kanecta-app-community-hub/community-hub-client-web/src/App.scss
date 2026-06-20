@@ -3778,16 +3778,20 @@ $bp-tablet: 768px;
       right: 20px;
       transform: translateY(-50%);
       z-index: 1;
+
+      &:has(.sn-menu__dropdown) {
+        z-index: 50;
+      }
     }
 
     .sn-menu__trigger {
       background: var(--bg);
-      border: 1px solid var(--border);
       border-radius: 6px;
     }
 
     .sn-menu__dropdown {
-      z-index: 200;
+      top: auto;
+      bottom: calc(100% + 4px);
     }
   }
 }
