@@ -44,7 +44,6 @@ function DatastoreAvatar({ label, colour, size = 'md' }: AvatarProps) {
 const MOCK_REMOTE = { name: 'origin', description: 'DigitalOcean Postgres' };
 const MOCK_LOCAL = { name: 'local', description: 'richardsempire', branch: 'main' };
 const MOCK_TO_PUSH = { add: 2, edit: 1, del: 0 };
-const MOCK_BEHIND = 3;
 const MOCK_BRANCHES = [
   { name: 'main', active: true },
   { name: 'linz-onboarding', active: false },
@@ -142,10 +141,6 @@ export function DatastoreSwitcher() {
               <span className={`DatastoreSwitcher__ws-stat DatastoreSwitcher__ws-stat--del${MOCK_TO_PUSH.del === 0 ? ' DatastoreSwitcher__ws-stat--zero' : ''}`}>
                 −{MOCK_TO_PUSH.del} del
               </span>
-            </div>
-            <div className="DatastoreSwitcher__ws-status-row">
-              <span className="DatastoreSwitcher__ws-status-arrow">↓</span>
-              <span className="DatastoreSwitcher__ws-behind">{MOCK_BEHIND} on remote</span>
             </div>
           </div>
         </div>
