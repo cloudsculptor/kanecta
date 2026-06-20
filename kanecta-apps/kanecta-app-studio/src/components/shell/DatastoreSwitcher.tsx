@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import CloudOutlinedIcon from '@mui/icons-material/CloudOutlined';
+import StorageIcon from '@mui/icons-material/Storage';
 import AddIcon from '@mui/icons-material/Add';
 import CheckIcon from '@mui/icons-material/Check';
 import ErrorOutlinedIcon from '@mui/icons-material/ErrorOutlined';
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import DifferenceOutlinedIcon from '@mui/icons-material/DifferenceOutlined';
 import MergeTypeIcon from '@mui/icons-material/MergeType';
@@ -42,10 +42,11 @@ function DatastoreAvatar({ label, colour, size = 'md' }: AvatarProps) {
 
 // Hardcoded mock data — UI only, wired up later
 const MOCK_REMOTE = { name: 'origin', description: 'DigitalOcean Postgres' };
+const MOCK_LOCAL = { name: 'local', description: 'richardsempire', branch: 'main' };
 const MOCK_AHEAD = 0;
 const MOCK_BEHIND = 3;
 const MOCK_BRANCHES = [
-  { name: 'richardsempire', active: true },
+  { name: 'main', active: true },
   { name: 'linz-onboarding', active: false },
   { name: 'experiment/ai-tagging', active: false },
 ];
@@ -108,7 +109,7 @@ export function DatastoreSwitcher() {
         {/* ── Working Set ── */}
         <div className="DatastoreSwitcher__section-header">Working Set</div>
         <div className="DatastoreSwitcher__working-set">
-          <button className="DatastoreSwitcher__ws-row DatastoreSwitcher__ws-row--remote">
+          <button className="DatastoreSwitcher__ws-row DatastoreSwitcher__ws-row--clickable">
             <CloudOutlinedIcon className="DatastoreSwitcher__ws-icon" />
             <span className="DatastoreSwitcher__ws-label">
               <strong>{MOCK_REMOTE.name}</strong>
@@ -117,16 +118,22 @@ export function DatastoreSwitcher() {
             <ChevronRightIcon className="DatastoreSwitcher__ws-chevron" />
           </button>
           <div className="DatastoreSwitcher__ws-divider" />
+          <button className="DatastoreSwitcher__ws-row DatastoreSwitcher__ws-row--clickable">
+            <StorageIcon className="DatastoreSwitcher__ws-icon" />
+            <span className="DatastoreSwitcher__ws-label">
+              <strong>{MOCK_LOCAL.name}</strong>
+              <span className="DatastoreSwitcher__ws-sub">{MOCK_LOCAL.description}</span>
+            </span>
+            <ChevronRightIcon className="DatastoreSwitcher__ws-chevron" />
+          </button>
           <div className="DatastoreSwitcher__ws-row DatastoreSwitcher__ws-row--branch">
             <span className="DatastoreSwitcher__branch-glyph">⎇</span>
-            <span className="DatastoreSwitcher__ws-label">
-              {MOCK_BRANCHES.find((b) => b.active)?.name ?? '—'}
-            </span>
+            <span className="DatastoreSwitcher__ws-label">{MOCK_LOCAL.branch}</span>
           </div>
           <div className="DatastoreSwitcher__ws-status">
             <span className="DatastoreSwitcher__ws-ahead">↑ {MOCK_AHEAD} to push</span>
             <span className="DatastoreSwitcher__ws-sep">·</span>
-            <span className="DatastoreSwitcher__ws-behind">↓ {MOCK_BEHIND} to pull</span>
+            <span className="DatastoreSwitcher__ws-behind">↓ {MOCK_BEHIND} on remote</span>
           </div>
         </div>
 
@@ -156,10 +163,6 @@ export function DatastoreSwitcher() {
 
         {/* ── Actions ── */}
         <div className="DatastoreSwitcher__actions">
-          <button className="DatastoreSwitcher__action-btn">
-            <ArrowDownwardIcon />
-            <span>Pull</span>
-          </button>
           <button className="DatastoreSwitcher__action-btn">
             <ArrowUpwardIcon />
             <span>Push</span>
