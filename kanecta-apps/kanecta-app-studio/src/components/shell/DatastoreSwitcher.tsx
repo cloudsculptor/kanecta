@@ -6,10 +6,6 @@ import StorageIcon from '@mui/icons-material/Storage';
 import AddIcon from '@mui/icons-material/Add';
 import CheckIcon from '@mui/icons-material/Check';
 import ErrorOutlinedIcon from '@mui/icons-material/ErrorOutlined';
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
-import DifferenceOutlinedIcon from '@mui/icons-material/DifferenceOutlined';
-import MergeTypeIcon from '@mui/icons-material/MergeType';
-import HistoryIcon from '@mui/icons-material/History';
 import CallMergeIcon from '@mui/icons-material/CallMerge';
 import Divider from '@mui/material/Divider';
 import Popover from '@mui/material/Popover';
@@ -172,24 +168,8 @@ export function DatastoreSwitcher() {
         {/* ── Actions ── */}
         <div className="DatastoreSwitcher__actions">
           <button className="DatastoreSwitcher__action-btn">
-            <ArrowUpwardIcon />
-            <span>Push</span>
-          </button>
-          <button className="DatastoreSwitcher__action-btn">
-            <DifferenceOutlinedIcon />
-            <span>Diff</span>
-          </button>
-          <button className="DatastoreSwitcher__action-btn">
-            <MergeTypeIcon />
-            <span>Merge</span>
-          </button>
-          <button className="DatastoreSwitcher__action-btn">
-            <HistoryIcon />
-            <span>Log</span>
-          </button>
-          <button className="DatastoreSwitcher__action-btn">
             <CallMergeIcon />
-            <span>PR</span>
+            <span>Create PR</span>
           </button>
         </div>
 
