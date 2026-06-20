@@ -290,18 +290,27 @@ $gh-shadow:      0 8px 24px rgba(140, 149, 159, 0.2);
   &__available-list {
     list-style: none;
     margin: 0;
-    padding: 4px 0;
+    padding: 4px 10px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
   }
 
   &__available-item {
     display: flex;
     flex-direction: column;
-    gap: 3px;
-    padding: 8px 16px;
+    gap: 4px;
+    padding: 10px 12px;
+    border: 1px solid $gh-border;
+    border-radius: 8px;
+    background: $gh-bg;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    cursor: default;
+    transition: border-color 120ms, box-shadow 120ms;
 
     &:hover {
-      background: $gh-bg-hover;
+      border-color: #0969da55;
+      box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.08);
     }
   }
 
@@ -309,7 +318,7 @@ $gh-shadow:      0 8px 24px rgba(140, 149, 159, 0.2);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 3px;
+    margin-bottom: 2px;
   }
 
   &__available-item-name {
