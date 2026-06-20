@@ -4,15 +4,37 @@ import AddIcon from '@mui/icons-material/Add';
 import CheckIcon from '@mui/icons-material/Check';
 import Divider from '@mui/material/Divider';
 import Popover from '@mui/material/Popover';
+import { useQuery, useQueries } from '@tanstack/react-query';
 import { useWorkspaceStore } from '../../store/workspace';
 import './DatastoreSwitcher.scss';
 
+function basename(p: string): string {
+  return p.replace(/\/+$/, '').split('/').pop() ?? p;
+}
+
 export function DatastoreSwitcher() {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const { workspaces, activeWorkspaceId, setActiveWorkspace } = useWorkspaceStore();
+  const { workspaces, activeWorkspaceId, setActiveWorkspace, getApi } = useWorkspaceStore();
   const active = workspaces.find((w) => w.id === activeWorkspaceId);
 
   const open = Boolean(anchor);
+
+  const { data: activeConfig } = useQuery({
+    queryKey: ['config', activeWorkspaceId],
+    queryFn: () => getApi(activeWorkspaceId).config.get(),
+  });
+
+  const workspaceConfigs = useQueries({
+    queries: workspaces.map((w) => ({
+      queryKey: ['config', w.id],
+      queryFn: () => getApi(w.id).config.get(),
+      enabled: open,
+    })),
+  });
+
+  const datastoreName = activeConfig?.datastorePath
+    ? basename(activeConfig.datastorePath)
+    : (active?.name ?? 'Datastore');
 
   return (
     <>
@@ -27,7 +49,7 @@ export function DatastoreSwitcher() {
           className="DatastoreSwitcher__dot"
           style={{ background: active?.colour ?? '#888' }}
         />
-        <span className="DatastoreSwitcher__name">{active?.name ?? 'Datastore'}</span>
+        <span className="DatastoreSwitcher__name">{datastoreName}</span>
         <ArrowDropDownIcon className="DatastoreSwitcher__arrow" />
       </button>
 
@@ -41,25 +63,31 @@ export function DatastoreSwitcher() {
       >
         <div className="DatastoreSwitcher__panel-header">Datastores</div>
         <ul className="DatastoreSwitcher__list" role="listbox" aria-label="Datastores">
-          {workspaces.map((w) => (
-            <li key={w.id}>
-              <button
-                className={`DatastoreSwitcher__option${w.id === activeWorkspaceId ? ' DatastoreSwitcher__option--active' : ''}`}
-                role="option"
-                aria-selected={w.id === activeWorkspaceId}
-                onClick={() => {
-                  setActiveWorkspace(w.id);
-                  setAnchor(null);
-                }}
-              >
-                <span className="DatastoreSwitcher__option-dot" style={{ background: w.colour }} />
-                <span className="DatastoreSwitcher__option-name">{w.name}</span>
-                {w.id === activeWorkspaceId && (
-                  <CheckIcon className="DatastoreSwitcher__option-check" />
-                )}
-              </button>
-            </li>
-          ))}
+          {workspaces.map((w, i) => {
+            const path = workspaceConfigs[i]?.data?.datastorePath;
+            return (
+              <li key={w.id}>
+                <button
+                  className={`DatastoreSwitcher__option${w.id === activeWorkspaceId ? ' DatastoreSwitcher__option--active' : ''}`}
+                  role="option"
+                  aria-selected={w.id === activeWorkspaceId}
+                  onClick={() => {
+                    setActiveWorkspace(w.id);
+                    setAnchor(null);
+                  }}
+                >
+                  <span className="DatastoreSwitcher__option-dot" style={{ background: w.colour }} />
+                  <span className="DatastoreSwitcher__option-info">
+                    <span className="DatastoreSwitcher__option-name">{w.name}</span>
+                    {path && <span className="DatastoreSwitcher__option-path">{path}</span>}
+                  </span>
+                  {w.id === activeWorkspaceId && (
+                    <CheckIcon className="DatastoreSwitcher__option-check" />
+                  )}
+                </button>
+              </li>
+            );
+          })}
         </ul>
         <Divider />
         <button
