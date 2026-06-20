@@ -42,8 +42,8 @@ const MOCK_REMOTE = { name: 'origin', description: 'Kanecta Internal - DigitalOc
 const MOCK_LOCAL = { name: 'local', description: 'Kanecta Internal - Filesystem + SQLite', branch: 'main' };
 const MOCK_TO_PUSH = { add: 2, edit: 1, del: 0 };
 const MOCK_AVAILABLE = [
-  { id: 'ws-work',     name: 'Work shared',       remote: 'work',     remoteDesc: 'Work shared server',     local: 'shared-knowledge', branch: 'main' },
-  { id: 'ws-personal', name: 'Personal projects', remote: 'personal', remoteDesc: 'Personal cloud storage', local: 'side-project',     branch: 'experiment/ai-tagging' },
+  { id: 'ws-work',     name: 'Work',     remote: 'work',     remoteDesc: 'Work shared server',     local: 'work',     branch: 'main' },
+  { id: 'ws-personal', name: 'Personal', remote: 'personal', remoteDesc: 'Personal cloud storage', local: 'personal', branch: 'experiment/ai-tagging' },
 ];
 const MOCK_BRANCHES = [
   { name: 'main', active: true },
