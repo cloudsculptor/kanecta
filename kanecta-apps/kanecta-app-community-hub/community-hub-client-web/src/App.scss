@@ -3766,6 +3766,45 @@ $bp-tablet: 768px;
     color: var(--accent);
     padding-left: 16px;
   }
+
+  &__item-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    .role-index__item { flex: 1; }
+  }
+
+  &__mod-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 4px;
+  }
+}
+
+// ── SiteNodeControls ──────────────────────────────────────────────────────────
+.site-node-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+
+  &__btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--text);
+    opacity: 0.45;
+    font-size: 13px;
+    line-height: 1;
+    padding: 2px 5px;
+    &:hover:not(:disabled) { opacity: 1; }
+    &:disabled { opacity: 0.2; cursor: default; }
+
+    &--delete { color: #c0392b; border-color: #c0392b; }
+    &--confirm { opacity: 1; background: #c0392b; color: #fff; }
+  }
 }
 
 // ── End constitution page styles ──────────────────────────────────────────────

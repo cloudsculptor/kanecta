@@ -91,3 +91,32 @@ export function updateSiteNode(id: string, input: UpdateSiteNodeInput): Promise<
 export function deleteSiteNode(id: string): Promise<{ ok: boolean }> {
   return authFetch(`/api/site-nodes/${id}`, { method: "DELETE" });
 }
+
+export interface SiteNodeHistoryEntry {
+  id: string;
+  action: "Created" | "Updated" | "Deleted";
+  snapshot: SiteNode;
+  user_name: string;
+  created_at: string;
+}
+
+export function getSiteNodeHistory(id: string): Promise<SiteNodeHistoryEntry[]> {
+  return authFetch(`/api/site-nodes/history/${id}`);
+}
+
+/** Swap sort_order of two sibling nodes so `id` moves up or down by one position. */
+export async function swapSiteNodeOrder(
+  nodes: SiteNode[],
+  id: string,
+  direction: "up" | "down"
+): Promise<void> {
+  const idx = nodes.findIndex((n) => n.id === id);
+  const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= nodes.length) return;
+  const a = nodes[idx];
+  const b = nodes[swapIdx];
+  await Promise.all([
+    updateSiteNode(a.id, { sortOrder: b.sort_order }),
+    updateSiteNode(b.id, { sortOrder: a.sort_order }),
+  ]);
+}

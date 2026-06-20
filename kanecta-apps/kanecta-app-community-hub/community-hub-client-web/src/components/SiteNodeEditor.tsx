@@ -29,7 +29,9 @@ interface AddCategoryProps {
 
 type Props = RenameProps | AddGroupProps | AddCategoryProps;
 
-const showDescription = (mode: Props["mode"]) => mode === "add-category" || mode === "rename";
+const showDescription = (props: Props) =>
+  props.mode === "add-category" ||
+  (props.mode === "rename" && props.node.metadata.level === "category");
 
 export default function SiteNodeEditor(props: Props) {
   const [open, setOpen] = useState(false);
@@ -118,7 +120,7 @@ export default function SiteNodeEditor(props: Props) {
             if (e.key === "Escape") reset();
           }}
         />
-        {showDescription(props.mode) && (
+        {showDescription(props) && (
           <input
             className="site-node-editor__input site-node-editor__input--description"
             value={description}
