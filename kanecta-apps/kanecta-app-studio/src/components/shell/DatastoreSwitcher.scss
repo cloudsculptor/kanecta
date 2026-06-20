@@ -171,25 +171,43 @@ $gh-shadow:      0 8px 24px rgba(140, 149, 159, 0.2);
 
   &__ws-status {
     display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 12px;
+    flex-direction: column;
+    gap: 3px;
+    padding: 7px 12px;
     font-size: 0.6875rem;
     border-top: 1px solid $gh-border;
     background: $gh-bg-subtle;
   }
 
-  &__ws-ahead {
+  &__ws-status-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &__ws-status-arrow {
     color: $gh-text-muted;
+    flex-shrink: 0;
+    width: 10px;
+  }
+
+  &__ws-stat {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+
+    &--add  { color: #1a7f37; }
+    &--edit { color: #9a6700; }
+    &--del  { color: #cf222e; }
+
+    &--zero {
+      font-weight: 400;
+      opacity: 0.35;
+    }
   }
 
   &__ws-behind {
     color: $gh-accent;
-    font-weight: 600;
-  }
-
-  &__ws-sep {
-    color: #c6cad0;
+    font-weight: 500;
   }
 
   // ── Branch list ────────────────────────────────────────

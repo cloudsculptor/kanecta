@@ -43,7 +43,7 @@ function DatastoreAvatar({ label, colour, size = 'md' }: AvatarProps) {
 // Hardcoded mock data — UI only, wired up later
 const MOCK_REMOTE = { name: 'origin', description: 'DigitalOcean Postgres' };
 const MOCK_LOCAL = { name: 'local', description: 'richardsempire', branch: 'main' };
-const MOCK_AHEAD = 0;
+const MOCK_TO_PUSH = { add: 2, edit: 1, del: 0 };
 const MOCK_BEHIND = 3;
 const MOCK_BRANCHES = [
   { name: 'main', active: true },
@@ -131,9 +131,22 @@ export function DatastoreSwitcher() {
             <span className="DatastoreSwitcher__ws-label">{MOCK_LOCAL.branch}</span>
           </div>
           <div className="DatastoreSwitcher__ws-status">
-            <span className="DatastoreSwitcher__ws-ahead">↑ {MOCK_AHEAD} to push</span>
-            <span className="DatastoreSwitcher__ws-sep">·</span>
-            <span className="DatastoreSwitcher__ws-behind">↓ {MOCK_BEHIND} on remote</span>
+            <div className="DatastoreSwitcher__ws-status-row">
+              <span className="DatastoreSwitcher__ws-status-arrow">↑</span>
+              <span className={`DatastoreSwitcher__ws-stat DatastoreSwitcher__ws-stat--add${MOCK_TO_PUSH.add === 0 ? ' DatastoreSwitcher__ws-stat--zero' : ''}`}>
+                +{MOCK_TO_PUSH.add} add
+              </span>
+              <span className={`DatastoreSwitcher__ws-stat DatastoreSwitcher__ws-stat--edit${MOCK_TO_PUSH.edit === 0 ? ' DatastoreSwitcher__ws-stat--zero' : ''}`}>
+                ±{MOCK_TO_PUSH.edit} edit
+              </span>
+              <span className={`DatastoreSwitcher__ws-stat DatastoreSwitcher__ws-stat--del${MOCK_TO_PUSH.del === 0 ? ' DatastoreSwitcher__ws-stat--zero' : ''}`}>
+                −{MOCK_TO_PUSH.del} del
+              </span>
+            </div>
+            <div className="DatastoreSwitcher__ws-status-row">
+              <span className="DatastoreSwitcher__ws-status-arrow">↓</span>
+              <span className="DatastoreSwitcher__ws-behind">{MOCK_BEHIND} on remote</span>
+            </div>
           </div>
         </div>
 
