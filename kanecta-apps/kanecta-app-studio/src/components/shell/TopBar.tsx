@@ -52,44 +52,49 @@ export function TopBar({ onQuickCapture, onCommandPalette, onViewSelect, activeV
     <nav className="TopBar">
       <div className="TopBar-topLeftCorner" />
       <div className="TopBar-center">
-        <DatastoreSwitcher />
-        <button
-          className={`TopBar-item${activeClass('home')}`}
-          onClick={() => onViewSelect('home')}
-          aria-label="Home"
-          aria-current={activeView === 'home' ? 'page' : undefined}
-        >
-          <HomeIcon />
-          <span className="TopBar-item-label">Home</span>
-        </button>
-        <button className="TopBar-item" onClick={onCommandPalette} aria-label="Search">
-          <SearchIcon />
-          <span className="TopBar-item-label">Search</span>
-        </button>
-        <div className="TopBar-input-wrap">
-          <input
-            className="TopBar-input"
-            type="text"
-            placeholder=""
-            aria-label="Navigate to item"
-            value={value}
-            onChange={e => setValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-          />
+        <div className="TopBar-center-left">
+          <DatastoreSwitcher />
         </div>
-        <button className="TopBar-item" onClick={onQuickCapture} aria-label="Capture">
-          <AddIcon />
-          <span className="TopBar-item-label">Capture</span>
-        </button>
-        <button
-          className={`TopBar-item${activeClass('settings')}`}
-          onClick={() => onViewSelect('settings')}
-          aria-label="Settings"
-          aria-current={activeView === 'settings' ? 'page' : undefined}
-        >
-          <SettingsIcon />
-          <span className="TopBar-item-label">Settings</span>
-        </button>
+        <div className="TopBar-center-mid">
+          <button
+            className={`TopBar-item${activeClass('home')}`}
+            onClick={() => onViewSelect('home')}
+            aria-label="Home"
+            aria-current={activeView === 'home' ? 'page' : undefined}
+          >
+            <HomeIcon />
+            <span className="TopBar-item-label">Home</span>
+          </button>
+          <button className="TopBar-item" onClick={onCommandPalette} aria-label="Search">
+            <SearchIcon />
+            <span className="TopBar-item-label">Search</span>
+          </button>
+          <div className="TopBar-input-wrap">
+            <input
+              className="TopBar-input"
+              type="text"
+              placeholder=""
+              aria-label="Navigate to item"
+              value={value}
+              onChange={e => setValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+            />
+          </div>
+          <button className="TopBar-item" onClick={onQuickCapture} aria-label="Capture">
+            <AddIcon />
+            <span className="TopBar-item-label">Capture</span>
+          </button>
+          <button
+            className={`TopBar-item${activeClass('settings')}`}
+            onClick={() => onViewSelect('settings')}
+            aria-label="Settings"
+            aria-current={activeView === 'settings' ? 'page' : undefined}
+          >
+            <SettingsIcon />
+            <span className="TopBar-item-label">Settings</span>
+          </button>
+        </div>
+        <div className="TopBar-center-right" />
       </div>
       <div className="TopBar-topRightCorner">
         <AccountMenu />
