@@ -15,7 +15,7 @@ export default function TestEnvironmentBanner() {
 
   useEffect(() => {
     if (IS_PROD) return;
-    fetch("/build-info.json")
+    fetch("/build-info.json", { cache: "no-store" })
       .then((r) => r.ok ? r.json() : null)
       .then((data) => { if (data) setBuildInfo(data); })
       .catch(() => {});
