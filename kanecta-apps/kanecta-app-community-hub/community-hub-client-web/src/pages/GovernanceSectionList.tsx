@@ -47,7 +47,7 @@ export default function GovernanceSectionList({ type }: Props) {
 
   const isModerator = hasRole(roles, "moderator");
   const ownerType = `gov-${type === "procedure" ? "proc" : "pol"}-${category}`;
-  const basePath = `/governance/${type}s/${category}`;
+  const basePath = `/governance/${type === "policy" ? "policies" : "procedures"}/${category}`;
   const categoryTitle = slugToTitle(category ?? "");
   const parents = PARENTS_BY_TYPE[type];
 

@@ -26,12 +26,12 @@ export default function GovernancePageView({ type }: Props) {
   const [error, setError] = useState("");
 
   const isModerator = hasRole(roles, "moderator");
-  const basePath = `/governance/${type}s/${category}`;
+  const basePath = `/governance/${type === "policy" ? "policies" : "procedures"}/${category}`;
   const categoryTitle = slugToTitle(category ?? "");
 
   const parents = [
     { name: "Governance", path: "/governance" },
-    { name: type === "procedure" ? "Procedures" : "Policies", path: `/governance/${type}s` },
+    { name: type === "procedure" ? "Procedures" : "Policies", path: `/governance/${type === "policy" ? "policies" : "procedures"}` },
     { name: categoryTitle, path: basePath },
   ];
 
