@@ -6,7 +6,7 @@ import StorageIcon from '@mui/icons-material/Storage';
 import AddIcon from '@mui/icons-material/Add';
 import CheckIcon from '@mui/icons-material/Check';
 import ErrorOutlinedIcon from '@mui/icons-material/ErrorOutlined';
-import CallMergeIcon from '@mui/icons-material/CallMerge';
+import AltRouteIcon from '@mui/icons-material/AltRoute';
 import Divider from '@mui/material/Divider';
 import Popover from '@mui/material/Popover';
 import { useQuery } from '@tanstack/react-query';
@@ -193,7 +193,7 @@ export function DatastoreSwitcher() {
         {/* ── Actions ── */}
         <div className="DatastoreSwitcher__actions">
           <button className="DatastoreSwitcher__action-btn">
-            <CallMergeIcon />
+            <AltRouteIcon />
             <span>Create Pull Request</span>
           </button>
         </div>
