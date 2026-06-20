@@ -90,7 +90,7 @@ export default function GovernanceSectionList({ type }: Props) {
   const archived = pages.filter((p) => p.archived_at);
 
   return (
-    <PageLayout pageName={categoryTitle} showComingSoon={false} wip parents={parents}>
+    <PageLayout pageName={categoryTitle} showComingSoon={false} parents={parents}>
       {isModerator && (
         <div className="pages-header">
           <div className="pages-header__actions">
