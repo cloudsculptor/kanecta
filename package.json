@@ -17,6 +17,7 @@
     "kanecta-database",
     "kanecta-s3",
     "kanecta-cloud",
+    "kanecta-datastore-utils",
     "kanecta-lib",
     "kanecta-api-client",
     "kanecta-sdk",
