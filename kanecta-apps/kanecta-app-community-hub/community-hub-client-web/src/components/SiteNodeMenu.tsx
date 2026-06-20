@@ -1,13 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { updateSiteNode, type SiteNode } from "../api/site-nodes";
 
-function toSlug(title: string) {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
 const isCategory = (node: SiteNode) => node.metadata.level === "category";
 
 interface Props {
