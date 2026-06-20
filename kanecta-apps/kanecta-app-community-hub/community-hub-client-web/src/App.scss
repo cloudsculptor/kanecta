@@ -3768,18 +3768,11 @@ $bp-tablet: 768px;
   }
 
   &__item-wrap {
-    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 
-    .sn-menu {
-      position: absolute;
-      top: 50%;
-      right: 12px;
-      transform: translateY(-50%);
-      opacity: 0;
-      transition: opacity 0.15s;
-    }
-
-    &:hover .sn-menu { opacity: 1; }
+    .role-index__item { flex: 1; }
   }
 }
 
@@ -3794,13 +3787,12 @@ $bp-tablet: 768px;
     border: none;
     cursor: pointer;
     color: var(--text);
-    opacity: 0.35;
     font-size: 14px;
     letter-spacing: 1px;
     padding: 2px 6px;
     border-radius: 4px;
     line-height: 1;
-    &:hover { opacity: 1; background: var(--accent-bg); }
+    &:hover { background: var(--accent-bg); }
   }
 
   &__dropdown {
