@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import AddIcon from '@mui/icons-material/Add';
 import CheckIcon from '@mui/icons-material/Check';
@@ -16,7 +16,7 @@ function basename(p: string): string {
 
 export function DatastoreSwitcher() {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const { workspaces, activeWorkspaceId, setActiveWorkspace, getApi } = useWorkspaceStore();
+  const { workspaces, activeWorkspaceId, setActiveWorkspace, updateWorkspace, getApi } = useWorkspaceStore();
   const active = workspaces.find((w) => w.id === activeWorkspaceId);
 
   const open = Boolean(anchor);
@@ -27,6 +27,13 @@ export function DatastoreSwitcher() {
     retry: 1,
   });
 
+  // Cache the path in the workspace store so it survives API downtime
+  useEffect(() => {
+    if (activeConfig?.datastorePath) {
+      updateWorkspace(activeWorkspaceId, { datastorePath: activeConfig.datastorePath });
+    }
+  }, [activeConfig?.datastorePath, activeWorkspaceId, updateWorkspace]);
+
   const workspaceConfigs = useQueries({
     queries: workspaces.map((w) => ({
       queryKey: ['config', w.id],
@@ -36,25 +43,26 @@ export function DatastoreSwitcher() {
     })),
   });
 
-  const datastoreName = activeConfig?.datastorePath
-    ? basename(activeConfig.datastorePath)
-    : null;
+  // Use live API path if available, fall back to cached store value
+  const resolvedPath = activeConfig?.datastorePath ?? active?.datastorePath;
+  const datastoreName = resolvedPath ? basename(resolvedPath) : null;
+  const showError = activeConfigError && !active?.datastorePath;
 
   return (
     <>
       <button
-        className={`DatastoreSwitcher${activeConfigError ? ' DatastoreSwitcher--error' : ''}`}
+        className={`DatastoreSwitcher${showError ? ' DatastoreSwitcher--error' : ''}`}
         onClick={(e) => setAnchor(e.currentTarget)}
         aria-label="Switch datastore"
         aria-expanded={open}
         aria-haspopup="listbox"
       >
-        {activeConfigError
+        {showError
           ? <ErrorOutlinedIcon className="DatastoreSwitcher__error-icon" />
           : <span className="DatastoreSwitcher__dot" style={{ background: active?.colour ?? '#888' }} />
         }
         <span className="DatastoreSwitcher__name">
-          {activeConfigError ? 'Unavailable' : (datastoreName ?? '…')}
+          {showError ? 'Unavailable' : (datastoreName ?? '…')}
         </span>
         <ArrowDropDownIcon className="DatastoreSwitcher__arrow" />
       </button>
@@ -71,8 +79,9 @@ export function DatastoreSwitcher() {
         <ul className="DatastoreSwitcher__list" role="listbox" aria-label="Datastores">
           {workspaces.map((w, i) => {
             const result = workspaceConfigs[i];
-            const path = result?.data?.datastorePath;
-            const pathError = result?.isError;
+            // Live API path takes priority; fall back to cached store path
+            const path = result?.data?.datastorePath ?? w.datastorePath;
+            const pathError = result?.isError && !w.datastorePath;
             return (
               <li key={w.id}>
                 <button
