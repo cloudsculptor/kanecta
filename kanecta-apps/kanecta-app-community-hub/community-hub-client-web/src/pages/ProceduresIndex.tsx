@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import PageLayout from "../components/PageLayout";
 import { getSiteNodeTree, swapSiteNodeOrder, deleteSiteNode, type SiteNode } from "../api/site-nodes";
+import { listPublicPages } from "../api/pages";
 import { useUserRoles, hasRole } from "../auth/useUserRole";
 import SiteNodeEditor from "../components/SiteNodeEditor";
 import SiteNodeMenu from "../components/SiteNodeMenu";
@@ -10,12 +11,21 @@ export default function ProceduresIndex() {
   const roles = useUserRoles();
   const isModerator = hasRole(roles, "moderator");
   const [tree, setTree] = useState<SiteNode | null>(null);
+  const [pageCounts, setPageCounts] = useState<Record<string, number>>({});
   const [error, setError] = useState("");
 
   function reload() {
     getSiteNodeTree("procedures")
       .then(setTree)
       .catch((err: Error) => setError(err.message));
+    listPublicPages().then((pages) => {
+      const counts: Record<string, number> = {};
+      pages.forEach((p) => {
+        const m = p.owner_type?.match(/^gov-proc-(.+)$/);
+        if (m) counts[m[1]] = (counts[m[1]] ?? 0) + 1;
+      });
+      setPageCounts(counts);
+    });
   }
 
   useEffect(reload, []);
@@ -42,27 +52,34 @@ export default function ProceduresIndex() {
             )}
           </div>
           <div className="role-index">
-            {group.children.map((cat, ci) => (
-              <div key={cat.id} className="role-index__item-wrap">
-                <Link to={`/governance/procedures/${cat.slug}`} className="role-index__item">
-                  <span className="role-index__title">{cat.title}</span>
-                  {cat.metadata.description && (
-                    <span className="role-index__description">{cat.metadata.description}</span>
+            {group.children.map((cat, ci) => {
+              const count = pageCounts[cat.slug] ?? 0;
+              return (
+                <div key={cat.id} className="role-index__item-wrap">
+                  <Link to={`/governance/procedures/${cat.slug}`} className="role-index__item">
+                    <span className="role-index__title">{cat.title}</span>
+                    {cat.metadata.description && (
+                      <span className="role-index__description">{cat.metadata.description}</span>
+                    )}
+                    <span className="role-index__right">
+                      {count > 0 && <span className="role-index__count">{count}</span>}
+                      {!isModerator && <span className="role-index__arrow">→</span>}
+                    </span>
+                  </Link>
+                  {isModerator && (
+                    <SiteNodeMenu
+                      node={cat}
+                      siblings={group.children}
+                      index={ci}
+                      pageCount={count}
+                      onMove={async (dir) => { await swapSiteNodeOrder(group.children, cat.id, dir); reload(); }}
+                      onDelete={async () => { await deleteSiteNode(cat.id); reload(); }}
+                      onSaved={reload}
+                    />
                   )}
-                  {!isModerator && <span className="role-index__arrow">→</span>}
-                </Link>
-                {isModerator && (
-                  <SiteNodeMenu
-                    node={cat}
-                    siblings={group.children}
-                    index={ci}
-                    onMove={async (dir) => { await swapSiteNodeOrder(group.children, cat.id, dir); reload(); }}
-                    onDelete={async () => { await deleteSiteNode(cat.id); reload(); }}
-                    onSaved={reload}
-                  />
-                )}
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         </div>
       ))}

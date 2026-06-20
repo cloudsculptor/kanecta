@@ -12,6 +12,7 @@ interface Props {
   siblings: SiteNode[];
   index: number;
   govType?: "procedure" | "policy";
+  pageCount?: number;
   onMove: (direction: "up" | "down") => Promise<void>;
   onDelete: () => Promise<void>;
   onSaved: () => void;
@@ -19,7 +20,7 @@ interface Props {
 
 type View = "menu" | "edit" | "add-category" | "delete-confirm";
 
-export default function SiteNodeMenu({ node, siblings, index, govType, onMove, onDelete, onSaved }: Props) {
+export default function SiteNodeMenu({ node, siblings, index, govType, pageCount = 0, onMove, onDelete, onSaved }: Props) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<View>("menu");
   const [title, setTitle] = useState(node.title);
@@ -142,8 +143,8 @@ export default function SiteNodeMenu({ node, siblings, index, govType, onMove, o
               <button
                 className="sn-menu__item sn-menu__item--danger"
                 onClick={() => setView("delete-confirm")}
-                disabled={!isCategory(node) && node.children.length > 0}
-                title={!isCategory(node) && node.children.length > 0 ? "Remove all categories first" : undefined}
+                disabled={(isCategory(node) && pageCount > 0) || (!isCategory(node) && node.children.length > 0)}
+                title={isCategory(node) && pageCount > 0 ? "Remove all pages first" : !isCategory(node) && node.children.length > 0 ? "Remove all categories first" : undefined}
                 type="button"
               >
                 Archive
