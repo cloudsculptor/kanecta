@@ -66,10 +66,8 @@ export function DatastoreSwitcher() {
 
   useEffect(() => {
     if (activeConfig?.datastorePath) {
-      const folderName = basename(activeConfig.datastorePath);
       updateWorkspace(activeWorkspaceId, {
         datastorePath: activeConfig.datastorePath,
-        name: folderName,
       });
     }
   }, [activeConfig?.datastorePath, activeWorkspaceId, updateWorkspace]);
@@ -94,6 +92,11 @@ export function DatastoreSwitcher() {
         <span className="DatastoreSwitcher__name">
           {showError ? 'Unavailable' : (datastoreName ?? '…')}
         </span>
+        {!showError && (MOCK_TO_PUSH.add + MOCK_TO_PUSH.edit + MOCK_TO_PUSH.del) > 0 && (
+          <span className="DatastoreSwitcher__sync-pill">
+            +{MOCK_TO_PUSH.add + MOCK_TO_PUSH.edit + MOCK_TO_PUSH.del}
+          </span>
+        )}
         <ArrowDropDownIcon className="DatastoreSwitcher__arrow" />
       </button>
 

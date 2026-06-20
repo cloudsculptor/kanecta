@@ -22,7 +22,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       workspaces: [
         {
           id: PRIMARY_WORKSPACE_ID,
-          name: 'Primary',
+          name: 'Kanecta Internal',
           apiUrl: import.meta.env.VITE_KANECTA_API_URL ?? '/api',
           colour: '#1976d2',
           pollIntervalMs: 5000,
