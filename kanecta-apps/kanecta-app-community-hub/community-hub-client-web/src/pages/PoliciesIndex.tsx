@@ -34,6 +34,7 @@ export default function PoliciesIndex() {
                 node={group}
                 siblings={groups}
                 index={gi}
+                govType="policy"
                 onMove={async (dir) => { await swapSiteNodeOrder(groups, group.id, dir); reload(); }}
                 onDelete={async () => { await deleteSiteNode(group.id); reload(); }}
                 onSaved={reload}
@@ -62,9 +63,6 @@ export default function PoliciesIndex() {
                 )}
               </div>
             ))}
-            {isModerator && (
-              <SiteNodeEditor mode="add-category" parentNode={group} govType="policy" onSaved={reload} />
-            )}
           </div>
         </div>
       ))}

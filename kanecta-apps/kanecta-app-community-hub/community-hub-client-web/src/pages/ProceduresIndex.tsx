@@ -6,6 +6,7 @@ import { useUserRoles, hasRole } from "../auth/useUserRole";
 import SiteNodeEditor from "../components/SiteNodeEditor";
 import SiteNodeMenu from "../components/SiteNodeMenu";
 
+
 export default function ProceduresIndex() {
   const roles = useUserRoles();
   const isModerator = hasRole(roles, "moderator");
@@ -34,6 +35,7 @@ export default function ProceduresIndex() {
                 node={group}
                 siblings={groups}
                 index={gi}
+                govType="procedure"
                 onMove={async (dir) => { await swapSiteNodeOrder(groups, group.id, dir); reload(); }}
                 onDelete={async () => { await deleteSiteNode(group.id); reload(); }}
                 onSaved={reload}
@@ -62,9 +64,6 @@ export default function ProceduresIndex() {
                 )}
               </div>
             ))}
-            {isModerator && (
-              <SiteNodeEditor mode="add-category" parentNode={group} govType="procedure" onSaved={reload} />
-            )}
           </div>
         </div>
       ))}

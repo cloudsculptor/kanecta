@@ -3189,19 +3189,17 @@ $bp-tablet: 768px;
   }
 
   &__add-btn {
-    display: block;
-    margin-top: 8px;
-    padding: 6px 12px;
-    border: 1px dashed var(--border);
+    display: inline-block;
+    margin-top: 12px;
+    padding: 8px 16px;
+    border: 1px solid var(--accent);
     border-radius: 6px;
     background: none;
-    color: var(--text);
-    opacity: 0.5;
+    color: var(--accent);
     cursor: pointer;
-    font-size: 13px;
-    width: 100%;
-    text-align: left;
-    &:hover { opacity: 1; background: var(--accent-bg); }
+    font-size: 14px;
+    font-weight: 500;
+    &:hover { background: var(--accent-bg); }
   }
 }
 
