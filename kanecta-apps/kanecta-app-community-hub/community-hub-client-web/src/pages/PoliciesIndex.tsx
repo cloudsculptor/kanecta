@@ -63,7 +63,6 @@ export default function PoliciesIndex() {
                     )}
                   </Link>
                   <div className="role-index__right">
-                    {count > 0 && <span className="role-index__count">{count}</span>}
                     {isModerator ? (
                       <SiteNodeMenu
                         node={cat}
