@@ -7,6 +7,7 @@ import type { ViewType } from '../../types/ui';
 import { useLocation } from '../../context/LocationContext';
 import { api } from '../../api';
 import { AccountMenu } from './AccountMenu';
+import { DatastoreSwitcher } from './DatastoreSwitcher';
 import './TopBar.scss';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -49,6 +50,7 @@ export function TopBar({ onQuickCapture, onCommandPalette, onViewSelect, activeV
 
   return (
     <nav className="TopBar">
+      <DatastoreSwitcher />
       <button
         className={`TopBar-item${activeClass('home')}`}
         onClick={() => onViewSelect('home')}
