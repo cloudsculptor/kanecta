@@ -3793,34 +3793,26 @@ $bp-tablet: 768px;
   }
 
   &__item-wrap {
-    display: flex;
-    align-items: center;
+    position: relative;
 
-    .role-index__item {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .role-index__count {
-      flex-shrink: 0;
+    &--mod .role-index__item {
+      // extra right padding = right-offset(20) + trigger(~44) + gap(24)
+      padding-right: 88px;
     }
 
     .sn-menu {
-      flex-shrink: 0;
-      margin-left: 24px;
+      position: absolute;
+      top: 50%;
+      right: 20px;
+      transform: translateY(-50%);
+      z-index: 1;
+
+      &.sn-menu--open { z-index: 50; }
 
       &__dropdown {
         top: auto;
         bottom: calc(100% + 4px);
       }
-    }
-
-    .role-index__count + .sn-menu {
-      margin-left: 24px;
-    }
-
-    .role-index__item + .sn-menu {
-      margin-left: 12px;
     }
   }
 }

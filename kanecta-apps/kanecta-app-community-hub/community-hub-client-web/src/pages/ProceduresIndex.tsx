@@ -55,20 +55,17 @@ export default function ProceduresIndex() {
             {group.children.map((cat, ci) => {
               const count = pageCounts[cat.slug] ?? 0;
               return (
-                <div key={cat.id} className="role-index__item-wrap">
+                <div key={cat.id} className={`role-index__item-wrap${isModerator ? " role-index__item-wrap--mod" : ""}`}>
                   <Link to={`/governance/procedures/${cat.slug}`} className="role-index__item">
                     <span className="role-index__title">{cat.title}</span>
                     {cat.metadata.description && (
                       <span className="role-index__description">{cat.metadata.description}</span>
                     )}
-                    {!isModerator && (
-                      <span className="role-index__right">
-                        {count > 0 && <span className="role-index__count">{count}</span>}
-                        <span className="role-index__arrow">→</span>
-                      </span>
-                    )}
+                    <span className="role-index__right">
+                      {count > 0 && <span className="role-index__count">{count}</span>}
+                      {!isModerator && <span className="role-index__arrow">→</span>}
+                    </span>
                   </Link>
-                  {isModerator && count > 0 && <span className="role-index__count">{count}</span>}
                   {isModerator && (
                     <SiteNodeMenu
                       node={cat}
