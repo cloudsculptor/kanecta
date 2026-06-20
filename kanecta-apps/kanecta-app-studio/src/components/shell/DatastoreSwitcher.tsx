@@ -37,12 +37,13 @@ function DatastoreAvatar({ label, colour, size = 'md' }: AvatarProps) {
 }
 
 // Hardcoded mock data — UI only, wired up later
+const MOCK_ACTIVE_NAME = 'richardsempire main';
 const MOCK_REMOTE = { name: 'origin', description: 'DigitalOcean Postgres' };
 const MOCK_LOCAL = { name: 'local', description: 'richardsempire', branch: 'main' };
 const MOCK_TO_PUSH = { add: 2, edit: 1, del: 0 };
 const MOCK_AVAILABLE = [
-  { id: 'ws-work',     remote: 'work',     remoteDesc: 'Work shared server',     local: 'shared-knowledge', branch: 'main' },
-  { id: 'ws-personal', remote: 'personal', remoteDesc: 'Personal cloud storage', local: 'side-project',     branch: 'experiment/ai-tagging' },
+  { id: 'ws-work',     name: 'Work shared',       remote: 'work',     remoteDesc: 'Work shared server',     local: 'shared-knowledge', branch: 'main' },
+  { id: 'ws-personal', name: 'Personal projects', remote: 'personal', remoteDesc: 'Personal cloud storage', local: 'side-project',     branch: 'experiment/ai-tagging' },
 ];
 const MOCK_BRANCHES = [
   { name: 'main', active: true },
@@ -108,6 +109,7 @@ export function DatastoreSwitcher() {
         {/* ── Active Working Set ── */}
         <div className="DatastoreSwitcher__section-header">Active working set</div>
         <div className="DatastoreSwitcher__working-set">
+          <div className="DatastoreSwitcher__ws-name">{MOCK_ACTIVE_NAME}</div>
           <button className="DatastoreSwitcher__ws-row DatastoreSwitcher__ws-row--clickable">
             <CloudOutlinedIcon className="DatastoreSwitcher__ws-icon" />
             <span className="DatastoreSwitcher__ws-label">
@@ -165,19 +167,21 @@ export function DatastoreSwitcher() {
         <div className="DatastoreSwitcher__section-header">Available working sets</div>
         <ul className="DatastoreSwitcher__available-list">
           {MOCK_AVAILABLE.map((ws) => (
-            <li key={ws.id}>
-              <button className="DatastoreSwitcher__available-item">
-                <span className="DatastoreSwitcher__available-row">
-                  <CloudOutlinedIcon className="DatastoreSwitcher__available-icon" />
-                  <span className="DatastoreSwitcher__available-name">{ws.remote}</span>
-                  <span className="DatastoreSwitcher__available-sub">{ws.remoteDesc}</span>
-                </span>
-                <span className="DatastoreSwitcher__available-row">
-                  <StorageIcon className="DatastoreSwitcher__available-icon" />
-                  <span className="DatastoreSwitcher__available-name">{ws.local}</span>
-                  <span className="DatastoreSwitcher__available-sub">⎇ {ws.branch}</span>
-                </span>
-              </button>
+            <li key={ws.id} className="DatastoreSwitcher__available-item">
+              <div className="DatastoreSwitcher__available-item-header">
+                <span className="DatastoreSwitcher__available-item-name">{ws.name}</span>
+                <button className="DatastoreSwitcher__make-active-btn">Make active</button>
+              </div>
+              <div className="DatastoreSwitcher__available-row">
+                <CloudOutlinedIcon className="DatastoreSwitcher__available-icon" />
+                <span className="DatastoreSwitcher__available-name">{ws.remote}</span>
+                <span className="DatastoreSwitcher__available-sub">{ws.remoteDesc}</span>
+              </div>
+              <div className="DatastoreSwitcher__available-row">
+                <StorageIcon className="DatastoreSwitcher__available-icon" />
+                <span className="DatastoreSwitcher__available-name">{ws.local}</span>
+                <span className="DatastoreSwitcher__available-sub">⎇ {ws.branch}</span>
+              </div>
             </li>
           ))}
         </ul>
