@@ -101,8 +101,8 @@ export function DatastoreSwitcher() {
         slotProps={{ paper: { className: 'DatastoreSwitcher__panel' } }}
       >
 
-        {/* ── Working Set ── */}
-        <div className="DatastoreSwitcher__section-header">Working Set</div>
+        {/* ── Active Working Set ── */}
+        <div className="DatastoreSwitcher__section-header">Active working set</div>
         <div className="DatastoreSwitcher__working-set">
           <button className="DatastoreSwitcher__ws-row DatastoreSwitcher__ws-row--clickable">
             <CloudOutlinedIcon className="DatastoreSwitcher__ws-icon" />
@@ -121,10 +121,24 @@ export function DatastoreSwitcher() {
             </span>
             <ChevronRightIcon className="DatastoreSwitcher__ws-chevron" />
           </button>
-          <div className="DatastoreSwitcher__ws-row DatastoreSwitcher__ws-row--branch">
-            <span className="DatastoreSwitcher__branch-glyph">⎇</span>
-            <span className="DatastoreSwitcher__ws-label">{MOCK_LOCAL.branch}</span>
-          </div>
+          <div className="DatastoreSwitcher__branches-heading">Branches</div>
+          <ul className="DatastoreSwitcher__branches DatastoreSwitcher__branches--inset">
+            {MOCK_BRANCHES.map((b) => (
+              <li key={b.name}>
+                <button className={`DatastoreSwitcher__branch${b.active ? ' DatastoreSwitcher__branch--active' : ''}`}>
+                  <span className="DatastoreSwitcher__branch-glyph">⎇</span>
+                  <span className="DatastoreSwitcher__branch-name">{b.name}</span>
+                  {b.active && <CheckIcon className="DatastoreSwitcher__branch-check" />}
+                </button>
+              </li>
+            ))}
+            <li>
+              <button className="DatastoreSwitcher__branch DatastoreSwitcher__branch--add">
+                <AddIcon className="DatastoreSwitcher__branch-add-icon" />
+                <span className="DatastoreSwitcher__branch-name">New branch</span>
+              </button>
+            </li>
+          </ul>
           <div className="DatastoreSwitcher__ws-status">
             <div className="DatastoreSwitcher__ws-status-row">
               <span className="DatastoreSwitcher__ws-status-arrow">↑</span>
@@ -140,28 +154,6 @@ export function DatastoreSwitcher() {
             </div>
           </div>
         </div>
-
-        <Divider />
-
-        {/* ── Local Branches ── */}
-        <div className="DatastoreSwitcher__section-header">Local Branches</div>
-        <ul className="DatastoreSwitcher__branches">
-          {MOCK_BRANCHES.map((b) => (
-            <li key={b.name}>
-              <button className={`DatastoreSwitcher__branch${b.active ? ' DatastoreSwitcher__branch--active' : ''}`}>
-                <span className="DatastoreSwitcher__branch-glyph">⎇</span>
-                <span className="DatastoreSwitcher__branch-name">{b.name}</span>
-                {b.active && <CheckIcon className="DatastoreSwitcher__branch-check" />}
-              </button>
-            </li>
-          ))}
-          <li>
-            <button className="DatastoreSwitcher__branch DatastoreSwitcher__branch--add">
-              <AddIcon className="DatastoreSwitcher__branch-add-icon" />
-              <span className="DatastoreSwitcher__branch-name">New branch</span>
-            </button>
-          </li>
-        </ul>
 
         <Divider />
 
