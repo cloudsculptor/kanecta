@@ -1,13 +1,18 @@
 .TopBar {
   grid-area: top;
-  position: relative;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: minmax(80px, max-content) 1fr minmax(80px, max-content);
+  align-items: stretch;
   overflow: hidden;
   background: var(--sidebar-bg, transparent);
-  padding: 4px;
+
+  &-center {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+  }
 
   &-item {
     display: flex;
