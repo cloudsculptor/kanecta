@@ -84,11 +84,28 @@
       flex-shrink: 0;
     }
 
-    &-name {
+    &-info {
       flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      overflow: hidden;
+    }
+
+    &-name {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      width: 100%;
+    }
+
+    &-path {
+      font-size: 0.6875rem;
+      color: #999;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      width: 100%;
     }
 
     &-check {
