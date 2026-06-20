@@ -61,11 +61,14 @@ export default function PoliciesIndex() {
                     {cat.metadata.description && (
                       <span className="role-index__description">{cat.metadata.description}</span>
                     )}
-                    <span className="role-index__right">
-                      {count > 0 && <span className="role-index__count">{count}</span>}
-                      {!isModerator && <span className="role-index__arrow">→</span>}
-                    </span>
+                    {!isModerator && (
+                      <span className="role-index__right">
+                        {count > 0 && <span className="role-index__count">{count}</span>}
+                        <span className="role-index__arrow">→</span>
+                      </span>
+                    )}
                   </Link>
+                  {isModerator && count > 0 && <span className="role-index__count">{count}</span>}
                   {isModerator && (
                     <SiteNodeMenu
                       node={cat}
