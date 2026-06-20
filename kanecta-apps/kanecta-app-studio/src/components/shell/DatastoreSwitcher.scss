@@ -125,7 +125,9 @@ $gh-shadow:      0 8px 24px rgba(140, 149, 159, 0.2);
       }
     }
 
-
+    &--bordered {
+      border-top: 1px solid $gh-border !important;
+    }
   }
 
   &__ws-icon {
@@ -167,10 +169,6 @@ $gh-shadow:      0 8px 24px rgba(140, 149, 159, 0.2);
     border-bottom: 1px solid $gh-border;
   }
 
-  &__ws-divider {
-    height: 1px;
-    background: #c1c8d0;
-  }
 
   &__branches-heading {
     padding: 8px 16px 2px 36px;
