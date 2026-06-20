@@ -119,7 +119,7 @@ export function DatastoreSwitcher() {
             <ChevronRightIcon className="DatastoreSwitcher__ws-chevron" />
           </button>
           <div className="DatastoreSwitcher__ws-divider" />
-          <button className="DatastoreSwitcher__ws-row DatastoreSwitcher__ws-row--clickable DatastoreSwitcher__ws-row--local">
+          <button className="DatastoreSwitcher__ws-row DatastoreSwitcher__ws-row--clickable">
             <StorageIcon className="DatastoreSwitcher__ws-icon" />
             <span className="DatastoreSwitcher__ws-label">
               <strong>{MOCK_LOCAL.name}</strong>
