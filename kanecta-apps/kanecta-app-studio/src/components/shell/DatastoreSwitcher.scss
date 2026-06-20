@@ -70,6 +70,19 @@ $gh-shadow:      0 8px 24px rgba(140, 149, 159, 0.2);
     text-overflow: ellipsis;
   }
 
+  &__sync-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 6px;
+    border-radius: 20px;
+    background: #1f883d;
+    color: #fff;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.4;
+    flex-shrink: 0;
+  }
+
   &__arrow {
     font-size: 20px !important;
     opacity: 0.7;
