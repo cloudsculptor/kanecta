@@ -61,12 +61,15 @@ async function insertHistory(client, { pageId, action, version, contentJson, lic
 
 // ── List pages ────────────────────────────────────────────────────────────────
 router.get("/", requireAuth, wrap(async (req, res) => {
+  const includeArchived = req.query.includeArchived === "true";
   const { rows } = await pool.query(
     `SELECT p.id, p.slug, p.title, p.created_by_name, p.created_at, p.updated_at,
-            p.public, p.licence_id, p.version, p.owner_type, p.owner_id
+            p.public, p.licence_id, p.version, p.owner_type, p.owner_id,
+            p.deleted_at AS archived_at
      FROM pages p
-     WHERE p.deleted_at IS NULL
-     ORDER BY p.updated_at DESC`
+     WHERE ($1 OR p.deleted_at IS NULL)
+     ORDER BY p.updated_at DESC`,
+    [includeArchived]
   );
   res.json(rows);
 }));
@@ -87,12 +90,15 @@ router.post("/upload", requireAuth, requireTeam, upload.single("file"), wrap(asy
 
 // ── List public pages (no auth) ───────────────────────────────────────────────
 router.get("/public", wrap(async (req, res) => {
+  const includeArchived = req.query.includeArchived === "true";
   const { rows } = await pool.query(
     `SELECT p.id, p.slug, p.title, p.created_by_name, p.created_at, p.updated_at,
-            p.public, p.licence_id, p.version, p.owner_type, p.owner_id
+            p.public, p.licence_id, p.version, p.owner_type, p.owner_id,
+            p.deleted_at AS archived_at
      FROM pages p
-     WHERE p.public = TRUE AND p.deleted_at IS NULL
-     ORDER BY p.updated_at DESC`
+     WHERE p.public = TRUE AND ($1 OR p.deleted_at IS NULL)
+     ORDER BY p.updated_at DESC`,
+    [includeArchived]
   );
   res.json(rows);
 }));
@@ -296,6 +302,26 @@ router.put("/:slug", requireAuth, requireTeam, wrap(async (req, res) => {
   } finally {
     client.release();
   }
+}));
+
+// ── Archive page (sets deleted_at) ────────────────────────────────────────────
+router.put("/:slug/archive", requireAuth, requireTeam, wrap(async (req, res) => {
+  const { rows } = await pool.query(
+    `UPDATE pages SET deleted_at = NOW() WHERE slug = $1 AND deleted_at IS NULL RETURNING *`,
+    [req.params.slug]
+  );
+  if (!rows.length) return res.status(404).json({ error: "Not found" });
+  res.json(rows[0]);
+}));
+
+// ── Unarchive page (clears deleted_at) ────────────────────────────────────────
+router.put("/:slug/unarchive", requireAuth, requireTeam, wrap(async (req, res) => {
+  const { rows } = await pool.query(
+    `UPDATE pages SET deleted_at = NULL WHERE slug = $1 AND deleted_at IS NOT NULL RETURNING *`,
+    [req.params.slug]
+  );
+  if (!rows.length) return res.status(404).json({ error: "Not found" });
+  res.json(rows[0]);
 }));
 
 // ── Delete page (soft delete) ─────────────────────────────────────────────────
