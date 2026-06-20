@@ -14,10 +14,6 @@ import { useWorkspaceStore } from '../../store/workspace';
 import { api } from '../../api';
 import './DatastoreSwitcher.scss';
 
-function basename(p: string): string {
-  return p.replace(/\/+$/, '').split('/').pop() ?? p;
-}
-
 interface AvatarProps {
   label: string;
   colour: string;
@@ -74,8 +70,7 @@ export function DatastoreSwitcher() {
   }, [activeConfig?.datastorePath, activeWorkspaceId, updateWorkspace]);
 
   const resolvedPath = activeConfig?.datastorePath ?? active?.datastorePath;
-  const datastoreName = resolvedPath ? basename(resolvedPath) : (active?.name ?? null);
-  const showError = activeConfigError && !active?.datastorePath;
+  const showError = activeConfigError && !resolvedPath;
 
   return (
     <>
@@ -88,7 +83,7 @@ export function DatastoreSwitcher() {
       >
         {showError
           ? <ErrorOutlinedIcon className="DatastoreSwitcher__error-icon" />
-          : <DatastoreAvatar label={datastoreName ?? '?'} colour={active?.colour ?? '#888'} size="sm" />
+          : <DatastoreAvatar label={MOCK_DISPLAY_NAME} colour={active?.colour ?? '#888'} size="sm" />
         }
         <span className="DatastoreSwitcher__name">
           {showError ? 'Unavailable' : MOCK_DISPLAY_NAME}

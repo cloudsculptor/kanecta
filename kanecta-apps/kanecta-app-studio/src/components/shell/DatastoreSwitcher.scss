@@ -13,6 +13,7 @@ $gh-shadow:      0 8px 24px rgba(140, 149, 159, 0.2);
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  max-width: 400px;
   height: 48px;
   padding: 0 24px;
   border: none;
@@ -65,7 +66,8 @@ $gh-shadow:      0 8px 24px rgba(140, 149, 159, 0.2);
   }
 
   &__name {
-    max-width: 140px;
+    flex: 1;
+    text-align: left;
     overflow: hidden;
     text-overflow: ellipsis;
   }
