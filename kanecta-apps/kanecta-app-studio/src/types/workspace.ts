@@ -6,6 +6,7 @@ export interface WorkspaceConfig {
   apiUrl: string;
   colour: string;
   pollIntervalMs: number;
+  datastorePath?: string;
 }
 
 export interface ActivityEvent {
