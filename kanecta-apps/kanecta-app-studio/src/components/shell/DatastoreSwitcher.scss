@@ -125,6 +125,14 @@ $gh-shadow:      0 8px 24px rgba(140, 149, 159, 0.2);
       }
     }
 
+    &--local {
+      background: $gh-bg;
+
+      &:hover {
+        background: $gh-bg-hover;
+      }
+    }
+
   }
 
   &__ws-icon {
@@ -169,6 +177,7 @@ $gh-shadow:      0 8px 24px rgba(140, 149, 159, 0.2);
   &__ws-divider {
     height: 1px;
     background: $gh-border;
+    margin: 0 12px;
   }
 
   &__branches-heading {
