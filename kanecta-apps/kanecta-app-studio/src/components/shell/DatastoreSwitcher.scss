@@ -17,6 +17,16 @@
     background: rgba(255, 255, 255, 0.25);
   }
 
+  &--error {
+    background: rgba(255, 80, 80, 0.2);
+    &:hover { background: rgba(255, 80, 80, 0.3); }
+  }
+
+  &__error-icon {
+    font-size: 18px !important;
+    opacity: 0.8;
+  }
+
   &__dot {
     width: 8px;
     height: 8px;
@@ -106,6 +116,11 @@
       text-overflow: ellipsis;
       white-space: nowrap;
       width: 100%;
+    }
+
+    &-path-error {
+      font-size: 0.6875rem;
+      color: #e53935;
     }
 
     &-check {
