@@ -48,23 +48,27 @@ export default function GovernancePageView({ type }: Props) {
       .finally(() => setLoading(false));
   }, [initialized, authenticated, isModerator, slug]);
 
+  const title = page?.title || slugToTitle(slug ?? "");
+
   return (
     <PageLayout
-      pageName={page?.title || slugToTitle(slug ?? "")}
+      pageName={title}
       showComingSoon={false}
+      showHeading={false}
       parents={parents}
     >
       {loading && <p>Loading…</p>}
       {error && <p className="pages-error">{error}</p>}
       {page && (
         <>
-          {isModerator && !page.archived_at && (
-            <div className="page-view__header">
+          <div className="page-view__header">
+            <h2 className="page-view__title">{title}</h2>
+            {isModerator && !page.archived_at && (
               <Link to={`${basePath}/${page.slug}/edit`} className="page-view__edit-btn">
                 Edit
               </Link>
-            </div>
-          )}
+            )}
+          </div>
           <LexicalEditor initialState={page.content_json} editable={false} />
           <div className="page-view__footer">
             <span>v{page.version}</span>

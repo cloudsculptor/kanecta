@@ -4311,6 +4311,13 @@ $bp-tablet: 768px;
 
   &__title {
     margin: 0;
+    font-size: 40px;
+    letter-spacing: -1px;
+
+    @media (max-width: $bp-tablet) {
+      font-size: 28px;
+      letter-spacing: -0.5px;
+    }
   }
 
   &__meta {
