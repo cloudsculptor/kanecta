@@ -6,7 +6,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import type { ViewType } from '../../types/ui';
 import { useLocation } from '../../context/LocationContext';
 import { api } from '../../api';
-import { TopRightCorner } from './TopRightCorner';
+import { AccountMenu } from './AccountMenu';
 import { DatastoreSwitcher } from './DatastoreSwitcher';
 import './TopBar.scss';
 
@@ -50,8 +50,9 @@ export function TopBar({ onQuickCapture, onCommandPalette, onViewSelect, activeV
 
   return (
     <nav className="TopBar">
-      <DatastoreSwitcher />
+      <nav className="TopBar-topLeftCorner" />
       <div className="TopBar-center">
+        <DatastoreSwitcher />
         <button
           className={`TopBar-item${activeClass('home')}`}
           onClick={() => onViewSelect('home')}
@@ -90,7 +91,9 @@ export function TopBar({ onQuickCapture, onCommandPalette, onViewSelect, activeV
           <span className="TopBar-item-label">Settings</span>
         </button>
       </div>
-      <TopRightCorner />
+      <nav className="TopBar-topRightCorner">
+        <AccountMenu />
+      </nav>
     </nav>
   );
 }
