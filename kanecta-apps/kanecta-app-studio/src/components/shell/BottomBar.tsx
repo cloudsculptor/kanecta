@@ -29,7 +29,7 @@ export function BottomBar({ activeView, onViewSelect }: BottomBarProps) {
 
   return (
     <nav className={`BottomBar${overlayOpen ? ' BottomBar--raised' : ''}`}>
-      <nav className="BottomBar-bottomLeftCorner" />
+      <div className="BottomBar-bottomLeftCorner" />
       <div className="BottomBar-center">
         {item('starred', 'Starred', <StarIcon />)}
         {item('history', 'History', <HistoryIcon />)}
@@ -43,7 +43,7 @@ export function BottomBar({ activeView, onViewSelect }: BottomBarProps) {
         {item('layouts', 'Layouts', <DashboardIcon />)}
         {item('todo', 'Todo', <ChecklistIcon />)}
       </div>
-      <nav className="BottomBar-bottomRightCorner" />
+      <div className="BottomBar-bottomRightCorner" />
     </nav>
   );
 }
