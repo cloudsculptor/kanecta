@@ -191,8 +191,6 @@ export function DatastoreSwitcher() {
           </button>
         </div>
 
-        <Divider />
-
         {/* ── Actions ── */}
         <div className="DatastoreSwitcher__actions">
           <button className="DatastoreSwitcher__action-btn">
