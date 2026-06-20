@@ -2,6 +2,7 @@ import { useState } from 'react';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import AddIcon from '@mui/icons-material/Add';
 import CheckIcon from '@mui/icons-material/Check';
+import ErrorOutlinedIcon from '@mui/icons-material/ErrorOutlined';
 import Divider from '@mui/material/Divider';
 import Popover from '@mui/material/Popover';
 import { useQuery, useQueries } from '@tanstack/react-query';
@@ -20,9 +21,10 @@ export function DatastoreSwitcher() {
 
   const open = Boolean(anchor);
 
-  const { data: activeConfig } = useQuery({
+  const { data: activeConfig, isError: activeConfigError } = useQuery({
     queryKey: ['config', activeWorkspaceId],
     queryFn: () => api.config.get(),
+    retry: 1,
   });
 
   const workspaceConfigs = useQueries({
@@ -30,27 +32,30 @@ export function DatastoreSwitcher() {
       queryKey: ['config', w.id],
       queryFn: () => getApi(w.id).config.get(),
       enabled: open,
+      retry: 1,
     })),
   });
 
   const datastoreName = activeConfig?.datastorePath
     ? basename(activeConfig.datastorePath)
-    : (active?.name ?? 'Datastore');
+    : null;
 
   return (
     <>
       <button
-        className="DatastoreSwitcher"
+        className={`DatastoreSwitcher${activeConfigError ? ' DatastoreSwitcher--error' : ''}`}
         onClick={(e) => setAnchor(e.currentTarget)}
         aria-label="Switch datastore"
         aria-expanded={open}
         aria-haspopup="listbox"
       >
-        <span
-          className="DatastoreSwitcher__dot"
-          style={{ background: active?.colour ?? '#888' }}
-        />
-        <span className="DatastoreSwitcher__name">{datastoreName}</span>
+        {activeConfigError
+          ? <ErrorOutlinedIcon className="DatastoreSwitcher__error-icon" />
+          : <span className="DatastoreSwitcher__dot" style={{ background: active?.colour ?? '#888' }} />
+        }
+        <span className="DatastoreSwitcher__name">
+          {activeConfigError ? 'Unavailable' : (datastoreName ?? '…')}
+        </span>
         <ArrowDropDownIcon className="DatastoreSwitcher__arrow" />
       </button>
 
@@ -65,7 +70,9 @@ export function DatastoreSwitcher() {
         <div className="DatastoreSwitcher__panel-header">Datastores</div>
         <ul className="DatastoreSwitcher__list" role="listbox" aria-label="Datastores">
           {workspaces.map((w, i) => {
-            const path = workspaceConfigs[i]?.data?.datastorePath;
+            const result = workspaceConfigs[i];
+            const path = result?.data?.datastorePath;
+            const pathError = result?.isError;
             return (
               <li key={w.id}>
                 <button
@@ -81,6 +88,7 @@ export function DatastoreSwitcher() {
                   <span className="DatastoreSwitcher__option-info">
                     <span className="DatastoreSwitcher__option-name">{w.name}</span>
                     {path && <span className="DatastoreSwitcher__option-path">{path}</span>}
+                    {pathError && <span className="DatastoreSwitcher__option-path-error">API unavailable</span>}
                   </span>
                   {w.id === activeWorkspaceId && (
                     <CheckIcon className="DatastoreSwitcher__option-check" />
