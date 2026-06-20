@@ -37,7 +37,7 @@ Examples:
 | Git operation | Kanecta equivalent |
 |---|---|
 | `git clone` | Copy a remote datastore into a new local datastore |
-| `git pull` | Fetch changes from a remote and merge into the current local datastore |
+| `git pull` | **No direct equivalent.** Remote data is always visible in the combined read view — there is nothing to fetch. Use Merge to explicitly bring remote items into the local datastore. |
 | `git push` | Send local changes to a remote for review / direct merge |
 | `git branch` | Create a new local datastore |
 | `git checkout` | Switch the active local datastore |
@@ -63,6 +63,7 @@ The Studio sync view (planned for v1.4.0) is the UI surface for merge operations
 ## What this is not
 
 - **Not transparent sync.** Kanecta will never silently merge in the background. Every sync is explicit and inspectable.
+- **No pull.** Because the remote is always readable (Kanecta queries both local and remote and returns a combined knowledge graph), there is nothing to "fetch". The local datastore does not need a copy of remote items to see them. Push sends local changes to the remote; Merge explicitly brings remote items into the local datastore.
 - **Not eventual consistency.** The local datastore is the source of truth for work in progress. Remote is the shared source of truth. They diverge intentionally and reconcile on demand.
 - **Not a Git wrapper.** The implementation uses Kanecta's own item model, history, and content_hash — not Git internals. The Git analogy is UX and mental model, not architecture.
 
