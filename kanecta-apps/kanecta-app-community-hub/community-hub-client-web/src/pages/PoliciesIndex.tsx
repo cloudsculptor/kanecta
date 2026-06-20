@@ -23,7 +23,7 @@ export default function PoliciesIndex() {
   const groups = tree?.children ?? [];
 
   return (
-    <PageLayout pageName="Policies" showComingSoon={false} wip parents={[{ name: "Governance", path: "/governance" }]}>
+    <PageLayout pageName="Policies" showComingSoon={false} parents={[{ name: "Governance", path: "/governance" }]}>
       {error && <p className="pages-error">{error}</p>}
       {groups.map((group, gi) => (
         <div key={group.id} className="policy-group">
