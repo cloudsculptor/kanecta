@@ -38,6 +38,7 @@ function DatastoreAvatar({ label, colour, size = 'md' }: AvatarProps) {
 
 // Hardcoded mock data — UI only, wired up later
 const MOCK_ACTIVE_NAME = 'Kanecta Internal';
+const MOCK_DISPLAY_NAME = 'Kanecta Internal'; // TODO: replace with datastoreName when wired
 const MOCK_REMOTE = { name: 'origin', description: 'Kanecta Internal - DigitalOcean Postgres' };
 const MOCK_LOCAL = { name: 'local', description: 'Kanecta Internal - Filesystem + SQLite', branch: 'main' };
 const MOCK_TO_PUSH = { add: 2, edit: 1, del: 0 };
@@ -90,14 +91,9 @@ export function DatastoreSwitcher() {
           : <DatastoreAvatar label={datastoreName ?? '?'} colour={active?.colour ?? '#888'} size="sm" />
         }
         <span className="DatastoreSwitcher__name">
-          {showError ? 'Unavailable' : (datastoreName ?? '…')}
+          {showError ? 'Unavailable' : MOCK_DISPLAY_NAME}
         </span>
-        {!showError && (MOCK_TO_PUSH.add + MOCK_TO_PUSH.edit + MOCK_TO_PUSH.del) > 0 && (
-          <span className="DatastoreSwitcher__sync-pill">
-            +{MOCK_TO_PUSH.add + MOCK_TO_PUSH.edit + MOCK_TO_PUSH.del}
-          </span>
-        )}
-        <ArrowDropDownIcon className="DatastoreSwitcher__arrow" />
+<ArrowDropDownIcon className="DatastoreSwitcher__arrow" />
       </button>
 
       <Popover
