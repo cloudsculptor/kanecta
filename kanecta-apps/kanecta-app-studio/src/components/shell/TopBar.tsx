@@ -50,7 +50,7 @@ export function TopBar({ onQuickCapture, onCommandPalette, onViewSelect, activeV
 
   return (
     <nav className="TopBar">
-      <nav className="TopBar-topLeftCorner" />
+      <div className="TopBar-topLeftCorner" />
       <div className="TopBar-center">
         <DatastoreSwitcher />
         <button
@@ -91,9 +91,9 @@ export function TopBar({ onQuickCapture, onCommandPalette, onViewSelect, activeV
           <span className="TopBar-item-label">Settings</span>
         </button>
       </div>
-      <nav className="TopBar-topRightCorner">
+      <div className="TopBar-topRightCorner">
         <AccountMenu />
-      </nav>
+      </div>
     </nav>
   );
 }
