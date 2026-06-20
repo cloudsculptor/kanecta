@@ -44,6 +44,11 @@ Treat this directory as the architecture's working memory: where conclusions get
 |---|---|
 | [mcp-api-surface.md](mcp-api-surface.md) | **Target surface — to be formalised into main spec** |
 
+### Sync and collaboration
+| Document | Status |
+|---|---|
+| [git-like-sync-model.md](git-like-sync-model.md) | Design direction — multiple remotes, local branches, Git-like UX for Kanecta datastores |
+
 ### Other
 | Document | Status |
 |---|---|
