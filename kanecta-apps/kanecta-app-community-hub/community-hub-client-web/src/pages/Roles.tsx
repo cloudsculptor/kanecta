@@ -11,11 +11,15 @@ export default function Roles() {
     <PageLayout pageName="Roles" showComingSoon={false} wip parents={[{ name: "Governance", path: "/governance" }]}>
       <div className="role-index">
         {roles.map(({ title, path, description }) => (
-          <Link key={path} to={path} className="role-index__item">
-            <span className="role-index__title">{title}</span>
-            <span className="role-index__description">{description}</span>
-            <span className="role-index__arrow">→</span>
-          </Link>
+          <div key={path} className="role-index__item-wrap">
+            <Link to={path} className="role-index__item">
+              <span className="role-index__title">{title}</span>
+              <span className="role-index__description">{description}</span>
+            </Link>
+            <div className="role-index__right">
+              <span className="role-index__arrow">→</span>
+            </div>
+          </div>
         ))}
       </div>
     </PageLayout>

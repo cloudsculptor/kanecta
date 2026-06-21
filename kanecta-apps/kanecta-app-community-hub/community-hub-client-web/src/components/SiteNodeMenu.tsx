@@ -11,7 +11,7 @@ interface Props {
   node: SiteNode;
   siblings: SiteNode[];
   index: number;
-  govType?: "procedure" | "policy";
+  govType?: string;
   pageCount?: number;
   onMove: (direction: "up" | "down") => Promise<void>;
   onDelete: () => Promise<void>;

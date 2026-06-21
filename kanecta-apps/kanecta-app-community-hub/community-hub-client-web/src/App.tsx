@@ -27,6 +27,8 @@ import Values from "./pages/Values";
 import Purpose from "./pages/Purpose";
 import PoliciesIndex from "./pages/PoliciesIndex";
 import ProceduresIndex from "./pages/ProceduresIndex";
+import MinutesIndex from "./pages/MinutesIndex";
+import RoadmapIndex from "./pages/RoadmapIndex";
 import GovernanceSectionList from "./pages/GovernanceSectionList";
 import GovernancePageView from "./pages/GovernancePageView";
 import GovernancePageEdit from "./pages/GovernancePageEdit";
@@ -117,6 +119,16 @@ export default function App() {
       <Route path="/governance/procedures/:category/:slug/edit" element={<GovernancePageEdit type="procedure" />} />
       <Route path="/governance/procedures/:category/:slug" element={<GovernancePageView type="procedure" />} />
       <Route path="/governance/procedures/:category" element={<GovernanceSectionList type="procedure" />} />
+      <Route path="/governance/minutes" element={<MinutesIndex />} />
+      <Route path="/governance/minutes/:category/new" element={<GovernancePageEdit type="minutes" />} />
+      <Route path="/governance/minutes/:category/:slug/edit" element={<GovernancePageEdit type="minutes" />} />
+      <Route path="/governance/minutes/:category/:slug" element={<GovernancePageView type="minutes" />} />
+      <Route path="/governance/minutes/:category" element={<GovernanceSectionList type="minutes" />} />
+      <Route path="/governance/roadmap" element={<RoadmapIndex />} />
+      <Route path="/governance/roadmap/:category/new" element={<GovernancePageEdit type="roadmap" />} />
+      <Route path="/governance/roadmap/:category/:slug/edit" element={<GovernancePageEdit type="roadmap" />} />
+      <Route path="/governance/roadmap/:category/:slug" element={<GovernancePageView type="roadmap" />} />
+      <Route path="/governance/roadmap/:category" element={<GovernanceSectionList type="roadmap" />} />
       <Route path="/governance/finances" element={<FinancesIndex />} />
       <Route path="/governance/finances/transactions" element={<FinancesTransactions />} />
       <Route path="/governance/finances/cashflow" element={<FinancesCashflow />} />
