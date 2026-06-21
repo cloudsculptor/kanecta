@@ -88,7 +88,7 @@ const publicActive = [
 ];
 
 const publicNewlyActive = [
-  { title: "Buy, Sell & Swap", blurb: "Buy, sell, swap, or give away items locally.", path: "/buy-sell-swap" },
+  { title: "Buy, Sell & Swap", blurb: "Buy, sell, swap, or give away items locally.", path: "/buy-sell-swap", image: "/buy-sell-swap-160x160.jpg" },
   { title: "Visitor Activities", blurb: "Things to do and see in Featherston and the South Wairarapa.", path: "/visitor-activities" },
   { title: "Health & Wellbeing", blurb: "GPs, pharmacy, dentist, mental health, and healthcare access in Featherston.", path: "/health-wellbeing" },
   { title: "Sport & Recreation", blurb: "Sports clubs, facilities, courts, and fitness groups.", path: "/sport-recreation" },
