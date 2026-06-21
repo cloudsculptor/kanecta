@@ -55,6 +55,20 @@ import NoticeBoard from "./pages/NoticeBoard";
 import Profile from "./pages/Profile";
 import CommunityResilience from "./pages/CommunityResilience";
 import Education from "./pages/Education";
+import BuySellSwap from "./pages/BuySellSwap";
+import VisitorActivities from "./pages/VisitorActivities";
+import HealthWellbeing from "./pages/HealthWellbeing";
+import SportRecreation from "./pages/SportRecreation";
+import EnvironmentOutdoors from "./pages/EnvironmentOutdoors";
+import ArtsCulture from "./pages/ArtsCulture";
+import FoodDrink from "./pages/FoodDrink";
+import JobsVolunteering from "./pages/JobsVolunteering";
+import PropertyHousing from "./pages/PropertyHousing";
+import Youth from "./pages/Youth";
+import Seniors from "./pages/Seniors";
+import PetsAnimals from "./pages/PetsAnimals";
+import LocalAccommodation from "./pages/LocalAccommodation";
+import History from "./pages/History";
 
 export default function App() {
   const { initialized } = useKeycloak();
@@ -85,6 +99,20 @@ export default function App() {
       <Route path="/profile" element={<Profile />} />
       <Route path="/community-resilience" element={<CommunityResilience />} />
       <Route path="/education" element={<Education />} />
+      <Route path="/buy-sell-swap" element={<BuySellSwap />} />
+      <Route path="/visitor-activities" element={<VisitorActivities />} />
+      <Route path="/health-wellbeing" element={<HealthWellbeing />} />
+      <Route path="/sport-recreation" element={<SportRecreation />} />
+      <Route path="/environment-outdoors" element={<EnvironmentOutdoors />} />
+      <Route path="/arts-culture" element={<ArtsCulture />} />
+      <Route path="/food-drink" element={<FoodDrink />} />
+      <Route path="/jobs-volunteering" element={<JobsVolunteering />} />
+      <Route path="/property-housing" element={<PropertyHousing />} />
+      <Route path="/youth" element={<Youth />} />
+      <Route path="/seniors" element={<Seniors />} />
+      <Route path="/pets-animals" element={<PetsAnimals />} />
+      <Route path="/local-accommodation" element={<LocalAccommodation />} />
+      <Route path="/history" element={<History />} />
       <Route path="/discussions" element={<Discussions />} />
       <Route path="/discussions/team-required" element={<TeamRequired />} />
       <Route path="/roadmap" element={<Roadmap />} />

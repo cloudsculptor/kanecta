@@ -1,6 +1,6 @@
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { NavCard, ComingCard } from "../components/NavCard";
+import { NavCard } from "../components/NavCard";
 import ContributeForm from "../components/ContributeForm";
 import WelcomeBanner from "../components/WelcomeBanner";
 import { useUserRoles, hasRole } from "../auth/useUserRole";
@@ -87,63 +87,21 @@ const publicActive = [
   },
 ];
 
-const publicComing = [
-  {
-    title: "Buy, Sell & Swap",
-    blurb: "Buy, sell, swap, or give away items locally.",
-  },
-  {
-    title: "Visitor Activities",
-    blurb: "Things to do and see in Featherston and the South Wairarapa.",
-  },
-  {
-    title: "Health & Wellbeing",
-    blurb: "GPs, pharmacy, dentist, mental health, and healthcare access in Featherston.",
-  },
-  {
-    title: "Sport & Recreation",
-    blurb: "Sports clubs, facilities, courts, and fitness groups.",
-  },
-  {
-    title: "Environment & Outdoors",
-    blurb: "Remutaka Rail Trail, Lake Wairarapa, conservation, and local walks.",
-  },
-  {
-    title: "Arts & Culture",
-    blurb: "Local artists, galleries, Booktown festival, and performances.",
-  },
-  {
-    title: "Food & Drink",
-    blurb: "Cafes, restaurants, local producers, and farmers markets.",
-  },
-  {
-    title: "Jobs & Volunteering",
-    blurb: "Local employment opportunities and ways to contribute your skills.",
-  },
-  {
-    title: "Property & Housing",
-    blurb: "Rentals, real estate, and local housing information.",
-  },
-  {
-    title: "Youth",
-    blurb: "Services, activities, and resources for young people in Featherston.",
-  },
-  {
-    title: "Seniors",
-    blurb: "Services, activities, and support for older residents.",
-  },
-  {
-    title: "Pets & Animals",
-    blurb: "Vets, lost pets, and animal services in the area.",
-  },  
-  {
-    title: "Local Accommodation",
-    blurb: "Places to stay in and around Featherston.",
-  },  
-  {
-    title: "History",
-    blurb: "The history of Featherston and the surrounding district.",
-  },
+const publicNewlyActive = [
+  { title: "Buy, Sell & Swap", blurb: "Buy, sell, swap, or give away items locally.", path: "/buy-sell-swap", image: "/buy-sell-swap-160x160.jpg" },
+  { title: "Visitor Activities", blurb: "Things to do and see in Featherston and the South Wairarapa.", path: "/visitor-activities", image: "/remutaka-trail-160x160.jpg", attribution: { label: "Photo: Ulrich Lange / CC BY-SA 3.0", url: "https://commons.wikimedia.org/wiki/File:Summit_station_1.jpg" } },
+  { title: "Health & Wellbeing", blurb: "GPs, pharmacy, dentist, mental health, and healthcare access in Featherston.", path: "/health-wellbeing", image: "/health-160x160.jpg" },
+  { title: "Sport & Recreation", blurb: "Sports clubs, facilities, courts, and fitness groups.", path: "/sport-recreation" },
+  { title: "Environment & Outdoors", blurb: "Remutaka Rail Trail, Lake Wairarapa, conservation, and local walks.", path: "/environment-outdoors" },
+  { title: "Arts & Culture", blurb: "Local artists, galleries, Booktown festival, and performances.", path: "/arts-culture" },
+  { title: "Food & Drink", blurb: "Cafes, restaurants, local producers, and farmers markets.", path: "/food-drink" },
+  { title: "Jobs & Volunteering", blurb: "Local employment opportunities and ways to contribute your skills.", path: "/jobs-volunteering" },
+  { title: "Property & Housing", blurb: "Rentals, real estate, and local housing information.", path: "/property-housing" },
+  { title: "Youth", blurb: "Services, activities, and resources for young people in Featherston.", path: "/youth" },
+  { title: "Seniors", blurb: "Services, activities, and support for older residents.", path: "/seniors" },
+  { title: "Pets & Animals", blurb: "Vets, lost pets, and animal services in the area.", path: "/pets-animals" },
+  { title: "Local Accommodation", blurb: "Places to stay in and around Featherston.", path: "/local-accommodation" },
+  { title: "History", blurb: "The history of Featherston and the surrounding district.", path: "/history" },
 ];
 
 export default function Home() {
@@ -200,10 +158,7 @@ export default function Home() {
           </>
         )}
         {publicActive.map((item) => <NavCard key={item.title} {...item} />)}
-        <div className="nav-divider">
-          <span>Ideas for the future</span>
-        </div>
-        {publicComing.map((item) => <ComingCard key={item.title} {...item} />)}
+        {publicNewlyActive.map((item) => <NavCard key={item.title} {...item} />)}
         <div className="nav-divider">
           <span>About this site</span>
         </div>
