@@ -89,7 +89,7 @@ const publicActive = [
 
 const publicNewlyActive = [
   { title: "Buy, Sell & Swap", blurb: "Buy, sell, swap, or give away items locally.", path: "/buy-sell-swap", image: "/buy-sell-swap-160x160.jpg" },
-  { title: "Visitor Activities", blurb: "Things to do and see in Featherston and the South Wairarapa.", path: "/visitor-activities" },
+  { title: "Visitor Activities", blurb: "Things to do and see in Featherston and the South Wairarapa.", path: "/visitor-activities", image: "/remutaka-trail-160x160.jpg", attribution: { label: "Photo: Ulrich Lange / CC BY-SA 3.0", url: "https://commons.wikimedia.org/wiki/File:Summit_station_1.jpg" } },
   { title: "Health & Wellbeing", blurb: "GPs, pharmacy, dentist, mental health, and healthcare access in Featherston.", path: "/health-wellbeing" },
   { title: "Sport & Recreation", blurb: "Sports clubs, facilities, courts, and fitness groups.", path: "/sport-recreation" },
   { title: "Environment & Outdoors", blurb: "Remutaka Rail Trail, Lake Wairarapa, conservation, and local walks.", path: "/environment-outdoors" },
