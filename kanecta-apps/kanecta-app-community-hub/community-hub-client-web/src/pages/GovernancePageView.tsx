@@ -6,8 +6,10 @@ import { useKeycloak } from "../auth/KeycloakProvider";
 import { getPublicPage, getPage, type Page } from "../api/pages";
 import LexicalEditor from "../components/pages/LexicalEditor";
 
+import { type GovSectionType, GOV_SECTION_CONFIG } from "../config/governanceTypes";
+
 interface Props {
-  type: "procedure" | "policy";
+  type: GovSectionType;
 }
 
 function slugToTitle(slug: string): string {
@@ -26,12 +28,13 @@ export default function GovernancePageView({ type }: Props) {
   const [error, setError] = useState("");
 
   const isModerator = hasRole(roles, "moderator");
-  const basePath = `/governance/${type === "policy" ? "policies" : "procedures"}/${category}`;
+  const cfg = GOV_SECTION_CONFIG[type];
+  const basePath = `${cfg.urlPrefix}/${category}`;
   const categoryTitle = slugToTitle(category ?? "");
 
   const parents = [
     { name: "Governance", path: "/governance" },
-    { name: type === "procedure" ? "Procedures" : "Policies", path: `/governance/${type === "policy" ? "policies" : "procedures"}` },
+    { name: cfg.label, path: cfg.urlPrefix },
     { name: categoryTitle, path: basePath },
   ];
 

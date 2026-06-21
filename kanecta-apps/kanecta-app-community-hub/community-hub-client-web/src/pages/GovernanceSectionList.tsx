@@ -14,8 +14,10 @@ import {
   type PageSummary,
 } from "../api/pages";
 
+import { type GovSectionType, GOV_SECTION_CONFIG } from "../config/governanceTypes";
+
 interface Props {
-  type: "procedure" | "policy";
+  type: GovSectionType;
 }
 
 function slugToTitle(slug: string): string {
@@ -24,17 +26,6 @@ function slugToTitle(slug: string): string {
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 }
-
-const PARENTS_BY_TYPE = {
-  procedure: [
-    { name: "Governance", path: "/governance" },
-    { name: "Procedures", path: "/governance/procedures" },
-  ],
-  policy: [
-    { name: "Governance", path: "/governance" },
-    { name: "Policies", path: "/governance/policies" },
-  ],
-};
 
 export default function GovernanceSectionList({ type }: Props) {
   const { category } = useParams<{ category: string }>();
@@ -46,10 +37,14 @@ export default function GovernanceSectionList({ type }: Props) {
   const [showArchived, setShowArchived] = useState(false);
 
   const isModerator = hasRole(roles, "moderator");
-  const ownerType = `gov-${type === "procedure" ? "proc" : "pol"}-${category}`;
-  const basePath = `/governance/${type === "policy" ? "policies" : "procedures"}/${category}`;
+  const cfg = GOV_SECTION_CONFIG[type];
+  const ownerType = `${cfg.ownerTypePrefix}-${category}`;
+  const basePath = `${cfg.urlPrefix}/${category}`;
   const categoryTitle = slugToTitle(category ?? "");
-  const parents = PARENTS_BY_TYPE[type];
+  const parents = [
+    { name: "Governance", path: "/governance" },
+    { name: cfg.label, path: cfg.urlPrefix },
+  ];
 
   useEffect(() => {
     if (!initialized) return;

@@ -7,9 +7,10 @@ import { useUserRoles, hasRole } from "../auth/useUserRole";
 import { useKeycloak } from "../auth/KeycloakProvider";
 import { getPage, createPage, updatePage } from "../api/pages";
 import LexicalEditor from "../components/pages/LexicalEditor";
+import { type GovSectionType, GOV_SECTION_CONFIG } from "../config/governanceTypes";
 
 interface Props {
-  type: "procedure" | "policy";
+  type: GovSectionType;
 }
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
@@ -42,13 +43,14 @@ export default function GovernancePageEdit({ type }: Props) {
   const originalSlugRef = useRef("");
 
   const isModerator = hasRole(roles, "moderator");
-  const ownerType = `gov-${type === "procedure" ? "proc" : "pol"}-${category}`;
-  const basePath = `/governance/${type === "policy" ? "policies" : "procedures"}/${category}`;
+  const cfg = GOV_SECTION_CONFIG[type];
+  const ownerType = `${cfg.ownerTypePrefix}-${category}`;
+  const basePath = `${cfg.urlPrefix}/${category}`;
   const categoryTitle = slugToTitle(category ?? "");
 
   const parents = [
     { name: "Governance", path: "/governance" },
-    { name: type === "procedure" ? "Procedures" : "Policies", path: `/governance/${type === "policy" ? "policies" : "procedures"}` },
+    { name: cfg.label, path: cfg.urlPrefix },
     { name: categoryTitle, path: basePath },
   ];
 
