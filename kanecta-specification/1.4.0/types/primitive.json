@@ -22,7 +22,8 @@
     "note",
     "concept",
     "entity",
-    "event"
+    "event",
+    "grant"
   ],
   "wellKnown": [
     "root",
