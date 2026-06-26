@@ -378,7 +378,7 @@ Payload shapes are defined per type — see <<payload-definitions>>.
 [#item-types]
 == Item Types
 
-*Source of truth: `./types/primitive.json`*
+*Source of truth: `./types/built-in-types.json`*
 
 Types are grouped into three categories.
 
@@ -1251,7 +1251,7 @@ TIP: *Postgres* — `gen_random_uuid()` (PostgreSQL ≥ 13) generates UUID v4. A
 | `./file-specs/item.json`
 | JSON Schema for `item.json`. Source of truth for all item fields and payload shapes.
 
-| Primitive types
-| `./types/primitive.json`
+| Built-in types
+| `./types/built-in-types.json`
 | Canonical list of all valid `item.type` values.
 |===

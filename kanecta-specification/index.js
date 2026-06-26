@@ -1,16 +1,13 @@
 'use strict';
 
 const { version } = require('./package.json');
-const types = require(`./${version}/types/primitive.json`);
+const types = require(`./${version}/types/built-in-types.json`);
 
 module.exports = {
   version,
-  type:         require(`./${version}/file-specs/type.json`),
-  items:        require(`./${version}/file-specs/items.json`),
-  metadata:     require(`./${version}/file-specs/metadata.json`),
-  functionSpec: require(`./${version}/file-specs/function.json`),
+  item:             require(`./${version}/file-specs/item.json`),
   types,
-  allTypes:     [...types.primitive, ...types.structured, ...types.wellKnown],
+  allTypes:         [...types.primitive, ...types.structured, ...types.wellKnown],
   primitiveTypes:   types.primitive,
   structuredTypes:  types.structured,
   wellKnownTypes:   types.wellKnown,

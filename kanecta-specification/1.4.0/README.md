@@ -10,7 +10,7 @@
 |---|---|
 | [specification.adoc](specification.adoc) | Full specification. Start here. Covers the four-section item format, all item types, payload shapes, search (FTS + semantic), inline links, external type systems, multiple trees, provenance, type lifecycle, aspects, templates, well-known roots, DB table mapping, business rules, and constraints. Includes adapter hints for Postgres and SQLite throughout. |
 | [file-specs/item.json](file-specs/item.json) | JSON Schema for `item.json`. Source of truth for all item fields and payload shapes. |
-| [types/primitive.json](types/primitive.json) | Canonical list of all valid `item.type` values, grouped into `primitive`, `structured`, and `wellKnown` categories. |
+| [types/built-in-types.json](types/built-in-types.json) | Canonical list of all valid `item.type` values, grouped into `primitive`, `structured`, and `wellKnown` categories. |
 
 ## Key changes in 1.4.0
 

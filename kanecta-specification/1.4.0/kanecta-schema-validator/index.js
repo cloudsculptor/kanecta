@@ -15,18 +15,16 @@ function isDate(v)    { return typeof v === 'string' && DATE_RE.test(v); }
 function isSemver(v)  { return typeof v === 'string' && SEMVER_RE.test(v); }
 function e(path, message, rule) { return { path, message, rule }; }
 
-// Valid item type strings — mirrors 1.4.0/types/primitive.json
+// Valid item type strings — mirrors 1.4.0/types/built-in-types.json
 const ALL_ITEM_TYPES = new Set([
   // primitive
-  'string','number','text','heading','file','symlink','url','image',
-  'function','markdown','runner',
+  'string','number','text','heading','file','symlink','url',
+  'function','component','runner','node','tree',
   // structured
   'object','decision','annotation','claim','question','task','note',
-  'concept','entity','event',
-  // well-known (the five singleton root nodes — see specification.md)
+  'concept','entity','event','grant','relationship',
+  // well-known (the five singleton root nodes — see specification.adoc)
   'root','system_root','app_root','component_root','data_root',
-  // type-definition records
-  'type',
 ]);
 
 const VISIBILITY = new Set(['private','organisation','public']);

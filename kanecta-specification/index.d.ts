@@ -1,8 +1,5 @@
 export declare const version: string;
-export declare const type: object;
-export declare const items: object;
-export declare const metadata: object;
-export declare const functionSpec: object;
+export declare const item: object;
 export declare const types: {
   readonly primitive: readonly string[];
   readonly structured: readonly string[];

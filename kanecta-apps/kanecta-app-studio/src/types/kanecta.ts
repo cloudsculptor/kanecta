@@ -1,4 +1,4 @@
-import primitiveSpec from '@kanecta/specification/1.2.0/types/primitive.json';
+import primitiveSpec from '@kanecta/specification/1.4.0/types/built-in-types.json';
 
 export type ItemType =
   | typeof primitiveSpec.primitive[number]
