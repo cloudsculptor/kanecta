@@ -1,5 +1,4 @@
 = Kanecta Specification v1.4.0
-Richard Thomas
 :version: 1.4.0
 :toc: left
 :toc-title: Contents
@@ -974,7 +973,7 @@ For `type: "root"`. The only required payload on root is `entryPoint` — the UU
 }
 ----
 
-`item.value` on root is the human label for the datastore — the first visible node in the tree (e.g. `"Richard Thomas"`, `"Acme Corp"`). It is not the entry point.
+`item.value` on root is the human label for the datastore — the first visible node in the tree (e.g. `"Alice"`, `"Acme Corp"`). It is not the entry point.
 
 Different deployments of the same datastore (web UI, API server, CLI) each have their own view item, with their own `componentId` and `contextId`. To support multiple deployment types, create multiple view items and update `entryPoint` to whichever is active — or make the entry point function itself context-aware.
 
