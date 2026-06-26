@@ -19,11 +19,11 @@ function e(path, message, rule) { return { path, message, rule }; }
 const ALL_ITEM_TYPES = new Set([
   // primitive
   'string','number','text','heading','file','symlink','url',
-  'function','component','runner','node','tree',
+  'formula','function','component','runner','node','tree',
   // structured
-  'type',
+  'type','alias',
   'object','decision','annotation','claim','question','task','note',
-  'concept','entity','event','grant','relationship','view','context','reference','subscription',
+  'concept','entity','event','grant','relationship','relationship-type','view','context','reference','subscription',
   // well-known (the one fixed anchor — see specification.adoc)
   'root',
 ]);

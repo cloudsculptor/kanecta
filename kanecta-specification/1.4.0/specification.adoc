@@ -334,9 +334,29 @@ All provenance, ownership, operational, and bookkeeping fields.
 | object
 | no
 | Sidecar file map. See <<files-and-sidecars>>.
+
+| `layer`
+| `"system"` \| `"app"` \| `"user"` \| null
+| no
+| Which layer of the platform this item belongs to. `system` — core platform infrastructure, bootstrapped by the Kanecta runtime (e.g. root, built-in type definitions, license items). `app` — application-level definitions authored by developers or integrators (e.g. custom types, component definitions, formulas). `user` — items created by end users in normal use. Null is treated as `user`. Used for access control defaults, UI filtering, and determining what is safe to wipe during a workspace reset. Note: this field is named `layer` rather than `namespace` to avoid collision with the existing `namespace` org-hierarchy field.
+
+| `sourceSystem`
+| string \| null
+| no
+| Identifier of the external system this item was ingested from (e.g. `"jira"`, `"github"`, `"xero"`). Null for items created natively in Kanecta. Used with `sourceExternalId` to detect duplicate ingestion and to route sync operations back to the correct external system.
+
+| `sourceExternalId`
+| string \| null
+| no
+| The ID of this record in the source external system (e.g. a Jira issue key `"ENG-1234"`, a GitHub issue number `"42"`). Null for native items. The combination of `sourceSystem` + `sourceExternalId` must be unique per workspace — the adapter enforces this as a unique index to prevent duplicate ingestion.
+
+| `sourceRunId`
+| string \| null
+| no
+| Identifier of the ingestion run that created or last updated this item (e.g. a UUID or a pipeline run ID). Null for native items or manual edits. Enables tracing which sync run last touched each item and rolling back a faulty ingestion run.
 |===
 
-TIP: *Postgres* — all timestamp columns must be `TIMESTAMPTZ`. Applications always write UTC. `tags` is stored as `TEXT[] NOT NULL DEFAULT '{}'` with a GIN index (`CREATE INDEX idx_items_tags ON items USING GIN (tags)`) — no separate junction table.
+TIP: *Postgres* — all timestamp columns must be `TIMESTAMPTZ`. Applications always write UTC. `tags` is stored as `TEXT[] NOT NULL DEFAULT '{}'` with a GIN index (`CREATE INDEX idx_items_tags ON items USING GIN (tags)`) — no separate junction table. `source_system` + `source_external_id` carry a partial unique index: `CREATE UNIQUE INDEX idx_items_source ON items (source_system, source_external_id) WHERE source_system IS NOT NULL AND source_external_id IS NOT NULL`.
 
 TIP: *SQLite* — store timestamps as ISO 8601 `TEXT`. Store tags as a JSON array in a `TEXT` column; parse in the adapter layer.
 
@@ -430,6 +450,10 @@ Basic value containers. `payload` is null unless noted.
 | A URL. `item.value` contains the URL string.
 | null
 
+| `formula`
+| A reusable calculation. Three levels: template string (`"TASK-{n}"`), Excel-like DSL evaluated by formulajs, or a pointer to a `function` item for full programmatic power. Referenced by UUID from wherever a computed value is needed.
+| `formulaPayload` (required)
+
 | `function`
 | A typed function definition with optional implementation.
 | `functionPayload` (required)
@@ -462,6 +486,10 @@ Types with defined semantic intent.
 | `type`
 | A custom type definition. The meta-type — `object` instances live under their type item as their canonical home. Type items themselves live under a bootstrapper-created collection tree under root.
 | `typePayload` (required)
+
+| `alias`
+| A human-readable string that resolves to a UUID. The alias string lives in `item.value`; lookup is case-insensitive. Distinct from `symlink` — a symlink is a tree-placement item; an alias is a string lookup. Lives under the aliased item as its canonical home. Provisional aliases are computed locally at creation and confirmed as globally unique at merge time.
+| `aliasPayload` (required)
 
 | `object`
 | An instance of a custom type definition. `item.typeId` identifies the type.
@@ -508,8 +536,12 @@ Types with defined semantic intent.
 | `grantPayload` (required)
 
 | `relationship`
-| A typed, first-class relationship between two items.
+| A typed, first-class relationship between two items. `typeId` points to a `relationship-type` item.
 | `relationshipPayload` (required)
+
+| `relationship-type`
+| Defines a relationship vocabulary entry — the meta-type for relationship instances. Carries `meta.directional` and `meta.inverse` (UUID of the paired inverse). `jsonSchema` validates the `data` payload on instances. Nine canonical instances are bootstrapped as system items.
+| `typePayload` (shared schema with type items)
 
 | `view`
 | A specific perspective on an item: item + renderer + context. The view UUID is a single pointer to all three. Used for bookmarking, sharing, embedding, and bootstrapping.
@@ -619,6 +651,51 @@ NOTE: The `symlink` type has no canonical home rule — by design, a symlink *is
 [#payload-definitions]
 == Payload Definitions
 
+=== nodePayload
+
+For `type: "node"`. Places an item in a named additional tree. The `node` item's own `parentId` is the UUID of the parent node (or the `tree` item UUID for root-level nodes) — this is how the tree structure is encoded. `item.value` on a node is null; the referenced item's value is displayed instead.
+
+This is distinct from the primary tree, where items carry `parentId` directly. Additional trees use `node` items as indirection so the same item can appear in multiple trees simultaneously without symlinks — each tree gets its own node items pointing at the same target.
+
+[source,json]
+----
+{
+  "target": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "path": "/00000000-0000-0000-0000-000000000000/a1b2-node/b3c4-node",
+  "sortOrder": 3,
+  "aspect": null
+}
+----
+
+[cols="1,1,1,3", options="header"]
+|===
+| Field | Type | Required | Description
+
+| `target`
+| UUID string
+| Yes
+| UUID of the item this node positions in the tree. The item itself is unmodified — it has no knowledge of this node.
+
+| `path`
+| string
+| Yes
+| Materialized path: `/{tree-uuid}/{ancestor-node-uuid}/.../{this-node-uuid}`. Separator is `/`. Stored for query performance — always rebuildable by walking the `parentId` chain of node items. Source of truth is `parentId`; path is derived.
+
+| `sortOrder`
+| integer
+| No
+| Sort position among siblings. Lower numbers appear first. Defaults to 0.
+
+| `aspect`
+| string \| null
+| No
+| Optional dimension label. `null` = normal content node. Named strings indicate the role this node plays (e.g. `"history"`, `"annotations"`, `"archive"`). Allows a single item to participate in multiple conceptual layers of the same tree.
+|===
+
+*Moving a node* — update `parentId` and `path` on the node item, and update `path` on all descendant nodes. The target item is not touched.
+
+TIP: *Postgres* — the `payload_node` table exists alongside the main `items` table for efficient tree queries. Schema: `CREATE TABLE payload_node (id UUID PRIMARY KEY REFERENCES items(id), target UUID NOT NULL REFERENCES items(id), parent_id UUID REFERENCES payload_node(id), path TEXT NOT NULL UNIQUE, sort_order INTEGER NOT NULL DEFAULT 0, aspect VARCHAR(50))`. Index on `(parent_id, sort_order)` for children queries; index on `path` with `LIKE` for subtree queries.
+
 === filePayload
 
 For `type: "file"`. Replaces the former `image` and `markdown` primitives — use `mimeType` to distinguish.
@@ -697,6 +774,135 @@ NOTE: *Filesystem and SQLite adapters* — the function body lives in a sidecar:
 
 TIP: *Postgres* — `function_parameters` and `function_throws` are child tables ordered by `sort_order`, each enforcing `type` XOR `type_id` XOR `function_id`. `dependencies` is a native `TEXT[]` column.
 
+=== formulaPayload
+
+For `type: "formula"`. A reusable calculation that can be referenced by UUID from anywhere a computed value is needed — alias generation, `primaryField` derivation, derived fields, display labels, or any other context. The formula name/label lives in `item.value`.
+
+A formula item is independent of its consumer. A type's `aliasFormulas` map references formula UUIDs; a formula does not know or care that it is used for aliases. The same formula item can be referenced from multiple consumers simultaneously.
+
+Three levels of increasing power, controlled by `payload.level`:
+
+[cols="1,3,3", options="header"]
+|===
+| Level | `expression` | Use when
+
+| `template`
+| String with `{variable}` placeholders. e.g. `"TASK-{n}"`, `"INV-{year}-{n}"`.
+| The value is a simple string with one or more substituted variables. No computation beyond interpolation.
+
+| `dsl`
+| Excel-like formula string evaluated by https://formulajs.info[formulajs] (MIT). e.g. `"=CONCAT(\"TASK-\", TEXT(n, \"0000\"))"`.
+| Arithmetic, string functions, date functions, conditional logic. Kanecta-specific extension functions are registered alongside the standard formulajs library.
+
+| `function`
+| Not used — set `functionId` instead.
+| Full programmatic power. The formula delegates to a `function` item. Use when the DSL cannot express the required logic.
+|===
+
+[source,json]
+----
+{
+  "level": "template",
+  "expression": "TASK-{n}",
+  "description": "Default task identifier: type prefix followed by a workspace-scoped sequence number."
+}
+----
+
+[source,json]
+----
+{
+  "level": "dsl",
+  "expression": "=CONCAT(\"INV-\", TEXT(year, \"0000\"), \"-\", TEXT(n, \"000\"))",
+  "description": "Invoice number: INV-<year>-<sequence>, e.g. INV-2026-001."
+}
+----
+
+[source,json]
+----
+{
+  "level": "function",
+  "functionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "description": "Custom invoice number that checks external accounting system for conflicts."
+}
+----
+
+*Fields*
+
+[cols="1,1,1,3", options="header"]
+|===
+| Field | Type | Required | Description
+
+| `level`
+| `"template" \| "dsl" \| "function"`
+| Yes
+| Which evaluation level this formula uses.
+
+| `expression`
+| string
+| When `level` is `template` or `dsl`
+| The formula expression. For `template`: a string with `{variable}` placeholders. For `dsl`: an Excel-like formula string (must begin with `=`).
+
+| `functionId`
+| UUID string
+| When `level` is `function`
+| UUID of the `function` item to delegate to.
+
+| `description`
+| string
+| No
+| Human-readable explanation of what this formula computes and any non-obvious behaviour.
+|===
+
+*Built-in variables*
+
+Available in both `template` (as `{variable}`) and `dsl` (as plain identifiers, e.g. `n`, `year`) levels:
+
+[cols="1,3", options="header"]
+|===
+| Variable | Value
+
+| `n`
+| Auto-incrementing integer, scoped per type per workspace. Monotonically increasing — never reused even if items are deleted.
+
+| `year`
+| Current 4-digit year as an integer (e.g. `2026`).
+
+| `month`
+| Current 2-digit month as an integer (`1`–`12`).
+
+| `date`
+| Current date as `YYYY-MM-DD` string.
+
+| `type`
+| The type name string of the item being processed (e.g. `"task"`).
+
+| `uuid8`
+| First 8 characters of the new item's UUID. Useful for short, collision-resistant identifiers.
+
+| `field.<name>`
+| The current value of a named field on the item being processed (e.g. `field.project` resolves the `project` field). In DSL level, use the extension function `FIELD("name")`.
+|===
+
+*DSL extension functions*
+
+The following Kanecta-specific functions are registered alongside the standard formulajs library and available in `dsl` level formulas:
+
+[cols="1,3", options="header"]
+|===
+| Function | Description
+
+| `ITEM(uuid, fieldName)`
+| Resolves the value of `fieldName` on the item with the given UUID. Enables cross-item lookups within a formula.
+
+| `SEQ(typeId)`
+| Returns the next sequence number for the given type UUID (same as the `n` variable, but addressable by type UUID for cross-type sequences).
+
+| `FIELD(name)`
+| Returns the value of the named field on the item being processed. Equivalent to the `field.<name>` template variable.
+|===
+
+NOTE: `formulajs` (MIT licence) is the evaluation engine for `dsl` level formulas. Only a declarative subset of formula evaluation is supported — no side effects, no I/O, no async. Formulas that require I/O or external calls must use `level: "function"` with a `functionId` instead.
+
 === componentPayload
 
 For `type: "component"`. Describes a React component. Return type is always `ReactNode` — implicit, no field. The component body (JSX/TSX) lives in `meta.files.body = "body.tsx"`.
@@ -728,6 +934,9 @@ For `type: "type"`. Defines a custom Kanecta type. Three top-level keys: `meta`,
     "primaryField": "name",
     "searchFields": ["name", "bio", "email"],
     "componentId": null,
+    "aliasFormulas": {
+      "default": "f9e8d7c6-b5a4-3210-fedc-ba9876543210"
+    },
     "functions": [],
     "sync": [],
     "supersededBy": [],
@@ -771,6 +980,9 @@ For `type: "type"`. Defines a custom Kanecta type. Three top-level keys: `meta`,
 
 | `tags`
 | Comma-separated grouping tags.
+
+| `aliasFormulas`
+| Map of named formula references for alias auto-generation. Keys are arbitrary scope names (`"default"` is conventional); values are UUIDs of `formula` items. When an instance of this type is created, the adapter evaluates each formula and creates a provisional `alias` item under the new item for each entry. A type with no `aliasFormulas` generates no automatic aliases — aliases can still be created manually. Example: `{ "default": "<formulaId>", "invoice": "<formulaId2>" }`. The `formula` items referenced here are independent items; they are not embedded in typePayload.
 
 | `primaryField`
 | The field (or expression) that computes `item.value` for instances. Three forms: plain string path (`"name"`), object with `fields` array + optional `expression`, or object with `fields` + `functionId`.
@@ -826,17 +1038,99 @@ TIP: *SQLite* — `sqlSchema` is author-defined in Postgres dialect but adapters
 
 NOTE: *Required even for filesystem-only types* — every type defines `sqlSchema` regardless of current adapter, so a future filesystem→cloud migration never needs retrofitting.
 
-=== relationshipPayload
+=== aliasPayload
 
-For `type: "relationship"`. A typed, first-class relationship between two items.
+For `type: "alias"`. The alias string itself lives in `item.value` — this is the human-readable label the user types to address the target item. Lookup is always case-insensitive; the adapter normalises to lowercase when querying but preserves original casing in `item.value` for display.
+
+The alias item's `parentId` is the `targetId` — the alias lives under the item it aliases, as its canonical home in the tree. The adapter maintains a derived `aliases` lookup table for O(1) string resolution, but that table is rebuilt from items and is never the source of truth.
 
 [source,json]
 ----
 {
-  "relationshipType": "evidenced-by",
+  "targetId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "scope": "org",
+  "provisional": false,
+  "confirmedAt": "2026-06-25T09:14:00Z",
+  "computedFrom": null
+}
+----
+
+[source,json]
+----
+{
+  "targetId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "scope": "type",
+  "provisional": true,
+  "confirmedAt": null,
+  "computedFrom": {
+    "formulaId": "f9e8d7c6-b5a4-3210-fedc-ba9876543210"
+  }
+}
+----
+
+*Fields*
+
+[cols="1,1,1,3", options="header"]
+|===
+| Field | Type | Required | Description
+
+| `targetId`
+| UUID string
+| Yes
+| The item this alias resolves to. Also the alias item's `parentId` — the alias lives under its target in the tree.
+
+| `scope`
+| `"personal" \| "org" \| "type"`
+| Yes
+| Visibility layer. `personal` — visible only in the personal workspace. `org` — shared across the org workspace. `type` — defined at the type level, applies to all items of that type (usually formula-generated).
+
+| `provisional`
+| boolean
+| Yes
+| `true` when the alias was computed locally at creation time and has not yet been confirmed as globally unique. `false` once confirmed. Provisional aliases are valid for local use; they are checked for conflicts during PR pre-flight (merge time).
+
+| `confirmedAt`
+| ISO 8601 datetime \| null
+| Yes
+| Timestamp of the merge-time uniqueness check that confirmed this alias. `null` while `provisional: true`.
+
+| `computedFrom`
+| object \| null
+| Yes
+| If this alias was generated by a formula, contains `{ "formulaId": "<UUID>" }`. `null` for manually created aliases.
+|===
+
+*Scope layers and conflict resolution*
+
+Aliases are resolved in scope order: `personal` overrides `org`, which overrides `type`. If two aliases in the same scope match the same lookup string, the adapter surfaces the full list and the user selects the intended target — Kanecta does not silently pick one. Users can set a preferred ordering per-scope.
+
+*Provisional alias lifecycle*
+
+. Item is created. If its type has an `aliasFormulas` entry, the adapter evaluates the formula locally and creates an alias item with `provisional: true` and `confirmedAt: null`.
+. The branch is used locally. Provisional aliases work for local lookups.
+. A PR is opened. Pre-flight scans for alias conflicts: checks whether any provisional alias on this branch collides with a confirmed alias on the target branch.
+. If no conflict: alias is confirmed — `provisional` set to `false`, `confirmedAt` set to the merge timestamp.
+. If conflict: the formula is re-evaluated with a different `n` (or the user is prompted). A new alias item replaces the provisional one.
+
+NOTE: The `n` variable in formula evaluation is workspace-scoped and monotonically increasing. It is never reused even if an alias item is deleted — this prevents silent alias collisions after deletions.
+
+TIP: *Postgres* — the derived aliases lookup table schema: `CREATE TABLE aliases (alias TEXT NOT NULL, target_id UUID NOT NULL REFERENCES items(id), scope TEXT NOT NULL, workspace_id UUID NOT NULL, PRIMARY KEY (alias, scope, workspace_id))`. Rebuilt in full on workspace open; updated incrementally on item write.
+
+=== relationshipPayload
+
+For `type: "relationship"`. A typed, first-class relationship between two items. The human-readable label lives in `item.value` (e.g. `"depends on"`).
+
+Relationship types are themselves first-class items (`type: "relationship-type"`) — not string slugs. `typeId` points to the relationship-type item that defines this edge's schema, directional semantics, and inverse pairing. Nine canonical relationship-type system items are bootstrapped for the standard relationship vocabulary; custom relationship types are user-defined items of type `"relationship-type"`.
+
+[source,json]
+----
+{
+  "typeId": "f1e2d3c4-e5f6-7890-abcd-ef1234567890",
   "sourceId": "abc123-...",
   "targetId": "def456-...",
-  "direction": "directed"
+  "data": null,
+  "confidence": "decided",
+  "note": null
 }
 ----
 
@@ -844,9 +1138,9 @@ For `type: "relationship"`. A typed, first-class relationship between two items.
 |===
 | Field | Required | Description
 
-| `relationshipType`
+| `typeId`
 | yes
-| Free-form string. Standard types: `relates-to`, `depends-on`, `enables`, `contradicts`, `blocks`, `blocked-by`, `prerequisite-for`, `derived-from`, `supersedes`. Any custom string is valid.
+| UUID of the `relationship-type` item that defines this relationship's schema and semantics.
 
 | `sourceId`
 | yes
@@ -856,14 +1150,39 @@ For `type: "relationship"`. A typed, first-class relationship between two items.
 | yes
 | UUID of the target item.
 
-| `direction`
+| `data`
 | no
-| `"directed"` (default) or `"bidirectional"`.
+| Free-form object validated against the relationship type's `jsonSchema` (if defined). Null for relationship types with no payload schema.
+
+| `confidence`
+| no
+| One of: `experimental`, `exploring`, `decided`, `locked`. Defaults to `experimental` for AI-created relationships. Null for manually authored relationships where confidence was not specified.
+
+| `note`
+| no
+| Free-text annotation about this specific instance of the relationship.
 |===
 
-The optional label lives in `item.value`. Relationship items coexist with the lighter-weight inline `[[uuid]]` link syntax — use relationship items when you need a typed, annotatable, or metadata-carrying link.
+Relationship items coexist with the lighter-weight inline `[[uuid]]` link syntax — use relationship items when you need a typed, annotatable, confidence-carrying, or historically tracked link. Cardinality emerges naturally from the number of relationship items — create multiple items for one-to-many or many-to-many.
 
-*Cardinality* emerges naturally from the number of relationship items — create multiple relationship items for one-to-many or many-to-many.
+*Standard relationship types* (bootstrapped as system items):
+
+[cols="1,1", options="header"]
+|===
+| Type label | Inverse
+
+| `relates-to` | `relates-to` (self-inverse)
+| `depends-on` | `enables`
+| `enables` | `depends-on`
+| `contradicts` | `contradicts` (self-inverse)
+| `blocks` | `blocked-by`
+| `blocked-by` | `blocks`
+| `prerequisite-for` | `derived-from`
+| `derived-from` | `prerequisite-for`
+| `supersedes` | (none)
+|===
+
+TIP: *Postgres* — `payload_relationship` table for efficient graph queries: `CREATE TABLE payload_relationship (id UUID PRIMARY KEY REFERENCES items(id), source_id UUID NOT NULL REFERENCES items(id), target_id UUID NOT NULL REFERENCES items(id), type_id UUID NOT NULL REFERENCES items(id))`. GIN indexes on `source_id` and `target_id` for bidirectional traversal.
 
 === grantPayload
 
@@ -1451,6 +1770,54 @@ TIP: *Postgres* — `items` also carries a denormalised `children UUID[]` column
 
 TIP: *SQLite* — no native array columns. `children` cache uses a JSON `TEXT` column or a separate `item_children(parent_id, child_id)` table. `schema_version` is a simple one-row `key/value` table.
 
+=== item_history Table
+
+Every write to an item appends a snapshot to `item_history` before the change is applied. This is the authoritative audit log — point-in-time queries read from this table, not from backups or diffs.
+
+[source,sql]
+----
+CREATE TABLE item_history (
+  id            UUID        NOT NULL DEFAULT gen_random_uuid(),
+  item_id       UUID        NOT NULL REFERENCES items(id),
+  change_type   TEXT        NOT NULL CHECK (change_type IN ('create','update','delete')),
+  changed_by    TEXT        NOT NULL,
+  changed_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  snapshot      JSONB       NOT NULL,
+  PRIMARY KEY (id)
+);
+
+CREATE INDEX idx_item_history_item ON item_history (item_id, changed_at DESC);
+----
+
+`snapshot` contains the full four-section `item.json` as it existed *before* the change (`update` and `delete` events) or *after* creation (`create` events). The adapter writes this row in the same transaction as the item write — history is never written in a separate pass.
+
+NOTE: On the filesystem adapter, history is a `.kanecta/history/<item-id>/` directory of timestamped JSON snapshot files. The Postgres `item_history` table is the equivalent for Postgres workspaces. SQLite uses the same table schema as Postgres.
+
+=== activity Table
+
+`activity` records discrete events in the workspace — not snapshots of item state, but human-readable events meaningful at the application level (item viewed, search performed, export triggered, sync started). Distinct from `item_history`: history tracks *what changed*; activity tracks *what happened*.
+
+[source,sql]
+----
+CREATE TABLE activity (
+  id          UUID        NOT NULL DEFAULT gen_random_uuid(),
+  actor       TEXT        NOT NULL,
+  event_type  TEXT        NOT NULL,
+  item_id     UUID        REFERENCES items(id),
+  payload     JSONB,
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (id)
+);
+
+CREATE INDEX idx_activity_item    ON activity (item_id, occurred_at DESC);
+CREATE INDEX idx_activity_actor   ON activity (actor, occurred_at DESC);
+CREATE INDEX idx_activity_type    ON activity (event_type, occurred_at DESC);
+----
+
+`item_id` is nullable — some events are workspace-level (e.g. `workspace.open`, `sync.started`) and do not relate to a single item. `event_type` is a dot-separated string (e.g. `item.viewed`, `item.exported`, `search.performed`, `sync.completed`). `payload` carries event-specific data (e.g. the search query, the export format).
+
+NOTE: Activity rows are append-only. Never update or delete them. They are not replicated to remotes by default — activity is local to the workspace unless explicitly opted in.
+
 == Business Rules
 
 === Creating Items
@@ -1585,9 +1952,60 @@ Items created on a branch only exist in `branch_changes` (with `change_type = 'c
 
 Branch names follow Git conventions. When translated to a Postgres schema name or S3 prefix, `/` becomes `__` (double underscore). Examples: `main` → `main`, `feature/new-types` → `feature__new-types`.
 
+=== Sync model
+
+Kanecta's sync model follows the Git mental model applied to knowledge graph datastores — branch freely, experiment locally, share deliberately, merge with confidence. Syncing is always *explicit and inspectable*. Kanecta never silently merges in the background.
+
+*Remotes* are named reachable Kanecta datastores configured in the workspace config (e.g. `origin` for the team's shared Postgres instance, `personal` for a private cloud workspace). A workspace can have multiple remotes.
+
+*There is no pull.* The remote is always readable — Kanecta queries both local and remote and returns a combined knowledge graph. There is nothing to fetch. Merge explicitly brings remote items into the local datastore. Push sends local changes to a remote for review.
+
+The equivalent operations:
+
+[cols="1,2", options="header"]
+|===
+| Git | Kanecta
+
+| `git push`
+| Send local branch changes to a remote for merge review.
+
+| `git branch` / `git checkout`
+| Create / switch the active branch (Postgres schema, S3 prefix, Git branch, or SQLite file depending on adapter).
+
+| `git diff`
+| Show ADD / EDIT / DELETE changes between two branches or between local and remote.
+
+| `git merge`
+| Apply changes from one branch into another. See below.
+
+| `git log`
+| Item history and activity log.
+|===
+
 === Merge
 
-Merge applies all `branch_changes` rows to the main tables, then removes the branch and its change rows. The operation is atomic within a single transaction. Conflicts (same item changed on both main and the branch since branching) must be resolved before the transaction commits.
+Merge applies all `branch_changes` rows to the main tables, then removes the branch and its change rows. The operation is atomic within a single transaction.
+
+Each changed item is classified before committing:
+
+[cols="1,3", options="header"]
+|===
+| Classification | Condition and action
+
+| *ADD*
+| Item exists in source branch, not in target. Safe to apply automatically.
+
+| *DELETE*
+| Item removed in source branch. Check subscribers and declared references before applying.
+
+| *EDIT*
+| Item changed in source branch, not in target since branching. Apply field-level diff automatically.
+
+| *CONFLICT*
+| Same field changed differently in both source and target since branching. Requires human resolution before the transaction commits. Surfaced in the Studio sync view with a side-by-side diff.
+|===
+
+Conflicts (same item changed on both branches since branching) must be resolved before the transaction commits. The Studio sync view (planned for 1.4.0) is the UI surface for merge operations — it shows the diff and lets the user accept, reject, or resolve each change.
 
 === CQRS projections
 
@@ -1641,6 +2059,242 @@ CREATE INDEX idx_item_references_target ON item_references(target_item_id);
 `reference_type` values: `parent`, `inline-link`, `payload-field`, `relationship-source`, `relationship-target`, `view-item`, `view-component`, `view-context`, `grant-rebac`.
 
 The index is rebuilt from `items` + `items_payload` whenever items are written. It is strictly derived — can always be reconstructed from item content.
+
+[#graph-projection]
+== Graph Projection (Apache AGE)
+
+Apache AGE is a *projection layer*, not a store. It is derived from Kanecta's relational tables, expendable, and fully rebuildable at any time. Nothing authoritative lives in AGE — losing the graph projection means losing Cypher-based traversal queries, not losing data. This is the same philosophy as the SQLite derived index in the filesystem adapter, and the embeddings table for semantic search.
+
+AGE sits on top of the same Postgres instance as Kanecta's tables — no separate database, no sync infrastructure. It is optional: Kanecta workspaces function without it; the graph query MCP tools return an error if AGE is unavailable.
+
+=== Why AGE
+
+SQL handles point lookups, filtering, and shallow joins well. Multi-hop traversal is expensive — recursive CTEs grow in complexity with depth. Questions like "find everything connected to item X within 3 hops", "what is the shortest path between A and B?", or "show me the neighbourhood of this item across all relationship types" are graph questions. AGE answers them in a single Cypher query.
+
+AGE is not used as a richer store — it is used purely as a traversal index. Graph queries return UUIDs, which are then resolved against Kanecta's full relational data for the complete picture:
+
+----
+AGE Cypher query → set of UUIDs → Kanecta items table → full rich data
+----
+
+=== Mapping
+
+Every non-relationship item becomes an AGE vertex. Relationship items become AGE edges. Vertex label is `Item` for all; `type` property carries the Kanecta type. Edge type mirrors the relationship type's value (uppercased, hyphens to underscores). Only traversal-relevant properties are stored in AGE — full item data stays in Postgres.
+
+Items with `layer: "system"` or `"app"` are excluded by default. All graph queries scope to `layer = "user"` unless explicitly broadened. History items, annotation items, alias items, and node items are not mirrored — they are metadata and tree structure, not graph edges.
+
+=== Sync
+
+Three Postgres triggers keep AGE in sync automatically — one for item insert/update (non-relationship items → upsert vertex), one for relationship item insert/update (→ upsert edge), one for delete (→ remove vertex or edge). AGE is fully rebuildable at any time by dropping and recreating the graph and running a backfill from the `items` table.
+
+=== Combined search scoring
+
+AGE is one of three signals in the full search pipeline:
+
+----
+1. pg_vector  → candidates by semantic similarity   (weight: 0.35)
+2. Postgres FTS → candidates by keyword match        (weight: 0.25)
+3. AGE         → expand candidates via graph hops    (weight: 0.40)
+----
+
+Weights are tunable. Graph weight is highest when a `seedId` is provided (navigation mode). Vector weight is highest for open-ended discovery with no seed.
+
+== MCP API Surface
+
+Kanecta exposes its capabilities as MCP (Model Context Protocol) tools. All tools operate on the active workspace and branch from `config.json`. Tools return UUIDs; callers resolve full item data via `kanecta_get` or `kanecta_get_many` as needed.
+
+*Design principles:*
+- One tool, one clear job. No tool does two things.
+- UUIDs are the currency. Tools accept and return UUIDs; callers resolve full data as needed.
+- Bulk operations are atomic. Bulk create/update either fully succeeds or fully rolls back.
+- Graph tools return UUIDs only. Resolve with `kanecta_get_many`.
+
+=== Core item tools
+
+`kanecta_get` — Get a single item by UUID or alias. Returns full item including all four sections.
+
+`kanecta_get_many` — Get multiple items by UUID in one call. Eliminates N round trips after graph or search queries.
+
+----
+kanecta_get_many(ids: string[]) → Item[]
+----
+
+`kanecta_add_item` — Add a single item. `parentId` is required for the primary tree. `alias` registers an alias at creation time (provisional until confirmed at merge).
+
+----
+kanecta_add_item(
+  value: string,
+  type?: string,
+  parentId: string,
+  sortOrder?: number,
+  alias?: string,
+  confidence?: string,
+  layer?: "system" | "app" | "user",
+  sourceSystem?: string,
+  sourceExternalId?: string,
+  sourceRunId?: string,
+  payload?: object
+) → Item
+----
+
+`kanecta_bulk_create` — Create a parent item and any number of children atomically. `tempId` is a caller-assigned placeholder for linking children to parents within the batch.
+
+----
+kanecta_bulk_create(
+  items: Array<{
+    tempId: string,
+    value: string,
+    type?: string,
+    parentTempId?: string,
+    parentId?: string,
+    sortOrder?: number,
+    alias?: string,
+    payload?: object
+  }>
+) → { created: Item[] }
+----
+
+`kanecta_update_item` — Update an item's value and/or payload.
+
+----
+kanecta_update_item(
+  id: string,
+  value?: string,
+  payload?: object,
+  confidence?: string,
+  alias?: string
+) → Item
+----
+
+`kanecta_bulk_update` — Update multiple items atomically.
+
+----
+kanecta_bulk_update(
+  updates: Array<{ id: string, value?: string, payload?: object, confidence?: string }>
+) → Item[]
+----
+
+`kanecta_delete_item` — Delete a single item. Respects `blockDeletion` reference checks.
+
+`kanecta_delete_subtree` — Delete an item and all its descendants (via `parentId` chain). `dryRun: true` returns what would be deleted without deleting.
+
+----
+kanecta_delete_subtree(itemId: string, dryRun?: boolean) → { deleted: number }
+----
+
+`kanecta_clone_subtree` — Deep-copy an item and all its descendants under a new parent. New UUIDs assigned throughout.
+
+----
+kanecta_clone_subtree(
+  sourceId: string,
+  targetParentId: string,
+  sortOrder?: number
+) → { root: Item, created: number }
+----
+
+=== Navigation tools
+
+`kanecta_get_children` — Get immediate children of an item (items whose `parentId` is this item's UUID).
+
+`kanecta_get_ancestors` — Get the full ancestor chain from an item up to root, ordered root → parent.
+
+----
+kanecta_get_ancestors(id: string) → Item[]
+----
+
+`kanecta_get_tree` — Get the full subtree under an item.
+
+=== Search tools
+
+`kanecta_search` — Full search combining FTS, vector similarity, and optional graph expansion. When `seedId` is provided, graph proximity is weighted higher. Without `seedId`, vector similarity is weighted higher.
+
+----
+kanecta_search(
+  query: string,
+  seedId?: string,
+  rootId?: string,
+  typeFilter?: string[],
+  tagFilter?: string[],
+  confidenceFilter?: string[],
+  layer?: "system" | "app" | "user",
+  limit?: number
+) → Array<{ item: Item, score: number, matchType: "fts" | "vector" | "graph" | "combined" }>
+----
+
+`kanecta_recent` — List recently created or modified items, with optional type and layer filters.
+
+`kanecta_capture` — Save a thought, finding, or insight. Accepts `confidence`, `sourceRunId`, and `tags`.
+
+=== Graph query tools
+
+These tools query the AGE graph projection (see <<graph-projection>>). They require the AGE projection to be enabled. On workspaces without AGE, they return an error.
+
+`kanecta_graph_related` — All items connected to a given item within N hops.
+
+----
+kanecta_graph_related(
+  id: string,
+  depth?: number,
+  edgeTypes?: string[],
+  direction?: "any" | "outbound" | "inbound",
+  confidenceFilter?: string[]
+) → Array<{ id: string, hops: number, path: string[] }>
+----
+
+`kanecta_graph_path` — Shortest path between two items.
+
+----
+kanecta_graph_path(fromId: string, toId: string, maxHops?: number)
+  → { found: boolean, hops: number, path: Array<{ itemId: string, relationshipId?: string }> }
+----
+
+`kanecta_graph_neighbourhood` — Subgraph around an item — all items and relationships within N hops. Useful for giving an AI agent structural context before reasoning.
+
+----
+kanecta_graph_neighbourhood(id: string, depth?: number)
+  → {
+      nodes: Array<{ id: string, type: string, value: string }>,
+      edges: Array<{ id: string, sourceId: string, targetId: string, type: string }>
+    }
+----
+
+=== Relationship tools
+
+`kanecta_relate` — Create a typed relationship between two items. `typeId` is the UUID of a relationship-type item. `confidence` defaults to `"experimental"` for AI-created relationships.
+
+----
+kanecta_relate(
+  sourceId: string,
+  targetId: string,
+  typeId: string,
+  data?: object,
+  confidence?: string,
+  note?: string,
+  sourceRunId?: string
+) → RelationshipItem
+----
+
+`kanecta_unrelate` — Delete a relationship item. Snapshots to history before deleting.
+
+`kanecta_update_relationship` — Update a relationship's data, confidence, or note.
+
+`kanecta_get_relationships` — Get all relationships for an item.
+
+----
+kanecta_get_relationships(
+  id: string,
+  direction?: "outbound" | "inbound" | "both",
+  typeId?: string
+) → RelationshipItem[]
+----
+
+=== Annotation tools
+
+Annotations are threaded comments on items, stored as `annotation` items whose `parentId` is the annotated item.
+
+`kanecta_add_annotation` — Add an annotation. `parentAnnotationId` enables threaded replies.
+
+`kanecta_get_annotations` — Get all annotations on an item, threaded and ordered by `createdAt`.
 
 == Bootstrap Configuration
 
