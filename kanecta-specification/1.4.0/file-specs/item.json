@@ -2,241 +2,274 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://kanecta.org/specification/kanecta-item-v1.4",
   "title": "Kanecta Item",
-  "description": "Unified schema for a Kanecta item.json file. v1.4.0 merges the separate metadata.json, function.json, type.json, and object.json files from v1.3.0 into a single file. All items share the same top-level fields; type-specific content lives under a 'payload' key.",
+  "description": "Unified schema for a Kanecta item.json file (v1.4.0). Every item has four top-level sections: item (identity and tree position), meta (provenance, ownership, bookkeeping), search (full-text and semantic search metadata), and payload (type-specific content). The four sections map directly to four database tables — items, items_meta, items_search, items_payload — enabling fast tree traversal and list rendering without loading meta or payload, and efficient search indexes decoupled from item identity.",
   "type": "object",
-  "required": ["id", "specVersion", "parentId", "value", "type", "owner", "license", "createdAt", "modifiedAt"],
+  "required": ["item", "meta"],
   "additionalProperties": false,
   "properties": {
-    "id": {
-      "type": "string",
-      "format": "uuid",
-      "description": "UUID v4 of this item."
-    },
-    "specVersion": {
-      "type": "string",
-      "description": "Version of the Kanecta specification this record conforms to (e.g. '1.4.0'). Set at creation time; tooling uses it to pick the right schema/migration rules when reading older records."
-    },
-    "parentId": {
-      "type": "string",
-      "format": "uuid",
-      "description": "UUID of the parent item. Always required — no item is parentless. The root item is self-referencing: its id and parentId are both '00000000-0000-0000-0000-000000000000', the well-known all-zeros UUID. Typed objects use their type item's UUID as parentId (they live in the type's collection, symlinked from wherever they appear in the tree). Free-form items use their tree parent's UUID."
-    },
-    "value": {
-      "type": ["string", "null"],
-      "description": "Primary content or label of the item. For function items this is the function name. For type items this is the capitalised type name (e.g. 'Person')."
-    },
-    "type": {
-      "type": "string",
-      "description": "Item type. All valid values are defined in ./types/primitive.json. Use 'function' for function items, 'type' for type definition items, 'object' for instances of a custom type."
-    },
-    "typeId": {
-      "type": ["string", "null"],
-      "format": "uuid",
-      "description": "UUID of the custom type definition. Required when type is 'object'. Null otherwise."
-    },
-    "owner": {
-      "type": "string",
-      "description": "Identifier of the individual or team responsible for this item (e.g. an email address or team alias). In a corporate context this is the person or team, not the company — use copyrightHolder for the legal rights holder."
-    },
-    "ownerDomain": {
-      "type": ["string", "null"],
-      "description": "Domain of the owner's home Kanecta instance (e.g. 'kanecta.acme.com'). Kanecta uses this to know where to query when refreshing a cached copy of any item owned by this owner. Null for local items with no known remote home."
-    },
-    "mirrors": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "Optional list of mirror domains advertised by the item owner (e.g. ['kanecta-us.acme.com', 'kanecta-eu.acme.com']). Consumers may fetch from any mirror but must verify the result against contentHash. ownerDomain remains the canonical authority — mirrors are fetch alternatives only. Set by the owner, not the consumer."
-    },
-    "namespace": {
-      "type": ["string", "null"],
-      "description": "Slash-separated path expressing the organisational hierarchy this item belongs to (e.g. 'acme.com', 'acme.com/engineering', 'acme.com/engineering/platform-team'). The root segment is a domain. Used for access control scoping, display grouping, and cache routing. Null for personal or unaffiliated items."
-    },
-    "copyrightHolder": {
-      "type": ["string", "null"],
-      "description": "Legal copyright holder for this item (e.g. 'acme.com', 'Acme Ltd'). In a corporate context this is typically the company, not the individual in owner. Null means the copyright holder is the same as owner."
-    },
-    "contentHash": {
-      "type": ["string", "null"],
-      "description": "SHA-256 hash of the item's canonical content (all fields except contentHash itself, keys sorted, no trailing whitespace). Used by recipients to verify integrity when an item is shared or cached, and to detect staleness by comparing against the source's current hash. Null if not yet computed."
-    },
-    "license": {
-      "type": "string",
-      "format": "uuid",
-      "description": "UUID reference to this item's licence. Always set — defaults to 'All Rights Reserved (Copyright)'. References a row in the fixed, shipped reference set of common licences."
-    },
-    "sortOrder": {
-      "type": ["number", "null"],
-      "description": "Numeric sort position among siblings, scoped per aspect. Null for type definition records."
-    },
-    "confidence": {
-      "type": ["string", "null"],
-      "enum": [null, "experimental", "exploring", "decided", "locked", "low", "medium", "high", "verified"],
-      "description": "Confidence level of the item's content."
-    },
-    "status": {
-      "type": ["string", "null"],
-      "description": "Arbitrary status string (e.g. 'active', 'archived', 'draft'). Null if not set."
-    },
-    "tags": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "Tags associated with this item."
-    },
-    "createdAt": {
-      "type": "string",
-      "format": "date-time",
-      "description": "ISO 8601 timestamp when this item was created."
-    },
-    "modifiedAt": {
-      "type": "string",
-      "format": "date-time",
-      "description": "ISO 8601 timestamp when this item was last modified."
-    },
-    "createdBy": {
-      "type": ["string", "null"],
-      "description": "Identifier of the actor who created this item."
-    },
-    "modifiedBy": {
-      "type": ["string", "null"],
-      "description": "Identifier of the actor who last modified this item."
-    },
-    "cachedAt": {
-      "type": ["string", "null"],
-      "format": "date-time",
-      "description": "ISO 8601 timestamp when remote content was last cached locally. Required for items stored in remotes/; null for local items."
-    },
-    "subscribedAt": {
-      "type": ["string", "null"],
-      "format": "date-time",
-      "description": "ISO 8601 timestamp when this item subscribed to a remote source."
-    },
-    "subscriptionSource": {
-      "type": ["string", "null"],
-      "description": "URI of the remote source this item subscribes to."
-    },
-    "completedAt": {
-      "type": ["string", "null"],
-      "format": "date-time",
-      "description": "ISO 8601 timestamp when this item was marked as completed. Null if not completed."
-    },
-    "dueAt": {
-      "type": ["string", "null"],
-      "format": "date-time",
-      "description": "ISO 8601 timestamp when this item is due. Null if no due date."
-    },
-    "visibility": {
-      "type": "string",
-      "enum": ["private", "organisation", "public"],
-      "default": "private",
-      "description": "Coarse default access level. 'private' = owner and explicitly-granted principals only; 'organisation' = visible to anyone in the owner's organisation; 'public' = visible to anyone. Fine-grained per-principal grants layer on top."
-    },
-    "aspect": {
-      "type": ["string", "null"],
-      "default": null,
-      "description": "Dimension this item occupies under its parent. Null = main tree (default). Any other string names an alternative dimension (e.g. 'settings', 'archive'). An item belongs to exactly one aspect. sortOrder is scoped per aspect."
-    },
-    "template": {
-      "type": ["string", "null"],
-      "format": "uuid",
-      "default": null,
-      "description": "UUID of the type or item this item's tree was copied from via a template action. Null if not produced by templating."
-    },
-    "files": {
+
+    "item": {
+      "description": "Identity and tree-position envelope. The six fields here are all an adapter needs to render a tree node or list row. Maps to the items table — VARCHAR(255) for value, indexed on parentId and sortOrder for fast tree queries.",
       "type": "object",
-      "additionalProperties": { "type": "string" },
-      "description": "Map of semantic role names to sidecar filenames stored alongside item.json in the same item folder. Used by filesystem and filesystem+sqlite adapters. Keys are role names; values are filenames. The postgres adapter stores equivalent content inline and omits this field. Well-known roles: 'body' (source code or markdown body — e.g. 'body.ts', 'body.md'), 'image' (primary image — e.g. 'photo.jpg'), 'file' (attached file — e.g. 'report.pdf'), 'thumbnail' (preview image), 'embedding' (float32 vector binary — always 'embedding.bin'). Examples by type: function → { \"body\": \"body.ts\" }; markdown → { \"body\": \"body.md\" }; image → { \"image\": \"photo.jpg\" }; any item with an embedding → { \"embedding\": \"embedding.bin\" }."
-    },
-    "embedding": {
-      "type": ["object", "null"],
-      "description": "Metadata describing the semantic embedding computed for this item. The float vector itself lives in a binary sidecar declared as files.embedding = 'embedding.bin' — a raw float32 array, compact and model-agnostic. Adapters read the sidecar once at load time and push it into their native vector store (pgvector for Postgres, sqlite-vec for SQLite). Sync transfers item.json + embedding.bin together; receiving nodes load the binary directly with no re-embedding required. Null if no embedding has been computed. Re-embedding is skippable when contentHash and model are both unchanged.",
-      "required": ["model", "dimensions", "generatedAt"],
+      "required": ["id", "parentId", "type", "value"],
       "additionalProperties": false,
       "properties": {
-        "model": {
+        "id": {
           "type": "string",
-          "description": "Embedding model identifier used to generate the vector (e.g. 'text-embedding-3-small', 'text-embedding-3-large'). Must match what the adapter uses for search — mixing models produces meaningless similarity scores."
+          "format": "uuid",
+          "description": "UUID v4 of this item."
         },
-        "dimensions": {
-          "type": "integer",
-          "description": "Length of the float vector (e.g. 1536 for text-embedding-3-small, 3072 for text-embedding-3-large). Stored here so adapters can validate or re-create their vector columns without reading the actual vector."
-        },
-        "generatedAt": {
+        "parentId": {
           "type": "string",
-          "format": "date-time",
-          "description": "ISO 8601 timestamp of when this embedding was generated. Combined with contentHash, allows any node to decide whether to re-embed (content changed) or reuse (hash unchanged, same model)."
+          "format": "uuid",
+          "description": "UUID of the parent item. Always required — no item is parentless. The root item is self-referencing: id and parentId are both '00000000-0000-0000-0000-000000000000' (the well-known all-zeros UUID). Typed objects use their type item's UUID as parentId — they live in the type's collection, symlinked from wherever they appear in the tree. Free-form items use their tree parent's UUID."
+        },
+        "type": {
+          "type": "string",
+          "description": "Item type. All valid values are defined in ./types/primitive.json. Use 'object' for instances of a custom type, 'function' for function items, 'type' for type definition items, 'file' for any file-backed item (replaces the former 'image' and 'markdown' primitives — distinguish via payload.mimeType)."
+        },
+        "typeId": {
+          "type": ["string", "null"],
+          "format": "uuid",
+          "description": "UUID of the custom type definition item. Required when type is 'object'. Null for all primitive types."
+        },
+        "value": {
+          "type": ["string", "null"],
+          "description": "Primary display label of the item. Always a short string (≤255 chars) stored as VARCHAR(255) for fast indexed access — never the full structured content (that lives in payload). For object items this is the computed primaryField value, cached here at write time. For function items this is the function name. For type items this is the capitalised type name (e.g. 'Person')."
+        },
+        "sortOrder": {
+          "type": ["number", "null"],
+          "description": "Numeric sort position among siblings, scoped per aspect. Null if not explicitly ordered."
         }
       }
     },
+
+    "meta": {
+      "description": "Provenance, ownership, and operational bookkeeping. Maps to the items_meta table. Never needed for tree traversal or list rendering — loaded on demand. Contains everything about the item except its identity, search data, and type-specific content.",
+      "type": "object",
+      "required": ["specVersion", "owner", "license", "createdAt", "modifiedAt", "visibility"],
+      "additionalProperties": false,
+      "properties": {
+        "specVersion": {
+          "type": "string",
+          "description": "Version of the Kanecta specification this record conforms to (e.g. '1.4.0'). Used by tooling to select the right schema and migration rules."
+        },
+        "owner": {
+          "type": "string",
+          "description": "Identifier of the individual or team responsible for this item (e.g. email address or team alias). In a corporate context this is the person or team, not the company — use copyrightHolder for the legal rights holder."
+        },
+        "ownerDomain": {
+          "type": ["string", "null"],
+          "description": "Domain of the owner's home Kanecta instance (e.g. 'kanecta.acme.com'). Used to know where to query when refreshing a cached copy. Null for local items with no remote home."
+        },
+        "namespace": {
+          "type": ["string", "null"],
+          "description": "Slash-separated organisational hierarchy path (e.g. 'acme.com/engineering/platform-team'). Root segment is a domain. Used for access control scoping, display grouping, and cache routing. Null for personal or unaffiliated items."
+        },
+        "copyrightHolder": {
+          "type": ["string", "null"],
+          "description": "Legal copyright holder (e.g. 'Acme Ltd'). Null means the copyright holder is the same as owner."
+        },
+        "license": {
+          "type": "string",
+          "format": "uuid",
+          "description": "UUID reference to this item's licence. Defaults to 'All Rights Reserved (Copyright)'. References a row in the shipped reference set of common licences."
+        },
+        "contentHash": {
+          "type": ["string", "null"],
+          "description": "SHA-256 hash of the item's canonical content (all fields except contentHash itself, keys sorted, no trailing whitespace). Used to verify integrity when sharing or caching, and to detect staleness. Null if not yet computed."
+        },
+        "mirrors": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Mirror domains advertised by the item owner (e.g. ['kanecta-us.acme.com', 'kanecta-eu.acme.com']). Consumers may fetch from any mirror but must verify against contentHash. ownerDomain remains the canonical authority."
+        },
+        "sameAs": {
+          "type": "array",
+          "items": { "type": "string", "format": "uri" },
+          "description": "URIs declaring that this item or type definition is equivalent to a concept in an external type system. Open-ended — any system with URIs works; systems without URIs use URN format by convention. Examples: 'https://schema.org/Person', 'https://www.wikidata.org/wiki/Q5', 'urn:itis:180092' (taxonomic species), 'urn:icd10:F32' (medical diagnosis), 'urn:cas:64-17-5' (chemical compound). Applies at type level ('my Person type = schema:Person') and instance level ('this item = wikidata:Q937, Albert Einstein')."
+        },
+        "visibility": {
+          "type": "string",
+          "enum": ["private", "organisation", "public"],
+          "default": "private",
+          "description": "'private' = owner and explicitly granted principals only; 'organisation' = visible to anyone in the owner's organisation; 'public' = visible to anyone. Fine-grained per-principal grants layer on top via grant items."
+        },
+        "aspect": {
+          "type": ["string", "null"],
+          "default": null,
+          "description": "Dimension this item occupies under its parent. Null = main tree. Any other string names an alternative dimension (e.g. 'grants', 'settings', 'archive', 'relationships'). An item belongs to exactly one aspect. sortOrder is scoped per aspect."
+        },
+        "confidence": {
+          "type": ["string", "null"],
+          "enum": [null, "experimental", "exploring", "decided", "locked", "low", "medium", "high", "verified"],
+          "description": "Confidence level of the item's content. Null if not set."
+        },
+        "status": {
+          "type": ["string", "null"],
+          "description": "Arbitrary status string (e.g. 'active', 'archived', 'draft'). Null if not set."
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Tags for this item. Always included in the full-text search corpus alongside item.value."
+        },
+        "template": {
+          "type": ["string", "null"],
+          "format": "uuid",
+          "description": "UUID of the type or item this item's tree was copied from via a template action. Null if not produced by templating."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when this item was created."
+        },
+        "modifiedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when this item was last modified."
+        },
+        "createdBy": {
+          "type": ["string", "null"],
+          "description": "Identifier of the actor who created this item."
+        },
+        "modifiedBy": {
+          "type": ["string", "null"],
+          "description": "Identifier of the actor who last modified this item."
+        },
+        "completedAt": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when this item was marked as completed. Null if not completed."
+        },
+        "dueAt": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when this item is due. Null if no due date."
+        },
+        "cachedAt": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when remote content was last cached locally. Null for local items."
+        },
+        "subscribedAt": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when this item subscribed to a remote source."
+        },
+        "subscriptionSource": {
+          "type": ["string", "null"],
+          "description": "URI of the remote source this item subscribes to."
+        },
+        "files": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Map of semantic role names to sidecar filenames stored alongside item.json. Used by filesystem and filesystem+sqlite adapters; the postgres adapter stores equivalent content inline and omits this field. Well-known roles: 'body' (source code or markdown — e.g. 'body.ts', 'body.md', 'body.tsx'), 'image' (primary image — e.g. 'photo.jpg'), 'file' (attached file — e.g. 'report.pdf'), 'thumbnail' (preview image), 'embedding' (float32 vector binary — always 'embedding.bin'). A single item can have multiple files (e.g. a complex component with multiple source files uses additional roles: 'styles', 'utils', etc.)."
+        }
+      }
+    },
+
+    "search": {
+      "type": ["object", "null"],
+      "description": "Full-text and semantic search metadata. Null if no search data has been computed. Maps to the items_search table in database adapters, alongside FTS5/tsvector (full-text) and pgvector/sqlite-vec (semantic) indexes. The search corpus is always: item.value + meta.tags + included payload fields (per the type's searchFields setting, default all fields) + text content of any text-based sidecars (body.md, body.ts, body.tsx).",
+      "additionalProperties": false,
+      "properties": {
+        "corpusHash": {
+          "type": ["string", "null"],
+          "description": "SHA-256 hash of the text corpus used to generate the current FTS index and embedding. Adapters compare this at write time — if unchanged, re-indexing and re-embedding are skipped. Null if not yet computed."
+        },
+        "embedding": {
+          "type": ["object", "null"],
+          "description": "Semantic embedding metadata. The float vector itself lives in meta.files.embedding = 'embedding.bin' — a raw float32 binary sidecar. Adapters load it into their native vector store at load time (pgvector for Postgres, sqlite-vec for SQLite). Sync transfers embedding.bin alongside item.json so receiving nodes never need to re-embed. Null if not yet computed.",
+          "required": ["model", "dimensions", "generatedAt"],
+          "additionalProperties": false,
+          "properties": {
+            "model": {
+              "type": "string",
+              "description": "Embedding model identifier (e.g. 'text-embedding-3-small', 'text-embedding-3-large'). Must match what the adapter uses for search — mixing models produces meaningless similarity scores."
+            },
+            "dimensions": {
+              "type": "integer",
+              "description": "Length of the float vector (e.g. 1536 for text-embedding-3-small, 3072 for text-embedding-3-large). Stored so adapters can validate or recreate their vector columns without reading the binary sidecar."
+            },
+            "generatedAt": {
+              "type": "string",
+              "format": "date-time",
+              "description": "ISO 8601 timestamp when this embedding was generated."
+            }
+          }
+        }
+      }
+    },
+
     "payload": {
-      "description": "Type-specific content. Required for 'function' and 'type' items (see allOf conditionals below for their exact shape). Present for 'object' items as a free-form key-value object validated at runtime against the type definition's jsonSchema. Omitted or null for all other item types.",
+      "description": "Type-specific content. Required for function, type, grant, relationship, component, and file items (see allOf conditionals for exact shapes). Present for object items as a free-form key-value object validated at runtime against the type definition's jsonSchema. Null or absent for all other item types. Maps to the items_payload table in database adapters.",
       "type": ["object", "null"]
     }
+
   },
+
   "allOf": [
     {
       "if": {
-        "properties": { "type": { "const": "function" } },
-        "required": ["type"]
+        "properties": { "item": { "properties": { "type": { "const": "function" } }, "required": ["type"] } },
+        "required": ["item"]
       },
       "then": {
-        "required": ["payload"],
-        "properties": {
-          "payload": { "$ref": "#/definitions/functionPayload" }
-        }
+        "properties": { "payload": { "$ref": "#/definitions/functionPayload" } }
       }
     },
     {
       "if": {
-        "properties": { "type": { "const": "type" } },
-        "required": ["type"]
+        "properties": { "item": { "properties": { "type": { "const": "type" } }, "required": ["type"] } },
+        "required": ["item"]
       },
       "then": {
-        "required": ["payload"],
-        "properties": {
-          "payload": { "$ref": "#/definitions/typePayload" }
-        }
+        "properties": { "payload": { "$ref": "#/definitions/typePayload" } }
       }
     },
     {
       "if": {
-        "properties": { "type": { "const": "grant" } },
-        "required": ["type"]
+        "properties": { "item": { "properties": { "type": { "const": "grant" } }, "required": ["type"] } },
+        "required": ["item"]
       },
       "then": {
-        "required": ["payload"],
-        "properties": {
-          "payload": { "$ref": "#/definitions/grantPayload" }
-        }
+        "properties": { "payload": { "$ref": "#/definitions/grantPayload" } }
       }
     },
     {
       "if": {
-        "properties": { "type": { "const": "relationship" } },
-        "required": ["type"]
+        "properties": { "item": { "properties": { "type": { "const": "relationship" } }, "required": ["type"] } },
+        "required": ["item"]
       },
       "then": {
-        "required": ["payload"],
-        "properties": {
-          "payload": { "$ref": "#/definitions/relationshipPayload" }
-        }
+        "properties": { "payload": { "$ref": "#/definitions/relationshipPayload" } }
       }
     },
     {
       "if": {
-        "properties": { "type": { "const": "component" } },
-        "required": ["type"]
+        "properties": { "item": { "properties": { "type": { "const": "component" } }, "required": ["type"] } },
+        "required": ["item"]
       },
       "then": {
-        "required": ["payload"],
-        "properties": {
-          "payload": { "$ref": "#/definitions/componentPayload" }
-        }
+        "properties": { "payload": { "$ref": "#/definitions/componentPayload" } }
+      }
+    },
+    {
+      "if": {
+        "properties": { "item": { "properties": { "type": { "const": "file" } }, "required": ["type"] } },
+        "required": ["item"]
+      },
+      "then": {
+        "properties": { "payload": { "$ref": "#/definitions/filePayload" } }
       }
     }
   ],
+
   "definitions": {
+
     "parameterOrProp": {
-      "description": "A typed input — used for function parameters and component props. Exactly one of type, typeId, or functionId must be set. type = TypeScript primitive; typeId = Kanecta object type instance; functionId = Kanecta function item (for passing functions/callbacks).",
+      "description": "A typed input — used for both function parameters and component props. Exactly one of type, typeId, or functionId must be set. type = TypeScript primitive string; typeId = Kanecta object type UUID; functionId = Kanecta function item UUID (for passing functions/callbacks as arguments or props).",
       "type": "object",
       "required": ["name"],
       "oneOf": [
@@ -255,21 +288,22 @@
         "typeId": {
           "type": "string",
           "format": "uuid",
-          "description": "UUID of a Kanecta type definition. Use for any object type."
+          "description": "UUID of a Kanecta type definition item. Use for any object-typed parameter or prop."
         },
         "functionId": {
           "type": "string",
           "format": "uuid",
-          "description": "UUID of a Kanecta function item. Use when this parameter or prop expects a function/callback. The referenced function item defines the expected signature."
+          "description": "UUID of a Kanecta function item. Use when this parameter or prop expects a function or callback. The referenced function item defines the expected signature."
         },
         "optional": { "type": "boolean", "default": false, "description": "Whether this input is optional." },
         "rest": { "type": "boolean", "default": false, "description": "Whether this is a rest parameter (...args). Functions only." },
-        "defaultValue": { "type": "string", "description": "Default value expression as a source string (e.g. '0', '[]')." },
+        "defaultValue": { "type": "string", "description": "Default value expression as a source string (e.g. '0', '[]', 'true')." },
         "description": { "type": "string", "description": "JSDoc @param / prop description." }
       }
     },
+
     "functionPayload": {
-      "description": "Payload for items of type 'function'. Captures a TypeScript-compatible function signature and optional implementation. The function name is stored in the item's value field.",
+      "description": "Payload for items of type 'function'. Captures a TypeScript-compatible function signature and optional implementation. The function name lives in item.value. On filesystem and SQLite adapters the body is a sidecar (meta.files.body = 'body.ts'); on Postgres it is stored inline in this payload.",
       "type": "object",
       "required": ["parameters"],
       "oneOf": [
@@ -278,25 +312,10 @@
       ],
       "additionalProperties": false,
       "properties": {
-        "description": {
-          "type": "string",
-          "description": "JSDoc-style description of what the function does."
-        },
-        "async": {
-          "type": "boolean",
-          "default": false,
-          "description": "Whether the function is async."
-        },
-        "ai": {
-          "type": "boolean",
-          "default": false,
-          "description": "Whether the function invokes AI during its internal operations."
-        },
-        "skill": {
-          "type": "string",
-          "format": "uuid",
-          "description": "UUID of a Kanecta skill item. When present, the function delegates to that skill instead of (or in addition to) body."
-        },
+        "description": { "type": "string", "description": "JSDoc-style description of what the function does." },
+        "async": { "type": "boolean", "default": false, "description": "Whether the function is async." },
+        "ai": { "type": "boolean", "default": false, "description": "Whether the function invokes AI during its internal operations." },
+        "skill": { "type": "string", "format": "uuid", "description": "UUID of a Kanecta skill item. When present, the function delegates to that skill." },
         "typeParameters": {
           "type": "array",
           "description": "Generic type parameters (e.g. <T extends string = string>).",
@@ -306,19 +325,19 @@
             "additionalProperties": false,
             "properties": {
               "name": { "type": "string", "description": "Type parameter name (e.g. 'T', 'K')." },
-              "constraint": { "type": "string", "description": "Constraint on the type parameter (e.g. 'extends string')." },
+              "constraint": { "type": "string", "description": "Constraint expression (e.g. 'extends string')." },
               "default": { "type": "string", "description": "Default type (e.g. 'string', 'unknown')." }
             }
           }
         },
         "parameters": {
           "type": "array",
-          "description": "Ordered list of function parameters. Each must have exactly one of: type (TypeScript primitive), typeId (Kanecta object type), or functionId (Kanecta function item — for passing functions/callbacks as arguments).",
+          "description": "Ordered list of function parameters. Each uses the shared parameterOrProp definition — exactly one of type, typeId, or functionId.",
           "items": { "$ref": "#/definitions/parameterOrProp" }
         },
         "returnType": {
           "type": "string",
-          "description": "TypeScript primitive return type only. Primitives and their compositions (void, string, Promise<string>, T | null). Object types must use returnTypeId.",
+          "description": "TypeScript primitive return type (void, string, Promise<string>, T | null, etc.). Object return types must use returnTypeId.",
           "not": { "pattern": "\\{" }
         },
         "returnTypeId": {
@@ -339,19 +358,12 @@
             }
           }
         },
-        "deprecated": {
-          "type": "string",
-          "description": "Deprecation notice. Present and non-empty when the function is deprecated."
-        },
+        "deprecated": { "type": "string", "description": "Deprecation notice. Present and non-empty when the function is deprecated." },
         "body": {
           "type": "string",
-          "description": "Function body as source code. Omit when describing a signature only. Postgres adapter stores this inline as a column value. Filesystem and filesystem+sqlite adapters omit this field and store the body as a sidecar file referenced via the top-level files map (e.g. files.body = 'body.ts')."
+          "description": "Function body as source code. Postgres adapter only — stores inline. Filesystem and SQLite adapters omit this field and reference the body via meta.files.body = 'body.ts'."
         },
-        "includeKanectaSdk": {
-          "type": "boolean",
-          "default": true,
-          "description": "Whether to include @kanecta/sdk in the generated scaffold."
-        },
+        "includeKanectaSdk": { "type": "boolean", "default": true, "description": "Whether to include @kanecta/sdk in the generated scaffold." },
         "dependencies": {
           "type": "array",
           "items": { "type": "string" },
@@ -359,6 +371,7 @@
         }
       }
     },
+
     "typePayload": {
       "description": "Payload for items of type 'type'. Defines a custom Kanecta type: its display metadata, JSON Schema for instances, and SQL DDL for storage.",
       "type": "object",
@@ -376,12 +389,9 @@
             "keywords": { "type": "string", "description": "Space-separated keywords for search and filtering." },
             "tags": { "type": "string", "description": "Comma-separated tags for grouping types." },
             "primaryField": {
-              "description": "The field (or computed combination of fields) that best represents an item of this type for display. Three forms: (1) a plain string field path (e.g. 'name', 'title') — simple, most common; (2) an object with a single-entry fields array — equivalent to the string form; (3) an object with multiple fields plus an expression (inline JS, args are the field values) or a functionId (UUID of a Kanecta function item) for computed display values. functionId takes precedence over expression when both are set.",
+              "description": "The field (or computed combination of fields) that best represents an instance of this type for display in item.value. Three forms: (1) plain string field path (e.g. 'name') — most common; (2) single-entry fields array — equivalent to the string form; (3) multiple fields with an expression (inline JS) or functionId (UUID of a Kanecta function item) for computed display values.",
               "oneOf": [
-                {
-                  "type": "string",
-                  "description": "Dot-separated path to the primary field (e.g. 'name', 'address.street')."
-                },
+                { "type": "string", "description": "Dot-separated path to the primary field (e.g. 'name', 'address.street')." },
                 {
                   "type": "object",
                   "required": ["fields"],
@@ -391,20 +401,30 @@
                       "type": "array",
                       "items": { "type": "string" },
                       "minItems": 1,
-                      "description": "Field paths whose values are passed to expression or functionId. If only one entry and no expression or functionId, behaves identically to the plain string form."
+                      "description": "Field paths passed to expression or functionId. If only one entry and no expression or functionId, behaves identically to the plain string form."
                     },
                     "expression": {
                       "type": "string",
-                      "description": "Inline JS expression returning the display string. Field values are in scope by their field name (e.g. 'firstName + \" \" + lastName'). Used for simple computed values without a full function item."
+                      "description": "Inline JS expression returning a display string. Field values are in scope by field name (e.g. 'firstName + \" \" + lastName')."
                     },
                     "functionId": {
                       "type": "string",
                       "format": "uuid",
-                      "description": "UUID of a Kanecta function item that accepts the listed fields as arguments and returns the display string. Takes precedence over expression when both are set."
+                      "description": "UUID of a Kanecta function item that accepts the listed fields and returns the display string. Takes precedence over expression when both are set."
                     }
                   }
                 }
               ]
+            },
+            "searchFields": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Payload field names to include in the full-text search corpus for instances of this type. Null or absent means all payload fields are included. Set explicitly to narrow the corpus (e.g. ['name', 'bio', 'email']) and exclude fields that should not be searched (internal codes, structured identifiers, etc.). item.value and meta.tags are always included regardless."
+            },
+            "componentId": {
+              "type": ["string", "null"],
+              "format": "uuid",
+              "description": "UUID of a Kanecta component item that renders instances of this type. The UI passes the instance's payload fields as props. Null if no component is registered."
             },
             "skills": {
               "type": "object",
@@ -412,11 +432,6 @@
               "properties": {
                 "claude": { "type": "string", "description": "Guidance for Claude on when and how to use this type." }
               }
-            },
-            "componentId": {
-              "type": ["string", "null"],
-              "format": "uuid",
-              "description": "UUID of a Kanecta component item that renders instances of this type. The UI passes the instance's payload fields as props. Null if no component is registered."
             },
             "functions": {
               "type": "array",
@@ -441,22 +456,22 @@
             "extends": {
               "type": "array",
               "items": { "type": "string", "format": "uuid" },
-              "description": "UUIDs of types this type extends/specialises (declared relationship, not storage inheritance)."
+              "description": "UUIDs of types this type extends or specialises (declared relationship, not storage inheritance)."
             },
             "immutable": {
               "type": "boolean",
-              "description": "When true, the type's contract (jsonSchema, sqlSchema, meta.primaryField) is sealed. A sealed type needing a contract change must become a new type with a new UUID."
+              "description": "When true, the type's contract (jsonSchema, sqlSchema, primaryField) is sealed. A sealed type needing a contract change must become a new type with a new UUID."
             },
             "hash": {
               "type": "string",
-              "description": "Hex-encoded SHA-256 over the contract fields (jsonSchema + sqlSchema + meta.primaryField, keys sorted). Set when immutable is true; re-checked on load to detect tampering."
+              "description": "Hex-encoded SHA-256 over the contract fields (jsonSchema + sqlSchema + primaryField, keys sorted). Set when immutable is true; re-checked on load to detect tampering."
             }
           }
         },
         "jsonSchema": {
           "type": "object",
           "required": ["$schema", "title", "type", "properties"],
-          "description": "JSON Schema Draft-07 definition for instances of this type. Types are flat — exactly one level deep. Each property must carry a stable 'x-id' UUID. Properties must be primitives, arrays of primitives, or typeId references to other Kanecta types — no inline nested objects.",
+          "description": "JSON Schema Draft-07 definition for instances of this type. Types are flat — exactly one level deep. Each property must carry a stable 'x-id' UUID. Properties must be primitives, arrays of primitives, or typeId references — no inline nested objects.",
           "properties": {
             "$schema": { "type": "string", "const": "http://json-schema.org/draft-07/schema#" },
             "$id": { "type": "string", "format": "uri", "description": "Canonical URI for this type schema." },
@@ -471,56 +486,58 @@
           "type": "array",
           "items": { "type": "string" },
           "minItems": 1,
-          "description": "Ordered SQL DDL statements (PostgreSQL dialect) that, when run against a database with the items table, create all storage for instances of this type. Defined once at creation; never altered (a changed shape is a new type). Table name convention: obj_<type-uuid-with-underscores>."
+          "description": "Ordered SQL DDL statements (PostgreSQL dialect) that create all storage for instances of this type. Defined once at creation; never altered (a changed shape is a new type). Table name convention: obj_<type-uuid-with-underscores>."
         }
       }
     },
+
     "relationshipPayload": {
-      "description": "Payload for items of type 'relationship'. A typed, first-class relationship between two items. Coexists with the lighter-weight inline [[uuid]] links and relationships.json mechanism from v1.3.0 — both are valid. Use relationship items when you need a named type, direction control, or the relationship itself needs to be annotated, tagged, or linked. The optional label lives in the item's value field.",
+      "description": "Payload for items of type 'relationship'. A typed, first-class relationship between two items. Coexists with the lighter-weight inline [[uuid]] links — use relationship items when you need a named type, direction control, or the relationship itself needs to carry metadata. The optional label lives in item.value.",
       "type": "object",
       "required": ["relationshipType", "sourceId", "targetId"],
       "additionalProperties": false,
       "properties": {
         "relationshipType": {
           "type": "string",
-          "description": "The kind of relationship. Free-form string — implementations may define their own. Standard types: 'relates-to', 'depends-on', 'enables', 'contradicts', 'blocks', 'blocked-by', 'prerequisite-for', 'derived-from', 'supersedes'."
+          "description": "The kind of relationship. Free-form string — define your own. Standard types: 'relates-to', 'depends-on', 'enables', 'contradicts', 'blocks', 'blocked-by', 'prerequisite-for', 'derived-from', 'supersedes'."
         },
         "sourceId": {
           "type": "string",
           "format": "uuid",
-          "description": "UUID of the source item — the item the relationship originates from."
+          "description": "UUID of the source item — where the relationship originates."
         },
         "targetId": {
           "type": "string",
           "format": "uuid",
-          "description": "UUID of the target item — the item the relationship points to."
+          "description": "UUID of the target item — where the relationship points."
         },
         "direction": {
           "type": "string",
           "enum": ["directed", "bidirectional"],
           "default": "directed",
-          "description": "Whether the relationship has a direction. 'directed' = sourceId → targetId only. 'bidirectional' = the relationship is symmetric and sourceId/targetId are interchangeable."
+          "description": "'directed' = sourceId → targetId only. 'bidirectional' = symmetric, sourceId and targetId are interchangeable."
         }
       }
     },
+
     "grantPayload": {
-      "description": "Payload for items of type 'grant'. Grants live as children of the item they control access to, in the 'grants' aspect. principal supports three forms: a direct identity string, a namespace path, or a relationship reference (any principal that holds a given relation to a given item). The third form enables relationship-based access control — groups are ordinary Kanecta items, membership is a Kanecta relationship, and grant resolution is a graph traversal.",
+      "description": "Payload for items of type 'grant'. Grants live as children of the item they control, in the 'grants' aspect. Supports three principal forms: identity string, namespace path, or a relation reference (ReBAC — any principal that holds a given relation to a given item). Groups are ordinary Kanecta items; membership is a Kanecta relationship; grant resolution is a graph traversal.",
       "type": "object",
       "required": ["principal", "permissions"],
       "additionalProperties": false,
       "properties": {
         "principal": {
-          "description": "Who receives this grant. Three forms: (1) identity string — a direct user or system (e.g. 'bob@acme.com'); (2) namespace string — everyone in an organisational scope (e.g. 'acme.com/engineering'); (3) relation object — any principal that holds the named relation to the named item (e.g. members of a group item). Form is detected by type: string = identity or namespace, object = relation.",
+          "description": "Who receives this grant. (1) Identity string — a direct user or system (e.g. 'bob@acme.com'); (2) Namespace string — everyone in a scope (e.g. 'acme.com/engineering'); (3) Relation object — any principal holding the named relation to the named item (ReBAC).",
           "oneOf": [
             {
               "type": "string",
-              "description": "Direct identity (e.g. 'bob@acme.com') or namespace path (e.g. 'acme.com/engineering'). Namespace paths match the principal and all sub-paths."
+              "description": "Direct identity or namespace path. Namespace paths match the principal and all sub-paths."
             },
             {
               "type": "object",
               "required": ["itemId", "relation"],
               "additionalProperties": false,
-              "description": "Relationship-based principal. Grants access to any principal that holds the named relation to the named item — e.g. anyone who is a 'member' of a group item.",
+              "description": "Relationship-based principal (ReBAC). Grants access to any principal that holds the named relation to the named item — e.g. members of a group.",
               "properties": {
                 "itemId": {
                   "type": "string",
@@ -537,97 +554,152 @@
         },
         "permissions": {
           "type": "array",
-          "items": {
-            "type": "string",
-            "enum": ["read", "write", "subscribe", "admin"]
-          },
+          "items": { "type": "string", "enum": ["read", "write", "subscribe", "admin"] },
           "minItems": 1,
-          "description": "Permissions granted to the principal. 'read' = view the item and its main-aspect children; 'write' = create, update, or delete the item and its children; 'subscribe' = cache this item and receive updates; 'admin' = manage grants on this item."
+          "description": "'read' = view the item and its main-aspect children; 'write' = create, update, or delete; 'subscribe' = cache and receive updates; 'admin' = manage grants."
         },
         "cascade": {
           "type": "boolean",
           "default": false,
-          "description": "When true, this grant applies to all descendants of the item, not just the item itself. Resolved by traversing the tree and applying the grant to each child unless overridden by a more specific grant."
+          "description": "When true, this grant applies to all descendants of the item. Resolved by tree traversal, overridden by more specific grants on descendants."
         }
       }
     },
+
+    "filePayload": {
+      "description": "Payload for items of type 'file'. Replaces the former 'image' and 'markdown' primitives — those are now file items with the appropriate mimeType. The actual file content lives in the sidecar referenced by meta.files (e.g. files.body = 'body.md', files.image = 'photo.jpg'). mimeType is required; all other fields are optional media metadata.",
+      "type": "object",
+      "required": ["mimeType"],
+      "additionalProperties": false,
+      "properties": {
+        "mimeType": {
+          "type": "string",
+          "description": "IANA media type of the file content (e.g. 'image/jpeg', 'text/markdown', 'application/pdf', 'video/mp4', 'audio/mpeg'). Tells adapters and UIs how to render or handle the sidecar without inspecting the file extension. See https://www.iana.org/assignments/media-types/"
+        },
+        "size": {
+          "type": ["integer", "null"],
+          "description": "File size in bytes. Null if not yet computed."
+        },
+        "width": {
+          "type": ["integer", "null"],
+          "description": "Width in pixels. Set for image/* and video/* MIME types. Null otherwise."
+        },
+        "height": {
+          "type": ["integer", "null"],
+          "description": "Height in pixels. Set for image/* and video/* MIME types. Null otherwise."
+        },
+        "duration": {
+          "type": ["number", "null"],
+          "description": "Duration in seconds. Set for audio/* and video/* MIME types. Null otherwise."
+        },
+        "altText": {
+          "type": ["string", "null"],
+          "description": "Accessible description of the file content. Primarily for images. Null if not set."
+        }
+      }
+    },
+
     "componentPayload": {
-      "description": "Payload for items of type 'component'. Describes a React component: its props interface (using the shared parameterOrProp definition, same as function parameters) and optional npm dependencies. The component body (JSX/TSX) lives in a sidecar file referenced via files.body = 'body.tsx'. Return type is always ReactNode — implicit, no field needed. A type item can reference a component via payload.meta.componentId, which tells the UI to render instances of that type using this component.",
+      "description": "Payload for items of type 'component'. Describes a React component: its props interface and optional npm dependencies. The component body (JSX/TSX) lives in meta.files.body = 'body.tsx'. Return type is always ReactNode — implicit, no field needed. A type item links to a component via payload.meta.componentId, telling the UI to render instances of that type using this component.",
       "type": "object",
       "required": ["props"],
       "additionalProperties": false,
       "properties": {
-        "description": {
-          "type": "string",
-          "description": "Human-readable description of what this component renders."
-        },
+        "description": { "type": "string", "description": "Human-readable description of what this component renders." },
         "props": {
           "type": "array",
-          "description": "The component's prop interface. Each prop follows the same parameterOrProp definition as function parameters — primitive type, typeId (Kanecta type), or functionId (Kanecta function item, for callback props).",
+          "description": "The component's prop interface. Each prop uses the shared parameterOrProp definition — same as function parameters. Supports primitive types, typeId (Kanecta type), and functionId (Kanecta function item, for callback props).",
           "items": { "$ref": "#/definitions/parameterOrProp" }
         },
         "dependencies": {
           "type": "array",
-          "description": "npm package names this component imports beyond React itself (e.g. ['recharts', 'date-fns']).",
+          "description": "npm package names this component imports beyond React (e.g. ['recharts', 'date-fns']).",
           "items": { "type": "string" }
         }
       }
     }
+
   },
+
   "examples": [
     {
-      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-      "specVersion": "1.4.0",
-      "parentId": "00000000-0000-0000-0000-000000000000",
-      "value": "My note",
-      "type": "text",
-      "typeId": null,
-      "owner": "richardsempire@gmail.com",
-      "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
-      "sortOrder": 0,
-      "confidence": null,
-      "status": null,
-      "tags": [],
-      "createdAt": "2026-01-01T00:00:00.000Z",
-      "modifiedAt": "2026-01-01T00:00:00.000Z",
-      "createdBy": "richardsempire@gmail.com",
-      "modifiedBy": "richardsempire@gmail.com",
-      "cachedAt": null,
-      "subscribedAt": null,
-      "subscriptionSource": null,
-      "completedAt": null,
-      "dueAt": null,
-      "visibility": "private",
-      "aspect": null,
-      "template": null
+      "_comment": "simple text note",
+      "item": {
+        "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "parentId": "00000000-0000-0000-0000-000000000000",
+        "type": "text",
+        "typeId": null,
+        "value": "Alice prefers async comms",
+        "sortOrder": 0
+      },
+      "meta": {
+        "specVersion": "1.4.0",
+        "owner": "richie@acme.com",
+        "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+        "createdAt": "2026-06-25T10:00:00.000Z",
+        "modifiedAt": "2026-06-25T10:00:00.000Z",
+        "createdBy": "richie@acme.com",
+        "modifiedBy": "richie@acme.com",
+        "visibility": "private",
+        "aspect": null,
+        "confidence": null,
+        "status": null,
+        "tags": [],
+        "template": null,
+        "completedAt": null,
+        "dueAt": null,
+        "cachedAt": null,
+        "subscribedAt": null,
+        "subscriptionSource": null,
+        "ownerDomain": null,
+        "namespace": null,
+        "copyrightHolder": null,
+        "contentHash": null,
+        "mirrors": [],
+        "sameAs": [],
+        "files": {}
+      },
+      "search": null,
+      "payload": null
     },
     {
       "_comment": "function item — filesystem/sqlite adapter (body as sidecar)",
-      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
-      "specVersion": "1.4.0",
-      "parentId": "00000000-0000-0000-0000-000000000000",
-      "value": "fetchUser",
-      "type": "function",
-      "typeId": null,
-      "owner": "richardsempire@gmail.com",
-      "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
-      "sortOrder": 1,
-      "confidence": null,
-      "status": null,
-      "tags": [],
-      "createdAt": "2026-01-01T00:00:00.000Z",
-      "modifiedAt": "2026-01-01T00:00:00.000Z",
-      "createdBy": "richardsempire@gmail.com",
-      "modifiedBy": "richardsempire@gmail.com",
-      "cachedAt": null,
-      "subscribedAt": null,
-      "subscriptionSource": null,
-      "completedAt": null,
-      "dueAt": null,
-      "visibility": "private",
-      "aspect": null,
-      "template": null,
-      "files": { "body": "body.ts" },
+      "item": {
+        "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+        "parentId": "00000000-0000-0000-0000-000000000000",
+        "type": "function",
+        "typeId": null,
+        "value": "fetchUser",
+        "sortOrder": 1
+      },
+      "meta": {
+        "specVersion": "1.4.0",
+        "owner": "richie@acme.com",
+        "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+        "createdAt": "2026-06-25T10:00:00.000Z",
+        "modifiedAt": "2026-06-25T10:00:00.000Z",
+        "createdBy": "richie@acme.com",
+        "modifiedBy": "richie@acme.com",
+        "visibility": "private",
+        "aspect": null,
+        "confidence": null,
+        "status": null,
+        "tags": [],
+        "template": null,
+        "completedAt": null,
+        "dueAt": null,
+        "cachedAt": null,
+        "subscribedAt": null,
+        "subscriptionSource": null,
+        "ownerDomain": null,
+        "namespace": null,
+        "copyrightHolder": null,
+        "contentHash": null,
+        "mirrors": [],
+        "sameAs": [],
+        "files": { "body": "body.ts" }
+      },
+      "search": null,
       "payload": {
         "description": "Fetch a user by ID from the API.",
         "async": true,
@@ -635,35 +707,47 @@
         "parameters": [
           { "name": "id", "type": "string", "description": "The user UUID." }
         ],
-        "returnTypeId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        "returnTypeId": "f1e2d3c4-b5a6-7890-abcd-ef1234567890"
       }
     },
     {
-      "_comment": "function item — postgres adapter (body inline)",
-      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
-      "specVersion": "1.4.0",
-      "parentId": "00000000-0000-0000-0000-000000000000",
-      "value": "fetchUser",
-      "type": "function",
-      "typeId": null,
-      "owner": "richardsempire@gmail.com",
-      "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
-      "sortOrder": 1,
-      "confidence": null,
-      "status": null,
-      "tags": [],
-      "createdAt": "2026-01-01T00:00:00.000Z",
-      "modifiedAt": "2026-01-01T00:00:00.000Z",
-      "createdBy": "richardsempire@gmail.com",
-      "modifiedBy": "richardsempire@gmail.com",
-      "cachedAt": null,
-      "subscribedAt": null,
-      "subscriptionSource": null,
-      "completedAt": null,
-      "dueAt": null,
-      "visibility": "private",
-      "aspect": null,
-      "template": null,
+      "_comment": "function item — postgres adapter (body inline in payload)",
+      "item": {
+        "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+        "parentId": "00000000-0000-0000-0000-000000000000",
+        "type": "function",
+        "typeId": null,
+        "value": "fetchUser",
+        "sortOrder": 1
+      },
+      "meta": {
+        "specVersion": "1.4.0",
+        "owner": "richie@acme.com",
+        "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+        "createdAt": "2026-06-25T10:00:00.000Z",
+        "modifiedAt": "2026-06-25T10:00:00.000Z",
+        "createdBy": "richie@acme.com",
+        "modifiedBy": "richie@acme.com",
+        "visibility": "private",
+        "aspect": null,
+        "confidence": null,
+        "status": null,
+        "tags": [],
+        "template": null,
+        "completedAt": null,
+        "dueAt": null,
+        "cachedAt": null,
+        "subscribedAt": null,
+        "subscriptionSource": null,
+        "ownerDomain": null,
+        "namespace": null,
+        "copyrightHolder": null,
+        "contentHash": null,
+        "mirrors": [],
+        "sameAs": [],
+        "files": {}
+      },
+      "search": null,
       "payload": {
         "description": "Fetch a user by ID from the API.",
         "async": true,
@@ -671,126 +755,205 @@
         "parameters": [
           { "name": "id", "type": "string", "description": "The user UUID." }
         ],
-        "returnTypeId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "returnTypeId": "f1e2d3c4-b5a6-7890-abcd-ef1234567890",
         "body": "const res = await fetch(`/api/users/${id}`);\nif (!res.ok) throw new Error('Not found');\nreturn res.json();"
       }
     },
     {
-      "_comment": "image item",
-      "id": "d4e5f6a7-b8c9-0123-defa-234567890123",
-      "specVersion": "1.4.0",
-      "parentId": "00000000-0000-0000-0000-000000000000",
-      "value": "Sunset photo",
-      "type": "image",
-      "typeId": null,
-      "owner": "richardsempire@gmail.com",
-      "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
-      "sortOrder": 3,
-      "confidence": null,
-      "status": null,
-      "tags": [],
-      "createdAt": "2026-01-01T00:00:00.000Z",
-      "modifiedAt": "2026-01-01T00:00:00.000Z",
-      "createdBy": "richardsempire@gmail.com",
-      "modifiedBy": "richardsempire@gmail.com",
-      "cachedAt": null,
-      "subscribedAt": null,
-      "subscriptionSource": null,
-      "completedAt": null,
-      "dueAt": null,
-      "visibility": "private",
-      "aspect": null,
-      "template": null,
-      "files": { "image": "sunset.jpg" }
+      "_comment": "image item — type 'file' with mimeType image/jpeg (replaces former 'image' primitive)",
+      "item": {
+        "id": "d4e5f6a7-b8c9-0123-defa-234567890123",
+        "parentId": "00000000-0000-0000-0000-000000000000",
+        "type": "file",
+        "typeId": null,
+        "value": "Sunset photo",
+        "sortOrder": 3
+      },
+      "meta": {
+        "specVersion": "1.4.0",
+        "owner": "richie@acme.com",
+        "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+        "createdAt": "2026-06-25T10:00:00.000Z",
+        "modifiedAt": "2026-06-25T10:00:00.000Z",
+        "createdBy": "richie@acme.com",
+        "modifiedBy": "richie@acme.com",
+        "visibility": "private",
+        "aspect": null,
+        "confidence": null,
+        "status": null,
+        "tags": [],
+        "template": null,
+        "completedAt": null,
+        "dueAt": null,
+        "cachedAt": null,
+        "subscribedAt": null,
+        "subscriptionSource": null,
+        "ownerDomain": null,
+        "namespace": null,
+        "copyrightHolder": null,
+        "contentHash": null,
+        "mirrors": [],
+        "sameAs": [],
+        "files": { "body": "sunset.jpg" }
+      },
+      "search": null,
+      "payload": {
+        "mimeType": "image/jpeg",
+        "size": 2048000,
+        "width": 3840,
+        "height": 2160,
+        "duration": null,
+        "altText": "A dramatic orange and purple sunset over the harbour"
+      }
     },
     {
-      "_comment": "markdown item",
-      "id": "e5f6a7b8-c9d0-1234-efab-345678901234",
-      "specVersion": "1.4.0",
-      "parentId": "00000000-0000-0000-0000-000000000000",
-      "value": "Project overview",
-      "type": "markdown",
-      "typeId": null,
-      "owner": "richardsempire@gmail.com",
-      "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
-      "sortOrder": 4,
-      "confidence": null,
-      "status": null,
-      "tags": [],
-      "createdAt": "2026-01-01T00:00:00.000Z",
-      "modifiedAt": "2026-01-01T00:00:00.000Z",
-      "createdBy": "richardsempire@gmail.com",
-      "modifiedBy": "richardsempire@gmail.com",
-      "cachedAt": null,
-      "subscribedAt": null,
-      "subscriptionSource": null,
-      "completedAt": null,
-      "dueAt": null,
-      "visibility": "private",
-      "aspect": null,
-      "template": null,
-      "files": { "body": "body.md" }
+      "_comment": "markdown document — type 'file' with mimeType text/markdown (replaces former 'markdown' primitive)",
+      "item": {
+        "id": "e5f6a7b8-c9d0-1234-efab-345678901234",
+        "parentId": "00000000-0000-0000-0000-000000000000",
+        "type": "file",
+        "typeId": null,
+        "value": "Project overview",
+        "sortOrder": 4
+      },
+      "meta": {
+        "specVersion": "1.4.0",
+        "owner": "richie@acme.com",
+        "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+        "createdAt": "2026-06-25T10:00:00.000Z",
+        "modifiedAt": "2026-06-25T10:00:00.000Z",
+        "createdBy": "richie@acme.com",
+        "modifiedBy": "richie@acme.com",
+        "visibility": "private",
+        "aspect": null,
+        "confidence": null,
+        "status": null,
+        "tags": [],
+        "template": null,
+        "completedAt": null,
+        "dueAt": null,
+        "cachedAt": null,
+        "subscribedAt": null,
+        "subscriptionSource": null,
+        "ownerDomain": null,
+        "namespace": null,
+        "copyrightHolder": null,
+        "contentHash": null,
+        "mirrors": [],
+        "sameAs": [],
+        "files": { "body": "body.md" }
+      },
+      "search": {
+        "corpusHash": "sha256-abc123...",
+        "embedding": {
+          "model": "text-embedding-3-small",
+          "dimensions": 1536,
+          "generatedAt": "2026-06-25T10:05:00.000Z"
+        }
+      },
+      "payload": {
+        "mimeType": "text/markdown",
+        "size": 4200,
+        "width": null,
+        "height": null,
+        "duration": null,
+        "altText": null
+      }
     },
     {
-      "_comment": "file item",
-      "id": "f6a7b8c9-d0e1-2345-fabc-456789012345",
-      "specVersion": "1.4.0",
-      "parentId": "00000000-0000-0000-0000-000000000000",
-      "value": "Q4 Report",
-      "type": "file",
-      "typeId": null,
-      "owner": "richardsempire@gmail.com",
-      "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
-      "sortOrder": 5,
-      "confidence": null,
-      "status": null,
-      "tags": [],
-      "createdAt": "2026-01-01T00:00:00.000Z",
-      "modifiedAt": "2026-01-01T00:00:00.000Z",
-      "createdBy": "richardsempire@gmail.com",
-      "modifiedBy": "richardsempire@gmail.com",
-      "cachedAt": null,
-      "subscribedAt": null,
-      "subscriptionSource": null,
-      "completedAt": null,
-      "dueAt": null,
-      "visibility": "private",
-      "aspect": null,
-      "template": null,
-      "files": { "file": "q4-report.pdf" }
+      "_comment": "PDF file attachment",
+      "item": {
+        "id": "f6a7b8c9-d0e1-2345-fabc-456789012345",
+        "parentId": "00000000-0000-0000-0000-000000000000",
+        "type": "file",
+        "typeId": null,
+        "value": "Q4 Report",
+        "sortOrder": 5
+      },
+      "meta": {
+        "specVersion": "1.4.0",
+        "owner": "richie@acme.com",
+        "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+        "createdAt": "2026-06-25T10:00:00.000Z",
+        "modifiedAt": "2026-06-25T10:00:00.000Z",
+        "createdBy": "richie@acme.com",
+        "modifiedBy": "richie@acme.com",
+        "visibility": "organisation",
+        "aspect": null,
+        "confidence": null,
+        "status": null,
+        "tags": ["finance", "quarterly"],
+        "template": null,
+        "completedAt": null,
+        "dueAt": null,
+        "cachedAt": null,
+        "subscribedAt": null,
+        "subscriptionSource": null,
+        "ownerDomain": "acme.com",
+        "namespace": "acme.com/finance",
+        "copyrightHolder": "Acme Ltd",
+        "contentHash": null,
+        "mirrors": [],
+        "sameAs": [],
+        "files": { "body": "q4-report.pdf" }
+      },
+      "search": null,
+      "payload": {
+        "mimeType": "application/pdf",
+        "size": 1548288,
+        "width": null,
+        "height": null,
+        "duration": null,
+        "altText": null
+      }
     },
     {
-      "id": "f1e2d3c4-b5a6-7890-abcd-ef1234567890",
-      "specVersion": "1.4.0",
-      "parentId": "00000000-0000-0000-0000-000000000000",
-      "value": "Person",
-      "type": "type",
-      "typeId": null,
-      "owner": "richardsempire@gmail.com",
-      "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
-      "sortOrder": 0,
-      "confidence": null,
-      "status": null,
-      "tags": [],
-      "createdAt": "2026-01-01T00:00:00.000Z",
-      "modifiedAt": "2026-01-01T00:00:00.000Z",
-      "createdBy": "richardsempire@gmail.com",
-      "modifiedBy": "richardsempire@gmail.com",
-      "cachedAt": null,
-      "subscribedAt": null,
-      "subscriptionSource": null,
-      "completedAt": null,
-      "dueAt": null,
-      "visibility": "private",
-      "aspect": null,
-      "template": null,
+      "_comment": "Person type definition",
+      "item": {
+        "id": "f1e2d3c4-b5a6-7890-abcd-ef1234567890",
+        "parentId": "00000000-0000-0000-0000-000000000000",
+        "type": "type",
+        "typeId": null,
+        "value": "Person",
+        "sortOrder": 0
+      },
+      "meta": {
+        "specVersion": "1.4.0",
+        "owner": "richie@acme.com",
+        "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+        "createdAt": "2026-06-25T10:00:00.000Z",
+        "modifiedAt": "2026-06-25T10:00:00.000Z",
+        "createdBy": "richie@acme.com",
+        "modifiedBy": "richie@acme.com",
+        "visibility": "private",
+        "aspect": null,
+        "confidence": null,
+        "status": null,
+        "tags": [],
+        "template": null,
+        "completedAt": null,
+        "dueAt": null,
+        "cachedAt": null,
+        "subscribedAt": null,
+        "subscriptionSource": null,
+        "ownerDomain": null,
+        "namespace": null,
+        "copyrightHolder": null,
+        "contentHash": null,
+        "mirrors": [],
+        "sameAs": ["https://schema.org/Person", "https://www.wikidata.org/wiki/Q5"],
+        "files": {}
+      },
+      "search": null,
       "payload": {
         "meta": {
           "icon": "Person",
-          "description": "A human individual as a biographical fact.",
+          "description": "A human individual.",
           "keywords": "human individual biography name",
-          "tags": "people,biography,individual",
+          "tags": "people,biography",
           "primaryField": "name",
+          "searchFields": ["name", "bio", "email"],
+          "componentId": null,
           "functions": [],
           "sync": [],
           "supersededBy": [],
@@ -805,43 +968,67 @@
           "type": "object",
           "properties": {
             "name": { "x-id": "550e8400-e29b-41d4-a716-446655440000", "type": "string", "description": "Full name" },
-            "born": { "x-id": "550e8400-e29b-41d4-a716-446655440001", "type": "string", "format": "date", "description": "Date of birth" }
+            "born": { "x-id": "550e8400-e29b-41d4-a716-446655440001", "type": "string", "format": "date", "description": "Date of birth" },
+            "email": { "x-id": "550e8400-e29b-41d4-a716-446655440002", "type": "string", "format": "email", "description": "Email address" },
+            "bio": { "x-id": "550e8400-e29b-41d4-a716-446655440003", "type": "string", "description": "Short biography" }
           },
           "required": ["name"]
         },
         "sqlSchema": [
-          "CREATE TABLE \"obj_f1e2d3c4_b5a6_7890_abcd_ef1234567890\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT NOT NULL,\n    \"born\" DATE,\n    CONSTRAINT \"pk_obj_f1e2d3c4_b5a6_7890_abcd_ef1234567890\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_obj_f1e2d3c4_b5a6_7890_abcd_ef1234567890_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
+          "CREATE TABLE \"obj_f1e2d3c4_b5a6_7890_abcd_ef1234567890\" (\n    item_id UUID NOT NULL,\n    \"name\" TEXT NOT NULL,\n    \"born\" DATE,\n    \"email\" TEXT,\n    \"bio\" TEXT,\n    CONSTRAINT \"pk_obj_f1e2d3c4\" PRIMARY KEY (item_id),\n    CONSTRAINT \"fk_obj_f1e2d3c4_item\" FOREIGN KEY (item_id) REFERENCES items(id)\n)"
         ]
       }
     },
     {
-      "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
-      "specVersion": "1.4.0",
-      "parentId": "00000000-0000-0000-0000-000000000000",
-      "value": "Richie Thomas",
-      "type": "object",
-      "typeId": "f1e2d3c4-b5a6-7890-abcd-ef1234567890",
-      "owner": "richardsempire@gmail.com",
-      "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
-      "sortOrder": 2,
-      "confidence": "decided",
-      "status": "active",
-      "tags": ["people", "team"],
-      "createdAt": "2026-01-01T00:00:00.000Z",
-      "modifiedAt": "2026-06-01T00:00:00.000Z",
-      "createdBy": "richardsempire@gmail.com",
-      "modifiedBy": "richardsempire@gmail.com",
-      "cachedAt": null,
-      "subscribedAt": null,
-      "subscriptionSource": null,
-      "completedAt": null,
-      "dueAt": null,
-      "visibility": "organisation",
-      "aspect": null,
-      "template": null,
+      "_comment": "Person instance with all fields including search",
+      "item": {
+        "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+        "parentId": "f1e2d3c4-b5a6-7890-abcd-ef1234567890",
+        "type": "object",
+        "typeId": "f1e2d3c4-b5a6-7890-abcd-ef1234567890",
+        "value": "Richie Thomas",
+        "sortOrder": 0
+      },
+      "meta": {
+        "specVersion": "1.4.0",
+        "owner": "richie@acme.com",
+        "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+        "createdAt": "2026-01-01T00:00:00.000Z",
+        "modifiedAt": "2026-06-25T10:00:00.000Z",
+        "createdBy": "richie@acme.com",
+        "modifiedBy": "richie@acme.com",
+        "visibility": "organisation",
+        "aspect": null,
+        "confidence": "decided",
+        "status": "active",
+        "tags": ["team", "engineering"],
+        "template": null,
+        "completedAt": null,
+        "dueAt": null,
+        "cachedAt": null,
+        "subscribedAt": null,
+        "subscriptionSource": null,
+        "ownerDomain": "acme.com",
+        "namespace": "acme.com/engineering",
+        "copyrightHolder": "Acme Ltd",
+        "contentHash": "sha256-def456...",
+        "mirrors": ["kanecta-us.acme.com"],
+        "sameAs": ["https://www.wikidata.org/wiki/Q12345678"],
+        "files": { "embedding": "embedding.bin" }
+      },
+      "search": {
+        "corpusHash": "sha256-xyz789...",
+        "embedding": {
+          "model": "text-embedding-3-small",
+          "dimensions": 1536,
+          "generatedAt": "2026-06-25T10:05:00.000Z"
+        }
+      },
       "payload": {
         "name": "Richie Thomas",
-        "born": "1985-03-12"
+        "born": "1985-03-12",
+        "email": "richie@acme.com",
+        "bio": "Founder and lead developer of Kanecta."
       }
     }
   ]

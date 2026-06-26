@@ -7,11 +7,11 @@
     "file",
     "symlink",
     "url",
-    "image",
     "function",
     "component",
-    "markdown",
-    "runner"
+    "runner",
+    "node",
+    "tree"
   ],
   "structured": [
     "object",
@@ -33,5 +33,14 @@
     "app_root",
     "component_root",
     "data_root"
-  ]
+  ],
+  "_notes": {
+    "file": "Replaces the former 'image' and 'markdown' primitives. Use payload.mimeType to distinguish — e.g. 'image/jpeg', 'text/markdown', 'application/pdf'. Any IANA media type is valid.",
+    "node": "A generic node type for use in user-defined trees. Items of type 'node' can appear under items of type 'tree' to form named additional tree structures beyond the built-in one.",
+    "tree": "A named tree root. Kanecta has one built-in tree rooted at the all-zeros UUID. Additional trees are items of type 'tree' — their children are items of type 'node'. Useful for alternative navigation structures, tag hierarchies, org charts, etc.",
+    "component": "A React component definition. body lives in meta.files.body = 'body.tsx'. Props use the parameterOrProp definition — same as function parameters.",
+    "function": "A typed function definition. body lives in meta.files.body = 'body.ts' (filesystem/SQLite) or inline in payload.body (Postgres).",
+    "grant": "An access control grant. Lives as a child of the item it controls, in the 'grants' aspect. Supports identity, namespace, and ReBAC principals.",
+    "relationship": "A typed, first-class relationship between two items. Coexists with inline [[uuid]] links."
+  }
 }
