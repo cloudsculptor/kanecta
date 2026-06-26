@@ -206,7 +206,7 @@
         "acme": {
           "local": {
             "type": "filesystem",
-            "path": "/home/richard/wiki/acme"
+            "path": "/home/alice/wiki/acme"
           },
           "remotes": {
             "origin": {
