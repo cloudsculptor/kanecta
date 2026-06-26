@@ -17,9 +17,9 @@
       "description": "Version of the Kanecta specification this record conforms to (e.g. '1.4.0'). Set at creation time; tooling uses it to pick the right schema/migration rules when reading older records."
     },
     "parentId": {
-      "type": ["string", "null"],
+      "type": "string",
       "format": "uuid",
-      "description": "UUID of the parent item. The root item is self-referential (parentId equals its own id). Null for type definition records that have not yet been placed in the tree."
+      "description": "UUID of the parent item. Always required — no item is parentless. The root item is self-referencing: its id and parentId are both '00000000-0000-0000-0000-000000000000', the well-known all-zeros UUID. Typed objects use their type item's UUID as parentId (they live in the type's collection, symlinked from wherever they appear in the tree). Free-form items use their tree parent's UUID."
     },
     "value": {
       "type": ["string", "null"],
@@ -578,7 +578,7 @@
     {
       "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
       "specVersion": "1.4.0",
-      "parentId": "00000000-0000-0000-0000-000000000001",
+      "parentId": "00000000-0000-0000-0000-000000000000",
       "value": "My note",
       "type": "text",
       "typeId": null,
@@ -605,7 +605,7 @@
       "_comment": "function item — filesystem/sqlite adapter (body as sidecar)",
       "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
       "specVersion": "1.4.0",
-      "parentId": "00000000-0000-0000-0000-000000000001",
+      "parentId": "00000000-0000-0000-0000-000000000000",
       "value": "fetchUser",
       "type": "function",
       "typeId": null,
@@ -642,7 +642,7 @@
       "_comment": "function item — postgres adapter (body inline)",
       "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
       "specVersion": "1.4.0",
-      "parentId": "00000000-0000-0000-0000-000000000001",
+      "parentId": "00000000-0000-0000-0000-000000000000",
       "value": "fetchUser",
       "type": "function",
       "typeId": null,
@@ -679,7 +679,7 @@
       "_comment": "image item",
       "id": "d4e5f6a7-b8c9-0123-defa-234567890123",
       "specVersion": "1.4.0",
-      "parentId": "00000000-0000-0000-0000-000000000001",
+      "parentId": "00000000-0000-0000-0000-000000000000",
       "value": "Sunset photo",
       "type": "image",
       "typeId": null,
@@ -707,7 +707,7 @@
       "_comment": "markdown item",
       "id": "e5f6a7b8-c9d0-1234-efab-345678901234",
       "specVersion": "1.4.0",
-      "parentId": "00000000-0000-0000-0000-000000000001",
+      "parentId": "00000000-0000-0000-0000-000000000000",
       "value": "Project overview",
       "type": "markdown",
       "typeId": null,
@@ -735,7 +735,7 @@
       "_comment": "file item",
       "id": "f6a7b8c9-d0e1-2345-fabc-456789012345",
       "specVersion": "1.4.0",
-      "parentId": "00000000-0000-0000-0000-000000000001",
+      "parentId": "00000000-0000-0000-0000-000000000000",
       "value": "Q4 Report",
       "type": "file",
       "typeId": null,
@@ -762,7 +762,7 @@
     {
       "id": "f1e2d3c4-b5a6-7890-abcd-ef1234567890",
       "specVersion": "1.4.0",
-      "parentId": "00000000-0000-0000-0000-000000000002",
+      "parentId": "00000000-0000-0000-0000-000000000000",
       "value": "Person",
       "type": "type",
       "typeId": null,
@@ -817,7 +817,7 @@
     {
       "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
       "specVersion": "1.4.0",
-      "parentId": "00000000-0000-0000-0000-000000000001",
+      "parentId": "00000000-0000-0000-0000-000000000000",
       "value": "Richie Thomas",
       "type": "object",
       "typeId": "f1e2d3c4-b5a6-7890-abcd-ef1234567890",
