@@ -1301,7 +1301,30 @@ TIP: *Postgres* — `gen_random_uuid()` (PostgreSQL ≥ 13) generates UUID v4. A
 
 `config.json` is the bootstrap configuration for the Kanecta platform. It is not a Kanecta item — it exists one layer below the datastore and tells the system where datastores live and how to connect to remotes. Defined by `./file-specs/config.json`.
 
-Key rules:
+=== Config file discovery
+
+Every entry point — Electron, `npm start`, MCP server, API server — uses the same discovery algorithm so that mixing and matching entry points never produces a mismatched datastore:
+
+1. `KANECTA_CONFIG` environment variable — if set, use that path and stop.
+2. Platform default:
+
+[cols="1,2", options="header"]
+|===
+| Platform | Default path
+
+| Mac
+| `~/Library/Application Support/kanecta/config.json`
+
+| Linux
+| `~/.config/kanecta/config.json` (XDG)
+
+| Windows
+| `%APPDATA%\kanecta\config.json`
+|===
+
+NOTE: Mac uses `~/Library/Application Support` rather than `~/.config` because Electron (the primary entry point for most users) is a native Mac app and expects config there. `npm start` follows the same path so terminal and Electron users always share the same config.
+
+=== Key rules
 
 * `specVersion` is required — used by the platform to detect config schema changes.
 * `default` must match a key in `workspaces`.
