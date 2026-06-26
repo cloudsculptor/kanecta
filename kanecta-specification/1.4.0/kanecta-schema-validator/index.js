@@ -23,7 +23,7 @@ const ALL_ITEM_TYPES = new Set([
   // structured
   'type','alias',
   'object','decision','annotation','claim','question','task','note',
-  'concept','entity','event','grant','relationship','relationship-type','view','context','reference','subscription',
+  'concept','entity','event','grant','relationship','relationship-type','view','context','reference','subscription','item_history','activity',
   // well-known (the one fixed anchor — see specification.adoc)
   'root',
 ]);

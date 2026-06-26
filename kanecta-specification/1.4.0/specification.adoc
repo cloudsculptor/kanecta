@@ -556,8 +556,16 @@ Types with defined semantic intent.
 | `referencePayload` (required)
 
 | `subscription`
-| A live notification channel registered against a UUID. Distinct from `reference` — a subscription is about change notification, not external dependency or deletion protection. Lives under the watched item in the `"subscriptions"` aspect.
+| A live notification channel registered against a UUID. Distinct from `reference` — a subscription is about change notification, not external dependency or deletion protection. `payload.targetId` identifies the watched item.
 | `subscriptionPayload` (required)
+
+| `item_history`
+| An event in an item's lifecycle. Fully event-source capable — the complete sequence for any `targetId` is sufficient to replay and reconstruct any past state. `payload.targetId` identifies the item being recorded.
+| `itemHistoryPayload` (required)
+
+| `activity`
+| A discrete workspace event (item viewed, search performed, sync completed). Distinct from `item_history` — activity tracks what happened, history tracks what changed. `payload.targetId` identifies the related item (null for workspace-level events).
+| `activityPayload` (required)
 |===
 
 === Well-Known Types
@@ -578,75 +586,70 @@ All other top-level groupings (system layer, app layer, data layer, etc.) are or
 [#item-placement]
 == Item Placement
 
-=== Universal rule
+=== The universal parentId rule
 
-Every item has exactly one `parentId` — its *canonical home*. To make an item appear anywhere else in the tree, create a `symlink` item pointing to it. There is no duplication of item data; all other appearances are pointers.
+[IMPORTANT]
+====
+Every item's `parentId` is the UUID of its *type item*. No exceptions. You should never need to ask "where does this item go?" — the answer is always its type.
 
-This applies to every item of every type without exception.
+* *User-defined objects* (`type: "object"`) → `parentId` = their custom type item UUID (`item.typeId`).
+* *Built-in type instances* → `parentId` = the synthetic type item for that built-in type, bootstrapped at datastore initialisation.
+* *Root* → self-referencing: `parentId = id = 00000000-0000-0000-0000-000000000000`.
+* *Additional-tree nodes* (`type: "node"`) → `parentId` = parent node UUID, or tree item UUID for root-level nodes. Tree positioning is the one structural exception — node items are pointers, not data.
+====
 
-=== What determines the canonical home
+The semantic relationship between an item and what it relates to is *always carried in the payload*, never encoded in `parentId`. A `grant` item's `governedItemId` says what it governs. An `alias` item's `targetId` says what it aliases. An `item_history` item's `targetId` says what item it is a snapshot of. `parentId` says only one thing: which type this item belongs to.
 
-[cols="1,2,1", options="header"]
-|===
-| Category | Canonical home | Examples
+This rule is a hard constraint enforced at write time by every adapter.
 
-| *User-defined type instances*
-| Under the type definition UUID (`item.typeId`). The type is its own collection — browse to the type, see all instances.
-| `object`
+=== Synthetic type items
 
-| *Content items*
-| User chooses at creation time. There is no system-prescribed location — the item goes where it makes conceptual sense.
-| `string`, `number`, `text`, `heading`, `file`, `url`, `note`, `task`, `decision`, `claim`, `question`, `annotation`, `concept`, `entity`, `event`
+Every built-in type has a corresponding synthetic type item created at datastore initialisation. These items have type `"type"`, `layer: "system"`, and a stable well-known UUID assigned at init (stored in the bootstrapper). They are the canonical homes for all instances of their type.
 
-| *Associative system items*
-| Under the item they most directly extend or control, in a named aspect. See well-known aspects below.
-| `grant`, `relationship`, `reference`, `view`
+Built-in types with synthetic type items: `alias`, `annotation`, `claim`, `component`, `concept`, `context`, `decision`, `entity`, `event`, `file`, `formula`, `function`, `grant`, `heading`, `item_history`, `activity`, `note`, `number`, `object`, `question`, `reference`, `relationship`, `relationship-type`, `runner`, `string`, `subscription`, `symlink`, `task`, `text`, `tree`, `url`, `view`.
 
-| *Independent system items*
-| Under a bootstrapper-created collection `tree` under root. The bootstrapper creates these at initialisation; they are data, not reserved UUIDs.
-| `context`, `runner`
+=== Aspects as a view concept
 
-| *Function and component items*
-| Under their associated type definition when type-specific (a type's renderer or method). Under the bootstrapper Functions / Components collection tree otherwise.
-| `function`, `component`
+Aspects are *not a storage concept*. No item has an `aspect` field that encodes its relationship to another item. The word "aspect" describes how the UI *groups and presents* related items when viewing an item — it is a query and rendering concern.
 
-| *Structural items*
-| `node` → under a `tree` or another `node`. `tree` → under `root` or another `tree`.
-| `tree`, `node`
+When viewing an item, the UI queries for items whose payload references this UUID (via `governedItemId`, `targetId`, `sourceId`, etc.) and groups them by type. Those groups are called aspects (`"grants"`, `"relationships"`, `"aliases"`, etc.) by convention. Nothing in the data model enforces or stores this grouping.
 
-| *Root*
-| Self-referencing. `parentId = id = 00000000-0000-0000-0000-000000000000`.
-| `root`
-|===
-
-=== Well-known aspects for associative types
+=== Well-known aspect names (view convention)
 
 [cols="1,1,2", options="header"]
 |===
-| Type | Aspect | Meaning
+| Type | Aspect name | Payload field linking back to the viewed item
 
 | `grant`
 | `"grants"`
-| Grant items controlling the parent item's access.
+| `payload.governedItemId`
 
 | `relationship`
 | `"relationships"`
-| Relationship items whose source is the parent item. For directed relationships the source item is the canonical home; for bidirectional the creator chooses.
+| `payload.sourceId` (or `targetId` for inbound)
 
 | `reference`
 | `"references"`
-| Declared external references to the parent item (physical, system, functional, subscription). The reference item lives under the item it declares a dependency on.
-
-| `view`
-| `"views"`
-| View items binding the parent item to a specific renderer and context.
+| `payload.targetId`
 
 | `subscription`
 | `"subscriptions"`
-| Live notification channels registered against the parent item.
+| `payload.targetId`
+
+| `alias`
+| `"aliases"`
+| `payload.targetId`
+
+| `view`
+| `"views"`
+| `payload.itemId`
+
+| `item_history`
+| `"history"`
+| `payload.targetId`
 |===
 
-NOTE: The `symlink` type has no canonical home rule — by design, a symlink *is* a placement. It lives wherever the alias needs to appear.
+To query all grants governing item X: `SELECT * FROM items WHERE type = 'grant' AND payload->>'governedItemId' = $x`. To query all aliases for item X: `SELECT * FROM items WHERE type = 'alias' AND payload->>'targetId' = $x`. The adapter maintains derived lookup tables (e.g. `payload_grant`, `aliases`) for O(1) access — these are always rebuildable from items and are never the source of truth.
 
 [#payload-definitions]
 == Payload Definitions
@@ -1042,7 +1045,7 @@ NOTE: *Required even for filesystem-only types* — every type defines `sqlSchem
 
 For `type: "alias"`. The alias string itself lives in `item.value` — this is the human-readable label the user types to address the target item. Lookup is always case-insensitive; the adapter normalises to lowercase when querying but preserves original casing in `item.value` for display.
 
-The alias item's `parentId` is the `targetId` — the alias lives under the item it aliases, as its canonical home in the tree. The adapter maintains a derived `aliases` lookup table for O(1) string resolution, but that table is rebuilt from items and is never the source of truth.
+The alias item's `parentId` is the synthetic `alias` type item UUID (the universal rule). The relationship to the aliased item is carried entirely in `payload.targetId`. The adapter maintains a derived `aliases` lookup table for O(1) string resolution, but that table is rebuilt from items and is never the source of truth.
 
 [source,json]
 ----
@@ -1186,26 +1189,41 @@ TIP: *Postgres* — `payload_relationship` table for efficient graph queries: `C
 
 === grantPayload
 
-For `type: "grant"`. Access control grants live as children of the item they control, in the `"grants"` aspect.
-
-Three principal forms:
+For `type: "grant"`. Access control grants. The grant item's `parentId` is the synthetic `grant` type item UUID (the universal rule). The item being governed is identified by `payload.governedItemId` — this is the field that was previously implied by parentId placement.
 
 [source,json]
 ----
-{ "principal": "bob@acme.com", "permissions": ["read"] }
+{
+  "governedItemId": "uuid-of-the-item-this-grant-controls",
+  "principal": "bob@acme.com",
+  "permissions": ["read"]
+}
 ----
 [source,json]
 ----
-{ "principal": "acme.com/engineering", "permissions": ["read", "write"] }
+{
+  "governedItemId": "uuid-of-the-item-this-grant-controls",
+  "principal": "acme.com/engineering",
+  "permissions": ["read", "write"]
+}
 ----
 [source,json]
 ----
-{ "principal": { "itemId": "group-uuid", "relation": "member" }, "permissions": ["read"], "cascade": true }
+{
+  "governedItemId": "uuid-of-the-item-this-grant-controls",
+  "principal": { "itemId": "group-uuid", "relation": "member" },
+  "permissions": ["read"],
+  "cascade": true
+}
 ----
 
 [cols="1,1,2", options="header"]
 |===
 | Field | Required | Description
+
+| `governedItemId`
+| yes
+| UUID of the item this grant controls. Replaces the old implicit parentId-as-governed-item encoding.
 
 | `principal`
 | yes
@@ -1217,12 +1235,12 @@ Three principal forms:
 
 | `cascade`
 | no
-| When true, grant applies to all descendants.
+| When true, grant applies to all descendants of `governedItemId`.
 |===
 
 *ReBAC (relationship-based access control):* The `{itemId, relation}` principal form enables group-based access control. Groups are ordinary Kanecta items. Membership is a Kanecta relationship. Grant resolution is a graph traversal — any principal that holds the named `relation` to the named `itemId` receives the grant. No special group type is needed.
 
-TIP: *Postgres* — fine-grained grants are stored in an `item_grants` table alongside a `visibility` column on `items` (`"private"` / `"organisation"` / `"public"`). `visibility` is the fast no-join path; `item_grants` layers per-principal permissions on top. `principal_id` is a bare `UUID` (not an FK) so identity sources can change without a schema migration. `principal_type` (`"user"`, `"group"`, …) is unconstrained so new kinds never require a schema change.
+TIP: *Postgres* — `payload_grant` derived table for O(1) grant resolution: `CREATE TABLE payload_grant (id UUID PRIMARY KEY REFERENCES items(id), governed_item_id UUID NOT NULL REFERENCES items(id), principal TEXT NOT NULL, permissions TEXT[] NOT NULL, cascade BOOLEAN NOT NULL DEFAULT false)`. Index on `governed_item_id` for fast per-item grant lookup. A `visibility` column on `items` (`"private"` / `"organisation"` / `"public"`) is the fast no-join path; `payload_grant` layers per-principal permissions on top.
 
 === viewPayload
 
@@ -1309,7 +1327,7 @@ Different deployments of the same datastore (web UI, API server, CLI) each have 
 
 For `type: "reference"`. A declared external dependency on a UUID — physical, system, functional, or subscription-based.
 
-Unlike `relationship` (which connects two Kanecta items semantically), a `reference` asserts that the target UUID has *reach outside the item graph* — engraved on metal, stored in another database, wired to a webhook. `reference` items live as standalone items (like `relationship`) with `targetId` in payload, not constrained by `parentId`.
+Unlike `relationship` (which connects two Kanecta items semantically), a `reference` asserts that the target UUID has *reach outside the item graph* — engraved on metal, stored in another database, wired to a webhook. The reference item's `parentId` is the synthetic `reference` type item UUID (the universal rule). The item being referenced is identified by `payload.targetId`.
 
 [source,json]
 ----
@@ -1367,9 +1385,7 @@ NOTE: *Deletion governance:* `blockDeletion: true` does not determine who can de
 
 For `type: "subscription"`. Registers a live notification channel against a target UUID. When the target item changes, the platform notifies the channel.
 
-Distinct from `reference` — a subscription is about change notification, not declaring external reach or blocking deletion.
-
-Lives under the watched item in the `"subscriptions"` aspect.
+Distinct from `reference` — a subscription is about change notification, not declaring external reach or blocking deletion. The subscription item's `parentId` is the synthetic `subscription` type item UUID (the universal rule). The item being watched is identified by `payload.targetId`.
 
 [source,json]
 ----
@@ -1424,6 +1440,111 @@ Lives under the watched item in the `"subscriptions"` aspect.
 | `componentId`
 | Notify a reactive UI component registered against this item.
 |===
+
+=== itemHistoryPayload
+
+For `type: "item_history"`. Records a single event in an item's lifecycle. The design is *event-source capable* — the complete sequence of `item_history` items for any given target is sufficient to replay the item's full history from nothing and reconstruct any past state. Current state is always derivable by replaying all events in sequence order.
+
+The `item_history` item's `parentId` is the synthetic `item_history` type item UUID. The item being snapshotted is identified by `payload.targetId`. Writing an `item_history` item does *not* itself trigger a further history event — the adapter applies a recursion guard.
+
+[source,json]
+----
+{
+  "targetId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "eventType": "updated",
+  "sequence": 42,
+  "delta": {
+    "item.value": { "from": "Old name", "to": "New name" },
+    "meta.modifiedAt": { "from": "2026-06-24T10:00:00Z", "to": "2026-06-25T09:14:00Z" }
+  },
+  "snapshot": {}
+}
+----
+
+[cols="1,1,1,3", options="header"]
+|===
+| Field | Type | Required | Description
+
+| `targetId`
+| UUID string
+| Yes
+| UUID of the item this event belongs to.
+
+| `eventType`
+| `"created"` \| `"updated"` \| `"deleted"`
+| Yes
+| What happened. `created` — first event for this item. `updated` — one or more fields changed. `deleted` — item has been removed.
+
+| `sequence`
+| integer
+| Yes
+| Monotonically increasing event number, scoped per `targetId`. Starts at 1 for `created`. Never reused even if the item is deleted and re-created. The total ordering of events for a given item is fully determined by `sequence`.
+
+| `delta`
+| object
+| Yes for `updated`, empty object `{}` for `created` and `deleted`
+| Field-level diff. Keys are dot-separated paths (e.g. `"item.value"`, `"meta.tags"`, `"payload.status"`). Each value is `{ "from": <old>, "to": <new> }`. For `created`, the full initial state is in `snapshot`. For `deleted`, `from` is the final state and `to` is null.
+
+| `snapshot`
+| object
+| Yes
+| The complete four-section `item.json` *after* this event was applied. For `deleted`, the snapshot is the final state before deletion. Stored alongside the delta so that point-in-time queries do not require full log replay — read the snapshot at or before the target time.
+|===
+
+NOTE: Event sourcing guarantee: replaying all `item_history` events for a given `targetId` in `sequence` order, starting from an empty state, must produce the current item state. Adapters must validate this invariant on write. The `snapshot` field is a read-performance optimisation — it must always equal the state produced by replaying events 1..sequence.
+
+=== activityPayload
+
+For `type: "activity"`. Records a discrete workspace event — not a snapshot of item state, but a meaningful occurrence at the application level (item viewed, search performed, sync started, export triggered). Distinct from `item_history`: history tracks *what changed*; activity tracks *what happened*.
+
+The `activity` item's `parentId` is the synthetic `activity` type item UUID. `payload.targetId` is the item the event relates to — null for workspace-level events. Activity items are append-only. Writing an activity item does not itself log another activity event.
+
+[source,json]
+----
+{
+  "eventType": "item.viewed",
+  "actor": "alice@acme.com",
+  "targetId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "data": null
+}
+----
+
+[source,json]
+----
+{
+  "eventType": "search.performed",
+  "actor": "alice@acme.com",
+  "targetId": null,
+  "data": { "query": "drill press maintenance", "resultCount": 12 }
+}
+----
+
+[cols="1,1,1,3", options="header"]
+|===
+| Field | Type | Required | Description
+
+| `eventType`
+| string
+| Yes
+| Dot-separated event identifier (e.g. `item.viewed`, `item.exported`, `search.performed`, `sync.completed`, `workspace.opened`). Free-form — new event types do not require a spec change.
+
+| `actor`
+| string
+| Yes
+| Identity string of who triggered this event.
+
+| `targetId`
+| UUID string \| null
+| Yes
+| UUID of the item this event relates to. Null for workspace-level events that do not relate to a single item.
+
+| `data`
+| object \| null
+| No
+| Event-specific detail (e.g. the search query, the export format, the sync remote name). Structure is determined by `eventType`. Null when no additional data is needed.
+|===
+
+NOTE: Activity items are not replicated to remotes by default — activity is local to the workspace unless explicitly opted in. They are never updated or deleted after creation.
 
 [#files-and-sidecars]
 == Files and Sidecars
@@ -1770,53 +1891,13 @@ TIP: *Postgres* — `items` also carries a denormalised `children UUID[]` column
 
 TIP: *SQLite* — no native array columns. `children` cache uses a JSON `TEXT` column or a separate `item_children(parent_id, child_id)` table. `schema_version` is a simple one-row `key/value` table.
 
-=== item_history Table
+=== item_history and activity
 
-Every write to an item appends a snapshot to `item_history` before the change is applied. This is the authoritative audit log — point-in-time queries read from this table, not from backups or diffs.
+`item_history` and `activity` are *items*, not separate tables. They follow the universal parentId rule — instances live under their respective synthetic type items (`item_history` and `activity`), bootstrapped at datastore init. They are queried like any other item: `SELECT * FROM items WHERE type = 'item_history' AND payload->>'targetId' = $id ORDER BY meta->>'createdAt' DESC`.
 
-[source,sql]
-----
-CREATE TABLE item_history (
-  id            UUID        NOT NULL DEFAULT gen_random_uuid(),
-  item_id       UUID        NOT NULL REFERENCES items(id),
-  change_type   TEXT        NOT NULL CHECK (change_type IN ('create','update','delete')),
-  changed_by    TEXT        NOT NULL,
-  changed_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  snapshot      JSONB       NOT NULL,
-  PRIMARY KEY (id)
-);
+See `itemHistoryPayload` and `activityPayload` in the Payload Definitions section for the full field specification.
 
-CREATE INDEX idx_item_history_item ON item_history (item_id, changed_at DESC);
-----
-
-`snapshot` contains the full four-section `item.json` as it existed *before* the change (`update` and `delete` events) or *after* creation (`create` events). The adapter writes this row in the same transaction as the item write — history is never written in a separate pass.
-
-NOTE: On the filesystem adapter, history is a `.kanecta/history/<item-id>/` directory of timestamped JSON snapshot files. The Postgres `item_history` table is the equivalent for Postgres workspaces. SQLite uses the same table schema as Postgres.
-
-=== activity Table
-
-`activity` records discrete events in the workspace — not snapshots of item state, but human-readable events meaningful at the application level (item viewed, search performed, export triggered, sync started). Distinct from `item_history`: history tracks *what changed*; activity tracks *what happened*.
-
-[source,sql]
-----
-CREATE TABLE activity (
-  id          UUID        NOT NULL DEFAULT gen_random_uuid(),
-  actor       TEXT        NOT NULL,
-  event_type  TEXT        NOT NULL,
-  item_id     UUID        REFERENCES items(id),
-  payload     JSONB,
-  occurred_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (id)
-);
-
-CREATE INDEX idx_activity_item    ON activity (item_id, occurred_at DESC);
-CREATE INDEX idx_activity_actor   ON activity (actor, occurred_at DESC);
-CREATE INDEX idx_activity_type    ON activity (event_type, occurred_at DESC);
-----
-
-`item_id` is nullable — some events are workspace-level (e.g. `workspace.open`, `sync.started`) and do not relate to a single item. `event_type` is a dot-separated string (e.g. `item.viewed`, `item.exported`, `search.performed`, `sync.completed`). `payload` carries event-specific data (e.g. the search query, the export format).
-
-NOTE: Activity rows are append-only. Never update or delete them. They are not replicated to remotes by default — activity is local to the workspace unless explicitly opted in.
+TIP: *Postgres* — because `item_history` and `activity` items are write-heavy and never updated, the adapter may maintain a dedicated derived index table (`payload_item_history`, `payload_activity`) with queryable columns extracted from payload. These are strictly derived — always rebuildable from `items`. The `items` table remains the source of truth.
 
 == Business Rules
 
