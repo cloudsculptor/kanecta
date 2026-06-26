@@ -459,6 +459,10 @@ Types with defined semantic intent.
 |===
 | Type | Description | Payload
 
+| `type`
+| A custom type definition. The meta-type — `object` instances live under their type item as their canonical home. Type items themselves live under a bootstrapper-created collection tree under root.
+| `typePayload` (required)
+
 | `object`
 | An instance of a custom type definition. `item.typeId` identifies the type.
 | Free-form object validated against the type's `jsonSchema`.
