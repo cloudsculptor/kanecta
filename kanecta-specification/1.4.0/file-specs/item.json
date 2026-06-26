@@ -144,7 +144,28 @@
     "files": {
       "type": "object",
       "additionalProperties": { "type": "string" },
-      "description": "Map of semantic role names to sidecar filenames stored alongside item.json in the same item folder. Used by filesystem and filesystem+sqlite adapters. Keys are role names (e.g. 'body', 'image', 'file', 'thumbnail'); values are filenames (e.g. 'body.js', 'sunset.jpg', 'report.pdf'). The postgres adapter stores equivalent content inline (in payload fields or dedicated columns) and omits this field. Examples by type: function → { \"body\": \"body.ts\" }; markdown → { \"body\": \"body.md\" }; image → { \"image\": \"photo.jpg\" }; file → { \"file\": \"report.pdf\" }."
+      "description": "Map of semantic role names to sidecar filenames stored alongside item.json in the same item folder. Used by filesystem and filesystem+sqlite adapters. Keys are role names; values are filenames. The postgres adapter stores equivalent content inline and omits this field. Well-known roles: 'body' (source code or markdown body — e.g. 'body.ts', 'body.md'), 'image' (primary image — e.g. 'photo.jpg'), 'file' (attached file — e.g. 'report.pdf'), 'thumbnail' (preview image), 'embedding' (float32 vector binary — always 'embedding.bin'). Examples by type: function → { \"body\": \"body.ts\" }; markdown → { \"body\": \"body.md\" }; image → { \"image\": \"photo.jpg\" }; any item with an embedding → { \"embedding\": \"embedding.bin\" }."
+    },
+    "embedding": {
+      "type": ["object", "null"],
+      "description": "Metadata describing the semantic embedding computed for this item. The float vector itself lives in a binary sidecar declared as files.embedding = 'embedding.bin' — a raw float32 array, compact and model-agnostic. Adapters read the sidecar once at load time and push it into their native vector store (pgvector for Postgres, sqlite-vec for SQLite). Sync transfers item.json + embedding.bin together; receiving nodes load the binary directly with no re-embedding required. Null if no embedding has been computed. Re-embedding is skippable when contentHash and model are both unchanged.",
+      "required": ["model", "dimensions", "generatedAt"],
+      "additionalProperties": false,
+      "properties": {
+        "model": {
+          "type": "string",
+          "description": "Embedding model identifier used to generate the vector (e.g. 'text-embedding-3-small', 'text-embedding-3-large'). Must match what the adapter uses for search — mixing models produces meaningless similarity scores."
+        },
+        "dimensions": {
+          "type": "integer",
+          "description": "Length of the float vector (e.g. 1536 for text-embedding-3-small, 3072 for text-embedding-3-large). Stored here so adapters can validate or re-create their vector columns without reading the actual vector."
+        },
+        "generatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of when this embedding was generated. Combined with contentHash, allows any node to decide whether to re-embed (content changed) or reuse (hash unchanged, same model)."
+        }
+      }
     },
     "payload": {
       "description": "Type-specific content. Required for 'function' and 'type' items (see allOf conditionals below for their exact shape). Present for 'object' items as a free-form key-value object validated at runtime against the type definition's jsonSchema. Omitted or null for all other item types.",
@@ -199,9 +220,54 @@
           "payload": { "$ref": "#/definitions/relationshipPayload" }
         }
       }
+    },
+    {
+      "if": {
+        "properties": { "type": { "const": "component" } },
+        "required": ["type"]
+      },
+      "then": {
+        "required": ["payload"],
+        "properties": {
+          "payload": { "$ref": "#/definitions/componentPayload" }
+        }
+      }
     }
   ],
   "definitions": {
+    "parameterOrProp": {
+      "description": "A typed input — used for function parameters and component props. Exactly one of type, typeId, or functionId must be set. type = TypeScript primitive; typeId = Kanecta object type instance; functionId = Kanecta function item (for passing functions/callbacks).",
+      "type": "object",
+      "required": ["name"],
+      "oneOf": [
+        { "required": ["type"] },
+        { "required": ["typeId"] },
+        { "required": ["functionId"] }
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "description": "Parameter / prop name." },
+        "type": {
+          "type": "string",
+          "description": "TypeScript primitive type only: string, number, boolean, null, undefined, void, never, unknown, any, symbol, bigint, and compositions of these. Object types must use typeId; function types must use functionId.",
+          "not": { "pattern": "\\{" }
+        },
+        "typeId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "UUID of a Kanecta type definition. Use for any object type."
+        },
+        "functionId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "UUID of a Kanecta function item. Use when this parameter or prop expects a function/callback. The referenced function item defines the expected signature."
+        },
+        "optional": { "type": "boolean", "default": false, "description": "Whether this input is optional." },
+        "rest": { "type": "boolean", "default": false, "description": "Whether this is a rest parameter (...args). Functions only." },
+        "defaultValue": { "type": "string", "description": "Default value expression as a source string (e.g. '0', '[]')." },
+        "description": { "type": "string", "description": "JSDoc @param / prop description." }
+      }
+    },
     "functionPayload": {
       "description": "Payload for items of type 'function'. Captures a TypeScript-compatible function signature and optional implementation. The function name is stored in the item's value field.",
       "type": "object",
@@ -247,33 +313,8 @@
         },
         "parameters": {
           "type": "array",
-          "description": "Ordered list of function parameters. Each must have either type (TypeScript primitive) or typeId (Kanecta type UUID), but not both.",
-          "items": {
-            "type": "object",
-            "required": ["name"],
-            "oneOf": [
-              { "required": ["type"] },
-              { "required": ["typeId"] }
-            ],
-            "additionalProperties": false,
-            "properties": {
-              "name": { "type": "string", "description": "Parameter name." },
-              "type": {
-                "type": "string",
-                "description": "TypeScript primitive type only: string, number, boolean, null, undefined, void, never, unknown, any, symbol, bigint, and compositions of these. Object types must use typeId instead.",
-                "not": { "pattern": "\\{" }
-              },
-              "typeId": {
-                "type": "string",
-                "format": "uuid",
-                "description": "UUID of a Kanecta type definition. Use for any object type. Mutually exclusive with type."
-              },
-              "optional": { "type": "boolean", "default": false, "description": "Whether the parameter is optional." },
-              "rest": { "type": "boolean", "default": false, "description": "Whether this is a rest parameter (...args)." },
-              "defaultValue": { "type": "string", "description": "Default value expression as a source string (e.g. '0', '[]')." },
-              "description": { "type": "string", "description": "JSDoc @param description." }
-            }
-          }
+          "description": "Ordered list of function parameters. Each must have exactly one of: type (TypeScript primitive), typeId (Kanecta object type), or functionId (Kanecta function item — for passing functions/callbacks as arguments).",
+          "items": { "$ref": "#/definitions/parameterOrProp" }
         },
         "returnType": {
           "type": "string",
@@ -334,13 +375,48 @@
             "details": { "type": "string", "description": "Longer description: when to use this type and how it relates to others." },
             "keywords": { "type": "string", "description": "Space-separated keywords for search and filtering." },
             "tags": { "type": "string", "description": "Comma-separated tags for grouping types." },
-            "primaryField": { "type": "string", "description": "Dot-separated path to the field that best represents an item of this type (e.g. 'name', 'title')." },
+            "primaryField": {
+              "description": "The field (or computed combination of fields) that best represents an item of this type for display. Three forms: (1) a plain string field path (e.g. 'name', 'title') — simple, most common; (2) an object with a single-entry fields array — equivalent to the string form; (3) an object with multiple fields plus an expression (inline JS, args are the field values) or a functionId (UUID of a Kanecta function item) for computed display values. functionId takes precedence over expression when both are set.",
+              "oneOf": [
+                {
+                  "type": "string",
+                  "description": "Dot-separated path to the primary field (e.g. 'name', 'address.street')."
+                },
+                {
+                  "type": "object",
+                  "required": ["fields"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "fields": {
+                      "type": "array",
+                      "items": { "type": "string" },
+                      "minItems": 1,
+                      "description": "Field paths whose values are passed to expression or functionId. If only one entry and no expression or functionId, behaves identically to the plain string form."
+                    },
+                    "expression": {
+                      "type": "string",
+                      "description": "Inline JS expression returning the display string. Field values are in scope by their field name (e.g. 'firstName + \" \" + lastName'). Used for simple computed values without a full function item."
+                    },
+                    "functionId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "description": "UUID of a Kanecta function item that accepts the listed fields as arguments and returns the display string. Takes precedence over expression when both are set."
+                    }
+                  }
+                }
+              ]
+            },
             "skills": {
               "type": "object",
               "additionalProperties": false,
               "properties": {
                 "claude": { "type": "string", "description": "Guidance for Claude on when and how to use this type." }
               }
+            },
+            "componentId": {
+              "type": ["string", "null"],
+              "format": "uuid",
+              "description": "UUID of a Kanecta component item that renders instances of this type. The UI passes the instance's payload fields as props. Null if no component is registered."
             },
             "functions": {
               "type": "array",
@@ -472,6 +548,28 @@
           "type": "boolean",
           "default": false,
           "description": "When true, this grant applies to all descendants of the item, not just the item itself. Resolved by traversing the tree and applying the grant to each child unless overridden by a more specific grant."
+        }
+      }
+    },
+    "componentPayload": {
+      "description": "Payload for items of type 'component'. Describes a React component: its props interface (using the shared parameterOrProp definition, same as function parameters) and optional npm dependencies. The component body (JSX/TSX) lives in a sidecar file referenced via files.body = 'body.tsx'. Return type is always ReactNode — implicit, no field needed. A type item can reference a component via payload.meta.componentId, which tells the UI to render instances of that type using this component.",
+      "type": "object",
+      "required": ["props"],
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of what this component renders."
+        },
+        "props": {
+          "type": "array",
+          "description": "The component's prop interface. Each prop follows the same parameterOrProp definition as function parameters — primitive type, typeId (Kanecta type), or functionId (Kanecta function item, for callback props).",
+          "items": { "$ref": "#/definitions/parameterOrProp" }
+        },
+        "dependencies": {
+          "type": "array",
+          "description": "npm package names this component imports beyond React itself (e.g. ['recharts', 'date-fns']).",
+          "items": { "type": "string" }
         }
       }
     }
