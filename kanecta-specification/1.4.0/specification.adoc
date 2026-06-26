@@ -69,6 +69,18 @@ v1.4.0 is a breaking change from v1.3.0. A migration script is provided in `kane
 
 | *Provenance fields*
 | `ownerDomain`, `namespace`, `copyrightHolder`, `contentHash`, `mirrors`.
+
+| *`view` and `context` types*
+| First-class structured types. A `view` binds a specific item to a renderer and execution context — a single UUID pointing to all three. Used for bookmarking, sharing, embedding, and bootstrapping (`root.payload.entryPoint` points to a view item). A `context` describes the runtime and display environment; reusable and versioned.
+
+| *`reference` type*
+| Declared external dependencies on a UUID (physical engraving, external system, function argument/output, webhook, reactive subscription). Standalone relational item (like `relationship`). `blockDeletion: true` governs deletion of the target — the owning person controls the block via grants on the reference item.
+
+| *Branching*
+| Delta/overlay model across all adapters. Branches are not copies — they store only what changed. Postgres uses schema-per-branch; S3 uses key prefixes; filesystem uses Git. See <<branching>>.
+
+| *`reference` type and PR pre-flight*
+| Before any branch merge, the platform scans the blast radius of every changed UUID: structural references, declared `reference` items, active subscriptions. Merges blocked when unacknowledged `blockDeletion` references are present.
 |===
 
 == Directory Structure
@@ -502,6 +514,10 @@ Types with defined semantic intent.
 | `context`
 | An execution and display environment (runtime + display position + capabilities). First-class item — reusable, versioned, shareable across view bindings.
 | `contextPayload` (required)
+
+| `reference`
+| A declared dependency on a UUID that exists outside the item graph — physical (engraved on machinery, printed on a label, QR code), external system, function argument, function output, webhook, or reactive subscription. `payload.blockDeletion: true` prevents deletion of the target until this reference is resolved. Lives as a standalone relational item with `targetId` in payload — not constrained by `parentId` placement. Structural references (inline `[[uuid]]` links, payload UUID fields, `parentId`) are tracked automatically in the `item_references` derived index; `reference` items cover declared and manual cases.
+| `referencePayload` (required)
 |===
 
 === Well-Known Types
@@ -889,6 +905,64 @@ For `type: "root"`. The only required payload on root is `entryPoint` — the UU
 
 Different deployments of the same datastore (web UI, API server, CLI) each have their own view item, with their own `componentId` and `contextId`. To support multiple deployment types, create multiple view items and update `entryPoint` to whichever is active — or make the entry point function itself context-aware.
 
+=== referencePayload
+
+For `type: "reference"`. A declared external dependency on a UUID — physical, system, functional, or subscription-based.
+
+Unlike `relationship` (which connects two Kanecta items semantically), a `reference` asserts that the target UUID has *reach outside the item graph* — engraved on metal, stored in another database, wired to a webhook. `reference` items live as standalone items (like `relationship`) with `targetId` in payload, not constrained by `parentId`.
+
+[source,json]
+----
+{
+  "targetId": "uuid-of-drill-press",
+  "kind": "physical",
+  "medium": "engraved",
+  "location": "Workshop bay 3, nameplate",
+  "blockDeletion": true,
+  "removable": false,
+  "description": "UUID engraved on the drill press nameplate. Cannot be removed without replacing the plate."
+}
+----
+
+[cols="1,1,2", options="header"]
+|===
+| Field | Required | Description
+
+| `targetId`
+| yes
+| UUID of the item being referenced.
+
+| `kind`
+| yes
+| Nature of the reference. Known values: `physical`, `external`, `function-arg`, `function-output`, `component-dep`, `webhook`, `reactive`. Free-form string — new kinds do not require a spec change.
+
+| `medium`
+| no
+| For `physical` kind: `engraved`, `printed`, `qr-code`, `label`, `published-doc`. Free-form.
+
+| `location`
+| no
+| Human-readable description of where this reference exists (e.g. `"Workshop bay 3, nameplate"`).
+
+| `url`
+| no
+| For `webhook` kind: the endpoint URL. Use `$VAR` for secrets.
+
+| `blockDeletion`
+| no
+| When true, deletion of `targetId` is blocked until this reference item is removed. The reference item itself is governed by grants — only the person with authority over the physical world (e.g. the workshop manager) should be able to remove it. Default: false.
+
+| `removable`
+| no
+| Whether this reference can be removed. False for physical engravings that cannot be undone. Informational — does not enforce system behaviour.
+
+| `description`
+| no
+| Free-form human explanation of this reference and its implications.
+|===
+
+NOTE: *Deletion governance:* `blockDeletion: true` does not determine who can delete the reference item itself — that is controlled by `grant` items on the reference item. The workshop manager owns the reference item; the IT administrator who wants to delete the drill press must get the workshop manager to remove the reference first. No special escalation workflow is needed — the existing grant system handles it.
+
 [#files-and-sidecars]
 == Files and Sidecars
 
@@ -1257,11 +1331,12 @@ TIP: *SQLite* — no native array columns. `children` cache uses a JSON `TEXT` c
 
 === Deleting Items
 
-1. Check backlinks and inbound relationships. Warn if any exist; require explicit confirmation.
-2. Write history snapshot (`changeType: delete`).
-3. Remove item folder from `.kanecta/data/`.
-4. Cascade-delete all index entries (type, tag, backlinks, relationships, annotations, field-refs).
-5. Remove from search index and vector store.
+1. Check `reference` items whose `targetId` is this item's UUID and `blockDeletion: true`. If any exist, deletion is blocked — surface them to the user with the reference owner. The reference owner must remove or acknowledge the reference before deletion can proceed.
+2. Check the `item_references` derived index for structural inbound references (other items' `parentId`, inline links, payload UUID fields). Warn if any exist; require explicit confirmation.
+3. Write history snapshot (`changeType: delete`).
+4. Remove item folder from `.kanecta/data/`.
+5. Cascade-delete all index entries (type, tag, backlinks, relationships, annotations, field-refs).
+6. Remove from search index and vector store.
 
 === Reading Items
 
@@ -1297,6 +1372,133 @@ TIP: *SQLite* — use WAL mode (`PRAGMA journal_mode = WAL`) for concurrent read
 
 TIP: *Postgres* — `gen_random_uuid()` (PostgreSQL ≥ 13) generates UUID v4. All `TIMESTAMP` columns must be `TIMESTAMPTZ`; applications always pass UTC. `history.snapshot` is `JSONB` (not `TEXT`) to allow partial reads and indexed querying of history without JSON parsing at the application layer.
 
+[#branching]
+== Branching
+
+The active branch for a workspace is set by `branch` in `config.json`. Each storage adapter translates the branch name into its native mechanism. The caller always uses a plain branch name — adapter translation is internal.
+
+=== Branch model: delta, not copy
+
+A branch is *never a full copy of the datastore*. It is an overlay — a bounded set of additions, modifications, and deletions applied on top of the base branch. Branch creation is O(1). Storage is proportional to what changed, not the size of the datastore.
+
+[cols="1,2", options="header"]
+|===
+| Adapter | Branch implementation
+
+| Filesystem
+| Git branch. The filesystem JSON files are the source of truth; branching is native Git. SQLite (local search/index cache) is strictly derived — always rebuildable from the filesystem JSON files. On branch switch, SQLite is rebuilt from the new branch's file state. Nothing meaningful lives only in SQLite.
+
+| Postgres
+| Schema per branch within one database. `main` branch lives in the `main` schema. Each other branch gets its own schema — `feature__new_types` (slashes in branch names become double underscores). The adapter queries the branch schema first and falls through to `main` for unmodified items. Schema names are capped at 63 chars (Postgres limit); branch names that exceed this after encoding are rejected at creation time.
+
+| S3 / object storage
+| Key prefix per branch. `main/` for main, `feature__new_types/` for a feature branch. Only changed or new objects are written to the branch prefix; deletions are tracked in a per-branch manifest file. Merge copies changed objects to `main/` and removes the branch prefix.
+|===
+
+=== Postgres branching tables
+
+Two tables govern branching on Postgres remotes:
+
+[source,sql]
+----
+-- Branch registry
+CREATE TABLE branches (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name        TEXT NOT NULL,
+    schema_name TEXT NOT NULL,
+    base_branch TEXT NOT NULL DEFAULT 'main',
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    merged_at   TIMESTAMPTZ,
+    deleted_at  TIMESTAMPTZ
+);
+
+-- Delta store — one row per changed section per item
+CREATE TABLE branch_changes (
+    branch_id   UUID NOT NULL REFERENCES branches(id),
+    item_id     UUID NOT NULL,
+    change_type TEXT NOT NULL CHECK (change_type IN ('create', 'update', 'delete')),
+    section     TEXT NOT NULL CHECK (section IN ('item', 'meta', 'search', 'payload')),
+    data        JSONB,
+    changed_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (branch_id, item_id, section)
+);
+----
+
+Reading an item section on a branch prefers the branch override if one exists:
+
+[source,sql]
+----
+SELECT COALESCE(bc.data, ip.data) AS data
+FROM items_payload ip
+LEFT JOIN branch_changes bc
+  ON bc.item_id = ip.id AND bc.branch_id = $branchId AND bc.section = 'payload'
+WHERE ip.id = $itemId
+  AND (bc.change_type IS NULL OR bc.change_type != 'delete')
+----
+
+Items created on a branch only exist in `branch_changes` (with `change_type = 'create'`) — they do not touch the main tables until merge.
+
+=== Branch naming
+
+Branch names follow Git conventions. When translated to a Postgres schema name or S3 prefix, `/` becomes `__` (double underscore). Examples: `main` → `main`, `feature/new-types` → `feature__new-types`.
+
+=== Merge
+
+Merge applies all `branch_changes` rows to the main tables, then removes the branch and its change rows. The operation is atomic within a single transaction. Conflicts (same item changed on both main and the branch since branching) must be resolved before the transaction commits.
+
+=== CQRS projections
+
+For query-intensive types — such as a `customer` type with millions of instances — Kanecta supports materialised *projections*: dedicated SQL tables built from item content and optimised for that type's query patterns. A customer projection is a real SQL table with proper columns and indexes, not a generic `items_payload` JSONB scan.
+
+Projections are:
+
+* Maintained on the *main branch only*
+* Updated incrementally after each merge via a projection update job
+* Strictly derived — always rebuildable from `items` + `items_payload`
+
+Branches do not maintain their own projections. The bounded set of changes in a branch is queried directly from `branch_changes` + main tables during review. Production-scale query performance against branch state is not required — PR review is about understanding what changed, not running full production queries.
+
+=== PR pre-flight scan
+
+Before merging a branch, the platform scans the *blast radius* of every UUID touched by the branch. This surfaces:
+
+1. *Structural references* — other items that reference a changed UUID via `parentId`, inline `[[uuid]]` links, or payload UUID fields. Queried from the `item_references` derived index.
+2. *Declared references* — `reference` items whose `targetId` is in the changed set. Physical references with `blockDeletion: true` block the merge until removed or acknowledged by their owner.
+3. *Active subscriptions* — webhook and reactive subscriptions registered against changed UUIDs.
+4. *Breaking payload changes* — items where the payload shape changed in a way downstream consumers may be sensitive to.
+
+[source,sql]
+----
+-- Blast radius in one query
+SELECT * FROM item_references WHERE target_item_id = ANY($changedIds);
+SELECT * FROM items WHERE type = 'reference'
+  AND (payload->>'targetId')::uuid = ANY($changedIds)
+  AND (payload->>'blockDeletion')::boolean = true;
+----
+
+Merges are blocked (configurable) when any `reference` item with `blockDeletion: true` is in the blast radius and has not been acknowledged.
+
+=== item_references derived index
+
+`item_references` tracks all structural UUID dependencies within the item graph. It is maintained automatically by the adapter and never edited manually.
+
+[source,sql]
+----
+CREATE TABLE item_references (
+    source_item_id UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+    target_item_id UUID NOT NULL,
+    reference_type TEXT NOT NULL,
+    field_name     TEXT,
+    PRIMARY KEY (source_item_id, target_item_id, reference_type,
+                 coalesce(field_name, ''))
+);
+CREATE INDEX idx_item_references_target ON item_references(target_item_id);
+----
+
+`reference_type` values: `parent`, `inline-link`, `payload-field`, `relationship-source`, `relationship-target`, `view-item`, `view-component`, `view-context`, `grant-rebac`.
+
+The index is rebuilt from `items` + `items_payload` whenever items are written. It is strictly derived — can always be reconstructed from item content.
+
 == Bootstrap Configuration
 
 `config.json` is the bootstrap configuration for the Kanecta platform. It is not a Kanecta item — it exists one layer below the datastore and tells the system where datastores live and how to connect to remotes. Defined by `./file-specs/config.json`.
@@ -1327,19 +1529,20 @@ NOTE: Mac uses `~/Library/Application Support` rather than `~/.config` because E
 === Key rules
 
 * `specVersion` is required — used by the platform to detect config schema changes.
-* `default` must match a key in `workspaces`.
-* String values beginning with `$` are resolved from environment variables at runtime. Never hardcode passwords or API keys in `config.json`.
+* `defaultWorkspace` must match a key in `workspaces`.
+* String values beginning with `$` are resolved from environment variables at runtime. Secrets (passwords, API keys) belong in a `.env` file beside `config.json`, not in `config.json` itself.
 * `systemItemsDir` does not exist in 1.4.0 — system items are seeded into the datastore at initialisation from a location the bootstrapper knows at runtime (sibling npm package when running from source; central server in future).
+* `local` accepts either a plain path string (shorthand for a filesystem datastore) or a typed object `{ type: "filesystem", path: "..." }` or `{ type: "postgres", ... }` for a local Postgres datastore.
 
 === Workspace shape
 
-Each workspace is a local filesystem datastore with optional named remotes. Multiple remotes are supported — `origin` is the conventional default.
+Each workspace is a local datastore with optional named remotes. Multiple remotes are supported — `origin` is the conventional default. The `branch` field sets the active branch name; each adapter translates it into its native mechanism (Git branch, Postgres schema, S3 prefix).
 
 [source,json]
 ----
 {
   "specVersion": "1.4.0",
-  "default": "richardsempire",
+  "defaultWorkspace": "richardsempire",
   "workspaces": {
     "richardsempire": {
       "local": "/home/richard/wiki/richardsempire",

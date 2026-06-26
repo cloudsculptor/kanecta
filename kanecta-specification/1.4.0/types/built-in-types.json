@@ -27,7 +27,8 @@
     "grant",
     "relationship",
     "view",
-    "context"
+    "context",
+    "reference"
   ],
   "wellKnown": [
     "root"
@@ -41,6 +42,7 @@
     "grant": "An access control grant. Lives as a child of the item it controls, in the 'grants' aspect. Supports identity, namespace, and ReBAC principals.",
     "relationship": "A typed, first-class relationship between two items. Coexists with inline [[uuid]] links.",
     "view": "A specific perspective on an item: the item being viewed (itemId), the renderer (componentId), and the environment (contextId). The view's UUID is a single pointer to all three. Used for bookmarking, sharing, and bootstrapping (root.payload.entryPoint points to a view item).",
-    "context": "An execution and display environment. Captures runtime (web, desktop, cli, mcp, pdf) and display position (tree-node, detail-panel, modal, preview, embed). capabilities[] is exploratory — records what the runtime supports (e.g. react, css, images). Expected to evolve through use."
+    "context": "An execution and display environment. Captures runtime (web, desktop, cli, mcp, pdf) and display position (tree-node, detail-panel, modal, preview, embed). capabilities[] is exploratory — records what the runtime supports (e.g. react, css, images). Expected to evolve through use.",
+    "reference": "A declared dependency on a UUID from outside the item graph — physical (engraved, printed, QR code), external system (another database holds this UUID as a foreign key), function argument, function output, webhook, or reactive subscription. Unlike relationship, a reference asserts that the target UUID has reach beyond Kanecta itself. blockDeletion:true prevents deletion of the target until the reference is explicitly removed. Lives as a standalone item (like relationship) — targetId in payload, not constrained by parentId. The item_references derived index tracks structural references automatically; reference items cover declared/manual cases."
   }
 }

@@ -2,9 +2,9 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://kanecta.com/spec/1.4.0/config",
   "title": "Kanecta Config",
-  "description": "Bootstrap configuration for the Kanecta platform. Tells the system where datastores live and how to connect to remotes. Not a Kanecta item — exists one layer below the datastore.\n\nDiscovery order (every entry point — Electron, npm start, MCP, API — uses the same algorithm):\n  1. KANECTA_CONFIG environment variable — if set, use that path and stop.\n  2. Platform default:\n     - Mac:     ~/Library/Application Support/kanecta/config.json\n     - Linux:   ~/.config/kanecta/config.json  (XDG)\n     - Windows: %APPDATA%\\kanecta\\config.json\n\nString values beginning with '$' are resolved from environment variables at runtime (e.g. '$KANECTA_DB_PASSWORD'). Never hardcode secrets.",
+  "description": "Bootstrap configuration for the Kanecta platform. Tells the system where datastores live and how to connect to remotes. Not a Kanecta item — exists one layer below the datastore.\n\nDiscovery order (every entry point — Electron, npm start, MCP, API — uses the same algorithm):\n  1. KANECTA_CONFIG environment variable — if set, use that path and stop.\n  2. Platform default:\n     - Mac:     ~/Library/Application Support/kanecta/config.json\n     - Linux:   ~/.config/kanecta/config.json  (XDG)\n     - Windows: %APPDATA%\\kanecta\\config.json\n\nSecret values (passwords, API keys) belong in a .env file beside config.json, not in config.json itself. String values beginning with '$' are resolved from environment variables at runtime (e.g. '$KANECTA_DB_PASSWORD').",
   "type": "object",
-  "required": ["specVersion", "default", "workspaces"],
+  "required": ["specVersion", "defaultWorkspace", "workspaces"],
   "additionalProperties": false,
   "properties": {
     "specVersion": {
@@ -12,7 +12,7 @@
       "pattern": "^\\d+\\.\\d+\\.\\d+$",
       "description": "Version of the Kanecta config schema this file conforms to (e.g. '1.4.0')."
     },
-    "default": {
+    "defaultWorkspace": {
       "type": "string",
       "description": "Name of the workspace to use when none is specified. Must be a key in 'workspaces'."
     },
@@ -44,8 +44,15 @@
       "additionalProperties": false,
       "properties": {
         "local": {
-          "type": "string",
-          "description": "Absolute path to the local filesystem datastore directory."
+          "description": "Local datastore. Either a filesystem path (string shorthand) or a typed local adapter definition.",
+          "oneOf": [
+            {
+              "type": "string",
+              "description": "Shorthand: absolute path to a filesystem datastore directory."
+            },
+            { "$ref": "#/definitions/localFilesystem" },
+            { "$ref": "#/definitions/localPostgres" }
+          ]
         },
         "remotes": {
           "type": "object",
@@ -57,7 +64,53 @@
         "branch": {
           "type": "string",
           "default": "main",
-          "description": "Active branch name for this workspace. Defaults to 'main'."
+          "description": "Active branch name for this workspace. Defaults to 'main'. Each adapter translates this name into its native branching mechanism: filesystem → Git branch, Postgres → schema name (slashes become double-underscores), S3 → key prefix."
+        }
+      }
+    },
+    "localFilesystem": {
+      "type": "object",
+      "required": ["type", "path"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "const": "filesystem" },
+        "path": {
+          "type": "string",
+          "description": "Absolute path to the local filesystem datastore directory."
+        }
+      }
+    },
+    "localPostgres": {
+      "type": "object",
+      "required": ["type", "host", "database", "user"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "const": "postgres" },
+        "host": {
+          "type": "string",
+          "description": "Postgres host. Supports '$VAR' env var resolution."
+        },
+        "port": {
+          "type": ["integer", "string"],
+          "default": 5432,
+          "description": "Postgres port. Defaults to 5432. Supports '$VAR' env var resolution."
+        },
+        "database": {
+          "type": "string",
+          "description": "Database name. Supports '$VAR' env var resolution."
+        },
+        "user": {
+          "type": "string",
+          "description": "Database user. Supports '$VAR' env var resolution."
+        },
+        "password": {
+          "type": "string",
+          "description": "Database password. Use '$VAR' env var reference — do not hardcode secrets."
+        },
+        "ssl": {
+          "type": "boolean",
+          "default": false,
+          "description": "Require SSL/TLS connection."
         }
       }
     },
@@ -136,7 +189,7 @@
   "examples": [
     {
       "specVersion": "1.4.0",
-      "default": "richardsempire",
+      "defaultWorkspace": "richardsempire",
       "workspaces": {
         "richardsempire": {
           "local": "/home/richard/wiki/richardsempire",
@@ -148,10 +201,13 @@
     },
     {
       "specVersion": "1.4.0",
-      "default": "acme",
+      "defaultWorkspace": "acme",
       "workspaces": {
         "acme": {
-          "local": "/home/richard/wiki/acme",
+          "local": {
+            "type": "filesystem",
+            "path": "/home/richard/wiki/acme"
+          },
           "remotes": {
             "origin": {
               "type": "postgres",
