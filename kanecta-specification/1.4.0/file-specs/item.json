@@ -187,6 +187,18 @@
           "payload": { "$ref": "#/definitions/grantPayload" }
         }
       }
+    },
+    {
+      "if": {
+        "properties": { "type": { "const": "relationship" } },
+        "required": ["type"]
+      },
+      "then": {
+        "required": ["payload"],
+        "properties": {
+          "payload": { "$ref": "#/definitions/relationshipPayload" }
+        }
+      }
     }
   ],
   "definitions": {
@@ -384,6 +396,34 @@
           "items": { "type": "string" },
           "minItems": 1,
           "description": "Ordered SQL DDL statements (PostgreSQL dialect) that, when run against a database with the items table, create all storage for instances of this type. Defined once at creation; never altered (a changed shape is a new type). Table name convention: obj_<type-uuid-with-underscores>."
+        }
+      }
+    },
+    "relationshipPayload": {
+      "description": "Payload for items of type 'relationship'. A typed, first-class relationship between two items. Coexists with the lighter-weight inline [[uuid]] links and relationships.json mechanism from v1.3.0 — both are valid. Use relationship items when you need a named type, direction control, or the relationship itself needs to be annotated, tagged, or linked. The optional label lives in the item's value field.",
+      "type": "object",
+      "required": ["relationshipType", "sourceId", "targetId"],
+      "additionalProperties": false,
+      "properties": {
+        "relationshipType": {
+          "type": "string",
+          "description": "The kind of relationship. Free-form string — implementations may define their own. Standard types: 'relates-to', 'depends-on', 'enables', 'contradicts', 'blocks', 'blocked-by', 'prerequisite-for', 'derived-from', 'supersedes'."
+        },
+        "sourceId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "UUID of the source item — the item the relationship originates from."
+        },
+        "targetId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "UUID of the target item — the item the relationship points to."
+        },
+        "direction": {
+          "type": "string",
+          "enum": ["directed", "bidirectional"],
+          "default": "directed",
+          "description": "Whether the relationship has a direction. 'directed' = sourceId → targetId only. 'bidirectional' = the relationship is symmetric and sourceId/targetId are interchangeable."
         }
       }
     },

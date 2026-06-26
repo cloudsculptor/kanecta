@@ -23,7 +23,8 @@
     "concept",
     "entity",
     "event",
-    "grant"
+    "grant",
+    "relationship"
   ],
   "wellKnown": [
     "root",
