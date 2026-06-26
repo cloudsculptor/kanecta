@@ -1,0 +1,178 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://kanecta.com/spec/1.4.0/config",
+  "title": "Kanecta Config",
+  "description": "Bootstrap configuration for the Kanecta platform. Tells the system where datastores live and how to connect to remotes. Not a Kanecta item — exists one layer below the datastore. String values beginning with '$' are resolved from environment variables at runtime (e.g. '$KANECTA_DB_PASSWORD').",
+  "type": "object",
+  "required": ["specVersion", "default", "workspaces"],
+  "additionalProperties": false,
+  "properties": {
+    "specVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Version of the Kanecta config schema this file conforms to (e.g. '1.4.0')."
+    },
+    "default": {
+      "type": "string",
+      "description": "Name of the workspace to use when none is specified. Must be a key in 'workspaces'."
+    },
+    "workspaces": {
+      "type": "object",
+      "description": "Named workspace definitions. Each workspace is a local datastore with optional remote connections.",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/definitions/workspace"
+      }
+    },
+    "studioPort": {
+      "type": "integer",
+      "minimum": 1024,
+      "maximum": 65535,
+      "description": "Port for the Kanecta Studio UI server. Defaults to 9743 if absent."
+    },
+    "apiPort": {
+      "type": "integer",
+      "minimum": 1024,
+      "maximum": 65535,
+      "description": "Port for the Kanecta API server. Defaults to 9744 if absent."
+    }
+  },
+  "definitions": {
+    "workspace": {
+      "type": "object",
+      "required": ["local"],
+      "additionalProperties": false,
+      "properties": {
+        "local": {
+          "type": "string",
+          "description": "Absolute path to the local filesystem datastore directory."
+        },
+        "remotes": {
+          "type": "object",
+          "description": "Named remote connections. 'origin' is the conventional default, mirroring Git. Multiple remotes are supported.",
+          "additionalProperties": {
+            "$ref": "#/definitions/remote"
+          }
+        },
+        "branch": {
+          "type": "string",
+          "default": "main",
+          "description": "Active branch name for this workspace. Defaults to 'main'."
+        }
+      }
+    },
+    "remote": {
+      "description": "A remote datastore connection. Type determines the required fields. String values beginning with '$' are resolved from environment variables at runtime.",
+      "oneOf": [
+        { "$ref": "#/definitions/remotePostgres" },
+        { "$ref": "#/definitions/remoteSQLite" },
+        { "$ref": "#/definitions/remoteServer" }
+      ]
+    },
+    "remotePostgres": {
+      "type": "object",
+      "required": ["type", "host", "database", "user"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "const": "postgres" },
+        "host": {
+          "type": "string",
+          "description": "Postgres host. Supports '$VAR' env var resolution."
+        },
+        "port": {
+          "type": ["integer", "string"],
+          "default": 5432,
+          "description": "Postgres port. Defaults to 5432. Supports '$VAR' env var resolution."
+        },
+        "database": {
+          "type": "string",
+          "description": "Database name. Supports '$VAR' env var resolution."
+        },
+        "user": {
+          "type": "string",
+          "description": "Database user. Supports '$VAR' env var resolution."
+        },
+        "password": {
+          "type": "string",
+          "description": "Database password. Use '$VAR' env var reference — do not hardcode secrets."
+        },
+        "ssl": {
+          "type": "boolean",
+          "default": false,
+          "description": "Require SSL/TLS connection."
+        }
+      }
+    },
+    "remoteSQLite": {
+      "type": "object",
+      "required": ["type", "path"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "const": "sqlite" },
+        "path": {
+          "type": "string",
+          "description": "Absolute path to the SQLite database file. Supports '$VAR' env var resolution."
+        }
+      }
+    },
+    "remoteServer": {
+      "type": "object",
+      "required": ["type", "url"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "const": "server" },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Base URL of the Kanecta server (e.g. 'https://kanecta.acme.com')."
+        },
+        "apiKey": {
+          "type": "string",
+          "description": "API key for authentication. Use '$VAR' env var reference — do not hardcode secrets."
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "specVersion": "1.4.0",
+      "default": "richardsempire",
+      "workspaces": {
+        "richardsempire": {
+          "local": "/home/richard/wiki/richardsempire",
+          "branch": "main"
+        }
+      },
+      "studioPort": 9743,
+      "apiPort": 9744
+    },
+    {
+      "specVersion": "1.4.0",
+      "default": "acme",
+      "workspaces": {
+        "acme": {
+          "local": "/home/richard/wiki/acme",
+          "remotes": {
+            "origin": {
+              "type": "postgres",
+              "host": "$KANECTA_DB_HOST",
+              "port": "$KANECTA_DB_PORT",
+              "database": "$KANECTA_DB_NAME",
+              "user": "$KANECTA_DB_USER",
+              "password": "$KANECTA_DB_PASSWORD",
+              "ssl": true
+            },
+            "backup": {
+              "type": "server",
+              "url": "https://backup.kanecta.acme.com",
+              "apiKey": "$KANECTA_BACKUP_API_KEY"
+            }
+          },
+          "branch": "main"
+        }
+      },
+      "studioPort": 9743,
+      "apiPort": 9744
+    }
+  ]
+}

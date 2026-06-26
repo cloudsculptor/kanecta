@@ -1297,6 +1297,63 @@ TIP: *SQLite* — use WAL mode (`PRAGMA journal_mode = WAL`) for concurrent read
 
 TIP: *Postgres* — `gen_random_uuid()` (PostgreSQL ≥ 13) generates UUID v4. All `TIMESTAMP` columns must be `TIMESTAMPTZ`; applications always pass UTC. `history.snapshot` is `JSONB` (not `TEXT`) to allow partial reads and indexed querying of history without JSON parsing at the application layer.
 
+== Bootstrap Configuration
+
+`config.json` is the bootstrap configuration for the Kanecta platform. It is not a Kanecta item — it exists one layer below the datastore and tells the system where datastores live and how to connect to remotes. Defined by `./file-specs/config.json`.
+
+Key rules:
+
+* `specVersion` is required — used by the platform to detect config schema changes.
+* `default` must match a key in `workspaces`.
+* String values beginning with `$` are resolved from environment variables at runtime. Never hardcode passwords or API keys in `config.json`.
+* `systemItemsDir` does not exist in 1.4.0 — system items are seeded into the datastore at initialisation from a location the bootstrapper knows at runtime (sibling npm package when running from source; central server in future).
+
+=== Workspace shape
+
+Each workspace is a local filesystem datastore with optional named remotes. Multiple remotes are supported — `origin` is the conventional default.
+
+[source,json]
+----
+{
+  "specVersion": "1.4.0",
+  "default": "richardsempire",
+  "workspaces": {
+    "richardsempire": {
+      "local": "/home/richard/wiki/richardsempire",
+      "remotes": {
+        "origin": {
+          "type": "postgres",
+          "host": "$KANECTA_DB_HOST",
+          "database": "$KANECTA_DB_NAME",
+          "user": "$KANECTA_DB_USER",
+          "password": "$KANECTA_DB_PASSWORD",
+          "ssl": true
+        }
+      },
+      "branch": "main"
+    }
+  },
+  "studioPort": 9743,
+  "apiPort": 9744
+}
+----
+
+=== Remote types
+
+[cols="1,2", options="header"]
+|===
+| `type` | Required fields
+
+| `postgres`
+| `host`, `database`, `user`. Optional: `port` (default 5432), `password`, `ssl`.
+
+| `sqlite`
+| `path` — absolute path to the `.db` file.
+
+| `server`
+| `url` — base URL of the Kanecta server. Optional: `apiKey`.
+|===
+
 == File Specifications
 
 [cols="1,1,2", options="header"]
@@ -1306,6 +1363,10 @@ TIP: *Postgres* — `gen_random_uuid()` (PostgreSQL ≥ 13) generates UUID v4. A
 | Item schema
 | `./file-specs/item.json`
 | JSON Schema for `item.json`. Source of truth for all item fields and payload shapes.
+
+| Config schema
+| `./file-specs/config.json`
+| JSON Schema for `config.json`. Defines workspaces, remotes, and platform ports.
 
 | Built-in types
 | `./types/built-in-types.json`
