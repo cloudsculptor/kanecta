@@ -38,3 +38,6 @@ kanecta-inbox
 
 # Git worktrees (local working branches, not repo content)
 worktrees/
+
+# Generated spec output
+kanecta-specification/1.4.0/specification.html
