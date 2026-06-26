@@ -1,4 +1,5 @@
 = Kanecta Specification v1.4.0
+Richard Thomas
 :version: 1.4.0
 :toc: left
 :toc-title: Contents
