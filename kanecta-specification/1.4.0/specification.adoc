@@ -520,8 +520,12 @@ Types with defined semantic intent.
 | `contextPayload` (required)
 
 | `reference`
-| A declared dependency on a UUID that exists outside the item graph — physical (engraved on machinery, printed on a label, QR code), external system, function argument, function output, webhook, or reactive subscription. `payload.blockDeletion: true` prevents deletion of the target until this reference is resolved. Lives as a standalone relational item with `targetId` in payload — not constrained by `parentId` placement. Structural references (inline `[[uuid]]` links, payload UUID fields, `parentId`) are tracked automatically in the `item_references` derived index; `reference` items cover declared and manual cases.
+| A declared dependency on a UUID that exists outside the item graph — physical (engraved on machinery, printed on a label, QR code), external system, function argument, or function output. `payload.blockDeletion: true` prevents deletion of the target until this reference is resolved. Lives under the referenced item in the `"references"` aspect. Structural references (inline `[[uuid]]` links, payload UUID fields, `parentId`) are tracked automatically in the `item_references` derived index; `reference` items cover declared and manual cases.
 | `referencePayload` (required)
+
+| `subscription`
+| A live notification channel registered against a UUID. Distinct from `reference` — a subscription is about change notification, not external dependency or deletion protection. Lives under the watched item in the `"subscriptions"` aspect.
+| `subscriptionPayload` (required)
 |===
 
 === Well-Known Types
@@ -604,6 +608,10 @@ This applies to every item of every type without exception.
 | `view`
 | `"views"`
 | View items binding the parent item to a specific renderer and context.
+
+| `subscription`
+| `"subscriptions"`
+| Live notification channels registered against the parent item.
 |===
 
 NOTE: The `symlink` type has no canonical home rule — by design, a symlink *is* a placement. It lives wherever the alias needs to appear.
@@ -1007,7 +1015,7 @@ Unlike `relationship` (which connects two Kanecta items semantically), a `refere
 
 | `kind`
 | yes
-| Nature of the reference. Known values: `physical`, `external`, `function-arg`, `function-output`, `component-dep`, `webhook`, `reactive`. Free-form string — new kinds do not require a spec change.
+| Nature of the reference. Known values: `physical`, `external`, `function-arg`, `function-output`, `component-dep`. Free-form string — new kinds do not require a spec change. For live notification channels use `subscription` items instead.
 
 | `medium`
 | no
@@ -1035,6 +1043,68 @@ Unlike `relationship` (which connects two Kanecta items semantically), a `refere
 |===
 
 NOTE: *Deletion governance:* `blockDeletion: true` does not determine who can delete the reference item itself — that is controlled by `grant` items on the reference item. The workshop manager owns the reference item; the IT administrator who wants to delete the drill press must get the workshop manager to remove the reference first. No special escalation workflow is needed — the existing grant system handles it.
+
+=== subscriptionPayload
+
+For `type: "subscription"`. Registers a live notification channel against a target UUID. When the target item changes, the platform notifies the channel.
+
+Distinct from `reference` — a subscription is about change notification, not declaring external reach or blocking deletion.
+
+Lives under the watched item in the `"subscriptions"` aspect.
+
+[source,json]
+----
+{
+  "targetId": "uuid-of-watched-item",
+  "channel": {
+    "type": "webhook",
+    "url": "$WEBHOOK_URL",
+    "secret": "$WEBHOOK_SECRET"
+  },
+  "events": ["update", "delete", "children"],
+  "principal": "alice@acme.com"
+}
+----
+
+[cols="1,1,2", options="header"]
+|===
+| Field | Required | Description
+
+| `targetId`
+| yes
+| UUID of the item being watched.
+
+| `channel`
+| yes
+| Notification channel. `type` determines the required fields — see channel types below.
+
+| `events`
+| yes
+| Which events trigger notification. Values: `create`, `update`, `delete`, `children` (child added or removed). At least one required.
+
+| `principal`
+| no
+| Identity string of who registered this subscription. Used for audit and for filtering notifications to the right recipient.
+|===
+
+==== Channel types
+
+[cols="1,1,2", options="header"]
+|===
+| `channel.type` | Required fields | Description
+
+| `webhook`
+| `url`
+| HTTP POST to the given URL on each matched event. Optional `secret` for HMAC signature verification.
+
+| `mcp`
+| `sessionId`
+| Notify an active MCP session.
+
+| `reactive`
+| `componentId`
+| Notify a reactive UI component registered against this item.
+|===
 
 [#files-and-sidecars]
 == Files and Sidecars
@@ -1615,10 +1685,10 @@ Each workspace is a local datastore with optional named remotes. Multiple remote
 ----
 {
   "specVersion": "1.4.0",
-  "defaultWorkspace": "richardsempire",
+  "defaultWorkspace": "personal",
   "workspaces": {
-    "richardsempire": {
-      "local": "/home/richard/wiki/richardsempire",
+    "personal": {
+      "local": "/home/alice/wiki/personal",
       "remotes": {
         "origin": {
           "type": "postgres",

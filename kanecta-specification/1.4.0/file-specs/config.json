@@ -189,10 +189,10 @@
   "examples": [
     {
       "specVersion": "1.4.0",
-      "defaultWorkspace": "richardsempire",
+      "defaultWorkspace": "personal",
       "workspaces": {
-        "richardsempire": {
-          "local": "/home/richard/wiki/richardsempire",
+        "personal": {
+          "local": "/home/alice/wiki/personal",
           "branch": "main"
         }
       },

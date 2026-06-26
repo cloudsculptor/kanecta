@@ -29,7 +29,8 @@
     "relationship",
     "view",
     "context",
-    "reference"
+    "reference",
+    "subscription"
   ],
   "wellKnown": [
     "root"
@@ -45,6 +46,7 @@
     "view": "A specific perspective on an item: the item being viewed (itemId), the renderer (componentId), and the environment (contextId). The view's UUID is a single pointer to all three. Used for bookmarking, sharing, and bootstrapping (root.payload.entryPoint points to a view item).",
     "context": "An execution and display environment. Captures runtime (web, desktop, cli, mcp, pdf) and display position (tree-node, detail-panel, modal, preview, embed). capabilities[] is exploratory — records what the runtime supports (e.g. react, css, images). Expected to evolve through use.",
     "type": "A custom type definition. The meta-type — instances of every user-defined type (object items) live under their type item as their canonical home. payload is typePayload. type items themselves live under a bootstrapper-created collection tree under root.",
+    "subscription": "A live notification channel registered against a UUID. Someone or something wants to be notified when a specific item changes. Distinct from reference — a subscription is about change notification, not external dependency or deletion protection. Lives under the watched item in the \"subscriptions\" aspect. payload is subscriptionPayload.",
     "reference": "A declared dependency on a UUID from outside the item graph — physical (engraved, printed, QR code), external system (another database holds this UUID as a foreign key), function argument, function output, webhook, or reactive subscription. Unlike relationship, a reference asserts that the target UUID has reach beyond Kanecta itself. blockDeletion:true prevents deletion of the target until the reference is explicitly removed. Lives as a standalone item (like relationship) — targetId in payload, not constrained by parentId. The item_references derived index tracks structural references automatically; reference items cover declared/manual cases."
   }
 }
