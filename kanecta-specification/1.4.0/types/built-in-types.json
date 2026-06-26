@@ -25,7 +25,9 @@
     "entity",
     "event",
     "grant",
-    "relationship"
+    "relationship",
+    "view",
+    "context"
   ],
   "wellKnown": [
     "root"
@@ -37,6 +39,8 @@
     "component": "A React component definition. body lives in meta.files.body = 'body.tsx'. Props use the parameterOrProp definition — same as function parameters.",
     "function": "A typed function definition. body lives in meta.files.body = 'body.ts' (filesystem/SQLite) or inline in payload.body (Postgres).",
     "grant": "An access control grant. Lives as a child of the item it controls, in the 'grants' aspect. Supports identity, namespace, and ReBAC principals.",
-    "relationship": "A typed, first-class relationship between two items. Coexists with inline [[uuid]] links."
+    "relationship": "A typed, first-class relationship between two items. Coexists with inline [[uuid]] links.",
+    "view": "A specific perspective on an item: the item being viewed (itemId), the renderer (componentId), and the environment (contextId). The view's UUID is a single pointer to all three. Used for bookmarking, sharing, and bootstrapping (root.payload.entryPoint points to a view item).",
+    "context": "An execution and display environment. Captures runtime (web, desktop, cli, mcp, pdf) and display position (tree-node, detail-panel, modal, preview, embed). capabilities[] is exploratory — records what the runtime supports (e.g. react, css, images). Expected to evolve through use."
   }
 }

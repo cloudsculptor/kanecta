@@ -371,7 +371,7 @@ TIP: *SQLite* — use FTS5 virtual table (`CREATE VIRTUAL TABLE items_fts USING 
 
 === The `payload` Section
 
-Type-specific content. Null for primitive items that carry no structured data. Required for `function`, `type`, `grant`, `relationship`, `component`, and `file` items. Present for `object` items as a free-form key-value object validated at runtime against the type's `jsonSchema`.
+Type-specific content. Null for primitive items that carry no structured data. Required for `function`, `type`, `grant`, `relationship`, `component`, `file`, `view`, `context`, and `root` items. Present for `object` items as a free-form key-value object validated at runtime against the type's `jsonSchema`.
 
 Payload shapes are defined per type — see <<payload-definitions>>.
 
@@ -494,6 +494,14 @@ Types with defined semantic intent.
 | `relationship`
 | A typed, first-class relationship between two items.
 | `relationshipPayload` (required)
+
+| `view`
+| A specific perspective on an item: item + renderer + context. The view UUID is a single pointer to all three. Used for bookmarking, sharing, embedding, and bootstrapping.
+| `viewPayload` (required)
+
+| `context`
+| An execution and display environment (runtime + display position + capabilities). First-class item — reusable, versioned, shareable across view bindings.
+| `contextPayload` (required)
 |===
 
 === Well-Known Types
@@ -799,6 +807,87 @@ Three principal forms:
 *ReBAC (relationship-based access control):* The `{itemId, relation}` principal form enables group-based access control. Groups are ordinary Kanecta items. Membership is a Kanecta relationship. Grant resolution is a graph traversal — any principal that holds the named `relation` to the named `itemId` receives the grant. No special group type is needed.
 
 TIP: *Postgres* — fine-grained grants are stored in an `item_grants` table alongside a `visibility` column on `items` (`"private"` / `"organisation"` / `"public"`). `visibility` is the fast no-join path; `item_grants` layers per-principal permissions on top. `principal_id` is a bare `UUID` (not an FK) so identity sources can change without a schema migration. `principal_type` (`"user"`, `"group"`, …) is unconstrained so new kinds never require a schema change.
+
+=== viewPayload
+
+For `type: "view"`. Binds a specific item to a renderer and a context. The view's UUID is a single pointer to all three — usable for bookmarking, sharing, embedding, and bootstrapping.
+
+[source,json]
+----
+{
+  "itemId": "uuid-of-the-item-being-viewed",
+  "componentId": "uuid-of-the-component-or-function-renderer",
+  "contextId": "uuid-of-the-context-item"
+}
+----
+
+[cols="1,1,2", options="header"]
+|===
+| Field | Required | Description
+
+| `itemId`
+| yes
+| UUID of the item being viewed. Always a specific item — a view without an item is a `component`.
+
+| `componentId`
+| yes
+| UUID of the component or function item that renders this view. Overrides the type's default `componentId` for this specific binding.
+
+| `contextId`
+| yes
+| UUID of the context item describing the runtime and display environment.
+|===
+
+The optional label (`item.value`) is a human name for this view binding (e.g. `"Person — compact tree card"`).
+
+NOTE: `root.payload.entryPoint` points to a view item — the bootstrap view is "root, rendered by the bootstrapper function, in the deployment context." The bootstrapper reads root, follows `entryPoint`, loads the view, finds the `componentId`, and runs it with root as input. Two hops, fully declarative.
+
+=== contextPayload
+
+For `type: "context"`. Describes the environment in which a view is rendered. Contexts are first-class items — reusable, versioned, shareable.
+
+[source,json]
+----
+{
+  "runtime": "web",
+  "display": "tree-node",
+  "capabilities": ["react", "css", "images"]
+}
+----
+
+[cols="1,1,2", options="header"]
+|===
+| Field | Required | Description
+
+| `runtime`
+| yes
+| The execution environment. Known values: `"web"`, `"desktop"`, `"cli"`, `"mcp"`, `"pdf"`, `"api"`. Free-form string — new runtimes do not require a spec change.
+
+| `display`
+| yes
+| Where inside the runtime the view is rendered. Known values: `"tree-node"`, `"detail-panel"`, `"modal"`, `"preview"`, `"embed"`, `"fullscreen"`. Free-form string.
+
+| `capabilities`
+| no
+| What the runtime supports. Exploratory — expected to evolve through use. Examples: `["react", "css", "images"]`, `["markdown"]`, `["ansi-colour"]`.
+|===
+
+NOTE: Security is not part of context — it is resolved at runtime via `grant` items against the current principal. Context describes *where* and *how* something is rendered; grants determine *how much* of it is visible.
+
+=== rootPayload
+
+For `type: "root"`. The only required payload on root is `entryPoint` — the UUID of a view item that bootstraps the deployment.
+
+[source,json]
+----
+{
+  "entryPoint": "uuid-of-view-item"
+}
+----
+
+`item.value` on root is the human label for the datastore — the first visible node in the tree (e.g. `"Richard Thomas"`, `"Acme Corp"`). It is not the entry point.
+
+Different deployments of the same datastore (web UI, API server, CLI) each have their own view item, with their own `componentId` and `contextId`. To support multiple deployment types, create multiple view items and update `entryPoint` to whichever is active — or make the entry point function itself context-aware.
 
 [#files-and-sidecars]
 == Files and Sidecars
