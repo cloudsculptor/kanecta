@@ -535,6 +535,75 @@ Types with defined semantic intent.
 
 All other top-level groupings (system layer, app layer, data layer, etc.) are ordinary `tree` items created as children of root by the bootstrapper. Access separation is enforced via `grant` items on those trees, not by reserving types in the spec. New groupings are a data change, not a spec change.
 
+[#item-placement]
+== Item Placement
+
+=== Universal rule
+
+Every item has exactly one `parentId` — its *canonical home*. To make an item appear anywhere else in the tree, create a `symlink` item pointing to it. There is no duplication of item data; all other appearances are pointers.
+
+This applies to every item of every type without exception.
+
+=== What determines the canonical home
+
+[cols="1,2,1", options="header"]
+|===
+| Category | Canonical home | Examples
+
+| *User-defined type instances*
+| Under the type definition UUID (`item.typeId`). The type is its own collection — browse to the type, see all instances.
+| `object`
+
+| *Content items*
+| User chooses at creation time. There is no system-prescribed location — the item goes where it makes conceptual sense.
+| `string`, `number`, `text`, `heading`, `file`, `url`, `note`, `task`, `decision`, `claim`, `question`, `annotation`, `concept`, `entity`, `event`
+
+| *Associative system items*
+| Under the item they most directly extend or control, in a named aspect. See well-known aspects below.
+| `grant`, `relationship`, `reference`, `view`
+
+| *Independent system items*
+| Under a bootstrapper-created collection `tree` under root. The bootstrapper creates these at initialisation; they are data, not reserved UUIDs.
+| `context`, `runner`
+
+| *Function and component items*
+| Under their associated type definition when type-specific (a type's renderer or method). Under the bootstrapper Functions / Components collection tree otherwise.
+| `function`, `component`
+
+| *Structural items*
+| `node` → under a `tree` or another `node`. `tree` → under `root` or another `tree`.
+| `tree`, `node`
+
+| *Root*
+| Self-referencing. `parentId = id = 00000000-0000-0000-0000-000000000000`.
+| `root`
+|===
+
+=== Well-known aspects for associative types
+
+[cols="1,1,2", options="header"]
+|===
+| Type | Aspect | Meaning
+
+| `grant`
+| `"grants"`
+| Grant items controlling the parent item's access.
+
+| `relationship`
+| `"relationships"`
+| Relationship items whose source is the parent item. For directed relationships the source item is the canonical home; for bidirectional the creator chooses.
+
+| `reference`
+| `"references"`
+| Declared external references to the parent item (physical, system, functional, subscription). The reference item lives under the item it declares a dependency on.
+
+| `view`
+| `"views"`
+| View items binding the parent item to a specific renderer and context.
+|===
+
+NOTE: The `symlink` type has no canonical home rule — by design, a symlink *is* a placement. It lives wherever the alias needs to appear.
+
 [#payload-definitions]
 == Payload Definitions
 
