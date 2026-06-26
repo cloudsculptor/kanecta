@@ -28,11 +28,7 @@
     "relationship"
   ],
   "wellKnown": [
-    "root",
-    "system_root",
-    "app_root",
-    "component_root",
-    "data_root"
+    "root"
   ],
   "_notes": {
     "file": "Replaces the former 'image' and 'markdown' primitives. Use payload.mimeType to distinguish — e.g. 'image/jpeg', 'text/markdown', 'application/pdf'. Any IANA media type is valid.",

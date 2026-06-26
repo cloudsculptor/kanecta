@@ -23,8 +23,8 @@ const ALL_ITEM_TYPES = new Set([
   // structured
   'object','decision','annotation','claim','question','task','note',
   'concept','entity','event','grant','relationship',
-  // well-known (the five singleton root nodes — see specification.adoc)
-  'root','system_root','app_root','component_root','data_root',
+  // well-known (the one fixed anchor — see specification.adoc)
+  'root',
 ]);
 
 const VISIBILITY = new Set(['private','organisation','public']);

@@ -498,7 +498,7 @@ Types with defined semantic intent.
 
 === Well-Known Types
 
-Reserved system root nodes. Created once during datastore initialisation. Never used for user data.
+`root` is the only well-known type. It is the fixed bootstrap anchor — the one UUID every adapter knows before reading any data.
 
 [cols="1,1,2", options="header"]
 |===
@@ -506,24 +506,10 @@ Reserved system root nodes. Created once during datastore initialisation. Never 
 
 | `root`
 | `00000000-0000-0000-0000-000000000000`
-| The universal root. Self-referencing `parentId`.
-
-| `system_root`
-| Generated UUID
-| System and infrastructure items.
-
-| `app_root`
-| Generated UUID
-| Application-layer configuration items.
-
-| `component_root`
-| Generated UUID
-| Kanecta component items.
-
-| `data_root`
-| Generated UUID
-| All user data lives here.
+| The universal root. Self-referencing `parentId`. Created once at initialisation; never used for user data.
 |===
+
+All other top-level groupings (system layer, app layer, data layer, etc.) are ordinary `tree` items created as children of root by the bootstrapper. Access separation is enforced via `grant` items on those trees, not by reserving types in the spec. New groupings are a data change, not a spec change.
 
 [#payload-definitions]
 == Payload Definitions
@@ -1026,7 +1012,7 @@ Old types remain readable indefinitely. `supersededBy` is a suggestion, not a fo
 
 === Types are Items
 
-Types are first-class Kanecta items (`type: "type"`). They can be linked, tagged, annotated, subscribed to, and related just like any other item. Their `parentId` is the `data_root` (or a user-created type-collection item).
+Types are first-class Kanecta items (`type: "type"`). They can be linked, tagged, annotated, subscribed to, and related just like any other item. Their `parentId` is whatever tree item the bootstrapper designates for types (a deployment decision, not a spec constraint).
 
 TIP: *Postgres* — types are normalised into a `types` table (1:1 with `items`) that stores `meta` fields as columns and `jsonSchema` as the only `JSONB` column in the schema. `types.table_name` records the per-type object table name (`obj_<uuid>`); null until the type's first instance is created.
 
@@ -1102,9 +1088,9 @@ A template action copies an item's subtree to a new location as plain unstructur
 
 The copy is a fresh, fillable tree shaped like the original. No separate template storage is needed — templating is a subtree copy plus one metadata field.
 
-== Well-Known Root Nodes
+== Well-Known Root Node
 
-Every datastore contains five reserved items created during initialisation:
+Every datastore contains exactly one reserved item created during initialisation:
 
 [cols="1,1,1,1", options="header"]
 |===
@@ -1114,36 +1100,17 @@ Every datastore contains five reserved items created during initialisation:
 | `00000000-0000-0000-0000-000000000000`
 | self
 | `"root"`
-
-| `system_root`
-| generated
-| root
-| `"system_root"`
-
-| `app_root`
-| generated
-| root
-| `"app_root"`
-
-| `component_root`
-| generated
-| root
-| `"component_root"`
-
-| `data_root`
-| generated
-| root
-| `"data_root"`
 |===
 
 *Rules:*
 
 * The all-zeros UUID is permanently reserved for root. No user item may use it.
-* Each well-known type is a singleton — at most one instance per datastore.
-* User data lives exclusively under `data_root`.
-* Well-known nodes are created in the order listed above.
+* `root` is a singleton — exactly one instance per datastore.
+* `root` is the only item whose `parentId` equals its own `id`.
 
-TIP: *Postgres* — wrap all well-known node inserts in a single `BEGIN ... COMMIT` transaction. The deferred FK on `parent_id` allows root's self-reference to resolve at commit time. Use `ON CONFLICT (id) DO NOTHING` for idempotent re-initialisation.
+Everything else — system layer, app layer, data layer, component trees — is created by the bootstrapper as ordinary `tree` items, children of root. Access separation is enforced by `grant` items on those trees. What the bootstrapper creates is a deployment decision, not a spec constraint.
+
+TIP: *Postgres* — insert root in its own `BEGIN ... COMMIT` transaction. The deferred FK on `parent_id` allows the self-reference to resolve at commit time. Use `ON CONFLICT (id) DO NOTHING` for idempotent re-initialisation.
 
 == Database Table Mapping
 
@@ -1219,9 +1186,9 @@ TIP: *SQLite* — no native array columns. `children` cache uses a JSON `TEXT` c
 
 === Datastore Initialisation
 
-Create well-known root nodes in order: `root` (self-referencing, all-zeros UUID), then `system_root`, `app_root`, `component_root`, `data_root` as children of root.
+Create the `root` item (self-referencing, all-zeros UUID). Then the bootstrapper creates whatever `tree` children it needs under root — the spec does not prescribe them.
 
-TIP: *Postgres* — wrap all five inserts in a single transaction with `ON CONFLICT (id) DO NOTHING` for idempotence. Check singleton enforcement before inserting each well-known child (`SELECT COUNT(*) FROM items WHERE type = $well_known_type`). Each migration that changes the schema bumps `schema_version` via upsert.
+TIP: *Postgres* — insert root in its own `BEGIN ... COMMIT` transaction with `ON CONFLICT (id) DO NOTHING` for idempotence. Each migration that changes the schema bumps `schema_version` via upsert.
 
 TIP: *SQLite* — use WAL mode (`PRAGMA journal_mode = WAL`) for concurrent reads during writes. Set `PRAGMA synchronous = NORMAL` for a safe balance of durability and performance. Run `PRAGMA optimize` periodically to update query planner statistics.
 
@@ -1231,7 +1198,7 @@ TIP: *SQLite* — use WAL mode (`PRAGMA journal_mode = WAL`) for concurrent read
 * `parentId` is non-nullable for every item without exception.
 * The all-zeros UUID (`00000000-0000-0000-0000-000000000000`) is reserved for root. No user item may use it.
 * Circular `parentId` chains (other than root self-reference) are not permitted.
-* Well-known types are singletons. Each appears at most once per datastore.
+* `root` is a singleton — exactly one instance per datastore, always the all-zeros UUID.
 * `item.value` is always ≤255 characters. Full content lives in `payload`.
 * All keyed folder structures use mandatory 2+2+full UUID sharding.
 * Index caches (`tags/`, `links/`, `search/`) are derivable from `data/` and can be rebuilt at any time.
