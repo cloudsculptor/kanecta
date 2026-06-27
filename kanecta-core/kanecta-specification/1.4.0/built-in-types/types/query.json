@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "queryPayload",
+  "type": "object",
+  "required": ["language", "expression"],
+  "additionalProperties": false,
+  "properties": {
+    "language": {
+      "type": "string",
+      "description": "Query dialect. Known values: 'kanecta' (native filter/search expression — the same DSL used in pipeline runIf, forEach.filter, and loopBack.if conditions; saveable and reusable as a query item), 'sql' (direct SELECT statement against the SQLite or Postgres adapter index — full join, aggregate, and window-function power; column names come from the items table and derived payload tables), 'graph' (Cypher query against the AGE graph projection — requires AGE to be enabled on the workspace; returns UUIDs that the adapter then resolves to full items). Open string — new dialects do not require a spec change; the adapter resolves dialect names to execution strategies."
+    },
+    "expression": {
+      "type": "string",
+      "description": "The query body. For 'kanecta': a filter/search expression, e.g. 'type = \"task\" AND payload.status = \"open\" AND payload.assignee = {{params.assignee}}'. For 'sql': a SELECT statement, e.g. 'SELECT i.* FROM items i JOIN items t ON t.id = i.payload->>''typeId'' WHERE t.value = ''task'' AND i.payload->>''status'' = {{params.status}}'. For 'graph': a Cypher MATCH/RETURN statement. May contain {{params.name}} placeholders substituted at execution time. Placeholders in SQL are injected as parameterised values (never string-interpolated) to prevent injection."
+    },
+    "params": {
+      "type": ["array", "null"],
+      "description": "Named parameters that make this query reusable. Each parameter is substituted into {{params.name}} placeholders in expression at execution time. The adapter validates supplied values against the declared type before execution. Studio generates an input form from this definition when a user runs the query interactively. Null or empty array means no parameters — the query is fixed.",
+      "items": {
+        "type": "object",
+        "required": ["name", "type"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Parameter name. Referenced in expression as {{params.name}}. Must be unique within the params array."
+          },
+          "type": {
+            "type": "string",
+            "enum": ["string", "number", "boolean", "uuid", "date"],
+            "description": "Parameter type. Used for validation before execution and for Studio input form generation (uuid renders a UUID picker, date renders a date input, etc.)."
+          },
+          "description": {
+            "type": ["string", "null"],
+            "description": "Human-readable explanation of what this parameter controls. Shown as a label in the Studio input form."
+          },
+          "default": {
+            "description": "Default value used when the parameter is not supplied at execution time. Must match the declared type. Null means the parameter is required — the adapter rejects execution if the parameter is missing and has no default."
+          }
+        }
+      }
+    },
+    "returnType": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "description": "UUID of the item type this query returns, when results map cleanly to a single known type (e.g. the UUID of the 'task' type item for a query that filters tasks). Studio uses this to render the grid with type-specific column definitions and to offer type-aware actions on result rows. Null when the query produces a derived result set — a join, aggregate, or cross-type projection — that does not correspond to a single item type. In the null case Studio infers column schema from the result set. Informational — the adapter does not validate result rows against this type at execution time."
+    },
+    "description": {
+      "type": ["string", "null"],
+      "description": "Human-readable explanation of what this query does, when to use it, and any important caveats (e.g. 'Slow on large datasets — add an index on payload.status before running in production'). Shown alongside the query name in Studio and in kanecta_run_query output."
+    }
+  }
+}

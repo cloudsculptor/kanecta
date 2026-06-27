@@ -1740,6 +1740,61 @@ The `activity` item's `parentId` is the synthetic `activity` type item UUID. `pa
 
 NOTE: Activity items are not replicated to remotes by default — activity is local to the workspace unless explicitly opted in. They are never updated or deleted after creation.
 
+=== queryPayload
+
+link:../built-in-types/types/query.json[JSON Schema^]
+
+For `type: "query"`. A saved, named query expression — the Kanecta equivalent of a named query in Microsoft Access. A query item stores an expression that can be run at any time to produce a result set. Results are displayed as a grid in Studio when the query item is viewed.
+
+Two classes of query:
+
+* *Single-type filter* — a simple expression over one item type (e.g. all open tasks, all entities with a tag). The result maps to a known type and Studio renders it with type-specific columns. Equivalent to Access's basic table query or a filtered list view.
+* *Derived result set* — a join, aggregate, or cross-type projection that produces columns not belonging to any single item type. `returnType` is null; Studio infers the column schema from the result. Equivalent to Access's multi-table query or a SQL view.
+
+[source,json]
+----
+{
+  "language": "sql",
+  "expression": "SELECT i.id, i.value, i.payload->>'status' AS status, i.payload->>'assignee' AS assignee FROM items i WHERE i.type = 'task' AND i.payload->>'status' = {{params.status}} ORDER BY i.meta->>'createdAt' DESC",
+  "params": [
+    { "name": "status", "type": "string", "description": "Task status to filter by", "default": "open" }
+  ],
+  "returnType": "uuid-of-task-type-item",
+  "description": "All tasks filtered by status. Defaults to open tasks."
+}
+----
+
+[cols="1,1,2", options="header"]
+|===
+| Field | Required | Description
+
+| `language`
+| yes
+| Query dialect. `"kanecta"` — native filter/search expression (same DSL as `runIf`, `forEach.filter`). `"sql"` — direct SELECT against the adapter index; full join, aggregate, and window-function power. `"graph"` — Cypher against the AGE graph projection (requires AGE enabled). Open string — new dialects do not require a spec change.
+
+| `expression`
+| yes
+| The query body. May contain `{{params.name}}` placeholders substituted at execution time. SQL placeholders are injected as parameterised values — never string-interpolated — to prevent injection attacks.
+
+| `params`
+| no
+| Named parameters that make this query reusable. Each entry has `name` (string), `type` (`"string"` \| `"number"` \| `"boolean"` \| `"uuid"` \| `"date"`), optional `description`, and optional `default`. Studio generates an input form from this definition when a user runs the query interactively. Null means the query is fixed with no parameters.
+
+| `returnType`
+| no
+| UUID of the item type the query returns, when results map to a single known type. Studio uses this to render type-specific columns and offer type-aware row actions. Null for derived/join result sets — Studio infers column schema from the result.
+
+| `description`
+| no
+| Human-readable explanation of what the query does and any caveats. Shown in Studio and in `kanecta_run_query` output.
+|===
+
+`item.value` is the query's human label (e.g. `"Open tasks by assignee"`, `"Customer churn candidates"`). The query item's `parentId` follows the universal rule — it lives under the synthetic `query` type item and can be placed anywhere in the user's tree.
+
+Queries are executed via the `kanecta_run_query` MCP tool (see <<mcp-api-surface>>) or by the Studio grid renderer when a query item is opened. The grid renderer resolves `returnType` to load the type's column definitions; for null `returnType` it uses the result column names directly.
+
+NOTE: Query items do not define new types. A `"sql"` query that joins tasks and users produces a result set with mixed columns — the result is not a new Kanecta type. If you find yourself consistently working with a derived shape, define a proper `object` type and populate it via a pipeline instead.
+
 [#pipelines]
 == Pipelines
 
