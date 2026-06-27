@@ -3430,21 +3430,31 @@ Any type system with URIs works automatically. Systems without URIs use URN form
 
 The list of external type systems is open-ended and non-exhaustive. Any classification system — biological taxonomy, astronomical catalogs, legal codes — can be mapped.
 
-== Multiple Trees
+== Multiple Trees and Collections
 
-Kanecta has one built-in tree rooted at the all-zeros UUID. Additional named trees are supported via the `tree` and `node` primitive types.
+Kanecta has one built-in tree rooted at the all-zeros UUID. Additional named trees are supported via the `tree` and `node` primitive types. These two types, combined with `symlink` and `query`, also cover every collection use case — there is no separate `collection` or `list` type.
 
-* *`tree`* — A named tree root item. Acts as the root of a separate navigation structure.
-* *`node`* — A generic node in a user-defined tree. Children of a `tree` item.
+* *`tree`* — A named tree root item. Acts as the root of a separate navigation structure or a named collection.
+* *`node`* — A generic node in a user-defined tree. Children of a `tree` item; can carry any item as a child.
+* *`symlink`* — Places an existing item into a tree position. `item.value` is the target UUID. The symlink resolves to show the target's content while maintaining its own position. Typed objects (whose `parentId` points to their type bucket) appear in the user-facing tree via symlinks.
 
-Use cases:
+=== Collection patterns
 
-* Tag hierarchies (an alternative taxonomy alongside the main tree)
-* Org charts
-* Topic maps
-* Dependency graphs presented as trees
+*Static ordered list* — a "Sprint Backlog", "Reading List", "Favourites" — create a `tree` item and add `symlink` children pointing at each member. Order is controlled by `meta.sortOrder` on the symlink items. Items remain in their canonical home (under their type bucket) and appear in the list as symlinks. A single item can appear in multiple lists simultaneously — each list gets its own `symlink` pointing at the same target.
 
-Items can appear in multiple trees simultaneously via symlinks. The main tree (`parentId` chain to all-zeros root) is always the canonical location.
+[source]
+----
+Sprint Backlog  (tree)
+├── symlink → task A
+├── symlink → task B
+└── symlink → task C
+----
+
+*Dynamic filtered collection* — use a `query` item. The collection is defined by the expression, not by explicit membership. Items matching the filter automatically appear without maintaining a list of symlinks. Use this for "all open P1 tasks", "files modified this week", "entities with no owner".
+
+*Hierarchical grouping* — use `tree` with `node` subtrees. `node` items form the hierarchy; the actual content items are children of nodes, or the nodes carry the content themselves via their own `item.value`. Use this for tag hierarchies, org charts, topic maps, and dependency graphs presented as trees.
+
+Items can appear in multiple trees simultaneously via symlinks. The primary tree (`parentId` chain to all-zeros root) is always the canonical location. The `parentId` of a `tree` item is the synthetic `tree` type item UUID (standard rule 5) — trees accumulate under a system-level trees collection, and Studio surfaces them as navigable roots alongside the primary tree.
 
 == Provenance and Sharing
 
