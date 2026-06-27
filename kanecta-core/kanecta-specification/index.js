@@ -1,7 +1,7 @@
 'use strict';
 
 const { version } = require('./package.json');
-const types = require(`./${version}/types/built-in-types.json`);
+const types = require(`./${version}/built-in-types/built-in-types.json`);
 
 module.exports = {
   version,

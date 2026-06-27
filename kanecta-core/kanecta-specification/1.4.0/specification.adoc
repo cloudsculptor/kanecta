@@ -419,7 +419,7 @@ Payload shapes are defined per type — see <<payload-definitions>>.
 [#item-types]
 == Built-in Types
 
-*Source of truth: `./types/built-in-types.json`*
+*Source of truth: `./built-in-types/built-in-types.json`*
 
 Types are grouped into three categories.
 
@@ -2675,6 +2675,6 @@ Each workspace is a local datastore with optional named remotes. Multiple remote
 | JSON Schema for `config.json`. Defines workspaces, remotes, and platform ports.
 
 | Built-in types
-| `./types/built-in-types.json`
+| `./built-in-types/built-in-types.json`
 | Canonical list of all valid `item.type` values.
 |===

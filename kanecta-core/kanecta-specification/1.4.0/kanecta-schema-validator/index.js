@@ -15,7 +15,7 @@ function isDate(v)    { return typeof v === 'string' && DATE_RE.test(v); }
 function isSemver(v)  { return typeof v === 'string' && SEMVER_RE.test(v); }
 function e(path, message, rule) { return { path, message, rule }; }
 
-// Valid item type strings — mirrors 1.4.0/types/built-in-types.json
+// Valid item type strings — mirrors 1.4.0/built-in-types/built-in-types.json
 const ALL_ITEM_TYPES = new Set([
   // primitive
   'string','number','text','heading','file','symlink','url',
