@@ -3906,9 +3906,9 @@ A manifest is a `kanecta.manifest.json` file in the root of a package. The adapt
   "package": "kanecta-core",
   "layer": "core",
   "items": [
-    { "file": "built-in-types/types/task.json" },
-    { "file": "built-in-types/types/note.json" },
-    { "file": "built-in-types/types/pipeline.json" }
+    { "id": "0735e3c3-ce28-406c-850a-c9e20be70231", "type": "task",     "file": "built-in-types/types/task.json" },
+    { "id": "24dec6ba-d59a-4edf-87c5-9e42e5430d5c", "type": "note",     "file": "built-in-types/types/note.json" },
+    { "id": "90bdc2b2-0963-4ec9-a37c-4b42f724752d", "type": "pipeline", "file": "built-in-types/types/pipeline.json" }
   ]
 }
 ----
@@ -3929,7 +3929,7 @@ Fields:
 | `"core"` or `"app"`. All items seeded from this manifest receive this layer value. The adapter rejects `"system"` — bootstrap items are not managed via manifests.
 
 | `items[]`
-| Array of seed item file references. `file` is a path relative to the manifest file's own location.
+| Array of seed item declarations. `id` is the pre-assigned UUID for this item (must match `item.id` in the referenced file — adapter validates this at startup). `type` is the item type name (human-readable cross-check; adapter logs a warning if it disagrees with `item.type` in the file). `file` is a path relative to the manifest file's own location.
 |===
 
 === Seed item format
