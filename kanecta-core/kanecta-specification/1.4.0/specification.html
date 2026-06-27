@@ -1743,6 +1743,9 @@ The payload-less primitive types — <code>string</code>, <code>number</code>, <
 <div class="sect2">
 <h3 id="_filepayload">7.2. filePayload</h3>
 <div class="paragraph">
+<p><a href="../built-in-types/file.json" target="_blank" rel="noopener">JSON Schema</a></p>
+</div>
+<div class="paragraph">
 <p>For <code>type: "file"</code>. Replaces the former <code>image</code> and <code>markdown</code> primitives — use <code>mimeType</code> to distinguish.</p>
 </div>
 <div class="listingblock">
@@ -1810,6 +1813,9 @@ The payload-less primitive types — <code>string</code>, <code>number</code>, <
 <div class="sect2">
 <h3 id="_functionpayload">7.3. functionPayload</h3>
 <div class="paragraph">
+<p><a href="../built-in-types/function.json" target="_blank" rel="noopener">JSON Schema</a></p>
+</div>
+<div class="paragraph">
 <p>For <code>type: "function"</code>. The function name lives in <code>item.value</code>.</p>
 </div>
 <div class="admonitionblock note">
@@ -1873,6 +1879,9 @@ The payload-less primitive types — <code>string</code>, <code>number</code>, <
 </div>
 <div class="sect2">
 <h3 id="_formulapayload">7.4. formulaPayload</h3>
+<div class="paragraph">
+<p><a href="../built-in-types/formula.json" target="_blank" rel="noopener">JSON Schema</a></p>
+</div>
 <div class="paragraph">
 <p>For <code>type: "formula"</code>. A reusable calculation that can be referenced by UUID from anywhere a computed value is needed — alias generation, <code>primaryField</code> derivation, derived fields, display labels, or any other context. The formula name/label lives in <code>item.value</code>.</p>
 </div>
@@ -2081,6 +2090,9 @@ The payload-less primitive types — <code>string</code>, <code>number</code>, <
 <div class="sect2">
 <h3 id="_componentpayload">7.5. componentPayload</h3>
 <div class="paragraph">
+<p><a href="../built-in-types/component.json" target="_blank" rel="noopener">JSON Schema</a></p>
+</div>
+<div class="paragraph">
 <p>For <code>type: "component"</code>. Describes a React component. Return type is always <code>ReactNode</code> — implicit, no field. The component body (JSX/TSX) lives in <code>meta.files.body = "body.tsx"</code>.</p>
 </div>
 <div class="listingblock">
@@ -2101,6 +2113,9 @@ The payload-less primitive types — <code>string</code>, <code>number</code>, <
 </div>
 <div class="sect2">
 <h3 id="_typepayload">7.6. typePayload</h3>
+<div class="paragraph">
+<p><a href="../built-in-types/type.json" target="_blank" rel="noopener">JSON Schema</a></p>
+</div>
 <div class="paragraph">
 <p>For <code>type: "type"</code>. Defines a custom Kanecta type. Three top-level keys: <code>meta</code>, <code>jsonSchema</code>, <code>sqlSchema</code>.</p>
 </div>
@@ -2292,6 +2307,9 @@ The payload-less primitive types — <code>string</code>, <code>number</code>, <
 <div class="sect2">
 <h3 id="_aliaspayload">7.7. aliasPayload</h3>
 <div class="paragraph">
+<p><a href="../built-in-types/alias.json" target="_blank" rel="noopener">JSON Schema</a></p>
+</div>
+<div class="paragraph">
 <p>For <code>type: "alias"</code>. The alias string itself lives in <code>item.value</code> — this is the human-readable label the user types to address the target item. Lookup is always case-insensitive; the adapter normalises to lowercase when querying but preserves original casing in <code>item.value</code> for display.</p>
 </div>
 <div class="paragraph">
@@ -2428,6 +2446,9 @@ The <code>n</code> variable in formula evaluation is workspace-scoped and monoto
 <div class="sect2">
 <h3 id="_relationshippayload">7.8. relationshipPayload</h3>
 <div class="paragraph">
+<p><a href="../built-in-types/relationship.json" target="_blank" rel="noopener">JSON Schema</a></p>
+</div>
+<div class="paragraph">
 <p>For <code>type: "relationship"</code>. A typed, first-class relationship between two items. The human-readable label lives in <code>item.value</code> (e.g. <code>"depends on"</code>).</p>
 </div>
 <div class="paragraph">
@@ -2563,6 +2584,9 @@ The <code>n</code> variable in formula evaluation is workspace-scoped and monoto
 <div class="sect2">
 <h3 id="aspectTypePayload">7.9. aspectTypePayload</h3>
 <div class="paragraph">
+<p><a href="../built-in-types/aspect-type.json" target="_blank" rel="noopener">JSON Schema</a></p>
+</div>
+<div class="paragraph">
 <p>For <code>type: "aspect-type"</code>. Defines the schema and semantics of a named aspect dimension — the meta-type for structured aspect items, mirroring the role of <code>relationship-type</code> for relationship items. When <code>item.aspect</code> on an item is a UUID, that UUID must point to an <code>aspect-type</code> item.</p>
 </div>
 <div class="paragraph">
@@ -2631,6 +2655,9 @@ The <code>n</code> variable in formula evaluation is workspace-scoped and monoto
 </div>
 <div class="sect2">
 <h3 id="_grantpayload">7.10. grantPayload</h3>
+<div class="paragraph">
+<p><a href="../built-in-types/grant.json" target="_blank" rel="noopener">JSON Schema</a></p>
+</div>
 <div class="paragraph">
 <p>For <code>type: "grant"</code>. Access control grants. The grant item&#8217;s <code>parentId</code> is the synthetic <code>grant</code> type item UUID (the universal rule). The item being governed is identified by <code>payload.governedItemId</code> — this is the field that was previously implied by parentId placement.</p>
 </div>
@@ -2717,6 +2744,9 @@ The <code>n</code> variable in formula evaluation is workspace-scoped and monoto
 <div class="sect2">
 <h3 id="_viewpayload">7.11. viewPayload</h3>
 <div class="paragraph">
+<p><a href="../built-in-types/view.json" target="_blank" rel="noopener">JSON Schema</a></p>
+</div>
+<div class="paragraph">
 <p>For <code>type: "view"</code>. Binds a specific item to a renderer and a context. The view&#8217;s UUID is a single pointer to all three — usable for bookmarking, sharing, embedding, and bootstrapping.</p>
 </div>
 <div class="listingblock">
@@ -2777,6 +2807,9 @@ The <code>n</code> variable in formula evaluation is workspace-scoped and monoto
 </div>
 <div class="sect2">
 <h3 id="_contextpayload">7.12. contextPayload</h3>
+<div class="paragraph">
+<p><a href="../built-in-types/context.json" target="_blank" rel="noopener">JSON Schema</a></p>
+</div>
 <div class="paragraph">
 <p>For <code>type: "context"</code>. Describes the environment in which a view is rendered. Contexts are first-class items — reusable, versioned, shareable.</p>
 </div>
@@ -2854,6 +2887,9 @@ Security is not part of context — it is resolved at runtime via <code>grant</c
 </div>
 <div class="sect2">
 <h3 id="_referencepayload">7.14. referencePayload</h3>
+<div class="paragraph">
+<p><a href="../built-in-types/reference.json" target="_blank" rel="noopener">JSON Schema</a></p>
+</div>
 <div class="paragraph">
 <p>For <code>type: "reference"</code>. A declared external dependency on a UUID — physical, system, functional, or subscription-based.</p>
 </div>
@@ -2944,6 +2980,9 @@ Security is not part of context — it is resolved at runtime via <code>grant</c
 </div>
 <div class="sect2">
 <h3 id="_subscriptionpayload">7.15. subscriptionPayload</h3>
+<div class="paragraph">
+<p><a href="../built-in-types/subscription.json" target="_blank" rel="noopener">JSON Schema</a></p>
+</div>
 <div class="paragraph">
 <p>For <code>type: "subscription"</code>. Registers a live notification channel against a target UUID. When the target item changes, the platform notifies the channel.</p>
 </div>
@@ -3037,6 +3076,9 @@ Security is not part of context — it is resolved at runtime via <code>grant</c
 </div>
 <div class="sect2">
 <h3 id="_itemhistorypayload">7.16. itemHistoryPayload</h3>
+<div class="paragraph">
+<p><a href="../built-in-types/item_history.json" target="_blank" rel="noopener">JSON Schema</a></p>
+</div>
 <div class="paragraph">
 <p>For <code>type: "item_history"</code>. Records a single event in an item&#8217;s lifecycle.</p>
 </div>
@@ -3143,6 +3185,9 @@ Event sourcing guarantee: replaying all <code>item_history</code> events for a g
 </div>
 <div class="sect2">
 <h3 id="_activitypayload">7.17. activityPayload</h3>
+<div class="paragraph">
+<p><a href="../built-in-types/activity.json" target="_blank" rel="noopener">JSON Schema</a></p>
+</div>
 <div class="paragraph">
 <p>For <code>type: "activity"</code>. Records a discrete workspace event — not a snapshot of item state, but a meaningful occurrence at the application level (item viewed, search performed, sync started, export triggered). Distinct from <code>item_history</code>: history tracks <strong>what changed</strong>; activity tracks <strong>what happened</strong>.</p>
 </div>
@@ -5109,7 +5154,7 @@ Mac uses <code>~/Library/Application Support</code> rather than <code>~/.config<
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2026-06-26 06:26:14 +1200
+Last updated 2026-06-26 06:33:39 +1200
 </div>
 </div>
 </body>

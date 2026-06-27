@@ -713,6 +713,8 @@ TIP: *Postgres* — the `payload_node` table exists alongside the main `items` t
 
 === filePayload
 
+link:../built-in-types/file.json[JSON Schema^]
+
 For `type: "file"`. Replaces the former `image` and `markdown` primitives — use `mimeType` to distinguish.
 
 [source,json]
@@ -760,6 +762,8 @@ The file content lives in a sidecar referenced via `meta.files` (e.g. `{ "body":
 
 === functionPayload
 
+link:../built-in-types/function.json[JSON Schema^]
+
 For `type: "function"`. The function name lives in `item.value`.
 
 NOTE: *Filesystem and SQLite adapters* — the function body lives in a sidecar: `meta.files.body = "body.ts"`. *Postgres adapter* — `payload.body` stores it inline as a column on the `functions` table.
@@ -790,6 +794,8 @@ NOTE: *Filesystem and SQLite adapters* — the function body lives in a sidecar:
 TIP: *Postgres* — `function_parameters` and `function_throws` are child tables ordered by `sort_order`, each enforcing `type` XOR `type_id` XOR `function_id`. `dependencies` is a native `TEXT[]` column.
 
 === formulaPayload
+
+link:../built-in-types/formula.json[JSON Schema^]
 
 For `type: "formula"`. A reusable calculation that can be referenced by UUID from anywhere a computed value is needed — alias generation, `primaryField` derivation, derived fields, display labels, or any other context. The formula name/label lives in `item.value`.
 
@@ -920,6 +926,8 @@ NOTE: `formulajs` (MIT licence) is the evaluation engine for `dsl` level formula
 
 === componentPayload
 
+link:../built-in-types/component.json[JSON Schema^]
+
 For `type: "component"`. Describes a React component. Return type is always `ReactNode` — implicit, no field. The component body (JSX/TSX) lives in `meta.files.body = "body.tsx"`.
 
 [source,json]
@@ -937,6 +945,8 @@ For `type: "component"`. Describes a React component. Return type is always `Rea
 Props use the same `parameterOrProp` definition as function parameters — including `functionId` for callback props. A type item links to its component via `payload.meta.componentId`.
 
 === typePayload
+
+link:../built-in-types/type.json[JSON Schema^]
 
 For `type: "type"`. Defines a custom Kanecta type. Three top-level keys: `meta`, `jsonSchema`, `sqlSchema`.
 
@@ -1055,6 +1065,8 @@ NOTE: *Required even for filesystem-only types* — every type defines `sqlSchem
 
 === aliasPayload
 
+link:../built-in-types/alias.json[JSON Schema^]
+
 For `type: "alias"`. The alias string itself lives in `item.value` — this is the human-readable label the user types to address the target item. Lookup is always case-insensitive; the adapter normalises to lowercase when querying but preserves original casing in `item.value` for display.
 
 The alias item's `parentId` is the synthetic `alias` type item UUID (the universal rule). The relationship to the aliased item is carried entirely in `payload.targetId`. The adapter maintains a derived `aliases` lookup table for O(1) string resolution, but that table is rebuilt from items and is never the source of truth.
@@ -1133,6 +1145,8 @@ TIP: *Postgres* — the derived aliases lookup table schema: `CREATE TABLE alias
 
 === relationshipPayload
 
+link:../built-in-types/relationship.json[JSON Schema^]
+
 For `type: "relationship"`. A typed, first-class relationship between two items. The human-readable label lives in `item.value` (e.g. `"depends on"`).
 
 Relationship types are themselves first-class items (`type: "relationship-type"`) — not string slugs. `typeId` points to the relationship-type item that defines this edge's schema, directional semantics, and inverse pairing. Nine canonical relationship-type system items are bootstrapped for the standard relationship vocabulary; custom relationship types are user-defined items of type `"relationship-type"`.
@@ -1202,6 +1216,8 @@ TIP: *Postgres* — `payload_relationship` table for efficient graph queries: `C
 [#aspectTypePayload]
 === aspectTypePayload
 
+link:../built-in-types/aspect-type.json[JSON Schema^]
+
 For `type: "aspect-type"`. Defines the schema and semantics of a named aspect dimension — the meta-type for structured aspect items, mirroring the role of `relationship-type` for relationship items. When `item.aspect` on an item is a UUID, that UUID must point to an `aspect-type` item.
 
 `item.value` on the aspect-type item is the canonical string name of this dimension (e.g. `"financial-costs"`, `"comments"`, `"simplified"`). This is the string you would use as the plain-string form of `aspect` on informal/unstructured items; the UUID form provides schema enforcement on top of it.
@@ -1242,6 +1258,8 @@ Well-known aspect-type items (e.g. `"comments"`, `"simplified"`, `"draft"`) may 
 TIP: *Postgres* — `CREATE TABLE payload_aspect_type (id UUID PRIMARY KEY REFERENCES items(id), json_schema JSONB, description TEXT)`. To find all aspect items of a given aspect type across all parents: `SELECT * FROM items WHERE aspect = $aspectTypeUUID`. To find all aspect items (both string and UUID forms) for a parent item X: `SELECT * FROM items WHERE parent_id = $x AND aspect IS NOT NULL`.
 
 === grantPayload
+
+link:../built-in-types/grant.json[JSON Schema^]
 
 For `type: "grant"`. Access control grants. The grant item's `parentId` is the synthetic `grant` type item UUID (the universal rule). The item being governed is identified by `payload.governedItemId` — this is the field that was previously implied by parentId placement.
 
@@ -1298,6 +1316,8 @@ TIP: *Postgres* — `payload_grant` derived table for O(1) grant resolution: `CR
 
 === viewPayload
 
+link:../built-in-types/view.json[JSON Schema^]
+
 For `type: "view"`. Binds a specific item to a renderer and a context. The view's UUID is a single pointer to all three — usable for bookmarking, sharing, embedding, and bootstrapping.
 
 [source,json]
@@ -1331,6 +1351,8 @@ The optional label (`item.value`) is a human name for this view binding (e.g. `"
 NOTE: `root.payload.entryPoint` points to a view item — the bootstrap view is "root, rendered by the bootstrapper function, in the deployment context." The bootstrapper reads root, follows `entryPoint`, loads the view, finds the `componentId`, and runs it with root as input. Two hops, fully declarative.
 
 === contextPayload
+
+link:../built-in-types/context.json[JSON Schema^]
 
 For `type: "context"`. Describes the environment in which a view is rendered. Contexts are first-class items — reusable, versioned, shareable.
 
@@ -1378,6 +1400,8 @@ For `type: "root"`. The only required payload on root is `entryPoint` — the UU
 Different deployments of the same datastore (web UI, API server, CLI) each have their own view item, with their own `componentId` and `contextId`. To support multiple deployment types, create multiple view items and update `entryPoint` to whichever is active — or make the entry point function itself context-aware.
 
 === referencePayload
+
+link:../built-in-types/reference.json[JSON Schema^]
 
 For `type: "reference"`. A declared external dependency on a UUID — physical, system, functional, or subscription-based.
 
@@ -1436,6 +1460,8 @@ Unlike `relationship` (which connects two Kanecta items semantically), a `refere
 NOTE: *Deletion governance:* `blockDeletion: true` does not determine who can delete the reference item itself — that is controlled by `grant` items on the reference item. The workshop manager owns the reference item; the IT administrator who wants to delete the drill press must get the workshop manager to remove the reference first. No special escalation workflow is needed — the existing grant system handles it.
 
 === subscriptionPayload
+
+link:../built-in-types/subscription.json[JSON Schema^]
 
 For `type: "subscription"`. Registers a live notification channel against a target UUID. When the target item changes, the platform notifies the channel.
 
@@ -1496,6 +1522,8 @@ Distinct from `reference` — a subscription is about change notification, not d
 |===
 
 === itemHistoryPayload
+
+link:../built-in-types/item_history.json[JSON Schema^]
 
 For `type: "item_history"`. Records a single event in an item's lifecycle.
 
@@ -1559,6 +1587,8 @@ The `item_history` item's `parentId` is the synthetic `item_history` type item U
 NOTE: Event sourcing guarantee: replaying all `item_history` events for a given `targetId` in `sequence` order, starting from an empty state, must produce the current item state. Adapters must validate this invariant on write. The `snapshot` field is a read-performance optimisation — it must always equal the state produced by replaying events 1..sequence.
 
 === activityPayload
+
+link:../built-in-types/activity.json[JSON Schema^]
 
 For `type: "activity"`. Records a discrete workspace event — not a snapshot of item state, but a meaningful occurrence at the application level (item viewed, search performed, sync started, export triggered). Distinct from `item_history`: history tracks *what changed*; activity tracks *what happened*.
 
