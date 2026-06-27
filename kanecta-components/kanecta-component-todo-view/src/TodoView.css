@@ -1,0 +1,41 @@
+.TodoView {
+  padding: 24px;
+  max-width: 640px;
+}
+
+.TodoView-heading {
+  font-size: 1.375rem;
+  font-weight: 600;
+  margin: 0 0 16px;
+}
+
+.TodoView-empty {
+  color: var(--color-text-muted, #888);
+  font-size: 0.875rem;
+}
+
+.TodoView-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.TodoView-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+}
+
+.TodoView-item--done .TodoView-item-label {
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+
+.TodoView-item-label {
+  font-size: 0.9375rem;
+  line-height: 1.4;
+}

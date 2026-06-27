@@ -32,6 +32,8 @@
     "@emotion/styled": "^11.13.0",
     "@kanecta/api": "^1.0.0",
     "@kanecta/api-client": "*",
+    "@kanecta/component-core": "^1.4.0",
+    "@kanecta/component-todo-view": "^1.4.0",
     "@kanecta/component-tree-view": "*",
     "@kanecta/specification": "^1.2.0",
     "@monaco-editor/react": "^4.7.0",

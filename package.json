@@ -35,6 +35,8 @@
     "kanecta-apps/kanecta-app-studio-mac",
     "kanecta-apps/kanecta-app-studio-vscode-plugin",
     "kanecta-apps/kanecta-app-claude",
+    "kanecta-components/kanecta-component-core",
+    "kanecta-components/kanecta-component-todo-view",
     "kanecta-components/kanecta-component-tree-view"
   ],
   "devDependencies": {
