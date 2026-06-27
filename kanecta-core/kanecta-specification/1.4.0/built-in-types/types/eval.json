@@ -1,0 +1,108 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "evalPayload",
+  "type": "object",
+  "required": ["pipelineId", "phases"],
+  "additionalProperties": false,
+  "properties": {
+    "pipelineId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID of the pipeline item this eval tests. Also the parentId of this eval item — evals live as children of their pipeline."
+    },
+    "description": {
+      "type": ["string", "null"],
+      "description": "Human-readable description of what scenario this eval covers and what it is asserting."
+    },
+    "params": {
+      "type": ["object", "null"],
+      "description": "Input parameter values supplied to the pipeline run when this eval executes. Keys match the pipeline's params[].name declarations. Null if the pipeline takes no parameters."
+    },
+    "phases": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Per-phase assertion sets. Only phases you want to assert against need to be listed — phases omitted here are still executed but not checked.",
+      "items": {
+        "type": "object",
+        "required": ["phaseId", "assertions"],
+        "additionalProperties": false,
+        "properties": {
+          "phaseId": {
+            "type": "string",
+            "description": "ID of the phase in the pipeline definition to assert against."
+          },
+          "assertions": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Ordered list of assertions evaluated against this phase's itemsProduced after the phase completes.",
+            "items": {
+              "type": "object",
+              "required": ["id", "type"],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "Stable slug identifying this assertion within the eval. Used in eval-run results to correlate assertions with outcomes. Must be unique within the phase."
+                },
+                "description": {
+                  "type": ["string", "null"],
+                  "description": "Human-readable description of what this assertion is checking and why it matters."
+                },
+                "type": {
+                  "type": "string",
+                  "enum": ["count", "type", "payload", "meta", "llm-judge", "no-regression"],
+                  "description": "Assertion family. count=item count comparison; type=all/any items must be an expected type; payload=expression evaluated against item payload; meta=expression evaluated against item meta; llm-judge=agent evaluates quality and returns PASS/FAIL; no-regression=compare against golden items."
+                },
+                "op": {
+                  "type": ["string", "null"],
+                  "enum": ["==", "!=", ">=", "<=", ">", "<", null],
+                  "description": "count assertions only: comparison operator applied to itemsProduced.length vs value."
+                },
+                "value": {
+                  "type": ["number", "null"],
+                  "description": "count assertions only: the number to compare itemsProduced.length against."
+                },
+                "expected": {
+                  "description": "type assertions only: item type name (string) or array of accepted type names the produced items must match.",
+                  "oneOf": [
+                    { "type": "string" },
+                    { "type": "array", "items": { "type": "string" } },
+                    { "type": "null" }
+                  ]
+                },
+                "expression": {
+                  "type": ["string", "null"],
+                  "description": "payload and meta assertions only: expression evaluated per item. Variable 'item' is the element. Must return a boolean. Example: \"item.payload.severity in ['P1','P2','P3']\"."
+                },
+                "scope": {
+                  "type": ["string", "null"],
+                  "enum": ["all", "any", null],
+                  "description": "type, payload, and meta assertions only: 'all' (default) — assertion passes only if every item matches; 'any' — passes if at least one item matches."
+                },
+                "agentId": {
+                  "type": ["string", "null"],
+                  "format": "uuid",
+                  "description": "llm-judge assertions only: UUID of the agent item used to evaluate output quality. The agent receives all produced items as context and the assertion instructions. It must call kanecta_judge_verdict('PASS' | 'FAIL', reasoning) to record its verdict."
+                },
+                "instructions": {
+                  "type": ["string", "null"],
+                  "description": "llm-judge assertions only: what the judge agent should evaluate and how to decide. Be specific — vague instructions produce inconsistent verdicts. Example: 'Review the findings. Each finding must have a specific screen element referenced, a measurable pixel difference or missing element, and a severity that matches the described impact. Return FAIL if any finding is too vague to act on.'"
+                },
+                "goldenItems": {
+                  "type": ["array", "null"],
+                  "items": { "type": "string", "format": "uuid" },
+                  "description": "no-regression assertions only: UUIDs of items that represent the expected/reference output. Stored in the eval definition. The runner compares actual itemsProduced against these using the matcher strategy."
+                },
+                "matcher": {
+                  "type": ["string", "null"],
+                  "enum": ["exact", "semantic", "subset", null],
+                  "description": "no-regression assertions only: 'exact' — itemsProduced must contain items with identical payload to goldenItems; 'semantic' — uses embedding similarity to check that produced items cover the same concepts as golden items (uses items_search embeddings); 'subset' — every golden item concept must appear in produced items but extras are allowed."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

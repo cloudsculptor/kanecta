@@ -76,8 +76,8 @@ v1.4.0 is a breaking change from v1.3.0. A migration script is provided in `kane
 | *`reference` type*
 | Declared external dependencies on a UUID (physical engraving, external system, function argument/output, webhook, reactive subscription). Standalone relational item (like `relationship`). `blockDeletion: true` governs deletion of the target — the owning person controls the block via grants on the reference item.
 
-| *Pipelines, agents, and pipeline-runs*
-| Three new first-class platform types. A `"pipeline"` item defines a multi-agent workflow as a directed graph of phases with typed params, DAG dependencies, confidence gates, forEach fan-out, fanIn aggregation, loopBack cycles, and phase output passing. An `"agent"` item declares the model, system prompt, and tools for a reusable agent. A `"pipeline-run"` item is the live execution record — updated in place by the runner, accumulating as children of the pipeline. See <<pipelines>>.
+| *Pipelines, agents, pipeline-runs, evals, and eval-runs*
+| Five new first-class platform types. A `"pipeline"` item defines a multi-agent workflow as a directed graph of phases with typed params, DAG dependencies, confidence gates, forEach fan-out, fanIn aggregation, loopBack cycles, and phase output passing. An `"agent"` item declares the model, system prompt, and tools for a reusable agent. A `"pipeline-run"` item is the live execution record. An `"eval"` item declares automated assertions (count, type, payload, meta, llm-judge, no-regression) against pipeline output. An `"eval-run"` item records assertion results including LLM judge verdicts and reasoning. See <<pipelines>>.
 
 | *Branching*
 | Delta/overlay model across all adapters. Branches are not copies — they store only what changed. Postgres uses schema-per-branch; S3 uses key prefixes; filesystem uses Git. See <<branching>>.
@@ -576,9 +576,17 @@ Types are grouped into three categories.
 | `pipeline-run`
 | The execution record of a single pipeline invocation. Updated in real time as the run progresses. Lives as a child of its `pipeline` item — the run history of any pipeline is immediately visible in the tree. Subscriptions on this item deliver live phase progress to the Studio pipeline view.
 | `pipelineRunPayload` (required)
+
+| `eval`
+| An automated test definition for a pipeline. Declares input params and per-phase assertions (count, type, payload, meta, llm-judge, no-regression) evaluated against `itemsProduced` after the pipeline completes. Lives as a child of the pipeline it tests — evals and runs share the same tree.
+| `evalPayload` (required)
+
+| `eval-run`
+| The execution record of a single eval invocation. Holds a reference to the `pipeline-run` created for this execution and per-assertion results including LLM judge verdicts and reasoning. Lives as a child of its `eval` item.
+| `evalRunPayload` (required)
 |===
 
-NOTE: `pipeline`, `agent`, and `pipeline-run` are built-in structured types, but they are categorically different from types like `file`, `function`, or `relationship`. They are *platform types* — built in not because they are primitives of the data model, but because Kanecta needs to understand them to support AI-native workflows. The adapter indexes run status for live UI updates, subscriptions deliver phase progress in real time, and the Studio pipeline view depends on a stable, well-known payload contract. Domain types (`epic`, `stakeholder`, `finding`) remain user-defined; `pipeline` is built in because Kanecta *executes* pipelines — the system has behaviour that depends on these types existing. This is the line: if the generic layer needs to understand a type to do its job, the type belongs in the spec.
+NOTE: `pipeline`, `agent`, `pipeline-run`, `eval`, and `eval-run` are built-in structured types, but they are categorically different from types like `file`, `function`, or `relationship`. They are *platform types* — built in not because they are primitives of the data model, but because Kanecta needs to understand them to support AI-native workflows. The adapter indexes run status for live UI updates, subscriptions deliver phase progress in real time, the Studio pipeline view depends on a stable payload contract, and the eval runner needs to know how to evaluate assertions and invoke judge agents. Domain types (`epic`, `stakeholder`, `finding`) remain user-defined; these five types are built in because Kanecta *executes and tests* pipelines — the system has behaviour that depends on these types existing. This is the line: if the generic layer needs to understand a type to do its job, the type belongs in the spec.
 
 === Well-Known Types
 
@@ -622,7 +630,7 @@ These rules are hard constraints enforced at write time by every adapter.
 
 Most built-in types have a corresponding synthetic type item created at datastore initialisation. These items have type `"type"`, `layer: "system"`, and a stable well-known UUID assigned at init (stored in the bootstrapper). They are the canonical homes for all instances of their type.
 
-Built-in types with synthetic type items: `agent`, `alias`, `annotation`, `aspect-type`, `claim`, `component`, `concept`, `context`, `decision`, `entity`, `event`, `file`, `formula`, `function`, `grant`, `item_history`, `activity`, `note`, `object`, `pipeline`, `pipeline-run`, `question`, `reference`, `relationship`, `relationship-type`, `runner`, `subscription`, `symlink`, `task`, `tree`, `view`.
+Built-in types with synthetic type items: `agent`, `alias`, `annotation`, `aspect-type`, `claim`, `component`, `concept`, `context`, `decision`, `entity`, `eval`, `eval-run`, `event`, `file`, `formula`, `function`, `grant`, `item_history`, `activity`, `note`, `object`, `pipeline`, `pipeline-run`, `question`, `reference`, `relationship`, `relationship-type`, `runner`, `subscription`, `symlink`, `task`, `tree`, `view`.
 
 NOTE: The payload-less primitive types — `string`, `number`, `text`, `heading`, `url` — do *not* have synthetic type items. These types are content items that live directly under their parent in the tree. Creating a synthetic type bucket for bare strings or numbers would produce a meaningless collection of decontextualised values. Their `parentId` is always their actual tree parent.
 
@@ -1818,6 +1826,34 @@ The Studio pipeline view is driven entirely by the `pipeline` and `pipeline-run`
 
 This is not a monitoring dashboard bolted onto an external system — the pipeline and its execution state are in the same datastore as the findings, decisions, and code the pipeline is acting on.
 
+=== Evals
+
+An `"eval"` item is an automated test definition for a pipeline. It declares input params and a set of per-phase assertions that the runner evaluates against `itemsProduced` after the pipeline completes. Running an eval creates a normal `pipeline-run` item (the full pipeline executes against real agents and real data), then evaluates assertions against what was produced. Results are stored as an `"eval-run"` item — a child of the eval.
+
+Evals live as children of the pipeline they test, alongside pipeline-run items. This means the test history, the run history, and the pipeline definition are all in the same tree. You can query "evals for pipeline X that failed in the last 7 days" the same way you query anything else.
+
+==== Assertion types
+
+Five assertion types cover the full range from structural checks to AI-quality judgement:
+
+*`count`* — compares `itemsProduced.length` against a value using an operator (`==`, `>=`, `<=`, `>`, `<`, `!=`). The most basic check — did the phase produce anything at all?
+
+*`type`* — asserts that all (or any) produced items are of an expected type. Use to verify that an audit phase only writes `finding` items, not other types.
+
+*`payload`* — evaluates a boolean expression against each produced item's payload. `item` is the element variable. Scope `"all"` (default) requires every item to match; `"any"` requires at least one. Example: `"item.payload.severity in ['P1','P2','P3']"`.
+
+*`meta`* — same as `payload` but evaluated against `item.meta`. Example: `"item.meta.confidence != null"`.
+
+*`llm-judge`* — the most powerful assertion type. A designated judge agent receives all produced items as context plus assertion-specific instructions. It evaluates output quality using full AI reasoning and calls `kanecta_judge_verdict('PASS' | 'FAIL', reasoning)` to record its verdict. The verdict and reasoning are stored on the eval-run record verbatim. Use for quality checks that cannot be expressed as a deterministic expression — "are these findings specific enough to act on?", "does the implementation report explain what was changed and why?".
+
+*`no-regression`* — compares produced items against a set of golden items stored in the eval definition. Three match strategies: `"exact"` (identical payloads), `"semantic"` (embedding similarity — produced items must cover the same concepts), `"subset"` (all golden concepts present; extras allowed).
+
+==== Running an eval
+
+Create an `"eval-run"` item with `payload.status = "running"` as a child of the eval. The runner creates a `pipeline-run` item for the eval's pipeline with the eval's params, executes it to completion, then evaluates assertions phase by phase. All fields on the eval-run record are managed by the runner. Evals can also be triggered via the kanecta-sdk (`sdk.evals.run(evalId)`) or MCP (`kanecta_run_eval`).
+
+Because evals are Kanecta items, they can be run on a schedule (via a `subscription` item watching a clock event), triggered by a pipeline-run completing (via a `subscription` on the pipeline), or invoked in a CI pipeline via MCP.
+
 [#agentPayload]
 === agentPayload
 
@@ -2361,6 +2397,281 @@ kanecta_approve_gate(runId, phaseId, actor?)
 `runId` — UUID of the `pipeline-run` item. `phaseId` — ID of the phase whose gate to approve. `actor` — identity string of the approver (defaults to the current MCP session identity). The tool sets `phases[phaseId].gateResult = "approved"`, records `approvedAt` and `approvedBy`, and resumes the run.
 
 NOTE: Gate approval is a deliberate human decision — it is not reversible via MCP. If a gate is approved in error, the run must be cancelled (`kanecta_cancel_run`) and re-triggered from the beginning or from a specific phase.
+
+[#evalPayload]
+=== evalPayload
+
+link:../built-in-types/types/eval.json[JSON Schema^]
+
+For `type: "eval"`. An eval item is an automated test definition for a pipeline — it declares the input params to use and a set of assertions to evaluate against phase outputs. Evals live as children of the pipeline they test (`parentId` = pipeline UUID), alongside pipeline-run items.
+
+[source,json]
+----
+{
+  "pipelineId": "pipeline-uuid",
+  "description": "Verifies the UI parity audit pipeline produces valid, specific, actionable findings for a known screen",
+  "params": {
+    "screen_id": "gear-list-and-detail"
+  },
+  "phases": [
+    {
+      "phaseId": "capture",
+      "assertions": [
+        {
+          "id": "has-screenshots",
+          "description": "Capture phase must produce at least one screenshot",
+          "type": "count",
+          "op": ">=",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "phaseId": "audit",
+      "assertions": [
+        {
+          "id": "findings-are-correct-type",
+          "description": "All audit outputs must be finding items",
+          "type": "type",
+          "expected": "finding",
+          "scope": "all"
+        },
+        {
+          "id": "findings-have-valid-severity",
+          "description": "Every finding must have a severity in the allowed set",
+          "type": "payload",
+          "expression": "item.payload.severity in ['P1','P2','P3']",
+          "scope": "all"
+        },
+        {
+          "id": "findings-have-ai-confidence",
+          "description": "Every finding must have an AI confidence value",
+          "type": "payload",
+          "expression": "item.payload.confidence in ['high','medium','low']",
+          "scope": "all"
+        },
+        {
+          "id": "findings-are-actionable",
+          "description": "LLM judge checks that findings are specific and actionable, not vague",
+          "type": "llm-judge",
+          "agentId": "judge-agent-uuid",
+          "instructions": "Review the findings produced by the audit phase. Each finding must reference a specific screen element, describe a measurable difference (pixel offset, missing element, wrong colour), and have a severity that matches the described impact. Call kanecta_judge_verdict('FAIL', reason) if any finding is too vague to hand to a developer. Call kanecta_judge_verdict('PASS', reason) only if all findings are specific and actionable."
+        }
+      ]
+    }
+  ]
+}
+----
+
+[cols="1,1,2", options="header"]
+|===
+| Field | Required | Description
+
+| `pipelineId`
+| yes
+| UUID of the `pipeline` item this eval tests. Also the `parentId` of this eval item.
+
+| `description`
+| no
+| Human-readable description of what scenario this eval covers and what it is asserting. Null is valid.
+
+| `params`
+| no
+| Input parameter values supplied to the pipeline run when this eval executes. Keys match the pipeline's `params[].name` declarations. Null if the pipeline takes no parameters.
+
+| `phases`
+| yes
+| Per-phase assertion sets. Only phases you want to assert against need to be listed — unlisted phases are still executed but not checked. Array must have at least one entry.
+
+| `phases[].phaseId`
+| yes
+| ID of the phase in the pipeline definition to assert against.
+
+| `phases[].assertions`
+| yes
+| Ordered list of assertions evaluated against this phase's `itemsProduced` after the phase completes. Must have at least one entry.
+
+| `phases[].assertions[].id`
+| yes
+| Stable slug identifying this assertion within the eval. Used in eval-run results to correlate assertions with outcomes. Must be unique within the phase.
+
+| `phases[].assertions[].description`
+| no
+| Human-readable description of what this assertion is checking and why.
+
+| `phases[].assertions[].type`
+| yes
+| Assertion family: `"count"` \| `"type"` \| `"payload"` \| `"meta"` \| `"llm-judge"` \| `"no-regression"`. See the Evals section under <<pipelines>> for full descriptions of each type.
+
+| `phases[].assertions[].op`
+| no
+| `count` only: comparison operator (`"=="`, `">="`, `"<="`, `">"`, `"<"`, `"!="`).
+
+| `phases[].assertions[].value`
+| no
+| `count` only: the number to compare `itemsProduced.length` against.
+
+| `phases[].assertions[].expected`
+| no
+| `type` only: item type name (string) or array of accepted type names.
+
+| `phases[].assertions[].expression`
+| no
+| `payload` and `meta` only: boolean expression evaluated per item. Variable `item` is the element.
+
+| `phases[].assertions[].scope`
+| no
+| `type`, `payload`, `meta` only: `"all"` (default, every item must match) \| `"any"` (at least one must match).
+
+| `phases[].assertions[].agentId`
+| no
+| `llm-judge` only: UUID of the judge agent. Receives all produced items as context and the assertion `instructions`. Must call `kanecta_judge_verdict('PASS' \| 'FAIL', reasoning)`.
+
+| `phases[].assertions[].instructions`
+| no
+| `llm-judge` only: what the judge agent should evaluate and how to decide. Be specific — vague instructions produce inconsistent verdicts across runs.
+
+| `phases[].assertions[].goldenItems`
+| no
+| `no-regression` only: UUIDs of reference output items stored in the eval definition.
+
+| `phases[].assertions[].matcher`
+| no
+| `no-regression` only: `"exact"` (identical payloads) \| `"semantic"` (embedding similarity) \| `"subset"` (all golden concepts present; extras allowed).
+|===
+
+[#evalRunPayload]
+=== evalRunPayload
+
+link:../built-in-types/types/eval-run.json[JSON Schema^]
+
+For `type: "eval-run"`. The execution record of a single eval invocation. Created when the eval runs and updated in place as the pipeline executes and assertions are evaluated. `parentId` is always the eval item UUID — eval runs accumulate as children of their eval.
+
+[source,json]
+----
+{
+  "evalId": "eval-uuid",
+  "pipelineRunId": "pipeline-run-uuid",
+  "status": "failed",
+  "startedAt": "2026-06-26T14:00:00Z",
+  "completedAt": "2026-06-26T14:08:33Z",
+  "phases": [
+    {
+      "phaseId": "capture",
+      "status": "passed",
+      "assertions": [
+        {
+          "id": "has-screenshots",
+          "status": "passed",
+          "detail": null,
+          "verdict": null,
+          "reasoning": null
+        }
+      ]
+    },
+    {
+      "phaseId": "audit",
+      "status": "failed",
+      "assertions": [
+        {
+          "id": "findings-are-correct-type",
+          "status": "passed",
+          "detail": null,
+          "verdict": null,
+          "reasoning": null
+        },
+        {
+          "id": "findings-have-valid-severity",
+          "status": "passed",
+          "detail": null,
+          "verdict": null,
+          "reasoning": null
+        },
+        {
+          "id": "findings-have-ai-confidence",
+          "status": "passed",
+          "detail": null,
+          "verdict": null,
+          "reasoning": null
+        },
+        {
+          "id": "findings-are-actionable",
+          "status": "failed",
+          "detail": null,
+          "verdict": "FAIL",
+          "reasoning": "Finding uuid-4 describes 'button looks different' without specifying which button, what the visual difference is, or its pixel dimensions. It cannot be handed to a developer as-is. All other findings are specific and actionable."
+        }
+      ]
+    }
+  ],
+  "error": null
+}
+----
+
+The eval run shows `status: "failed"` — the pipeline completed successfully but the `findings-are-actionable` LLM judge returned `FAIL`. The judge's reasoning is stored verbatim, pointing exactly at the vague finding.
+
+[cols="1,1,2", options="header"]
+|===
+| Field | Required | Description
+
+| `evalId`
+| yes
+| UUID of the `eval` item this run is executing. Also the `parentId` of this eval-run item.
+
+| `pipelineRunId`
+| yes
+| UUID of the `pipeline-run` item created for this eval execution. The full run record — phase statuses, `itemsProduced`, gate results — is there.
+
+| `status`
+| yes
+| Overall result. `"running"` — pipeline or assertions in progress. `"passed"` — all assertions passed. `"failed"` — one or more assertions failed (pipeline completed, output did not meet assertions). `"error"` — pipeline run itself failed before assertions could be evaluated.
+
+| `startedAt`
+| no
+| ISO 8601 timestamp when the eval run started.
+
+| `completedAt`
+| no
+| ISO 8601 timestamp when all assertion evaluation finished.
+
+| `phases`
+| yes
+| Per-phase assertion results, one entry per phase declared in the eval definition.
+
+| `phases[].phaseId`
+| yes
+| Matches the `phaseId` in the eval definition.
+
+| `phases[].status`
+| yes
+| `"pending"` — pipeline phase not yet complete. `"running"` — assertions evaluating. `"passed"` — all assertions in this phase passed. `"failed"` — one or more assertions failed. `"skipped"` — phase was skipped by the pipeline runner.
+
+| `phases[].assertions[].id`
+| yes
+| Matches the assertion `id` in the eval definition.
+
+| `phases[].assertions[].status`
+| yes
+| `"passed"` \| `"failed"` \| `"skipped"` \| `"error"`.
+
+| `phases[].assertions[].detail`
+| no
+| Human-readable failure explanation. For `count`: actual vs expected. For `payload`/`meta`: which items failed and their values. For `no-regression`: missing golden concepts. Null if passed.
+
+| `phases[].assertions[].verdict`
+| no
+| `llm-judge` only: `"PASS"` or `"FAIL"` as returned by `kanecta_judge_verdict`. Null for all other assertion types.
+
+| `phases[].assertions[].reasoning`
+| no
+| `llm-judge` only: the judge agent's reasoning, stored verbatim. This is the most valuable field in an eval failure — it explains exactly what was wrong with the output in plain language.
+
+| `error`
+| no
+| Top-level error if the eval run errored before completing assertion evaluation. Null otherwise.
+|===
+
+TIP: *CI integration* — trigger evals via `kanecta_run_eval` in your CI pipeline after a branch merge. If any eval-run returns `status: "failed"`, surface the `phases[].assertions[].reasoning` fields in the CI output — they read like test failure messages written by a senior reviewer.
 
 [#files-and-sidecars]
 == Files and Sidecars
