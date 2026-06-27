@@ -468,62 +468,141 @@ p{margin-bottom:1.25rem}
 <li><a href="#_well_known_types">5.3. Well-Known Types</a></li>
 </ul>
 </li>
-<li><a href="#payload-definitions">6. Payload Definitions</a>
+<li><a href="#item-placement">6. Item Placement</a>
 <ul class="sectlevel2">
-<li><a href="#_filepayload">6.1. filePayload</a></li>
-<li><a href="#_functionpayload">6.2. functionPayload</a></li>
-<li><a href="#_componentpayload">6.3. componentPayload</a></li>
-<li><a href="#_typepayload">6.4. typePayload</a>
+<li><a href="#_the_universal_parentid_rule">6.1. The universal parentId rule</a></li>
+<li><a href="#_synthetic_type_items">6.2. Synthetic type items</a></li>
+<li><a href="#_aspects">6.3. Aspects</a></li>
+<li><a href="#_well_known_payload_dimension_names">6.4. Well-known payload dimension names</a></li>
+</ul>
+</li>
+<li><a href="#payload-definitions">7. Payload Definitions</a>
+<ul class="sectlevel2">
+<li><a href="#_nodepayload">7.1. nodePayload</a></li>
+<li><a href="#_filepayload">7.2. filePayload</a></li>
+<li><a href="#_functionpayload">7.3. functionPayload</a></li>
+<li><a href="#_formulapayload">7.4. formulaPayload</a></li>
+<li><a href="#_componentpayload">7.5. componentPayload</a></li>
+<li><a href="#_typepayload">7.6. typePayload</a>
 <ul class="sectlevel3">
-<li><a href="#_meta_fields">6.4.1. meta fields</a></li>
-<li><a href="#_jsonschema_rules">6.4.2. jsonSchema rules</a></li>
-<li><a href="#_sqlschema_rules">6.4.3. sqlSchema rules</a></li>
+<li><a href="#_meta_fields">7.6.1. meta fields</a></li>
+<li><a href="#_jsonschema_rules">7.6.2. jsonSchema rules</a></li>
+<li><a href="#_sqlschema_rules">7.6.3. sqlSchema rules</a></li>
 </ul>
 </li>
-<li><a href="#_relationshippayload">6.5. relationshipPayload</a></li>
-<li><a href="#_grantpayload">6.6. grantPayload</a></li>
+<li><a href="#_aliaspayload">7.7. aliasPayload</a></li>
+<li><a href="#_relationshippayload">7.8. relationshipPayload</a></li>
+<li><a href="#aspectTypePayload">7.9. aspectTypePayload</a></li>
+<li><a href="#_grantpayload">7.10. grantPayload</a></li>
+<li><a href="#_viewpayload">7.11. viewPayload</a></li>
+<li><a href="#_contextpayload">7.12. contextPayload</a></li>
+<li><a href="#_rootpayload">7.13. rootPayload</a></li>
+<li><a href="#_referencepayload">7.14. referencePayload</a></li>
+<li><a href="#_subscriptionpayload">7.15. subscriptionPayload</a>
+<ul class="sectlevel3">
+<li><a href="#_channel_types">7.15.1. Channel types</a></li>
 </ul>
 </li>
-<li><a href="#files-and-sidecars">7. Files and Sidecars</a>
+<li><a href="#_itemhistorypayload">7.16. itemHistoryPayload</a></li>
+<li><a href="#_activitypayload">7.17. activityPayload</a></li>
+</ul>
+</li>
+<li><a href="#files-and-sidecars">8. Files and Sidecars</a>
 <ul class="sectlevel2">
-<li><a href="#_well_known_roles">7.1. Well-Known Roles</a></li>
-<li><a href="#_adapter_behaviour">7.2. Adapter Behaviour</a></li>
+<li><a href="#_well_known_roles">8.1. Well-Known Roles</a></li>
+<li><a href="#_sidecar_decision_rule_content_type_determines_storage">8.2. Sidecar decision rule (content-type determines storage)</a></li>
+<li><a href="#_adapter_behaviour">8.3. Adapter Behaviour</a></li>
 </ul>
 </li>
-<li><a href="#_search">8. Search</a>
+<li><a href="#filesystem-adapter-architecture">9. Filesystem Adapter Architecture</a>
 <ul class="sectlevel2">
-<li><a href="#_full_text_search_fts">8.1. Full-Text Search (FTS)</a></li>
-<li><a href="#_semantic_search_vector">8.2. Semantic Search (Vector)</a></li>
+<li><a href="#_layer_1_filesystem_source_of_truth">9.1. Layer 1: Filesystem (source of truth)</a></li>
+<li><a href="#_layer_2_sqlite_index_fast_always_rebuildable">9.2. Layer 2: SQLite index (fast, always rebuildable)</a></li>
+<li><a href="#_layer_3_memory_map_warm_cache_volatile">9.3. Layer 3: Memory Map (warm cache, volatile)</a></li>
+<li><a href="#_write_path_summary">9.4. Write path summary</a></li>
+<li><a href="#_read_path_summary">9.5. Read path summary</a></li>
+<li><a href="#_rebuildability_guarantee">9.6. Rebuildability guarantee</a></li>
 </ul>
 </li>
-<li><a href="#_inline_links">9. Inline Links</a></li>
-<li><a href="#external-type-systems">10. External Type Systems</a></li>
-<li><a href="#_multiple_trees">11. Multiple Trees</a></li>
-<li><a href="#_provenance_and_sharing">12. Provenance and Sharing</a></li>
-<li><a href="#type-lifecycle">13. Type Lifecycle</a>
+<li><a href="#_search">10. Search</a>
 <ul class="sectlevel2">
-<li><a href="#_open_mutable_draft">13.1. Open (mutable draft)</a></li>
-<li><a href="#_immutable_published_contract">13.2. Immutable (published contract)</a></li>
-<li><a href="#_superseded">13.3. Superseded</a></li>
-<li><a href="#_types_are_items">13.4. Types are Items</a></li>
+<li><a href="#_full_text_search_fts">10.1. Full-Text Search (FTS)</a></li>
+<li><a href="#_semantic_search_vector">10.2. Semantic Search (Vector)</a></li>
 </ul>
 </li>
-<li><a href="#_confidence_and_status">14. Confidence and Status</a></li>
-<li><a href="#_aspects">15. Aspects</a></li>
-<li><a href="#_templates">16. Templates</a></li>
-<li><a href="#_well_known_root_nodes">17. Well-Known Root Nodes</a></li>
-<li><a href="#_database_table_mapping">18. Database Table Mapping</a></li>
-<li><a href="#_business_rules">19. Business Rules</a>
+<li><a href="#_inline_links">11. Inline Links</a></li>
+<li><a href="#external-type-systems">12. External Type Systems</a></li>
+<li><a href="#_multiple_trees">13. Multiple Trees</a></li>
+<li><a href="#_provenance_and_sharing">14. Provenance and Sharing</a></li>
+<li><a href="#type-lifecycle">15. Type Lifecycle</a>
 <ul class="sectlevel2">
-<li><a href="#_creating_items">19.1. Creating Items</a></li>
-<li><a href="#_updating_items">19.2. Updating Items</a></li>
-<li><a href="#_deleting_items">19.3. Deleting Items</a></li>
-<li><a href="#_reading_items">19.4. Reading Items</a></li>
-<li><a href="#_datastore_initialisation">19.5. Datastore Initialisation</a></li>
+<li><a href="#_open_mutable_draft">15.1. Open (mutable draft)</a></li>
+<li><a href="#_immutable_published_contract">15.2. Immutable (published contract)</a></li>
+<li><a href="#_superseded">15.3. Superseded</a></li>
+<li><a href="#_types_are_items">15.4. Types are Items</a></li>
 </ul>
 </li>
-<li><a href="#_constraints">20. Constraints</a></li>
-<li><a href="#_file_specifications">21. File Specifications</a></li>
+<li><a href="#_confidence_and_status">16. Confidence and Status</a>
+<ul class="sectlevel2">
+<li><a href="#_ai_confidence_convention">16.1. AI confidence convention</a></li>
+</ul>
+</li>
+<li><a href="#_templates">17. Templates</a></li>
+<li><a href="#_well_known_root_node">18. Well-Known Root Node</a></li>
+<li><a href="#_database_table_mapping">19. Database Table Mapping</a>
+<ul class="sectlevel2">
+<li><a href="#_item_history_and_activity">19.1. item_history and activity</a></li>
+</ul>
+</li>
+<li><a href="#_business_rules">20. Business Rules</a>
+<ul class="sectlevel2">
+<li><a href="#_creating_items">20.1. Creating Items</a></li>
+<li><a href="#_updating_items">20.2. Updating Items</a></li>
+<li><a href="#_deleting_items">20.3. Deleting Items</a></li>
+<li><a href="#_reading_items">20.4. Reading Items</a></li>
+<li><a href="#_datastore_initialisation">20.5. Datastore Initialisation</a></li>
+</ul>
+</li>
+<li><a href="#_constraints">21. Constraints</a></li>
+<li><a href="#branching">22. Branching</a>
+<ul class="sectlevel2">
+<li><a href="#_branch_model_delta_not_copy">22.1. Branch model: delta, not copy</a></li>
+<li><a href="#_postgres_branching_tables">22.2. Postgres branching tables</a></li>
+<li><a href="#_branch_naming">22.3. Branch naming</a></li>
+<li><a href="#_sync_model">22.4. Sync model</a></li>
+<li><a href="#_merge">22.5. Merge</a></li>
+<li><a href="#_cqrs_projections">22.6. CQRS projections</a></li>
+<li><a href="#_pr_pre_flight_scan">22.7. PR pre-flight scan</a></li>
+<li><a href="#_item_references_derived_index">22.8. item_references derived index</a></li>
+</ul>
+</li>
+<li><a href="#graph-projection">23. Graph Projection (Apache AGE)</a>
+<ul class="sectlevel2">
+<li><a href="#_why_age">23.1. Why AGE</a></li>
+<li><a href="#_mapping">23.2. Mapping</a></li>
+<li><a href="#_sync">23.3. Sync</a></li>
+<li><a href="#_combined_search_scoring">23.4. Combined search scoring</a></li>
+</ul>
+</li>
+<li><a href="#_mcp_api_surface">24. MCP API Surface</a>
+<ul class="sectlevel2">
+<li><a href="#_core_item_tools">24.1. Core item tools</a></li>
+<li><a href="#_navigation_tools">24.2. Navigation tools</a></li>
+<li><a href="#_search_tools">24.3. Search tools</a></li>
+<li><a href="#_graph_query_tools">24.4. Graph query tools</a></li>
+<li><a href="#_relationship_tools">24.5. Relationship tools</a></li>
+<li><a href="#_annotation_tools">24.6. Annotation tools</a></li>
+</ul>
+</li>
+<li><a href="#_bootstrap_configuration">25. Bootstrap Configuration</a>
+<ul class="sectlevel2">
+<li><a href="#_config_file_discovery">25.1. Config file discovery</a></li>
+<li><a href="#_key_rules">25.2. Key rules</a></li>
+<li><a href="#_workspace_shape">25.3. Workspace shape</a></li>
+<li><a href="#_remote_types">25.4. Remote types</a></li>
+</ul>
+</li>
+<li><a href="#_file_specifications">26. File Specifications</a></li>
 </ul>
 </div>
 </div>
@@ -626,6 +705,22 @@ p{margin-bottom:1.25rem}
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Provenance fields</strong></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>ownerDomain</code>, <code>namespace</code>, <code>copyrightHolder</code>, <code>contentHash</code>, <code>mirrors</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong><code>view</code> and <code>context</code> types</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">First-class structured types. A <code>view</code> binds a specific item to a renderer and execution context — a single UUID pointing to all three. Used for bookmarking, sharing, embedding, and bootstrapping (<code>root.payload.entryPoint</code> points to a view item). A <code>context</code> describes the runtime and display environment; reusable and versioned.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong><code>reference</code> type</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Declared external dependencies on a UUID (physical engraving, external system, function argument/output, webhook, reactive subscription). Standalone relational item (like <code>relationship</code>). <code>blockDeletion: true</code> governs deletion of the target — the owning person controls the block via grants on the reference item.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Branching</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Delta/overlay model across all adapters. Branches are not copies — they store only what changed. Postgres uses schema-per-branch; S3 uses key prefixes; filesystem uses Git. See <a href="#branching">Branching</a>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong><code>reference</code> type and PR pre-flight</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Before any branch merge, the platform scans the blast radius of every changed UUID: structural references, declared <code>reference</code> items, active subscriptions. Merges blocked when unacknowledged <code>blockDeletion</code> references are present.</p></td>
 </tr>
 </tbody>
 </table>
@@ -735,7 +830,7 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 <div class="sect2">
 <h3 id="_the_item_section">4.2. The <code>item</code> Section</h3>
 <div class="paragraph">
-<p>Six fields. Always a short string for <code>value</code> (≤255 chars, stored <code>VARCHAR(255)</code> in databases).</p>
+<p>Seven fields. Always a short string for <code>value</code> (≤255 chars, stored <code>VARCHAR(255)</code> in databases).</p>
 </div>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
@@ -787,25 +882,40 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>sortOrder</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">number | null</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Numeric sort position among siblings, scoped per aspect.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Numeric sort position among siblings.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>aspect</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">string | UUID | null</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">When non-null, this item is a named dimension (aspect) of its parent. <code>parentId</code> then points to the item this is an aspect of — not a type item. A plain string (e.g. <code>"comments"</code>, <code>"joes-version"</code>) is an informal or unstructured dimension name. A UUID points to an <code>aspect-type</code> item that defines the schema and semantics of this dimension, enabling validation and typed queries. Null means this item is not an aspect — its <code>parentId</code> follows the normal rules.</p></td>
 </tr>
 </tbody>
 </table>
 <div class="sect3">
 <h4 id="parentid-rules">4.2.1. parentId Rules</h4>
+<div class="paragraph">
+<p><code>parentId</code> is always required. No item is parentless. The value of <code>parentId</code> depends on the item&#8217;s type and whether it carries an <code>aspect</code> field:</p>
+</div>
 <div class="ulist">
 <ul>
 <li>
-<p><code>parentId</code> is always required. No item is parentless.</p>
+<p><strong>Root</strong> → self-referencing: <code>id = parentId = "00000000-0000-0000-0000-000000000000"</code>.</p>
 </li>
 <li>
-<p>The <strong>root</strong> item is self-referencing: <code>id = parentId = "00000000-0000-0000-0000-000000000000"</code> (the well-known all-zeros UUID).</p>
+<p><strong>Aspect items</strong> (<code>aspect</code> is non-null) → <code>parentId</code> = UUID of the item this is a named dimension of.</p>
 </li>
 <li>
-<p><strong>Typed objects</strong> (<code>type: "object"</code>) use their type item&#8217;s UUID as <code>parentId</code> — they live in the type&#8217;s collection. Symlinks place them in the user-facing tree wherever needed.</p>
+<p><strong>Payload-less primitives</strong> (<code>string</code>, <code>number</code>, <code>text</code>, <code>heading</code>, <code>url</code>) → <code>parentId</code> = their actual parent in the tree. These are content items — they have no type bucket and no synthetic type item.</p>
 </li>
 <li>
-<p><strong>Free-form items</strong> use their tree parent&#8217;s UUID.</p>
+<p><strong>User-defined objects</strong> (<code>type: "object"</code>) → <code>parentId</code> = their custom type item UUID (<code>item.typeId</code>).</p>
+</li>
+<li>
+<p><strong>All other built-in typed items</strong> → <code>parentId</code> = the synthetic type item for that built-in type, bootstrapped at datastore initialisation.</p>
+</li>
+<li>
+<p><strong>Additional-tree nodes</strong> (<code>type: "node"</code>) → <code>parentId</code> = parent node UUID, or tree item UUID for root-level nodes.</p>
 </li>
 <li>
 <p>Circular <code>parentId</code> chains (other than the root self-reference) are not permitted.</p>
@@ -1009,6 +1119,30 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 <td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Sidecar file map. See <a href="#files-and-sidecars">Files and Sidecars</a>.</p></td>
 </tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>layer</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"system"</code> | <code>"app"</code> | <code>"user"</code> | null</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Which layer of the platform this item belongs to. <code>system</code> — core platform infrastructure, bootstrapped by the Kanecta runtime (e.g. root, built-in type definitions, license items). <code>app</code> — application-level definitions authored by developers or integrators (e.g. custom types, component definitions, formulas). <code>user</code> — items created by end users in normal use. Null is treated as <code>user</code>. Used for access control defaults, UI filtering, and determining what is safe to wipe during a workspace reset. Note: this field is named <code>layer</code> rather than <code>namespace</code> to avoid collision with the existing <code>namespace</code> org-hierarchy field.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>sourceSystem</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">string | null</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Identifier of the external system this item was ingested from (e.g. <code>"jira"</code>, <code>"github"</code>, <code>"xero"</code>). Null for items created natively in Kanecta. Used with <code>sourceExternalId</code> to detect duplicate ingestion and to route sync operations back to the correct external system.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>sourceExternalId</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">string | null</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The ID of this record in the source external system (e.g. a Jira issue key <code>"ENG-1234"</code>, a GitHub issue number <code>"42"</code>). Null for native items. The combination of <code>sourceSystem</code> + <code>sourceExternalId</code> must be unique per workspace — the adapter enforces this as a unique index to prevent duplicate ingestion.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>sourceRunId</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">string | null</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Identifier of the ingestion run that created or last updated this item (e.g. a UUID or a pipeline run ID). Null for native items or manual edits. Enables tracing which sync run last touched each item and rolling back a faulty ingestion run.</p></td>
+</tr>
 </tbody>
 </table>
 <div class="admonitionblock tip">
@@ -1018,7 +1152,7 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 <i class="fa icon-tip" title="Tip"></i>
 </td>
 <td class="content">
-<strong>Postgres</strong> — all timestamp columns must be <code>TIMESTAMPTZ</code>. Applications always write UTC. <code>tags</code> is stored as <code>TEXT[] NOT NULL DEFAULT '{}'</code> with a GIN index (<code>CREATE INDEX idx_items_tags ON items USING GIN (tags)</code>) — no separate junction table.
+<strong>Postgres</strong> — all timestamp columns must be <code>TIMESTAMPTZ</code>. Applications always write UTC. <code>tags</code> is stored as <code>TEXT[] NOT NULL DEFAULT '{}'</code> with a GIN index (<code>CREATE INDEX idx_items_tags ON items USING GIN (tags)</code>) — no separate junction table. <code>source_system</code> + <code>source_external_id</code> carry a partial unique index: <code>CREATE UNIQUE INDEX idx_items_source ON items (source_system, source_external_id) WHERE source_system IS NOT NULL AND source_external_id IS NOT NULL</code>.
 </td>
 </tr>
 </table>
@@ -1117,7 +1251,7 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 <div class="sect2">
 <h3 id="_the_payload_section">4.5. The <code>payload</code> Section</h3>
 <div class="paragraph">
-<p>Type-specific content. Null for primitive items that carry no structured data. Required for <code>function</code>, <code>type</code>, <code>grant</code>, <code>relationship</code>, <code>component</code>, and <code>file</code> items. Present for <code>object</code> items as a free-form key-value object validated at runtime against the type&#8217;s <code>jsonSchema</code>.</p>
+<p>Type-specific content. Null for primitive items that carry no structured data. Required for <code>function</code>, <code>type</code>, <code>grant</code>, <code>relationship</code>, <code>component</code>, <code>file</code>, <code>view</code>, <code>context</code>, and <code>root</code> items. Present for <code>object</code> items as a free-form key-value object validated at runtime against the type&#8217;s <code>jsonSchema</code>.</p>
 </div>
 <div class="paragraph">
 <p>Payload shapes are defined per type — see <a href="#payload-definitions">Payload Definitions</a>.</p>
@@ -1189,6 +1323,11 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 <td class="tableblock halign-left valign-top"><p class="tableblock">null</p></td>
 </tr>
 <tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>formula</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A reusable calculation. Three levels: template string (<code>"TASK-{n}"</code>), Excel-like DSL evaluated by formulajs, or a pointer to a <code>function</code> item for full programmatic power. Referenced by UUID from wherever a computed value is needed.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>formulaPayload</code> (required)</p></td>
+</tr>
+<tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>function</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">A typed function definition with optional implementation.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>functionPayload</code> (required)</p></td>
@@ -1235,6 +1374,16 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </tr>
 </thead>
 <tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>type</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A custom type definition. The meta-type — <code>object</code> instances live under their type item as their canonical home. Type items themselves live under a bootstrapper-created collection tree under root.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>typePayload</code> (required)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>alias</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A human-readable string that resolves to a UUID. The alias string lives in <code>item.value</code>; lookup is case-insensitive. Distinct from <code>symlink</code> — a symlink is a tree-placement item; an alias is a string lookup. Lives under the aliased item as its canonical home. Provisional aliases are computed locally at creation and confirmed as globally unique at merge time.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>aliasPayload</code> (required)</p></td>
+</tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>object</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">An instance of a custom type definition. <code>item.typeId</code> identifies the type.</p></td>
@@ -1292,8 +1441,43 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>relationship</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">A typed, first-class relationship between two items.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A typed, first-class relationship between two items. <code>typeId</code> points to a <code>relationship-type</code> item.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>relationshipPayload</code> (required)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>relationship-type</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Defines a relationship vocabulary entry — the meta-type for relationship instances. Carries <code>meta.directional</code> and <code>meta.inverse</code> (UUID of the paired inverse). <code>jsonSchema</code> validates the <code>data</code> payload on instances. Nine canonical instances are bootstrapped as system items.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>typePayload</code> (shared schema with type items)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>view</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A specific perspective on an item: item + renderer + context. The view UUID is a single pointer to all three. Used for bookmarking, sharing, embedding, and bootstrapping.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>viewPayload</code> (required)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>context</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">An execution and display environment (runtime + display position + capabilities). First-class item — reusable, versioned, shareable across view bindings.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>contextPayload</code> (required)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>reference</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A declared dependency on a UUID that exists outside the item graph — physical (engraved on machinery, printed on a label, QR code), external system, function argument, or function output. <code>payload.blockDeletion: true</code> prevents deletion of the target until this reference is resolved. <code>parentId</code> is the synthetic reference type item UUID (universal rule); <code>payload.targetId</code> identifies the item being depended on. Structural references (inline <code><a id="uuid"></a></code> links, payload UUID fields, <code>parentId</code>) are tracked automatically in the <code>item_references</code> derived index; <code>reference</code> items cover declared and manual cases.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>referencePayload</code> (required)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>subscription</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A live notification channel registered against a UUID. Distinct from <code>reference</code> — a subscription is about change notification, not external dependency or deletion protection. <code>payload.targetId</code> identifies the watched item.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>subscriptionPayload</code> (required)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>item_history</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">An event in an item&#8217;s lifecycle. Fully event-source capable — the complete sequence for any <code>targetId</code> is sufficient to replay and reconstruct any past state. <code>payload.targetId</code> identifies the item being recorded.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>itemHistoryPayload</code> (required)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>activity</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A discrete workspace event (item viewed, search performed, sync completed). Distinct from <code>item_history</code> — activity tracks what happened, history tracks what changed. <code>payload.targetId</code> identifies the related item (null for workspace-level events).</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>activityPayload</code> (required)</p></td>
 </tr>
 </tbody>
 </table>
@@ -1301,7 +1485,7 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 <div class="sect2">
 <h3 id="_well_known_types">5.3. Well-Known Types</h3>
 <div class="paragraph">
-<p>Reserved system root nodes. Created once during datastore initialisation. Never used for user data.</p>
+<p><code>root</code> is the only well-known type. It is the fixed bootstrap anchor — the one UUID every adapter knows before reading any data.</p>
 </div>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
@@ -1320,38 +1504,259 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>root</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>00000000-0000-0000-0000-000000000000</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">The universal root. Self-referencing <code>parentId</code>.</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>system_root</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Generated UUID</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">System and infrastructure items.</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>app_root</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Generated UUID</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Application-layer configuration items.</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>component_root</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Generated UUID</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Kanecta component items.</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>data_root</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Generated UUID</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">All user data lives here.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The universal root. Self-referencing <code>parentId</code>. Created once at initialisation; never used for user data.</p></td>
 </tr>
 </tbody>
 </table>
+<div class="paragraph">
+<p>All other top-level groupings (system layer, app layer, data layer, etc.) are ordinary <code>tree</code> items created as children of root by the bootstrapper. Access separation is enforced via <code>grant</code> items on those trees, not by reserving types in the spec. New groupings are a data change, not a spec change.</p>
+</div>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="payload-definitions">6. Payload Definitions</h2>
+<h2 id="item-placement">6. Item Placement</h2>
 <div class="sectionbody">
 <div class="sect2">
-<h3 id="_filepayload">6.1. filePayload</h3>
+<h3 id="_the_universal_parentid_rule">6.1. The universal parentId rule</h3>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p><code>parentId</code> is always required. The value depends on which of the following cases applies — in priority order:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p><strong>Root</strong> → self-referencing: <code>parentId = id = 00000000-0000-0000-0000-000000000000</code>.</p>
+</li>
+<li>
+<p><strong>Aspect items</strong> (<code>item.aspect</code> is non-null) → <code>parentId</code> = UUID of the item this is a named dimension of. The aspect field, not the type, governs parentId for these items.</p>
+</li>
+<li>
+<p><strong>Payload-less primitives</strong> (<code>string</code>, <code>number</code>, <code>text</code>, <code>heading</code>, <code>url</code>) → <code>parentId</code> = their actual parent in the tree. These are content items — a string field of a task lives under that task. There is no type bucket for bare primitive values and no synthetic type item for these types.</p>
+</li>
+<li>
+<p><strong>User-defined objects</strong> (<code>type: "object"</code>) → <code>parentId</code> = their custom type item UUID (<code>item.typeId</code>). They live in the type&#8217;s collection.</p>
+</li>
+<li>
+<p><strong>All other built-in typed items</strong> → <code>parentId</code> = the synthetic type item for that built-in type, bootstrapped at datastore initialisation.</p>
+</li>
+<li>
+<p><strong>Additional-tree nodes</strong> (<code>type: "node"</code>) → <code>parentId</code> = parent node UUID, or tree item UUID for root-level nodes.</p>
+</li>
+</ol>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>For structured built-in types (grant, alias, relationship, subscription, item_history, activity, etc.), the semantic relationship to another item is <strong>always carried in the payload</strong>, never encoded in <code>parentId</code>. A <code>grant</code> item&#8217;s <code>governedItemId</code> says what it governs. An <code>alias</code> item&#8217;s <code>targetId</code> says what it aliases. <code>parentId</code> says only one thing for these items: which type they belong to.</p>
+</div>
+<div class="paragraph">
+<p>For aspect items and payload-less primitives, <code>parentId</code> carries the real tree position directly — there is no indirection through a type.</p>
+</div>
+<div class="paragraph">
+<p>These rules are hard constraints enforced at write time by every adapter.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_synthetic_type_items">6.2. Synthetic type items</h3>
+<div class="paragraph">
+<p>Most built-in types have a corresponding synthetic type item created at datastore initialisation. These items have type <code>"type"</code>, <code>layer: "system"</code>, and a stable well-known UUID assigned at init (stored in the bootstrapper). They are the canonical homes for all instances of their type.</p>
+</div>
+<div class="paragraph">
+<p>Built-in types with synthetic type items: <code>alias</code>, <code>annotation</code>, <code>aspect-type</code>, <code>claim</code>, <code>component</code>, <code>concept</code>, <code>context</code>, <code>decision</code>, <code>entity</code>, <code>event</code>, <code>file</code>, <code>formula</code>, <code>function</code>, <code>grant</code>, <code>item_history</code>, <code>activity</code>, <code>note</code>, <code>object</code>, <code>question</code>, <code>reference</code>, <code>relationship</code>, <code>relationship-type</code>, <code>runner</code>, <code>subscription</code>, <code>symlink</code>, <code>task</code>, <code>tree</code>, <code>view</code>.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+The payload-less primitive types — <code>string</code>, <code>number</code>, <code>text</code>, <code>heading</code>, <code>url</code> — do <strong>not</strong> have synthetic type items. These types are content items that live directly under their parent in the tree. Creating a synthetic type bucket for bare strings or numbers would produce a meaningless collection of decontextualised values. Their <code>parentId</code> is always their actual tree parent.
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_aspects">6.3. Aspects</h3>
+<div class="paragraph">
+<p>An aspect is a named dimension of an item. Any item can be marked as an aspect of its parent by setting the <code>aspect</code> field to a non-null value. When <code>aspect</code> is set, <code>parentId</code> is the UUID of the item this is a dimension of — the aspect item is a direct child of that item in the primary tree.</p>
+</div>
+<div class="paragraph">
+<p>A company procedure might have a <code>"simplified"</code> aspect (a trimmed-down version for new starters), a <code>"joes-version"</code> aspect (a personal adaptation), a <code>"financial-costs"</code> aspect (cost breakdown for finance), and a <code>"comments"</code> aspect (discussion). Each of these is a real item — with its own type, its own payload, its own embedding — whose <code>parentId</code> is the procedure UUID and whose <code>aspect</code> field names the dimension.</p>
+</div>
+<div class="paragraph">
+<p>The <code>aspect</code> field is a string or a UUID:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Plain string</strong> — an informal or unstructured dimension name (<code>"comments"</code>, <code>"joes-version"</code>, <code>"draft"</code>). No schema enforced. Good for personal use, unstructured content, or dimensions whose structure is implicit.</p>
+</li>
+<li>
+<p><strong>UUID</strong> — points to an <code>aspect-type</code> item (see <a href="#aspectTypePayload">aspectTypePayload</a>). The aspect-type item defines the schema, cardinality rules, and semantics of this dimension, enabling validation and structured queries across all items of a given aspect type. Use this when the dimension has consistent structure across many parents — for example, a <code>"financial-costs"</code> aspect-type might define a schema requiring <code>amount</code>, <code>currency</code>, and <code>approvedBy</code> fields.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Because each aspect item is a full Kanecta item, it carries its own <code>search.embedding</code>. This makes aspect dimensions queryable in semantic space independently of the parent item&#8217;s embedding — you can search for "procedures with a financial-costs aspect similar to budget X" by querying the embeddings of financial-costs aspect items directly, without loading the parent procedures. Each named dimension is its own projection of the parent into semantic space.</p>
+</div>
+<div class="paragraph">
+<p>Any item type can be an aspect: a <code>note</code>, an <code>object</code> with a user-defined type, a <code>file</code>, a <code>task</code>. The aspect field is what distinguishes "this is a named dimension of my parent" from "this is a standalone item that happens to be a child."</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_well_known_payload_dimension_names">6.4. Well-known payload dimension names</h3>
+<div class="paragraph">
+<p>The following built-in types use a payload reference field (not the aspect pattern) to associate themselves with another item. The conventional dimension names below are used by tooling and adapters when presenting these associations, but the items themselves live under their synthetic type UUID — not as children of the referenced item.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col width="25%">
+<col width="25%">
+<col width="50%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Type</th>
+<th class="tableblock halign-left valign-top">Dimension name</th>
+<th class="tableblock halign-left valign-top">Payload field referencing the associated item</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>grant</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"grants"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>payload.governedItemId</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>relationship</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"relationships"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>payload.sourceId</code> (or <code>targetId</code> for inbound)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>reference</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"references"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>payload.targetId</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>subscription</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"subscriptions"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>payload.targetId</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>alias</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"aliases"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>payload.targetId</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>view</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"views"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>payload.itemId</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>item_history</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"history"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>payload.targetId</code></p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>To query all grants governing item X: <code>SELECT * FROM items WHERE type = 'grant' AND payload&#8594;&gt;'governedItemId' = $x</code>. To query all aliases for item X: <code>SELECT * FROM items WHERE type = 'alias' AND payload&#8594;&gt;'targetId' = $x</code>. The adapter maintains derived lookup tables (e.g. <code>payload_grant</code>, <code>aliases</code>) for O(1) access — these are always rebuildable from items and are never the source of truth.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="payload-definitions">7. Payload Definitions</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_nodepayload">7.1. nodePayload</h3>
+<div class="paragraph">
+<p>For <code>type: "node"</code>. Places an item in a named additional tree. The <code>node</code> item&#8217;s own <code>parentId</code> is the UUID of the parent node (or the <code>tree</code> item UUID for root-level nodes) — this is how the tree structure is encoded. <code>item.value</code> on a node is null; the referenced item&#8217;s value is displayed instead.</p>
+</div>
+<div class="paragraph">
+<p>This is distinct from the primary tree, where items carry <code>parentId</code> directly. Additional trees use <code>node</code> items as indirection so the same item can appear in multiple trees simultaneously without symlinks — each tree gets its own node items pointing at the same target.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-json" data-lang="json">{
+  "target": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "path": "/00000000-0000-0000-0000-000000000000/a1b2-node/b3c4-node",
+  "sortOrder": 3,
+  "aspect": null
+}</code></pre>
+</div>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col width="16.6666%">
+<col width="16.6666%">
+<col width="16.6666%">
+<col width="50.0002%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Type</th>
+<th class="tableblock halign-left valign-top">Required</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>target</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">UUID string</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">UUID of the item this node positions in the tree. The item itself is unmodified — it has no knowledge of this node.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>path</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">string</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Materialized path: <code>/{tree-uuid}/{ancestor-node-uuid}/&#8230;&#8203;/{this-node-uuid}</code>. Separator is <code>/</code>. Stored for query performance — always rebuildable by walking the <code>parentId</code> chain of node items. Source of truth is <code>parentId</code>; path is derived.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>sortOrder</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">integer</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Sort position among siblings. Lower numbers appear first. Defaults to 0.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>aspect</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">string | null</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Optional dimension label. <code>null</code> = normal content node. Named strings indicate the role this node plays (e.g. <code>"history"</code>, <code>"annotations"</code>, <code>"archive"</code>). Allows a single item to participate in multiple conceptual layers of the same tree.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p><strong>Moving a node</strong> — update <code>parentId</code> and <code>path</code> on the node item, and update <code>path</code> on all descendant nodes. The target item is not touched.</p>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+<strong>Postgres</strong> — the <code>payload_node</code> table exists alongside the main <code>items</code> table for efficient tree queries. Schema: <code>CREATE TABLE payload_node (id UUID PRIMARY KEY REFERENCES items(id), target UUID NOT NULL REFERENCES items(id), parent_id UUID REFERENCES payload_node(id), path TEXT NOT NULL UNIQUE, sort_order INTEGER NOT NULL DEFAULT 0, aspect VARCHAR(50))</code>. Index on <code>(parent_id, sort_order)</code> for children queries; index on <code>path</code> with <code>LIKE</code> for subtree queries.
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_filepayload">7.2. filePayload</h3>
 <div class="paragraph">
 <p>For <code>type: "file"</code>. Replaces the former <code>image</code> and <code>markdown</code> primitives — use <code>mimeType</code> to distinguish.</p>
 </div>
@@ -1418,7 +1823,7 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </div>
 </div>
 <div class="sect2">
-<h3 id="_functionpayload">6.2. functionPayload</h3>
+<h3 id="_functionpayload">7.3. functionPayload</h3>
 <div class="paragraph">
 <p>For <code>type: "function"</code>. The function name lives in <code>item.value</code>.</p>
 </div>
@@ -1482,7 +1887,214 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </div>
 </div>
 <div class="sect2">
-<h3 id="_componentpayload">6.3. componentPayload</h3>
+<h3 id="_formulapayload">7.4. formulaPayload</h3>
+<div class="paragraph">
+<p>For <code>type: "formula"</code>. A reusable calculation that can be referenced by UUID from anywhere a computed value is needed — alias generation, <code>primaryField</code> derivation, derived fields, display labels, or any other context. The formula name/label lives in <code>item.value</code>.</p>
+</div>
+<div class="paragraph">
+<p>A formula item is independent of its consumer. A type&#8217;s <code>aliasFormulas</code> map references formula UUIDs; a formula does not know or care that it is used for aliases. The same formula item can be referenced from multiple consumers simultaneously.</p>
+</div>
+<div class="paragraph">
+<p>Three levels of increasing power, controlled by <code>payload.level</code>:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col width="14.2857%">
+<col width="42.8571%">
+<col width="42.8572%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Level</th>
+<th class="tableblock halign-left valign-top"><code>expression</code></th>
+<th class="tableblock halign-left valign-top">Use when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>template</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">String with <code>{variable}</code> placeholders. e.g. <code>"TASK-{n}"</code>, <code>"INV-{year}-{n}"</code>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The value is a simple string with one or more substituted variables. No computation beyond interpolation.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>dsl</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Excel-like formula string evaluated by <a href="https://formulajs.info">formulajs</a> (MIT). e.g. <code>"=CONCAT(\"TASK-\", TEXT(n, \"0000\"))"</code>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Arithmetic, string functions, date functions, conditional logic. Kanecta-specific extension functions are registered alongside the standard formulajs library.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>function</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Not used — set <code>functionId</code> instead.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Full programmatic power. The formula delegates to a <code>function</code> item. Use when the DSL cannot express the required logic.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-json" data-lang="json">{
+  "level": "template",
+  "expression": "TASK-{n}",
+  "description": "Default task identifier: type prefix followed by a workspace-scoped sequence number."
+}</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-json" data-lang="json">{
+  "level": "dsl",
+  "expression": "=CONCAT(\"INV-\", TEXT(year, \"0000\"), \"-\", TEXT(n, \"000\"))",
+  "description": "Invoice number: INV-&lt;year&gt;-&lt;sequence&gt;, e.g. INV-2026-001."
+}</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-json" data-lang="json">{
+  "level": "function",
+  "functionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "description": "Custom invoice number that checks external accounting system for conflicts."
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><strong>Fields</strong></p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col width="16.6666%">
+<col width="16.6666%">
+<col width="16.6666%">
+<col width="50.0002%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Type</th>
+<th class="tableblock halign-left valign-top">Required</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>level</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"template" | "dsl" | "function"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Which evaluation level this formula uses.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>expression</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">string</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">When <code>level</code> is <code>template</code> or <code>dsl</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The formula expression. For <code>template</code>: a string with <code>{variable}</code> placeholders. For <code>dsl</code>: an Excel-like formula string (must begin with <code>=</code>).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>functionId</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">UUID string</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">When <code>level</code> is <code>function</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">UUID of the <code>function</code> item to delegate to.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>description</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">string</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Human-readable explanation of what this formula computes and any non-obvious behaviour.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p><strong>Built-in variables</strong></p>
+</div>
+<div class="paragraph">
+<p>Available in both <code>template</code> (as <code>{variable}</code>) and <code>dsl</code> (as plain identifiers, e.g. <code>n</code>, <code>year</code>) levels:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col width="25%">
+<col width="75%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Variable</th>
+<th class="tableblock halign-left valign-top">Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>n</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Auto-incrementing integer, scoped per type per workspace. Monotonically increasing — never reused even if items are deleted.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>year</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Current 4-digit year as an integer (e.g. <code>2026</code>).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>month</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Current 2-digit month as an integer (<code>1</code>–<code>12</code>).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>date</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Current date as <code>YYYY-MM-DD</code> string.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>type</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The type name string of the item being processed (e.g. <code>"task"</code>).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>uuid8</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">First 8 characters of the new item&#8217;s UUID. Useful for short, collision-resistant identifiers.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>field.&lt;name&gt;</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The current value of a named field on the item being processed (e.g. <code>field.project</code> resolves the <code>project</code> field). In DSL level, use the extension function <code>FIELD("name")</code>.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p><strong>DSL extension functions</strong></p>
+</div>
+<div class="paragraph">
+<p>The following Kanecta-specific functions are registered alongside the standard formulajs library and available in <code>dsl</code> level formulas:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col width="25%">
+<col width="75%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Function</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ITEM(uuid, fieldName)</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Resolves the value of <code>fieldName</code> on the item with the given UUID. Enables cross-item lookups within a formula.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>SEQ(typeId)</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Returns the next sequence number for the given type UUID (same as the <code>n</code> variable, but addressable by type UUID for cross-type sequences).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>FIELD(name)</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Returns the value of the named field on the item being processed. Equivalent to the <code>field.&lt;name&gt;</code> template variable.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<code>formulajs</code> (MIT licence) is the evaluation engine for <code>dsl</code> level formulas. Only a declarative subset of formula evaluation is supported — no side effects, no I/O, no async. Formulas that require I/O or external calls must use <code>level: "function"</code> with a <code>functionId</code> instead.
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_componentpayload">7.5. componentPayload</h3>
 <div class="paragraph">
 <p>For <code>type: "component"</code>. Describes a React component. Return type is always <code>ReactNode</code> — implicit, no field. The component body (JSX/TSX) lives in <code>meta.files.body = "body.tsx"</code>.</p>
 </div>
@@ -1503,7 +2115,7 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </div>
 </div>
 <div class="sect2">
-<h3 id="_typepayload">6.4. typePayload</h3>
+<h3 id="_typepayload">7.6. typePayload</h3>
 <div class="paragraph">
 <p>For <code>type: "type"</code>. Defines a custom Kanecta type. Three top-level keys: <code>meta</code>, <code>jsonSchema</code>, <code>sqlSchema</code>.</p>
 </div>
@@ -1516,6 +2128,9 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
     "primaryField": "name",
     "searchFields": ["name", "bio", "email"],
     "componentId": null,
+    "aliasFormulas": {
+      "default": "f9e8d7c6-b5a4-3210-fedc-ba9876543210"
+    },
     "functions": [],
     "sync": [],
     "supersededBy": [],
@@ -1540,7 +2155,7 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </div>
 </div>
 <div class="sect3">
-<h4 id="_meta_fields">6.4.1. meta fields</h4>
+<h4 id="_meta_fields">7.6.1. meta fields</h4>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
 <col width="33.3333%">
@@ -1572,6 +2187,10 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>tags</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Comma-separated grouping tags.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>aliasFormulas</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Map of named formula references for alias auto-generation. Keys are arbitrary scope names (<code>"default"</code> is conventional); values are UUIDs of <code>formula</code> items. When an instance of this type is created, the adapter evaluates each formula and creates a provisional <code>alias</code> item under the new item for each entry. A type with no <code>aliasFormulas</code> generates no automatic aliases — aliases can still be created manually. Example: <code>{ "default": "&lt;formulaId&gt;", "invoice": "&lt;formulaId2&gt;" }</code>. The <code>formula</code> items referenced here are independent items; they are not embedded in typePayload.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>primaryField</code></p></td>
@@ -1621,7 +2240,7 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </table>
 </div>
 <div class="sect3">
-<h4 id="_jsonschema_rules">6.4.2. jsonSchema rules</h4>
+<h4 id="_jsonschema_rules">7.6.2. jsonSchema rules</h4>
 <div class="paragraph">
 <p>JSON Schema Draft-07 for instances. Types are <strong>flat — exactly one level deep</strong>. Each property must carry a stable <code>"x-id"</code> UUID. Property types must be:</p>
 </div>
@@ -1643,7 +2262,7 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </div>
 </div>
 <div class="sect3">
-<h4 id="_sqlschema_rules">6.4.3. sqlSchema rules</h4>
+<h4 id="_sqlschema_rules">7.6.3. sqlSchema rules</h4>
 <div class="paragraph">
 <p>Ordered SQL DDL statements (PostgreSQL dialect) that create all storage for instances of this type. Defined once at type creation — a changed shape is a new type.</p>
 </div>
@@ -1686,17 +2305,158 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </div>
 </div>
 <div class="sect2">
-<h3 id="_relationshippayload">6.5. relationshipPayload</h3>
+<h3 id="_aliaspayload">7.7. aliasPayload</h3>
 <div class="paragraph">
-<p>For <code>type: "relationship"</code>. A typed, first-class relationship between two items.</p>
+<p>For <code>type: "alias"</code>. The alias string itself lives in <code>item.value</code> — this is the human-readable label the user types to address the target item. Lookup is always case-insensitive; the adapter normalises to lowercase when querying but preserves original casing in <code>item.value</code> for display.</p>
+</div>
+<div class="paragraph">
+<p>The alias item&#8217;s <code>parentId</code> is the synthetic <code>alias</code> type item UUID (the universal rule). The relationship to the aliased item is carried entirely in <code>payload.targetId</code>. The adapter maintains a derived <code>aliases</code> lookup table for O(1) string resolution, but that table is rebuilt from items and is never the source of truth.</p>
 </div>
 <div class="listingblock">
 <div class="content">
 <pre class="highlight"><code class="language-json" data-lang="json">{
-  "relationshipType": "evidenced-by",
+  "targetId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "scope": "org",
+  "provisional": false,
+  "confirmedAt": "2026-06-25T09:14:00Z",
+  "computedFrom": null
+}</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-json" data-lang="json">{
+  "targetId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "scope": "type",
+  "provisional": true,
+  "confirmedAt": null,
+  "computedFrom": {
+    "formulaId": "f9e8d7c6-b5a4-3210-fedc-ba9876543210"
+  }
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><strong>Fields</strong></p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col width="16.6666%">
+<col width="16.6666%">
+<col width="16.6666%">
+<col width="50.0002%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Type</th>
+<th class="tableblock halign-left valign-top">Required</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>targetId</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">UUID string</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The item this alias resolves to. Also the alias item&#8217;s <code>parentId</code> — the alias lives under its target in the tree.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>scope</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"personal" | "org" | "type"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Visibility layer. <code>personal</code> — visible only in the personal workspace. <code>org</code> — shared across the org workspace. <code>type</code> — defined at the type level, applies to all items of that type (usually formula-generated).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>provisional</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">boolean</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code> when the alias was computed locally at creation time and has not yet been confirmed as globally unique. <code>false</code> once confirmed. Provisional aliases are valid for local use; they are checked for conflicts during PR pre-flight (merge time).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>confirmedAt</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ISO 8601 datetime | null</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Timestamp of the merge-time uniqueness check that confirmed this alias. <code>null</code> while <code>provisional: true</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>computedFrom</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">object | null</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">If this alias was generated by a formula, contains <code>{ "formulaId": "&lt;UUID&gt;" }</code>. <code>null</code> for manually created aliases.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p><strong>Scope layers and conflict resolution</strong></p>
+</div>
+<div class="paragraph">
+<p>Aliases are resolved in scope order: <code>personal</code> overrides <code>org</code>, which overrides <code>type</code>. If two aliases in the same scope match the same lookup string, the adapter surfaces the full list and the user selects the intended target — Kanecta does not silently pick one. Users can set a preferred ordering per-scope.</p>
+</div>
+<div class="paragraph">
+<p><strong>Provisional alias lifecycle</strong></p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Item is created. If its type has an <code>aliasFormulas</code> entry, the adapter evaluates the formula locally and creates an alias item with <code>provisional: true</code> and <code>confirmedAt: null</code>.</p>
+</li>
+<li>
+<p>The branch is used locally. Provisional aliases work for local lookups.</p>
+</li>
+<li>
+<p>A PR is opened. Pre-flight scans for alias conflicts: checks whether any provisional alias on this branch collides with a confirmed alias on the target branch.</p>
+</li>
+<li>
+<p>If no conflict: alias is confirmed — <code>provisional</code> set to <code>false</code>, <code>confirmedAt</code> set to the merge timestamp.</p>
+</li>
+<li>
+<p>If conflict: the formula is re-evaluated with a different <code>n</code> (or the user is prompted). A new alias item replaces the provisional one.</p>
+</li>
+</ol>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+The <code>n</code> variable in formula evaluation is workspace-scoped and monotonically increasing. It is never reused even if an alias item is deleted — this prevents silent alias collisions after deletions.
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+<strong>Postgres</strong> — the derived aliases lookup table schema: <code>CREATE TABLE aliases (alias TEXT NOT NULL, target_id UUID NOT NULL REFERENCES items(id), scope TEXT NOT NULL, workspace_id UUID NOT NULL, PRIMARY KEY (alias, scope, workspace_id))</code>. Rebuilt in full on workspace open; updated incrementally on item write.
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_relationshippayload">7.8. relationshipPayload</h3>
+<div class="paragraph">
+<p>For <code>type: "relationship"</code>. A typed, first-class relationship between two items. The human-readable label lives in <code>item.value</code> (e.g. <code>"depends on"</code>).</p>
+</div>
+<div class="paragraph">
+<p>Relationship types are themselves first-class items (<code>type: "relationship-type"</code>) — not string slugs. <code>typeId</code> points to the relationship-type item that defines this edge&#8217;s schema, directional semantics, and inverse pairing. Nine canonical relationship-type system items are bootstrapped for the standard relationship vocabulary; custom relationship types are user-defined items of type <code>"relationship-type"</code>.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-json" data-lang="json">{
+  "typeId": "f1e2d3c4-e5f6-7890-abcd-ef1234567890",
   "sourceId": "abc123-...",
   "targetId": "def456-...",
-  "direction": "directed"
+  "data": null,
+  "confidence": "decided",
+  "note": null
 }</code></pre>
 </div>
 </div>
@@ -1715,9 +2475,9 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </thead>
 <tbody>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>relationshipType</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>typeId</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">yes</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Free-form string. Standard types: <code>relates-to</code>, <code>depends-on</code>, <code>enables</code>, <code>contradicts</code>, <code>blocks</code>, <code>blocked-by</code>, <code>prerequisite-for</code>, <code>derived-from</code>, <code>supersedes</code>. Any custom string is valid.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">UUID of the <code>relationship-type</code> item that defines this relationship&#8217;s schema and semantics.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>sourceId</code></p></td>
@@ -1730,40 +2490,113 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 <td class="tableblock halign-left valign-top"><p class="tableblock">UUID of the target item.</p></td>
 </tr>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>direction</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>data</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"directed"</code> (default) or <code>"bidirectional"</code>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Free-form object validated against the relationship type&#8217;s <code>jsonSchema</code> (if defined). Null for relationship types with no payload schema.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>confidence</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">One of: <code>experimental</code>, <code>exploring</code>, <code>decided</code>, <code>locked</code>. Defaults to <code>experimental</code> for AI-created relationships. Null for manually authored relationships where confidence was not specified.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>note</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Free-text annotation about this specific instance of the relationship.</p></td>
 </tr>
 </tbody>
 </table>
 <div class="paragraph">
-<p>The optional label lives in <code>item.value</code>. Relationship items coexist with the lighter-weight inline <code><a id="uuid"></a></code> link syntax — use relationship items when you need a typed, annotatable, or metadata-carrying link.</p>
+<p>Relationship items coexist with the lighter-weight inline <code><a id="uuid"></a></code> link syntax — use relationship items when you need a typed, annotatable, confidence-carrying, or historically tracked link. Cardinality emerges naturally from the number of relationship items — create multiple items for one-to-many or many-to-many.</p>
 </div>
 <div class="paragraph">
-<p><strong>Cardinality</strong> emerges naturally from the number of relationship items — create multiple relationship items for one-to-many or many-to-many.</p>
+<p><strong>Standard relationship types</strong> (bootstrapped as system items):</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Type label</th>
+<th class="tableblock halign-left valign-top">Inverse</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>relates-to</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>relates-to</code> (self-inverse)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>depends-on</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>enables</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>enables</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>depends-on</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>contradicts</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>contradicts</code> (self-inverse)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>blocks</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>blocked-by</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>blocked-by</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>blocks</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>prerequisite-for</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>derived-from</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>derived-from</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>prerequisite-for</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>supersedes</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">(none)</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+<strong>Postgres</strong> — <code>payload_relationship</code> table for efficient graph queries: <code>CREATE TABLE payload_relationship (id UUID PRIMARY KEY REFERENCES items(id), source_id UUID NOT NULL REFERENCES items(id), target_id UUID NOT NULL REFERENCES items(id), type_id UUID NOT NULL REFERENCES items(id))</code>. GIN indexes on <code>source_id</code> and <code>target_id</code> for bidirectional traversal.
+</td>
+</tr>
+</table>
 </div>
 </div>
 <div class="sect2">
-<h3 id="_grantpayload">6.6. grantPayload</h3>
+<h3 id="aspectTypePayload">7.9. aspectTypePayload</h3>
 <div class="paragraph">
-<p>For <code>type: "grant"</code>. Access control grants live as children of the item they control, in the <code>"grants"</code> aspect.</p>
+<p>For <code>type: "aspect-type"</code>. Defines the schema and semantics of a named aspect dimension — the meta-type for structured aspect items, mirroring the role of <code>relationship-type</code> for relationship items. When <code>item.aspect</code> on an item is a UUID, that UUID must point to an <code>aspect-type</code> item.</p>
 </div>
 <div class="paragraph">
-<p>Three principal forms:</p>
+<p><code>item.value</code> on the aspect-type item is the canonical string name of this dimension (e.g. <code>"financial-costs"</code>, <code>"comments"</code>, <code>"simplified"</code>). This is the string you would use as the plain-string form of <code>aspect</code> on informal/unstructured items; the UUID form provides schema enforcement on top of it.</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="highlight"><code class="language-json" data-lang="json">{ "principal": "bob@acme.com", "permissions": ["read"] }</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlight"><code class="language-json" data-lang="json">{ "principal": "acme.com/engineering", "permissions": ["read", "write"] }</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="highlight"><code class="language-json" data-lang="json">{ "principal": { "itemId": "group-uuid", "relation": "member" }, "permissions": ["read"], "cascade": true }</code></pre>
+<pre class="highlight"><code class="language-json" data-lang="json">{
+  "jsonSchema": {
+    "type": "object",
+    "required": ["amount", "currency"],
+    "properties": {
+      "amount":     { "type": "number" },
+      "currency":   { "type": "string" },
+      "approvedBy": { "type": "string" }
+    }
+  },
+  "description": "Financial cost breakdown for this item — amount, currency, and optional approver."
+}</code></pre>
 </div>
 </div>
 <table class="tableblock frame-all grid-all stretch">
@@ -1780,6 +2613,89 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </tr>
 </thead>
 <tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>jsonSchema</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">JSON Schema object that validates the <code>payload</code> of aspect items of this type. Null means no schema enforcement — any payload is accepted. When present, the adapter validates on write and rejects items whose payload does not conform.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>description</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Human-readable description of what this dimension represents and how it should be used. Captured here so tooling and query results can surface it without loading every aspect item.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p><code>aspect-type</code> items live under the synthetic <code>aspect-type</code> type item UUID (universal parentId rule). Their <code>parentId</code> is never the item they describe — that relationship runs the other way: aspect items' <code>parentId</code> points to the item they are a dimension of.</p>
+</div>
+<div class="paragraph">
+<p>Well-known aspect-type items (e.g. <code>"comments"</code>, <code>"simplified"</code>, <code>"draft"</code>) may be bootstrapped as system items with stable UUIDs. Custom aspect types are user-defined items of type <code>"aspect-type"</code> with <code>layer: "user"</code> or <code>layer: "app"</code>.</p>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+<strong>Postgres</strong> — <code>CREATE TABLE payload_aspect_type (id UUID PRIMARY KEY REFERENCES items(id), json_schema JSONB, description TEXT)</code>. To find all aspect items of a given aspect type across all parents: <code>SELECT * FROM items WHERE aspect = $aspectTypeUUID</code>. To find all aspect items (both string and UUID forms) for a parent item X: <code>SELECT * FROM items WHERE parent_id = $x AND aspect IS NOT NULL</code>.
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_grantpayload">7.10. grantPayload</h3>
+<div class="paragraph">
+<p>For <code>type: "grant"</code>. Access control grants. The grant item&#8217;s <code>parentId</code> is the synthetic <code>grant</code> type item UUID (the universal rule). The item being governed is identified by <code>payload.governedItemId</code> — this is the field that was previously implied by parentId placement.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-json" data-lang="json">{
+  "governedItemId": "uuid-of-the-item-this-grant-controls",
+  "principal": "bob@acme.com",
+  "permissions": ["read"]
+}</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-json" data-lang="json">{
+  "governedItemId": "uuid-of-the-item-this-grant-controls",
+  "principal": "acme.com/engineering",
+  "permissions": ["read", "write"]
+}</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-json" data-lang="json">{
+  "governedItemId": "uuid-of-the-item-this-grant-controls",
+  "principal": { "itemId": "group-uuid", "relation": "member" },
+  "permissions": ["read"],
+  "cascade": true
+}</code></pre>
+</div>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col width="25%">
+<col width="25%">
+<col width="50%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Required</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>governedItemId</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">UUID of the item this grant controls. Replaces the old implicit parentId-as-governed-item encoding.</p></td>
+</tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>principal</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">yes</p></td>
@@ -1793,7 +2709,7 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>cascade</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">When true, grant applies to all descendants.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">When true, grant applies to all descendants of <code>governedItemId</code>.</p></td>
 </tr>
 </tbody>
 </table>
@@ -1807,7 +2723,540 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 <i class="fa icon-tip" title="Tip"></i>
 </td>
 <td class="content">
-<strong>Postgres</strong> — fine-grained grants are stored in an <code>item_grants</code> table alongside a <code>visibility</code> column on <code>items</code> (<code>"private"</code> / <code>"organisation"</code> / <code>"public"</code>). <code>visibility</code> is the fast no-join path; <code>item_grants</code> layers per-principal permissions on top. <code>principal_id</code> is a bare <code>UUID</code> (not an FK) so identity sources can change without a schema migration. <code>principal_type</code> (<code>"user"</code>, <code>"group"</code>, …) is unconstrained so new kinds never require a schema change.
+<strong>Postgres</strong> — <code>payload_grant</code> derived table for O(1) grant resolution: <code>CREATE TABLE payload_grant (id UUID PRIMARY KEY REFERENCES items(id), governed_item_id UUID NOT NULL REFERENCES items(id), principal TEXT NOT NULL, permissions TEXT[] NOT NULL, cascade BOOLEAN NOT NULL DEFAULT false)</code>. Index on <code>governed_item_id</code> for fast per-item grant lookup. A <code>visibility</code> column on <code>items</code> (<code>"private"</code> / <code>"organisation"</code> / <code>"public"</code>) is the fast no-join path; <code>payload_grant</code> layers per-principal permissions on top.
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_viewpayload">7.11. viewPayload</h3>
+<div class="paragraph">
+<p>For <code>type: "view"</code>. Binds a specific item to a renderer and a context. The view&#8217;s UUID is a single pointer to all three — usable for bookmarking, sharing, embedding, and bootstrapping.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-json" data-lang="json">{
+  "itemId": "uuid-of-the-item-being-viewed",
+  "componentId": "uuid-of-the-component-or-function-renderer",
+  "contextId": "uuid-of-the-context-item"
+}</code></pre>
+</div>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col width="25%">
+<col width="25%">
+<col width="50%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Required</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>itemId</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">UUID of the item being viewed. Always a specific item — a view without an item is a <code>component</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>componentId</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">UUID of the component or function item that renders this view. Overrides the type&#8217;s default <code>componentId</code> for this specific binding.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>contextId</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">UUID of the context item describing the runtime and display environment.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>The optional label (<code>item.value</code>) is a human name for this view binding (e.g. <code>"Person — compact tree card"</code>).</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<code>root.payload.entryPoint</code> points to a view item — the bootstrap view is "root, rendered by the bootstrapper function, in the deployment context." The bootstrapper reads root, follows <code>entryPoint</code>, loads the view, finds the <code>componentId</code>, and runs it with root as input. Two hops, fully declarative.
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_contextpayload">7.12. contextPayload</h3>
+<div class="paragraph">
+<p>For <code>type: "context"</code>. Describes the environment in which a view is rendered. Contexts are first-class items — reusable, versioned, shareable.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-json" data-lang="json">{
+  "runtime": "web",
+  "display": "tree-node",
+  "capabilities": ["react", "css", "images"]
+}</code></pre>
+</div>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col width="25%">
+<col width="25%">
+<col width="50%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Required</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>runtime</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The execution environment. Known values: <code>"web"</code>, <code>"desktop"</code>, <code>"cli"</code>, <code>"mcp"</code>, <code>"pdf"</code>, <code>"api"</code>. Free-form string — new runtimes do not require a spec change.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>display</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Where inside the runtime the view is rendered. Known values: <code>"tree-node"</code>, <code>"detail-panel"</code>, <code>"modal"</code>, <code>"preview"</code>, <code>"embed"</code>, <code>"fullscreen"</code>. Free-form string.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>capabilities</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">What the runtime supports. Exploratory — expected to evolve through use. Examples: <code>["react", "css", "images"]</code>, <code>["markdown"]</code>, <code>["ansi-colour"]</code>.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+Security is not part of context — it is resolved at runtime via <code>grant</code> items against the current principal. Context describes <strong>where</strong> and <strong>how</strong> something is rendered; grants determine <strong>how much</strong> of it is visible.
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_rootpayload">7.13. rootPayload</h3>
+<div class="paragraph">
+<p>For <code>type: "root"</code>. The only required payload on root is <code>entryPoint</code> — the UUID of a view item that bootstraps the deployment.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-json" data-lang="json">{
+  "entryPoint": "uuid-of-view-item"
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>item.value</code> on root is the human label for the datastore — the first visible node in the tree (e.g. <code>"Alice"</code>, <code>"Acme Corp"</code>). It is not the entry point.</p>
+</div>
+<div class="paragraph">
+<p>Different deployments of the same datastore (web UI, API server, CLI) each have their own view item, with their own <code>componentId</code> and <code>contextId</code>. To support multiple deployment types, create multiple view items and update <code>entryPoint</code> to whichever is active — or make the entry point function itself context-aware.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_referencepayload">7.14. referencePayload</h3>
+<div class="paragraph">
+<p>For <code>type: "reference"</code>. A declared external dependency on a UUID — physical, system, functional, or subscription-based.</p>
+</div>
+<div class="paragraph">
+<p>Unlike <code>relationship</code> (which connects two Kanecta items semantically), a <code>reference</code> asserts that the target UUID has <strong>reach outside the item graph</strong> — engraved on metal, stored in another database, wired to a webhook. The reference item&#8217;s <code>parentId</code> is the synthetic <code>reference</code> type item UUID (the universal rule). The item being referenced is identified by <code>payload.targetId</code>.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-json" data-lang="json">{
+  "targetId": "uuid-of-drill-press",
+  "kind": "physical",
+  "medium": "engraved",
+  "location": "Workshop bay 3, nameplate",
+  "blockDeletion": true,
+  "removable": false,
+  "description": "UUID engraved on the drill press nameplate. Cannot be removed without replacing the plate."
+}</code></pre>
+</div>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col width="25%">
+<col width="25%">
+<col width="50%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Required</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>targetId</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">UUID of the item being referenced.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>kind</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Nature of the reference. Known values: <code>physical</code>, <code>external</code>, <code>function-arg</code>, <code>function-output</code>, <code>component-dep</code>. Free-form string — new kinds do not require a spec change. For live notification channels use <code>subscription</code> items instead.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>medium</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">For <code>physical</code> kind: <code>engraved</code>, <code>printed</code>, <code>qr-code</code>, <code>label</code>, <code>published-doc</code>. Free-form.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>location</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Human-readable description of where this reference exists (e.g. <code>"Workshop bay 3, nameplate"</code>).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>url</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">For <code>webhook</code> kind: the endpoint URL. Use <code>$VAR</code> for secrets.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>blockDeletion</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">When true, deletion of <code>targetId</code> is blocked until this reference item is removed. The reference item itself is governed by grants — only the person with authority over the physical world (e.g. the workshop manager) should be able to remove it. Default: false.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>removable</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Whether this reference can be removed. False for physical engravings that cannot be undone. Informational — does not enforce system behaviour.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>description</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Free-form human explanation of this reference and its implications.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<strong>Deletion governance:</strong> <code>blockDeletion: true</code> does not determine who can delete the reference item itself — that is controlled by <code>grant</code> items on the reference item. The workshop manager owns the reference item; the IT administrator who wants to delete the drill press must get the workshop manager to remove the reference first. No special escalation workflow is needed — the existing grant system handles it.
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_subscriptionpayload">7.15. subscriptionPayload</h3>
+<div class="paragraph">
+<p>For <code>type: "subscription"</code>. Registers a live notification channel against a target UUID. When the target item changes, the platform notifies the channel.</p>
+</div>
+<div class="paragraph">
+<p>Distinct from <code>reference</code> — a subscription is about change notification, not declaring external reach or blocking deletion. The subscription item&#8217;s <code>parentId</code> is the synthetic <code>subscription</code> type item UUID (the universal rule). The item being watched is identified by <code>payload.targetId</code>.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-json" data-lang="json">{
+  "targetId": "uuid-of-watched-item",
+  "channel": {
+    "type": "webhook",
+    "url": "$WEBHOOK_URL",
+    "secret": "$WEBHOOK_SECRET"
+  },
+  "events": ["update", "delete", "children"],
+  "principal": "alice@acme.com"
+}</code></pre>
+</div>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col width="25%">
+<col width="25%">
+<col width="50%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Required</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>targetId</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">UUID of the item being watched.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>channel</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Notification channel. <code>type</code> determines the required fields — see channel types below.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>events</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Which events trigger notification. Values: <code>create</code>, <code>update</code>, <code>delete</code>, <code>children</code> (child added or removed). At least one required.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>principal</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">no</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Identity string of who registered this subscription. Used for audit and for filtering notifications to the right recipient.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="sect3">
+<h4 id="_channel_types">7.15.1. Channel types</h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col width="25%">
+<col width="25%">
+<col width="50%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top"><code>channel.type</code></th>
+<th class="tableblock halign-left valign-top">Required fields</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>webhook</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>url</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">HTTP POST to the given URL on each matched event. Optional <code>secret</code> for HMAC signature verification.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>mcp</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>sessionId</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Notify an active MCP session.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>reactive</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>componentId</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Notify a reactive UI component registered against this item.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_itemhistorypayload">7.16. itemHistoryPayload</h3>
+<div class="paragraph">
+<p>For <code>type: "item_history"</code>. Records a single event in an item&#8217;s lifecycle.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p><strong><code>item_history</code> is optional.</strong> Enable it per workspace via <code>features.history: true</code> in config.json. When disabled (the default), the system is fully functional — no core feature requires history.</p>
+</div>
+<div class="paragraph">
+<p><strong>For filesystem workspaces tracked by Git:</strong> leave history disabled. Git already provides history and does it better in that context — it tracks in-place changes, supports branching, and integrates with standard tooling. Writing <code>item_history</code> items alongside Git changes doubles up the history and conflicts with Git&#8217;s in-place model.</p>
+</div>
+<div class="paragraph">
+<p><strong>Storage routing:</strong> in high-volume workspaces, the adapter may route <code>item_history</code> items to a dedicated storage location (a separate Postgres table <code>items_history</code>, or a separate directory <code>history/</code> on the filesystem) to avoid bloating the main items table. The schema of that storage is <strong>identical</strong> to the main items table — same columns, same structure, same rules. It is still conceptually one big items table; the adapter just routes by type. This is a deployment decision, not a data model change.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p><strong>Event sourcing guarantee:</strong> when history is enabled, the complete sequence of <code>item_history</code> items for any given <code>targetId</code> is sufficient to replay the item&#8217;s full history from nothing and reconstruct the current state. This includes the <code>created</code> event (sequence 1) — history begins at creation, not at first edit. If you have been running <code>item_history</code> from datastore initialisation, you can reconstruct the complete current state of every item purely by replaying history, with no other input.</p>
+</div>
+<div class="paragraph">
+<p>The <code>item_history</code> item&#8217;s <code>parentId</code> is the synthetic <code>item_history</code> type item UUID. The item being recorded is identified by <code>payload.targetId</code>. Writing an <code>item_history</code> item does <strong>not</strong> itself trigger a further history event — the adapter applies a recursion guard. History items themselves have no history.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-json" data-lang="json">{
+  "targetId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "eventType": "updated",
+  "sequence": 42,
+  "delta": {
+    "item.value": { "from": "Old name", "to": "New name" },
+    "meta.modifiedAt": { "from": "2026-06-24T10:00:00Z", "to": "2026-06-25T09:14:00Z" }
+  },
+  "snapshot": {}
+}</code></pre>
+</div>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col width="16.6666%">
+<col width="16.6666%">
+<col width="16.6666%">
+<col width="50.0002%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Type</th>
+<th class="tableblock halign-left valign-top">Required</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>targetId</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">UUID string</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">UUID of the item this event belongs to.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>eventType</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"created"</code> | <code>"updated"</code> | <code>"deleted"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">What happened. <code>created</code> — first event for this item. <code>updated</code> — one or more fields changed. <code>deleted</code> — item has been removed.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>sequence</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">integer</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Monotonically increasing event number, scoped per <code>targetId</code>. Starts at 1 for <code>created</code>. Never reused even if the item is deleted and re-created. The total ordering of events for a given item is fully determined by <code>sequence</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>delta</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">object</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes for <code>updated</code>, empty object <code>{}</code> for <code>created</code> and <code>deleted</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Field-level diff. Keys are dot-separated paths (e.g. <code>"item.value"</code>, <code>"meta.tags"</code>, <code>"payload.status"</code>). Each value is <code>{ "from": &lt;old&gt;, "to": &lt;new&gt; }</code>. For <code>created</code>, the full initial state is in <code>snapshot</code>. For <code>deleted</code>, <code>from</code> is the final state and <code>to</code> is null.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>snapshot</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">object</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The complete four-section <code>item.json</code> <strong>after</strong> this event was applied. For <code>deleted</code>, the snapshot is the final state before deletion. Stored alongside the delta so that point-in-time queries do not require full log replay — read the snapshot at or before the target time.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+Event sourcing guarantee: replaying all <code>item_history</code> events for a given <code>targetId</code> in <code>sequence</code> order, starting from an empty state, must produce the current item state. Adapters must validate this invariant on write. The <code>snapshot</code> field is a read-performance optimisation — it must always equal the state produced by replaying events 1..sequence.
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_activitypayload">7.17. activityPayload</h3>
+<div class="paragraph">
+<p>For <code>type: "activity"</code>. Records a discrete workspace event — not a snapshot of item state, but a meaningful occurrence at the application level (item viewed, search performed, sync started, export triggered). Distinct from <code>item_history</code>: history tracks <strong>what changed</strong>; activity tracks <strong>what happened</strong>.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p><strong><code>activity</code> is optional.</strong> Enable it per workspace via <code>features.activity: true</code> in config.json. When disabled (the default), the system is fully functional — no core feature requires activity.</p>
+</div>
+<div class="paragraph">
+<p><strong>Activity can grow extremely large.</strong> A single popular item can generate millions of activity events (e.g. one activity item per view, per like, per comment on a high-traffic piece of content). Think carefully before enabling activity on any workspace that handles social-scale interaction.</p>
+</div>
+<div class="paragraph">
+<p><strong>Storage routing:</strong> the adapter may route <code>activity</code> items to a dedicated storage location (a separate Postgres table <code>items_activity</code>, or a separate directory <code>activity/</code> on the filesystem) to avoid bloating the main items table. As with <code>item_history</code>, the schema of that storage is <strong>identical</strong> to the main items table — same columns, same structure, same rules. It is still conceptually one big items table; the adapter routes by type.</p>
+</div>
+<div class="paragraph">
+<p><strong>Activity does not play well with Git.</strong> For filesystem workspaces tracked by Git, enabling activity would generate a large volume of new files on every user action, polluting git status and making commits noisy. Leave activity disabled on Git-backed workspaces.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>The <code>activity</code> item&#8217;s <code>parentId</code> is the synthetic <code>activity</code> type item UUID. <code>payload.targetId</code> is the item the event relates to — null for workspace-level events. Activity items are append-only. Writing an activity item does not itself log another activity event. Activity items have no history.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-json" data-lang="json">{
+  "eventType": "item.viewed",
+  "actor": "alice@acme.com",
+  "targetId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "data": null
+}</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-json" data-lang="json">{
+  "eventType": "search.performed",
+  "actor": "alice@acme.com",
+  "targetId": null,
+  "data": { "query": "drill press maintenance", "resultCount": 12 }
+}</code></pre>
+</div>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col width="16.6666%">
+<col width="16.6666%">
+<col width="16.6666%">
+<col width="50.0002%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Type</th>
+<th class="tableblock halign-left valign-top">Required</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>eventType</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">string</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Dot-separated event identifier (e.g. <code>item.viewed</code>, <code>item.exported</code>, <code>search.performed</code>, <code>sync.completed</code>, <code>workspace.opened</code>). Free-form — new event types do not require a spec change.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>actor</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">string</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Identity string of who triggered this event.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>targetId</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">UUID string | null</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">UUID of the item this event relates to. Null for workspace-level events that do not relate to a single item.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>data</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">object | null</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Event-specific detail (e.g. the search query, the export format, the sync remote name). Structure is determined by <code>eventType</code>. Null when no additional data is needed.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+Activity items are not replicated to remotes by default — activity is local to the workspace unless explicitly opted in. They are never updated or deleted after creation.
 </td>
 </tr>
 </table>
@@ -1816,7 +3265,7 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </div>
 </div>
 <div class="sect1">
-<h2 id="files-and-sidecars">7. Files and Sidecars</h2>
+<h2 id="files-and-sidecars">8. Files and Sidecars</h2>
 <div class="sectionbody">
 <div class="paragraph">
 <p>Items can reference external files via the <code>meta.files</code> map — a plain object mapping semantic role names to filenames stored alongside <code>item.json</code> in the same item folder.</p>
@@ -1830,7 +3279,7 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </div>
 </div>
 <div class="sect2">
-<h3 id="_well_known_roles">7.1. Well-Known Roles</h3>
+<h3 id="_well_known_roles">8.1. Well-Known Roles</h3>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
 <col width="25%">
@@ -1877,17 +3326,70 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </div>
 </div>
 <div class="sect2">
-<h3 id="_adapter_behaviour">7.2. Adapter Behaviour</h3>
+<h3 id="_sidecar_decision_rule_content_type_determines_storage">8.2. Sidecar decision rule (content-type determines storage)</h3>
+<div class="paragraph">
+<p>Not every item field belongs in <code>item.json</code>. The rule is analogous to Postgres TOAST (The Oversized-Attribute Storage Technique): large binary or text content is stored out-of-line as a sidecar, while structured searchable metadata stays in the main document. The same principle applies across all adapters — the <code>item.json</code> is always small, fast to index, and human-readable; heavy content lives alongside it in a sidecar (or in equivalent object storage for Postgres/S3 deployments).</p>
+</div>
+<div class="paragraph">
+<p>The decision of whether to put content in <code>item.json</code> or in a sidecar is driven by content type, not item type:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col width="25%">
+<col width="25%">
+<col width="50%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Content type</th>
+<th class="tableblock halign-left valign-top">Storage location</th>
+<th class="tableblock halign-left valign-top">Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Short string values (<code>item.value</code>, payload scalars)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>item.json</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Always small; needed for indexing, FTS, and rendering list items without reading sidecars.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Structured payload objects (UUIDs, booleans, numbers, short strings)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>item.json</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Same — small by design and needed for queries.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Long prose (document body, markdown, code)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Sidecar (<code>body.md</code>, <code>body.ts</code>, etc.)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Unbounded length; not needed for list views; would bloat the index.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Binary content (images, PDFs, embeddings)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Sidecar (<code>image.png</code>, <code>embedding.bin</code>, etc.)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Binary is not JSON-serialisable and can be very large.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Float32 embedding vector</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>embedding.bin</code> sidecar</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Always exactly <code>dimensions × 4</code> bytes; loaded directly into pg_vector or memory without parsing.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>An embedding is never inlined into <code>item.json</code> even when it would technically fit — the binary format and specialised access pattern make a sidecar strictly better. The Postgres adapter stores embeddings in a dedicated column (<code>embedding vector(1536)</code>) rather than a sidecar file; the adapter translates between representations transparently.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_adapter_behaviour">8.3. Adapter Behaviour</h3>
 <div class="ulist">
 <ul>
 <li>
-<p><strong>Filesystem and SQLite adapters</strong> — <code>files</code> contains sidecar filenames. Files live alongside <code>item.json</code>.</p>
+<p><strong>Filesystem and SQLite adapters</strong> — <code>files</code> contains sidecar filenames. Files live alongside <code>item.json</code> in the item&#8217;s directory. The adapter is responsible for reading and writing sidecars atomically alongside <code>item.json</code> (write sidecar first, then <code>item.json</code> — see <a href="#Filesystem Adapter Architecture">[Filesystem Adapter Architecture]</a>).</p>
 </li>
 <li>
-<p><strong>Postgres adapter</strong> — equivalent content is stored inline (body in a column, image in object storage). <code>files</code> is omitted from the DB row.</p>
+<p><strong>Postgres adapter</strong> — equivalent content is stored inline where possible (body in a <code>TEXT</code> column, structured payload in <code>JSONB</code>). Large binary content is stored in object storage (S3, GCS, or similar). <code>files</code> is omitted from the DB row; the adapter synthesises the role map from its own internal column layout if a caller needs it.</p>
 </li>
 <li>
-<p><strong>S3 and object storage</strong> — when Postgres is paired with S3, sidecar content is stored under a key derived from the item UUID and role name. The adapter constructs S3 keys deterministically.</p>
+<p><strong>S3 and object storage</strong> — when Postgres is paired with S3, sidecar content is stored under a deterministic key derived from the item UUID and role name: <code>&lt;uuid&gt;/&lt;role&gt;.&lt;ext&gt;</code>. The adapter constructs S3 keys from the <code>files</code> map entries and never guesses extensions from content.</p>
 </li>
 </ul>
 </div>
@@ -1895,13 +3397,133 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </div>
 </div>
 <div class="sect1">
-<h2 id="_search">8. Search</h2>
+<h2 id="filesystem-adapter-architecture">9. Filesystem Adapter Architecture</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The filesystem adapter for Kanecta is organised as three cooperating layers, each with a distinct role. The design is deliberately analogous to a CPU cache hierarchy: each layer is faster to access than the layer below it, and the layer below it is more authoritative and durable.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>┌─────────────────────────────────────────────────┐
+│  Memory Map (warm cache — volatile)             │  ← fastest, not durable
+├─────────────────────────────────────────────────┤
+│  SQLite index (fast, rebuildable)               │  ← fast, durable, derived
+├─────────────────────────────────────────────────┤
+│  Filesystem (item.json + sidecars)              │  ← authoritative source of truth
+└─────────────────────────────────────────────────┘</pre>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_layer_1_filesystem_source_of_truth">9.1. Layer 1: Filesystem (source of truth)</h3>
+<div class="paragraph">
+<p>The filesystem is the only authoritative store. Every item is a directory containing <code>item.json</code> and zero or more sidecar files. The filesystem layer has no schema enforced by a database engine — correctness is enforced by the adapter at write time through JSON Schema validation against the spec.</p>
+</div>
+<div class="paragraph">
+<p>The filesystem layer is what Git tracks. Git branches, commits, and merges operate entirely at the filesystem layer. The other two layers are derived from the filesystem and must never be committed to Git.</p>
+</div>
+<div class="paragraph">
+<p>Write path: sidecars are written <strong>before</strong> <code>item.json</code>. This ordering ensures that if the process crashes between writing a sidecar and writing <code>item.json</code>, the partial write is detected on next startup (sidecar exists but <code>item.json</code> has not been updated to reference it, or <code>item.json</code> is missing entirely). The startup repair routine sweeps for orphaned sidecars and incomplete <code>item.json</code> files and resolves them.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_layer_2_sqlite_index_fast_always_rebuildable">9.2. Layer 2: SQLite index (fast, always rebuildable)</h3>
+<div class="paragraph">
+<p>SQLite provides a queryable index over the filesystem layer. It mirrors the structure of the items table — every column that exists in the Postgres adapter also exists in the SQLite index, including JSONB-equivalent columns stored as SQLite JSON. The search index (FTS5 virtual table) and derived payload tables (<code>payload_relationship</code>, <code>payload_grant</code>, <code>aliases</code>) live here.</p>
+</div>
+<div class="paragraph">
+<p>The SQLite index is <strong>not</strong> the source of truth and <strong>must never</strong> be treated as one. It is fully rebuildable from the filesystem at any time by scanning all <code>item.json</code> files and repopulating the index. The rebuild process is deterministic — given the same filesystem contents it produces identical SQLite state.</p>
+</div>
+<div class="paragraph">
+<p>The SQLite file is named <code>index.db</code> and lives in the workspace root alongside the items directory. It is gitignored. On first open, if <code>index.db</code> does not exist, the adapter builds it from scratch before serving any requests. On startup after a crash or Git branch switch, the adapter detects that the filesystem and index may have diverged (by comparing the last-modified timestamps of <code>item.json</code> files against the SQLite <code>updated_at</code> column) and runs a targeted reconcile rather than a full rebuild.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+A Git branch switch changes the filesystem layer (checkout replaces <code>item.json</code> files with a different branch&#8217;s versions) but does not touch the SQLite index. The adapter must detect this divergence — the simplest approach is storing the current Git HEAD SHA in the SQLite index at write time and comparing it at startup. If the SHAs differ, a full reconcile is required.
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_layer_3_memory_map_warm_cache_volatile">9.3. Layer 3: Memory Map (warm cache, volatile)</h3>
+<div class="paragraph">
+<p>The memory layer is an in-process <code>Map&lt;uuid, Item&gt;</code> populated on first access and kept warm as long as the process runs. It holds the most recently accessed items — LRU eviction keeps memory use bounded. The memory layer is <strong>not</strong> persisted anywhere. On process restart it is empty and repopulated on demand from SQLite (not from the filesystem directly, unless the SQLite index is stale).</p>
+</div>
+<div class="paragraph">
+<p>The memory layer exists purely for throughput. Studio renders deep trees that require fetching dozens of items per navigation; without caching, each navigation round-trip would hit SQLite (already fast) but at high frequency. The memory layer eliminates repeated SQLite reads for recently accessed items.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_write_path_summary">9.4. Write path summary</h3>
+<div class="paragraph">
+<p>When the adapter writes an item:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Validate the item against the JSON Schema.</p>
+</li>
+<li>
+<p>Write sidecar files to the item directory (if any).</p>
+</li>
+<li>
+<p>Write <code>item.json</code> to the item directory.</p>
+</li>
+<li>
+<p>Update the SQLite index — <code>items</code> row, FTS index, derived payload tables.</p>
+</li>
+<li>
+<p>Update the memory cache — replace or insert the item in the <code>Map</code>.</p>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p>If any step fails after step 3 (filesystem write succeeded), the adapter logs the failure and schedules a reconcile. The next startup or explicit <code>kanecta reconcile</code> call will catch and repair the inconsistency.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_read_path_summary">9.5. Read path summary</h3>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Check memory cache. If present and not expired, return immediately.</p>
+</li>
+<li>
+<p>Query SQLite. If found, populate memory cache and return.</p>
+</li>
+<li>
+<p>If SQLite returns nothing (e.g. during a reconcile in progress), fall back to reading <code>item.json</code> from the filesystem directly.</p>
+</li>
+<li>
+<p>If <code>item.json</code> does not exist, the item does not exist — return null.</p>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p>The fallback to the filesystem in step 3 is rare in normal operation but essential for correctness during startup and after a Git branch switch before reconcile completes.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_rebuildability_guarantee">9.6. Rebuildability guarantee</h3>
+<div class="paragraph">
+<p>The SQLite index and memory cache are always 100% rebuildable from the filesystem. Any tool, script, or manual operation that reads only the filesystem layer and ignores SQLite/memory is always correct — it will read the same data that the adapter would eventually surface. This property is fundamental to the design: it means the filesystem can be manipulated by Git, rsync, or any other tool without corrupting the authoritative data.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_search">10. Search</h2>
 <div class="sectionbody">
 <div class="paragraph">
 <p>Kanecta supports two complementary search modes.</p>
 </div>
 <div class="sect2">
-<h3 id="_full_text_search_fts">8.1. Full-Text Search (FTS)</h3>
+<h3 id="_full_text_search_fts">10.1. Full-Text Search (FTS)</h3>
 <div class="paragraph">
 <p>The <strong>search corpus</strong> for any item is:</p>
 </div>
@@ -1950,7 +3572,7 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </div>
 </div>
 <div class="sect2">
-<h3 id="_semantic_search_vector">8.2. Semantic Search (Vector)</h3>
+<h3 id="_semantic_search_vector">10.2. Semantic Search (Vector)</h3>
 <div class="paragraph">
 <p>Each item can have a semantic embedding stored in <code>item.search.embedding</code>. The float vector lives in <code>meta.files.embedding = "embedding.bin"</code> — a raw float32 binary sidecar.</p>
 </div>
@@ -2005,7 +3627,7 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </div>
 </div>
 <div class="sect1">
-<h2 id="_inline_links">9. Inline Links</h2>
+<h2 id="_inline_links">11. Inline Links</h2>
 <div class="sectionbody">
 <div class="paragraph">
 <p>Within <code>item.value</code> or any text field, items can reference other items using double square bracket syntax:</p>
@@ -2048,7 +3670,7 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </div>
 </div>
 <div class="sect1">
-<h2 id="external-type-systems">10. External Type Systems</h2>
+<h2 id="external-type-systems">12. External Type Systems</h2>
 <div class="sectionbody">
 <div class="paragraph">
 <p>The <code>meta.sameAs</code> field maps a Kanecta item or type to equivalent concepts in any external type system. This makes Kanecta data interoperable with the broader semantic web without being enslaved to any one system.</p>
@@ -2100,7 +3722,7 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </div>
 </div>
 <div class="sect1">
-<h2 id="_multiple_trees">11. Multiple Trees</h2>
+<h2 id="_multiple_trees">13. Multiple Trees</h2>
 <div class="sectionbody">
 <div class="paragraph">
 <p>Kanecta has one built-in tree rooted at the all-zeros UUID. Additional named trees are supported via the <code>tree</code> and <code>node</code> primitive types.</p>
@@ -2140,7 +3762,7 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </div>
 </div>
 <div class="sect1">
-<h2 id="_provenance_and_sharing">12. Provenance and Sharing</h2>
+<h2 id="_provenance_and_sharing">14. Provenance and Sharing</h2>
 <div class="sectionbody">
 <div class="paragraph">
 <p>Kanecta items are designed to be shareable as standalone portable units. The provenance fields in <code>meta</code> support this:</p>
@@ -2205,22 +3827,22 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </div>
 </div>
 <div class="sect1">
-<h2 id="type-lifecycle">13. Type Lifecycle</h2>
+<h2 id="type-lifecycle">15. Type Lifecycle</h2>
 <div class="sectionbody">
 <div class="sect2">
-<h3 id="_open_mutable_draft">13.1. Open (mutable draft)</h3>
+<h3 id="_open_mutable_draft">15.1. Open (mutable draft)</h3>
 <div class="paragraph">
 <p>When first created, <code>meta.immutable</code> is absent or false. The type author can freely modify <code>jsonSchema</code>, <code>sqlSchema</code>, and <code>meta</code>.</p>
 </div>
 </div>
 <div class="sect2">
-<h3 id="_immutable_published_contract">13.2. Immutable (published contract)</h3>
+<h3 id="_immutable_published_contract">15.2. Immutable (published contract)</h3>
 <div class="paragraph">
 <p>Setting <code>meta.immutable: true</code> seals the type&#8217;s contract. The tooling computes <code>meta.hash</code> — SHA-256 over <code>jsonSchema</code> + <code>sqlSchema</code> + <code>meta.primaryField</code> (keys sorted). Any subsequent write that would change these fields is rejected if the hash no longer matches. Cosmetic <code>meta</code> fields (icon, description) may still be updated.</p>
 </div>
 </div>
 <div class="sect2">
-<h3 id="_superseded">13.3. Superseded</h3>
+<h3 id="_superseded">15.3. Superseded</h3>
 <div class="paragraph">
 <p>When a sealed type needs a shape change:</p>
 </div>
@@ -2242,9 +3864,9 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </div>
 </div>
 <div class="sect2">
-<h3 id="_types_are_items">13.4. Types are Items</h3>
+<h3 id="_types_are_items">15.4. Types are Items</h3>
 <div class="paragraph">
-<p>Types are first-class Kanecta items (<code>type: "type"</code>). They can be linked, tagged, annotated, subscribed to, and related just like any other item. Their <code>parentId</code> is the <code>data_root</code> (or a user-created type-collection item).</p>
+<p>Types are first-class Kanecta items (<code>type: "type"</code>). They can be linked, tagged, annotated, subscribed to, and related just like any other item. Their <code>parentId</code> is whatever tree item the bootstrapper designates for types (a deployment decision, not a spec constraint).</p>
 </div>
 <div class="admonitionblock tip">
 <table>
@@ -2262,7 +3884,7 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </div>
 </div>
 <div class="sect1">
-<h2 id="_confidence_and_status">14. Confidence and Status</h2>
+<h2 id="_confidence_and_status">16. Confidence and Status</h2>
 <div class="sectionbody">
 <div class="paragraph">
 <p><strong>Confidence</strong> indicates how settled content is:</p>
@@ -2316,16 +3938,13 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 <div class="paragraph">
 <p><strong>Status</strong> is a free-form string. Common values: <code>active</code>, <code>archived</code>, <code>draft</code>, <code>in-progress</code>, <code>blocked</code>.</p>
 </div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_aspects">15. Aspects</h2>
-<div class="sectionbody">
+<div class="sect2">
+<h3 id="_ai_confidence_convention">16.1. AI confidence convention</h3>
 <div class="paragraph">
-<p>An aspect is a named dimension of an item&#8217;s children. Every item has a main aspect (<code>aspect: null</code>) which is the default tree. Additional aspects are named strings.</p>
+<p>AI-assisted creation introduces a distinct lifecycle for confidence values. When the system or an AI agent creates an item or relationship, the default <code>confidence</code> is <code>"experimental"</code> — the item is speculative, has not been reviewed by a human, and may change significantly or be deleted outright. This default is intentional: AI-created content should never be silently promoted to a status that implies human endorsement.</p>
 </div>
 <div class="paragraph">
-<p>Well-known aspect names (by convention):</p>
+<p>The lifecycle for AI-created content:</p>
 </div>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
@@ -2334,40 +3953,49 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </colgroup>
 <thead>
 <tr>
-<th class="tableblock halign-left valign-top">Value</th>
-<th class="tableblock halign-left valign-top">Meaning</th>
+<th class="tableblock halign-left valign-top">Confidence</th>
+<th class="tableblock halign-left valign-top">What it means in the AI context</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>null</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Main tree (user-visible by default)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>experimental</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Default for all AI-created items and relationships. The system set this without human review. Treat as draft.</p></td>
 </tr>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"grants"</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Access control grant items</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>exploring</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A human has looked at the item and decided it is worth investigating further, but has not committed to keeping it. Human review required to reach this level.</p></td>
 </tr>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"settings"</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Configuration items</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>decided</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A human has accepted this item or relationship as a genuine part of the knowledge graph. It can still be changed but is no longer provisional.</p></td>
 </tr>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"archive"</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Archived children</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"relationships"</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Relationship items (alternative to tree-position)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>locked</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A human has explicitly asserted this item or relationship will not change. The strongest human signal available. Never set by the AI — only ever set by a deliberate user action.</p></td>
 </tr>
 </tbody>
 </table>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+The confidence field on <code>relationshipPayload</code> follows this same convention — AI-inferred relationships default to <code>"experimental"</code>. The rule is: anything the machine writes without a human in the loop starts at <code>experimental</code>. Everything above <code>experimental</code> requires at least one human decision to reach.
+</td>
+</tr>
+</table>
+</div>
 <div class="paragraph">
-<p>An item belongs to exactly one aspect. <code>sortOrder</code> is scoped per aspect. Traversal always targets exactly one aspect.</p>
+<p>The practical implication for the adapter: when ingesting AI output (via MCP, a runner, or an external pipeline), set <code>confidence: "experimental"</code> on every item and relationship unless the caller explicitly overrides. Never default AI ingestion to <code>"decided"</code> or higher.</p>
+</div>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="_templates">16. Templates</h2>
+<h2 id="_templates">17. Templates</h2>
 <div class="sectionbody">
 <div class="paragraph">
 <p>A template action copies an item&#8217;s subtree to a new location as plain unstructured nodes, stripping type information. The copy&#8217;s <code>meta.template</code> field records the source:</p>
@@ -2388,10 +4016,10 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </div>
 </div>
 <div class="sect1">
-<h2 id="_well_known_root_nodes">17. Well-Known Root Nodes</h2>
+<h2 id="_well_known_root_node">18. Well-Known Root Node</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>Every datastore contains five reserved items created during initialisation:</p>
+<p>Every datastore contains exactly one reserved item created during initialisation:</p>
 </div>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
@@ -2415,30 +4043,6 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 <td class="tableblock halign-left valign-top"><p class="tableblock">self</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>"root"</code></p></td>
 </tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>system_root</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">generated</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">root</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"system_root"</code></p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>app_root</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">generated</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">root</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"app_root"</code></p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>component_root</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">generated</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">root</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"component_root"</code></p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>data_root</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">generated</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">root</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"data_root"</code></p></td>
-</tr>
 </tbody>
 </table>
 <div class="paragraph">
@@ -2450,15 +4054,15 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 <p>The all-zeros UUID is permanently reserved for root. No user item may use it.</p>
 </li>
 <li>
-<p>Each well-known type is a singleton — at most one instance per datastore.</p>
+<p><code>root</code> is a singleton — exactly one instance per datastore.</p>
 </li>
 <li>
-<p>User data lives exclusively under <code>data_root</code>.</p>
-</li>
-<li>
-<p>Well-known nodes are created in the order listed above.</p>
+<p><code>root</code> is the only item whose <code>parentId</code> equals its own <code>id</code>.</p>
 </li>
 </ul>
+</div>
+<div class="paragraph">
+<p>Everything else — system layer, app layer, data layer, component trees — is created by the bootstrapper as ordinary <code>tree</code> items, children of root. Access separation is enforced by <code>grant</code> items on those trees. What the bootstrapper creates is a deployment decision, not a spec constraint.</p>
 </div>
 <div class="admonitionblock tip">
 <table>
@@ -2467,7 +4071,7 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 <i class="fa icon-tip" title="Tip"></i>
 </td>
 <td class="content">
-<strong>Postgres</strong> — wrap all well-known node inserts in a single <code>BEGIN &#8230;&#8203; COMMIT</code> transaction. The deferred FK on <code>parent_id</code> allows root&#8217;s self-reference to resolve at commit time. Use <code>ON CONFLICT (id) DO NOTHING</code> for idempotent re-initialisation.
+<strong>Postgres</strong> — insert root in its own <code>BEGIN &#8230;&#8203; COMMIT</code> transaction. The deferred FK on <code>parent_id</code> allows the self-reference to resolve at commit time. Use <code>ON CONFLICT (id) DO NOTHING</code> for idempotent re-initialisation.
 </td>
 </tr>
 </table>
@@ -2475,7 +4079,7 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </div>
 </div>
 <div class="sect1">
-<h2 id="_database_table_mapping">18. Database Table Mapping</h2>
+<h2 id="_database_table_mapping">19. Database Table Mapping</h2>
 <div class="sectionbody">
 <div class="paragraph">
 <p>The four <code>item.json</code> sections map directly to database tables, enabling efficient queries without loading unnecessary data.</p>
@@ -2546,13 +4150,34 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </tr>
 </table>
 </div>
+<div class="sect2">
+<h3 id="_item_history_and_activity">19.1. item_history and activity</h3>
+<div class="paragraph">
+<p><code>item_history</code> and <code>activity</code> are <strong>items</strong>, not separate tables. They follow the universal parentId rule — instances live under their respective synthetic type items (<code>item_history</code> and <code>activity</code>), bootstrapped at datastore init. They are queried like any other item: <code>SELECT * FROM items WHERE type = 'item_history' AND payload&#8594;&gt;'targetId' = $id ORDER BY meta&#8594;&gt;'createdAt' DESC</code>.</p>
+</div>
+<div class="paragraph">
+<p>See <code>itemHistoryPayload</code> and <code>activityPayload</code> in the Payload Definitions section for the full field specification.</p>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+<strong>Postgres</strong> — because <code>item_history</code> and <code>activity</code> items are write-heavy and never updated, the adapter may maintain a dedicated derived index table (<code>payload_item_history</code>, <code>payload_activity</code>) with queryable columns extracted from payload. These are strictly derived — always rebuildable from <code>items</code>. The <code>items</code> table remains the source of truth.
+</td>
+</tr>
+</table>
+</div>
+</div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="_business_rules">19. Business Rules</h2>
+<h2 id="_business_rules">20. Business Rules</h2>
 <div class="sectionbody">
 <div class="sect2">
-<h3 id="_creating_items">19.1. Creating Items</h3>
+<h3 id="_creating_items">20.1. Creating Items</h3>
 <div class="olist arabic">
 <ol class="arabic">
 <li>
@@ -2580,7 +4205,7 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </div>
 </div>
 <div class="sect2">
-<h3 id="_updating_items">19.2. Updating Items</h3>
+<h3 id="_updating_items">20.2. Updating Items</h3>
 <div class="olist arabic">
 <ol class="arabic">
 <li>
@@ -2605,11 +4230,14 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </div>
 </div>
 <div class="sect2">
-<h3 id="_deleting_items">19.3. Deleting Items</h3>
+<h3 id="_deleting_items">20.3. Deleting Items</h3>
 <div class="olist arabic">
 <ol class="arabic">
 <li>
-<p>Check backlinks and inbound relationships. Warn if any exist; require explicit confirmation.</p>
+<p>Check <code>reference</code> items whose <code>targetId</code> is this item&#8217;s UUID and <code>blockDeletion: true</code>. If any exist, deletion is blocked — surface them to the user with the reference owner. The reference owner must remove or acknowledge the reference before deletion can proceed.</p>
+</li>
+<li>
+<p>Check the <code>item_references</code> derived index for structural inbound references (other items' <code>parentId</code>, inline links, payload UUID fields). Warn if any exist; require explicit confirmation.</p>
 </li>
 <li>
 <p>Write history snapshot (<code>changeType: delete</code>).</p>
@@ -2627,7 +4255,7 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </div>
 </div>
 <div class="sect2">
-<h3 id="_reading_items">19.4. Reading Items</h3>
+<h3 id="_reading_items">20.4. Reading Items</h3>
 <div class="olist arabic">
 <ol class="arabic">
 <li>
@@ -2655,9 +4283,9 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </div>
 </div>
 <div class="sect2">
-<h3 id="_datastore_initialisation">19.5. Datastore Initialisation</h3>
+<h3 id="_datastore_initialisation">20.5. Datastore Initialisation</h3>
 <div class="paragraph">
-<p>Create well-known root nodes in order: <code>root</code> (self-referencing, all-zeros UUID), then <code>system_root</code>, <code>app_root</code>, <code>component_root</code>, <code>data_root</code> as children of root.</p>
+<p>Create the <code>root</code> item (self-referencing, all-zeros UUID). Then the bootstrapper creates whatever <code>tree</code> children it needs under root — the spec does not prescribe them.</p>
 </div>
 <div class="admonitionblock tip">
 <table>
@@ -2666,7 +4294,7 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 <i class="fa icon-tip" title="Tip"></i>
 </td>
 <td class="content">
-<strong>Postgres</strong> — wrap all five inserts in a single transaction with <code>ON CONFLICT (id) DO NOTHING</code> for idempotence. Check singleton enforcement before inserting each well-known child (<code>SELECT COUNT(*) FROM items WHERE type = $well_known_type</code>). Each migration that changes the schema bumps <code>schema_version</code> via upsert.
+<strong>Postgres</strong> — insert root in its own <code>BEGIN &#8230;&#8203; COMMIT</code> transaction with <code>ON CONFLICT (id) DO NOTHING</code> for idempotence. Each migration that changes the schema bumps <code>schema_version</code> via upsert.
 </td>
 </tr>
 </table>
@@ -2687,7 +4315,7 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </div>
 </div>
 <div class="sect1">
-<h2 id="_constraints">20. Constraints</h2>
+<h2 id="_constraints">21. Constraints</h2>
 <div class="sectionbody">
 <div class="ulist">
 <ul>
@@ -2704,7 +4332,7 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 <p>Circular <code>parentId</code> chains (other than root self-reference) are not permitted.</p>
 </li>
 <li>
-<p>Well-known types are singletons. Each appears at most once per datastore.</p>
+<p><code>root</code> is a singleton — exactly one instance per datastore, always the all-zeros UUID.</p>
 </li>
 <li>
 <p><code>item.value</code> is always ≤255 characters. Full content lives in <code>payload</code>.</p>
@@ -2741,7 +4369,724 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </div>
 </div>
 <div class="sect1">
-<h2 id="_file_specifications">21. File Specifications</h2>
+<h2 id="branching">22. Branching</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The active branch for a workspace is set by <code>branch</code> in <code>config.json</code>. Each storage adapter translates the branch name into its native mechanism. The caller always uses a plain branch name — adapter translation is internal.</p>
+</div>
+<div class="sect2">
+<h3 id="_branch_model_delta_not_copy">22.1. Branch model: delta, not copy</h3>
+<div class="paragraph">
+<p>A branch is <strong>never a full copy of the datastore</strong>. It is an overlay — a bounded set of additions, modifications, and deletions applied on top of the base branch. Branch creation is O(1). Storage is proportional to what changed, not the size of the datastore.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col width="33.3333%">
+<col width="66.6667%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Adapter</th>
+<th class="tableblock halign-left valign-top">Branch implementation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Filesystem</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Git branch. The filesystem JSON files are the source of truth; branching is native Git. SQLite (local search/index cache) is strictly derived — always rebuildable from the filesystem JSON files. On branch switch, SQLite is rebuilt from the new branch&#8217;s file state. Nothing meaningful lives only in SQLite.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Postgres</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Schema per branch within one database. <code>main</code> branch lives in the <code>main</code> schema. Each other branch gets its own schema — <code>feature__new_types</code> (slashes in branch names become double underscores). The adapter queries the branch schema first and falls through to <code>main</code> for unmodified items. Schema names are capped at 63 chars (Postgres limit); branch names that exceed this after encoding are rejected at creation time.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">S3 / object storage</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Key prefix per branch. <code>main/</code> for main, <code>feature__new_types/</code> for a feature branch. Only changed or new objects are written to the branch prefix; deletions are tracked in a per-branch manifest file. Merge copies changed objects to <code>main/</code> and removes the branch prefix.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect2">
+<h3 id="_postgres_branching_tables">22.2. Postgres branching tables</h3>
+<div class="paragraph">
+<p>Two tables govern branching on Postgres remotes:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-sql" data-lang="sql">-- Branch registry
+CREATE TABLE branches (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name        TEXT NOT NULL,
+    schema_name TEXT NOT NULL,
+    base_branch TEXT NOT NULL DEFAULT 'main',
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    merged_at   TIMESTAMPTZ,
+    deleted_at  TIMESTAMPTZ
+);
+
+-- Delta store — one row per changed section per item
+CREATE TABLE branch_changes (
+    branch_id   UUID NOT NULL REFERENCES branches(id),
+    item_id     UUID NOT NULL,
+    change_type TEXT NOT NULL CHECK (change_type IN ('create', 'update', 'delete')),
+    section     TEXT NOT NULL CHECK (section IN ('item', 'meta', 'search', 'payload')),
+    data        JSONB,
+    changed_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (branch_id, item_id, section)
+);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Reading an item section on a branch prefers the branch override if one exists:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-sql" data-lang="sql">SELECT COALESCE(bc.data, ip.data) AS data
+FROM items_payload ip
+LEFT JOIN branch_changes bc
+  ON bc.item_id = ip.id AND bc.branch_id = $branchId AND bc.section = 'payload'
+WHERE ip.id = $itemId
+  AND (bc.change_type IS NULL OR bc.change_type != 'delete')</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Items created on a branch only exist in <code>branch_changes</code> (with <code>change_type = 'create'</code>) — they do not touch the main tables until merge.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_branch_naming">22.3. Branch naming</h3>
+<div class="paragraph">
+<p>Branch names follow Git conventions. When translated to a Postgres schema name or S3 prefix, <code>/</code> becomes <code><em></code> (double underscore). Examples: <code>main</code> → <code>main</code>, <code>feature/new-types</code> → <code>feature</em>new-types</code>.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_sync_model">22.4. Sync model</h3>
+<div class="paragraph">
+<p>Kanecta&#8217;s sync model follows the Git mental model applied to knowledge graph datastores — branch freely, experiment locally, share deliberately, merge with confidence. Syncing is always <strong>explicit and inspectable</strong>. Kanecta never silently merges in the background.</p>
+</div>
+<div class="paragraph">
+<p><strong>Remotes</strong> are named reachable Kanecta datastores configured in the workspace config (e.g. <code>origin</code> for the team&#8217;s shared Postgres instance, <code>personal</code> for a private cloud workspace). A workspace can have multiple remotes.</p>
+</div>
+<div class="paragraph">
+<p><strong>There is no pull.</strong> The remote is always readable — Kanecta queries both local and remote and returns a combined knowledge graph. There is nothing to fetch. Merge explicitly brings remote items into the local datastore. Push sends local changes to a remote for review.</p>
+</div>
+<div class="paragraph">
+<p>The equivalent operations:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col width="33.3333%">
+<col width="66.6667%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Git</th>
+<th class="tableblock halign-left valign-top">Kanecta</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>git push</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Send local branch changes to a remote for merge review.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>git branch</code> / <code>git checkout</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Create / switch the active branch (Postgres schema, S3 prefix, Git branch, or SQLite file depending on adapter).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>git diff</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Show ADD / EDIT / DELETE changes between two branches or between local and remote.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>git merge</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Apply changes from one branch into another. See below.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>git log</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Item history and activity log.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect2">
+<h3 id="_merge">22.5. Merge</h3>
+<div class="paragraph">
+<p>Merge applies all <code>branch_changes</code> rows to the main tables, then removes the branch and its change rows. The operation is atomic within a single transaction.</p>
+</div>
+<div class="paragraph">
+<p>Each changed item is classified before committing:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col width="25%">
+<col width="75%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Classification</th>
+<th class="tableblock halign-left valign-top">Condition and action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>ADD</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Item exists in source branch, not in target. Safe to apply automatically.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>DELETE</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Item removed in source branch. Check subscribers and declared references before applying.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>EDIT</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Item changed in source branch, not in target since branching. Apply field-level diff automatically.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>CONFLICT</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Same field changed differently in both source and target since branching. Requires human resolution before the transaction commits. Surfaced in the Studio sync view with a side-by-side diff.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Conflicts (same item changed on both branches since branching) must be resolved before the transaction commits. The Studio sync view (planned for 1.4.0) is the UI surface for merge operations — it shows the diff and lets the user accept, reject, or resolve each change.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_cqrs_projections">22.6. CQRS projections</h3>
+<div class="paragraph">
+<p>For query-intensive types — such as a <code>customer</code> type with millions of instances — Kanecta supports materialised <strong>projections</strong>: dedicated SQL tables built from item content and optimised for that type&#8217;s query patterns. A customer projection is a real SQL table with proper columns and indexes, not a generic <code>items_payload</code> JSONB scan.</p>
+</div>
+<div class="paragraph">
+<p>Projections are:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Maintained on the <strong>main branch only</strong></p>
+</li>
+<li>
+<p>Updated incrementally after each merge via a projection update job</p>
+</li>
+<li>
+<p>Strictly derived — always rebuildable from <code>items</code> + <code>items_payload</code></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Branches do not maintain their own projections. The bounded set of changes in a branch is queried directly from <code>branch_changes</code> + main tables during review. Production-scale query performance against branch state is not required — PR review is about understanding what changed, not running full production queries.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_pr_pre_flight_scan">22.7. PR pre-flight scan</h3>
+<div class="paragraph">
+<p>Before merging a branch, the platform scans the <strong>blast radius</strong> of every UUID touched by the branch. This surfaces:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p><strong>Structural references</strong> — other items that reference a changed UUID via <code>parentId</code>, inline <code><a id="uuid"></a></code> links, or payload UUID fields. Queried from the <code>item_references</code> derived index.</p>
+</li>
+<li>
+<p><strong>Declared references</strong> — <code>reference</code> items whose <code>targetId</code> is in the changed set. Physical references with <code>blockDeletion: true</code> block the merge until removed or acknowledged by their owner.</p>
+</li>
+<li>
+<p><strong>Active subscriptions</strong> — webhook and reactive subscriptions registered against changed UUIDs.</p>
+</li>
+<li>
+<p><strong>Breaking payload changes</strong> — items where the payload shape changed in a way downstream consumers may be sensitive to.</p>
+</li>
+</ol>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-sql" data-lang="sql">-- Blast radius in one query
+SELECT * FROM item_references WHERE target_item_id = ANY($changedIds);
+SELECT * FROM items WHERE type = 'reference'
+  AND (payload-&gt;&gt;'targetId')::uuid = ANY($changedIds)
+  AND (payload-&gt;&gt;'blockDeletion')::boolean = true;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Merges are blocked (configurable) when any <code>reference</code> item with <code>blockDeletion: true</code> is in the blast radius and has not been acknowledged.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_item_references_derived_index">22.8. item_references derived index</h3>
+<div class="paragraph">
+<p><code>item_references</code> tracks all structural UUID dependencies within the item graph. It is maintained automatically by the adapter and never edited manually.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-sql" data-lang="sql">CREATE TABLE item_references (
+    source_item_id UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+    target_item_id UUID NOT NULL,
+    reference_type TEXT NOT NULL,
+    field_name     TEXT,
+    PRIMARY KEY (source_item_id, target_item_id, reference_type,
+                 coalesce(field_name, ''))
+);
+CREATE INDEX idx_item_references_target ON item_references(target_item_id);</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>reference_type</code> values: <code>parent</code>, <code>inline-link</code>, <code>payload-field</code>, <code>relationship-source</code>, <code>relationship-target</code>, <code>view-item</code>, <code>view-component</code>, <code>view-context</code>, <code>grant-rebac</code>.</p>
+</div>
+<div class="paragraph">
+<p>The index is rebuilt from <code>items</code> + <code>items_payload</code> whenever items are written. It is strictly derived — can always be reconstructed from item content.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="graph-projection">23. Graph Projection (Apache AGE)</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Apache AGE is a <strong>projection layer</strong>, not a store. It is derived from Kanecta&#8217;s relational tables, expendable, and fully rebuildable at any time. Nothing authoritative lives in AGE — losing the graph projection means losing Cypher-based traversal queries, not losing data. This is the same philosophy as the SQLite derived index in the filesystem adapter, and the embeddings table for semantic search.</p>
+</div>
+<div class="paragraph">
+<p>AGE sits on top of the same Postgres instance as Kanecta&#8217;s tables — no separate database, no sync infrastructure. It is optional: Kanecta workspaces function without it; the graph query MCP tools return an error if AGE is unavailable.</p>
+</div>
+<div class="sect2">
+<h3 id="_why_age">23.1. Why AGE</h3>
+<div class="paragraph">
+<p>SQL handles point lookups, filtering, and shallow joins well. Multi-hop traversal is expensive — recursive CTEs grow in complexity with depth. Questions like "find everything connected to item X within 3 hops", "what is the shortest path between A and B?", or "show me the neighbourhood of this item across all relationship types" are graph questions. AGE answers them in a single Cypher query.</p>
+</div>
+<div class="paragraph">
+<p>AGE is not used as a richer store — it is used purely as a traversal index. Graph queries return UUIDs, which are then resolved against Kanecta&#8217;s full relational data for the complete picture:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>AGE Cypher query → set of UUIDs → Kanecta items table → full rich data</pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_mapping">23.2. Mapping</h3>
+<div class="paragraph">
+<p>Every non-relationship item becomes an AGE vertex. Relationship items become AGE edges. Vertex label is <code>Item</code> for all; <code>type</code> property carries the Kanecta type. Edge type mirrors the relationship type&#8217;s value (uppercased, hyphens to underscores). Only traversal-relevant properties are stored in AGE — full item data stays in Postgres.</p>
+</div>
+<div class="paragraph">
+<p>Items with <code>layer: "system"</code> or <code>"app"</code> are excluded by default. All graph queries scope to <code>layer = "user"</code> unless explicitly broadened. History items, annotation items, alias items, and node items are not mirrored — they are metadata and tree structure, not graph edges.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_sync">23.3. Sync</h3>
+<div class="paragraph">
+<p>Three Postgres triggers keep AGE in sync automatically — one for item insert/update (non-relationship items → upsert vertex), one for relationship item insert/update (→ upsert edge), one for delete (→ remove vertex or edge). AGE is fully rebuildable at any time by dropping and recreating the graph and running a backfill from the <code>items</code> table.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_combined_search_scoring">23.4. Combined search scoring</h3>
+<div class="paragraph">
+<p>AGE is one of three signals in the full search pipeline:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>1. pg_vector  → candidates by semantic similarity   (weight: 0.35)
+2. Postgres FTS → candidates by keyword match        (weight: 0.25)
+3. AGE         → expand candidates via graph hops    (weight: 0.40)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Weights are tunable. Graph weight is highest when a <code>seedId</code> is provided (navigation mode). Vector weight is highest for open-ended discovery with no seed.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_mcp_api_surface">24. MCP API Surface</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Kanecta exposes its capabilities as MCP (Model Context Protocol) tools. All tools operate on the active workspace and branch from <code>config.json</code>. Tools return UUIDs; callers resolve full item data via <code>kanecta_get</code> or <code>kanecta_get_many</code> as needed.</p>
+</div>
+<div class="paragraph">
+<p><strong>Design principles:</strong>
+- One tool, one clear job. No tool does two things.
+- UUIDs are the currency. Tools accept and return UUIDs; callers resolve full data as needed.
+- Bulk operations are atomic. Bulk create/update either fully succeeds or fully rolls back.
+- Graph tools return UUIDs only. Resolve with <code>kanecta_get_many</code>.</p>
+</div>
+<div class="sect2">
+<h3 id="_core_item_tools">24.1. Core item tools</h3>
+<div class="paragraph">
+<p><code>kanecta_get</code> — Get a single item by UUID or alias. Returns full item including all four sections.</p>
+</div>
+<div class="paragraph">
+<p><code>kanecta_get_many</code> — Get multiple items by UUID in one call. Eliminates N round trips after graph or search queries.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>kanecta_get_many(ids: string[]) → Item[]</pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>kanecta_add_item</code> — Add a single item. <code>parentId</code> is required for the primary tree. <code>alias</code> registers an alias at creation time (provisional until confirmed at merge).</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>kanecta_add_item(
+  value: string,
+  type?: string,
+  parentId: string,
+  sortOrder?: number,
+  alias?: string,
+  confidence?: string,
+  layer?: "system" | "app" | "user",
+  sourceSystem?: string,
+  sourceExternalId?: string,
+  sourceRunId?: string,
+  payload?: object
+) → Item</pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>kanecta_bulk_create</code> — Create a parent item and any number of children atomically. <code>tempId</code> is a caller-assigned placeholder for linking children to parents within the batch.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>kanecta_bulk_create(
+  items: Array&lt;{
+    tempId: string,
+    value: string,
+    type?: string,
+    parentTempId?: string,
+    parentId?: string,
+    sortOrder?: number,
+    alias?: string,
+    payload?: object
+  }&gt;
+) → { created: Item[] }</pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>kanecta_update_item</code> — Update an item&#8217;s value and/or payload.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>kanecta_update_item(
+  id: string,
+  value?: string,
+  payload?: object,
+  confidence?: string,
+  alias?: string
+) → Item</pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>kanecta_bulk_update</code> — Update multiple items atomically.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>kanecta_bulk_update(
+  updates: Array&lt;{ id: string, value?: string, payload?: object, confidence?: string }&gt;
+) → Item[]</pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>kanecta_delete_item</code> — Delete a single item. Respects <code>blockDeletion</code> reference checks.</p>
+</div>
+<div class="paragraph">
+<p><code>kanecta_delete_subtree</code> — Delete an item and all its descendants (via <code>parentId</code> chain). <code>dryRun: true</code> returns what would be deleted without deleting.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>kanecta_delete_subtree(itemId: string, dryRun?: boolean) → { deleted: number }</pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>kanecta_clone_subtree</code> — Deep-copy an item and all its descendants under a new parent. New UUIDs assigned throughout.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>kanecta_clone_subtree(
+  sourceId: string,
+  targetParentId: string,
+  sortOrder?: number
+) → { root: Item, created: number }</pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_navigation_tools">24.2. Navigation tools</h3>
+<div class="paragraph">
+<p><code>kanecta_get_children</code> — Get immediate children of an item (items whose <code>parentId</code> is this item&#8217;s UUID).</p>
+</div>
+<div class="paragraph">
+<p><code>kanecta_get_ancestors</code> — Get the full ancestor chain from an item up to root, ordered root → parent.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>kanecta_get_ancestors(id: string) → Item[]</pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>kanecta_get_tree</code> — Get the full subtree under an item.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_search_tools">24.3. Search tools</h3>
+<div class="paragraph">
+<p><code>kanecta_search</code> — Full search combining FTS, vector similarity, and optional graph expansion. When <code>seedId</code> is provided, graph proximity is weighted higher. Without <code>seedId</code>, vector similarity is weighted higher.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>kanecta_search(
+  query: string,
+  seedId?: string,
+  rootId?: string,
+  typeFilter?: string[],
+  tagFilter?: string[],
+  confidenceFilter?: string[],
+  layer?: "system" | "app" | "user",
+  limit?: number
+) → Array&lt;{ item: Item, score: number, matchType: "fts" | "vector" | "graph" | "combined" }&gt;</pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>kanecta_recent</code> — List recently created or modified items, with optional type and layer filters.</p>
+</div>
+<div class="paragraph">
+<p><code>kanecta_capture</code> — Save a thought, finding, or insight. Accepts <code>confidence</code>, <code>sourceRunId</code>, and <code>tags</code>.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_graph_query_tools">24.4. Graph query tools</h3>
+<div class="paragraph">
+<p>These tools query the AGE graph projection (see <a href="#graph-projection">Graph Projection (Apache AGE)</a>). They require the AGE projection to be enabled. On workspaces without AGE, they return an error.</p>
+</div>
+<div class="paragraph">
+<p><code>kanecta_graph_related</code> — All items connected to a given item within N hops.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>kanecta_graph_related(
+  id: string,
+  depth?: number,
+  edgeTypes?: string[],
+  direction?: "any" | "outbound" | "inbound",
+  confidenceFilter?: string[]
+) → Array&lt;{ id: string, hops: number, path: string[] }&gt;</pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>kanecta_graph_path</code> — Shortest path between two items.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>kanecta_graph_path(fromId: string, toId: string, maxHops?: number)
+  → { found: boolean, hops: number, path: Array&lt;{ itemId: string, relationshipId?: string }&gt; }</pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>kanecta_graph_neighbourhood</code> — Subgraph around an item — all items and relationships within N hops. Useful for giving an AI agent structural context before reasoning.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>kanecta_graph_neighbourhood(id: string, depth?: number)
+  → {
+      nodes: Array&lt;{ id: string, type: string, value: string }&gt;,
+      edges: Array&lt;{ id: string, sourceId: string, targetId: string, type: string }&gt;
+    }</pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_relationship_tools">24.5. Relationship tools</h3>
+<div class="paragraph">
+<p><code>kanecta_relate</code> — Create a typed relationship between two items. <code>typeId</code> is the UUID of a relationship-type item. <code>confidence</code> defaults to <code>"experimental"</code> for AI-created relationships.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>kanecta_relate(
+  sourceId: string,
+  targetId: string,
+  typeId: string,
+  data?: object,
+  confidence?: string,
+  note?: string,
+  sourceRunId?: string
+) → RelationshipItem</pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>kanecta_unrelate</code> — Delete a relationship item. Snapshots to history before deleting.</p>
+</div>
+<div class="paragraph">
+<p><code>kanecta_update_relationship</code> — Update a relationship&#8217;s data, confidence, or note.</p>
+</div>
+<div class="paragraph">
+<p><code>kanecta_get_relationships</code> — Get all relationships for an item.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>kanecta_get_relationships(
+  id: string,
+  direction?: "outbound" | "inbound" | "both",
+  typeId?: string
+) → RelationshipItem[]</pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_annotation_tools">24.6. Annotation tools</h3>
+<div class="paragraph">
+<p>Annotations are threaded comments on items, stored as <code>annotation</code> items whose <code>parentId</code> is the annotated item.</p>
+</div>
+<div class="paragraph">
+<p><code>kanecta_add_annotation</code> — Add an annotation. <code>parentAnnotationId</code> enables threaded replies.</p>
+</div>
+<div class="paragraph">
+<p><code>kanecta_get_annotations</code> — Get all annotations on an item, threaded and ordered by <code>createdAt</code>.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_bootstrap_configuration">25. Bootstrap Configuration</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><code>config.json</code> is the bootstrap configuration for the Kanecta platform. It is not a Kanecta item — it exists one layer below the datastore and tells the system where datastores live and how to connect to remotes. Defined by <code>./file-specs/config.json</code>.</p>
+</div>
+<div class="sect2">
+<h3 id="_config_file_discovery">25.1. Config file discovery</h3>
+<div class="paragraph">
+<p>Every entry point — Electron, <code>npm start</code>, MCP server, API server — uses the same discovery algorithm so that mixing and matching entry points never produces a mismatched datastore:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p><code>KANECTA_CONFIG</code> environment variable — if set, use that path and stop.</p>
+</li>
+<li>
+<p>Platform default:</p>
+</li>
+</ol>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col width="33.3333%">
+<col width="66.6667%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Platform</th>
+<th class="tableblock halign-left valign-top">Default path</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Mac</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>~/Library/Application Support/kanecta/config.json</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Linux</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>~/.config/kanecta/config.json</code> (XDG)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Windows</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>%APPDATA%\kanecta\config.json</code></p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+Mac uses <code>~/Library/Application Support</code> rather than <code>~/.config</code> because Electron (the primary entry point for most users) is a native Mac app and expects config there. <code>npm start</code> follows the same path so terminal and Electron users always share the same config.
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_key_rules">25.2. Key rules</h3>
+<div class="ulist">
+<ul>
+<li>
+<p><code>specVersion</code> is required — used by the platform to detect config schema changes.</p>
+</li>
+<li>
+<p><code>defaultWorkspace</code> must match a key in <code>workspaces</code>.</p>
+</li>
+<li>
+<p>String values beginning with <code>$</code> are resolved from environment variables at runtime. Secrets (passwords, API keys) belong in a <code>.env</code> file beside <code>config.json</code>, not in <code>config.json</code> itself.</p>
+</li>
+<li>
+<p><code>systemItemsDir</code> does not exist in 1.4.0 — system items are seeded into the datastore at initialisation from a location the bootstrapper knows at runtime (sibling npm package when running from source; central server in future).</p>
+</li>
+<li>
+<p><code>local</code> accepts either a plain path string (shorthand for a filesystem datastore) or a typed object <code>{ type: "filesystem", path: "&#8230;&#8203;" }</code> or <code>{ type: "postgres", &#8230;&#8203; }</code> for a local Postgres datastore.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_workspace_shape">25.3. Workspace shape</h3>
+<div class="paragraph">
+<p>Each workspace is a local datastore with optional named remotes. Multiple remotes are supported — <code>origin</code> is the conventional default. The <code>branch</code> field sets the active branch name; each adapter translates it into its native mechanism (Git branch, Postgres schema, S3 prefix).</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="language-json" data-lang="json">{
+  "specVersion": "1.4.0",
+  "defaultWorkspace": "personal",
+  "workspaces": {
+    "personal": {
+      "local": "/home/alice/wiki/personal",
+      "remotes": {
+        "origin": {
+          "type": "postgres",
+          "host": "$KANECTA_DB_HOST",
+          "database": "$KANECTA_DB_NAME",
+          "user": "$KANECTA_DB_USER",
+          "password": "$KANECTA_DB_PASSWORD",
+          "ssl": true
+        }
+      },
+      "branch": "main"
+    }
+  },
+  "studioPort": 9743,
+  "apiPort": 9744
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_remote_types">25.4. Remote types</h3>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col width="33.3333%">
+<col width="66.6667%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top"><code>type</code></th>
+<th class="tableblock halign-left valign-top">Required fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>postgres</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>host</code>, <code>database</code>, <code>user</code>. Optional: <code>port</code> (default 5432), <code>password</code>, <code>ssl</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>sqlite</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>path</code> — absolute path to the <code>.db</code> file.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>server</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>url</code> — base URL of the Kanecta server. Optional: <code>apiKey</code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_file_specifications">26. File Specifications</h2>
 <div class="sectionbody">
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
@@ -2763,6 +5108,11 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 <td class="tableblock halign-left valign-top"><p class="tableblock">JSON Schema for <code>item.json</code>. Source of truth for all item fields and payload shapes.</p></td>
 </tr>
 <tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Config schema</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>./file-specs/config.json</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">JSON Schema for <code>config.json</code>. Defines workspaces, remotes, and platform ports.</p></td>
+</tr>
+<tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Built-in types</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>./types/built-in-types.json</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Canonical list of all valid <code>item.type</code> values.</p></td>
@@ -2774,7 +5124,7 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2026-06-25 10:32:33 +1200
+Last updated 2026-06-25 16:32:27 +1200
 </div>
 </div>
 </body>
