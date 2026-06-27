@@ -1,0 +1,11 @@
+{
+  "name": "@kanecta/component-graph-view",
+  "version": "1.4.0",
+  "private": true,
+  "main": "src/index.ts",
+  "peerDependencies": {
+    "@tanstack/react-query": ">=5",
+    "react": ">=19",
+    "react-force-graph-2d": "^1"
+  }
+}

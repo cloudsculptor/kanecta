@@ -61,7 +61,10 @@
     "kanecta-components/kanecta-component-home-view",
     "kanecta-components/kanecta-component-history-view",
     "kanecta-components/kanecta-component-starred-view",
-    "kanecta-components/kanecta-component-combinator-view"
+    "kanecta-components/kanecta-component-combinator-view",
+    "kanecta-components/kanecta-component-claude-view",
+    "kanecta-components/kanecta-component-graph-view",
+    "kanecta-components/kanecta-component-table-view"
   ],
   "devDependencies": {
     "@changesets/cli": "^2.31.0",
