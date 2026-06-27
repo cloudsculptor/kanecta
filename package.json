@@ -55,7 +55,13 @@
     "kanecta-components/kanecta-component-list-view",
     "kanecta-components/kanecta-component-gallery-view",
     "kanecta-components/kanecta-component-calendar-view",
-    "kanecta-components/kanecta-component-board-view"
+    "kanecta-components/kanecta-component-board-view",
+    "kanecta-components/kanecta-component-quality-control-view",
+    "kanecta-components/kanecta-component-ai-instructions-view",
+    "kanecta-components/kanecta-component-home-view",
+    "kanecta-components/kanecta-component-history-view",
+    "kanecta-components/kanecta-component-starred-view",
+    "kanecta-components/kanecta-component-combinator-view"
   ],
   "devDependencies": {
     "@changesets/cli": "^2.31.0",

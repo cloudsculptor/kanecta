@@ -1,13 +1,6 @@
 import type { ViewMeta } from '../../../lib/viewMeta';
 import { useViewLocation } from '../../../context/LocationContext';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
-
-export const HomeViewMeta: ViewMeta = {
-  uuid: 'f9e8a7b6-c0d1-4e2f-3a4b-5c6d7e8f9a0b',
-  name: 'home',
-  label: 'Home',
-  icon: 'Home',
-};
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import BubbleChartIcon from '@mui/icons-material/BubbleChart';
 import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
@@ -29,67 +22,50 @@ import SyncIcon from '@mui/icons-material/Sync';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban';
 import ViewListIcon from '@mui/icons-material/ViewList';
+import { HomeView as HomeViewPkg } from '@kanecta/component-home-view';
 import { useUiStore } from '../../../store/ui';
 import type { ViewType } from '../../../types/ui';
-import './HomeView.scss';
 
-interface NavItem {
-  view: ViewType;
-  label: string;
-  icon: React.ReactNode;
-  disabled?: boolean;
-}
+export const HomeViewMeta: ViewMeta = {
+  uuid: 'f9e8a7b6-c0d1-4e2f-3a4b-5c6d7e8f9a0b',
+  name: 'home',
+  label: 'Home',
+  icon: 'Home',
+};
 
-const ALL_ITEMS: NavItem[] = [
-  { view: 'tree',            label: 'Tree',          icon: <AccountTreeIcon /> },
-  { view: 'types',           label: 'Types',          icon: <DashboardCustomizeIcon /> },
-  { view: 'table',           label: 'Table',         icon: <TableChartIcon /> },
-  { view: 'combinator',      label: 'Combinator',    icon: <MergeTypeIcon /> },
-  { view: 'ai-instructions', label: 'AI',            icon: <PsychologyIcon /> },
-  { view: 'history',         label: 'History',       icon: <HistoryIcon /> },
-  { view: 'starred',         label: 'Starred',       icon: <StarIcon /> },
-  { view: 'graph',           label: 'Graph',         icon: <BubbleChartIcon /> },
-  { view: 'quality-control', label: 'Quality',       icon: <FactCheckIcon /> },
-  { view: 'list',            label: 'List',          icon: <ViewListIcon /> },
-  { view: 'board',           label: 'Board',         icon: <ViewKanbanIcon /> },
-  { view: 'gallery',         label: 'Gallery',       icon: <GridViewIcon /> },
-  { view: 'calendar',        label: 'Calendar',      icon: <DateRangeIcon /> },
-  { view: 'mission-control', label: 'Mission',       icon: <FlightIcon /> },
-  { view: 'claude',          label: 'Claude',        icon: <AutoAwesomeIcon /> },
-  { view: 'diagram',         label: 'Diagram',       icon: <SchemaIcon /> },
-  { view: 'settings',        label: 'Settings',      icon: <SettingsIcon /> },
-  { view: 'query',           label: 'Query',         icon: <ManageSearchIcon />,  disabled: true },
-  { view: 'inbox',           label: 'Inbox',         icon: <InboxIcon />,         disabled: true },
-  { view: 'export',          label: 'Export',        icon: <IosShareIcon />,      disabled: true },
-  { view: 'marketplace',     label: 'Market',        icon: <StorefrontIcon />,    disabled: true },
-  { view: 'sync',            label: 'Sync',          icon: <SyncIcon />,          disabled: true },
+const NAV_ITEMS = [
+  { id: 'tree',            label: 'Tree',       icon: <AccountTreeIcon />,        disabled: false },
+  { id: 'types',           label: 'Types',      icon: <DashboardCustomizeIcon />, disabled: false },
+  { id: 'table',           label: 'Table',      icon: <TableChartIcon />,         disabled: false },
+  { id: 'combinator',      label: 'Combinator', icon: <MergeTypeIcon />,          disabled: false },
+  { id: 'ai-instructions', label: 'AI',         icon: <PsychologyIcon />,         disabled: false },
+  { id: 'history',         label: 'History',    icon: <HistoryIcon />,            disabled: false },
+  { id: 'starred',         label: 'Starred',    icon: <StarIcon />,               disabled: false },
+  { id: 'graph',           label: 'Graph',      icon: <BubbleChartIcon />,        disabled: false },
+  { id: 'quality-control', label: 'Quality',    icon: <FactCheckIcon />,          disabled: false },
+  { id: 'list',            label: 'List',       icon: <ViewListIcon />,           disabled: false },
+  { id: 'board',           label: 'Board',      icon: <ViewKanbanIcon />,         disabled: false },
+  { id: 'gallery',         label: 'Gallery',    icon: <GridViewIcon />,           disabled: false },
+  { id: 'calendar',        label: 'Calendar',   icon: <DateRangeIcon />,          disabled: false },
+  { id: 'mission-control', label: 'Mission',    icon: <FlightIcon />,             disabled: false },
+  { id: 'claude',          label: 'Claude',     icon: <AutoAwesomeIcon />,        disabled: false },
+  { id: 'diagram',         label: 'Diagram',    icon: <SchemaIcon />,             disabled: false },
+  { id: 'settings',        label: 'Settings',   icon: <SettingsIcon />,           disabled: false },
+  { id: 'query',           label: 'Query',      icon: <ManageSearchIcon />,       disabled: true },
+  { id: 'inbox',           label: 'Inbox',      icon: <InboxIcon />,              disabled: true },
+  { id: 'export',          label: 'Export',     icon: <IosShareIcon />,           disabled: true },
+  { id: 'marketplace',     label: 'Market',     icon: <StorefrontIcon />,         disabled: true },
+  { id: 'sync',            label: 'Sync',       icon: <SyncIcon />,               disabled: true },
 ];
 
 export function HomeView() {
   useViewLocation(HomeViewMeta.uuid);
   const { layout, updatePanel } = useUiStore();
 
-  const handleSelect = (view: ViewType) => {
+  const handleNavigate = (viewId: string) => {
     const panelId = layout.panels[0]?.id;
-    if (panelId) updatePanel(panelId, { viewType: view });
+    if (panelId) updatePanel(panelId, { viewType: viewId as ViewType });
   };
 
-  return (
-    <div className="HomeView">
-      <div className="HomeView-grid">
-        {ALL_ITEMS.map(({ view, label, icon, disabled }) => (
-          <button
-            key={view}
-            className={['HomeView-item', disabled ? 'HomeView-item--disabled' : ''].filter(Boolean).join(' ')}
-            onClick={() => !disabled && handleSelect(view)}
-            aria-label={label}
-            aria-disabled={disabled}
-          >
-            {icon}
-            <span className="HomeView-item-label">{label}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
+  return <HomeViewPkg items={NAV_ITEMS} onNavigate={handleNavigate} />;
 }

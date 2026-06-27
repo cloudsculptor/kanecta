@@ -1,0 +1,97 @@
+.QualityControlView {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+}
+
+.QualityControlView-loading,
+.QualityControlView-error {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.QualityControlView-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.QualityControlView-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+}
+
+.QualityControlView-percentage {
+  font-size: 7rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-text);
+  letter-spacing: -0.03em;
+}
+
+.QualityControlView-fraction {
+  font-size: 1.25rem;
+  color: var(--color-text-muted);
+  margin-bottom: 32px;
+}
+
+.QualityControlView-section-heading {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  align-self: flex-start;
+  margin-top: 16px;
+  padding: 0 16px;
+}
+
+.QualityControlView-type-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.QualityControlView-type-icon {
+  font-size: 21px !important;
+  width: 21px !important;
+  height: 21px !important;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.QualityControlView-table {
+  border-collapse: collapse;
+  min-width: 240px;
+  font-size: 0.85rem;
+}
+
+.QualityControlView-table th {
+  text-align: left;
+  padding: 6px 16px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.QualityControlView-table td {
+  padding: 5px 16px;
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.QualityControlView-table td:last-child {
+  text-align: right;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.QualityControlView-table tr:last-child td {
+  border-bottom: none;
+}

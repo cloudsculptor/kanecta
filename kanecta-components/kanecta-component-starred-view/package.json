@@ -1,0 +1,21 @@
+{
+  "name": "@kanecta/component-starred-view",
+  "version": "1.4.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@mui/icons-material": ">=9",
+    "@mui/material": ">=9",
+    "@tanstack/react-query": ">=5",
+    "react": ">=19"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "typescript": "~6.0.2"
+  }
+}
