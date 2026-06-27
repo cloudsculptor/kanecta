@@ -1891,6 +1891,10 @@ In this pipeline: `audit` uses `confidenceGate: "accuracy:high"` — clears auto
 | no
 | Optional array of item type names expected as outputs from this phase. Informational — the Studio uses this to annotate phase cards; the confidence gate evaluator uses it to filter which produced items to check. Null means the gate evaluates all items in `itemsProduced`.
 
+| `phases[].outputs`
+| no
+| Optional array declaring the key-value outputs this phase will write via `kanecta_set_phase_output`. Each entry has `name` (the key, used as `phases.<id>.output.<name>` in downstream expressions), `type` (`"string"` \| `"number"` \| `"boolean"` \| `"object"` \| `"array"`), and `description`. Informational — the runner does not validate these against actual values; they document intent and let the Studio surface what a phase produces beyond items. Actual output values land in `pipelineRunPayload.phases[].output`. Null if this phase writes no outputs.
+
 | `phases[].needs`
 | no
 | Array of phase IDs that must reach `"complete"` or `"skipped"` status before this phase may start. Null means this phase depends on the immediately preceding phase in array order (default sequential behaviour). Empty array `[]` means this phase has no dependencies and may start immediately. Use `needs` to express parallel phases or non-linear graphs.
@@ -1902,6 +1906,10 @@ In this pipeline: `audit` uses `confidenceGate: "accuracy:high"` — clears auto
 `review:<level>` — checks `meta.confidence` (must be `"decided"` or `"locked"`), which requires a human to have explicitly reviewed each item before the gate clears. Use when you want human sign-off before the next phase proceeds.
 `manual` — always blocks regardless of item state; requires an explicit call to `kanecta_approve_gate`. Use when you need a human checkpoint no matter what the AI produced.
 When blocked, the run enters `"waiting"` status. See <<pipeline-gate-approval>>.
+
+| `phases[].pauseAfter`
+| no
+| Condition expression evaluated after this phase completes (after `confidenceGate`, if set). If true, the run enters `"waiting"` and requires `kanecta_approve_gate` to resume — regardless of item confidence levels. Unlike `confidenceGate`, `pauseAfter` is not about item quality; it is an explicit checkpoint. Use it to pause before a high-impact downstream phase (implement is about to write code), to require sign-off after a phase that produces decisions rather than findings, or as a circuit-breaker (`phases.audit.output.regressionCount > 20`). Expression context: `phases.<id>.output.<key>`, `phases.<id>.itemsProduced.length`, `params.<name>`. Null means no conditional pause.
 
 | `phases[].fallbackAgentId`
 | no
@@ -1917,7 +1925,7 @@ When blocked, the run enters `"waiting"` status. See <<pipeline-gate-approval>>.
 
 | `phases[].loopBack`
 | no
-| Cycle configuration. When the `if` condition evaluates to true after this phase completes, the runner resets `toPhase` and all phases that depend on it (directly or transitively) back to `"pending"` and re-executes them. The global `pipelineRunPayload.iteration` counter is incremented before each cycle; when it reaches `maxIterations` the runner applies `onMaxIterations` instead. Object fields: `toPhase` (required, phase ID to jump back to), `if` (required, condition expression — available context: `phases.<id>.itemsProduced`, `item` via `.some()`/`.every()`, `params.<name>`), `onMaxIterations` (`"complete"` default | `"fail"`). Null means no cycle — this is a standard DAG phase. The canonical use case is an audit → implement → verify loop: if `verify` finds regressions, loop back to `audit` and try again.
+| Cycle configuration. When the `if` condition evaluates to true after this phase completes, the runner resets `toPhase` and all phases that depend on it (directly or transitively) back to `"pending"` and re-executes them. The global `pipelineRunPayload.iteration` counter is incremented before each cycle; when it reaches `maxIterations` the runner applies `onMaxIterations` instead. Object fields: `toPhase` (required, phase ID to jump back to), `if` (required, condition expression — available context: `phases.<id>.itemsProduced`, `item` via `.some()`/`.every()`, `params.<name>`), `onMaxIterations` (`"complete"` default \| `"fail"`). Null means no cycle — this is a standard DAG phase. The canonical use case is an audit → implement → verify loop: if `verify` finds regressions, loop back to `audit` and try again.
 
 | `phases[].runIf`
 | no
@@ -2108,6 +2116,10 @@ This example shows a second-iteration run (`iteration: 1` — the first loop-bac
 | `phases[].itemsProduced`
 | yes
 | Array of UUIDs of all items written during this phase, across all attempts and all loop-back iterations. Updated incrementally as the agent writes items. For `accuracy:` gates the evaluator checks `payload.confidence` on these items; for `review:` gates it checks `meta.confidence`. Items written in earlier iterations are preserved in this array — items carry `meta.sourceRunIteration` so the evaluator can filter to the most recent iteration's output when checking gate conditions.
+
+| `phases[].output`
+| no
+| Key-value map of ephemeral values written by the agent via the `kanecta_set_phase_output` MCP tool. Not persisted as separate Kanecta items — stored only on this run record, which remains fully inspectable. Available to downstream phases as `phases.<id>.output.<key>` in `runIf`, `forEach.filter`, `loopBack.if`, and `pauseAfter` expressions, and injected into downstream agent context preambles automatically. Reset to null when the phase is reset by a `loopBack`. Null if the phase has not completed or wrote no outputs. This is the mechanism for passing computed values between phases without the overhead of creating a Kanecta item — counts, scores, flags, intermediate results. The contract is: the agent calls `kanecta_set_phase_output("regressionCount", 3)` and the runner stores `{ "regressionCount": 3 }` here.
 
 | `phases[].invocations`
 | no

@@ -84,6 +84,10 @@
             "items": { "type": "string", "format": "uuid" },
             "description": "UUIDs of all items written during this phase across all attempts and all iterations. Updated incrementally. Preserved across loopBack resets so the full lineage is queryable. The gate evaluator checks meta.confidence (for 'review:' gates) or payload.confidence (for 'accuracy:' gates) on the most recent iteration's items only — identified by meta.sourceRunIteration on each item."
           },
+          "output": {
+            "type": ["object", "null"],
+            "description": "Key-value map of ephemeral values the agent wrote via kanecta_set_phase_output. Not persisted as separate Kanecta items — stored only on this run record. Available to downstream phases as phases.<id>.output.<key> in runIf, forEach.filter, loopBack.if, and pauseAfter expressions, and injected into downstream agent context preambles. Reset to null on loopBack. Null if the phase wrote no outputs or has not yet completed."
+          },
           "invocations": {
             "type": ["array", "null"],
             "description": "Per-item invocation records for forEach phases. Null for non-forEach phases. Each entry corresponds to one fan-out invocation.",

@@ -80,6 +80,30 @@
             "items": { "type": "string" },
             "description": "Expected item type names produced by this phase. Used by the Studio and the confidence gate evaluator."
           },
+          "outputs": {
+            "type": ["array", "null"],
+            "description": "Declared key-value outputs this phase will write via kanecta_set_phase_output. Informational — used by the Studio and by downstream phases to know what values are available via phases.<id>.output.<key>. The runner does not validate these declarations against actual output; they document intent and enable tooling.",
+            "items": {
+              "type": "object",
+              "required": ["name", "type"],
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Key name. Used as phases.<id>.output.<name> in downstream expressions."
+                },
+                "type": {
+                  "type": "string",
+                  "enum": ["string", "number", "boolean", "object", "array"],
+                  "description": "Value type."
+                },
+                "description": {
+                  "type": ["string", "null"],
+                  "description": "Human-readable explanation of what this output contains."
+                }
+              }
+            }
+          },
           "needs": {
             "type": ["array", "null"],
             "items": { "type": "string" },
@@ -89,6 +113,10 @@
             "type": ["string", "null"],
             "description": "Gate condition evaluated against itemsProduced before downstream phases may start. Null means no gate. Two gate families: 'accuracy:<level>' checks payload.confidence on produced items (high/medium/low — cleared automatically when all items meet the threshold); 'review:<level>' checks meta.confidence (decided/locked) and requires a human to have explicitly reviewed each item; 'manual' always blocks until a human approves via kanecta_approve_gate regardless of item state. Examples: 'accuracy:high', 'review:decided', 'manual'.",
             "examples": ["accuracy:high", "accuracy:medium", "review:decided", "review:locked", "manual"]
+          },
+          "pauseAfter": {
+            "type": ["string", "null"],
+            "description": "Condition expression evaluated after the phase completes (and after confidenceGate is evaluated, if set). If true, the run enters 'waiting' status regardless of item confidence — a human must call kanecta_approve_gate to resume. Unlike confidenceGate, pauseAfter is not about item quality; it is an explicit checkpoint in the workflow. Use it to pause before a high-impact phase ('implement' about to write code), to require sign-off after a phase that produces decisions rather than findings, or to implement circuit-breaker behaviour ('pause if more than 20 regressions found'). Expression context: phases.<id>.output.<key>, phases.<id>.itemsProduced, phases.<id>.itemsProduced.length, params.<name>. Null means no conditional pause."
           },
           "fallbackAgentId": {
             "type": ["string", "null"],
