@@ -7,7 +7,7 @@
   "properties": {
     "runtime": {
       "type": "string",
-      "description": "Identifies the execution environment. Known values: 'claude-api' (direct Anthropic API call managed by the runner), 'claude-code' (Claude Code CLI, invoked as a subprocess), 'python' (Python script), 'kanecta-function' (executes a Kanecta function item via kanecta-sdk — config.functionId required), 'group-chat' (structured multi-agent deliberation between config.participants — config.participants required). Open string — new runtimes can be added without spec changes; the runner resolves runtime names to adapter implementations."
+      "description": "Identifies the execution environment. Known values: 'claude-api' (direct Anthropic API call managed by the runner), 'claude-code' (Claude Code CLI, invoked as a subprocess), 'python' (Python script), 'kanecta-function' (executes a Kanecta function item via kanecta-sdk — config.functionId required), 'group-chat' (structured multi-agent deliberation between config.participants — config.participants required), 'http' (makes a single HTTP request to an external API and optionally writes the response as a Kanecta item — config.url required; no LLM invoked). Open string — new runtimes can be added without spec changes; the runner resolves runtime names to adapter implementations."
     },
     "model": {
       "type": ["string", "null"],
@@ -78,6 +78,31 @@
           "type": ["string", "null"],
           "format": "uuid",
           "description": "group-chat: UUID of the agent re-invoked to synthesise and write final items after 'max-turns' termination. Null for 'explicit' termination where the concluding participant is the writer."
+        },
+        "url": {
+          "type": "string",
+          "description": "http: URL to request. May contain {{params.name}} placeholders substituted by the runner before the request is made."
+        },
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"],
+          "description": "http: HTTP method. Defaults to 'GET'."
+        },
+        "headers": {
+          "type": ["object", "null"],
+          "description": "http: key-value map of request headers. Values may contain {{params.name}} placeholders. Use for Authorization, Content-Type, and other standard headers. Secret values should be referenced via environment variable substitution in the runner config, not stored in the agent item."
+        },
+        "body": {
+          "description": "http: request body. Any JSON-serialisable value. May contain {{params.name}} placeholders in string leaves. Ignored for GET and DELETE requests."
+        },
+        "outputItemType": {
+          "type": ["string", "null"],
+          "description": "http: if set, the runner writes the HTTP response body as a Kanecta item of this type (e.g. 'note', 'text'). The response JSON is stored as the item payload; item.value is set to the HTTP status code and URL. If null, the response is injected into the phase's output map as phases.<id>.output.httpResponse and is not written as a standalone item. Use null for lightweight data passing between phases; use outputItemType when the response should be a first-class queryable item."
+        },
+        "timeoutSeconds": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "description": "http: request timeout in seconds. If the server does not respond within this time the phase fails. Null defaults to the runner's global HTTP timeout (typically 30s)."
         }
       }
     }

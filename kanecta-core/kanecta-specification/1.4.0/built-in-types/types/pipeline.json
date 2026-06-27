@@ -45,6 +45,43 @@
         }
       }
     },
+    "concurrencyPolicy": {
+      "type": ["string", "null"],
+      "enum": ["allow", "queue", "cancel-previous", null],
+      "description": "What to do when a new run is triggered while a run of this pipeline is already in a non-terminal state (pending or running). 'allow' (default) starts the new run immediately — multiple runs coexist. 'queue' holds the new run at pending status and the runner will not pick it up until the current run reaches a terminal state (complete, failed, or cancelled). 'cancel-previous' cancels the existing run (sets its status to 'cancelled') before starting the new one. Use 'queue' for pipelines that must not overlap (writes to shared state). Use 'cancel-previous' for pipelines triggered by events where only the latest trigger matters (e.g. a re-audit triggered on every commit — only the most recent matters). Null defaults to 'allow'."
+    },
+    "triggers": {
+      "type": ["array", "null"],
+      "description": "Declared trigger conditions that cause the runner to automatically create a pipeline-run item when the condition fires. Triggers are evaluated by the runner's subscription machinery — each trigger registers an internal subscription. Null means the pipeline is only triggered explicitly (via sdk.pipelines.run(), kanecta_run_pipeline, or manual run-item creation). Triggers do not replace explicit invocation; they add reactive invocation on top of it.",
+      "items": {
+        "type": "object",
+        "required": ["type"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["item-created", "item-updated", "schedule"],
+            "description": "Trigger type. 'item-created' fires when a new item matching the filter is created. 'item-updated' fires when an existing item matching the filter is updated. 'schedule' fires on a cron schedule."
+          },
+          "filter": {
+            "type": ["object", "null"],
+            "description": "For item-created and item-updated triggers: a kanecta_query-compatible filter object. The trigger fires only when the created or updated item matches this filter. Null means any item creation or update fires the trigger (rarely useful — use a specific filter). Example: { \"type\": \"finding\", \"payload.severity\": \"P1\" }."
+          },
+          "cron": {
+            "type": ["string", "null"],
+            "description": "For schedule triggers: a standard cron expression (five fields: minute hour day-of-month month day-of-week). Example: '0 9 * * 1' (09:00 every Monday). Null for non-schedule triggers."
+          },
+          "params": {
+            "type": ["object", "null"],
+            "description": "Static param values supplied to the triggered run. For item-created and item-updated triggers, the triggering item's UUID is automatically available as params.triggerItemId — no need to declare it here. Values declared here are merged with any params derived from the triggering event. Null means only event-derived params are supplied."
+          },
+          "description": {
+            "type": ["string", "null"],
+            "description": "Human-readable explanation of when and why this trigger fires. Shown in Studio."
+          }
+        }
+      }
+    },
     "phases": {
       "type": "array",
       "minItems": 1,
@@ -135,9 +172,14 @@
               "filter": {
                 "type": ["string", "null"],
                 "description": "Optional filter expression applied to the source array before fan-out. Each element is available as 'item'. If omitted, all source items are used. Example: \"item.payload.severity in ['P1','P2'] && item.payload.confidence == 'high'\"."
+              },
+              "maxConcurrent": {
+                "type": ["integer", "null"],
+                "minimum": 1,
+                "description": "Maximum number of per-item invocations that may run simultaneously. Null means no limit — all invocations start in parallel immediately. Set this when fanning out over a large source list where simultaneous invocations would exhaust model rate limits, incur excessive cost, or overwhelm downstream systems. The runner queues remaining invocations and starts each one as a running invocation completes. Example: forEach over 100 findings with maxConcurrent: 5 runs five agents at a time."
               }
             },
-            "description": "Fan-out configuration. When set, the runner invokes the phase agent once per source item rather than once for the phase. All invocations run in parallel. itemsProduced in the phase record collects output from all invocations. Null means no fan-out (single invocation)."
+            "description": "Fan-out configuration. When set, the runner invokes the phase agent once per source item rather than once for the phase. All invocations run in parallel (subject to maxConcurrent). itemsProduced in the phase record collects output from all invocations. Null means no fan-out (single invocation)."
           },
           "loopBack": {
             "type": ["object", "null"],

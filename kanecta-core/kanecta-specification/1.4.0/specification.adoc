@@ -1709,7 +1709,7 @@ Execution proceeds as follows:
 3. **Phase execution.** For each phase the runner:
    a. Evaluates `runIf` (if set) — if false, sets the phase to `"skipped"` and continues.
    b. Executes the `inputQuery` (if set) and injects results into the agent's context preamble.
-   c. For `forEach` phases: builds the source item list, applies the filter, and fans out one agent invocation per item in parallel. Each invocation receives a single source item as its primary context. All invocations must reach a terminal state before the phase completes.
+   c. For `forEach` phases: builds the source item list, applies the filter, and fans out one agent invocation per item. If `maxConcurrent` is set, the runner queues invocations and starts each new one only as a running invocation completes. If null, all invocations start simultaneously. Each invocation receives a single source item as its primary context. All invocations must reach a terminal state before the phase completes.
    d. For non-forEach phases: invokes the agent once with the full inputQuery result as context.
    e. Monitors for `"escalate"` tags on produced items. If any produced item is tagged `"escalate"` and `fallbackAgentId` is set, re-runs the phase with the fallback agent (same instructions, same context, increments `attempt`).
    f. Collects all UUIDs written via `sdk.items.create()` or `kanecta_add_item` into `phases[].itemsProduced`. Tags each created item with `meta.sourceRunId` (the run UUID) and `meta.sourceRunIteration` (the current iteration counter).
@@ -1749,8 +1749,8 @@ The following five primitives cover every realistic multi-agent workflow pattern
 | Empty array means no dependencies — this phase starts immediately alongside any other phase that is currently eligible. Use for phases that can run concurrently (e.g. two independent audit agents running in parallel against different data sets).
 
 | Fan-out
-| `forEach: { source, filter }`
-| Invokes the phase agent once per item in `source` (a run-state expression). Invocations run in parallel. Each receives a single source item as primary context. All outputs are collected into `itemsProduced`. Use to spread work across a list of items — one implement agent per finding, one screenshot agent per screen.
+| `forEach: { source, filter, maxConcurrent }`
+| Invokes the phase agent once per item in `source` (a run-state expression). Invocations run in parallel up to `maxConcurrent` (null = unlimited). Each receives a single source item as primary context. All outputs are collected into `itemsProduced`. Use to spread work across a list of items — one implement agent per finding, one screenshot agent per screen. Set `maxConcurrent` when fanning out over a large list to avoid rate-limiting or excessive cost from simultaneous model calls.
 
 | Fan-in
 | `fanIn: { source, groupBy }`
@@ -1772,6 +1772,7 @@ The `runtime` field in `agentPayload` is an open string. The canonical values ar
 - `"python"` — a Python script
 - `"kanecta-function"` — executes a Kanecta `function` item directly via kanecta-sdk; a function-based phase can call `sdk.ai.complete()` for AI reasoning and `sdk.items.create()` for deterministic writes in the same execution unit, fully tracked in `itemsProduced`
 - `"group-chat"` — runs a structured multi-agent deliberation between a declared set of participant agents before producing items
+- `"http"` — makes a single HTTP request to an external API; no LLM is invoked. Configure via `config.url`, `config.method`, `config.headers`, and `config.body`. The response is either written as a Kanecta item (when `config.outputItemType` is set) or stored in the phase output map as `phases.<id>.output.httpResponse` for downstream phases to read. Use for: posting to Slack, triggering a CI build, fetching a Jira ticket, calling a webhook — any side effect or data fetch that does not need AI reasoning. Composing an `"http"` phase before a `"claude-api"` phase is the pattern for fetch-then-reason workflows.
 
 The `"group-chat"` runtime is the Kanecta answer to AutoGen-style collaborative agent patterns. Instead of a single model analysing a finding, a panel of agents with different roles and models deliberates — challenging each other's reasoning, surfacing edge cases, and reaching a consensus before any items are written. From the pipeline's point of view the phase is identical to any other: it has a `confidenceGate`, `loopBack`, `forEach`, and `pauseAfter` exactly like a single-model phase. The deliberation is internal to the agent; the pipeline sees only the items the group produces.
 
@@ -1819,6 +1820,40 @@ Because `pipeline-run` is an ordinary item, it participates in the full item mac
 Create a `"pipeline-run"` item with `payload.status = "pending"` as a child of the pipeline item. Supply `payload.params` matching the pipeline's `params[]` declarations. The runner picks it up and begins execution. All other fields on the run record are managed by the runner — set only `pipelineId`, `status`, `params`, and the initial `phases` array (all phases at `status: "pending"`, `attempt: 0`).
 
 Runs can also be triggered programmatically via the kanecta-sdk (`sdk.pipelines.run(pipelineId, params)`) or via MCP (`kanecta_run_pipeline`). Both create the `pipeline-run` item internally and return the run UUID.
+
+==== Reactive triggers
+
+Pipelines can declare `payload.triggers[]` to fire automatically without explicit invocation. Three trigger types are supported:
+
+- `"item-created"` — fires when a new item matching `filter` is created anywhere in the datastore. The triggering item's UUID is automatically injected as `params.triggerItemId` on the created run.
+- `"item-updated"` — fires when an existing item matching `filter` is updated. Same `params.triggerItemId` injection.
+- `"schedule"` — fires on a cron schedule (`cron` field, five-field standard format). Use for daily/weekly pipelines that should run without manual intervention.
+
+Triggers do not replace explicit invocation — they add reactive invocation on top of it. A pipeline with a trigger can still be invoked explicitly at any time.
+
+Example — a pipeline that automatically runs whenever a new high-severity finding is created:
+
+[source,json]
+----
+{
+  "triggers": [
+    {
+      "type": "item-created",
+      "filter": { "type": "finding", "payload.severity": "P1" },
+      "params": { "reportId": "00000000-0000-0000-0000-000000000001" },
+      "description": "Auto-run when a P1 finding is created"
+    }
+  ]
+}
+----
+
+==== Concurrency policy
+
+When a trigger fires or an explicit run is created while a previous run of the same pipeline is still in a non-terminal state, `payload.concurrencyPolicy` governs what happens:
+
+- `"allow"` (default) — both runs proceed simultaneously. Use when runs are independent of each other.
+- `"queue"` — the new run waits at `"pending"` until the current run completes. Use when runs write to shared state and must not interleave.
+- `"cancel-previous"` — the existing run is cancelled before the new one starts. Use for event-driven pipelines where only the most recent trigger matters (e.g. re-auditing a screen on every commit — only the latest commit's audit is relevant).
 
 === Studio integration
 
@@ -2087,6 +2122,14 @@ In this pipeline: `audit` uses `confidenceGate: "accuracy:high"` — clears auto
 | no
 | Maximum number of loop-back cycles the runner will execute before forcing completion. Applies globally to all `loopBack` phases in the pipeline. Null defaults to 3. When the limit is reached, the runner follows each loopBack phase's `onMaxIterations` policy (`"complete"` or `"fail"`) instead of looping again. This field exists to prevent runaway pipelines — always set it explicitly when a pipeline contains cycles.
 
+| `concurrencyPolicy`
+| no
+| What the runner does when a new run is triggered while a previous run of this pipeline is still in a non-terminal state. `"allow"` (default, null) — both runs proceed simultaneously. `"queue"` — the new run waits at `"pending"` until the current run reaches a terminal state. `"cancel-previous"` — the current run is cancelled before the new one starts. See <<reactive-triggers>>.
+
+| `triggers`
+| no
+| Array of reactive trigger declarations. Each trigger causes the runner to automatically create a `pipeline-run` when the condition fires, without explicit invocation. Null means the pipeline is only triggered explicitly. Three trigger types: `"item-created"` (fires when a new item matching `filter` is created — triggering item UUID injected as `params.triggerItemId`), `"item-updated"` (same but on update), `"schedule"` (fires on a `cron` expression — standard five-field format). Each trigger also accepts `params` (static param values merged with event-derived params) and `description` (shown in Studio). See <<reactive-triggers>>.
+
 | `params`
 | no
 | Array of parameter definitions. Declares the typed inputs this pipeline accepts. Null or empty means the pipeline takes no parameters. Each param entry has: `name` (string, unique within the pipeline), `type` (`"string"` \| `"number"` \| `"boolean"` \| `"uuid"`), `required` (boolean), `default` (value used when not supplied; must match `type`; required when `required: false`), `description` (human-readable explanation).
@@ -2145,7 +2188,7 @@ When blocked, the run enters `"waiting"` status. See <<pipeline-gate-approval>>.
 
 | `phases[].forEach`
 | no
-| Fan-out configuration. When set, the runner invokes the phase agent once per item in `source` rather than once for the whole phase. All invocations run in parallel. Their outputs are all collected into the phase's `itemsProduced`. Object fields: `source` (required, string expression resolving to an array from the run state, e.g. `"phases.audit.itemsProduced"`) and `filter` (optional, filter expression applied before fan-out, `item` is the element variable, e.g. `"item.payload.severity in ['P1','P2']"`). Null means no fan-out. Each invocation receives a single item as its primary context rather than the full query result — this is how an implement phase processes findings individually without needing a loop.
+| Fan-out configuration. When set, the runner invokes the phase agent once per item in `source` rather than once for the whole phase. Invocations run in parallel, up to `maxConcurrent` simultaneously (null = unlimited). Their outputs are all collected into the phase's `itemsProduced`. Object fields: `source` (required, string expression resolving to an array from the run state, e.g. `"phases.audit.itemsProduced"`), `filter` (optional, filter expression applied before fan-out, `item` is the element variable, e.g. `"item.payload.severity in ['P1','P2']"`), and `maxConcurrent` (optional integer, caps parallel invocations — set to avoid model rate limits or runaway cost when the source list is large). Null means no fan-out. Each invocation receives a single item as its primary context rather than the full query result — this is how an implement phase processes findings individually without needing a loop.
 
 | `phases[].fanIn`
 | no
