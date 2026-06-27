@@ -1112,21 +1112,183 @@ NOTE: `formulajs` (MIT licence) is the evaluation engine for `dsl` level formula
 
 link:../built-in-types/types/component.json[Seed item^]
 
-For `type: "component"`. Describes a React component. Return type is always `ReactNode` — implicit, no field. The component body (JSX/TSX) lives in `meta.files.body = "body.tsx"`.
+For `type: "component"`. A component item describes the *contract* of a UI component — its target rendering environment, props interface, and dependencies. The implementation lives in a deployment bundle on disk and in cloud storage. The model is structurally parallel to `functionPayload`: same bundle directory convention, same `bundleHash` mechanism, same `tsc --noEmit` validation — the difference is the entry point shape (a rendered component rather than an invoked function).
 
 [source,json]
 ----
 {
-  "description": "Renders a Person card.",
+  "target": "react",
+  "description": "Renders a Person card with name and edit action.",
   "props": [
-    { "name": "name", "type": "string" },
+    { "name": "itemId", "type": "string", "description": "UUID of the item to render." },
     { "name": "onEdit", "functionId": "abc123-..." }
   ],
-  "dependencies": ["date-fns"]
+  "dependencies": ["date-fns"],
+  "bundleHash": {
+    "react": "sha256:b7c2d1..."
+  }
 }
 ----
 
-Props use the same `parameterOrProp` definition as function parameters — including `functionId` for callback props. A type item links to its component via `payload.meta.componentId`.
+*Props* use the same `parameterOrProp` definition as function parameters — including `typeId` for Kanecta-typed props and `functionId` for callback props. A type item links to its default component via `typePayload.meta.componentId`.
+
+*Target*
+
+The `target` field is a free-form open string identifying which rendering environment this component runs in. New targets can be added without a spec change. If `target` is absent, the adapter defaults to `"react"`. The target name also serves as the subdirectory name within the component's deployment bundle.
+
+Three targets are named in 1.4.0. `"react"` is fully specified; the others follow the same bundle conventions using the target's idiomatic entry point:
+
+[cols="1,2,2", options="header"]
+|===
+| `target` | Entry point | Return type
+
+| `"react"` (default)
+| `index.tsx` — default export is a React component
+| `ReactNode`
+
+| `"web"`
+| `index.ts` — default export is a Custom Element class
+| HTML element (Custom Element / Web Component)
+
+| `"ink"`
+| `index.tsx` — default export is an Ink component
+| Ink `Box` or `Text`
+|===
+
+*Bundle and deployment*
+
+Component bundles follow the same model as function bundles. The entire `.component/` directory is zipped and stored as a file blob in cloud storage, referenced from the component item via `meta.files`. `node_modules/` is excluded from the zip. On first use or when `bundleHash` changes, the adapter re-fetches, unpacks, and runs the package manager before rendering.
+
+*Local directory structure:*
+
+[source]
+----
+.kanecta/
+  <component-uuid>/
+    .component/
+      react/
+        package.json       ← npm package; adapter-generated; user may add dependencies
+        tsconfig.json      ← TypeScript config; adapter-generated
+        interface.ts       ← adapter-owned; auto-generated from props spec; never edit
+        index.tsx          ← user-owned; default export is the component
+        [any other files or directories the author needs]
+----
+
+`bundleHash` is an open object keyed by target name, each value the SHA-256 hash of the source files for that target's subdirectory (excluding `node_modules/`):
+
+[source,json]
+----
+"bundleHash": {
+  "react": "sha256:b7c2d1e4f8..."
+}
+----
+
+*`interface.ts` — adapter-generated props contract:*
+
+The adapter generates `interface.ts` from the component item's `props` list using the same regenerate-and-diff tamper detection as functions. The user never edits this file. When the item's `props` change, the adapter regenerates `interface.ts` and `index.tsx`'s default export must be updated to match before the next save.
+
+Example generated `interface.ts` for the props above:
+
+[source,typescript]
+----
+// AUTO-GENERATED — do not edit. Regenerated from component item spec on save.
+export interface PersonCardProps {
+  itemId: string;
+  onEdit: () => void;
+}
+----
+
+*`index.tsx` — user-owned entry point:*
+
+[source,typescript]
+----
+import type { PersonCardProps } from './interface.js';
+
+export default function PersonCard({ itemId, onEdit }: PersonCardProps) {
+  // implementation
+}
+----
+
+The adapter validates the default export's props signature against `interface.ts` via `tsc --noEmit` before saving. The body of the component is the user's business.
+
+*`package.json` — npm scripts:*
+
+[source,json]
+----
+{
+  "name": "kanecta-component",
+  "version": "1.0.0",
+  "scripts": {
+    "check": "tsc --noEmit && kanecta component validate <component-uuid>",
+    "save":  "npm run check && kanecta component save <component-uuid>"
+  },
+  "dependencies": {}
+}
+----
+
+*Data access — `useDataSource()`*
+
+Components that need to fetch or mutate Kanecta items use `useDataSource()` from `@kanecta/component-core`. They never call the adapter directly. `useDataSource()` returns a five-method interface:
+
+[source,typescript]
+----
+const { get, query, create, update, delete: remove } = useDataSource();
+----
+
+[cols="1,3", options="header"]
+|===
+| Method | Signature
+
+| `get`
+| `(id: string, options?: { depth?: number }) => Promise<KanectaItem>`
+
+| `query`
+| `(filter: QueryFilter) => Promise<KanectaItem[]>`
+
+| `create`
+| `(item: Partial<KanectaItem>) => Promise<KanectaItem>`
+
+| `update`
+| `(id: string, patch: Partial<KanectaItem>) => Promise<KanectaItem>`
+
+| `delete`
+| `(id: string) => Promise<void>`
+|===
+
+The data source is provided by the host application via `<DataSourceProvider>` from `@kanecta/component-core`. The host decides the implementation — a direct HTTP adapter, a React Query cache, a Zustand store, a WebSocket-fed live store, anything. The component has no knowledge of which implementation is active. This makes components portable: the same component renders in Kanecta Studio (real adapter), in a third-party React app (custom adapter), and in Storybook (mock adapter from `createMockDataSource(items[])`).
+
+`useDataSource()` is intentionally generic — it carries no Kanecta branding inside component code. A component that calls `useDataSource()` reads as environment-agnostic even though the data model it consumes (`KanectaItem`) is Kanecta-typed.
+
+*Dependencies — MUI and other libraries*
+
+MUI (`@mui/material`, `@mui/icons-material`, `@emotion/react`, `@emotion/styled`) is available as a peer dependency for components that use it. It is not required — components may use any styling approach or no external UI library at all. Small utility components (a styled input, a badge, a formatted date) often need no MUI dependency.
+
+*Storybook and testing*
+
+Storybook stories and automated tests are strongly recommended for components of any meaningful complexity, and are required for all components shipped in Kanecta's built-in component sets. Simple utility components may omit them. When stories are present, use `createMockDataSource` from `@kanecta/component-core` to provide the `DataSourceProvider` — this decouples stories from any real adapter and makes them runnable anywhere.
+
+[source,typescript]
+----
+// PersonCard.stories.tsx
+const mockApi = createMockDataSource([personItem]);
+
+export const Default: Story = {
+  render: () => (
+    <DataSourceProvider api={mockApi}>
+      <PersonCard itemId={personItem.item.id} onEdit={() => {}} />
+    </DataSourceProvider>
+  )
+};
+----
+
+*`@kanecta/component-core`*
+
+The shared package that all Kanecta component packages peer-depend on. Exports:
+
+* `DataSourceProvider` — React context provider; wraps any `DataSource` implementation
+* `useDataSource()` — hook; returns the five-method interface
+* `DataSource` interface — the TypeScript contract; implement this to provide a data source
+* `createMockDataSource(items: KanectaItem[])` — in-memory mock implementation for stories and tests
 
 === typePayload
 

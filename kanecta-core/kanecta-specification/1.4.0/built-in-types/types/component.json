@@ -35,7 +35,7 @@
   "search": null,
   "payload": {
     "meta": {
-      "description": "A React component definition.",
+      "description": "A UI component definition with a target rendering environment, typed props contract, and deployment bundle. Structurally parallel to functionPayload \u2014 same bundle directory convention, same bundleHash mechanism, same tsc validation. Entry point is index.tsx (default export) rather than index.ts (main function).",
       "confidence": "locked"
     },
     "jsonSchema": {
@@ -44,23 +44,38 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "target": {
+          "type": "string",
+          "description": "Rendering environment for this component. Open string \u2014 new targets can be added without a spec change. The target name is also the subdirectory name inside the .component/ bundle directory. Defaults to 'react' if absent. Named targets: 'react' (ReactNode, index.tsx), 'web' (Custom Element, index.ts), 'ink' (Ink component, index.tsx)."
+        },
+        "bundleHash": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "SHA-256 hashes of the source bundle keyed by target name (e.g. { \"react\": \"sha256:b7c2d1...\" }). Excludes node_modules/. Updated by kanecta component save. Stale hash triggers re-fetch and re-unpack before rendering."
+        },
         "description": {
           "type": "string",
-          "description": "What this component renders."
+          "description": "What this component renders or does."
         },
         "props": {
           "type": "array",
           "items": {
             "$ref": "function.json#/definitions/parameterOrProp"
           },
-          "description": "Component props. Use the same parameterOrProp definition as function parameters \u2014 including functionId for callback props."
+          "description": "Ordered list of props. The adapter generates interface.ts from this list. Uses the same parameterOrProp definition as functionPayload \u2014 including typeId for Kanecta-typed props and functionId for callback props."
         },
         "dependencies": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "npm packages required by this component."
+          "description": "Package dependencies declared for this component (e.g. ['date-fns']). Merged into the generated package.json. MUI and @kanecta/component-core are peer dependencies \u2014 list only direct runtime dependencies specific to this component."
+        },
+        "deprecated": {
+          "type": "string",
+          "description": "If set, marks the component as deprecated. Value is the deprecation message."
         }
       }
     },
