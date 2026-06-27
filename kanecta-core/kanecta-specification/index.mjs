@@ -1,5 +1,5 @@
 import types from './1.4.0/built-in-types/built-in-types.json' with { type: 'json' };
-import itemSpec from './1.4.0/file-specs/item.json' with { type: 'json' };
+import itemSpec from './1.4.0/core-file-specs/item.json' with { type: 'json' };
 import pkg from './package.json' with { type: 'json' };
 
 export const version = pkg.version;

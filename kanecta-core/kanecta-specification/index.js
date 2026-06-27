@@ -5,7 +5,7 @@ const types = require(`./${version}/built-in-types/built-in-types.json`);
 
 module.exports = {
   version,
-  item:             require(`./${version}/file-specs/item.json`),
+  item:             require(`./${version}/core-file-specs/item.json`),
   types,
   allTypes:         [...types.primitive, ...types.structured, ...types.wellKnown],
   primitiveTypes:   types.primitive,

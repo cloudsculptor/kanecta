@@ -2581,7 +2581,7 @@ Annotations are threaded comments on items, stored as `annotation` items whose `
 
 == Bootstrap Configuration
 
-`config.json` is the bootstrap configuration for the Kanecta platform. It is not a Kanecta item — it exists one layer below the datastore and tells the system where datastores live and how to connect to remotes. Defined by `./file-specs/config.json`.
+`config.json` is the bootstrap configuration for the Kanecta platform. It is not a Kanecta item — it exists one layer below the datastore and tells the system where datastores live and how to connect to remotes. Defined by `./core-file-specs/config.json`.
 
 === Config file discovery
 
@@ -2667,11 +2667,11 @@ Each workspace is a local datastore with optional named remotes. Multiple remote
 | File | Location | Description
 
 | Item schema
-| `./file-specs/item.json`
+| `./core-file-specs/item.json`
 | JSON Schema for `item.json`. Source of truth for all item fields and payload shapes.
 
 | Config schema
-| `./file-specs/config.json`
+| `./core-file-specs/config.json`
 | JSON Schema for `config.json`. Defines workspaces, remotes, and platform ports.
 
 | Built-in types
