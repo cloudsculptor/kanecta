@@ -561,9 +561,21 @@ Types are grouped into three categories.
 | `activity`
 | A discrete workspace event (item viewed, search performed, sync completed). Distinct from `item_history` — activity tracks what happened, history tracks what changed. `payload.targetId` identifies the related item (null for workspace-level events).
 | `activityPayload` (required)
+
+| `agent`
+| A reusable executor definition — declares the runtime, model, system prompt, and tool access for a pipeline phase. Agent items are reused across pipelines; separates agent identity and capability from task-specific instructions.
+| `agentPayload` (required)
+
+| `pipeline`
+| An ordered sequence of agent-executed phases. Captures the full definition of a multi-step AI workflow — what phases run, which agent handles each, what Kanecta items each phase produces, and what confidence thresholds gate phase transitions. Executions are separate `pipeline-run` items that live as children of the pipeline in the tree.
+| `pipelinePayload` (required)
+
+| `pipeline-run`
+| The execution record of a single pipeline invocation. Updated in real time as the run progresses. Lives as a child of its `pipeline` item — the run history of any pipeline is immediately visible in the tree. Subscriptions on this item deliver live phase progress to the Studio pipeline view.
+| `pipelineRunPayload` (required)
 |===
 
-NOTE: `pipeline`, `agent`, and `pipeline-run` are intentionally absent from this list. They are user-defined typed objects shipped as a canonical `kanecta-pipelines` system item package. They need no special treatment from the generic layer — no indexed columns, no special query paths, no system behaviour dependent on their existence. They belong alongside domain types like `epic` or `stakeholder` — powerful, but not the core spec's concern to define.
+NOTE: `pipeline`, `agent`, and `pipeline-run` are built-in structured types, but they are categorically different from types like `file`, `function`, or `relationship`. They are *platform types* — built in not because they are primitives of the data model, but because Kanecta needs to understand them to support AI-native workflows. The adapter indexes run status for live UI updates, subscriptions deliver phase progress in real time, and the Studio pipeline view depends on a stable, well-known payload contract. Domain types (`epic`, `stakeholder`, `finding`) remain user-defined; `pipeline` is built in because Kanecta *executes* pipelines — the system has behaviour that depends on these types existing. This is the line: if the generic layer needs to understand a type to do its job, the type belongs in the spec.
 
 === Well-Known Types
 
@@ -607,7 +619,7 @@ These rules are hard constraints enforced at write time by every adapter.
 
 Most built-in types have a corresponding synthetic type item created at datastore initialisation. These items have type `"type"`, `layer: "system"`, and a stable well-known UUID assigned at init (stored in the bootstrapper). They are the canonical homes for all instances of their type.
 
-Built-in types with synthetic type items: `alias`, `annotation`, `aspect-type`, `claim`, `component`, `concept`, `context`, `decision`, `entity`, `event`, `file`, `formula`, `function`, `grant`, `item_history`, `activity`, `note`, `object`, `question`, `reference`, `relationship`, `relationship-type`, `runner`, `subscription`, `symlink`, `task`, `tree`, `view`.
+Built-in types with synthetic type items: `agent`, `alias`, `annotation`, `aspect-type`, `claim`, `component`, `concept`, `context`, `decision`, `entity`, `event`, `file`, `formula`, `function`, `grant`, `item_history`, `activity`, `note`, `object`, `pipeline`, `pipeline-run`, `question`, `reference`, `relationship`, `relationship-type`, `runner`, `subscription`, `symlink`, `task`, `tree`, `view`.
 
 NOTE: The payload-less primitive types — `string`, `number`, `text`, `heading`, `url` — do *not* have synthetic type items. These types are content items that live directly under their parent in the tree. Creating a synthetic type bucket for bare strings or numbers would produce a meaningless collection of decontextualised values. Their `parentId` is always their actual tree parent.
 
@@ -1655,6 +1667,264 @@ The `activity` item's `parentId` is the synthetic `activity` type item UUID. `pa
 |===
 
 NOTE: Activity items are not replicated to remotes by default — activity is local to the workspace unless explicitly opted in. They are never updated or deleted after creation.
+
+[#agentPayload]
+=== agentPayload
+
+link:../built-in-types/types/agent.json[JSON Schema^]
+
+For `type: "agent"`. An agent is a reusable executor definition — it declares the runtime environment, model, system prompt, and tool access for a pipeline phase. Agent items are reused across pipelines; a single agent definition can be referenced by multiple phase definitions across multiple pipelines.
+
+The agent carries the *who* of execution: identity, runtime, and capability. The *what* — task-specific instructions and input queries — lives in the pipeline phase definition, not on the agent. This separation means you configure an audit agent once and use it in many different pipeline contexts with different instructions each time.
+
+`item.value` on the agent item is the agent's display name (e.g. `"Audit Agent — Sonnet"`, `"Implementation Agent"`).
+
+[source,json]
+----
+{
+  "runtime": "claude-api",
+  "model": "claude-sonnet-4-6",
+  "systemPrompt": "You are a UI auditor. You compare screenshots of iOS and Android screens and identify visual and behavioural differences. Write findings as Kanecta items using kanecta_capture.",
+  "tools": ["kanecta_capture", "kanecta_query", "kanecta_relate"],
+  "config": {
+    "max_tokens": 8096,
+    "temperature": 0
+  }
+}
+----
+
+[cols="1,1,2", options="header"]
+|===
+| Field | Required | Description
+
+| `runtime`
+| yes
+| Identifies the execution environment. Known values: `"claude-code"` (Claude Code CLI, invoked as a subprocess), `"claude-api"` (direct Anthropic API call managed by the runner), `"python"` (Python script). Open string — new runtimes can be added without spec changes; the runner resolves runtime names to adapter implementations.
+
+| `model`
+| no
+| Model identifier for API-based runtimes (e.g. `"claude-sonnet-4-6"`, `"claude-opus-4-8"`). Null for runtimes that manage model selection themselves (e.g. `"claude-code"`). When null and the runtime requires a model, the runner applies its configured default.
+
+| `systemPrompt`
+| no
+| Base system prompt defining this agent's identity, role, and general behaviour. Combined with the pipeline phase `instructions` at run time — the system prompt sets up who the agent is; the phase instructions set up what it should do in this specific pipeline context. Null defers entirely to the runtime's default system prompt.
+
+| `tools`
+| no
+| Array of MCP tool names this agent can access. Restricting tools is a safety measure — a read-only analysis agent should not have `kanecta_delete`; an implementation agent should not reach production datastores. Null means all tools available in the current MCP context are accessible.
+
+| `config`
+| no
+| Runtime-specific configuration. For `"claude-api"`: `max_tokens`, `temperature`, `top_p`. For `"claude-code"`: `working_directory`, `env`. For `"python"`: `script_path`, `interpreter`. Structure is determined by the runtime adapter — the spec does not constrain it. Null means runtime defaults apply.
+|===
+
+[#pipelinePayload]
+=== pipelinePayload
+
+link:../built-in-types/types/pipeline.json[JSON Schema^]
+
+For `type: "pipeline"`. A pipeline is an ordered sequence of phases, each executed by a designated agent. Pipelines are the primary mechanism for defining multi-step AI workflows in Kanecta — capturing not just what agents should do, but the data flow between them, the confidence thresholds that gate phase transitions, and the contract for what Kanecta items each phase produces.
+
+A pipeline is a *definition*, not an execution. Each invocation creates a `pipeline-run` item as a child of the pipeline item in the tree. The pipeline definition is read at the moment a run starts; changes to the pipeline item do not affect runs already in progress.
+
+`item.value` on the pipeline item is the pipeline's display name.
+
+[source,json]
+----
+{
+  "description": "Audits a mobile app screen for UI-parity issues vs iOS reference",
+  "phases": [
+    {
+      "id": "screenshot",
+      "name": "Screenshot",
+      "agentId": "agent-uuid-1",
+      "instructions": "Capture baseline and candidate screenshots for the target screen.",
+      "inputQuery": null,
+      "outputTypes": ["screenshot"],
+      "confidenceGate": null
+    },
+    {
+      "id": "audit",
+      "name": "Audit",
+      "agentId": "agent-uuid-2",
+      "instructions": "Compare screenshots. For each difference, create a `finding` item in Kanecta with severity and confidence. Escalate to Opus if uncertain.",
+      "inputQuery": { "type": "screenshot", "status": "active" },
+      "outputTypes": ["finding"],
+      "confidenceGate": "high"
+    },
+    {
+      "id": "implement",
+      "name": "Implement",
+      "agentId": "agent-uuid-3",
+      "instructions": "For each high-confidence P1/P2 finding, implement the fix in an isolated worktree. Write a `fix` item recording what changed.",
+      "inputQuery": { "type": "finding", "confidence": "high" },
+      "outputTypes": ["fix"],
+      "confidenceGate": null
+    }
+  ]
+}
+----
+
+[cols="1,1,2", options="header"]
+|===
+| Field | Required | Description
+
+| `description`
+| no
+| Human-readable description of what this pipeline does and when to use it. Null is valid.
+
+| `phases`
+| yes
+| Ordered array of phase definitions. Phases execute sequentially — each phase starts only after the previous phase completes and its confidence gate (if any) is cleared. Array must have at least one entry.
+
+| `phases[].id`
+| yes
+| Stable local identifier for this phase within the pipeline (e.g. `"screenshot"`, `"audit"`, `"implement"`). Must be unique within the pipeline. Used by `pipelineRunPayload` to correlate phase execution records with phase definitions. Not a UUID — a short slug, stable across pipeline edits.
+
+| `phases[].name`
+| yes
+| Human-readable phase name displayed in the Studio pipeline view.
+
+| `phases[].agentId`
+| yes
+| UUID of the `agent` item that executes this phase. The agent carries the runtime, model, and tool configuration; the phase carries the task-specific instructions.
+
+| `phases[].instructions`
+| yes
+| Markdown instructions for the agent. Describes what this phase should do, what inputs to expect, and what Kanecta items to produce. These are the task-specific part of the prompt — the agent's `systemPrompt` provides identity and general behaviour; `instructions` provides the specific task for this pipeline context.
+
+| `phases[].inputQuery`
+| no
+| Optional `kanecta_query` parameter object. When present, the runner executes this query before starting the phase and passes the results to the agent as structured context. Null means the agent queries Kanecta itself if it needs data. Use `inputQuery` when the set of relevant items is deterministic at phase-start time; leave it null when the agent should decide what to look for.
+
+| `phases[].outputTypes`
+| no
+| Optional array of item type names expected as outputs from this phase. Informational — used by the Studio to annotate phase cards and by the confidence gate evaluator to filter which produced items to check. Null means the gate evaluates all items in `itemsProduced`.
+
+| `phases[].confidenceGate`
+| no
+| Minimum confidence level required on this phase's output items before the next phase is allowed to start. Null means no gate — the pipeline advances immediately on phase completion. `"high"`, `"medium"`, `"low"` map to the accuracy confidence scale on items; `"decided"`, `"exploring"`, `"experimental"` map to the review lifecycle scale. When a gate is present and not yet cleared, the run enters `"waiting"` status and the Studio surfaces the gate for human review. A human promoting items to the required confidence level (or explicitly approving the gate) resumes the run.
+|===
+
+[#pipelineRunPayload]
+=== pipelineRunPayload
+
+link:../built-in-types/types/pipeline-run.json[JSON Schema^]
+
+For `type: "pipeline-run"`. A pipeline run is the execution record of a single invocation of a pipeline. It tracks the overall run status, the execution state of each phase, items produced per phase, and confidence gate results.
+
+Pipeline run items are created by the Kanecta runner at invocation time and updated in place as the run progresses. They are the canonical source of truth for run state — the Studio pipeline view reads pipeline-run items directly. Because pipeline runs are ordinary Kanecta items, they benefit from the full item machinery: `subscription` items deliver live status updates to the UI without any special polling; `item_history` provides a full audit trail of status changes; relationship items link a run to the ticket, commit, or finding that triggered it.
+
+The `parentId` of a pipeline-run item is always the UUID of the pipeline item it executed. Runs accumulate as children of their pipeline definition in the tree — the run history of any pipeline is immediately visible as its children, without a query.
+
+[source,json]
+----
+{
+  "pipelineId": "pipeline-uuid",
+  "status": "waiting",
+  "triggeredBy": null,
+  "startedAt": "2026-06-26T10:00:00Z",
+  "completedAt": null,
+  "currentPhaseId": "audit",
+  "phases": [
+    {
+      "phaseId": "screenshot",
+      "status": "complete",
+      "startedAt": "2026-06-26T10:00:00Z",
+      "completedAt": "2026-06-26T10:01:23Z",
+      "itemsProduced": ["uuid-1", "uuid-2"],
+      "gateResult": "passed",
+      "error": null
+    },
+    {
+      "phaseId": "audit",
+      "status": "waiting",
+      "startedAt": "2026-06-26T10:01:25Z",
+      "completedAt": "2026-06-26T10:04:12Z",
+      "itemsProduced": ["uuid-3", "uuid-4", "uuid-5"],
+      "gateResult": "blocked",
+      "error": null
+    },
+    {
+      "phaseId": "implement",
+      "status": "pending",
+      "startedAt": null,
+      "completedAt": null,
+      "itemsProduced": [],
+      "gateResult": null,
+      "error": null
+    }
+  ],
+  "error": null
+}
+----
+
+[cols="1,1,2", options="header"]
+|===
+| Field | Required | Description
+
+| `pipelineId`
+| yes
+| UUID of the `pipeline` item this run is executing. Also the `parentId` of this run item — runs live in the tree as children of their pipeline.
+
+| `status`
+| yes
+| Overall run status. `"pending"` — created but not yet started. `"running"` — a phase is actively executing. `"waiting"` — a phase completed but its confidence gate is blocked; the run is paused awaiting human review before the next phase can proceed. `"complete"` — all phases finished successfully. `"failed"` — a phase encountered an unrecoverable error. `"cancelled"` — manually stopped before completion.
+
+| `triggeredBy`
+| no
+| UUID of the Kanecta item that triggered this run (e.g. a `task` item, a `finding` from another pipeline). Null for manually triggered runs.
+
+| `startedAt`
+| no
+| ISO 8601 timestamp when the run started. Null if still `"pending"`.
+
+| `completedAt`
+| no
+| ISO 8601 timestamp when the run reached a terminal state (`"complete"`, `"failed"`, or `"cancelled"`). Null while still running or waiting.
+
+| `currentPhaseId`
+| no
+| The `id` of the phase currently executing (matches `phases[].id` in the pipeline definition). Null when the run is pending, paused at a gate, or in a terminal state.
+
+| `phases`
+| yes
+| Per-phase execution records, one entry per phase in the pipeline definition, in the same order. All records are present from the moment the run is created — phases not yet started have `status: "pending"` and null timestamps.
+
+| `phases[].phaseId`
+| yes
+| Matches the `id` of the corresponding phase in the pipeline definition.
+
+| `phases[].status`
+| yes
+| `"pending"` — not yet started. `"running"` — actively executing. `"waiting"` — the agent finished but the confidence gate is blocked. `"complete"` — agent finished and gate passed (or no gate). `"failed"` — agent encountered an error. `"skipped"` — phase was bypassed.
+
+| `phases[].startedAt`
+| no
+| ISO 8601 timestamp when this phase's agent started. Null if pending.
+
+| `phases[].completedAt`
+| no
+| ISO 8601 timestamp when this phase's agent finished executing. Note: the phase may remain in `"waiting"` status after this if its confidence gate is blocked — `completedAt` records when the agent finished, not when the gate cleared.
+
+| `phases[].itemsProduced`
+| yes
+| Array of UUIDs of all items written to the datastore during this phase. Updated incrementally as the agent writes items — not just populated at phase completion. The confidence gate evaluator reads these UUIDs to check confidence levels before advancing.
+
+| `phases[].gateResult`
+| no
+| `null` — gate not yet evaluated (phase still running or pending). `"passed"` — gate cleared, pipeline may advance. `"blocked"` — gate evaluation found insufficient confidence; run is paused in `"waiting"` until a human promotes items or explicitly approves.
+
+| `phases[].error`
+| no
+| Error message if this phase failed. Null otherwise.
+
+| `error`
+| no
+| Top-level error message if the run failed (`status: "failed"`). Null otherwise.
+|===
+
+TIP: *Postgres* — `payload_pipeline_run` table for efficient status queries. Index on `(pipeline_id, status)` for dashboard queries; partial index on `status IN ('running', 'waiting')` for the live runs view. The `phases` array is stored as JSONB.
 
 [#files-and-sidecars]
 == Files and Sidecars

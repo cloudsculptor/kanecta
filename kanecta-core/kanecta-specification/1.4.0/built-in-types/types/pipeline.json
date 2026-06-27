@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "pipelinePayload",
+  "type": "object",
+  "required": ["phases"],
+  "additionalProperties": false,
+  "properties": {
+    "description": {
+      "type": ["string", "null"],
+      "description": "Human-readable description of what this pipeline does and when to use it. Null is valid."
+    },
+    "phases": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Ordered array of phase definitions. Phases execute sequentially — each phase starts only after the previous phase completes and its confidence gate (if any) is cleared.",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "agentId", "instructions"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable local identifier for this phase within the pipeline (e.g. 'screenshot', 'audit', 'implement'). Must be unique within the pipeline. Used by pipelineRunPayload to correlate phase execution records with phase definitions. Not a UUID — a short slug, stable across pipeline edits."
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable phase name displayed in the Studio pipeline view."
+          },
+          "agentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID of the agent item that executes this phase."
+          },
+          "instructions": {
+            "type": "string",
+            "description": "Markdown instructions for the agent. Describes what this phase should do, what inputs to expect, and what Kanecta items to produce. The agent's systemPrompt provides identity and general behaviour; instructions provides the specific task for this pipeline context."
+          },
+          "inputQuery": {
+            "type": ["object", "null"],
+            "description": "Optional kanecta_query parameter object. When present, the runner executes this query before starting the phase and passes the results to the agent as structured context. Null means the agent queries Kanecta itself if it needs data."
+          },
+          "outputTypes": {
+            "type": ["array", "null"],
+            "items": { "type": "string" },
+            "description": "Optional array of item type names expected as outputs from this phase. Informational — used by the Studio to annotate phase cards and by the confidence gate evaluator to filter which produced items to check. Null means the gate evaluates all items in itemsProduced."
+          },
+          "confidenceGate": {
+            "type": ["string", "null"],
+            "enum": ["high", "medium", "low", "decided", "exploring", "experimental", null],
+            "description": "Minimum confidence level required on this phase's output items before the next phase is allowed to start. Null means no gate. 'high', 'medium', 'low' map to the accuracy confidence scale on items; 'decided', 'exploring', 'experimental' map to the review lifecycle scale."
+          }
+        }
+      }
+    }
+  }
+}

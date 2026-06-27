@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "agentPayload",
+  "type": "object",
+  "required": ["runtime"],
+  "additionalProperties": false,
+  "properties": {
+    "runtime": {
+      "type": "string",
+      "description": "Identifies the execution environment. Known values: 'claude-code' (Claude Code CLI, invoked as a subprocess), 'claude-api' (direct Anthropic API call managed by the runner), 'python' (Python script). Open string — new runtimes can be added without spec changes."
+    },
+    "model": {
+      "type": ["string", "null"],
+      "description": "Model identifier for API-based runtimes (e.g. 'claude-sonnet-4-6', 'claude-opus-4-8'). Null for runtimes that manage model selection themselves (e.g. 'claude-code'). When null and the runtime requires a model, the runner applies its configured default."
+    },
+    "systemPrompt": {
+      "type": ["string", "null"],
+      "description": "Base system prompt defining this agent's identity, role, and general behaviour. Combined with the pipeline phase instructions at run time — the system prompt sets up who the agent is; the phase instructions set up what it should do in this specific pipeline context. Null defers to the runtime's default system prompt."
+    },
+    "tools": {
+      "type": ["array", "null"],
+      "items": { "type": "string" },
+      "description": "Array of MCP tool names this agent can access. Restricting tools is a safety measure — a read-only analysis agent should not have kanecta_delete. Null means all tools available in the current MCP context are accessible."
+    },
+    "config": {
+      "type": ["object", "null"],
+      "description": "Runtime-specific configuration. For 'claude-api': max_tokens, temperature, top_p. For 'claude-code': working_directory, env. For 'python': script_path, interpreter. Structure is determined by the runtime adapter — the spec does not constrain it. Null means runtime defaults apply."
+    }
+  }
+}

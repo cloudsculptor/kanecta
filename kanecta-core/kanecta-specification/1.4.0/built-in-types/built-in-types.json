@@ -36,7 +36,10 @@
     "reference",
     "subscription",
     "item_history",
-    "activity"
+    "activity",
+    "agent",
+    "pipeline",
+    "pipeline-run"
   ],
   "wellKnown": [
     "root"
@@ -59,6 +62,9 @@
     "subscription": "A live notification channel registered against a UUID. Someone or something wants to be notified when a specific item changes. Distinct from reference — a subscription is about change notification, not external dependency or deletion protection. Lives under the watched item in the \"subscriptions\" aspect. payload is subscriptionPayload.",
     "item_history": "An event in an item's lifecycle. The complete sequence of item_history events for a given targetId is sufficient to replay the item's full history and reconstruct any past state — fully event-source capable. Three event types: created (first event, delta is empty, snapshot is initial state), updated (delta carries field-level from/to diffs, snapshot is state after), deleted (snapshot is final state before deletion). sequence is a monotonically increasing integer per targetId. Writing an item_history item does not itself trigger a further history event (recursion guard). parentId is the synthetic item_history type item UUID; payload.targetId identifies the item being recorded.",
     "activity": "A discrete workspace event — not a snapshot of item state, but a meaningful occurrence at the application level (item.viewed, search.performed, sync.completed, workspace.opened). Distinct from item_history: history tracks what changed, activity tracks what happened. eventType is a free-form dot-separated string. targetId is the related item or null for workspace-level events. Append-only — never updated or deleted. Not replicated to remotes by default. parentId is the synthetic activity type item UUID.",
+    "agent": "A reusable executor definition for pipeline phases. Carries the runtime (claude-api, claude-code, python, or open string), model identifier, base system prompt, tool access list, and runtime-specific config. Agent items are reused across pipelines — separating identity and capability (the agent) from task-specific instructions (the pipeline phase). item.value is the agent's display name.",
+    "pipeline": "An ordered sequence of agent-executed phases defining a multi-step AI workflow. A platform type — built in because Kanecta executes pipelines and the adapter, Studio, and subscription machinery all need to understand pipeline and pipeline-run items to do their jobs. The pipeline item is the definition; each invocation creates a pipeline-run child item. item.value is the pipeline's display name.",
+    "pipeline-run": "The execution record of a single pipeline invocation. Created at run time and updated in place as phases execute. parentId is always the pipeline item UUID — runs accumulate as children of their pipeline in the tree. Subscriptions on a pipeline-run item deliver live phase progress to the Studio without polling. Tracks per-phase status, itemsProduced UUIDs, and gate results. Append-only within a phase (itemsProduced grows); overall status field transitions through pending → running → waiting → complete/failed/cancelled."
     "reference": "A declared dependency on a UUID from outside the item graph — physical (engraved, printed, QR code), external system (another database holds this UUID as a foreign key), function argument, function output, webhook, or reactive subscription. Unlike relationship, a reference asserts that the target UUID has reach beyond Kanecta itself. blockDeletion:true prevents deletion of the target until the reference is explicitly removed. Lives as a standalone item (like relationship) — targetId in payload, not constrained by parentId. The item_references derived index tracks structural references automatically; reference items cover declared/manual cases."
   }
 }

@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "pipelineRunPayload",
+  "type": "object",
+  "required": ["pipelineId", "status", "phases"],
+  "additionalProperties": false,
+  "properties": {
+    "pipelineId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID of the pipeline item this run is executing. Also the parentId of this run item — runs live in the tree as children of their pipeline."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "running", "waiting", "complete", "failed", "cancelled"],
+      "description": "Overall run status. 'pending' — created but not yet started. 'running' — a phase is actively executing. 'waiting' — a phase completed but its confidence gate is blocked; paused awaiting human review. 'complete' — all phases finished successfully. 'failed' — a phase encountered an unrecoverable error. 'cancelled' — manually stopped."
+    },
+    "triggeredBy": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "description": "UUID of the Kanecta item that triggered this run (e.g. a task item, a finding from another pipeline). Null for manually triggered runs."
+    },
+    "startedAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the run started. Null if still pending."
+    },
+    "completedAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the run reached a terminal state (complete, failed, or cancelled). Null while still running or waiting."
+    },
+    "currentPhaseId": {
+      "type": ["string", "null"],
+      "description": "The id of the phase currently executing (matches phases[].id in the pipeline definition). Null when the run is pending, paused at a gate, or in a terminal state."
+    },
+    "phases": {
+      "type": "array",
+      "description": "Per-phase execution records, one entry per phase in the pipeline definition, in the same order. All records are present from the moment the run is created — phases not yet started have status 'pending' and null timestamps.",
+      "items": {
+        "type": "object",
+        "required": ["phaseId", "status", "itemsProduced"],
+        "additionalProperties": false,
+        "properties": {
+          "phaseId": {
+            "type": "string",
+            "description": "Matches the id of the corresponding phase in the pipeline definition."
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "running", "waiting", "complete", "failed", "skipped"],
+            "description": "'pending' — not yet started. 'running' — actively executing. 'waiting' — agent finished but confidence gate is blocked. 'complete' — agent finished and gate passed (or no gate). 'failed' — agent encountered an error. 'skipped' — phase was bypassed."
+          },
+          "startedAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "ISO 8601 timestamp when this phase's agent started. Null if pending."
+          },
+          "completedAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "ISO 8601 timestamp when this phase's agent finished executing. The phase may remain in 'waiting' status after this if its confidence gate is blocked — completedAt records when the agent finished, not when the gate cleared."
+          },
+          "itemsProduced": {
+            "type": "array",
+            "items": { "type": "string", "format": "uuid" },
+            "description": "UUIDs of all items written to the datastore during this phase. Updated incrementally as the agent writes items. The confidence gate evaluator reads these UUIDs to check confidence levels before advancing to the next phase."
+          },
+          "gateResult": {
+            "type": ["string", "null"],
+            "enum": ["passed", "blocked", null],
+            "description": "null — gate not yet evaluated. 'passed' — gate cleared, pipeline may advance. 'blocked' — gate evaluation found insufficient confidence; run is paused in 'waiting' until a human promotes items or explicitly approves."
+          },
+          "error": {
+            "type": ["string", "null"],
+            "description": "Error message if this phase failed. Null otherwise."
+          }
+        }
+      }
+    },
+    "error": {
+      "type": ["string", "null"],
+      "description": "Top-level error message if the run failed (status: 'failed'). Null otherwise."
+    }
+  }
+}
