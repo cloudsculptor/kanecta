@@ -132,6 +132,23 @@
             },
             "description": "Cycle configuration. When the condition is true after this phase completes, the runner resets the target phase and all its descendants and re-executes them. Useful for audit → implement → verify loops. The global iteration counter is checked before each cycle; when it reaches maxIterations the onMaxIterations policy applies. Null means no cycle."
           },
+          "fanIn": {
+            "type": ["object", "null"],
+            "required": ["source"],
+            "additionalProperties": false,
+            "properties": {
+              "source": {
+                "type": "string",
+                "description": "ID of the forEach phase whose invocation outputs this phase should aggregate. The runner collects all per-invocation itemsProduced from that phase, groups them by sourceItemId, and injects a structured summary into this agent's context preamble before its instructions. The agent receives a clear map of which input item produced which output items, rather than a flat list of UUIDs."
+              },
+              "groupBy": {
+                "type": ["string", "null"],
+                "enum": ["sourceItemId", null],
+                "description": "How to group the aggregated items in the context summary. 'sourceItemId' (default and currently the only option) groups outputs by the source item each invocation was called with. Future values may support grouping by type or payload field."
+              }
+            },
+            "description": "Fan-in configuration. Marks this phase as an aggregation step that consolidates outputs from a preceding forEach phase. The runner waits for all invocations of the source phase to reach a terminal state (complete or failed) before starting this phase — the dependency is still declared via 'needs', but fanIn additionally shapes how the runner presents the aggregated results to the agent. Without fanIn, the agent receives a flat list of produced-item UUIDs in context; with fanIn, it receives a structured per-source-item summary. Null means no aggregation — this is a normal phase."
+          },
           "runIf": {
             "type": ["string", "null"],
             "description": "Condition expression evaluated against live run state before this phase starts. If false, phase is set to skipped. Context available: phases.<id>.status, phases.<id>.itemsProduced, phases.<id>.itemsProduced.length, params.<name>."

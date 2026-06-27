@@ -1770,6 +1770,7 @@ A phase can declare a `fallbackAgentId` — a second agent to use if the primary
       "confidenceGate": null,
       "fallbackAgentId": null,
       "forEach": null,
+      "fanIn": null,
       "loopBack": null,
       "runIf": null,
       "timeout": 120,
@@ -1787,6 +1788,7 @@ A phase can declare a `fallbackAgentId` — a second agent to use if the primary
       "confidenceGate": "accuracy:high",
       "fallbackAgentId": "audit-opus-agent-uuid",
       "forEach": null,
+      "fanIn": null,
       "loopBack": null,
       "runIf": "phases.capture.itemsProduced.length > 0",
       "timeout": 300,
@@ -1807,6 +1809,7 @@ A phase can declare a `fallbackAgentId` — a second agent to use if the primary
         "source": "phases.audit.itemsProduced",
         "filter": "item.payload.severity in ['P1','P2'] && item.payload.confidence == 'high'"
       },
+      "fanIn": null,
       "loopBack": null,
       "runIf": null,
       "timeout": 600,
@@ -1817,13 +1820,17 @@ A phase can declare a `fallbackAgentId` — a second agent to use if the primary
       "id": "verify",
       "name": "Verify",
       "agentId": "verify-agent-uuid",
-      "instructions": "Re-run Roborazzi for screen {{params.screen_id}}. Adversarially check pixels against the iOS baseline. On pass, write a `fix` item and relate it to the finding. On fail, write a `regression` item.",
-      "inputQuery": { "type": "finding", "where": { "screen_id": "{{params.screen_id}}", "status": "open" } },
+      "instructions": "Re-run Roborazzi for screen {{params.screen_id}}. For each implementation you received, check the pixel diff against the iOS baseline. On pass, write a `fix` item and relate it to the finding. On fail, write a `regression` item.",
+      "inputQuery": null,
       "outputTypes": ["fix", "regression"],
       "needs": ["implement"],
       "confidenceGate": null,
       "fallbackAgentId": null,
       "forEach": null,
+      "fanIn": {
+        "source": "implement",
+        "groupBy": "sourceItemId"
+      },
       "loopBack": {
         "toPhase": "audit",
         "if": "phases.verify.itemsProduced.some(i => i.type == 'regression')",
@@ -1838,7 +1845,7 @@ A phase can declare a `fallbackAgentId` — a second agent to use if the primary
 }
 ----
 
-In this pipeline: the `audit` phase uses `confidenceGate: "accuracy:high"` — it passes automatically when all findings have `payload.confidence = "high"`, requiring no human review. The `implement` phase fans out one agent per high-severity, high-confidence finding in parallel. The `verify` phase loops back to `audit` if any regressions are written — up to `maxIterations: 3` times before the pipeline completes regardless.
+In this pipeline: `audit` uses `confidenceGate: "accuracy:high"` — clears automatically when all findings have `payload.confidence = "high"`, no human review needed. `implement` fans out one agent per high-severity, high-confidence finding in parallel. `verify` uses `fanIn: { source: "implement" }` — the runner aggregates all per-finding implementation reports into a structured context summary before the verify agent starts, so it sees clearly which finding produced which implementation-report rather than a flat item list. If any regressions are written, `loopBack` resets the pipeline back to `audit` — up to `maxIterations: 3` times before the run completes regardless.
 
 [cols="1,1,2", options="header"]
 |===
@@ -1903,6 +1910,10 @@ When blocked, the run enters `"waiting"` status. See <<pipeline-gate-approval>>.
 | `phases[].forEach`
 | no
 | Fan-out configuration. When set, the runner invokes the phase agent once per item in `source` rather than once for the whole phase. All invocations run in parallel. Their outputs are all collected into the phase's `itemsProduced`. Object fields: `source` (required, string expression resolving to an array from the run state, e.g. `"phases.audit.itemsProduced"`) and `filter` (optional, filter expression applied before fan-out, `item` is the element variable, e.g. `"item.payload.severity in ['P1','P2']"`). Null means no fan-out. Each invocation receives a single item as its primary context rather than the full query result — this is how an implement phase processes findings individually without needing a loop.
+
+| `phases[].fanIn`
+| no
+| Fan-in aggregation configuration. Marks this phase as the consolidation step for a preceding `forEach` phase. The runner waits for all invocations of the source phase to reach a terminal state before starting this phase (the dependency is still declared via `needs` — `fanIn` additionally changes how the runner presents inputs to the agent). Without `fanIn`, the agent receives a flat list of produced-item UUIDs; with `fanIn`, it receives a structured per-source-item summary in its context preamble, showing which input item produced which output items. This is the natural complement to `forEach` — fan-out spreads work across items, fan-in brings the results back together for a synthesis step. Object fields: `source` (required, the `id` of the `forEach` phase to aggregate from), `groupBy` (`"sourceItemId"` — the only current value; groups outputs by the item each invocation was called with). Null means no aggregation.
 
 | `phases[].loopBack`
 | no
