@@ -20,7 +20,8 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { BoardColumn } from './BoardColumn';
-import { FilterBar } from '../../shared/FilterBar';
+import { FilterBar } from '@kanecta/component-filter-bar';
+import { ITEM_TYPES, CONFIDENCE_LEVELS } from '../../../lib/constants';
 import { useAllItems } from '../../../hooks/useAllItems';
 import { useUiStore } from '../../../store/ui';
 import { useWorkspaceStore } from '../../../store/workspace';
@@ -100,6 +101,8 @@ export function BoardView({ panelId }: BoardViewProps) {
           onChange={(f) => setPanelFilter(panelId, f)}
           totalCount={items.length}
           filteredCount={items.length}
+          itemTypes={ITEM_TYPES}
+          confidenceLevels={CONFIDENCE_LEVELS}
         />
         <div className="BoardView-group-select">
           <span>Group by</span>

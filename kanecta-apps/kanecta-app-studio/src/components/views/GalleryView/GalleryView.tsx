@@ -1,6 +1,7 @@
 import type { ViewMeta } from '../../../lib/viewMeta';
 import { useViewLocation } from '../../../context/LocationContext';
-import { FilterBar } from '../../shared/FilterBar';
+import { FilterBar } from '@kanecta/component-filter-bar';
+import { ITEM_TYPES, CONFIDENCE_LEVELS } from '../../../lib/constants';
 
 export const GalleryViewMeta: ViewMeta = {
   uuid: 'f7e6a5b4-c8d9-4e0f-1a2b-3c4d5e6f7a8b',
@@ -8,7 +9,7 @@ export const GalleryViewMeta: ViewMeta = {
   label: 'Gallery',
   icon: 'GridView',
 };
-import { SortBar } from '../../shared/SortBar';
+import { SortBar } from '@kanecta/component-sort-bar';
 import { GalleryCard } from './GalleryCard';
 import { useAllItems } from '../../../hooks/useAllItems';
 import { useUiStore } from '../../../store/ui';
@@ -33,6 +34,8 @@ export function GalleryView({ panelId }: GalleryViewProps) {
           onChange={(f) => setPanelFilter(panelId, f)}
           totalCount={items.length}
           filteredCount={items.length}
+          itemTypes={ITEM_TYPES}
+          confidenceLevels={CONFIDENCE_LEVELS}
         />
         <SortBar sort={sort} onChange={(s) => setPanelSort(panelId, s)} />
       </div>

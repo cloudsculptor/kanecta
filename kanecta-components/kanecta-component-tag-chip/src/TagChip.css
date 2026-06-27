@@ -1,0 +1,28 @@
+.TagChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 100px;
+  background: var(--color-tag-bg);
+  color: var(--color-tag-text);
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.TagChip-remove {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+  opacity: 0.6;
+  line-height: 1;
+}
+
+.TagChip-remove:hover {
+  opacity: 1;
+}

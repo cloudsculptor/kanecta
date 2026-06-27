@@ -1,7 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { TypeBadge } from '../../shared/TypeBadge';
-import { TagChip } from '../../shared/TagChip';
+import { TypeBadge } from '@kanecta/component-type-badge';
+import { TagChip } from '@kanecta/component-tag-chip';
 import { useUiStore } from '../../../store/ui';
 import type { KanectaItem } from '../../../types/kanecta';
 import './BoardCard.scss';

@@ -9,12 +9,12 @@ export const TypesViewMeta: ViewMeta = {
   label: 'Types',
   icon: 'DashboardCustomize',
 };
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Ajv from 'ajv';
 import SyncIcon from '@mui/icons-material/Sync';
 import typeSpecRaw from '../../../../../../kanecta-specification/1.2.0/file-specs/type.json?raw';
 import { useWorkspaceStore } from '../../../store/workspace';
-import { TypeList } from '../../shared/TypeList';
+import { TypeList } from '@kanecta/component-type-list';
 import { SyncTypesDialog } from './SyncTypesDialog';
 import type { TypeDefinition } from '../../../api/types';
 import './TypesView.scss';
@@ -361,6 +361,21 @@ export function TypesView() {
   const { setItemId } = useViewLocation(TypesViewMeta.uuid);
   const { getApi } = useWorkspaceStore();
   const queryClient = useQueryClient();
+
+  const { data: types = [], isLoading: typesLoading } = useQuery({
+    queryKey: ['types'],
+    queryFn: () => getApi().types.list(),
+  });
+
+  const { data: stats } = useQuery({
+    queryKey: ['items-stats'],
+    queryFn: () => getApi().items.stats(),
+  });
+
+  const countByTypeId = new Map<string, number>(
+    (stats?.structured ?? []).map(({ typeId, count }: { typeId: string; count: number }) => [typeId, count]),
+  );
+
   const [selectedType, setSelectedType] = useState<TypeDefinition | null>(null);
   const [selectedInitialTab, setSelectedInitialTab] = useState<Tab>('view');
   const [schema, setSchema] = useState<string>('');
@@ -434,6 +449,9 @@ export function TypesView() {
       <div className="TypesView-columns">
       <div className="TypesView-list">
         <TypeList
+          types={types}
+          countByTypeId={countByTypeId}
+          isLoading={typesLoading}
           selectedTypeId={selectedType?.id ?? null}
           onSelect={(t) => void handleSelect(t)}
           onCreateItem={(t) => void getApi().items.create({ value: `New ${t.value}`, type: t.value as ItemType })}

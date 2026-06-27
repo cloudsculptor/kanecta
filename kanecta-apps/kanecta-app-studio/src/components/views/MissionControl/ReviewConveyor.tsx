@@ -2,9 +2,9 @@ import { useEffect, useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useReviewStore } from '../../../store/review';
 import { useWorkspaceStore } from '../../../store/workspace';
-import { ConfidenceBadge } from '../../shared/ConfidenceBadge';
-import { TypeBadge } from '../../shared/TypeBadge';
-import { TagChip } from '../../shared/TagChip';
+import { ConfidenceBadge } from '@kanecta/component-confidence-badge';
+import { TypeBadge } from '@kanecta/component-type-badge';
+import { TagChip } from '@kanecta/component-tag-chip';
 import './ReviewConveyor.scss';
 
 interface ReviewConveyorProps {

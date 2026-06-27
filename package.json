@@ -37,7 +37,19 @@
     "kanecta-apps/kanecta-app-claude",
     "kanecta-components/kanecta-component-core",
     "kanecta-components/kanecta-component-todo-view",
-    "kanecta-components/kanecta-component-tree-view"
+    "kanecta-components/kanecta-component-tree-view",
+    "kanecta-components/kanecta-component-dynamic-icon",
+    "kanecta-components/kanecta-component-tag-chip",
+    "kanecta-components/kanecta-component-workspace-indicator",
+    "kanecta-components/kanecta-component-breadcrumb",
+    "kanecta-components/kanecta-component-quick-capture",
+    "kanecta-components/kanecta-component-type-badge",
+    "kanecta-components/kanecta-component-confidence-badge",
+    "kanecta-components/kanecta-component-item-value",
+    "kanecta-components/kanecta-component-command-palette",
+    "kanecta-components/kanecta-component-sort-bar",
+    "kanecta-components/kanecta-component-filter-bar",
+    "kanecta-components/kanecta-component-type-list"
   ],
   "devDependencies": {
     "@changesets/cli": "^2.31.0",

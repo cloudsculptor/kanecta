@@ -3,7 +3,7 @@ import { useWorkspaceStore } from '../../../store/workspace';
 import { useReviewStore } from '../../../store/review';
 import type { WorkspaceConfig, WorkspaceStatus } from '../../../types/workspace';
 import type { KanectaItem } from '../../../types/kanecta';
-import { WorkspaceIndicator } from '../../shared/WorkspaceIndicator';
+import { WorkspaceIndicator } from '@kanecta/component-workspace-indicator';
 import './WorkspaceColumn.scss';
 
 function deriveStatus(items: KanectaItem[], errorFlag: boolean): WorkspaceStatus {

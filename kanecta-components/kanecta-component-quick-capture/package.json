@@ -1,0 +1,19 @@
+{
+  "name": "@kanecta/component-quick-capture",
+  "version": "1.4.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@mui/material": ">=9",
+    "react": ">=19"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "typescript": "~6.0.2"
+  }
+}

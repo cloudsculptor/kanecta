@@ -1,6 +1,7 @@
 import type { ViewMeta } from '../../../lib/viewMeta';
 import { useViewLocation } from '../../../context/LocationContext';
-import { FilterBar } from '../../shared/FilterBar';
+import { FilterBar } from '@kanecta/component-filter-bar';
+import { ITEM_TYPES, CONFIDENCE_LEVELS } from '../../../lib/constants';
 
 export const ListViewMeta: ViewMeta = {
   uuid: 'a8f7b6c5-d9e0-4f1a-2b3c-4d5e6f7a8b9c',
@@ -8,10 +9,10 @@ export const ListViewMeta: ViewMeta = {
   label: 'List',
   icon: 'FormatListBulleted',
 };
-import { SortBar } from '../../shared/SortBar';
-import { ConfidenceBadge } from '../../shared/ConfidenceBadge';
-import { TypeBadge } from '../../shared/TypeBadge';
-import { TagChip } from '../../shared/TagChip';
+import { SortBar } from '@kanecta/component-sort-bar';
+import { ConfidenceBadge } from '@kanecta/component-confidence-badge';
+import { TypeBadge } from '@kanecta/component-type-badge';
+import { TagChip } from '@kanecta/component-tag-chip';
 import { useAllItems } from '../../../hooks/useAllItems';
 import { useUiStore } from '../../../store/ui';
 import './ListView.scss';
@@ -35,6 +36,8 @@ export function ListView({ panelId }: ListViewProps) {
           onChange={(f) => setPanelFilter(panelId, f)}
           totalCount={items.length}
           filteredCount={items.length}
+          itemTypes={ITEM_TYPES}
+          confidenceLevels={CONFIDENCE_LEVELS}
         />
         <SortBar sort={sort} onChange={(s) => setPanelSort(panelId, s)} />
       </div>

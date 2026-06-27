@@ -1,6 +1,6 @@
 import { useReviewStore } from '../../../store/review';
 import { useWorkspaceStore } from '../../../store/workspace';
-import { WorkspaceIndicator } from '../../shared/WorkspaceIndicator';
+import { WorkspaceIndicator } from '@kanecta/component-workspace-indicator';
 import { useUiStore } from '../../../store/ui';
 import './ActivityFeed.scss';
 

@@ -9,7 +9,7 @@ export const QualityControlViewMeta: ViewMeta = {
   icon: 'FactCheck',
 };
 import { useWorkspaceStore } from '../../../store/workspace';
-import { DynamicIcon } from '../../shared/DynamicIcon';
+import { DynamicIcon } from '@kanecta/component-dynamic-icon';
 import { TYPE_ICONS } from '../../../lib/typeIcons';
 import './QualityControlView.scss';
 

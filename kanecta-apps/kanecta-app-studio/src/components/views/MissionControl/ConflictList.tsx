@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ConflictPair } from '../../../lib/conflicts';
 import { useWorkspaceStore } from '../../../store/workspace';
-import { ConfidenceBadge } from '../../shared/ConfidenceBadge';
-import { TypeBadge } from '../../shared/TypeBadge';
+import { ConfidenceBadge } from '@kanecta/component-confidence-badge';
+import { TypeBadge } from '@kanecta/component-type-badge';
 import './ConflictList.scss';
 
 interface ConflictListProps {

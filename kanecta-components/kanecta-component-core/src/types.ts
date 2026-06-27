@@ -26,3 +26,15 @@ export interface QueryFilter {
   search?: string;
   [key: string]: unknown;
 }
+
+export interface FilterState {
+  type?: string;
+  confidence?: string;
+  tags?: string[];
+  search?: string;
+}
+
+export interface SortState {
+  field: 'value' | 'createdAt' | 'modifiedAt' | 'sortOrder' | 'confidence';
+  direction: 'asc' | 'desc';
+}

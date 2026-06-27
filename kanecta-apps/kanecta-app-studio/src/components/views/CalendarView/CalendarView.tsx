@@ -8,7 +8,8 @@ export const CalendarViewMeta: ViewMeta = {
   label: 'Calendar',
   icon: 'CalendarMonth',
 };
-import { FilterBar } from '../../shared/FilterBar';
+import { FilterBar } from '@kanecta/component-filter-bar';
+import { ITEM_TYPES, CONFIDENCE_LEVELS } from '../../../lib/constants';
 import { useAllItems } from '../../../hooks/useAllItems';
 import { useUiStore } from '../../../store/ui';
 import { itemsOnDate } from '../../../lib/items';
@@ -72,6 +73,8 @@ export function CalendarView({ panelId }: CalendarViewProps) {
           onChange={(f) => setPanelFilter(panelId, f)}
           totalCount={items.length}
           filteredCount={items.length}
+          itemTypes={ITEM_TYPES}
+          confidenceLevels={CONFIDENCE_LEVELS}
         />
       </div>
       <div className="CalendarView-nav">

@@ -14,7 +14,7 @@ import { AllCommunityModule, themeQuartz, type ColDef } from 'ag-grid-community'
 import { useQuery } from '@tanstack/react-query';
 import { useWorkspaceStore } from '../../../store/workspace';
 import { useAllItems } from '../../../hooks/useAllItems';
-import { TypeList } from '../../shared/TypeList';
+import { TypeList } from '@kanecta/component-type-list';
 import type { TypeDefinition } from '../../../api/types';
 import './TableView.scss';
 
@@ -55,6 +55,20 @@ export function TableView() {
   const { getApi } = useWorkspaceStore();
   const { items } = useAllItems('table-view');
 
+  const { data: types = [], isLoading: typesLoading } = useQuery({
+    queryKey: ['types'],
+    queryFn: () => getApi().types.list(),
+  });
+
+  const { data: stats } = useQuery({
+    queryKey: ['items-stats'],
+    queryFn: () => getApi().items.stats(),
+  });
+
+  const countByTypeId = new Map<string, number>(
+    (stats?.structured ?? []).map(({ typeId, count }: { typeId: string; count: number }) => [typeId, count]),
+  );
+
   const typeItems = useMemo(
     () => (selectedType ? items.filter((item) => item.typeId === selectedType.id) : []),
     [items, selectedType],
@@ -83,6 +97,9 @@ export function TableView() {
     <div className="TableView">
       <div className="TableView-sidebar">
         <TypeList
+          types={types}
+          countByTypeId={countByTypeId}
+          isLoading={typesLoading}
           selectedTypeId={selectedType?.id ?? null}
           onSelect={setSelectedType}
           onCreateItem={(t) => void getApi().items.create({ value: `New ${t.value}`, type: t.value as ItemType })}

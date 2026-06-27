@@ -26,8 +26,8 @@ import { DiagramView } from '../components/views/DiagramView/DiagramView';
 import { FunctionsView } from '../components/views/FunctionsView/FunctionsView';
 import { TodoView } from '../components/views/TodoView/TodoView';
 import { LayoutsView } from '../components/views/LayoutsView/LayoutsView';
-import { QuickCapture } from '../components/shared/QuickCapture';
-import { CommandPalette } from '../components/shared/CommandPalette';
+import { QuickCapture } from '@kanecta/component-quick-capture';
+import { CommandPalette } from '@kanecta/component-command-palette';
 import { SettingsPage } from './SettingsPage';
 import { LocationProvider } from '../context/LocationContext';
 import { KeycloakProvider } from '../auth/KeycloakProvider';
@@ -36,7 +36,6 @@ import { useSettingsStore, THEMES } from '../store/settings';
 import { useUiStore } from '../store/ui';
 import { useLiveActivity } from '../hooks/useLiveActivity';
 import { flattenTree } from '../lib/items';
-import type { KanectaItem } from '../types/kanecta';
 import { useLocation } from '../context/LocationContext';
 
 const qc = new QueryClient({
@@ -94,7 +93,7 @@ function StudioInner() {
     });
   };
 
-  const handleSelectItem = (item: KanectaItem) => {
+  const handleSelectItem = (item: { id: string }) => {
     setItemId(item.id);
   };
 
