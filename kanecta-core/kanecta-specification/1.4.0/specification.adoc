@@ -563,6 +563,8 @@ Types are grouped into three categories.
 | `activityPayload` (required)
 |===
 
+NOTE: `pipeline`, `agent`, and `pipeline-run` are intentionally absent from this list. They are user-defined typed objects shipped as a canonical `kanecta-pipelines` system item package. They need no special treatment from the generic layer — no indexed columns, no special query paths, no system behaviour dependent on their existence. They belong alongside domain types like `epic` or `stakeholder` — powerful, but not the core spec's concern to define.
+
 === Well-Known Types
 
 `root` is the only well-known type. It is the fixed bootstrap anchor — the one UUID every adapter knows before reading any data.
@@ -1212,6 +1214,8 @@ Relationship items coexist with the lighter-weight inline `[[uuid]]` link syntax
 |===
 
 TIP: *Postgres* — `payload_relationship` table for efficient graph queries: `CREATE TABLE payload_relationship (id UUID PRIMARY KEY REFERENCES items(id), source_id UUID NOT NULL REFERENCES items(id), target_id UUID NOT NULL REFERENCES items(id), type_id UUID NOT NULL REFERENCES items(id))`. GIN indexes on `source_id` and `target_id` for bidirectional traversal.
+
+NOTE: Relationship-as-item keeps the git history clean: creating a relationship adds exactly one new file to the datastore; deleting a relationship removes exactly one file; endpoint items are never touched. There are no three-file writes, no cascading deletes, and no coupling between endpoint items. The alternative — storing `outgoing`/`incoming` UUID arrays on each item — would require writing three files per relationship (the relationship itself plus both endpoints) and introduce a consistency hazard if a write is interrupted partway. `rebuildIndexes()` reconstructs the full relationship graph by scanning for items where `sourceId IS NOT NULL`.
 
 [#aspectTypePayload]
 === aspectTypePayload
