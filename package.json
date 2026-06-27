@@ -21,7 +21,7 @@
     "kanecta-core/kanecta-lib",
     "kanecta-core/kanecta-api-client",
     "kanecta-core/kanecta-sdk",
-    "kanecta-core/kanecta-claude-bridge",
+    "kanecta-core/kanecta-ai-adapters/kanecta-claude-bridge",
     "kanecta-core/kanecta-ai",
     "kanecta-core/kanecta-api",
     "kanecta-core/kanecta-cli",
