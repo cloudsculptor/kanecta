@@ -713,7 +713,7 @@ TIP: *Postgres* — the `payload_node` table exists alongside the main `items` t
 
 === filePayload
 
-link:../built-in-types/file.json[JSON Schema^]
+link:../built-in-types/types/file.json[JSON Schema^]
 
 For `type: "file"`. Replaces the former `image` and `markdown` primitives — use `mimeType` to distinguish.
 
@@ -762,7 +762,7 @@ The file content lives in a sidecar referenced via `meta.files` (e.g. `{ "body":
 
 === functionPayload
 
-link:../built-in-types/function.json[JSON Schema^]
+link:../built-in-types/types/function.json[JSON Schema^]
 
 For `type: "function"`. The function name lives in `item.value`.
 
@@ -795,7 +795,7 @@ TIP: *Postgres* — `function_parameters` and `function_throws` are child tables
 
 === formulaPayload
 
-link:../built-in-types/formula.json[JSON Schema^]
+link:../built-in-types/types/formula.json[JSON Schema^]
 
 For `type: "formula"`. A reusable calculation that can be referenced by UUID from anywhere a computed value is needed — alias generation, `primaryField` derivation, derived fields, display labels, or any other context. The formula name/label lives in `item.value`.
 
@@ -926,7 +926,7 @@ NOTE: `formulajs` (MIT licence) is the evaluation engine for `dsl` level formula
 
 === componentPayload
 
-link:../built-in-types/component.json[JSON Schema^]
+link:../built-in-types/types/component.json[JSON Schema^]
 
 For `type: "component"`. Describes a React component. Return type is always `ReactNode` — implicit, no field. The component body (JSX/TSX) lives in `meta.files.body = "body.tsx"`.
 
@@ -946,7 +946,7 @@ Props use the same `parameterOrProp` definition as function parameters — inclu
 
 === typePayload
 
-link:../built-in-types/type.json[JSON Schema^]
+link:../built-in-types/types/type.json[JSON Schema^]
 
 For `type: "type"`. Defines a custom Kanecta type. Three top-level keys: `meta`, `jsonSchema`, `sqlSchema`.
 
@@ -1065,7 +1065,7 @@ NOTE: *Required even for filesystem-only types* — every type defines `sqlSchem
 
 === aliasPayload
 
-link:../built-in-types/alias.json[JSON Schema^]
+link:../built-in-types/types/alias.json[JSON Schema^]
 
 For `type: "alias"`. The alias string itself lives in `item.value` — this is the human-readable label the user types to address the target item. Lookup is always case-insensitive; the adapter normalises to lowercase when querying but preserves original casing in `item.value` for display.
 
@@ -1145,7 +1145,7 @@ TIP: *Postgres* — the derived aliases lookup table schema: `CREATE TABLE alias
 
 === relationshipPayload
 
-link:../built-in-types/relationship.json[JSON Schema^]
+link:../built-in-types/types/relationship.json[JSON Schema^]
 
 For `type: "relationship"`. A typed, first-class relationship between two items. The human-readable label lives in `item.value` (e.g. `"depends on"`).
 
@@ -1216,7 +1216,7 @@ TIP: *Postgres* — `payload_relationship` table for efficient graph queries: `C
 [#aspectTypePayload]
 === aspectTypePayload
 
-link:../built-in-types/aspect-type.json[JSON Schema^]
+link:../built-in-types/types/aspect-type.json[JSON Schema^]
 
 For `type: "aspect-type"`. Defines the schema and semantics of a named aspect dimension — the meta-type for structured aspect items, mirroring the role of `relationship-type` for relationship items. When `item.aspect` on an item is a UUID, that UUID must point to an `aspect-type` item.
 
@@ -1259,7 +1259,7 @@ TIP: *Postgres* — `CREATE TABLE payload_aspect_type (id UUID PRIMARY KEY REFER
 
 === grantPayload
 
-link:../built-in-types/grant.json[JSON Schema^]
+link:../built-in-types/types/grant.json[JSON Schema^]
 
 For `type: "grant"`. Access control grants. The grant item's `parentId` is the synthetic `grant` type item UUID (the universal rule). The item being governed is identified by `payload.governedItemId` — this is the field that was previously implied by parentId placement.
 
@@ -1316,7 +1316,7 @@ TIP: *Postgres* — `payload_grant` derived table for O(1) grant resolution: `CR
 
 === viewPayload
 
-link:../built-in-types/view.json[JSON Schema^]
+link:../built-in-types/types/view.json[JSON Schema^]
 
 For `type: "view"`. Binds a specific item to a renderer and a context. The view's UUID is a single pointer to all three — usable for bookmarking, sharing, embedding, and bootstrapping.
 
@@ -1352,7 +1352,7 @@ NOTE: `root.payload.entryPoint` points to a view item — the bootstrap view is 
 
 === contextPayload
 
-link:../built-in-types/context.json[JSON Schema^]
+link:../built-in-types/types/context.json[JSON Schema^]
 
 For `type: "context"`. Describes the environment in which a view is rendered. Contexts are first-class items — reusable, versioned, shareable.
 
@@ -1401,7 +1401,7 @@ Different deployments of the same datastore (web UI, API server, CLI) each have 
 
 === referencePayload
 
-link:../built-in-types/reference.json[JSON Schema^]
+link:../built-in-types/types/reference.json[JSON Schema^]
 
 For `type: "reference"`. A declared external dependency on a UUID — physical, system, functional, or subscription-based.
 
@@ -1461,7 +1461,7 @@ NOTE: *Deletion governance:* `blockDeletion: true` does not determine who can de
 
 === subscriptionPayload
 
-link:../built-in-types/subscription.json[JSON Schema^]
+link:../built-in-types/types/subscription.json[JSON Schema^]
 
 For `type: "subscription"`. Registers a live notification channel against a target UUID. When the target item changes, the platform notifies the channel.
 
@@ -1523,7 +1523,7 @@ Distinct from `reference` — a subscription is about change notification, not d
 
 === itemHistoryPayload
 
-link:../built-in-types/item_history.json[JSON Schema^]
+link:../built-in-types/types/item_history.json[JSON Schema^]
 
 For `type: "item_history"`. Records a single event in an item's lifecycle.
 
@@ -1588,7 +1588,7 @@ NOTE: Event sourcing guarantee: replaying all `item_history` events for a given 
 
 === activityPayload
 
-link:../built-in-types/activity.json[JSON Schema^]
+link:../built-in-types/types/activity.json[JSON Schema^]
 
 For `type: "activity"`. Records a discrete workspace event — not a snapshot of item state, but a meaningful occurrence at the application level (item viewed, search performed, sync started, export triggered). Distinct from `item_history`: history tracks *what changed*; activity tracks *what happened*.
 
