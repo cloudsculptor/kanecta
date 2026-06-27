@@ -35,7 +35,7 @@
   "search": null,
   "payload": {
     "meta": {
-      "description": "A typed function definition.",
+      "description": "A typed, multi-runtime function definition. The contract (name, parameters, return type) lives in the item; the implementation lives in a deployment bundle on disk and in cloud storage.",
       "confidence": "locked"
     },
     "jsonSchema": {
@@ -44,6 +44,17 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "runtime": {
+          "type": "string",
+          "description": "Execution runtime for this function. Open string \u2014 new runtimes can be added without a spec change. The runtime name is also the subdirectory name inside the .function/ bundle directory. Defaults to 'typescript' if absent. The runtime name must be a valid directory name (lowercase letters, hyphens, digits)."
+        },
+        "bundleHash": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "SHA-256 hashes of the source bundle, keyed by runtime name (e.g. { \"typescript\": \"sha256:a3f1c9...\" }). The adapter compares this against the locally unpacked bundle before executing \u2014 a mismatch triggers a re-fetch and re-unpack. node_modules/ is excluded from the hash. Updated by kanecta function save."
+        },
         "description": {
           "type": "string",
           "description": "What the function does."
@@ -61,16 +72,16 @@
           "items": {
             "$ref": "#/definitions/parameterOrProp"
           },
-          "description": "Ordered list of parameters."
+          "description": "Ordered list of parameters. The adapter generates interface.ts from this list."
         },
         "returnType": {
           "type": "string",
-          "description": "TypeScript primitive return type string. Exactly one of returnType or returnTypeId must be present."
+          "description": "Primitive return type string in the target runtime's type system (e.g. 'string', 'number' for TypeScript). Exactly one of returnType or returnTypeId must be present."
         },
         "returnTypeId": {
           "type": "string",
           "format": "uuid",
-          "description": "UUID of a Kanecta type item for object-typed return values. Exactly one of returnType or returnTypeId must be present."
+          "description": "UUID of a Kanecta type item for object-typed return values. Runtime-neutral \u2014 the adapter maps the type's jsonSchema to the appropriate declaration. Exactly one of returnType or returnTypeId must be present."
         },
         "typeParameters": {
           "type": "array",
@@ -91,7 +102,7 @@
               }
             }
           },
-          "description": "Generic type parameters (e.g. <T extends Foo = Bar>)."
+          "description": "Generic type parameters (e.g. <T extends Foo = Bar>). TypeScript runtime only."
         },
         "throws": {
           "type": "array",
@@ -117,15 +128,11 @@
           "items": {
             "type": "string"
           },
-          "description": "npm packages required by this function (e.g. [\"axios@^1.0.0\"])."
+          "description": "Package dependencies declared for this function (e.g. [\"axios@^1.0.0\"] for TypeScript/npm). These are merged into the generated package.json by the adapter. The package.json in the bundle is the authoritative source for installed dependencies; this field is the spec-level declaration used when scaffolding."
         },
         "deprecated": {
           "type": "string",
           "description": "If set, marks the function as deprecated. Value is the deprecation message."
-        },
-        "body": {
-          "type": "string",
-          "description": "Inline function body. Postgres adapter only \u2014 filesystem/SQLite store the body in meta.files.body = \"body.ts\"."
         }
       },
       "definitions": {
@@ -141,12 +148,12 @@
             },
             "type": {
               "type": "string",
-              "description": "TypeScript primitive type string."
+              "description": "Primitive type name in the target runtime's type system. Prefer typeId for object-typed parameters \u2014 typeId is runtime-neutral."
             },
             "typeId": {
               "type": "string",
               "format": "uuid",
-              "description": "UUID of a Kanecta type item."
+              "description": "UUID of a Kanecta type item. Runtime-neutral \u2014 the adapter generates the appropriate type declaration from the type's jsonSchema."
             },
             "functionId": {
               "type": "string",

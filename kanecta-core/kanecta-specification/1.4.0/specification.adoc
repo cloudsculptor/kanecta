@@ -843,11 +843,12 @@ link:../built-in-types/types/function.json[Seed item^]
 
 For `type: "function"`. The function name lives in `item.value`.
 
-NOTE: *Filesystem and SQLite adapters* — the function body lives in a sidecar: `meta.files.body = "body.ts"`. *Postgres adapter* — `payload.body` stores it inline as a column on the `functions` table.
+A function item describes the *contract* of a function — its name, parameters, return type, and runtime. The implementation lives in a deployment bundle on disk and in cloud storage. The adapter generates a type-safe interface from the contract and enforces that the implementation satisfies it before saving.
 
 [source,json]
 ----
 {
+  "runtime": "typescript",
   "description": "Fetch a user by ID.",
   "async": true,
   "ai": false,
@@ -856,19 +857,125 @@ NOTE: *Filesystem and SQLite adapters* — the function body lives in a sidecar:
   ],
   "returnTypeId": "f1e2d3c4-...",
   "throws": [{ "type": "Error", "description": "If the user is not found." }],
-  "dependencies": ["axios@^1.0.0"]
+  "dependencies": ["axios@^1.0.0"],
+  "bundleHash": {
+    "typescript": "sha256:a3f1c9..."
+  }
 }
 ----
 
 *Parameters* use the shared `parameterOrProp` definition — exactly one of:
 
-* `type` — TypeScript primitive string (`string`, `number`, `boolean`, `Promise<string>`, etc.). No inline object types.
-* `typeId` — UUID of a Kanecta type definition (for object-typed parameters).
+* `type` — A primitive type name in the target runtime's type system. For TypeScript: `string`, `number`, `boolean`, `Promise<T>`, etc. For other runtimes, use that runtime's native type name. Prefer `typeId` for object-typed parameters because `typeId` is runtime-neutral.
+* `typeId` — UUID of a Kanecta type item. Runtime-neutral — the adapter maps the type's `jsonSchema` to the appropriate type declaration for the target runtime.
 * `functionId` — UUID of a Kanecta function item (for callback/higher-order function parameters).
 
-*Return type* uses the same split: `returnType` (primitive) or `returnTypeId` (object type). One must be present.
+*Return type* uses the same split: `returnType` (primitive string) or `returnTypeId` (object type UUID). One must be present.
 
-TIP: *Postgres* — `function_parameters` and `function_throws` are child tables ordered by `sort_order`, each enforcing `type` XOR `type_id` XOR `function_id`. `dependencies` is a native `TEXT[]` column.
+TIP: *Postgres* — `function_parameters` and `function_throws` are child tables ordered by `sort_order`, each enforcing `type` XOR `type_id` XOR `function_id`. `dependencies` is a native `TEXT[]` column. `bundleHash` is stored as a `JSONB` column.
+
+*Runtime*
+
+The `runtime` field is a free-form open string identifying which execution environment the adapter uses for this function. New runtimes can be added by adapter authors without a spec change. If `runtime` is absent, the adapter defaults to `"typescript"`.
+
+The runtime name also serves as the subdirectory name within the function's deployment bundle (see *Bundle and deployment* below), so it must be a valid directory name — lowercase letters, hyphens, digits.
+
+`"typescript"` is the fully specified runtime in 1.4.0. Other runtime names are reserved as open strings — adapter authors may implement them following the same bundle conventions, using the runtime's idiomatic entry-point filename and package descriptor in place of `index.ts` and `package.json`.
+
+The spec does not define a canonical cross-runtime type mapping. When a TypeScript pipeline phase calls a function of a different runtime, the calling adapter is responsible for marshalling. Structured parameters should use `typeId` rather than `type` wherever possible, since `typeId` references are runtime-neutral and the adapter can generate the appropriate type declaration for each runtime from the type's `jsonSchema`.
+
+*Bundle and deployment*
+
+Each function item has a deployment bundle: a directory tree containing everything the runtime needs to execute the function, stored as a zip in cloud storage and unpacked locally under `.kanecta/`.
+
+*Local directory structure:*
+
+[source]
+----
+.kanecta/
+  <function-uuid>/
+    .function/
+      typescript/
+        package.json       ← npm package; adapter-generated; user may add dependencies
+        tsconfig.json      ← TypeScript config; adapter-generated; user may not modify
+        interface.ts       ← adapter-owned; auto-generated from function item spec; never edit
+        index.ts           ← user-owned; imports interface.ts; must export main()
+        [any other files or directories the author needs]
+----
+
+*Cloud storage:*
+
+The entire `.function/` directory (all runtime subdirectories) is zipped and stored as a file blob referenced from the function item via `meta.files`. `node_modules/` is excluded from the zip — it is a derived artifact, not source. On execution, the adapter checks whether `node_modules/` exists and whether the hash of `package-lock.json` matches a locally cached value; if either check fails, it runs `npm install` before invoking `main()`. This keeps bundle sizes small while ensuring deterministic dependency resolution.
+
+`bundleHash` in the function item payload is an open object keyed by runtime name. Each value is the SHA-256 hash of the source files for that runtime's subdirectory (excluding `node_modules/`). The adapter compares this hash against the locally unpacked bundle before executing — a mismatch means the local bundle is stale and must be re-fetched and re-unpacked. Runtimes not present in `bundleHash` have no cloud bundle yet.
+
+[source,json]
+----
+"bundleHash": {
+  "typescript": "sha256:a3f1c9e2b7d4..."
+}
+----
+
+*`interface.ts` — adapter-owned contract file:*
+
+The adapter generates `interface.ts` from the function item's `parameters`, `returnType`/`returnTypeId`, and `typeParameters`. It is never written by hand. When the function item spec changes (parameters renamed, types updated, new parameter added), the adapter regenerates `interface.ts` and the user must update `main()` in `index.ts` to satisfy the new signature before the next save.
+
+The adapter detects tampering by regenerating `interface.ts` fresh from the current item spec and diffing against the file on disk. If they differ and the item spec has not changed since the last scaffold, the user has modified `interface.ts` directly — the save is rejected. If the item spec has changed, the diff is expected and the file is regenerated automatically.
+
+Example generated `interface.ts` for a function `fetchUser(id: string): Promise<User>`:
+
+[source,typescript]
+----
+// AUTO-GENERATED — do not edit. Regenerated from function item spec on save.
+export interface FetchUserParams {
+  id: string;
+}
+export type FetchUserReturn = Promise<User>;  // or inline type if no typeId
+export type FetchUserFn = (params: FetchUserParams) => FetchUserReturn;
+----
+
+*`index.ts` — user-owned entry point:*
+
+`index.ts` is the well-known entry point. The adapter always invokes `main()` from this file. The user writes the implementation; the file can import from any other file in the directory.
+
+[source,typescript]
+----
+import type { FetchUserParams, FetchUserReturn } from './interface.js';
+
+export async function main(params: FetchUserParams): FetchUserReturn {
+  // implementation — call other files, use npm packages, do anything
+}
+----
+
+The adapter validates that `main()`'s declared signature matches the generated interface before saving. Validation is done by `tsc --noEmit` using the generated `tsconfig.json` — TypeScript's own compiler enforces the contract, catching both signature mismatches and type errors in the implementation. The adapter does not inspect the body of `main()`.
+
+*`package.json` — npm scripts:*
+
+The adapter generates `package.json` with the function UUID baked into the `check` and `save` scripts. The user may add `dependencies` — the adapter will include them in the next `npm install` pass.
+
+[source,json]
+----
+{
+  "name": "kanecta-function",
+  "version": "1.0.0",
+  "scripts": {
+    "check": "tsc --noEmit && kanecta function validate <function-uuid>",
+    "save":  "npm run check && kanecta function save <function-uuid>"
+  },
+  "dependencies": {}
+}
+----
+
+`npm run check` — validates types (via `tsc --noEmit`) and Kanecta-specific constraints (interface.ts integrity). Does not write anything.
+
+`npm run save` — runs check, then zips the source files (excluding `node_modules/`), computes the new `bundleHash`, uploads the bundle to cloud storage, and writes the updated hash back to the function item in the datastore.
+
+*Authoring workflow:*
+
+. *Create the spec* — in Studio (fill in name, parameters, return type) or via MCP (`kanecta_add_item` with `type: "function"` and the payload fields). The item exists in the datastore; no bundle yet.
+. *Scaffold* — the adapter generates the `.kanecta/<function-uuid>/.function/typescript/` directory with `package.json`, `tsconfig.json`, `interface.ts`, and a stub `index.ts` containing the correct `main()` signature and an empty body.
+. *Implement* — open the directory in VSCode or edit via Claude Code. Write the body of `main()`. Add supporting files and directories freely.
+. *Save* — run `npm run save` from the function directory. The CLI validates, zips, uploads, and updates the item. The datastore now has a complete, executable function.
 
 === formulaPayload
 
