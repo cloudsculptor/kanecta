@@ -1,6 +1,8 @@
 import type { ViewMeta } from '../../../lib/viewMeta';
 import { useViewLocation } from '../../../context/LocationContext';
-import { FilterBar } from '@kanecta/component-filter-bar';
+import { GalleryView as GalleryViewPkg } from '@kanecta/component-gallery-view';
+import { useAllItems } from '../../../hooks/useAllItems';
+import { useUiStore } from '../../../store/ui';
 import { ITEM_TYPES, CONFIDENCE_LEVELS } from '../../../lib/constants';
 
 export const GalleryViewMeta: ViewMeta = {
@@ -9,11 +11,6 @@ export const GalleryViewMeta: ViewMeta = {
   label: 'Gallery',
   icon: 'GridView',
 };
-import { SortBar } from '@kanecta/component-sort-bar';
-import { GalleryCard } from './GalleryCard';
-import { useAllItems } from '../../../hooks/useAllItems';
-import { useUiStore } from '../../../store/ui';
-import './GalleryView.scss';
 
 interface GalleryViewProps {
   panelId: string;
@@ -22,32 +19,21 @@ interface GalleryViewProps {
 export function GalleryView({ panelId }: GalleryViewProps) {
   useViewLocation(GalleryViewMeta.uuid);
   const { items, isLoading, filter, sort } = useAllItems(panelId);
-  const { setPanelFilter, setPanelSort } = useUiStore();
-
-  if (isLoading) return <div className="GalleryView"><div className="GalleryView-empty">Loading…</div></div>;
+  const { setPanelFilter, setPanelSort, setFocusedItem, focusedItemId } = useUiStore();
 
   return (
-    <div className="GalleryView" data-testid={`gallery-view-${panelId}`}>
-      <div className="GalleryView-controls">
-        <FilterBar
-          filter={filter}
-          onChange={(f) => setPanelFilter(panelId, f)}
-          totalCount={items.length}
-          filteredCount={items.length}
-          itemTypes={ITEM_TYPES}
-          confidenceLevels={CONFIDENCE_LEVELS}
-        />
-        <SortBar sort={sort} onChange={(s) => setPanelSort(panelId, s)} />
-      </div>
-      {items.length === 0 ? (
-        <div className="GalleryView-empty">No items match the current filter</div>
-      ) : (
-        <div className="GalleryView-grid">
-          {items.map((item) => (
-            <GalleryCard key={item.id} item={item} />
-          ))}
-        </div>
-      )}
-    </div>
+    <GalleryViewPkg
+      items={items}
+      isLoading={isLoading}
+      filter={filter}
+      sort={sort}
+      onFilterChange={(f) => setPanelFilter(panelId, f)}
+      onSortChange={(s) => setPanelSort(panelId, s)}
+      selectedId={focusedItemId}
+      onSelect={setFocusedItem}
+      itemTypes={ITEM_TYPES}
+      confidenceLevels={CONFIDENCE_LEVELS}
+      panelId={panelId}
+    />
   );
 }
