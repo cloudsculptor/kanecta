@@ -1500,7 +1500,7 @@ app.put('/app/studio/layouts', async (req, res) => {
 
 // ─── Skills ──────────────────────────────────────────────────────────────────
 
-const SKILLS_DIR = process.env.KANECTA_SKILLS_PATH || path.join(__dirname, '../../kanecta-skills');
+const SKILLS_DIR = process.env.KANECTA_SKILLS_PATH || path.join(__dirname, '../../../kanecta-skills');
 
 function extractSkillTitle(content) {
   const match = content.match(/^#\s+(.+)$/m);

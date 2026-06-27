@@ -36,7 +36,7 @@ const fs   = require('fs');
 const path = require('path');
 
 const { validateMetadata, validateType, validateItem } =
-  require('../../kanecta-specification/1.3.0/kanecta-schema-validator/index.js');
+  require('../kanecta-specification/1.3.0/kanecta-schema-validator/index.js');
 
 const DATASTORE = process.argv[2];
 const DRY_RUN   = process.argv.includes('--dry-run');
@@ -51,7 +51,7 @@ const DATA_DIR     = path.join(KANECTA, 'data');
 const TYPES_DIR    = path.join(KANECTA, 'types');
 const CONFIG_PATH  = path.join(KANECTA, 'config', 'config.json');
 const QUEUE_PATH   = path.join(__dirname, 'reshape-queue.json');
-const SYSTEM_ITEMS = path.join(__dirname, '../../kanecta-system-items/items');
+const SYSTEM_ITEMS = path.join(__dirname, '../kanecta-system-items/items');
 
 const TARGET_SPEC_VERSION = '1.3.0';
 const DEFAULT_LICENSE     = 'bb3bf137-d8a9-4264-9fb7-ac373b1d4739'; // All Rights Reserved

@@ -188,7 +188,7 @@ function generateFunctionScaffold(itemDir, itemName, fnData, root) {
   fs.mkdirSync(fnDir, { recursive: true });
 
   // package.json — always regenerated so dependencies stay in sync with function.json
-  const repoRoot = path.resolve(__dirname, '../..');
+  const repoRoot = path.resolve(__dirname, '../../..');
   const usesSdk = fnData.includeKanectaSdk !== false;
   const extraDeps = fnData.dependencies ?? [];
   const dependencies = {};

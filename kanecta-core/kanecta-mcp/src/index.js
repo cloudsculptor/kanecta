@@ -15,7 +15,7 @@ const {
 const {
   generateFunctionScaffold,
   toCamelCase,
-} = require('../../kanecta-api/src/generateFunctionCode');
+} = require('../kanecta-api/src/generateFunctionCode');
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -146,7 +146,7 @@ function isApiRunning() {
 
 function ensureApiRunning(datastorePath) {
   if (isApiRunning()) return;
-  const serverPath = path.resolve(__dirname, '../../kanecta-api/src/server.js');
+  const serverPath = path.resolve(__dirname, '../kanecta-api/src/server.js');
   const proc = spawn(process.execPath, [serverPath], {
     env: { ...process.env, KANECTA_DATASTORE: datastorePath },
     detached: true,

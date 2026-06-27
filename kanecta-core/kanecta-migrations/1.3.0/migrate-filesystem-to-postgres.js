@@ -26,7 +26,7 @@ const DATA_DIR   = path.join(KANECTA, 'data');
 const TYPES_DIR  = path.join(KANECTA, 'types');
 
 // Path to system-type definitions (for sqlSchema when the type isn't in the datastore types/)
-const SYSTEM_ITEMS = path.join(__dirname, '../../kanecta-system-items/items');
+const SYSTEM_ITEMS = path.join(__dirname, '../kanecta-system-items/items');
 
 const DEFAULT_LICENSE = 'bb3bf137-d8a9-4264-9fb7-ac373b1d4739'; // All Rights Reserved
 
