@@ -1,3 +1,6 @@
 'use strict';
 
-module.exports = require('./datastore');
+module.exports = {
+  ...require('./datastore'),
+  ...require('./generateFunctionCode'),
+};

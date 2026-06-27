@@ -15,7 +15,7 @@ const {
 const {
   generateFunctionScaffold,
   toCamelCase,
-} = require('../kanecta-api/src/generateFunctionCode');
+} = require('@kanecta/lib');
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
