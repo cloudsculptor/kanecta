@@ -425,39 +425,78 @@ Types are grouped into three categories.
 
 === Primitive Types
 
-Basic value containers. `payload` is null unless noted.
+`payload` is always null. No exceptions. If a type needs a payload, it is a structured type.
+
+[cols="1,2", options="header"]
+|===
+| Type | Description
+
+| `string`
+| A short string value.
+
+| `number`
+| A numeric value.
+
+| `text`
+| A plain text block.
+
+| `heading`
+| A heading or title.
+
+| `url`
+| A URL. `item.value` contains the URL string.
+
+| `symlink`
+| A reference to another item. `item.value` contains the target UUID.
+
+| `node`
+| A generic node in a user-defined tree. Children of `tree` items.
+
+| `tree`
+| A named additional tree root. Kanecta has one built-in tree (all-zeros root). Additional trees are `tree` items.
+
+| `runner`
+| An execution environment or script runner.
+
+| `decision`
+| A recorded decision with context, alternatives, and reasoning.
+
+| `annotation`
+| A comment or note on another item, without modifying it.
+
+| `claim`
+| A factual assertion that may have a confidence level.
+
+| `question`
+| An open question awaiting resolution.
+
+| `task`
+| An actionable item with optional due date and completion tracking.
+
+| `note`
+| A freeform note.
+
+| `concept`
+| An abstract concept or idea.
+
+| `entity`
+| A real-world entity (organisation, product, place).
+
+| `event`
+| A point in time or period of activity.
+|===
+
+=== Structured Types
+
+`payload` is always non-null. The payload schema is defined per type. No exceptions. If a type has no payload, it is a primitive type.
 
 [cols="1,2,1", options="header"]
 |===
 | Type | Description | Payload
 
-| `string`
-| A short string value.
-| null
-
-| `number`
-| A numeric value.
-| null
-
-| `text`
-| A plain text block.
-| null
-
-| `heading`
-| A heading or title.
-| null
-
 | `file`
 | Any file-backed content — images, markdown, PDFs, audio, video, code. Replaces the former `image` and `markdown` primitives. Use `payload.mimeType` to distinguish.
 | `filePayload` (required)
-
-| `symlink`
-| A reference to another item. `item.value` contains the target UUID.
-| null
-
-| `url`
-| A URL. `item.value` contains the URL string.
-| null
 
 | `formula`
 | A reusable calculation. Three levels: template string (`"TASK-{n}"`), Excel-like DSL evaluated by formulajs, or a pointer to a `function` item for full programmatic power. Referenced by UUID from wherever a computed value is needed.
@@ -471,27 +510,6 @@ Basic value containers. `payload` is null unless noted.
 | A React component definition.
 | `componentPayload` (required)
 
-| `runner`
-| An execution environment or script runner.
-| null
-
-| `node`
-| A generic node in a user-defined tree. Children of `tree` items.
-| null
-
-| `tree`
-| A named additional tree root. Kanecta has one built-in tree (all-zeros root). Additional trees are `tree` items.
-| null
-|===
-
-=== Structured Types
-
-Types with defined semantic intent.
-
-[cols="1,2,1", options="header"]
-|===
-| Type | Description | Payload
-
 | `type`
 | A custom type definition. The meta-type — `object` instances live under their type item as their canonical home. Type items themselves live under a bootstrapper-created collection tree under root.
 | `typePayload` (required)
@@ -500,45 +518,13 @@ Types with defined semantic intent.
 | A human-readable string that resolves to a UUID. The alias string lives in `item.value`; lookup is case-insensitive. Distinct from `symlink` — a symlink is a tree-placement item; an alias is a string lookup. Lives under the aliased item as its canonical home. Provisional aliases are computed locally at creation and confirmed as globally unique at merge time.
 | `aliasPayload` (required)
 
+| `aspect-type`
+| Defines the schema and semantics of a named aspect dimension — the meta-type for aspect items. When `item.aspect` is a UUID, it points to an aspect-type item. `payload.jsonSchema` validates the payload of aspect items of this type.
+| `aspectTypePayload` (required)
+
 | `object`
 | An instance of a custom type definition. `item.typeId` identifies the type.
 | Free-form object validated against the type's `jsonSchema`.
-
-| `decision`
-| A recorded decision with context, alternatives, and reasoning.
-| null
-
-| `annotation`
-| A comment or note on another item, without modifying it.
-| null
-
-| `claim`
-| A factual assertion that may have a confidence level.
-| null
-
-| `question`
-| An open question awaiting resolution.
-| null
-
-| `task`
-| An actionable item with optional due date and completion tracking.
-| null
-
-| `note`
-| A freeform note.
-| null
-
-| `concept`
-| An abstract concept or idea.
-| null
-
-| `entity`
-| A real-world entity (organisation, product, place).
-| null
-
-| `event`
-| A point in time or period of activity.
-| null
 
 | `grant`
 | An access control grant on the parent item. Lives in the `"grants"` aspect.

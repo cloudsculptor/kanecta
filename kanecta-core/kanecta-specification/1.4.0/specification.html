@@ -1271,7 +1271,99 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 <div class="sect2">
 <h3 id="_primitive_types">5.1. Primitive Types</h3>
 <div class="paragraph">
-<p>Basic value containers. <code>payload</code> is null unless noted.</p>
+<p><code>payload</code> is always null. No exceptions. If a type needs a payload, it is a structured type.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col width="33.3333%">
+<col width="66.6667%">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Type</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A short string value.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>number</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A numeric value.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>text</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A plain text block.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>heading</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A heading or title.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>url</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A URL. <code>item.value</code> contains the URL string.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>symlink</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A reference to another item. <code>item.value</code> contains the target UUID.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>node</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A generic node in a user-defined tree. Children of <code>tree</code> items.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>tree</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A named additional tree root. Kanecta has one built-in tree (all-zeros root). Additional trees are <code>tree</code> items.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>runner</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">An execution environment or script runner.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>decision</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A recorded decision with context, alternatives, and reasoning.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>annotation</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A comment or note on another item, without modifying it.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>claim</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A factual assertion that may have a confidence level.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>question</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">An open question awaiting resolution.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>task</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">An actionable item with optional due date and completion tracking.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>note</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A freeform note.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>concept</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">An abstract concept or idea.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>entity</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A real-world entity (organisation, product, place).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>event</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A point in time or period of activity.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect2">
+<h3 id="_structured_types">5.2. Structured Types</h3>
+<div class="paragraph">
+<p><code>payload</code> is always non-null. The payload schema is defined per type. No exceptions. If a type has no payload, it is a primitive type.</p>
 </div>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
@@ -1288,39 +1380,9 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 </thead>
 <tbody>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">A short string value.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">null</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>number</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">A numeric value.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">null</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>text</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">A plain text block.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">null</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>heading</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">A heading or title.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">null</p></td>
-</tr>
-<tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>file</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Any file-backed content — images, markdown, PDFs, audio, video, code. Replaces the former <code>image</code> and <code>markdown</code> primitives. Use <code>payload.mimeType</code> to distinguish.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>filePayload</code> (required)</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>symlink</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">A reference to another item. <code>item.value</code> contains the target UUID.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">null</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>url</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">A URL. <code>item.value</code> contains the URL string.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">null</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>formula</code></p></td>
@@ -1338,43 +1400,6 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>componentPayload</code> (required)</p></td>
 </tr>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>runner</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">An execution environment or script runner.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">null</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>node</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">A generic node in a user-defined tree. Children of <code>tree</code> items.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">null</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>tree</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">A named additional tree root. Kanecta has one built-in tree (all-zeros root). Additional trees are <code>tree</code> items.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">null</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<div class="sect2">
-<h3 id="_structured_types">5.2. Structured Types</h3>
-<div class="paragraph">
-<p>Types with defined semantic intent.</p>
-</div>
-<table class="tableblock frame-all grid-all stretch">
-<colgroup>
-<col width="25%">
-<col width="50%">
-<col width="25%">
-</colgroup>
-<thead>
-<tr>
-<th class="tableblock halign-left valign-top">Type</th>
-<th class="tableblock halign-left valign-top">Description</th>
-<th class="tableblock halign-left valign-top">Payload</th>
-</tr>
-</thead>
-<tbody>
-<tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>type</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">A custom type definition. The meta-type — <code>object</code> instances live under their type item as their canonical home. Type items themselves live under a bootstrapper-created collection tree under root.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>typePayload</code> (required)</p></td>
@@ -1385,54 +1410,14 @@ Tree traversal hits only <code>items</code>. List rendering hits only <code>item
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>aliasPayload</code> (required)</p></td>
 </tr>
 <tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>aspect-type</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Defines the schema and semantics of a named aspect dimension — the meta-type for aspect items. When <code>item.aspect</code> is a UUID, it points to an aspect-type item. <code>payload.jsonSchema</code> validates the payload of aspect items of this type.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>aspectTypePayload</code> (required)</p></td>
+</tr>
+<tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>object</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">An instance of a custom type definition. <code>item.typeId</code> identifies the type.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Free-form object validated against the type&#8217;s <code>jsonSchema</code>.</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>decision</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">A recorded decision with context, alternatives, and reasoning.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">null</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>annotation</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">A comment or note on another item, without modifying it.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">null</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>claim</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">A factual assertion that may have a confidence level.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">null</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>question</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">An open question awaiting resolution.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">null</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>task</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">An actionable item with optional due date and completion tracking.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">null</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>note</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">A freeform note.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">null</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>concept</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">An abstract concept or idea.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">null</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>entity</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">A real-world entity (organisation, product, place).</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">null</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>event</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">A point in time or period of activity.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">null</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>grant</code></p></td>
@@ -5124,7 +5109,7 @@ Mac uses <code>~/Library/Application Support</code> rather than <code>~/.config<
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2026-06-25 16:32:27 +1200
+Last updated 2026-06-26 06:20:49 +1200
 </div>
 </div>
 </body>
