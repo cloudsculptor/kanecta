@@ -1076,7 +1076,10 @@ For `type: "type"`. Defines a custom Kanecta type. Three top-level keys: `meta`,
 | Payload field names to include in the FTS corpus. Null/absent = all fields. Explicit list = opt-out everything else (e.g. `["name", "bio"]`).
 
 | `componentId`
-| UUID of a Kanecta component item that renders instances of this type.
+| UUID of a Kanecta component item that renders instances of this type in any context. Used when no `defaultViews` entry matches the current context. Null means fall through to the built-in generic renderer.
+
+| `defaultViews`
+| Ordered array of context-specific component bindings: `[{ "contextId": "<uuid>", "componentId": "<uuid>" }, ...]`. Studio checks these in order during view resolution (step 2 of the resolution algorithm), using the first entry whose `contextId` matches the current context exactly. This allows a type to declare different renderers for different display positions — compact card for `tree-node`, full form for `detail-panel`, modal variant for `modal` — without requiring per-item `view` items for every instance. Null or empty means no context-specific defaults; fall through to `componentId`.
 
 | `skills.claude`
 | Guidance for Claude on when and how to use this type.
@@ -1410,7 +1413,39 @@ For `type: "view"`. Binds a specific item to a renderer and a context. The view'
 
 The optional label (`item.value`) is a human name for this view binding (e.g. `"Person — compact tree card"`).
 
-NOTE: `root.payload.entryPoint` points to a view item — the bootstrap view is "root, rendered by the bootstrapper function, in the deployment context." The bootstrapper reads root, follows `entryPoint`, loads the view, finds the `componentId`, and runs it with root as input. Two hops, fully declarative.
+==== View resolution
+
+When Studio needs to render item X in the current context C, it resolves the component to use by walking four steps in priority order, stopping at the first match:
+
+. *Explicit view item* — query `WHERE type = 'view' AND payload.itemId = X` and filter to results whose `contextId` matches C exactly (both `runtime` and `display` must match). If found, use that view item's `componentId`. If multiple view items match the same item and context, the most recently created one wins. This is the per-item override — the mechanism for customising how a specific item is rendered without affecting anything else.
+
+. *Type's `defaultViews`* — if no explicit view matches, look at the item's type (`item.typeId`). Read `typePayload.meta.defaultViews` (see <<typePayload>>) — an ordered array of `{ contextId, componentId }` entries. Find the first entry whose `contextId` matches C exactly. If found, use that `componentId`. This is the type-level context-specific default: a `Person` type can declare a compact card for `tree-node` display and a full form for `detail-panel` display, and every Person instance gets those renderers without needing individual view items.
+
+. *Type's default component* — if no `defaultViews` entry matches, use `typePayload.meta.componentId`. This is the type-level catch-all — one component for all display contexts. If `componentId` is null, continue to step 4.
+
+. *Built-in generic renderer* — final fallback. The adapter provides a generic renderer that reads `jsonSchema` from the item's type and renders all payload fields in a standard layout. No custom component required. Used during type development and for types that do not define any component.
+
+Built-in types (pipeline, query, task, etc.) have their default components defined in their built-in manifests, seeded as `component` items at datastore initialisation. The Studio type loader uses these seeded components when no user-defined override exists.
+
+==== Bootstrap sequence
+
+`rootPayload.entryPoint` is a view item UUID. When Studio starts, it follows this sequence:
+
+. Read root (`00000000-0000-0000-0000-000000000000`). No prior knowledge needed — the all-zeros UUID is the universal constant.
+. Read `root.payload.entryPoint` → view item UUID. If null, render root directly using the resolution algorithm above.
+. Read the view item → `{ itemId, componentId, contextId }`.
+. Read the context item → `{ runtime, display, capabilities }`.
+. Load the component identified by `componentId`.
+. Run the component with `itemId` as input in the given context.
+. The component renders, reading further items as needed via the standard query/get tools.
+
+Two hops from root to the running application (root → view → component). Fully declarative — swapping the entry point is a data change, not a code change. Different deployments (web, CLI, desktop) can point to different `entryPoint` view items from the same datastore.
+
+==== Bookmarking and sharing
+
+A view item UUID is a stable, shareable reference to "this item, rendered this way, in this context." Two things are encoded in the UUID: what you are looking at (`itemId`) and how you are looking at it (`componentId` + `contextId`). A bookmark is just a UUID. A shared link resolves to the view item, which Studio opens exactly as the sender saw it.
+
+`item.value` on the view item is the human label for the bookmark (e.g. `"Alice's dashboard"`, `"Sprint board — compact"`). Null means no label — the view is functional but unnamed.
 
 === contextPayload
 

@@ -58,7 +58,28 @@
         "componentId": {
           "type": ["string", "null"],
           "format": "uuid",
-          "description": "UUID of a Kanecta component item that renders instances of this type."
+          "description": "UUID of a Kanecta component item that renders instances of this type in any context. Used when no defaultViews entry matches the current context. Null means fall through to the built-in generic renderer."
+        },
+        "defaultViews": {
+          "type": ["array", "null"],
+          "description": "Ordered array of context-specific component bindings. Studio checks these in order during view resolution, using the first entry whose contextId matches the current context exactly. Allows a type to declare different renderers for different display positions (tree-node, detail-panel, modal, etc.) without requiring per-item view items for every instance. Null or empty means no context-specific defaults.",
+          "items": {
+            "type": "object",
+            "required": ["contextId", "componentId"],
+            "additionalProperties": false,
+            "properties": {
+              "contextId": {
+                "type": "string",
+                "format": "uuid",
+                "description": "UUID of the context item this component binding applies to. Must match the current context exactly (both runtime and display)."
+              },
+              "componentId": {
+                "type": "string",
+                "format": "uuid",
+                "description": "UUID of the component item to use when this context matches."
+              }
+            }
+          }
         },
         "skills": {
           "type": "object",
