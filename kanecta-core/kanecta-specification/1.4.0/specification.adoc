@@ -97,6 +97,8 @@ datastore/
     │       ├── item.json
     │       ├── body.md       ← optional sidecar (body text, code)
     │       └── embedding.bin ← optional sidecar (float32 vector)
+    ├── item-history/    ← optional; same structure as items/ (itemHistory: "EXTERNAL")
+    ├── activity/        ← optional; same structure as items/ (activity: "EXTERNAL")
     ├── .gitignore       ← ignores index.db
     └── index.db         ← SQLite index, derived, gitignored
 ----
@@ -109,6 +111,27 @@ index.db
 ----
 
 Datastore configuration (owner, spec version, history and activity mode) lives in the root node payload — not in a separate config file. See <<rootPayload>>.
+
+.History and activity: three decisions to make when setting up a datastore
+****
+**1. Do you want item history and/or activity tracking?**
+
+Both are opt-in and independent — you can enable either one, both, or neither. Set `itemHistory` and `activity` in the root node payload (see <<rootPayload>>). If you have no need for a built-in audit trail or event log, set both to `"NONE"` and the adapter will never write history or activity items.
+
+**2. If you are using Git, turn item history off.**
+
+The filesystem adapter stores items as plain files under `.kanecta/items/`, and that folder is Git-tracked. Git is already a complete, tamper-evident history store: every commit records who changed what and when, and `git log -p` reconstructs any item's full lifecycle. Writing Kanecta `item_history` events on top of Git creates a second copy of the same information with no additional value. Set `itemHistory: "NONE"` unless you have a specific reason to maintain history outside of Git — for example, a read-only replica datastore that cannot rely on Git history being present.
+
+**3. Where should history and activity items live?**
+
+When you do want Kanecta to manage history or activity, you have two placement options controlled by the enum value in `rootPayload`:
+
+* `"ITEM"` — history and activity items are written directly into `items/`, alongside all other items. Simple to set up; no extra directories. The drawback is that history and activity events are write-heavy and accumulate rapidly — over time they will dwarf the count of actual data items, making queries across `items/` slower and the folder tree harder to navigate.
+
+* `"EXTERNAL"` _(recommended)_ — history items go into `item-history/` and activity items go into `activity/`, both sibling directories of `items/` under `.kanecta/`. The structure and content of these directories is identical to `items/` — the same 2+2+full UUID sharding, the same `item.json` format. The only difference is physical separation. This keeps the main `items/` tree lean and makes targeted queries (e.g. "all items of type `task`") fast regardless of how much history has accumulated.
+
+Mixing modes is valid: `itemHistory: "EXTERNAL"` with `activity: "NONE"` is a common configuration for Git-managed datastores that still want Kanecta-level item history but do not need a workspace event log.
+****
 
 Item directories use *mandatory 2+2+full UUID sharding*: first 2 hex chars / next 2 hex chars / full UUID with hyphens. This keeps directory fan-out bounded regardless of datastore size — no single directory ever holds more than 256 child directories.
 
