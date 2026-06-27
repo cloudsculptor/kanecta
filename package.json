@@ -13,7 +13,7 @@
     "kanecta-core/kanecta-specification",
     "kanecta-core/kanecta-storage-adapters/kanecta-filesystem",
     "kanecta-core/kanecta-storage-adapters/kanecta-postgres",
-    "kanecta-core/kanecta-keycloak",
+    "kanecta-core/kanecta-auth-adapters/kanecta-keycloak",
     "kanecta-core/kanecta-storage-adapters/kanecta-database",
     "kanecta-core/kanecta-storage-adapters/kanecta-s3",
     "kanecta-core/kanecta-storage-adapters/kanecta-cloud",
