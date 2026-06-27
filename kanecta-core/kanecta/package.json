@@ -2,17 +2,6 @@
   "name": "kanecta",
   "version": "1.4.0",
   "description": "Open source connectivity platform",
-  "main": "index.js",
-  "bin": {
-    "kanecta": "./index.js"
-  },
-  "scripts": {
-    "test": "node tests/studio-resolution.test.js && node tests/update-check.test.js"
-  },
-  "files": [
-    "index.js",
-    "lib/"
-  ],
   "engines": {
     "node": ">=18.0.0"
   },
