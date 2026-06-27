@@ -7,12 +7,43 @@
   "properties": {
     "description": {
       "type": ["string", "null"],
-      "description": "Human-readable description of what this pipeline does and when to use it. Null is valid."
+      "description": "Human-readable description of what this pipeline does and when to use it."
+    },
+    "params": {
+      "type": ["array", "null"],
+      "description": "Typed input parameter declarations. Values are supplied at run creation and substituted into instructions and inputQuery using {{params.name}} syntax.",
+      "items": {
+        "type": "object",
+        "required": ["name", "type", "required"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Parameter name. Must be unique within the pipeline. Used as {{params.name}} in instructions and inputQuery."
+          },
+          "type": {
+            "type": "string",
+            "enum": ["string", "number", "boolean", "uuid"],
+            "description": "Value type."
+          },
+          "required": {
+            "type": "boolean",
+            "description": "Whether this parameter must be supplied at run creation. If false, default must be provided."
+          },
+          "default": {
+            "description": "Default value used when the parameter is not supplied. Must match the declared type. Required when required is false."
+          },
+          "description": {
+            "type": ["string", "null"],
+            "description": "Human-readable explanation of what this parameter controls."
+          }
+        }
+      }
     },
     "phases": {
       "type": "array",
       "minItems": 1,
-      "description": "Ordered array of phase definitions. Phases execute sequentially — each phase starts only after the previous phase completes and its confidence gate (if any) is cleared.",
+      "description": "Phase definitions forming a directed acyclic graph. Execution order is determined by phases[].needs, not array position. Array order is used as a tiebreaker for phases that become ready simultaneously.",
       "items": {
         "type": "object",
         "required": ["id", "name", "agentId", "instructions"],
@@ -20,11 +51,11 @@
         "properties": {
           "id": {
             "type": "string",
-            "description": "Stable local identifier for this phase within the pipeline (e.g. 'screenshot', 'audit', 'implement'). Must be unique within the pipeline. Used by pipelineRunPayload to correlate phase execution records with phase definitions. Not a UUID — a short slug, stable across pipeline edits."
+            "description": "Stable local slug for this phase within the pipeline (e.g. 'capture', 'audit'). Must be unique within the pipeline. Used in needs arrays and pipelineRunPayload to correlate records."
           },
           "name": {
             "type": "string",
-            "description": "Human-readable phase name displayed in the Studio pipeline view."
+            "description": "Human-readable phase name for the Studio pipeline view."
           },
           "agentId": {
             "type": "string",
@@ -33,21 +64,62 @@
           },
           "instructions": {
             "type": "string",
-            "description": "Markdown instructions for the agent. Describes what this phase should do, what inputs to expect, and what Kanecta items to produce. The agent's systemPrompt provides identity and general behaviour; instructions provides the specific task for this pipeline context."
+            "description": "Markdown instructions for the agent. {{params.name}} placeholders are substituted by the runner before the agent receives them."
           },
           "inputQuery": {
             "type": ["object", "null"],
-            "description": "Optional kanecta_query parameter object. When present, the runner executes this query before starting the phase and passes the results to the agent as structured context. Null means the agent queries Kanecta itself if it needs data."
+            "description": "Optional kanecta_query parameter object. Executed by the runner before the phase starts; results passed to the agent as context. String values may contain {{params.name}} placeholders."
           },
           "outputTypes": {
             "type": ["array", "null"],
             "items": { "type": "string" },
-            "description": "Optional array of item type names expected as outputs from this phase. Informational — used by the Studio to annotate phase cards and by the confidence gate evaluator to filter which produced items to check. Null means the gate evaluates all items in itemsProduced."
+            "description": "Expected item type names produced by this phase. Used by the Studio and the confidence gate evaluator."
+          },
+          "needs": {
+            "type": ["array", "null"],
+            "items": { "type": "string" },
+            "description": "Phase IDs that must reach complete or skipped before this phase may start. Null means depend on the immediately preceding phase (sequential). Empty array means no dependencies (runs immediately)."
           },
           "confidenceGate": {
             "type": ["string", "null"],
-            "enum": ["high", "medium", "low", "decided", "exploring", "experimental", null],
-            "description": "Minimum confidence level required on this phase's output items before the next phase is allowed to start. Null means no gate. 'high', 'medium', 'low' map to the accuracy confidence scale on items; 'decided', 'exploring', 'experimental' map to the review lifecycle scale."
+            "enum": ["decided", "locked", "exploring", "experimental", null],
+            "description": "Required meta.confidence level on itemsProduced before downstream phases may start. Null means no gate. 'decided' and 'locked' require explicit human review. 'exploring' and 'experimental' are cleared automatically when items reach the threshold."
+          },
+          "fallbackAgentId": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "UUID of an agent to use if the primary agent returns output items tagged 'escalate'. The runner re-runs the phase with this agent. Intended for model escalation (e.g. Sonnet to Opus)."
+          },
+          "runIf": {
+            "type": ["string", "null"],
+            "description": "Condition expression evaluated against live run state before this phase starts. If false, phase is set to skipped. Context available: phases.<id>.status, phases.<id>.itemsProduced, phases.<id>.itemsProduced.length, params.<name>."
+          },
+          "timeout": {
+            "type": ["number", "null"],
+            "description": "Maximum wall-clock seconds the agent may run. Exceeded phases are terminated and set to failed."
+          },
+          "retry": {
+            "type": ["object", "null"],
+            "required": ["maxAttempts", "backoffSeconds"],
+            "additionalProperties": false,
+            "properties": {
+              "maxAttempts": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Total number of tries including the first attempt."
+              },
+              "backoffSeconds": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Fixed wait in seconds between attempts."
+              }
+            },
+            "description": "Retry configuration on phase failure. Null means no retry."
+          },
+          "onFailure": {
+            "type": ["string", "null"],
+            "enum": ["abort", "continue", "skip-remaining", null],
+            "description": "What the runner does when retries are exhausted. 'abort' (default) fails the entire run. 'continue' records the failure but allows unblocked downstream phases to proceed. 'skip-remaining' skips this and all remaining phases and marks the run complete with a warning."
           }
         }
       }

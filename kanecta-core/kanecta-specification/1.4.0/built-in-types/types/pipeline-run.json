@@ -8,38 +8,42 @@
     "pipelineId": {
       "type": "string",
       "format": "uuid",
-      "description": "UUID of the pipeline item this run is executing. Also the parentId of this run item — runs live in the tree as children of their pipeline."
+      "description": "UUID of the pipeline item this run is executing. Also the parentId of this run item."
     },
     "status": {
       "type": "string",
       "enum": ["pending", "running", "waiting", "complete", "failed", "cancelled"],
-      "description": "Overall run status. 'pending' — created but not yet started. 'running' — a phase is actively executing. 'waiting' — a phase completed but its confidence gate is blocked; paused awaiting human review. 'complete' — all phases finished successfully. 'failed' — a phase encountered an unrecoverable error. 'cancelled' — manually stopped."
+      "description": "Overall run status. pending=not started, running=phase active, waiting=blocked at gate, complete=all phases done, failed=unrecoverable error, cancelled=manually stopped."
+    },
+    "params": {
+      "type": ["object", "null"],
+      "description": "Parameter values supplied at run creation. Keys match the pipeline's params[].name definitions. The runner substitutes these into instructions and inputQuery, and injects the full object into each agent's context preamble."
     },
     "triggeredBy": {
       "type": ["string", "null"],
       "format": "uuid",
-      "description": "UUID of the Kanecta item that triggered this run (e.g. a task item, a finding from another pipeline). Null for manually triggered runs."
+      "description": "UUID of the Kanecta item that triggered this run. Null for manually triggered runs."
     },
     "startedAt": {
       "type": ["string", "null"],
       "format": "date-time",
-      "description": "ISO 8601 timestamp when the run started. Null if still pending."
+      "description": "ISO 8601 timestamp when the run moved from pending to running."
     },
     "completedAt": {
       "type": ["string", "null"],
       "format": "date-time",
-      "description": "ISO 8601 timestamp when the run reached a terminal state (complete, failed, or cancelled). Null while still running or waiting."
+      "description": "ISO 8601 timestamp when the run reached a terminal state."
     },
     "currentPhaseId": {
       "type": ["string", "null"],
-      "description": "The id of the phase currently executing (matches phases[].id in the pipeline definition). Null when the run is pending, paused at a gate, or in a terminal state."
+      "description": "ID of the phase currently executing. Null when pending, waiting at a gate, or in a terminal state."
     },
     "phases": {
       "type": "array",
-      "description": "Per-phase execution records, one entry per phase in the pipeline definition, in the same order. All records are present from the moment the run is created — phases not yet started have status 'pending' and null timestamps.",
+      "description": "Per-phase execution records, one per phase in the pipeline definition. All present from run creation — not-yet-started phases have status pending and attempt 0.",
       "items": {
         "type": "object",
-        "required": ["phaseId", "status", "itemsProduced"],
+        "required": ["phaseId", "status", "attempt", "escalated", "itemsProduced"],
         "additionalProperties": false,
         "properties": {
           "phaseId": {
@@ -49,38 +53,56 @@
           "status": {
             "type": "string",
             "enum": ["pending", "running", "waiting", "complete", "failed", "skipped"],
-            "description": "'pending' — not yet started. 'running' — actively executing. 'waiting' — agent finished but confidence gate is blocked. 'complete' — agent finished and gate passed (or no gate). 'failed' — agent encountered an error. 'skipped' — phase was bypassed."
+            "description": "pending=not started, running=agent executing, waiting=gate blocked, complete=success, failed=error exhausted retries, skipped=bypassed by runIf or upstream onFailure."
+          },
+          "attempt": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Current attempt number, 1-based. 0 while pending. Increments on each retry and on escalation invocation."
+          },
+          "escalated": {
+            "type": "boolean",
+            "description": "True if the fallback agent was invoked for this phase."
           },
           "startedAt": {
             "type": ["string", "null"],
             "format": "date-time",
-            "description": "ISO 8601 timestamp when this phase's agent started. Null if pending."
+            "description": "Timestamp of first agent invocation. Not reset on retry."
           },
           "completedAt": {
             "type": ["string", "null"],
             "format": "date-time",
-            "description": "ISO 8601 timestamp when this phase's agent finished executing. The phase may remain in 'waiting' status after this if its confidence gate is blocked — completedAt records when the agent finished, not when the gate cleared."
+            "description": "Timestamp when agent finished its final invocation. May predate gate clearance."
           },
           "itemsProduced": {
             "type": "array",
             "items": { "type": "string", "format": "uuid" },
-            "description": "UUIDs of all items written to the datastore during this phase. Updated incrementally as the agent writes items. The confidence gate evaluator reads these UUIDs to check confidence levels before advancing to the next phase."
+            "description": "UUIDs of all items written during this phase across all attempts. Updated incrementally. The gate evaluator checks meta.confidence on these items."
           },
           "gateResult": {
             "type": ["string", "null"],
-            "enum": ["passed", "blocked", null],
-            "description": "null — gate not yet evaluated. 'passed' — gate cleared, pipeline may advance. 'blocked' — gate evaluation found insufficient confidence; run is paused in 'waiting' until a human promotes items or explicitly approves."
+            "enum": ["passed", "blocked", "approved", null],
+            "description": "null=not yet evaluated. passed=items met threshold automatically. blocked=items below threshold, run waiting. approved=human explicitly approved via kanecta_approve_gate."
+          },
+          "approvedAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Timestamp of explicit gate approval by a human. Null if gate cleared automatically or not yet approved."
+          },
+          "approvedBy": {
+            "type": ["string", "null"],
+            "description": "Identity of the human who approved the gate. Null if automatic or pending."
           },
           "error": {
             "type": ["string", "null"],
-            "description": "Error message if this phase failed. Null otherwise."
+            "description": "Error message if phase failed. Null otherwise."
           }
         }
       }
     },
     "error": {
       "type": ["string", "null"],
-      "description": "Top-level error message if the run failed (status: 'failed'). Null otherwise."
+      "description": "Top-level error if the run failed. Null otherwise."
     }
   }
 }

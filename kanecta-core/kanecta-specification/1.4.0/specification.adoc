@@ -1723,43 +1723,105 @@ The agent carries the *who* of execution: identity, runtime, and capability. The
 
 link:../built-in-types/types/pipeline.json[JSON Schema^]
 
-For `type: "pipeline"`. A pipeline is an ordered sequence of phases, each executed by a designated agent. Pipelines are the primary mechanism for defining multi-step AI workflows in Kanecta — capturing not just what agents should do, but the data flow between them, the confidence thresholds that gate phase transitions, and the contract for what Kanecta items each phase produces.
+For `type: "pipeline"`. A pipeline is a directed acyclic graph of phases, each executed by a designated agent. Pipelines are the primary mechanism for defining multi-step workflows in Kanecta — AI-driven, deterministic, or mixed. They capture what agents should do, how phases depend on each other, what Kanecta items each phase produces, and what gates must be cleared before downstream phases proceed.
+
+Pipelines work for both AI tasks (`runtime: "claude-api"`) and deterministic tasks (`runtime: "python"`) — the pipeline model does not distinguish. The same pipeline can mix AI phases and script phases.
 
 A pipeline is a *definition*, not an execution. Each invocation creates a `pipeline-run` item as a child of the pipeline item in the tree. The pipeline definition is read at the moment a run starts; changes to the pipeline item do not affect runs already in progress.
 
 `item.value` on the pipeline item is the pipeline's display name.
 
+==== Parameters
+
+Pipelines declare typed input parameters. Values are supplied at run creation and substituted into `instructions` and `inputQuery` string values using `{{params.name}}` syntax. The runner performs substitution before invoking any agent. The agent also receives the full `params` object in its context preamble so it can reference params in its own reasoning without parsing templates.
+
+==== Phase graph
+
+By default, each phase depends on the previous phase — simple sequential execution. To express parallel phases or non-linear dependencies, use `phases[].needs`: an explicit list of phase IDs that must complete before this phase starts. Phases whose `needs` are all satisfied simultaneously may run in parallel. The reference runner for v1.4.0 resolves the DAG but executes phases sequentially; a parallel runtime is an adapter concern.
+
+==== Agent escalation
+
+A phase can declare a `fallbackAgentId` — a second agent to use if the primary agent returns with `meta.tags` containing `"escalate"`. This is the mechanism for dynamic model escalation within a phase: the primary (cheaper, faster) agent runs first; if it determines the task exceeds its capability, it tags its output items with `"escalate"` and the runner re-runs the phase using the fallback (more capable) agent with the same instructions and context.
+
 [source,json]
 ----
 {
   "description": "Audits a mobile app screen for UI-parity issues vs iOS reference",
+  "params": [
+    {
+      "name": "screen_id",
+      "type": "string",
+      "required": true,
+      "description": "ID of the screen to audit (e.g. 'gear-list-and-detail')"
+    },
+    {
+      "name": "max_rounds",
+      "type": "number",
+      "required": false,
+      "default": 3,
+      "description": "Maximum audit-implement cycles before escalating to a human"
+    }
+  ],
   "phases": [
     {
-      "id": "screenshot",
-      "name": "Screenshot",
-      "agentId": "agent-uuid-1",
-      "instructions": "Capture baseline and candidate screenshots for the target screen.",
-      "inputQuery": null,
+      "id": "capture",
+      "name": "Capture",
+      "agentId": "capture-agent-uuid",
+      "instructions": "Record Roborazzi candidate screenshots for screen {{params.screen_id}}. Query Kanecta for registered iOS baselines first — if none exist, exit with blocked_reason. Write each screenshot as a `screenshot` item.",
+      "inputQuery": { "type": "screen", "where": { "id": "{{params.screen_id}}" } },
       "outputTypes": ["screenshot"],
-      "confidenceGate": null
+      "needs": null,
+      "confidenceGate": null,
+      "fallbackAgentId": null,
+      "runIf": null,
+      "timeout": 120,
+      "retry": { "maxAttempts": 2, "backoffSeconds": 10 },
+      "onFailure": "abort"
     },
     {
       "id": "audit",
       "name": "Audit",
-      "agentId": "agent-uuid-2",
-      "instructions": "Compare screenshots. For each difference, create a `finding` item in Kanecta with severity and confidence. Escalate to Opus if uncertain.",
-      "inputQuery": { "type": "screenshot", "status": "active" },
+      "agentId": "audit-sonnet-agent-uuid",
+      "instructions": "Compare iOS baselines against Android candidates for screen {{params.screen_id}}. Query existing open findings first — do not re-emit known issues. For each new difference, write a `finding` item with severity and confidence in payload. If uncertain, tag your output items with 'escalate'.",
+      "inputQuery": { "type": "screenshot", "where": { "screen_id": "{{params.screen_id}}" } },
       "outputTypes": ["finding"],
-      "confidenceGate": "high"
+      "needs": ["capture"],
+      "confidenceGate": "decided",
+      "fallbackAgentId": "audit-opus-agent-uuid",
+      "runIf": "phases.capture.itemsProduced.length > 0",
+      "timeout": 300,
+      "retry": null,
+      "onFailure": "abort"
     },
     {
       "id": "implement",
       "name": "Implement",
-      "agentId": "agent-uuid-3",
-      "instructions": "For each high-confidence P1/P2 finding, implement the fix in an isolated worktree. Write a `fix` item recording what changed.",
-      "inputQuery": { "type": "finding", "confidence": "high" },
+      "agentId": "implement-agent-uuid",
+      "instructions": "For each finding with meta.confidence = 'decided' and severity P1/P2, implement the fix in an isolated worktree. Finding data is embedded in your context — no Kanecta reads needed. Write an `implementation-report` item when done.",
+      "inputQuery": null,
+      "outputTypes": ["implementation-report"],
+      "needs": ["audit"],
+      "confidenceGate": null,
+      "fallbackAgentId": null,
+      "runIf": null,
+      "timeout": 600,
+      "retry": { "maxAttempts": 1, "backoffSeconds": 0 },
+      "onFailure": "continue"
+    },
+    {
+      "id": "verify",
+      "name": "Verify",
+      "agentId": "verify-agent-uuid",
+      "instructions": "Re-run Roborazzi for screen {{params.screen_id}}. Adversarially check pixels against the iOS baseline — prose from the implementer is not proof. On pass, write a `fix` item and create a relates-to relationship to the finding. On fail, mark the finding status as 'regression'.",
+      "inputQuery": { "type": "finding", "where": { "screen_id": "{{params.screen_id}}", "status": "open" } },
       "outputTypes": ["fix"],
-      "confidenceGate": null
+      "needs": ["implement"],
+      "confidenceGate": null,
+      "fallbackAgentId": null,
+      "runIf": null,
+      "timeout": 180,
+      "retry": null,
+      "onFailure": "abort"
     }
   ]
 }
@@ -1773,13 +1835,17 @@ A pipeline is a *definition*, not an execution. Each invocation creates a `pipel
 | no
 | Human-readable description of what this pipeline does and when to use it. Null is valid.
 
+| `params`
+| no
+| Array of parameter definitions. Declares the typed inputs this pipeline accepts. Null or empty means the pipeline takes no parameters. Each param entry has: `name` (string, unique within the pipeline), `type` (`"string"` \| `"number"` \| `"boolean"` \| `"uuid"`), `required` (boolean), `default` (value used when not supplied; must match `type`; required when `required: false`), `description` (human-readable explanation).
+
 | `phases`
 | yes
-| Ordered array of phase definitions. Phases execute sequentially — each phase starts only after the previous phase completes and its confidence gate (if any) is cleared. Array must have at least one entry.
+| Array of phase definitions forming a directed acyclic graph. Array must have at least one entry. Execution order is determined by `phases[].needs` — not by array position (though array order is used as a tiebreaker for phases that become ready simultaneously, and is the default dependency order when `needs` is null).
 
 | `phases[].id`
 | yes
-| Stable local identifier for this phase within the pipeline (e.g. `"screenshot"`, `"audit"`, `"implement"`). Must be unique within the pipeline. Used by `pipelineRunPayload` to correlate phase execution records with phase definitions. Not a UUID — a short slug, stable across pipeline edits.
+| Stable local slug identifying this phase within the pipeline (e.g. `"capture"`, `"audit"`, `"implement"`). Must be unique within the pipeline. Used by `pipelineRunPayload` to correlate execution records with definitions. Not a UUID — stable across pipeline edits.
 
 | `phases[].name`
 | yes
@@ -1787,23 +1853,47 @@ A pipeline is a *definition*, not an execution. Each invocation creates a `pipel
 
 | `phases[].agentId`
 | yes
-| UUID of the `agent` item that executes this phase. The agent carries the runtime, model, and tool configuration; the phase carries the task-specific instructions.
+| UUID of the `agent` item that executes this phase.
 
 | `phases[].instructions`
 | yes
-| Markdown instructions for the agent. Describes what this phase should do, what inputs to expect, and what Kanecta items to produce. These are the task-specific part of the prompt — the agent's `systemPrompt` provides identity and general behaviour; `instructions` provides the specific task for this pipeline context.
+| Markdown instructions for the agent. `{{params.name}}` placeholders are substituted by the runner before the agent receives them. These are the task-specific part of the prompt — the agent's `systemPrompt` provides identity; `instructions` provides the task.
 
 | `phases[].inputQuery`
 | no
-| Optional `kanecta_query` parameter object. When present, the runner executes this query before starting the phase and passes the results to the agent as structured context. Null means the agent queries Kanecta itself if it needs data. Use `inputQuery` when the set of relevant items is deterministic at phase-start time; leave it null when the agent should decide what to look for.
+| Optional `kanecta_query` parameter object. The runner executes this query before starting the phase and passes results to the agent as structured context. `{{params.name}}` placeholders in string values are substituted. Null means the agent queries Kanecta itself. Use `inputQuery` when the relevant items are deterministic at phase-start time.
 
 | `phases[].outputTypes`
 | no
-| Optional array of item type names expected as outputs from this phase. Informational — used by the Studio to annotate phase cards and by the confidence gate evaluator to filter which produced items to check. Null means the gate evaluates all items in `itemsProduced`.
+| Optional array of item type names expected as outputs from this phase. Informational — the Studio uses this to annotate phase cards; the confidence gate evaluator uses it to filter which produced items to check. Null means the gate evaluates all items in `itemsProduced`.
+
+| `phases[].needs`
+| no
+| Array of phase IDs that must reach `"complete"` or `"skipped"` status before this phase may start. Null means this phase depends on the immediately preceding phase in array order (default sequential behaviour). Empty array `[]` means this phase has no dependencies and may start immediately. Use `needs` to express parallel phases or non-linear graphs.
 
 | `phases[].confidenceGate`
 | no
-| Minimum confidence level required on this phase's output items before the next phase is allowed to start. Null means no gate — the pipeline advances immediately on phase completion. `"high"`, `"medium"`, `"low"` map to the accuracy confidence scale on items; `"decided"`, `"exploring"`, `"experimental"` map to the review lifecycle scale. When a gate is present and not yet cleared, the run enters `"waiting"` status and the Studio surfaces the gate for human review. A human promoting items to the required confidence level (or explicitly approving the gate) resumes the run.
+| Gate that must be cleared before the next phase(s) may start. Null means no gate. When present, after the agent finishes, the runner evaluates `meta.confidence` on all items in `itemsProduced` (filtered by `outputTypes` if set). `"decided"` or `"locked"` require explicit human review via `kanecta_approve_gate` or by promoting item confidence. `"exploring"` or `"experimental"` are cleared automatically when items reach the threshold. When blocked, the run enters `"waiting"` status. See <<pipeline-gate-approval>>.
+
+| `phases[].fallbackAgentId`
+| no
+| UUID of an `agent` item to use if the primary agent returns output items tagged `"escalate"`. The runner re-runs the phase with the fallback agent, same instructions and context. Intended for model escalation (Sonnet → Opus) when the primary agent self-assesses as uncertain. Null means no escalation path.
+
+| `phases[].runIf`
+| no
+| Optional condition expression string. Evaluated by the runner against the live run state before the phase starts. If the expression evaluates to false, the phase is set to `"skipped"` and its dependents treat it as `"complete"`. Expression context: `phases.<id>.status`, `phases.<id>.itemsProduced`, `phases.<id>.itemsProduced.length`, `params.<name>`. Null means always run.
+
+| `phases[].timeout`
+| no
+| Maximum wall-clock seconds the agent is allowed to run. If exceeded, the phase is terminated and set to `"failed"`. Null means no timeout — use with caution for agents that could loop.
+
+| `phases[].retry`
+| no
+| Retry configuration on phase failure. Object with `maxAttempts` (integer ≥ 1, the total number of tries including the first) and `backoffSeconds` (integer ≥ 0, fixed wait between attempts). Null means no retry — the phase fails immediately. Retry applies to `"failed"` status only; `"waiting"` at a gate is not a failure and does not trigger retry.
+
+| `phases[].onFailure`
+| no
+| What the runner does when this phase reaches `"failed"` status and retries are exhausted. `"abort"` (default) — the entire run fails. `"continue"` — the failure is recorded but downstream phases that do not `need` this phase may still execute. `"skip-remaining"` — this phase and all remaining phases are skipped; the run is marked `"complete"` with a warning rather than `"failed"`.
 |===
 
 [#pipelineRunPayload]
@@ -1811,47 +1901,73 @@ A pipeline is a *definition*, not an execution. Each invocation creates a `pipel
 
 link:../built-in-types/types/pipeline-run.json[JSON Schema^]
 
-For `type: "pipeline-run"`. A pipeline run is the execution record of a single invocation of a pipeline. It tracks the overall run status, the execution state of each phase, items produced per phase, and confidence gate results.
+For `type: "pipeline-run"`. A pipeline run is the execution record of a single invocation of a pipeline. It tracks the overall run status, the parameter values used, the execution state of each phase (including retries and escalations), items produced per phase, and gate results.
 
-Pipeline run items are created by the Kanecta runner at invocation time and updated in place as the run progresses. They are the canonical source of truth for run state — the Studio pipeline view reads pipeline-run items directly. Because pipeline runs are ordinary Kanecta items, they benefit from the full item machinery: `subscription` items deliver live status updates to the UI without any special polling; `item_history` provides a full audit trail of status changes; relationship items link a run to the ticket, commit, or finding that triggered it.
+Pipeline run items are created by the Kanecta runner at invocation time and updated in place as the run progresses. They are the canonical source of truth for run state — the Studio pipeline view reads pipeline-run items directly. Because pipeline runs are ordinary Kanecta items, they benefit from the full item machinery: `subscription` items deliver live status updates to the Studio without polling; `item_history` provides a complete audit trail of status transitions; relationship items link a run to the ticket, commit, or upstream finding that triggered it.
 
-The `parentId` of a pipeline-run item is always the UUID of the pipeline item it executed. Runs accumulate as children of their pipeline definition in the tree — the run history of any pipeline is immediately visible as its children, without a query.
+The `parentId` of a pipeline-run item is always the UUID of the pipeline item it executed. Runs accumulate as children of their pipeline definition in the tree — the run history of any pipeline is immediately visible as its children.
 
 [source,json]
 ----
 {
   "pipelineId": "pipeline-uuid",
   "status": "waiting",
+  "params": { "screen_id": "gear-list-and-detail", "max_rounds": 3 },
   "triggeredBy": null,
   "startedAt": "2026-06-26T10:00:00Z",
   "completedAt": null,
   "currentPhaseId": "audit",
   "phases": [
     {
-      "phaseId": "screenshot",
+      "phaseId": "capture",
       "status": "complete",
+      "attempt": 1,
+      "escalated": false,
       "startedAt": "2026-06-26T10:00:00Z",
       "completedAt": "2026-06-26T10:01:23Z",
       "itemsProduced": ["uuid-1", "uuid-2"],
       "gateResult": "passed",
+      "approvedAt": null,
+      "approvedBy": null,
       "error": null
     },
     {
       "phaseId": "audit",
       "status": "waiting",
+      "attempt": 2,
+      "escalated": true,
       "startedAt": "2026-06-26T10:01:25Z",
-      "completedAt": "2026-06-26T10:04:12Z",
+      "completedAt": "2026-06-26T10:05:44Z",
       "itemsProduced": ["uuid-3", "uuid-4", "uuid-5"],
       "gateResult": "blocked",
+      "approvedAt": null,
+      "approvedBy": null,
       "error": null
     },
     {
       "phaseId": "implement",
       "status": "pending",
+      "attempt": 0,
+      "escalated": false,
       "startedAt": null,
       "completedAt": null,
       "itemsProduced": [],
       "gateResult": null,
+      "approvedAt": null,
+      "approvedBy": null,
+      "error": null
+    },
+    {
+      "phaseId": "verify",
+      "status": "pending",
+      "attempt": 0,
+      "escalated": false,
+      "startedAt": null,
+      "completedAt": null,
+      "itemsProduced": [],
+      "gateResult": null,
+      "approvedAt": null,
+      "approvedBy": null,
       "error": null
     }
   ],
@@ -1859,37 +1975,43 @@ The `parentId` of a pipeline-run item is always the UUID of the pipeline item it
 }
 ----
 
+The `audit` phase shows `attempt: 2` and `escalated: true` — the primary agent ran first, tagged its output items with `"escalate"`, and the runner re-ran the phase using the fallback (Opus) agent. The gate is currently `"blocked"` — the run is in `"waiting"` status until a human reviews the findings.
+
 [cols="1,1,2", options="header"]
 |===
 | Field | Required | Description
 
 | `pipelineId`
 | yes
-| UUID of the `pipeline` item this run is executing. Also the `parentId` of this run item — runs live in the tree as children of their pipeline.
+| UUID of the `pipeline` item this run is executing. Also the `parentId` of this run item.
 
 | `status`
 | yes
-| Overall run status. `"pending"` — created but not yet started. `"running"` — a phase is actively executing. `"waiting"` — a phase completed but its confidence gate is blocked; the run is paused awaiting human review before the next phase can proceed. `"complete"` — all phases finished successfully. `"failed"` — a phase encountered an unrecoverable error. `"cancelled"` — manually stopped before completion.
+| Overall run status. `"pending"` — created but not yet started. `"running"` — at least one phase is actively executing. `"waiting"` — a phase completed but its confidence gate is blocked; the run is paused awaiting human review. `"complete"` — all phases reached `"complete"` or `"skipped"`. `"failed"` — a phase failed and `onFailure` was `"abort"`. `"cancelled"` — manually stopped.
+
+| `params`
+| no
+| The parameter values supplied when this run was created. Keys match the pipeline's `params[].name` definitions. The runner substitutes these values into `instructions` and `inputQuery` before invoking any agent, and also injects the full params object into the agent's context preamble. Null if the pipeline declares no parameters.
 
 | `triggeredBy`
 | no
-| UUID of the Kanecta item that triggered this run (e.g. a `task` item, a `finding` from another pipeline). Null for manually triggered runs.
+| UUID of the Kanecta item that triggered this run (e.g. a `task`, a `finding` from another pipeline). Null for manually triggered runs.
 
 | `startedAt`
 | no
-| ISO 8601 timestamp when the run started. Null if still `"pending"`.
+| ISO 8601 timestamp when the run moved from `"pending"` to `"running"`. Null if still pending.
 
 | `completedAt`
 | no
-| ISO 8601 timestamp when the run reached a terminal state (`"complete"`, `"failed"`, or `"cancelled"`). Null while still running or waiting.
+| ISO 8601 timestamp when the run reached a terminal state (`"complete"`, `"failed"`, or `"cancelled"`). Null while still in progress.
 
 | `currentPhaseId`
 | no
-| The `id` of the phase currently executing (matches `phases[].id` in the pipeline definition). Null when the run is pending, paused at a gate, or in a terminal state.
+| ID of the phase(s) currently executing. For a single active phase, this is that phase's `id`. Null when pending, waiting at a gate, or in a terminal state. (For parallel phases, this may be a comma-separated list — the runner implementation determines the format.)
 
 | `phases`
 | yes
-| Per-phase execution records, one entry per phase in the pipeline definition, in the same order. All records are present from the moment the run is created — phases not yet started have `status: "pending"` and null timestamps.
+| Per-phase execution records, one entry per phase in the pipeline definition. All records are present from run creation — phases not yet started have `status: "pending"`, `attempt: 0`, and null timestamps.
 
 | `phases[].phaseId`
 | yes
@@ -1897,34 +2019,72 @@ The `parentId` of a pipeline-run item is always the UUID of the pipeline item it
 
 | `phases[].status`
 | yes
-| `"pending"` — not yet started. `"running"` — actively executing. `"waiting"` — the agent finished but the confidence gate is blocked. `"complete"` — agent finished and gate passed (or no gate). `"failed"` — agent encountered an error. `"skipped"` — phase was bypassed.
+| `"pending"` — not yet started. `"running"` — agent is executing. `"waiting"` — agent finished but confidence gate is blocked. `"complete"` — finished successfully (gate passed or no gate). `"failed"` — agent errored and retries are exhausted. `"skipped"` — bypassed because `runIf` evaluated to false, or because `onFailure: "skip-remaining"` was triggered upstream.
+
+| `phases[].attempt`
+| yes
+| Current attempt number, 1-based. 0 while pending. Increments on each retry. If escalation occurred (fallback agent used), the attempt count reflects the total number of agent invocations for this phase including the escalated run.
+
+| `phases[].escalated`
+| yes
+| True if the fallback agent (`fallbackAgentId`) was invoked for this phase. False if only the primary agent ran. This field distinguishes "ran once" from "ran twice with escalation" even when `attempt` is the same.
 
 | `phases[].startedAt`
 | no
-| ISO 8601 timestamp when this phase's agent started. Null if pending.
+| ISO 8601 timestamp of the first agent invocation for this phase (including retries — not reset on retry; use `item_history` for the full timeline). Null if pending.
 
 | `phases[].completedAt`
 | no
-| ISO 8601 timestamp when this phase's agent finished executing. Note: the phase may remain in `"waiting"` status after this if its confidence gate is blocked — `completedAt` records when the agent finished, not when the gate cleared.
+| ISO 8601 timestamp when the agent finished its final invocation. The phase may remain in `"waiting"` after this if its gate is blocked — `completedAt` records when the agent finished, not when the gate cleared.
 
 | `phases[].itemsProduced`
 | yes
-| Array of UUIDs of all items written to the datastore during this phase. Updated incrementally as the agent writes items — not just populated at phase completion. The confidence gate evaluator reads these UUIDs to check confidence levels before advancing.
+| Array of UUIDs of all items written to the datastore during this phase, across all attempts. Updated incrementally as the agent writes items. The confidence gate evaluator reads these UUIDs to check `meta.confidence` levels before advancing.
 
 | `phases[].gateResult`
 | no
-| `null` — gate not yet evaluated (phase still running or pending). `"passed"` — gate cleared, pipeline may advance. `"blocked"` — gate evaluation found insufficient confidence; run is paused in `"waiting"` until a human promotes items or explicitly approves.
+| Null — gate not yet evaluated. `"passed"` — gate cleared, downstream phases may start. `"blocked"` — items have not reached the required confidence level; run is in `"waiting"`. `"approved"` — a human explicitly approved the gate via `kanecta_approve_gate` regardless of item confidence levels.
+
+| `phases[].approvedAt`
+| no
+| ISO 8601 timestamp when a human approved this phase's gate via `kanecta_approve_gate`. Null if gate was cleared automatically by item confidence levels, or not yet approved.
+
+| `phases[].approvedBy`
+| no
+| Identity string of the human who approved the gate. Null if not yet approved or if approval was automatic. Format matches `activityPayload.actor`.
 
 | `phases[].error`
 | no
-| Error message if this phase failed. Null otherwise.
+| Error message if this phase reached `"failed"` status. Null otherwise.
 
 | `error`
 | no
-| Top-level error message if the run failed (`status: "failed"`). Null otherwise.
+| Top-level error message if the run failed. Null otherwise.
 |===
 
-TIP: *Postgres* — `payload_pipeline_run` table for efficient status queries. Index on `(pipeline_id, status)` for dashboard queries; partial index on `status IN ('running', 'waiting')` for the live runs view. The `phases` array is stored as JSONB.
+TIP: *Postgres* — `payload_pipeline_run` table for efficient status queries. Index on `(pipeline_id, status)` for dashboard queries; partial index on `status IN ('running', 'waiting')` for the live runs view. The `phases` array is stored as JSONB — query active runs with `phases @> '[{"status":"waiting"}]'::jsonb`.
+
+[#pipeline-gate-approval]
+=== Pipeline gate approval
+
+When a phase's confidence gate evaluates to `"blocked"`, the run enters `"waiting"` status. The Studio pipeline view surfaces waiting runs prominently — showing which phase is blocked, which items need review, and a one-click approve action.
+
+Two paths clear a blocked gate:
+
+*Path 1 — promote item confidence.* A human reviews the phase's `itemsProduced` items and promotes their `meta.confidence` to the required level (e.g. from `"experimental"` to `"decided"`). The runner polls waiting runs periodically and re-evaluates gates; when all items meet the threshold, the gate is automatically set to `"passed"` and the run resumes.
+
+*Path 2 — explicit gate approval.* A human approves the gate directly, regardless of individual item confidence levels. This is the right path when the human has reviewed the items and decided the pipeline should proceed even if some items are still at a lower confidence level. Approval is recorded on the run with `approvedAt` and `approvedBy`.
+
+The MCP tool for explicit approval:
+
+[source]
+----
+kanecta_approve_gate(runId, phaseId, actor?)
+----
+
+`runId` — UUID of the `pipeline-run` item. `phaseId` — ID of the phase whose gate to approve. `actor` — identity string of the approver (defaults to the current MCP session identity). The tool sets `phases[phaseId].gateResult = "approved"`, records `approvedAt` and `approvedBy`, and resumes the run.
+
+NOTE: Gate approval is a deliberate human decision — it is not reversible via MCP. If a gate is approved in error, the run must be cancelled (`kanecta_cancel_run`) and re-triggered from the beginning or from a specific phase.
 
 [#files-and-sidecars]
 == Files and Sidecars
