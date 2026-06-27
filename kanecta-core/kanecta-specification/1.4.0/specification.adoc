@@ -76,6 +76,9 @@ v1.4.0 is a breaking change from v1.3.0. A migration script is provided in `kane
 | *`reference` type*
 | Declared external dependencies on a UUID (physical engraving, external system, function argument/output, webhook, reactive subscription). Standalone relational item (like `relationship`). `blockDeletion: true` governs deletion of the target — the owning person controls the block via grants on the reference item.
 
+| *Pipelines, agents, and pipeline-runs*
+| Three new first-class platform types. A `"pipeline"` item defines a multi-agent workflow as a directed graph of phases with typed params, DAG dependencies, confidence gates, forEach fan-out, fanIn aggregation, loopBack cycles, and phase output passing. An `"agent"` item declares the model, system prompt, and tools for a reusable agent. A `"pipeline-run"` item is the live execution record — updated in place by the runner, accumulating as children of the pipeline. See <<pipelines>>.
+
 | *Branching*
 | Delta/overlay model across all adapters. Branches are not copies — they store only what changed. Postgres uses schema-per-branch; S3 uses key prefixes; filesystem uses Git. See <<branching>>.
 
