@@ -19,9 +19,7 @@ const POINTER_LOCATIONS = [
 
 const NAME_RE = /^[a-zA-Z0-9-]+$/;
 
-const POINTER_SPEC = JSON.parse(
-  fs.readFileSync(path.join(__dirname, '../pointer-file-spec.json'), 'utf8'),
-);
+const POINTER_SPEC = require('@kanecta/specification/1.3.0/file-specs/config.json');
 
 function checkWorkspacesFormat(workspaces, propSpec, errors) {
   if (typeof workspaces !== 'object' || workspaces === null || Array.isArray(workspaces)) {
@@ -95,11 +93,11 @@ function checkPointerFileFormat(data, sourceFile) {
   if (errors.length > 0) {
     console.error(`\n  ✗ Pointer file format is invalid (${sourceFile}):`);
     errors.forEach(e => console.error(`    - ${e}`));
-    console.error(`\n  Expected format is defined in kanecta-dev/pointer-file-spec.json`);
+    console.error(`\n  Expected format is defined in @kanecta/specification/1.3.0/file-specs/config.json`);
     console.error(`  Fix ${sourceFile} and try again.\n`);
     process.exit(1);
   }
-  console.log(`  ✓ pointer file format OK (checked against pointer-file-spec.json)`);
+  console.log(`  ✓ pointer file format OK (checked against @kanecta/specification/1.3.0/file-specs/config.json)`);
 }
 
 function checkPortFree(port) {
