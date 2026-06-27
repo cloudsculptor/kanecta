@@ -1655,11 +1655,11 @@ For `type: "item_history"`. Records a single event in an item's lifecycle.
 
 [IMPORTANT]
 ====
-*`item_history` is optional.* Enable it per workspace via `features.history: true` in config.json. When disabled (the default), the system is fully functional — no core feature requires history.
+*`item_history` is optional.* Enable it by setting `rootPayload.itemHistory` to `"ITEM"` or `"EXTERNAL"`. When set to `"NONE"` (the default), the system is fully functional — no core feature requires history.
 
-*For filesystem workspaces tracked by Git:* leave history disabled. Git already provides history and does it better in that context — it tracks in-place changes, supports branching, and integrates with standard tooling. Writing `item_history` items alongside Git changes doubles up the history and conflicts with Git's in-place model.
+*Using version control?* If your datastore is managed by Git or another VCS, leave `itemHistory: "NONE"` — your VCS already provides a complete, tamper-evident history of every change. See <<directory-structure>> for the full reasoning.
 
-*Storage routing:* in high-volume workspaces, the adapter may route `item_history` items to a dedicated storage location (a separate Postgres table `items_history`, or a separate directory `history/` on the filesystem) to avoid bloating the main items table. The schema of that storage is *identical* to the main items table — same columns, same structure, same rules. It is still conceptually one big items table; the adapter just routes by type. This is a deployment decision, not a data model change.
+*Storage routing:* in high-volume workspaces, the adapter may route `item_history` items to a dedicated `item-history/` directory (filesystem) or a separate `items_history` table (Postgres) to avoid bloating the main items store. The schema is *identical* to the main items store — same structure, same rules. It is still conceptually one items store; the adapter routes by type. Controlled by `rootPayload.itemHistory: "EXTERNAL"`. This is a deployment decision, not a data model change.
 ====
 
 *Event sourcing guarantee:* when history is enabled, the complete sequence of `item_history` items for any given `targetId` is sufficient to replay the item's full history from nothing and reconstruct the current state. This includes the `created` event (sequence 1) — history begins at creation, not at first edit. If you have been running `item_history` from datastore initialisation, you can reconstruct the complete current state of every item purely by replaying history, with no other input.
@@ -1672,11 +1672,12 @@ The `item_history` item's `parentId` is the synthetic `item_history` type item U
   "targetId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "eventType": "updated",
   "sequence": 42,
+  "by": "alice@acme.com",
   "delta": {
     "item.value": { "from": "Old name", "to": "New name" },
     "meta.modifiedAt": { "from": "2026-06-24T10:00:00Z", "to": "2026-06-25T09:14:00Z" }
   },
-  "snapshot": {}
+  "snapshot": { "item": {}, "meta": {}, "payload": {}, "search": {} }
 }
 ----
 
@@ -1699,9 +1700,14 @@ The `item_history` item's `parentId` is the synthetic `item_history` type item U
 | Yes
 | Monotonically increasing event number, scoped per `targetId`. Starts at 1 for `created`. Never reused even if the item is deleted and re-created. The total ordering of events for a given item is fully determined by `sequence`.
 
+| `by`
+| string \| null
+| No
+| Identity of the actor who caused this event — the principal who wrote the item, not who wrote the history record (they are always the same person, but `by` is explicit for audit queries). Free-form string; matches whatever identity format the adapter uses (email, username, UUID). Null for system-generated changes (e.g. migration scripts, bootstrapper).
+
 | `delta`
 | object
-| Yes for `updated`, empty object `{}` for `created` and `deleted`
+| Yes for `updated`, empty `{}` for `created` and `deleted`
 | Field-level diff. Keys are dot-separated paths (e.g. `"item.value"`, `"meta.tags"`, `"payload.status"`). Each value is `{ "from": <old>, "to": <new> }`. For `created`, the full initial state is in `snapshot`. For `deleted`, `from` is the final state and `to` is null.
 
 | `snapshot`
@@ -1712,6 +1718,52 @@ The `item_history` item's `parentId` is the synthetic `item_history` type item U
 
 NOTE: Event sourcing guarantee: replaying all `item_history` events for a given `targetId` in `sequence` order, starting from an empty state, must produce the current item state. Adapters must validate this invariant on write. The `snapshot` field is a read-performance optimisation — it must always equal the state produced by replaying events 1..sequence.
 
+==== Write path
+
+The adapter writes an `item_history` item immediately after every successful item write. The sequence is:
+
+. Validate and write the item (sidecars first, then `item.json`, per the standard write-path ordering).
+. Generate the next sequence number: `MAX(sequence WHERE targetId = X) + 1`. For sequence 1 (`created` events), the adapter uses 1 directly. Sequence generation must be atomic per `targetId` — adapters must hold a write lock for that targetId until the history item is committed. *Postgres:* use `SELECT MAX(sequence) ... FOR UPDATE` inside the same transaction as the item write. *SQLite/filesystem:* serialize writes per targetId at the adapter level.
+. Write the history item with `eventType`, `sequence`, `by` (from the current session principal), `delta`, and `snapshot`.
+. *Postgres:* both the item write and the history write are in a single transaction — fully atomic. A failure rolls back both.
+. *Filesystem/SQLite:* history is written after the item write succeeds. If the history write fails, the adapter logs the failure and schedules a reconciliation. On next startup the reconciler detects the gap (item `meta.modifiedAt` is newer than the latest history event `meta.createdAt`) and reconstructs the missing event from the item's current state — though the `delta` will be empty for reconstructed events (the reconciler knows the final state, not what changed).
+
+Recursion guard: the adapter sets a per-request flag when writing a history item. Any further write triggered during that write (impossible under normal operation, but guarded for safety) is suppressed rather than triggering another history event.
+
+==== Read path
+
+History items are queryable via the standard item query mechanism — they are items like any other. Two common patterns:
+
+*Full event log for an item:*
+[source,sql]
+----
+SELECT * FROM items
+WHERE type = 'item_history' AND payload->>'targetId' = $itemId
+ORDER BY payload->>'sequence' ASC
+----
+
+*Point-in-time state reconstruction* — no replay needed. Find the history item whose `meta.createdAt` is at or before the target time with the highest sequence, and read its `snapshot` field directly. The snapshot is the full item state at that moment.
+
+*Replay from scratch* — read all history items in `sequence` order and apply each `delta` to an empty item object. Produces the current state from the event log alone, independent of the live item. Use this to verify the event-sourcing guarantee or to recover from data corruption.
+
+The `kanecta_get_history` MCP tool (see <<mcp-api-surface>>) wraps these patterns with a convenient interface: `kanecta_get_history(itemId, { fromSequence?, toSequence?, limit?, eventTypes? })`.
+
+==== Retention
+
+The default retention policy is *keep all*. Truncating history breaks the event-sourcing guarantee — if the earliest retained event is sequence 42, full replay from empty state is no longer possible. When retention is active, the oldest retained event's `snapshot` becomes the mandatory starting point for replay; the adapter must ensure that event's snapshot is always present before truncating earlier events.
+
+Retention configuration is an adapter-level extension, not in rootPayload for 1.4.0. Adapters that implement retention must document their policy and ensure snapshots are preserved at retention boundaries.
+
+==== Item deletion
+
+When an item is deleted:
+
+. The adapter writes an `item_history` event with `eventType: "deleted"` and `snapshot` = the full item state immediately before deletion.
+. The item is then deleted.
+. The history items for the deleted item are *not* deleted — they live under the `item_history` synthetic type item, not under the item that was deleted. They persist indefinitely (subject to retention policy).
+
+Recovery: to restore a deleted item, read its history, find the `deleted` event, take its `snapshot`, and re-create the item from that snapshot. The recovered item gets a new `created` history event; its prior history remains intact under the original UUID.
+
 === activityPayload
 
 link:../built-in-types/types/activity.json[JSON Schema^]
@@ -1720,13 +1772,13 @@ For `type: "activity"`. Records a discrete workspace event — not a snapshot of
 
 [IMPORTANT]
 ====
-*`activity` is optional.* Enable it per workspace via `features.activity: true` in config.json. When disabled (the default), the system is fully functional — no core feature requires activity.
+*`activity` is optional.* Enable it by setting `rootPayload.activity` to `"ITEM"` or `"EXTERNAL"`. When set to `"NONE"` (the default), the system is fully functional — no core feature requires activity.
 
-*Activity can grow extremely large.* A single popular item can generate millions of activity events (e.g. one activity item per view, per like, per comment on a high-traffic piece of content). Think carefully before enabling activity on any workspace that handles social-scale interaction.
+*Activity can grow extremely large.* A single popular item can generate millions of activity events (e.g. one event per view, per like, per comment on a high-traffic piece of content). Think carefully before enabling activity on any workspace that handles social-scale interaction.
 
-*Storage routing:* the adapter may route `activity` items to a dedicated storage location (a separate Postgres table `items_activity`, or a separate directory `activity/` on the filesystem) to avoid bloating the main items table. As with `item_history`, the schema of that storage is *identical* to the main items table — same columns, same structure, same rules. It is still conceptually one big items table; the adapter routes by type.
+*Storage routing:* the adapter may route `activity` items to a dedicated `activity/` directory (filesystem) or a separate `items_activity` table (Postgres) to avoid bloating the main items store. Controlled by `rootPayload.activity: "EXTERNAL"`. The schema is identical to the main items store.
 
-*Activity does not play well with Git.* For filesystem workspaces tracked by Git, enabling activity would generate a large volume of new files on every user action, polluting git status and making commits noisy. Leave activity disabled on Git-backed workspaces.
+*Activity and version control:* for filesystem datastores managed by Git or another VCS, enabling activity would generate a large volume of new files on every user action, polluting commit history. Leave `activity: "NONE"` on VCS-backed datastores.
 ====
 
 The `activity` item's `parentId` is the synthetic `activity` type item UUID. `payload.targetId` is the item the event relates to — null for workspace-level events. Activity items are append-only. Writing an activity item does not itself log another activity event. Activity items have no history.

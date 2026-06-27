@@ -20,6 +20,10 @@
       "minimum": 1,
       "description": "Monotonically increasing event number scoped per targetId. Starts at 1 for created. Never reused."
     },
+    "by": {
+      "type": ["string", "null"],
+      "description": "Identity of the actor who caused this event. Free-form string matching the adapter's identity format (email, username, UUID). Null for system-generated changes such as migration scripts or bootstrapper writes."
+    },
     "delta": {
       "type": "object",
       "description": "Field-level diff. Keys are dot-separated paths (e.g. \"item.value\", \"payload.status\"). Each value is { from, to }. Empty object {} for created and deleted events."
