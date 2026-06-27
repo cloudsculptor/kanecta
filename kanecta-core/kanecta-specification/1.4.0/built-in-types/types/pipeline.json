@@ -9,6 +9,11 @@
       "type": ["string", "null"],
       "description": "Human-readable description of what this pipeline does and when to use it."
     },
+    "maxIterations": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "description": "Maximum number of loop-back cycles the runner will execute before forcing completion. Applies globally across all loopBack phases. Null defaults to 3. When the limit is reached the runner follows each loopBack phase's onMaxIterations policy."
+    },
     "params": {
       "type": ["array", "null"],
       "description": "Typed input parameter declarations. Values are supplied at run creation and substituted into instructions and inputQuery using {{params.name}} syntax.",
@@ -43,7 +48,7 @@
     "phases": {
       "type": "array",
       "minItems": 1,
-      "description": "Phase definitions forming a directed acyclic graph. Execution order is determined by phases[].needs, not array position. Array order is used as a tiebreaker for phases that become ready simultaneously.",
+      "description": "Phase definitions forming a directed acyclic graph (or a cycle when loopBack is used). Execution order is determined by phases[].needs, not array position. Array order is used as a tiebreaker for phases that become ready simultaneously.",
       "items": {
         "type": "object",
         "required": ["id", "name", "agentId", "instructions"],
@@ -82,13 +87,50 @@
           },
           "confidenceGate": {
             "type": ["string", "null"],
-            "enum": ["decided", "locked", "exploring", "experimental", null],
-            "description": "Required meta.confidence level on itemsProduced before downstream phases may start. Null means no gate. 'decided' and 'locked' require explicit human review. 'exploring' and 'experimental' are cleared automatically when items reach the threshold."
+            "description": "Gate condition evaluated against itemsProduced before downstream phases may start. Null means no gate. Two gate families: 'accuracy:<level>' checks payload.confidence on produced items (high/medium/low — cleared automatically when all items meet the threshold); 'review:<level>' checks meta.confidence (decided/locked) and requires a human to have explicitly reviewed each item; 'manual' always blocks until a human approves via kanecta_approve_gate regardless of item state. Examples: 'accuracy:high', 'review:decided', 'manual'.",
+            "examples": ["accuracy:high", "accuracy:medium", "review:decided", "review:locked", "manual"]
           },
           "fallbackAgentId": {
             "type": ["string", "null"],
             "format": "uuid",
             "description": "UUID of an agent to use if the primary agent returns output items tagged 'escalate'. The runner re-runs the phase with this agent. Intended for model escalation (e.g. Sonnet to Opus)."
+          },
+          "forEach": {
+            "type": ["object", "null"],
+            "required": ["source"],
+            "additionalProperties": false,
+            "properties": {
+              "source": {
+                "type": "string",
+                "description": "Expression resolving to an array of items from the run state. The phase is invoked once per item in this array (fan-out). Each invocation receives a single item as its primary context rather than the full query result. Expression context: phases.<id>.itemsProduced, params.<name>."
+              },
+              "filter": {
+                "type": ["string", "null"],
+                "description": "Optional filter expression applied to the source array before fan-out. Each element is available as 'item'. If omitted, all source items are used. Example: \"item.payload.severity in ['P1','P2'] && item.payload.confidence == 'high'\"."
+              }
+            },
+            "description": "Fan-out configuration. When set, the runner invokes the phase agent once per source item rather than once for the phase. All invocations run in parallel. itemsProduced in the phase record collects output from all invocations. Null means no fan-out (single invocation)."
+          },
+          "loopBack": {
+            "type": ["object", "null"],
+            "required": ["toPhase", "if"],
+            "additionalProperties": false,
+            "properties": {
+              "toPhase": {
+                "type": "string",
+                "description": "ID of the phase to jump back to when the condition is met. The target phase and all phases that depend on it (directly or transitively) are reset to pending. The runner increments the global iteration counter before re-executing."
+              },
+              "if": {
+                "type": "string",
+                "description": "Condition expression evaluated after this phase completes. If true, the runner loops back to toPhase. Expression context: phases.<id>.itemsProduced, phases.<id>.itemsProduced.length, item (each produced item in a .some() / .every() call), params.<name>."
+              },
+              "onMaxIterations": {
+                "type": ["string", "null"],
+                "enum": ["complete", "fail", null],
+                "description": "What to do when the global iteration counter reaches maxIterations and the loopBack condition is still true. 'complete' (default) marks the run complete with a warning in the run payload. 'fail' marks the run failed."
+              }
+            },
+            "description": "Cycle configuration. When the condition is true after this phase completes, the runner resets the target phase and all its descendants and re-executes them. Useful for audit → implement → verify loops. The global iteration counter is checked before each cycle; when it reaches maxIterations the onMaxIterations policy applies. Null means no cycle."
           },
           "runIf": {
             "type": ["string", "null"],

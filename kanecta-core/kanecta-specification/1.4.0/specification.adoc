@@ -1715,8 +1715,10 @@ The agent carries the *who* of execution: identity, runtime, and capability. The
 
 | `config`
 | no
-| Runtime-specific configuration. For `"claude-api"`: `max_tokens`, `temperature`, `top_p`. For `"claude-code"`: `working_directory`, `env`. For `"python"`: `script_path`, `interpreter`. Structure is determined by the runtime adapter — the spec does not constrain it. Null means runtime defaults apply.
+| Runtime-specific configuration. For `"claude-api"`: `max_tokens`, `temperature`, `top_p`. For `"claude-code"`: `working_directory`, `env`. For `"python"`: `script_path`, `interpreter`. For `"kanecta-function"`: `functionId` (UUID of the function item to execute). Structure is determined by the runtime adapter — the spec does not constrain it. Null means runtime defaults apply.
 |===
+
+NOTE: `runtime: "kanecta-function"` executes a Kanecta `function` item directly via the kanecta-sdk, rather than invoking an external process. The runner provides the function with a pre-scoped sdk client that automatically tags all created items with `meta.sourceRunId` (the pipeline run UUID) and adds their UUIDs to the phase's `itemsProduced` list. This means a function-based phase can call `sdk.ai.complete()` for AI reasoning and `sdk.items.create()` for deterministic writes in the same execution unit — no MCP round-trips, no subprocess overhead. Function params are validated against pipeline params before the run starts. Because the function item is itself a versioned Kanecta item, the pipeline run record captures exactly which function version executed each phase.
 
 [#pipelinePayload]
 === pipelinePayload
@@ -1746,20 +1748,14 @@ A phase can declare a `fallbackAgentId` — a second agent to use if the primary
 [source,json]
 ----
 {
-  "description": "Audits a mobile app screen for UI-parity issues vs iOS reference",
+  "description": "Audits a mobile app screen for UI-parity issues vs iOS reference. Loops until all P1/P2 findings are verified fixed.",
+  "maxIterations": 3,
   "params": [
     {
       "name": "screen_id",
       "type": "string",
       "required": true,
       "description": "ID of the screen to audit (e.g. 'gear-list-and-detail')"
-    },
-    {
-      "name": "max_rounds",
-      "type": "number",
-      "required": false,
-      "default": 3,
-      "description": "Maximum audit-implement cycles before escalating to a human"
     }
   ],
   "phases": [
@@ -1773,6 +1769,8 @@ A phase can declare a `fallbackAgentId` — a second agent to use if the primary
       "needs": null,
       "confidenceGate": null,
       "fallbackAgentId": null,
+      "forEach": null,
+      "loopBack": null,
       "runIf": null,
       "timeout": 120,
       "retry": { "maxAttempts": 2, "backoffSeconds": 10 },
@@ -1782,12 +1780,14 @@ A phase can declare a `fallbackAgentId` — a second agent to use if the primary
       "id": "audit",
       "name": "Audit",
       "agentId": "audit-sonnet-agent-uuid",
-      "instructions": "Compare iOS baselines against Android candidates for screen {{params.screen_id}}. Query existing open findings first — do not re-emit known issues. For each new difference, write a `finding` item with severity and confidence in payload. If uncertain, tag your output items with 'escalate'.",
+      "instructions": "Compare iOS baselines vs Android candidates for screen {{params.screen_id}}. Query existing open findings first — skip known issues. For each new difference write a `finding` item with severity and confidence in payload. If uncertain (diff% > 12% with no finding, or self-assessed), tag your output with 'escalate'.",
       "inputQuery": { "type": "screenshot", "where": { "screen_id": "{{params.screen_id}}" } },
       "outputTypes": ["finding"],
       "needs": ["capture"],
-      "confidenceGate": "decided",
+      "confidenceGate": "accuracy:high",
       "fallbackAgentId": "audit-opus-agent-uuid",
+      "forEach": null,
+      "loopBack": null,
       "runIf": "phases.capture.itemsProduced.length > 0",
       "timeout": 300,
       "retry": null,
@@ -1797,12 +1797,17 @@ A phase can declare a `fallbackAgentId` — a second agent to use if the primary
       "id": "implement",
       "name": "Implement",
       "agentId": "implement-agent-uuid",
-      "instructions": "For each finding with meta.confidence = 'decided' and severity P1/P2, implement the fix in an isolated worktree. Finding data is embedded in your context — no Kanecta reads needed. Write an `implementation-report` item when done.",
+      "instructions": "Fix the assigned finding in an isolated worktree. The finding data is embedded in your context — no Kanecta reads needed. Write an `implementation-report` item when done.",
       "inputQuery": null,
       "outputTypes": ["implementation-report"],
       "needs": ["audit"],
       "confidenceGate": null,
       "fallbackAgentId": null,
+      "forEach": {
+        "source": "phases.audit.itemsProduced",
+        "filter": "item.payload.severity in ['P1','P2'] && item.payload.confidence == 'high'"
+      },
+      "loopBack": null,
       "runIf": null,
       "timeout": 600,
       "retry": { "maxAttempts": 1, "backoffSeconds": 0 },
@@ -1812,12 +1817,18 @@ A phase can declare a `fallbackAgentId` — a second agent to use if the primary
       "id": "verify",
       "name": "Verify",
       "agentId": "verify-agent-uuid",
-      "instructions": "Re-run Roborazzi for screen {{params.screen_id}}. Adversarially check pixels against the iOS baseline — prose from the implementer is not proof. On pass, write a `fix` item and create a relates-to relationship to the finding. On fail, mark the finding status as 'regression'.",
+      "instructions": "Re-run Roborazzi for screen {{params.screen_id}}. Adversarially check pixels against the iOS baseline. On pass, write a `fix` item and relate it to the finding. On fail, write a `regression` item.",
       "inputQuery": { "type": "finding", "where": { "screen_id": "{{params.screen_id}}", "status": "open" } },
-      "outputTypes": ["fix"],
+      "outputTypes": ["fix", "regression"],
       "needs": ["implement"],
       "confidenceGate": null,
       "fallbackAgentId": null,
+      "forEach": null,
+      "loopBack": {
+        "toPhase": "audit",
+        "if": "phases.verify.itemsProduced.some(i => i.type == 'regression')",
+        "onMaxIterations": "complete"
+      },
       "runIf": null,
       "timeout": 180,
       "retry": null,
@@ -1827,6 +1838,8 @@ A phase can declare a `fallbackAgentId` — a second agent to use if the primary
 }
 ----
 
+In this pipeline: the `audit` phase uses `confidenceGate: "accuracy:high"` — it passes automatically when all findings have `payload.confidence = "high"`, requiring no human review. The `implement` phase fans out one agent per high-severity, high-confidence finding in parallel. The `verify` phase loops back to `audit` if any regressions are written — up to `maxIterations: 3` times before the pipeline completes regardless.
+
 [cols="1,1,2", options="header"]
 |===
 | Field | Required | Description
@@ -1835,13 +1848,17 @@ A phase can declare a `fallbackAgentId` — a second agent to use if the primary
 | no
 | Human-readable description of what this pipeline does and when to use it. Null is valid.
 
+| `maxIterations`
+| no
+| Maximum number of loop-back cycles the runner will execute before forcing completion. Applies globally to all `loopBack` phases in the pipeline. Null defaults to 3. When the limit is reached, the runner follows each loopBack phase's `onMaxIterations` policy (`"complete"` or `"fail"`) instead of looping again. This field exists to prevent runaway pipelines — always set it explicitly when a pipeline contains cycles.
+
 | `params`
 | no
 | Array of parameter definitions. Declares the typed inputs this pipeline accepts. Null or empty means the pipeline takes no parameters. Each param entry has: `name` (string, unique within the pipeline), `type` (`"string"` \| `"number"` \| `"boolean"` \| `"uuid"`), `required` (boolean), `default` (value used when not supplied; must match `type`; required when `required: false`), `description` (human-readable explanation).
 
 | `phases`
 | yes
-| Array of phase definitions forming a directed acyclic graph. Array must have at least one entry. Execution order is determined by `phases[].needs` — not by array position (though array order is used as a tiebreaker for phases that become ready simultaneously, and is the default dependency order when `needs` is null).
+| Array of phase definitions forming a directed acyclic graph, or a cycle graph when `loopBack` is used. Array must have at least one entry. Execution order is determined by `phases[].needs` — not by array position (though array order is used as a tiebreaker for phases that become ready simultaneously, and is the default dependency order when `needs` is null).
 
 | `phases[].id`
 | yes
@@ -1873,11 +1890,23 @@ A phase can declare a `fallbackAgentId` — a second agent to use if the primary
 
 | `phases[].confidenceGate`
 | no
-| Gate that must be cleared before the next phase(s) may start. Null means no gate. When present, after the agent finishes, the runner evaluates `meta.confidence` on all items in `itemsProduced` (filtered by `outputTypes` if set). `"decided"` or `"locked"` require explicit human review via `kanecta_approve_gate` or by promoting item confidence. `"exploring"` or `"experimental"` are cleared automatically when items reach the threshold. When blocked, the run enters `"waiting"` status. See <<pipeline-gate-approval>>.
+| Gate that must be cleared before downstream phases may start. Null means no gate. Two families, specified using a colon-prefix notation:
+`accuracy:<level>` — checks `payload.confidence` on produced items (must be `"high"`, `"medium"`, or `"low"` — the gate clears automatically when all items meet or exceed the threshold). Use for AI-accuracy gates where no human review is required.
+`review:<level>` — checks `meta.confidence` (must be `"decided"` or `"locked"`), which requires a human to have explicitly reviewed each item before the gate clears. Use when you want human sign-off before the next phase proceeds.
+`manual` — always blocks regardless of item state; requires an explicit call to `kanecta_approve_gate`. Use when you need a human checkpoint no matter what the AI produced.
+When blocked, the run enters `"waiting"` status. See <<pipeline-gate-approval>>.
 
 | `phases[].fallbackAgentId`
 | no
 | UUID of an `agent` item to use if the primary agent returns output items tagged `"escalate"`. The runner re-runs the phase with the fallback agent, same instructions and context. Intended for model escalation (Sonnet → Opus) when the primary agent self-assesses as uncertain. Null means no escalation path.
+
+| `phases[].forEach`
+| no
+| Fan-out configuration. When set, the runner invokes the phase agent once per item in `source` rather than once for the whole phase. All invocations run in parallel. Their outputs are all collected into the phase's `itemsProduced`. Object fields: `source` (required, string expression resolving to an array from the run state, e.g. `"phases.audit.itemsProduced"`) and `filter` (optional, filter expression applied before fan-out, `item` is the element variable, e.g. `"item.payload.severity in ['P1','P2']"`). Null means no fan-out. Each invocation receives a single item as its primary context rather than the full query result — this is how an implement phase processes findings individually without needing a loop.
+
+| `phases[].loopBack`
+| no
+| Cycle configuration. When the `if` condition evaluates to true after this phase completes, the runner resets `toPhase` and all phases that depend on it (directly or transitively) back to `"pending"` and re-executes them. The global `pipelineRunPayload.iteration` counter is incremented before each cycle; when it reaches `maxIterations` the runner applies `onMaxIterations` instead. Object fields: `toPhase` (required, phase ID to jump back to), `if` (required, condition expression — available context: `phases.<id>.itemsProduced`, `item` via `.some()`/`.every()`, `params.<name>`), `onMaxIterations` (`"complete"` default | `"fail"`). Null means no cycle — this is a standard DAG phase. The canonical use case is an audit → implement → verify loop: if `verify` finds regressions, loop back to `audit` and try again.
 
 | `phases[].runIf`
 | no
@@ -1911,12 +1940,13 @@ The `parentId` of a pipeline-run item is always the UUID of the pipeline item it
 ----
 {
   "pipelineId": "pipeline-uuid",
-  "status": "waiting",
-  "params": { "screen_id": "gear-list-and-detail", "max_rounds": 3 },
+  "status": "running",
+  "params": { "screen_id": "gear-list-and-detail" },
+  "iteration": 1,
   "triggeredBy": null,
   "startedAt": "2026-06-26T10:00:00Z",
   "completedAt": null,
-  "currentPhaseId": "audit",
+  "currentPhaseId": "implement",
   "phases": [
     {
       "phaseId": "capture",
@@ -1926,6 +1956,7 @@ The `parentId` of a pipeline-run item is always the UUID of the pipeline item it
       "startedAt": "2026-06-26T10:00:00Z",
       "completedAt": "2026-06-26T10:01:23Z",
       "itemsProduced": ["uuid-1", "uuid-2"],
+      "invocations": null,
       "gateResult": "passed",
       "approvedAt": null,
       "approvedBy": null,
@@ -1933,25 +1964,46 @@ The `parentId` of a pipeline-run item is always the UUID of the pipeline item it
     },
     {
       "phaseId": "audit",
-      "status": "waiting",
+      "status": "complete",
       "attempt": 2,
       "escalated": true,
       "startedAt": "2026-06-26T10:01:25Z",
       "completedAt": "2026-06-26T10:05:44Z",
       "itemsProduced": ["uuid-3", "uuid-4", "uuid-5"],
-      "gateResult": "blocked",
+      "invocations": null,
+      "gateResult": "passed",
       "approvedAt": null,
       "approvedBy": null,
       "error": null
     },
     {
       "phaseId": "implement",
-      "status": "pending",
-      "attempt": 0,
+      "status": "running",
+      "attempt": 1,
       "escalated": false,
-      "startedAt": null,
+      "startedAt": "2026-06-26T10:06:00Z",
       "completedAt": null,
-      "itemsProduced": [],
+      "itemsProduced": ["uuid-6"],
+      "invocations": [
+        {
+          "sourceItemId": "uuid-3",
+          "status": "complete",
+          "itemsProduced": ["uuid-6"],
+          "error": null
+        },
+        {
+          "sourceItemId": "uuid-4",
+          "status": "running",
+          "itemsProduced": [],
+          "error": null
+        },
+        {
+          "sourceItemId": "uuid-5",
+          "status": "pending",
+          "itemsProduced": [],
+          "error": null
+        }
+      ],
       "gateResult": null,
       "approvedAt": null,
       "approvedBy": null,
@@ -1965,6 +2017,7 @@ The `parentId` of a pipeline-run item is always the UUID of the pipeline item it
       "startedAt": null,
       "completedAt": null,
       "itemsProduced": [],
+      "invocations": null,
       "gateResult": null,
       "approvedAt": null,
       "approvedBy": null,
@@ -1975,7 +2028,7 @@ The `parentId` of a pipeline-run item is always the UUID of the pipeline item it
 }
 ----
 
-The `audit` phase shows `attempt: 2` and `escalated: true` — the primary agent ran first, tagged its output items with `"escalate"`, and the runner re-ran the phase using the fallback (Opus) agent. The gate is currently `"blocked"` — the run is in `"waiting"` status until a human reviews the findings.
+This example shows a second-iteration run (`iteration: 1` — the first loop-back has already completed). The `audit` phase ran twice — `attempt: 2`, `escalated: true` — the primary agent tagged its output with `"escalate"` and the Opus fallback ran. The `accuracy:high` gate passed automatically. The `implement` phase is running in forEach fan-out mode with three parallel invocations — one per finding. The `verify` phase will check results and, if regressions remain, trigger another loopBack to `audit`.
 
 [cols="1,1,2", options="header"]
 |===
@@ -1992,6 +2045,10 @@ The `audit` phase shows `attempt: 2` and `escalated: true` — the primary agent
 | `params`
 | no
 | The parameter values supplied when this run was created. Keys match the pipeline's `params[].name` definitions. The runner substitutes these values into `instructions` and `inputQuery` before invoking any agent, and also injects the full params object into the agent's context preamble. Null if the pipeline declares no parameters.
+
+| `iteration`
+| yes
+| Current loop-back cycle count. Starts at 0 for the initial pass; incremented by 1 before each loopBack reset. When `iteration` reaches the pipeline's `maxIterations` the runner applies the loopBack phase's `onMaxIterations` policy instead of looping. This field is the global cycle counter — it tracks how many times the pipeline has looped, not how many times a specific phase has run.
 
 | `triggeredBy`
 | no
@@ -2023,23 +2080,27 @@ The `audit` phase shows `attempt: 2` and `escalated: true` — the primary agent
 
 | `phases[].attempt`
 | yes
-| Current attempt number, 1-based. 0 while pending. Increments on each retry. If escalation occurred (fallback agent used), the attempt count reflects the total number of agent invocations for this phase including the escalated run.
+| Current attempt number within the current iteration, 1-based. 0 while pending. Increments on each retry. If escalation occurred (fallback agent used), the attempt count reflects the total number of agent invocations including the escalated run. Reset to 0 when the phase is reset by a `loopBack` — use `item_history` on the pipeline-run item for the complete timeline across all iterations.
 
 | `phases[].escalated`
 | yes
-| True if the fallback agent (`fallbackAgentId`) was invoked for this phase. False if only the primary agent ran. This field distinguishes "ran once" from "ran twice with escalation" even when `attempt` is the same.
+| True if the fallback agent (`fallbackAgentId`) was invoked for this phase in the current iteration. False if only the primary agent ran. Reset to false on loopBack. This field distinguishes "ran once" from "ran twice with escalation" even when `attempt` is the same.
 
 | `phases[].startedAt`
 | no
-| ISO 8601 timestamp of the first agent invocation for this phase (including retries — not reset on retry; use `item_history` for the full timeline). Null if pending.
+| ISO 8601 timestamp of the first agent invocation for this phase in the current iteration. Not reset on retry within an iteration. Reset on loopBack. Null if pending. Use `item_history` for the full timeline across retries and iterations.
 
 | `phases[].completedAt`
 | no
-| ISO 8601 timestamp when the agent finished its final invocation. The phase may remain in `"waiting"` after this if its gate is blocked — `completedAt` records when the agent finished, not when the gate cleared.
+| ISO 8601 timestamp when the agent finished its final invocation in the current iteration. The phase may remain in `"waiting"` after this if its gate is blocked — `completedAt` records when the agent finished, not when the gate cleared. Reset on loopBack.
 
 | `phases[].itemsProduced`
 | yes
-| Array of UUIDs of all items written to the datastore during this phase, across all attempts. Updated incrementally as the agent writes items. The confidence gate evaluator reads these UUIDs to check `meta.confidence` levels before advancing.
+| Array of UUIDs of all items written during this phase, across all attempts and all loop-back iterations. Updated incrementally as the agent writes items. For `accuracy:` gates the evaluator checks `payload.confidence` on these items; for `review:` gates it checks `meta.confidence`. Items written in earlier iterations are preserved in this array — items carry `meta.sourceRunIteration` so the evaluator can filter to the most recent iteration's output when checking gate conditions.
+
+| `phases[].invocations`
+| no
+| Present only for `forEach` phases. Array of per-item invocation records — one entry per source item the phase was fanned out to. Each entry has: `sourceItemId` (UUID of the item that was passed to this invocation), `status` (`"pending"` \| `"running"` \| `"complete"` \| `"failed"`), `itemsProduced` (UUIDs produced by this invocation specifically — all are also in the parent phase's `itemsProduced`), `error` (null unless failed). All invocations run in parallel; the phase is `"complete"` only when all invocations reach a terminal state. Null for non-forEach phases.
 
 | `phases[].gateResult`
 | no

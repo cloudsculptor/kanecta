@@ -13,11 +13,16 @@
     "status": {
       "type": "string",
       "enum": ["pending", "running", "waiting", "complete", "failed", "cancelled"],
-      "description": "Overall run status. pending=not started, running=phase active, waiting=blocked at gate, complete=all phases done, failed=unrecoverable error, cancelled=manually stopped."
+      "description": "Overall run status. pending=not started, running=phase active, waiting=blocked at gate, complete=all phases done (including max-iteration cut-off), failed=unrecoverable error, cancelled=manually stopped."
     },
     "params": {
       "type": ["object", "null"],
       "description": "Parameter values supplied at run creation. Keys match the pipeline's params[].name definitions. The runner substitutes these into instructions and inputQuery, and injects the full object into each agent's context preamble."
+    },
+    "iteration": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Current loop-back cycle count. Starts at 0 (initial pass), incremented by 1 before each loopBack reset. When iteration reaches the pipeline's maxIterations the runner applies the loopBack phase's onMaxIterations policy instead of looping again."
     },
     "triggeredBy": {
       "type": ["string", "null"],
@@ -40,7 +45,7 @@
     },
     "phases": {
       "type": "array",
-      "description": "Per-phase execution records, one per phase in the pipeline definition. All present from run creation — not-yet-started phases have status pending and attempt 0.",
+      "description": "Per-phase execution records, one per phase in the pipeline definition. All present from run creation — not-yet-started phases have status pending and attempt 0. On loopBack, the target phase and its dependents are reset to pending (attempt resets to 0, itemsProduced preserved across iterations so the full history is queryable).",
       "items": {
         "type": "object",
         "required": ["phaseId", "status", "attempt", "escalated", "itemsProduced"],
@@ -58,31 +63,61 @@
           "attempt": {
             "type": "integer",
             "minimum": 0,
-            "description": "Current attempt number, 1-based. 0 while pending. Increments on each retry and on escalation invocation."
+            "description": "Current attempt number within the current iteration, 1-based. 0 while pending. Increments on each retry and on escalation invocation. Reset to 0 when the phase is reset by a loopBack."
           },
           "escalated": {
             "type": "boolean",
-            "description": "True if the fallback agent was invoked for this phase."
+            "description": "True if the fallback agent was invoked for this phase in the current iteration."
           },
           "startedAt": {
             "type": ["string", "null"],
             "format": "date-time",
-            "description": "Timestamp of first agent invocation. Not reset on retry."
+            "description": "Timestamp of first agent invocation in the current iteration. Not reset on retry. Reset on loopBack."
           },
           "completedAt": {
             "type": ["string", "null"],
             "format": "date-time",
-            "description": "Timestamp when agent finished its final invocation. May predate gate clearance."
+            "description": "Timestamp when agent finished its final invocation. May predate gate clearance. Reset on loopBack."
           },
           "itemsProduced": {
             "type": "array",
             "items": { "type": "string", "format": "uuid" },
-            "description": "UUIDs of all items written during this phase across all attempts. Updated incrementally. The gate evaluator checks meta.confidence on these items."
+            "description": "UUIDs of all items written during this phase across all attempts and all iterations. Updated incrementally. Preserved across loopBack resets so the full lineage is queryable. The gate evaluator checks meta.confidence (for 'review:' gates) or payload.confidence (for 'accuracy:' gates) on the most recent iteration's items only — identified by meta.sourceRunIteration on each item."
+          },
+          "invocations": {
+            "type": ["array", "null"],
+            "description": "Per-item invocation records for forEach phases. Null for non-forEach phases. Each entry corresponds to one fan-out invocation.",
+            "items": {
+              "type": "object",
+              "required": ["sourceItemId", "status"],
+              "additionalProperties": false,
+              "properties": {
+                "sourceItemId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "UUID of the source item this invocation was called with."
+                },
+                "status": {
+                  "type": "string",
+                  "enum": ["pending", "running", "complete", "failed"],
+                  "description": "Status of this individual fan-out invocation."
+                },
+                "itemsProduced": {
+                  "type": "array",
+                  "items": { "type": "string", "format": "uuid" },
+                  "description": "UUIDs of items written by this specific invocation. All are also included in the parent phase's itemsProduced."
+                },
+                "error": {
+                  "type": ["string", "null"],
+                  "description": "Error if this invocation failed."
+                }
+              }
+            }
           },
           "gateResult": {
             "type": ["string", "null"],
             "enum": ["passed", "blocked", "approved", null],
-            "description": "null=not yet evaluated. passed=items met threshold automatically. blocked=items below threshold, run waiting. approved=human explicitly approved via kanecta_approve_gate."
+            "description": "null=not yet evaluated. passed=items met threshold automatically. blocked=items below threshold or manual gate pending human action, run status set to waiting. approved=human explicitly approved via kanecta_approve_gate MCP tool."
           },
           "approvedAt": {
             "type": ["string", "null"],
