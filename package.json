@@ -6,7 +6,7 @@
     "prestart": "npm install",
     "start": "node kanecta-dev/scripts/ensure-datastore.js",
     "dev": "node kanecta-dev/scripts/ensure-datastore.js",
-    "help": "cat kanecta-docs/dev-setup.md",
+    "help": "cat kanecta-docs/kanecta-docs/dev-setup.md",
     "prepare": "husky || true"
   },
   "workspaces": [
