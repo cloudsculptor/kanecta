@@ -102,8 +102,8 @@
         },
         "confidence": {
           "type": ["string", "null"],
-          "enum": [null, "experimental", "exploring", "decided", "locked", "low", "medium", "high", "verified"],
-          "description": "Confidence level of the item's content. Null if not set."
+          "enum": [null, "experimental", "exploring", "decided", "locked"],
+          "description": "Human review lifecycle. experimental=AI-created, not yet reviewed. exploring=human noted, not committed. decided=human accepted. locked=human asserted permanent. Null=not set (distinct from experimental). AI accuracy confidence belongs in item payload for specific types."
         },
         "status": {
           "type": ["string", "null"],

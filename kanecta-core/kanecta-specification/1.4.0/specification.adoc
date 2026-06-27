@@ -277,7 +277,7 @@ All provenance, ownership, operational, and bookkeeping fields.
 | `confidence`
 | string \| null
 | no
-| One of: `experimental`, `exploring`, `decided`, `locked`, `low`, `medium`, `high`, `verified`.
+| One of: `experimental`, `exploring`, `decided`, `locked`. Null when not set. This is the human review lifecycle — it answers "has a person approved this?" not "how accurate is this?". AI accuracy confidence (high/medium/low) belongs in item payload for specific types that need it (e.g. `finding.payload.confidence`).
 
 | `status`
 | string \| null
@@ -2401,36 +2401,26 @@ TIP: *Postgres* — types are normalised into a `types` table (1:1 with `items`)
 
 == Confidence and Status
 
-*Confidence* indicates how settled content is:
+`meta.confidence` is the *human review lifecycle* — it answers "has a person looked at this and decided it belongs here?" not "how statistically accurate is this?". The accuracy of AI-generated content (high/medium/low) is a domain concern and belongs in the payload of specific types that need it (e.g. `finding.payload.confidence`). Keeping these separate means the pipeline gate evaluator has one field to check across all item types, and means `decided` always means "a human made a deliberate call."
 
 [cols="1,2", options="header"]
 |===
 | Value | Meaning
 
 | `experimental`
-| Speculative, may change significantly
+| AI or system created this without human review. Treat as provisional — it may change significantly or be deleted. Default for all AI-created items and relationships.
 
 | `exploring`
-| Actively investigating, alternatives on the table
+| A human has seen this and decided it is worth keeping for now, but has not committed to it. Still under active consideration.
 
 | `decided`
-| Decision made, could still be revisited
+| A human has accepted this as a genuine part of the knowledge graph. Can still be changed, but is no longer provisional.
 
 | `locked`
-| Settled, not expected to change
-
-| `low`
-| Low confidence in accuracy
-
-| `medium`
-| Moderate confidence
-
-| `high`
-| High confidence
-
-| `verified`
-| Externally verified or confirmed
+| A human has explicitly asserted this will not change. The strongest signal available. Never set by AI — only by deliberate user action.
 |===
+
+Null means confidence was not specified — common for items authored by humans who did not think to set it. The adapter never assumes null means `experimental`; null and `experimental` are distinct.
 
 *Status* is a free-form string. Common values: `active`, `archived`, `draft`, `in-progress`, `blocked`.
 
