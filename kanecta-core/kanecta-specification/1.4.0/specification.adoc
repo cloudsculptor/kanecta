@@ -88,30 +88,11 @@ v1.4.0 is a breaking change from v1.3.0. A migration script is provided in `kane
 
 == Directory Structure
 
-1.4.0 collapses what was eight specialised subdirectories in 1.3.0 down to two directories and one derived file. Everything that previously lived in its own folder (`history/`, `aliases/`, `annotations/`, `links/`, `remotes/`) is now a first-class item in `data/` — an `item_history` item, an `alias` item, an aspect item, a `relationship` item, a `reference` item. The filesystem has no knowledge of these distinctions; it just stores items.
-
-.1.3.0 (before)
 [source]
 ----
 datastore/
 └── .kanecta/
-    ├── data/            ← items
-    ├── config/          ← configuration
-    ├── history/         ← now: item_history items in data/
-    ├── aliases/         ← now: alias items in data/
-    ├── annotations/     ← now: aspect items in data/
-    ├── links/           ← now: relationship items in data/
-    ├── remotes/         ← now: reference items in data/
-    ├── remotes-index/   ← now: reference items in data/
-    └── search/          ← now: index.db
-----
-
-.1.4.0 (after)
-[source]
-----
-datastore/
-└── .kanecta/
-    ├── data/            ← all items, source of truth (Git-tracked)
+    ├── items/           ← all items, source of truth (Git-tracked)
     │   └── a1/b2/a1b2c3d4-e5f6-4abc-9def-123456789012/
     │       ├── item.json
     │       ├── body.md       ← optional sidecar (body text, code)
@@ -120,13 +101,13 @@ datastore/
     └── config/          ← datastore configuration (Git-tracked)
 ----
 
-The significant difference: `data/` and `config/` are committed to Git. `index.db` is always gitignored — it is a derived cache rebuilt from `data/` at any time. Any tool that reads only `data/` and ignores `index.db` is always correct.
+`items/` and `config/` are committed to Git. `index.db` is always gitignored — it is a derived cache, fully rebuildable from `items/` at any time.
 
 Item directories use *mandatory 2+2+full UUID sharding*: first 2 hex chars / next 2 hex chars / full UUID with hyphens. This keeps directory fan-out bounded regardless of datastore size — no single directory ever holds more than 256 child directories.
 
 [source]
 ----
-.kanecta/data/a1/b2/a1b2c3d4-e5f6-4abc-9def-123456789012/
+.kanecta/items/a1/b2/a1b2c3d4-e5f6-4abc-9def-123456789012/
 ----
 
 == The item.json Format
@@ -3072,7 +3053,7 @@ SQLite provides a queryable index over the filesystem layer. It mirrors the stru
 
 The SQLite index is *not* the source of truth and *must never* be treated as one. It is fully rebuildable from the filesystem at any time by scanning all `item.json` files and repopulating the index. The rebuild process is deterministic — given the same filesystem contents it produces identical SQLite state.
 
-The SQLite file is named `index.db` and lives in the workspace root alongside the items directory. It is gitignored. On first open, if `index.db` does not exist, the adapter builds it from scratch before serving any requests. On startup after a crash or Git branch switch, the adapter detects that the filesystem and index may have diverged (by comparing the last-modified timestamps of `item.json` files against the SQLite `updated_at` column) and runs a targeted reconcile rather than a full rebuild.
+The SQLite file is named `index.db` and lives in `.kanecta/` alongside the `items/` directory. It is gitignored. On first open, if `index.db` does not exist, the adapter builds it from scratch before serving any requests. On startup after a crash or Git branch switch, the adapter detects that the filesystem and index may have diverged (by comparing the last-modified timestamps of `item.json` files against the SQLite `updated_at` column) and runs a targeted reconcile rather than a full rebuild.
 
 NOTE: A Git branch switch changes the filesystem layer (checkout replaces `item.json` files with a different branch's versions) but does not touch the SQLite index. The adapter must detect this divergence — the simplest approach is storing the current Git HEAD SHA in the SQLite index at write time and comparing it at startup. If the SHAs differ, a full reconcile is required.
 
@@ -3406,7 +3387,7 @@ TIP: *Postgres* — because `item_history` and `activity` items are write-heavy 
 === Creating Items
 
 1. Generate UUID v4. Compute shard path (2+2+full UUID).
-2. Create item folder: `.kanecta/data/[s1]/[s2]/[uuid]/`.
+2. Create item folder: `.kanecta/items/[s1]/[s2]/[uuid]/`.
 3. Write `item.json` with all required fields.
 4. Write any sidecar files (body, image, etc.).
 5. Update indexes: type-to-items, tag indexes, backlinks.
@@ -3427,7 +3408,7 @@ TIP: *Postgres* — because `item_history` and `activity` items are write-heavy 
 1. Check `reference` items whose `targetId` is this item's UUID and `blockDeletion: true`. If any exist, deletion is blocked — surface them to the user with the reference owner. The reference owner must remove or acknowledge the reference before deletion can proceed.
 2. Check the `item_references` derived index for structural inbound references (other items' `parentId`, inline links, payload UUID fields). Warn if any exist; require explicit confirmation.
 3. Write history snapshot (`changeType: delete`).
-4. Remove item folder from `.kanecta/data/`.
+4. Remove item folder from `.kanecta/items/`.
 5. Cascade-delete all index entries (type, tag, backlinks, relationships, annotations, field-refs).
 6. Remove from search index and vector store.
 
@@ -3458,7 +3439,7 @@ TIP: *SQLite* — use WAL mode (`PRAGMA journal_mode = WAL`) for concurrent read
 * `root` is a singleton — exactly one instance per datastore, always the all-zeros UUID.
 * `item.value` is always ≤255 characters. Full content lives in `payload`.
 * All keyed folder structures use mandatory 2+2+full UUID sharding.
-* Index caches (`tags/`, `links/`, `search/`) are derivable from `data/` and can be rebuilt at any time.
+* `index.db` is fully derivable from `items/` and can be rebuilt at any time.
 * Aliases are always lowercase. Applications must normalise before writing or resolving.
 * Field-ref entries are permanent for the lifetime of their parent item (cascade delete on item delete).
 * The `(itemId, fieldXId)` pair in `fields/` is unique — upsert semantics.
