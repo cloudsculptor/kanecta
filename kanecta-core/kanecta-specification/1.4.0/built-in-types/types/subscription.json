@@ -13,28 +13,61 @@
     "channel": {
       "type": "object",
       "required": ["type"],
-      "description": "Notification channel configuration.",
+      "description": "Notification channel configuration. type determines which additional fields are required.",
       "properties": {
         "type": {
           "type": "string",
           "enum": ["webhook", "mcp", "reactive"],
-          "description": "Channel type. webhook: HTTP POST. mcp: active MCP session. reactive: reactive UI component."
+          "description": "Channel type. webhook: HTTP POST to url. mcp: notify an active MCP session. reactive: notify a reactive Studio component."
         },
-        "url": { "type": "string", "description": "Required for webhook. Use $VAR for secrets." },
-        "secret": { "type": "string", "description": "Optional HMAC secret for webhook signature verification." },
-        "sessionId": { "type": "string", "description": "Required for mcp." },
-        "componentId": { "type": "string", "format": "uuid", "description": "Required for reactive." }
+        "url": {
+          "type": "string",
+          "description": "webhook: endpoint URL. Use $VAR syntax for secrets — never inline credentials."
+        },
+        "secret": {
+          "type": "string",
+          "description": "webhook: HMAC-SHA256 signing secret. Use $VAR syntax. If set, the adapter signs the request body and includes the signature in X-Kanecta-Signature."
+        },
+        "sessionId": {
+          "type": "string",
+          "description": "mcp: ID of the active MCP session to deliver notifications to."
+        },
+        "componentId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "reactive: UUID of the Studio component to notify. The component re-renders on delivery."
+        }
       }
     },
     "events": {
       "type": "array",
-      "items": { "type": "string", "enum": ["create", "update", "delete", "children"] },
+      "items": {
+        "type": "string",
+        "enum": ["create", "update", "delete", "children"]
+      },
       "minItems": 1,
-      "description": "Which events trigger notification. At least one required."
+      "description": "Which events trigger notification. 'create' — item created. 'update' — item updated. 'delete' — item deleted. 'children' — a child item added or removed. At least one required."
+    },
+    "filter": {
+      "type": ["string", "null"],
+      "description": "Optional expression (same DSL as runIf and forEach.filter) evaluated against the event before delivery. Variables: event.type (the event kind), event.item (the item after the change), event.delta (field-level diff). Only events where the filter evaluates to true trigger a notification. Null means deliver all matching events. Example: \"event.delta['payload.status'].to = 'done'\"."
+    },
+    "recursive": {
+      "type": ["boolean", "null"],
+      "description": "When true, the subscription also fires for changes to any descendant of targetId in the primary tree, not just the item itself. Default false."
+    },
+    "active": {
+      "type": ["boolean", "null"],
+      "description": "Whether this subscription is currently active. False suppresses delivery without deleting the subscription. Default true. Set to false to pause a subscription. The adapter also sets this to false when expiresAt is reached."
+    },
+    "expiresAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 datetime after which the adapter automatically sets active to false. Null means no expiry."
     },
     "principal": {
-      "type": "string",
-      "description": "Identity string of who registered this subscription. Used for audit and notification routing."
+      "type": ["string", "null"],
+      "description": "Identity of who registered this subscription. Free-form string matching the adapter's identity format (email, username, UUID). Used for audit and notification routing."
     }
   }
 }

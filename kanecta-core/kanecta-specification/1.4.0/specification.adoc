@@ -1602,7 +1602,11 @@ Distinct from `reference` — a subscription is about change notification, not d
     "url": "$WEBHOOK_URL",
     "secret": "$WEBHOOK_SECRET"
   },
-  "events": ["update", "delete", "children"],
+  "events": ["update", "delete"],
+  "filter": "event.delta['payload.status'].to = 'done'",
+  "recursive": false,
+  "active": true,
+  "expiresAt": null,
   "principal": "alice@acme.com"
 }
 ----
@@ -1621,11 +1625,27 @@ Distinct from `reference` — a subscription is about change notification, not d
 
 | `events`
 | yes
-| Which events trigger notification. Values: `create`, `update`, `delete`, `children` (child added or removed). At least one required.
+| Which events trigger notification. Values: `"create"`, `"update"`, `"delete"`, `"children"` (child added or removed). At least one required.
+
+| `filter`
+| no
+| Optional expression (same DSL as `runIf` and `forEach.filter`) evaluated against the event before delivery. Available variables: `event.type` (the event kind), `event.item` (the item after the change), `event.delta` (the field-level diff). Only events for which the filter evaluates to true trigger a notification. Null means all matching events are delivered. Example: `"event.delta['payload.status'].to = 'done'"` — fires only when an item's status field changes to `"done"`.
+
+| `recursive`
+| no
+| When true, the subscription also fires for changes to any descendant of `targetId` in the primary tree — not just the item itself. Useful for watching an entire subtree: "notify me of any change to anything under the 'Q3 Launch' project." Default false. Applied before `filter`.
+
+| `active`
+| no
+| Whether this subscription is currently active. False means the subscription exists but notifications are suppressed. The adapter skips inactive subscriptions during event fan-out. Default true. Set to false to pause a subscription without deleting it.
+
+| `expiresAt`
+| no
+| ISO 8601 datetime after which the adapter automatically deactivates this subscription (sets `active: false`). Null means no expiry. Useful for time-bounded notification windows — "notify me for the next 48 hours while the release is in flight."
 
 | `principal`
 | no
-| Identity string of who registered this subscription. Used for audit and for filtering notifications to the right recipient.
+| Identity of who registered this subscription. Used for audit, notification routing, and filtering (e.g. `kanecta_my_subscriptions` returns only subscriptions for the current principal). Free-form string matching the adapter's identity format.
 |===
 
 ==== Channel types
@@ -1636,16 +1656,41 @@ Distinct from `reference` — a subscription is about change notification, not d
 
 | `webhook`
 | `url`
-| HTTP POST to the given URL on each matched event. Optional `secret` for HMAC signature verification.
+| HTTP POST to the given URL on each matched event. Request body is a JSON object: `{ "subscriptionId", "event", "item", "delta" }`. Optional `secret` — if set, the adapter signs the request body with HMAC-SHA256 and includes the signature in the `X-Kanecta-Signature` header for the receiver to verify. Secrets must be stored as environment variable references (`$VAR`), never inline.
 
 | `mcp`
 | `sessionId`
-| Notify an active MCP session.
+| Deliver a notification to an active MCP session identified by `sessionId`. The notification arrives as a structured MCP message the agent can read without polling. Used by pipeline agents that need live updates — for example, watching a pipeline-run item to receive phase status changes as they happen.
 
 | `reactive`
 | `componentId`
-| Notify a reactive UI component registered against this item.
+| Notify a reactive Studio component registered against this item. The component re-renders when the adapter delivers the event. This is how Studio pipeline views, live dashboards, and collaborative editing surfaces stay up to date without polling.
 |===
+
+==== Delivery
+
+After every successful item write, the adapter fans out to all active subscription items targeting that item:
+
+. Query active subscriptions: `WHERE type = 'subscription' AND payload.targetId = X AND payload.active = true`. If `recursive` subscriptions exist, also query by `targetId` matching any ancestor of X.
+. For each matching subscription, evaluate the `filter` expression against the event context. Skip subscriptions whose filter returns false.
+. Check `expiresAt` — if expired, set `active: false` on the subscription item and skip delivery.
+. Deliver to the channel. Delivery is best-effort for `webhook` and `mcp` channels — if the endpoint is unreachable, the adapter logs the failure and retries with exponential backoff (up to the adapter's configured retry limit). `reactive` delivery is in-process and synchronous.
+. Write an `activity` item for the delivery (if `rootPayload.activity` is not `"NONE"`) — `eventType: "subscription.delivered"` or `eventType: "subscription.failed"`.
+
+Subscription fan-out does not block the item write — the write is committed first, then fan-out runs asynchronously. This ensures a slow or unreachable webhook never delays item writes.
+
+==== PR pre-flight integration
+
+When a branch is prepared for merge, the adapter runs a pre-flight check that includes subscription-aware notifications:
+
+. Collect all items modified or deleted in the branch (the diff against main).
+. For each modified item, find all subscription items with `events` containing `"update"` (or `"delete"` for deleted items) and `channel.type` of `"webhook"` or `"mcp"`.
+. Send each subscriber a *pre-merge notification* — a special delivery with `event.type: "pre-merge"` and the full diff. This is informational and non-blocking — it does not prevent the merge.
+. The PR description lists items that have active subscribers, giving reviewers visibility into who is watching what is being changed.
+
+This is the data-level equivalent of GitHub's CODEOWNERS. If a type definition, a shared pipeline, or a critical entity item has subscribers, any PR touching it automatically loops in those subscribers — not through code review, but through the subscription channel they registered. A webhook subscriber might post a Slack message; an MCP subscriber might kick off a validation pipeline against the proposed changes.
+
+NOTE: Pre-merge notifications are distinct from post-merge event delivery. After the merge completes and items are updated, the normal subscription fan-out fires for each changed item — subscribers receive the standard `"update"` event as they would for any other write.
 
 === itemHistoryPayload
 
