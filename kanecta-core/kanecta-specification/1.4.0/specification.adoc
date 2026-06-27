@@ -1668,6 +1668,145 @@ The `activity` item's `parentId` is the synthetic `activity` type item UUID. `pa
 
 NOTE: Activity items are not replicated to remotes by default — activity is local to the workspace unless explicitly opted in. They are never updated or deleted after creation.
 
+[#pipelines]
+== Pipelines
+
+Kanecta pipelines are the mechanism by which multi-agent AI workflows are defined, executed, and tracked as first-class knowledge. A pipeline is not a script, a deployment, or a configuration file — it is a Kanecta item of type `"pipeline"` that lives in the datastore alongside everything else. It can be queried, related to other items, versioned, inspected in Studio, and reasoned about by other agents. Its run history accumulates as `"pipeline-run"` child items underneath it. The agents it orchestrates are `"agent"` items with their own payloads, reusable across pipelines.
+
+This section covers what pipelines are, the full execution model, every supported primitive, and why this design makes pipelines more powerful than external orchestration frameworks.
+
+=== Why pipelines are a first-class platform type
+
+Kanecta has a strict boundary between domain types (user-defined — `finding`, `screen`, `decision`, anything your project needs) and platform types (built-in — the generic layer needs to understand them to do its job). `"pipeline"`, `"pipeline-run"`, and `"agent"` are platform types because the Kanecta runner must understand their structure to execute them. A runner cannot treat a pipeline as an opaque blob the way it treats a `finding`.
+
+This is the line: *if the generic layer needs to understand a type to do its job, it belongs in the spec.*
+
+The payoff of this design is that pipelines participate in the full Kanecta item model for free. Run history is queryable (`kanecta_query` for pipeline-run items by status, iteration count, phase outcome). Pipelines are relatable — a pipeline item can have a `relates-to` relationship to the architectural decision that motivated it, or to the screen it audits. A running pipeline-run item can be subscribed to, delivering live phase status updates to the Studio without polling. And because a pipeline is a Kanecta item, another agent can query, read, and even modify pipeline definitions — enabling pipelines that improve themselves.
+
+No external orchestration framework (LangGraph, LangChain, CrewAI) can replicate this because none of them have a datastore. Pipelines in those systems are code — they cannot be queried alongside your domain data, related to your decisions, or edited by a non-technical user in a UI. Kanecta pipelines are data.
+
+=== Execution model
+
+The Kanecta runner watches for `"pipeline-run"` items with `payload.status = "pending"`. On pickup it reads the `pipeline` item referenced by `payload.pipelineId` and begins execution. The runner is the only writer of phase status fields on the run record — agents write items to the datastore via the Kanecta SDK or MCP tools, but they do not touch the run record directly.
+
+Execution proceeds as follows:
+
+1. **Parameter substitution.** The runner resolves `payload.params` from the run item against the pipeline's `params[]` declarations, applies defaults for missing optional params, and substitutes `{{params.name}}` placeholders in every phase's `instructions` and `inputQuery` string values.
+
+2. **DAG evaluation.** The runner builds a dependency graph from each phase's `needs` array. Phases whose dependencies are all `"complete"` or `"skipped"` are eligible to run. Eligible phases start in parallel (array order is the tiebreaker when phases become eligible simultaneously).
+
+3. **Phase execution.** For each phase the runner:
+   a. Evaluates `runIf` (if set) — if false, sets the phase to `"skipped"` and continues.
+   b. Executes the `inputQuery` (if set) and injects results into the agent's context preamble.
+   c. For `forEach` phases: builds the source item list, applies the filter, and fans out one agent invocation per item in parallel. Each invocation receives a single source item as its primary context. All invocations must reach a terminal state before the phase completes.
+   d. For non-forEach phases: invokes the agent once with the full inputQuery result as context.
+   e. Monitors for `"escalate"` tags on produced items. If any produced item is tagged `"escalate"` and `fallbackAgentId` is set, re-runs the phase with the fallback agent (same instructions, same context, increments `attempt`).
+   f. Collects all UUIDs written via `sdk.items.create()` or `kanecta_add_item` into `phases[].itemsProduced`. Tags each created item with `meta.sourceRunId` (the run UUID) and `meta.sourceRunIteration` (the current iteration counter).
+
+4. **Output capture.** After phase execution, any values written via `kanecta_set_phase_output(key, value)` are stored in `phases[].output` on the run record. These are available to downstream phases as `phases.<id>.output.<key>` in all expression contexts and are injected into downstream agent context preambles.
+
+5. **Gate evaluation.** If `confidenceGate` is set, the runner evaluates it against `itemsProduced` (filtered by `outputTypes` if declared):
+   - `accuracy:<level>` — checks `payload.confidence` on produced items. Clears automatically when all items meet or exceed the level.
+   - `review:<level>` — checks `meta.confidence` on produced items. Requires a human to have explicitly promoted each item to the required lifecycle level.
+   - `manual` — always blocks regardless of item state; requires `kanecta_approve_gate`.
+   If the gate does not clear, the run enters `"waiting"` status. See <<pipeline-gate-approval>>.
+
+6. **Pause evaluation.** If `pauseAfter` is set and its condition evaluates to true (evaluated after any `confidenceGate`), the run enters `"waiting"` regardless of item state. A human must call `kanecta_approve_gate` to resume. `pauseAfter` is an explicit workflow checkpoint — not about item quality.
+
+7. **Fan-in.** If a phase has `fanIn` set, the runner collects all per-invocation outputs from the named `forEach` phase, groups them by `sourceItemId`, and injects a structured summary into this phase's agent context preamble. The agent sees: which input item produced which output items, as a map rather than a flat list of UUIDs.
+
+8. **Loop evaluation.** After phase completion (and after gate/pause), if `loopBack` is set and its `if` condition evaluates to true, the runner:
+   a. Checks the global `iteration` counter against `maxIterations`. If at the limit, applies `onMaxIterations` policy (`"complete"` or `"fail"`) instead of looping.
+   b. Otherwise: increments `iteration` on the run record, resets the target phase and all its dependents back to `"pending"` (clearing `attempt`, `startedAt`, `completedAt`, `escalated`, `output`, and `invocations` but preserving `itemsProduced`), and returns to DAG evaluation.
+
+9. **Completion.** When all phases reach `"complete"`, `"failed"` (with `onFailure: "continue"` or `"skip-remaining"`), or `"skipped"`, the run is set to `"complete"`. A phase reaching `"failed"` with `onFailure: "abort"` (the default) sets the run to `"failed"` immediately.
+
+=== Supported primitives
+
+The following five primitives cover every realistic multi-agent workflow pattern. They compose — a phase can use multiple at once (e.g. a phase that fans out AND loops back AND has a gate).
+
+[cols="1,1,2", options="header"]
+|===
+| Primitive | Field | What it does
+
+| Sequential
+| `needs: ["phase-id"]`
+| This phase waits for the named phase(s) to complete before starting. The default when `needs` is null — each phase depends on the one before it in array order. The foundation of all pipelines.
+
+| Parallel
+| `needs: []`
+| Empty array means no dependencies — this phase starts immediately alongside any other phase that is currently eligible. Use for phases that can run concurrently (e.g. two independent audit agents running in parallel against different data sets).
+
+| Fan-out
+| `forEach: { source, filter }`
+| Invokes the phase agent once per item in `source` (a run-state expression). Invocations run in parallel. Each receives a single source item as primary context. All outputs are collected into `itemsProduced`. Use to spread work across a list of items — one implement agent per finding, one screenshot agent per screen.
+
+| Fan-in
+| `fanIn: { source, groupBy }`
+| Marks this phase as the aggregation step for a preceding `forEach` phase. The runner groups all per-invocation outputs by `sourceItemId` and injects a structured map into the agent's context preamble. Eliminates the need for the agent to perform its own join query. Use after a `forEach` phase when the next step must reason across all per-item outputs together.
+
+| Cycle
+| `loopBack: { toPhase, if, onMaxIterations }`
+| After this phase completes, if the condition is true, reset `toPhase` and all dependents back to `"pending"` and re-execute. The global `iteration` counter enforces `maxIterations` (default 3). Use for audit → implement → verify loops where failure in verify triggers another audit pass.
+|===
+
+=== Agents
+
+An `"agent"` item declares who executes a pipeline phase. It is not an invocation — it is a reusable definition of a model, system prompt, tool set, and configuration. Multiple pipelines can reference the same agent. Agents carry `meta.confidence` like any other item — promoting an agent to `"decided"` signals that its system prompt and tool set have been reviewed and are stable.
+
+The `runtime` field in `agentPayload` is an open string. The canonical values are model identifiers (e.g. `"claude-sonnet-4-6"`, `"claude-opus-4-8"`). The special value `"kanecta-function"` invokes a Kanecta `function` item directly via the kanecta-sdk rather than calling an external model. This makes a function-based phase — one that does deterministic computation — a first-class pipeline participant. A function-based phase can call `sdk.ai.complete()` for AI reasoning and `sdk.items.create()` for deterministic writes in the same execution unit, fully tracked in `itemsProduced`.
+
+Escalation between agents is built in: set `fallbackAgentId` on any phase to a higher-capability agent (typically a larger model). If the primary agent tags any of its output items with `"escalate"`, the runner re-runs the phase with the fallback agent. The primary agent self-assesses — it decides whether it is confident enough to proceed or whether it needs a second opinion. This is more reliable than external confidence thresholds because the model has access to its own uncertainty signals.
+
+=== Confidence gates
+
+A confidence gate is a condition that must clear before downstream phases may start. Kanecta has three gate families, each covering a different level of trust:
+
+`accuracy:<level>` — evaluated against `payload.confidence` on produced items. This is AI accuracy confidence — the value the agent set in the item payload based on its own assessment. The gate clears automatically, without human involvement, when all items meet or exceed the threshold. Use this when you trust the AI's accuracy self-assessment and want full automation. Example: `"accuracy:high"` on an audit phase advances automatically when all findings have `payload.confidence = "high"`.
+
+`review:<level>` — evaluated against `meta.confidence` on produced items. This is the human review lifecycle — `"decided"` means a human has accepted the item. This gate cannot clear automatically; a human must review each produced item and promote it to the required lifecycle level. Use this when AI output is going to drive consequential action (code changes, database writes, communications) and you want explicit human sign-off on each item before proceeding. Example: `"review:decided"` on an audit phase before an implement phase starts.
+
+`manual` — always blocks, regardless of item state or confidence. A human must call `kanecta_approve_gate` to resume. Use when you want a fixed human checkpoint in the workflow independent of what the AI produced — a gate that cannot be bypassed by improving item confidence.
+
+The three families form a spectrum: `accuracy:` gates are fully automated, `review:` gates require per-item human sign-off, `manual` gates are unconditional human stops. A pipeline can mix gate families across phases — automate the steps you trust, gate the steps that matter.
+
+Separately, `pauseAfter` provides conditional interrupts not tied to item state at all. It is a run-state expression: if it evaluates to true after the phase, the run pauses. Use for circuit-breakers (`phases.audit.output.findingCount > 50`), pre-flight sign-off before destructive phases, or any checkpoint logic that cannot be expressed as item confidence.
+
+=== Phase output passing
+
+Phases communicate through Kanecta items by default — one phase writes items, the next phase reads them. This is intentional: everything that passes between phases is a first-class Kanecta item, queryable, relatable, and inspectable.
+
+For cases where a phase needs to pass a small computed value to downstream phases without creating a full item — a count, a flag, a score — the runner supports `kanecta_set_phase_output(key, value)`. Values are stored in `phases[].output` on the run record and are available to all downstream expressions and agent context preambles. They are not separate Kanecta items; they live only on the run record. They are reset on `loopBack` (each cycle starts with a fresh output map).
+
+This covers the state-passing gap that external orchestrators (LangGraph's typed state dict) solve with in-memory objects. The difference is that Kanecta's phase output is persisted on the run record — it is inspectable after the fact, visible in Studio, and queryable via the pipeline-run item.
+
+=== Run tracking
+
+Every pipeline execution is a `"pipeline-run"` item — a child of the pipeline item it executed. Runs accumulate under their pipeline as a queryable run history. The run record is the live source of truth: the runner updates it in place as execution progresses. The Studio pipeline view reads the run record directly.
+
+The run record tracks:
+- Overall status (`"pending"` \| `"running"` \| `"waiting"` \| `"complete"` \| `"failed"` \| `"cancelled"`)
+- Current iteration count
+- Per-phase: status, attempt number, escalation flag, timestamps, all produced item UUIDs, phase output map, per-invocation records for forEach phases, gate result and approval metadata
+
+Because `pipeline-run` is an ordinary item, it participates in the full item machinery:
+- `subscription` items deliver live status updates to Studio without polling
+- `item_history` (if enabled) provides a complete audit trail of every status transition
+- `relationship` items link a run to the upstream finding, ticket, or commit that triggered it
+- Other agents can query run history to reason about pipeline performance over time
+
+=== Triggering a run
+
+Create a `"pipeline-run"` item with `payload.status = "pending"` as a child of the pipeline item. Supply `payload.params` matching the pipeline's `params[]` declarations. The runner picks it up and begins execution. All other fields on the run record are managed by the runner — set only `pipelineId`, `status`, `params`, and the initial `phases` array (all phases at `status: "pending"`, `attempt: 0`).
+
+Runs can also be triggered programmatically via the kanecta-sdk (`sdk.pipelines.run(pipelineId, params)`) or via MCP (`kanecta_run_pipeline`). Both create the `pipeline-run` item internally and return the run UUID.
+
+=== Studio integration
+
+The Studio pipeline view is driven entirely by the `pipeline` and `pipeline-run` item types. It renders the phase graph from `payload.phases`, overlays live status from the current run record, surfaces blocked gates with approve actions, and shows the full run history as a list of child pipeline-run items. Because the pipeline is a Kanecta item, a non-technical user can open the definition in Studio, read every phase, understand every gate, and edit the pipeline without touching code.
+
+This is not a monitoring dashboard bolted onto an external system — the pipeline and its execution state are in the same datastore as the findings, decisions, and code the pipeline is acting on.
+
 [#agentPayload]
 === agentPayload
 
