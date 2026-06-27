@@ -97,11 +97,18 @@ datastore/
     │       ├── item.json
     │       ├── body.md       ← optional sidecar (body text, code)
     │       └── embedding.bin ← optional sidecar (float32 vector)
-    ├── index.db         ← SQLite index, derived, gitignored
-    └── config/          ← datastore configuration (Git-tracked)
+    ├── .gitignore       ← ignores index.db
+    └── index.db         ← SQLite index, derived, gitignored
 ----
 
-`items/` and `config/` are committed to Git. `index.db` is always gitignored — it is a derived cache, fully rebuildable from `items/` at any time.
+`items/` and `.gitignore` are committed to Git. `index.db` is always gitignored via `.kanecta/.gitignore` — it is a derived cache, fully rebuildable from `items/` at any time. The bootstrapper creates this `.gitignore` when it initialises the datastore:
+
+[source]
+----
+index.db
+----
+
+Datastore configuration (owner, spec version, history and activity mode) lives in the root node payload — not in a separate config file. See <<rootPayload>>.
 
 Item directories use *mandatory 2+2+full UUID sharding*: first 2 hex chars / next 2 hex chars / full UUID with hyphens. This keeps directory fan-out bounded regardless of datastore size — no single directory ever holds more than 256 child directories.
 
@@ -1411,18 +1418,47 @@ NOTE: Security is not part of context — it is resolved at runtime via `grant` 
 
 === rootPayload
 
-For `type: "root"`. The only required payload on root is `entryPoint` — the UUID of a view item that bootstraps the deployment.
+For `type: "root"`. The root node's payload is the authoritative configuration record for the datastore. There is no separate config file — `rootPayload` replaces it. The bootstrapper writes this payload when the datastore is first initialised; subsequent updates are ordinary item updates.
 
 [source,json]
 ----
 {
+  "owner": "personal",
+  "specVersion": "1.4.0",
+  "itemHistory": "ITEM",
+  "activity": "ITEM",
   "entryPoint": "uuid-of-view-item"
 }
 ----
 
-`item.value` on root is the human label for the datastore — the first visible node in the tree (e.g. `"Alice"`, `"Acme Corp"`). It is not the entry point.
+`item.value` on root is the human label for the datastore (e.g. `"Alice"`, `"Acme Corp"`). It is not the entry point.
 
-Different deployments of the same datastore (web UI, API server, CLI) each have their own view item, with their own `componentId` and `contextId`. To support multiple deployment types, create multiple view items and update `entryPoint` to whichever is active — or make the entry point function itself context-aware.
+[cols="1,1,2", options="header"]
+|===
+| Field | Required | Description
+
+| `owner`
+| yes
+| Human-readable identifier for who owns or manages this datastore. Free string — no enforced format. Shown in Studio headers and used in sync conflict resolution when two datastores have the same owner. Examples: `"personal"`, `"acme"`, `"alice"`.
+
+| `specVersion`
+| yes
+| Kanecta spec version this datastore was last written by (e.g. `"1.4.0"`). The adapter reads this at open time and refuses to operate on a datastore with a higher major version than it understands. Used by migration tooling to determine which migrations are needed.
+
+| `itemHistory`
+| yes
+| Controls whether `item_history` items are written when items are created or updated. `"NONE"` — no history is written; read operations behave as if item_history does not exist. `"ITEM"` — an `item_history` item is written for every create and update, stored in the datastore as a first-class item. `"EXTERNAL"` — history is delegated to an external system (e.g. Git commit history); the adapter does not write `item_history` items but the external system provides the equivalent record. Default `"ITEM"`.
+
+| `activity`
+| yes
+| Controls whether `activity` items are written for workspace events. `"NONE"` — no activity is recorded. `"ITEM"` — an `activity` item is written for each significant workspace event (item viewed, search performed, sync completed). `"EXTERNAL"` — activity events are forwarded to an external system (analytics, audit log) rather than written as items. Default `"ITEM"`.
+
+| `entryPoint`
+| no
+| UUID of the `view` item that bootstraps this deployment in the Studio. Null means the Studio falls back to rendering the root node directly. Different deployment types (web, desktop, CLI) may use different view items — update this field or pass it as a startup argument to the adapter.
+|===
+
+Different deployments of the same datastore (web UI, API server, CLI) each have their own view item. To support multiple deployment types, create multiple view items and update `entryPoint` to whichever is active — or make the entry point function context-aware.
 
 === referencePayload
 
@@ -3337,7 +3373,9 @@ Every datastore contains exactly one reserved item created during initialisation
 * `root` is a singleton — exactly one instance per datastore.
 * `root` is the only item whose `parentId` equals its own `id`.
 
-Everything else — system layer, app layer, data layer, component trees — is created by the bootstrapper as ordinary `tree` items, children of root. Access separation is enforced by `grant` items on those trees. What the bootstrapper creates is a deployment decision, not a spec constraint.
+The root node's `payload` is the datastore's configuration record. There is no separate `config.json` file — configuration lives in the item graph alongside everything else, versioned by Git and queryable like any other item. See <<rootPayload>>.
+
+Everything else — system layer, app layer, component trees — is created by the bootstrapper as ordinary `tree` items, children of root. Access separation is enforced by `grant` items on those trees. What the bootstrapper creates is a deployment decision, not a spec constraint.
 
 TIP: *Postgres* — insert root in its own `BEGIN ... COMMIT` transaction. The deferred FK on `parent_id` allows the self-reference to resolve at commit time. Use `ON CONFLICT (id) DO NOTHING` for idempotent re-initialisation.
 
