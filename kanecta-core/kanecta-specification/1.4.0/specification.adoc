@@ -665,7 +665,7 @@ Most built-in types have a corresponding synthetic type item created at datastor
 
 The manifest for each built-in type ships with the adapter and seeds these items idempotently on datastore initialisation. If a synthetic type item already exists with the correct UUID, the seed is a no-op.
 
-Built-in types with synthetic type items: `agent`, `alias`, `annotation`, `aspect-type`, `cell`, `claim`, `component`, `concept`, `context`, `decision`, `entity`, `eval`, `eval-run`, `event`, `file`, `formula`, `function`, `grant`, `grid`, `item_history`, `activity`, `note`, `object`, `pipeline`, `pipeline-run`, `query`, `question`, `reference`, `relationship`, `relationship-type`, `runner`, `subscription`, `symlink`, `task`, `tree`, `view`.
+Built-in types with synthetic type items: `action`, `agent`, `alias`, `annotation`, `aspect-type`, `cell`, `claim`, `component`, `concept`, `context`, `decision`, `entity`, `eval`, `eval-run`, `event`, `file`, `formula`, `function`, `grant`, `grid`, `item_history`, `activity`, `note`, `object`, `pipeline`, `pipeline-run`, `query`, `question`, `reference`, `relationship`, `relationship-type`, `runner`, `subscription`, `symlink`, `task`, `tree`, `view`.
 
 NOTE: The payload-less primitive types — `string`, `number`, `text`, `heading`, `url` — do *not* have synthetic type items. These types are content items that live directly under their parent in the tree. Creating a synthetic type bucket for bare strings or numbers would produce a meaningless collection of decontextualised values. Their `parentId` is always their actual tree parent.
 
@@ -1882,6 +1882,74 @@ Two classes of query:
 `item.value` is the query's human label (e.g. `"Open tasks by assignee"`, `"Customer churn candidates"`). The query item's `parentId` follows the universal rule — it lives under the synthetic `query` type item and can be placed anywhere in the user's tree.
 
 Queries are executed via the `kanecta_run_query` MCP tool (see <<mcp-api-surface>>) or by the Studio grid renderer when a query item is opened. The grid renderer resolves `returnType` to load the type's column definitions; for null `returnType` it uses the result column names directly.
+
+=== actionPayload
+
+link:../built-in-types/types/action.json[JSON Schema^]
+
+For `type: "action"`. A named, reusable pipeline invocation — the imperative counterpart to pipeline triggers.
+
+The distinction is important:
+
+[cols="1,1,1", options="header"]
+|===
+| | Action | Trigger
+
+| Invocation | Explicit — user clicks, agent calls | Automatic — event fires
+
+| When | On demand | On item-created, item-updated, schedule
+
+| Initiator | Human or agent | The adapter's event system
+
+| Studio UI | Button / menu item / command palette | No UI — runs in background
+
+| Target item | `params.targetItemId` injected from invocation | `params.triggerItemId` injected from event
+|===
+
+[source,json]
+----
+{
+  "pipelineId": "uuid-of-summarise-pipeline",
+  "targetTypes": ["task", "note", "uuid-of-custom-finding-type"],
+  "params": { "outputFormat": "bullet-points" },
+  "description": "Summarise this item using the current LLM model.",
+  "icon": "AutoAwesome",
+  "confirmationMessage": null
+}
+----
+
+[cols="1,1,2", options="header"]
+|===
+| Field | Required | Description
+
+| `pipelineId`
+| yes
+| UUID of the pipeline to execute. The pipeline receives `params.targetItemId` (the item the action was invoked on), merged with the action's `params` defaults and any caller-supplied overrides. Priority: caller > action defaults > pipeline param defaults.
+
+| `targetTypes`
+| no
+| Item types this action is available on. Each entry is a built-in type name (`"task"`, `"note"`) or a UUID of a custom type item. Studio renders this action as a button or menu item when the user is viewing a matching item. Null = workspace-level action — appears in the global palette without a type restriction; `params.targetItemId` is null when invoked this way.
+
+| `params`
+| no
+| Default parameter values for the pipeline. Keys must match the pipeline's `params[].name` definitions. Caller-supplied params override these; these override the pipeline's own defaults. Null means no action-level defaults.
+
+| `description`
+| no
+| Human-readable explanation of what this action does. Shown below the label in Studio and in palette tooltips.
+
+| `icon`
+| no
+| MUI icon component name for the action button (e.g. `"AutoAwesome"`, `"PlayArrow"`). Null means Studio uses a generic action icon.
+
+| `confirmationMessage`
+| no
+| If set, Studio shows a confirmation dialog with this message before invoking. Use for slow, expensive, or destructive actions. Null means invoke immediately.
+|===
+
+`item.value` is the action's display label shown in Studio (e.g. `"Summarise this item"`, `"Generate subtasks"`, `"Check for outdated references"`).
+
+Actions are invoked via the `kanecta_invoke_action` MCP tool (see <<mcp-api-surface>>): `kanecta_invoke_action(actionId, itemId?, params?)`. Returns the UUID of the created pipeline-run. Studio also invokes actions directly when the user clicks an action button.
 
 NOTE: Query items do not define new types. A `"sql"` query that joins tasks and users produces a result set with mixed columns — the result is not a new Kanecta type. If you find yourself consistently working with a derived shape, define a proper `object` type and populate it via a pipeline instead.
 
