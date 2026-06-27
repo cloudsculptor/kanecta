@@ -1702,17 +1702,21 @@ The Kanecta runner watches for `"pipeline-run"` items with `payload.status = "pe
 
 Execution proceeds as follows:
 
-1. **Parameter substitution.** The runner resolves `payload.params` from the run item against the pipeline's `params[]` declarations, applies defaults for missing optional params, and substitutes `{{params.name}}` placeholders in every phase's `instructions` and `inputQuery` string values.
+1. **Snapshot and parameter substitution.** Before beginning execution, the runner copies the pipeline item's full `payload` into `pipelineRunPayload.pipelineSnapshot`. All subsequent execution reads from this snapshot — not the live pipeline definition. This means editing the pipeline item after a run has started does not affect the in-flight run; the run always executes exactly the definition that was current at trigger time. The runner then resolves `payload.params` from the run item against the snapshot's `params[]` declarations, applies defaults for missing optional params, and substitutes `{{params.name}}` placeholders in every phase's `instructions`, `inputQuery`, and `subPipelineParams` string values.
+
+NOTE: *Durable execution.* If the runner process crashes mid-pipeline, the pipeline-run item already reflects the last known state. On restart the runner resumes from the last incomplete phase — it does not re-run already-complete phases. The pipeline-run item is the source of truth; the runner derives its execution position from it, not from in-memory state. This is why every runner write to the run record must be durable before the runner proceeds to the next action.
 
 2. **DAG evaluation.** The runner builds a dependency graph from each phase's `needs` array. Phases whose dependencies are all `"complete"` or `"skipped"` are eligible to run. Eligible phases start in parallel (array order is the tiebreaker when phases become eligible simultaneously).
 
 3. **Phase execution.** For each phase the runner:
    a. Evaluates `runIf` (if set) — if false, sets the phase to `"skipped"` and continues.
-   b. Executes the `inputQuery` (if set) and injects results into the agent's context preamble.
-   c. For `forEach` phases: builds the source item list, applies the filter, and fans out one agent invocation per item. If `maxConcurrent` is set, the runner queues invocations and starts each new one only as a running invocation completes. If null, all invocations start simultaneously. Each invocation receives a single source item as its primary context. All invocations must reach a terminal state before the phase completes.
-   d. For non-forEach phases: invokes the agent once with the full inputQuery result as context.
-   e. Monitors for `"escalate"` tags on produced items. If any produced item is tagged `"escalate"` and `fallbackAgentId` is set, re-runs the phase with the fallback agent (same instructions, same context, increments `attempt`).
-   f. Collects all UUIDs written via `sdk.items.create()` or `kanecta_add_item` into `phases[].itemsProduced`. Tags each created item with `meta.sourceRunId` (the run UUID) and `meta.sourceRunIteration` (the current iteration counter).
+   b. For sub-pipeline phases (`subPipelineId` set): creates a child `pipeline-run` item with `parentRunId` pointing to the current run, `pipelineSnapshot` taken from the child pipeline's current definition, and `params` derived from the parent run's params merged with any `subPipelineParams` mappings. Writes the child run UUID to `phases[].subRunId` on the parent run record. Waits for the child run to reach a terminal state. The child run's `itemsProduced` values are collected into the parent phase's `itemsProduced`. Proceeds to the next step when the child run completes.
+   c. For agent phases (`agentId` set): executes the `inputQuery` (if set) and injects results into the agent's context preamble.
+   d. For `forEach` phases: builds the source item list, applies the filter, and fans out one agent invocation per item. If `maxConcurrent` is set, the runner queues invocations and starts each new one only as a running invocation completes. If null, all invocations start simultaneously. Each invocation receives a single source item as its primary context. All invocations must reach a terminal state before the phase completes.
+   e. For non-forEach single-agent phases: invokes the agent once with the full inputQuery result as context.
+   f. If `heartbeatIntervalSeconds` is set: begins monitoring `phases[].lastHeartbeatAt` after the agent starts. If the time since the last heartbeat call exceeds `heartbeatIntervalSeconds`, the runner terminates the agent and marks the phase `"failed"` with a timeout-by-heartbeat error. The agent is expected to call `kanecta_heartbeat(runId, phaseId)` periodically.
+   g. Monitors for `"escalate"` tags on produced items. If any produced item is tagged `"escalate"` and `fallbackAgentId` is set, re-runs the phase with the fallback agent (same instructions, same context, increments `attempt`).
+   h. Collects all UUIDs written via `sdk.items.create()` or `kanecta_add_item` into `phases[].itemsProduced`. Tags each created item with `meta.sourceRunId` (the run UUID) and `meta.sourceRunIteration` (the current iteration counter).
 
 4. **Output capture.** After phase execution, any values written via `kanecta_set_phase_output(key, value)` are stored in `phases[].output` on the run record. These are available to downstream phases as `phases.<id>.output.<key>` in all expression contexts and are injected into downstream agent context preambles.
 
@@ -1730,7 +1734,7 @@ Execution proceeds as follows:
    a. Checks the global `iteration` counter against `maxIterations`. If at the limit, applies `onMaxIterations` policy (`"complete"` or `"fail"`) instead of looping.
    b. Otherwise: increments `iteration` on the run record, resets the target phase and all its dependents back to `"pending"` (clearing `attempt`, `startedAt`, `completedAt`, `escalated`, `output`, and `invocations` but preserving `itemsProduced`), and returns to DAG evaluation.
 
-9. **Completion.** When all phases reach `"complete"`, `"failed"` (with `onFailure: "continue"` or `"skip-remaining"`), or `"skipped"`, the run is set to `"complete"`. A phase reaching `"failed"` with `onFailure: "abort"` (the default) sets the run to `"failed"` immediately.
+9. **Completion.** When all phases reach `"complete"`, `"failed"` (with `onFailure: "continue"` or `"skip-remaining"`), or `"skipped"`, the run is set to `"complete"`. A phase reaching `"failed"` with `onFailure: "abort"` (the default) sets the run to `"failed"` immediately. A phase reaching `"failed"` with `onFailure: { compensate: "<pipeline-uuid>" }` triggers a compensation run of the named pipeline before the parent run is marked `"failed"` — the runner creates the compensation run with `params.failedRunId` and `params.failedPhaseId` injected, waits for it to complete, then marks the parent run `"failed"`. If the compensation run itself fails, the failure is recorded in the parent run's `error` field alongside the original phase error.
 
 === Supported primitives
 
@@ -1759,6 +1763,10 @@ The following five primitives cover every realistic multi-agent workflow pattern
 | Cycle
 | `loopBack: { toPhase, if, onMaxIterations }`
 | After this phase completes, if the condition is true, reset `toPhase` and all dependents back to `"pending"` and re-execute. The global `iteration` counter enforces `maxIterations` (default 3). Use for audit → implement → verify loops where failure in verify triggers another audit pass.
+
+| Sub-pipeline
+| `subPipelineId: "<uuid>"`
+| This phase runs another pipeline as a child rather than invoking an agent. The runner creates a child pipeline-run (with `parentRunId` pointing to the parent run) and waits for it to complete. The child pipeline's snapshot is taken at trigger time. The child's `itemsProduced` feeds into the parent phase's `itemsProduced`. Use to compose large workflows from smaller reusable pipelines — a "notify" pipeline reused across ten parent pipelines, a "cleanup" pipeline shared between the main workflow and its compensation handler.
 |===
 
 === Agents
@@ -2147,8 +2155,16 @@ In this pipeline: `audit` uses `confidenceGate: "accuracy:high"` — clears auto
 | Human-readable phase name displayed in the Studio pipeline view.
 
 | `phases[].agentId`
-| yes
-| UUID of the `agent` item that executes this phase.
+| no
+| UUID of the `agent` item that executes this phase. Required for agent phases. Null when `subPipelineId` is set. Exactly one of `agentId` or `subPipelineId` must be non-null.
+
+| `phases[].subPipelineId`
+| no
+| UUID of a `pipeline` item to run as a child pipeline. When set, this phase does not invoke an agent — the runner creates a child `pipeline-run` and waits for it to reach a terminal state. The child run's `itemsProduced` feeds into the parent phase's `itemsProduced`. Use to compose reusable pipelines: a "notify" pipeline referenced from ten parent pipelines; a "cleanup" pipeline shared between the main flow and a compensation handler. `agentId` must be null when `subPipelineId` is set. Null means this is a normal agent phase.
+
+| `phases[].subPipelineParams`
+| no
+| Param values to pass to the child pipeline run, when `subPipelineId` is set. Keys must match the child pipeline's `params[].name` declarations. String values support `{{params.name}}` substitution and run-state expression references (e.g. `"{{phases.audit.output.targetId}}"`). `params.triggerItemId` is injected automatically — no need to declare it. Null means no additional params beyond auto-injected ones.
 
 | `phases[].instructions`
 | yes
@@ -2202,6 +2218,10 @@ When blocked, the run enters `"waiting"` status. See <<pipeline-gate-approval>>.
 | no
 | Optional condition expression string. Evaluated by the runner against the live run state before the phase starts. If the expression evaluates to false, the phase is set to `"skipped"` and its dependents treat it as `"complete"`. Expression context: `phases.<id>.status`, `phases.<id>.itemsProduced`, `phases.<id>.itemsProduced.length`, `params.<name>`. Null means always run.
 
+| `phases[].heartbeatIntervalSeconds`
+| no
+| If set, the agent must call `kanecta_heartbeat(runId, phaseId)` at least once every this many seconds. If the interval elapses without a heartbeat, the runner terminates the agent and marks the phase `"failed"` — distinguishing a dead process from a slow one without needing a generous timeout. The agent should call `kanecta_heartbeat` periodically during long-running work: after each file processed, after each sub-task completed. Use together with `timeout` for belt-and-braces: `timeout` provides a total budget; `heartbeatIntervalSeconds` catches hangs early. Minimum 10 seconds. Null means no heartbeat required.
+
 | `phases[].timeout`
 | no
 | Maximum wall-clock seconds the agent is allowed to run. If exceeded, the phase is terminated and set to `"failed"`. Null means no timeout — use with caution for agents that could loop.
@@ -2212,7 +2232,7 @@ When blocked, the run enters `"waiting"` status. See <<pipeline-gate-approval>>.
 
 | `phases[].onFailure`
 | no
-| What the runner does when this phase reaches `"failed"` status and retries are exhausted. `"abort"` (default) — the entire run fails. `"continue"` — the failure is recorded but downstream phases that do not `need` this phase may still execute. `"skip-remaining"` — this phase and all remaining phases are skipped; the run is marked `"complete"` with a warning rather than `"failed"`.
+| What the runner does when this phase reaches `"failed"` status and retries are exhausted. Three string values: `"abort"` (default) fails the entire run immediately. `"continue"` records the failure but allows unblocked downstream phases to proceed. `"skip-remaining"` skips all remaining phases and marks the run `"complete"` with a warning. Object form: `{ "compensate": "<pipeline-uuid>" }` triggers a compensation pipeline run before the parent run is marked `"failed"` — the runner creates the compensation run with `params.failedRunId` and `params.failedPhaseId` injected, waits for it to complete, then records failure. Optionally also pass `params` (additional static key-value pairs to the compensation run). Use the compensation form for saga-pattern rollback: if an `"implement"` phase fails after partially writing files, a compensation pipeline can revert the partial changes before the run is declared failed. Null defaults to `"abort"`.
 |===
 
 [#pipelineRunPayload]
@@ -2328,6 +2348,14 @@ This example shows a second-iteration run (`iteration: 1` — the first loop-bac
 | yes
 | UUID of the `pipeline` item this run is executing. Also the `parentId` of this run item.
 
+| `pipelineSnapshot`
+| no
+| A snapshot of the pipeline item's full `payload` copied at the moment this run was created. The runner executes against this snapshot — not the live pipeline definition. Editing the pipeline item after a run starts does not affect the in-flight run. Consumers (Studio, audit tooling) can always reconstruct exactly which definition was used for any historical run by reading this field. For sub-pipeline runs, the snapshot is taken from the child pipeline's definition at trigger time. Null for runs predating this field.
+
+| `parentRunId`
+| no
+| UUID of the parent `pipeline-run` item when this run was created by a sub-pipeline phase in another pipeline. The parent run's phase record contains this run's UUID in `phases[].subRunId`. Null for top-level runs (triggered directly, not from a parent pipeline).
+
 | `status`
 | yes
 | Overall run status. `"pending"` — created but not yet started. `"running"` — at least one phase is actively executing. `"waiting"` — a phase completed but its confidence gate is blocked; the run is paused awaiting human review. `"complete"` — all phases reached `"complete"` or `"skipped"`. `"failed"` — a phase failed and `onFailure` was `"abort"`. `"cancelled"` — manually stopped.
@@ -2395,6 +2423,14 @@ This example shows a second-iteration run (`iteration: 1` — the first loop-bac
 | `phases[].invocations`
 | no
 | Present only for `forEach` phases. Array of per-item invocation records — one entry per source item the phase was fanned out to. Each entry has: `sourceItemId` (UUID of the item that was passed to this invocation), `status` (`"pending"` \| `"running"` \| `"complete"` \| `"failed"`), `itemsProduced` (UUIDs produced by this invocation specifically — all are also in the parent phase's `itemsProduced`), `error` (null unless failed). All invocations run in parallel; the phase is `"complete"` only when all invocations reach a terminal state. Null for non-forEach phases.
+
+| `phases[].subRunId`
+| no
+| UUID of the child `pipeline-run` item created for this phase when `subPipelineId` is set. Written by the runner as soon as the child run is created. The child run has `parentRunId` pointing back to the current run. Null for agent phases.
+
+| `phases[].lastHeartbeatAt`
+| no
+| ISO 8601 timestamp of the most recent `kanecta_heartbeat` call from the agent for this phase. Updated in place each time the agent heartbeats. The runner compares this against `heartbeatIntervalSeconds` to detect zombie agents — if the gap exceeds the interval, the runner terminates the phase. Null if the phase has no heartbeat requirement or has not yet started.
 
 | `phases[].gateResult`
 | no

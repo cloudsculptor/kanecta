@@ -88,7 +88,7 @@
       "description": "Phase definitions forming a directed acyclic graph (or a cycle when loopBack is used). Execution order is determined by phases[].needs, not array position. Array order is used as a tiebreaker for phases that become ready simultaneously.",
       "items": {
         "type": "object",
-        "required": ["id", "name", "agentId", "instructions"],
+        "required": ["id", "name"],
         "additionalProperties": false,
         "properties": {
           "id": {
@@ -100,13 +100,22 @@
             "description": "Human-readable phase name for the Studio pipeline view."
           },
           "agentId": {
-            "type": "string",
+            "type": ["string", "null"],
             "format": "uuid",
-            "description": "UUID of the agent item that executes this phase."
+            "description": "UUID of the agent item that executes this phase. Exactly one of agentId or subPipelineId must be set — set agentId for agent phases, null it when subPipelineId is set."
+          },
+          "subPipelineId": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "UUID of a pipeline item to run as a child pipeline. When set, this phase does not invoke an agent — instead the runner creates a child pipeline-run (with parentRunId pointing to the current run's UUID) and waits for it to complete. The child run's pipelineSnapshot ensures it executes against the pipeline definition as it was at trigger time, not whatever the definition is when it runs. The child run's itemsProduced feeds into this phase's itemsProduced on the parent run record. The child run's terminal status determines this phase's status: 'complete' maps to 'complete', 'failed' follows onFailure, 'cancelled' fails this phase. On loopBack, re-running a sub-pipeline phase creates a new child run — the old child run is preserved. Set agentId to null when subPipelineId is used. Null means this is a normal agent phase."
+          },
+          "subPipelineParams": {
+            "type": ["object", "null"],
+            "description": "Param values to pass to the child pipeline run when subPipelineId is set. Keys must match the child pipeline's params[].name declarations. String values support {{params.name}} and run-state expression substitution (e.g. '{{phases.audit.output.targetId}}'). The triggering item UUID is automatically available to the child run as params.triggerItemId — no need to declare it here. Null or omitted means the child pipeline receives no params (valid only if it declares none as required)."
           },
           "instructions": {
-            "type": "string",
-            "description": "Markdown instructions for the agent. {{params.name}} placeholders are substituted by the runner before the agent receives them."
+            "type": ["string", "null"],
+            "description": "Markdown instructions for the agent. {{params.name}} placeholders are substituted by the runner before the agent receives them. Null is valid for sub-pipeline phases (subPipelineId set) where no agent is invoked."
           },
           "inputQuery": {
             "type": ["object", "null"],
@@ -223,6 +232,11 @@
             "type": ["string", "null"],
             "description": "Condition expression evaluated against live run state before this phase starts. If false, phase is set to skipped. Context available: phases.<id>.status, phases.<id>.itemsProduced, phases.<id>.itemsProduced.length, params.<name>."
           },
+          "heartbeatIntervalSeconds": {
+            "type": ["integer", "null"],
+            "minimum": 10,
+            "description": "If set, the runner expects the agent to call kanecta_heartbeat(runId, phaseId) at least once every heartbeatIntervalSeconds seconds. If the agent stops heartbeating — due to a crash, infinite loop, or runaway tool call — the runner terminates the phase and marks it 'failed' after one missed interval. The agent should call kanecta_heartbeat periodically during long-running work (e.g. after each file it processes, after each sub-task it completes). Without this field, the runner has no way to distinguish a slow-but-alive agent from a zombie — it can only rely on timeout, which must be set generously. With heartbeats, you can set timeout generously for the overall budget while using heartbeats for early dead-process detection. Minimum 10 seconds. Null means no heartbeat required."
+          },
           "timeout": {
             "type": ["number", "null"],
             "description": "Maximum wall-clock seconds the agent may run. Exceeded phases are terminated and set to failed."
@@ -246,9 +260,33 @@
             "description": "Retry configuration on phase failure. Null means no retry."
           },
           "onFailure": {
-            "type": ["string", "null"],
-            "enum": ["abort", "continue", "skip-remaining", null],
-            "description": "What the runner does when retries are exhausted. 'abort' (default) fails the entire run. 'continue' records the failure but allows unblocked downstream phases to proceed. 'skip-remaining' skips this and all remaining phases and marks the run complete with a warning."
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": ["abort", "continue", "skip-remaining"],
+                "description": "String form: 'abort' (default) fails the entire run immediately. 'continue' records the failure but allows downstream phases that do not depend on this phase to proceed. 'skip-remaining' skips all remaining phases and marks the run 'complete' with a warning rather than 'failed'."
+              },
+              {
+                "type": "object",
+                "required": ["compensate"],
+                "additionalProperties": false,
+                "properties": {
+                  "compensate": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "UUID of a pipeline item to run as a compensation workflow. When this phase fails and retries are exhausted, the runner creates a run of the compensation pipeline (with the current run's params injected plus params.failedRunId and params.failedPhaseId). The parent run waits for the compensation run to complete before marking itself 'failed'. Use for saga-pattern cleanup — if an 'implement' phase fails mid-way through writing files, a compensation pipeline can revert partial changes."
+                  },
+                  "params": {
+                    "type": ["object", "null"],
+                    "description": "Additional static param values to pass to the compensation pipeline run, on top of the automatically injected failedRunId and failedPhaseId. Null means only the automatic params are passed."
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the runner does when this phase reaches 'failed' status and retries are exhausted. String values: 'abort' (default), 'continue', 'skip-remaining'. Object value: { compensate: '<pipeline-uuid>' } triggers a compensation pipeline before the run is marked failed. Null defaults to 'abort'."
           }
         }
       }

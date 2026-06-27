@@ -10,6 +10,15 @@
       "format": "uuid",
       "description": "UUID of the pipeline item this run is executing. Also the parentId of this run item."
     },
+    "pipelineSnapshot": {
+      "type": ["object", "null"],
+      "description": "A snapshot of the pipeline item's payload at the moment this run was created. The runner executes against this snapshot, not the live pipeline definition. This guarantees that editing the pipeline item after a run has started does not affect the in-flight run — the run always executes the definition as it was when it was triggered. For sub-pipeline runs (parentRunId set), the snapshot is taken from the child pipeline's definition at trigger time. The runner stores this field before beginning execution; consumers (Studio, audit tooling) can always reconstruct exactly what definition was used for any historical run. Null for runs created before this field was introduced (pre-1.4.0 runs)."
+    },
+    "parentRunId": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "description": "UUID of the parent pipeline-run item when this run was created as a child by a sub-pipeline phase. The parent run's phases record contains this UUID in the relevant phase's subRunId field. Null for top-level runs (triggered directly, not from a parent pipeline phase)."
+    },
     "status": {
       "type": "string",
       "enum": ["pending", "running", "waiting", "complete", "failed", "cancelled"],
@@ -131,6 +140,16 @@
           "approvedBy": {
             "type": ["string", "null"],
             "description": "Identity of the human who approved the gate. Null if automatic or pending."
+          },
+          "subRunId": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "UUID of the child pipeline-run created for this phase when the phase definition sets subPipelineId. The runner creates the child run, writes its UUID here, and waits for it to reach a terminal state. The child run's itemsProduced feeds into this phase's itemsProduced. Null for agent phases (agentId set)."
+          },
+          "lastHeartbeatAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "ISO 8601 timestamp of the most recent kanecta_heartbeat call from the agent for this phase. Updated in place by the runner each time the agent calls kanecta_heartbeat. The runner compares this against the current time and the phase's heartbeatIntervalSeconds — if the gap exceeds the interval, the runner terminates the phase. Null if the phase is not yet running or has no heartbeatIntervalSeconds declared."
           },
           "error": {
             "type": ["string", "null"],
