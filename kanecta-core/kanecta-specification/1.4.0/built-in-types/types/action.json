@@ -1,35 +1,99 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "actionPayload",
-  "type": "object",
-  "required": ["pipelineId"],
-  "additionalProperties": false,
-  "properties": {
-    "pipelineId": {
-      "type": "string",
-      "format": "uuid",
-      "description": "UUID of the pipeline item to execute when this action is invoked. The pipeline receives params.targetItemId (the item the action was invoked on), the action's default params, and any caller-supplied overrides, merged in that priority order: caller > action defaults > pipeline param defaults."
+  "item": {
+    "id": "1ab2a990-c2cf-4b91-aace-588c66b0a78b",
+    "parentId": "31ef9fcb-636d-4007-b25f-80c1c4f054ef",
+    "type": "type",
+    "typeId": null,
+    "value": "action",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "A named, reusable pipeline invocation \u2014 the imperative counterpart to pipeline triggers.",
+      "confidence": "locked"
     },
-    "targetTypes": {
-      "type": ["array", "null"],
-      "items": { "type": "string" },
-      "description": "Item types this action is available on. Each entry is either a built-in type name (e.g. 'task', 'note') or a UUID of a custom type item. Studio shows this action in the action menu when the user is viewing an item whose type is in this list. Null or empty array means the action is a workspace-level action with no type restriction — it appears in the global action palette and can be invoked without a specific item context, in which case params.targetItemId is null."
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "actionPayload",
+      "type": "object",
+      "required": [
+        "pipelineId"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "pipelineId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "UUID of the pipeline item to execute when this action is invoked. The pipeline receives params.targetItemId (the item the action was invoked on), the action's default params, and any caller-supplied overrides, merged in that priority order: caller > action defaults > pipeline param defaults."
+        },
+        "targetTypes": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Item types this action is available on. Each entry is either a built-in type name (e.g. 'task', 'note') or a UUID of a custom type item. Studio shows this action in the action menu when the user is viewing an item whose type is in this list. Null or empty array means the action is a workspace-level action with no type restriction \u2014 it appears in the global action palette and can be invoked without a specific item context, in which case params.targetItemId is null."
+        },
+        "params": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Default parameter values passed to the pipeline at invocation time. Keys must match parameter names declared in the pipeline's params[] definition. Caller-supplied params override these defaults; these defaults override the pipeline's own param defaults. Null means no action-level defaults \u2014 the pipeline's own defaults and caller-supplied params are used directly."
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Human-readable explanation of what this action does and when to use it. Shown in Studio below the action label and in the action palette tooltip."
+        },
+        "icon": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "MUI icon component name for this action's button in Studio (e.g. 'AutoAwesome', 'PlayArrow', 'SearchOutlined'). Null means Studio uses a generic action icon."
+        },
+        "confirmationMessage": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "If set, Studio shows a confirmation dialog with this message before invoking the action. Use for actions that are slow, expensive, or irreversible (e.g. 'This will regenerate all subtasks and delete existing ones. Continue?'). Null means invoke immediately without confirmation."
+        }
+      }
     },
-    "params": {
-      "type": ["object", "null"],
-      "description": "Default parameter values passed to the pipeline at invocation time. Keys must match parameter names declared in the pipeline's params[] definition. Caller-supplied params override these defaults; these defaults override the pipeline's own param defaults. Null means no action-level defaults — the pipeline's own defaults and caller-supplied params are used directly."
-    },
-    "description": {
-      "type": ["string", "null"],
-      "description": "Human-readable explanation of what this action does and when to use it. Shown in Studio below the action label and in the action palette tooltip."
-    },
-    "icon": {
-      "type": ["string", "null"],
-      "description": "MUI icon component name for this action's button in Studio (e.g. 'AutoAwesome', 'PlayArrow', 'SearchOutlined'). Null means Studio uses a generic action icon."
-    },
-    "confirmationMessage": {
-      "type": ["string", "null"],
-      "description": "If set, Studio shows a confirmation dialog with this message before invoking the action. Use for actions that are slow, expensive, or irreversible (e.g. 'This will regenerate all subtasks and delete existing ones. Continue?'). Null means invoke immediately without confirmation."
-    }
+    "sqlSchema": [
+      "-- Built-in type: adapter handles storage natively."
+    ]
   }
 }

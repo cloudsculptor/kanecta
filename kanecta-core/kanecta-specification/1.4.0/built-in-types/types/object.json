@@ -1,6 +1,51 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "objectPayload",
-  "$comment": "No fixed schema. The payload is a free-form object validated at runtime against the typePayload.jsonSchema of the item's typeId. This file is a placeholder — the actual schema is defined per custom type.",
-  "type": "object"
+  "item": {
+    "id": "2f866767-7a54-4eb4-a581-8207fafee8c1",
+    "parentId": "31ef9fcb-636d-4007-b25f-80c1c4f054ef",
+    "type": "type",
+    "typeId": null,
+    "value": "object",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "An instance of a user-defined type.",
+      "confidence": "locked"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "objectPayload",
+      "$comment": "No fixed schema. The payload is a free-form object validated at runtime against the typePayload.jsonSchema of the item's typeId. This file is a placeholder \u2014 the actual schema is defined per custom type.",
+      "type": "object"
+    },
+    "sqlSchema": [
+      "-- Built-in type: adapter handles storage natively."
+    ]
+  }
 }

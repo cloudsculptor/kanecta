@@ -1,73 +1,148 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "subscriptionPayload",
-  "type": "object",
-  "required": ["targetId", "channel", "events"],
-  "additionalProperties": false,
-  "properties": {
-    "targetId": {
-      "type": "string",
-      "format": "uuid",
-      "description": "UUID of the item being watched."
+  "item": {
+    "id": "cf066390-a599-4dbe-bc20-491de885cb18",
+    "parentId": "31ef9fcb-636d-4007-b25f-80c1c4f054ef",
+    "type": "type",
+    "typeId": null,
+    "value": "subscription",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "A live notification channel registered against a UUID.",
+      "confidence": "locked"
     },
-    "channel": {
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "subscriptionPayload",
       "type": "object",
-      "required": ["type"],
-      "description": "Notification channel configuration. type determines which additional fields are required.",
+      "required": [
+        "targetId",
+        "channel",
+        "events"
+      ],
+      "additionalProperties": false,
       "properties": {
-        "type": {
-          "type": "string",
-          "enum": ["webhook", "mcp", "reactive"],
-          "description": "Channel type. webhook: HTTP POST to url. mcp: notify an active MCP session. reactive: notify a reactive Studio component."
-        },
-        "url": {
-          "type": "string",
-          "description": "webhook: endpoint URL. Use $VAR syntax for secrets — never inline credentials."
-        },
-        "secret": {
-          "type": "string",
-          "description": "webhook: HMAC-SHA256 signing secret. Use $VAR syntax. If set, the adapter signs the request body and includes the signature in X-Kanecta-Signature."
-        },
-        "sessionId": {
-          "type": "string",
-          "description": "mcp: ID of the active MCP session to deliver notifications to."
-        },
-        "componentId": {
+        "targetId": {
           "type": "string",
           "format": "uuid",
-          "description": "reactive: UUID of the Studio component to notify. The component re-renders on delivery."
+          "description": "UUID of the item being watched."
+        },
+        "channel": {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "description": "Notification channel configuration. type determines which additional fields are required.",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "webhook",
+                "mcp",
+                "reactive"
+              ],
+              "description": "Channel type. webhook: HTTP POST to url. mcp: notify an active MCP session. reactive: notify a reactive Studio component."
+            },
+            "url": {
+              "type": "string",
+              "description": "webhook: endpoint URL. Use $VAR syntax for secrets \u2014 never inline credentials."
+            },
+            "secret": {
+              "type": "string",
+              "description": "webhook: HMAC-SHA256 signing secret. Use $VAR syntax. If set, the adapter signs the request body and includes the signature in X-Kanecta-Signature."
+            },
+            "sessionId": {
+              "type": "string",
+              "description": "mcp: ID of the active MCP session to deliver notifications to."
+            },
+            "componentId": {
+              "type": "string",
+              "format": "uuid",
+              "description": "reactive: UUID of the Studio component to notify. The component re-renders on delivery."
+            }
+          }
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "create",
+              "update",
+              "delete",
+              "children"
+            ]
+          },
+          "minItems": 1,
+          "description": "Which events trigger notification. 'create' \u2014 item created. 'update' \u2014 item updated. 'delete' \u2014 item deleted. 'children' \u2014 a child item added or removed. At least one required."
+        },
+        "filter": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Optional expression (same DSL as runIf and forEach.filter) evaluated against the event before delivery. Variables: event.type (the event kind), event.item (the item after the change), event.delta (field-level diff). Only events where the filter evaluates to true trigger a notification. Null means deliver all matching events. Example: \"event.delta['payload.status'].to = 'done'\"."
+        },
+        "recursive": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "When true, the subscription also fires for changes to any descendant of targetId in the primary tree, not just the item itself. Default false."
+        },
+        "active": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "Whether this subscription is currently active. False suppresses delivery without deleting the subscription. Default true. Set to false to pause a subscription. The adapter also sets this to false when expiresAt is reached."
+        },
+        "expiresAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "ISO 8601 datetime after which the adapter automatically sets active to false. Null means no expiry."
+        },
+        "principal": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Identity of who registered this subscription. Free-form string matching the adapter's identity format (email, username, UUID). Used for audit and notification routing."
         }
       }
     },
-    "events": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "enum": ["create", "update", "delete", "children"]
-      },
-      "minItems": 1,
-      "description": "Which events trigger notification. 'create' — item created. 'update' — item updated. 'delete' — item deleted. 'children' — a child item added or removed. At least one required."
-    },
-    "filter": {
-      "type": ["string", "null"],
-      "description": "Optional expression (same DSL as runIf and forEach.filter) evaluated against the event before delivery. Variables: event.type (the event kind), event.item (the item after the change), event.delta (field-level diff). Only events where the filter evaluates to true trigger a notification. Null means deliver all matching events. Example: \"event.delta['payload.status'].to = 'done'\"."
-    },
-    "recursive": {
-      "type": ["boolean", "null"],
-      "description": "When true, the subscription also fires for changes to any descendant of targetId in the primary tree, not just the item itself. Default false."
-    },
-    "active": {
-      "type": ["boolean", "null"],
-      "description": "Whether this subscription is currently active. False suppresses delivery without deleting the subscription. Default true. Set to false to pause a subscription. The adapter also sets this to false when expiresAt is reached."
-    },
-    "expiresAt": {
-      "type": ["string", "null"],
-      "format": "date-time",
-      "description": "ISO 8601 datetime after which the adapter automatically sets active to false. Null means no expiry."
-    },
-    "principal": {
-      "type": ["string", "null"],
-      "description": "Identity of who registered this subscription. Free-form string matching the adapter's identity format (email, username, UUID). Used for audit and notification routing."
-    }
+    "sqlSchema": [
+      "-- Built-in type: adapter handles storage natively."
+    ]
   }
 }

@@ -1,27 +1,78 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "formulaPayload",
-  "type": "object",
-  "required": ["level"],
-  "additionalProperties": false,
-  "properties": {
-    "level": {
-      "type": "string",
-      "enum": ["template", "dsl", "function"],
-      "description": "Which evaluation level this formula uses."
+  "item": {
+    "id": "d605ed1b-2c53-44a0-b4ac-3a307b61e82a",
+    "parentId": "31ef9fcb-636d-4007-b25f-80c1c4f054ef",
+    "type": "type",
+    "typeId": null,
+    "value": "formula",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "A reusable calculation used wherever a computed value is needed.",
+      "confidence": "locked"
     },
-    "expression": {
-      "type": "string",
-      "description": "The formula expression. Required when level is template or dsl. For template: a string with {variable} placeholders. For dsl: an Excel-like formula string (must begin with =)."
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "formulaPayload",
+      "type": "object",
+      "required": [
+        "level"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": [
+            "template",
+            "dsl",
+            "function"
+          ],
+          "description": "Which evaluation level this formula uses."
+        },
+        "expression": {
+          "type": "string",
+          "description": "The formula expression. Required when level is template or dsl. For template: a string with {variable} placeholders. For dsl: an Excel-like formula string (must begin with =)."
+        },
+        "functionId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "UUID of the function item to delegate to. Required when level is function."
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable explanation of what this formula computes and any non-obvious behaviour."
+        }
+      }
     },
-    "functionId": {
-      "type": "string",
-      "format": "uuid",
-      "description": "UUID of the function item to delegate to. Required when level is function."
-    },
-    "description": {
-      "type": "string",
-      "description": "Human-readable explanation of what this formula computes and any non-obvious behaviour."
-    }
+    "sqlSchema": [
+      "-- Built-in type: adapter handles storage natively."
+    ]
   }
 }

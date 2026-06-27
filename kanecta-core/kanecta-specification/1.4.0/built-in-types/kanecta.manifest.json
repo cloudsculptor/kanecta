@@ -1,0 +1,85 @@
+{
+  "schemaVersion": "1.4.0",
+  "package": "kanecta-core",
+  "layer": "core",
+  "items": [
+    {
+      "file": "built-in-types/types/action.json"
+    },
+    {
+      "file": "built-in-types/types/activity.json"
+    },
+    {
+      "file": "built-in-types/types/agent.json"
+    },
+    {
+      "file": "built-in-types/types/alias.json"
+    },
+    {
+      "file": "built-in-types/types/aspect-type.json"
+    },
+    {
+      "file": "built-in-types/types/cell.json"
+    },
+    {
+      "file": "built-in-types/types/component.json"
+    },
+    {
+      "file": "built-in-types/types/context.json"
+    },
+    {
+      "file": "built-in-types/types/eval.json"
+    },
+    {
+      "file": "built-in-types/types/eval-run.json"
+    },
+    {
+      "file": "built-in-types/types/file.json"
+    },
+    {
+      "file": "built-in-types/types/formula.json"
+    },
+    {
+      "file": "built-in-types/types/function.json"
+    },
+    {
+      "file": "built-in-types/types/grant.json"
+    },
+    {
+      "file": "built-in-types/types/grid.json"
+    },
+    {
+      "file": "built-in-types/types/item_history.json"
+    },
+    {
+      "file": "built-in-types/types/object.json"
+    },
+    {
+      "file": "built-in-types/types/pipeline.json"
+    },
+    {
+      "file": "built-in-types/types/pipeline-run.json"
+    },
+    {
+      "file": "built-in-types/types/query.json"
+    },
+    {
+      "file": "built-in-types/types/reference.json"
+    },
+    {
+      "file": "built-in-types/types/relationship.json"
+    },
+    {
+      "file": "built-in-types/types/relationship-type.json"
+    },
+    {
+      "file": "built-in-types/types/subscription.json"
+    },
+    {
+      "file": "built-in-types/types/type.json"
+    },
+    {
+      "file": "built-in-types/types/view.json"
+    }
+  ]
+}

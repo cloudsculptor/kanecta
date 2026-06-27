@@ -1,39 +1,108 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "grantPayload",
-  "type": "object",
-  "required": ["governedItemId", "principal", "permissions"],
-  "additionalProperties": false,
-  "properties": {
-    "governedItemId": {
-      "type": "string",
-      "format": "uuid",
-      "description": "UUID of the item this grant controls."
+  "item": {
+    "id": "89138971-cd16-4c7a-b4cd-669711bfab75",
+    "parentId": "31ef9fcb-636d-4007-b25f-80c1c4f054ef",
+    "type": "type",
+    "typeId": null,
+    "value": "grant",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "An access control grant.",
+      "confidence": "locked"
     },
-    "principal": {
-      "description": "Identity string, namespace path, or { itemId, relation } object (ReBAC).",
-      "oneOf": [
-        { "type": "string" },
-        {
-          "type": "object",
-          "required": ["itemId", "relation"],
-          "additionalProperties": false,
-          "properties": {
-            "itemId": { "type": "string", "format": "uuid", "description": "UUID of the group item." },
-            "relation": { "type": "string", "description": "Relation the principal must hold to itemId (e.g. \"member\")." }
-          }
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "grantPayload",
+      "type": "object",
+      "required": [
+        "governedItemId",
+        "principal",
+        "permissions"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "governedItemId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "UUID of the item this grant controls."
+        },
+        "principal": {
+          "description": "Identity string, namespace path, or { itemId, relation } object (ReBAC).",
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object",
+              "required": [
+                "itemId",
+                "relation"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "itemId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "UUID of the group item."
+                },
+                "relation": {
+                  "type": "string",
+                  "description": "Relation the principal must hold to itemId (e.g. \"member\")."
+                }
+              }
+            }
+          ]
+        },
+        "permissions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "read",
+              "write",
+              "subscribe",
+              "admin"
+            ]
+          },
+          "minItems": 1,
+          "description": "Permissions granted."
+        },
+        "cascade": {
+          "type": "boolean",
+          "description": "When true, grant applies to all descendants of governedItemId."
         }
-      ]
+      }
     },
-    "permissions": {
-      "type": "array",
-      "items": { "type": "string", "enum": ["read", "write", "subscribe", "admin"] },
-      "minItems": 1,
-      "description": "Permissions granted."
-    },
-    "cascade": {
-      "type": "boolean",
-      "description": "When true, grant applies to all descendants of governedItemId."
-    }
+    "sqlSchema": [
+      "-- Built-in type: adapter handles storage natively."
+    ]
   }
 }

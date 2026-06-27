@@ -380,9 +380,9 @@ All provenance, ownership, operational, and bookkeeping fields.
 | Sidecar file map. See <<files-and-sidecars>>.
 
 | `layer`
-| `"system"` \| `"app"` \| `"user"` \| null
+| `"system"` \| `"core"` \| `"app"` \| `"user"` \| null
 | no
-| Which layer of the platform this item belongs to. `system` — core platform infrastructure, bootstrapped by the Kanecta runtime (e.g. root, built-in type definitions, license items). `app` — application-level definitions authored by developers or integrators (e.g. custom types, component definitions, formulas). `user` — items created by end users in normal use. Null is treated as `user`. Used for access control defaults, UI filtering, and determining what is safe to wipe during a workspace reset. Note: this field is named `layer` rather than `namespace` to avoid collision with the existing `namespace` org-hierarchy field.
+| Which layer of the platform this item belongs to. `system` — lowest-level bootstrap infrastructure created directly by the bootstrapper (root item, container trees). `core` — built-in platform definitions seeded from the core manifest (built-in type items, built-in relationship-type items). `app` — application-level definitions seeded from an app manifest (Studio components, Studio views, app-defined types). `user` — items created by end users in normal use. Null is treated as `user`. Used for access control defaults, UI filtering, and determining what is safe to wipe during a workspace reset. `system` and `core` items are never deleted by workspace reset — only `app` and `user` items are wiped. Note: this field is named `layer` rather than `namespace` to avoid collision with the existing `namespace` org-hierarchy field. See <<manifests-and-built-in-type-items>>.
 
 | `sourceSystem`
 | string \| null
@@ -659,15 +659,16 @@ For aspect items and payload-less primitives, `parentId` carries the real tree p
 
 These rules are hard constraints enforced at write time by every adapter.
 
-=== Synthetic type items
+[#synthetic-type-items]
+=== Built-in type items
 
-Most built-in types have a corresponding synthetic type item created at datastore initialisation. These items have type `"type"`, `meta.layer: "system"`, and a *globally fixed, pre-assigned UUID* defined in the type's built-in manifest. The UUID is stable across every installation — two datastores on different machines will have the same UUID for the `task` synthetic type item. This global consistency is required for sync: when items from two datastores merge, their `parentId` values must refer to the same type bucket without UUID mapping or translation.
+Most built-in types have a corresponding type item — an item of type `"type"` — that acts as the canonical parent bucket for all items of that type. These items carry `meta.layer: "core"` and a *globally fixed, pre-assigned UUID* defined in the core manifest. The UUID is stable across every installation — two datastores seeded from the same version of Kanecta will always have the same UUID for the `task` type item. This global consistency is a sync requirement: when items from two datastores merge, their `parentId` values must refer to the same type bucket without UUID translation or mapping tables.
 
-The manifest for each built-in type ships with the adapter and seeds these items idempotently on datastore initialisation. If a synthetic type item already exists with the correct UUID, the seed is a no-op.
+Built-in type items are seeded idempotently at datastore initialisation from the core manifest. If a type item already exists with the correct UUID, the seed is a no-op. See <<manifests-and-built-in-type-items>> for the full mechanism, UUID registry, and seed file format.
 
-Built-in types with synthetic type items: `action`, `agent`, `alias`, `annotation`, `aspect-type`, `cell`, `claim`, `component`, `concept`, `context`, `decision`, `entity`, `eval`, `eval-run`, `event`, `file`, `formula`, `function`, `grant`, `grid`, `item_history`, `activity`, `note`, `object`, `pipeline`, `pipeline-run`, `query`, `question`, `reference`, `relationship`, `relationship-type`, `runner`, `subscription`, `symlink`, `task`, `tree`, `view`.
+Built-in types with type items (37 total): `action`, `agent`, `alias`, `annotation`, `aspect-type`, `cell`, `claim`, `component`, `concept`, `context`, `decision`, `entity`, `eval`, `eval-run`, `event`, `file`, `formula`, `function`, `grant`, `grid`, `item_history`, `activity`, `note`, `object`, `pipeline`, `pipeline-run`, `query`, `question`, `reference`, `relationship`, `relationship-type`, `runner`, `subscription`, `symlink`, `task`, `tree`, `view`.
 
-NOTE: The payload-less primitive types — `string`, `number`, `text`, `heading`, `url` — do *not* have synthetic type items. These types are content items that live directly under their parent in the tree. Creating a synthetic type bucket for bare strings or numbers would produce a meaningless collection of decontextualised values. Their `parentId` is always their actual tree parent.
+NOTE: The payload-less primitive types — `string`, `number`, `text`, `heading`, `url` — do *not* have type items. These types are content items that live directly under their parent in the tree. Creating a type bucket for bare strings or numbers would produce a meaningless collection of decontextualised values. Their `parentId` is always their actual tree parent.
 
 === Aspects
 
@@ -3857,6 +3858,198 @@ Create the `root` item (self-referencing, all-zeros UUID). Then the bootstrapper
 TIP: *Postgres* — insert root in its own `BEGIN ... COMMIT` transaction with `ON CONFLICT (id) DO NOTHING` for idempotence. Each migration that changes the schema bumps `schema_version` via upsert.
 
 TIP: *SQLite* — use WAL mode (`PRAGMA journal_mode = WAL`) for concurrent reads during writes. Set `PRAGMA synchronous = NORMAL` for a safe balance of durability and performance. Run `PRAGMA optimize` periodically to update query planner statistics.
+
+[#manifests-and-built-in-type-items]
+== Manifests and Built-in Type Items
+
+A *manifest* is a JSON file that declares which items a package wants seeded into the datastore on startup. Manifests replace the old "synthetic type" concept — in 1.4.0, every built-in type item is a real item.json file with a fixed UUID, declared in a manifest, seeded idempotently. There are no code-generated type buckets and no special cases in the adapter.
+
+The reason this matters: a Kanecta item's `parentId` is what anchors it in the tree and identifies its type bucket. If two datastores have different UUIDs for the `task` type item, then task items from one datastore cannot merge into the other without a UUID translation table — which would break the append-only, conflict-free sync model. Fixed UUIDs in manifests eliminate this class of sync failure entirely. Once assigned, a built-in type item UUID is permanent and can never be changed, because every item of that type in every datastore in the world carries it as `parentId`.
+
+The distinction between `system` layer (root, container trees) and `core` layer (manifest-seeded built-in type items) reflects how they are created. Root and the container trees are created by the bootstrapper in code and have no seed files — they are infrastructure. Core type items are created from manifest seed files, exactly like user-defined types, and are visible to the same queries and tooling as everything else.
+
+=== Bootstrap items (system layer)
+
+The bootstrapper creates a small fixed set of items before manifests are processed. These carry `meta.layer: "system"` and have fixed UUIDs. They are not in any manifest file — they are hardcoded in the bootstrapper because manifests need a tree to live under before they can be loaded.
+
+[cols="2,3,1", options="header"]
+|===
+| Item | Role | UUID
+
+| `root`
+| The top-level item for the entire datastore. Self-referencing (`parentId = id`). Only item where `parentId == id`.
+| `00000000-0000-0000-0000-000000000000`
+
+| `types-tree`
+| Container tree for all type items (built-in and user-defined). `parentId` of every type item.
+| `31ef9fcb-636d-4007-b25f-80c1c4f054ef`
+
+| `system-tree`
+| Container tree for system-layer items other than root and types. Used for internal platform items.
+| `b12ea765-bd19-45b2-a2f6-6fd4f7387285`
+
+| `app-tree`
+| Container tree for app-layer items seeded from app manifests (Studio components, app-defined views).
+| `f2106065-f1eb-42f4-b8ef-d9dc3e108c07`
+|===
+
+These four UUIDs are the only ones hardcoded in the bootstrapper. Everything else comes from manifests or from user data.
+
+=== Manifest file format
+
+A manifest is a `kanecta.manifest.json` file in the root of a package. The adapter reads manifests at startup before accepting any item writes. The core manifest lives in `kanecta-core/kanecta-specification/1.4.0/built-in-types/`. App packages each have their own `kanecta.manifest.json`.
+
+[source,json]
+----
+{
+  "schemaVersion": "1.4.0",
+  "package": "kanecta-core",
+  "layer": "core",
+  "items": [
+    { "file": "built-in-types/types/task.json" },
+    { "file": "built-in-types/types/note.json" },
+    { "file": "built-in-types/types/pipeline.json" }
+  ]
+}
+----
+
+Fields:
+
+[cols="1,3", options="header"]
+|===
+| Field | Meaning
+
+| `schemaVersion`
+| The Kanecta spec version this manifest targets. Adapter rejects manifests from incompatible versions.
+
+| `package`
+| Name of the package declaring this manifest. Used in error messages and the seeded item's `meta.seededFrom` field.
+
+| `layer`
+| `"core"` or `"app"`. All items seeded from this manifest receive this layer value. The adapter rejects `"system"` — bootstrap items are not managed via manifests.
+
+| `items[]`
+| Array of seed item file references. `file` is a path relative to the manifest file's own location.
+|===
+
+=== Seed item format
+
+A seed item file is a standard 1.4.0 item.json with two constraints: `id` must be the pre-assigned fixed UUID (never generated at seed time), and `parentId` must resolve to an item that exists in the datastore before this item is seeded. Manifests are processed in declaration order, so items can depend on earlier items in the same manifest — or on bootstrap items, which are always present.
+
+[source,json]
+----
+{
+  "id": "0735e3c3-ce28-406c-850a-c9e20be70231",
+  "type": "type",
+  "parentId": "31ef9fcb-636d-4007-b25f-80c1c4f054ef",
+  "value": "task",
+  "meta": {
+    "layer": "core",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "confidence": "locked"
+  },
+  "payload": {}
+}
+----
+
+The `payload` on a built-in type seed item is intentionally empty (`{}`). The payload for built-in types is defined by the type's JSON schema in `built-in-types/types/<name>.json`, not by the seed item. The seed item's role is to establish the fixed-UUID parent bucket and the `value` (type name). User-defined type items, by contrast, carry a full `typePayload` in their `payload` field because their schema is stored in the item, not in a spec file.
+
+The adapter adds `meta.seededFrom` (package name) and `meta.seededAt` (ISO 8601 timestamp) after seeding. These fields are informational and not in the seed file itself.
+
+=== UUID registry
+
+All fixed UUIDs in Kanecta are UUID v4, generated once and recorded here. They are not algorithmically derived — they are permanent assignments. This table is the single source of truth. Any constant in code, any migration script, any test fixture that embeds one of these UUIDs is derived from this table; if there is ever a discrepancy, this table wins.
+
+These UUIDs can never be changed without a global migration of every `parentId` field that references them across every datastore in the world. Treat them as immutable physical constants.
+
+.Built-in type item UUIDs (all have `parentId = 31ef9fcb-636d-4007-b25f-80c1c4f054ef` — the types-tree)
+[cols="2,3", options="header"]
+|===
+| Type name | Fixed UUID
+
+| `action`            | `1ab2a990-c2cf-4b91-aace-588c66b0a78b`
+| `activity`          | `2033f23f-f1d6-43bb-b74e-f62e96251df7`
+| `agent`             | `e5d3fad0-5123-46cc-a827-80954f7f96b2`
+| `alias`             | `80f95b21-6c51-43b5-bdfb-35aad8991c7a`
+| `annotation`        | `8797b002-091a-4289-abf0-850d4b05a743`
+| `aspect-type`       | `45bc6fbe-aa63-41be-8566-7217a9a15ece`
+| `cell`              | `42561614-32d6-4c01-93c8-2f6e023ad19f`
+| `claim`             | `8e3374c0-c891-467f-b997-cc706914cecf`
+| `component`         | `fab55d91-6975-422a-9398-2b16f72bc805`
+| `concept`           | `bae6304f-eac9-4fb8-ae4c-4c6505401387`
+| `context`           | `bd48218a-1c21-4c8e-ac0e-9ea026f2cf4d`
+| `decision`          | `983527aa-8783-4eeb-b0ad-a7c320a1476e`
+| `entity`            | `cdf05c6e-54a4-431d-a76c-f81468f49eed`
+| `eval`              | `2aca4d8b-ec15-4e95-9dcd-78a97b30e321`
+| `eval-run`          | `ddb8b941-8e44-49f8-acd6-614495ac968e`
+| `event`             | `be4c7d08-a061-4631-b41e-defb07559e95`
+| `file`              | `c0f603f1-a3ac-4a7d-b9ac-983822c7304f`
+| `formula`           | `d605ed1b-2c53-44a0-b4ac-3a307b61e82a`
+| `function`          | `3672b0ca-e81f-44b0-92e8-1b3253cbf38a`
+| `grant`             | `89138971-cd16-4c7a-b4cd-669711bfab75`
+| `grid`              | `35b535ad-520d-4570-9a71-b49514e9ae67`
+| `item_history`      | `b81923c7-ecf5-4fef-8588-2d91c3985aea`
+| `note`              | `24dec6ba-d59a-4edf-87c5-9e42e5430d5c`
+| `object`            | `2f866767-7a54-4eb4-a581-8207fafee8c1`
+| `pipeline`          | `90bdc2b2-0963-4ec9-a37c-4b42f724752d`
+| `pipeline-run`      | `ddf28c53-d691-434b-9bcf-bd1997558ad1`
+| `query`             | `1c23396d-c3a0-4f51-9307-a1aecd1f44fa`
+| `question`          | `c6b22329-3521-48f6-a84a-342c69a5fbf7`
+| `reference`         | `cb120719-5a23-4b4f-b614-898f79f1904f`
+| `relationship`      | `334ea5f6-6bfa-43e5-b77f-5d811642d897`
+| `relationship-type` | `15861dd7-e54c-4209-bceb-bdd65de4f472`
+| `runner`            | `bf3592de-7509-486e-ac67-8abfb8a7104b`
+| `subscription`      | `cf066390-a599-4dbe-bc20-491de885cb18`
+| `symlink`           | `9e733cbc-1d2e-4e33-8f0e-9024b5867a64`
+| `task`              | `0735e3c3-ce28-406c-850a-c9e20be70231`
+| `tree`              | `f77bf291-2a0f-4875-92e5-98f6315c9b30`
+| `type`              | `abbd7b52-92aa-4fca-b458-d9c4e1a60061`
+| `view`              | `cfba24ea-be40-46ba-b4db-e15a55af4392`
+|===
+
+NOTE: `type` — the meta-type — has a UUID like any other built-in type. It is seeded from the manifest as a type item with `parentId = types-tree`. User-defined type items also have `parentId = types-tree` (they live alongside the built-in type items, not under the type-type item). The `type` type item UUID is only used by tooling that needs to locate the type item for the type type itself (rare; most code works with type items by querying `item.type == "type"`). It is not used as a `parentId` by other items.
+
+=== Seeding algorithm
+
+The adapter runs the seeding algorithm once at startup, after bootstrapping root and the container trees but before accepting any external item writes.
+
+[source]
+----
+For each manifest registered with the adapter (core first, then apps):
+  Parse manifest.json. Reject if schemaVersion does not match running adapter version.
+  For each item declaration in manifest.items[]:
+    Load the seed item.json file.
+    Validate: id must be non-empty UUID; parentId must exist in datastore.
+    If an item with this id already exists in the datastore → skip (no-op).
+    Otherwise: write the item.
+      Set meta.layer from the manifest's layer field.
+      Set meta.seededFrom to the manifest's package name.
+      Set meta.seededAt to the current UTC timestamp.
+      Do not trigger subscriptions or write item_history for this write.
+----
+
+The skip-if-exists check is keyed on `id`, not on `value` or any other field. If a built-in type item with the correct UUID already exists — even if its `value` or `payload` has been modified by a user — the seed is still skipped. This policy preserves user customisations. If a built-in type item must be forcibly reset (e.g. after a corrupted init), the caller must delete it first and re-run the adapter.
+
+Manifests are always idempotent: running them ten times on a populated datastore has the same result as running them once on an empty one. This means the adapter can safely process manifests on every startup without checking whether it has run them before.
+
+=== App manifests
+
+Any package that ships items to be seeded declares a `kanecta.manifest.json` at its package root. The adapter discovers app manifests via the `manifests` array in `config.json`:
+
+[source,json]
+----
+{
+  "manifests": [
+    "../kanecta-apps/kanecta-app-studio/kanecta.manifest.json"
+  ]
+}
+----
+
+Paths are relative to the `config.json` file. The core manifest is always processed first and does not need to be listed — it is implicit. App manifests are processed in the order declared; within a manifest, items are processed in declaration order. An app manifest must not declare items with the same UUID as an item in the core manifest or in another app manifest already processed — duplicate UUIDs are a startup error.
+
+App manifest items carry `meta.layer: "app"`. They live in the `app-tree` by default, though individual seed items can use a different `parentId` if the target container already exists. For example, Studio component items use the `component` type item UUID as their `parentId`, not the `app-tree`, because they are components, not arbitrary app items.
+
+The `layer: "app"` distinction matters for workspace reset: a reset wipes `user` and `app` items but preserves `system` and `core` items. App items are re-seeded on the next startup. This means Studio components, built-in views, and other app-level items are always recoverable by re-running the adapter — they never need to be backed up separately.
 
 == Constraints
 

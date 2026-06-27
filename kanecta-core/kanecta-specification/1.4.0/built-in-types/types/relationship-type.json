@@ -1,27 +1,77 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "relationshipTypePayload",
-  "$comment": "relationship-type items use typePayload extended with directional and inverse meta fields.",
-  "allOf": [
-    { "$ref": "./type.json" },
-    {
-      "type": "object",
-      "properties": {
-        "meta": {
+  "item": {
+    "id": "15861dd7-e54c-4209-bceb-bdd65de4f472",
+    "parentId": "31ef9fcb-636d-4007-b25f-80c1c4f054ef",
+    "type": "type",
+    "typeId": null,
+    "value": "relationship-type",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "Defines a relationship vocabulary entry.",
+      "confidence": "locked"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "relationshipTypePayload",
+      "$comment": "relationship-type items use typePayload extended with directional and inverse meta fields.",
+      "allOf": [
+        {
+          "$ref": "./type.json"
+        },
+        {
           "type": "object",
           "properties": {
-            "directional": {
-              "type": "boolean",
-              "description": "Whether the relationship has direction (source → target). false means the relationship is symmetric."
-            },
-            "inverse": {
-              "type": ["string", "null"],
-              "format": "uuid",
-              "description": "UUID of the paired inverse relationship-type item (e.g. depends-on ↔ enables). null for self-inverse types like relates-to."
+            "meta": {
+              "type": "object",
+              "properties": {
+                "directional": {
+                  "type": "boolean",
+                  "description": "Whether the relationship has direction (source \u2192 target). false means the relationship is symmetric."
+                },
+                "inverse": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid",
+                  "description": "UUID of the paired inverse relationship-type item (e.g. depends-on \u2194 enables). null for self-inverse types like relates-to."
+                }
+              }
             }
           }
         }
-      }
-    }
-  ]
+      ]
+    },
+    "sqlSchema": [
+      "-- Built-in type: adapter handles storage natively."
+    ]
+  }
 }

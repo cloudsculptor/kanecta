@@ -1,22 +1,71 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "componentPayload",
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "description": {
-      "type": "string",
-      "description": "What this component renders."
+  "item": {
+    "id": "fab55d91-6975-422a-9398-2b16f72bc805",
+    "parentId": "31ef9fcb-636d-4007-b25f-80c1c4f054ef",
+    "type": "type",
+    "typeId": null,
+    "value": "component",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "A React component definition.",
+      "confidence": "locked"
     },
-    "props": {
-      "type": "array",
-      "items": { "$ref": "function.json#/definitions/parameterOrProp" },
-      "description": "Component props. Use the same parameterOrProp definition as function parameters — including functionId for callback props."
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "componentPayload",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "What this component renders."
+        },
+        "props": {
+          "type": "array",
+          "items": {
+            "$ref": "function.json#/definitions/parameterOrProp"
+          },
+          "description": "Component props. Use the same parameterOrProp definition as function parameters \u2014 including functionId for callback props."
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "npm packages required by this component."
+        }
+      }
     },
-    "dependencies": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "npm packages required by this component."
-    }
+    "sqlSchema": [
+      "-- Built-in type: adapter handles storage natively."
+    ]
   }
 }
