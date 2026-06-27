@@ -650,6 +650,7 @@ All other top-level groupings (system layer, app layer, data layer, etc.) are or
 . *User-defined objects* (`type: "object"`) → `parentId` = their custom type item UUID (`item.typeId`). They live in the type's collection.
 . *All other built-in typed items* → `parentId` = the synthetic type item for that built-in type, bootstrapped at datastore initialisation.
 . *Additional-tree nodes* (`type: "node"`) → `parentId` = parent node UUID, or tree item UUID for root-level nodes.
+. *Grid cells* (`type: "cell"`) → `parentId` = the grid item UUID. Cells live under their grid, not under the synthetic `cell` type item. This is the same exception as `node` — placement items belong to their container, not to a type bucket.
 ====
 
 For structured built-in types (grant, alias, relationship, subscription, item_history, activity, etc.), the semantic relationship to another item is *always carried in the payload*, never encoded in `parentId`. A `grant` item's `governedItemId` says what it governs. An `alias` item's `targetId` says what it aliases. `parentId` says only one thing for these items: which type they belong to.
@@ -660,9 +661,11 @@ These rules are hard constraints enforced at write time by every adapter.
 
 === Synthetic type items
 
-Most built-in types have a corresponding synthetic type item created at datastore initialisation. These items have type `"type"`, `layer: "system"`, and a stable well-known UUID assigned at init (stored in the bootstrapper). They are the canonical homes for all instances of their type.
+Most built-in types have a corresponding synthetic type item created at datastore initialisation. These items have type `"type"`, `meta.layer: "system"`, and a *globally fixed, pre-assigned UUID* defined in the type's built-in manifest. The UUID is stable across every installation — two datastores on different machines will have the same UUID for the `task` synthetic type item. This global consistency is required for sync: when items from two datastores merge, their `parentId` values must refer to the same type bucket without UUID mapping or translation.
 
-Built-in types with synthetic type items: `agent`, `alias`, `annotation`, `aspect-type`, `claim`, `component`, `concept`, `context`, `decision`, `entity`, `eval`, `eval-run`, `event`, `file`, `formula`, `function`, `grant`, `item_history`, `activity`, `note`, `object`, `pipeline`, `pipeline-run`, `question`, `reference`, `relationship`, `relationship-type`, `runner`, `subscription`, `symlink`, `task`, `tree`, `view`.
+The manifest for each built-in type ships with the adapter and seeds these items idempotently on datastore initialisation. If a synthetic type item already exists with the correct UUID, the seed is a no-op.
+
+Built-in types with synthetic type items: `agent`, `alias`, `annotation`, `aspect-type`, `cell`, `claim`, `component`, `concept`, `context`, `decision`, `entity`, `eval`, `eval-run`, `event`, `file`, `formula`, `function`, `grant`, `grid`, `item_history`, `activity`, `note`, `object`, `pipeline`, `pipeline-run`, `query`, `question`, `reference`, `relationship`, `relationship-type`, `runner`, `subscription`, `symlink`, `task`, `tree`, `view`.
 
 NOTE: The payload-less primitive types — `string`, `number`, `text`, `heading`, `url` — do *not* have synthetic type items. These types are content items that live directly under their parent in the tree. Creating a synthetic type bucket for bare strings or numbers would produce a meaningless collection of decontextualised values. Their `parentId` is always their actual tree parent.
 
@@ -3550,7 +3553,7 @@ Every datastore contains exactly one reserved item created during initialisation
 * `root` is a singleton — exactly one instance per datastore.
 * `root` is the only item whose `parentId` equals its own `id`.
 
-The root node's `payload` is the datastore's configuration record. There is no separate `config.json` file — configuration lives in the item graph alongside everything else, versioned by Git and queryable like any other item. See <<rootPayload>>.
+The root node's `payload` is the datastore's configuration record. There is no separate `config.json` file — configuration lives in the item graph alongside everything else, versioned and queryable like any other item. See <<rootPayload>>.
 
 Everything else — system layer, app layer, component trees — is created by the bootstrapper as ordinary `tree` items, children of root. Access separation is enforced by `grant` items on those trees. What the bootstrapper creates is a deployment decision, not a spec constraint.
 
