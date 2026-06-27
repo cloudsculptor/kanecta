@@ -1757,7 +1757,15 @@ The following five primitives cover every realistic multi-agent workflow pattern
 
 An `"agent"` item declares who executes a pipeline phase. It is not an invocation — it is a reusable definition of a model, system prompt, tool set, and configuration. Multiple pipelines can reference the same agent. Agents carry `meta.confidence` like any other item — promoting an agent to `"decided"` signals that its system prompt and tool set have been reviewed and are stable.
 
-The `runtime` field in `agentPayload` is an open string. The canonical values are model identifiers (e.g. `"claude-sonnet-4-6"`, `"claude-opus-4-8"`). The special value `"kanecta-function"` invokes a Kanecta `function` item directly via the kanecta-sdk rather than calling an external model. This makes a function-based phase — one that does deterministic computation — a first-class pipeline participant. A function-based phase can call `sdk.ai.complete()` for AI reasoning and `sdk.items.create()` for deterministic writes in the same execution unit, fully tracked in `itemsProduced`.
+The `runtime` field in `agentPayload` is an open string. The canonical values are:
+
+- `"claude-api"` — direct API call to an Anthropic model, managed by the runner
+- `"claude-code"` — Claude Code CLI invoked as a subprocess
+- `"python"` — a Python script
+- `"kanecta-function"` — executes a Kanecta `function` item directly via kanecta-sdk; a function-based phase can call `sdk.ai.complete()` for AI reasoning and `sdk.items.create()` for deterministic writes in the same execution unit, fully tracked in `itemsProduced`
+- `"group-chat"` — runs a structured multi-agent deliberation between a declared set of participant agents before producing items
+
+The `"group-chat"` runtime is the Kanecta answer to AutoGen-style collaborative agent patterns. Instead of a single model analysing a finding, a panel of agents with different roles and models deliberates — challenging each other's reasoning, surfacing edge cases, and reaching a consensus before any items are written. From the pipeline's point of view the phase is identical to any other: it has a `confidenceGate`, `loopBack`, `forEach`, and `pauseAfter` exactly like a single-model phase. The deliberation is internal to the agent; the pipeline sees only the items the group produces.
 
 Escalation between agents is built in: set `fallbackAgentId` on any phase to a higher-capability agent (typically a larger model). If the primary agent tags any of its output items with `"escalate"`, the runner re-runs the phase with the fallback agent. The primary agent self-assesses — it decides whether it is confident enough to proceed or whether it needs a second opinion. This is more reliable than external confidence thresholds because the model has access to its own uncertainty signals.
 
@@ -1821,6 +1829,10 @@ The agent carries the *who* of execution: identity, runtime, and capability. The
 
 `item.value` on the agent item is the agent's display name (e.g. `"Audit Agent — Sonnet"`, `"Implementation Agent"`).
 
+Two examples follow — a standard single-model agent and a group-chat agent.
+
+*Single-model agent:*
+
 [source,json]
 ----
 {
@@ -1835,32 +1847,70 @@ The agent carries the *who* of execution: identity, runtime, and capability. The
 }
 ----
 
+*Group-chat agent (multi-model deliberation):*
+
+[source,json]
+----
+{
+  "runtime": "group-chat",
+  "model": null,
+  "systemPrompt": "You are a panel of UI auditors reaching a consensus verdict on findings. Challenge each other's reasoning — do not agree for the sake of agreement. A finding only reaches the output if at least two panel members endorse it with high confidence.",
+  "tools": ["kanecta_add_item", "kanecta_conclude_discussion"],
+  "config": {
+    "participants": [
+      "<audit-sonnet-uuid>",
+      "<audit-opus-uuid>",
+      "<devil-advocate-uuid>"
+    ],
+    "maxTurns": 12,
+    "terminationCondition": "explicit",
+    "outputAgent": null
+  }
+}
+----
+
 [cols="1,1,2", options="header"]
 |===
 | Field | Required | Description
 
 | `runtime`
 | yes
-| Identifies the execution environment. Known values: `"claude-code"` (Claude Code CLI, invoked as a subprocess), `"claude-api"` (direct Anthropic API call managed by the runner), `"python"` (Python script). Open string — new runtimes can be added without spec changes; the runner resolves runtime names to adapter implementations.
+| Identifies the execution environment. Known values:
+`"claude-api"` — direct Anthropic API call managed by the runner.
+`"claude-code"` — Claude Code CLI, invoked as a subprocess.
+`"python"` — Python script.
+`"kanecta-function"` — executes a Kanecta `function` item via kanecta-sdk. See note below.
+`"group-chat"` — runs a structured multi-agent conversation between `config.participants`. Agents take turns in round-robin order. See note below.
+Open string — new runtimes can be added without spec changes; the runner resolves runtime names to adapter implementations.
 
 | `model`
 | no
-| Model identifier for API-based runtimes (e.g. `"claude-sonnet-4-6"`, `"claude-opus-4-8"`). Null for runtimes that manage model selection themselves (e.g. `"claude-code"`). When null and the runtime requires a model, the runner applies its configured default.
+| Model identifier for API-based runtimes (e.g. `"claude-sonnet-4-6"`, `"claude-opus-4-8"`). Null for runtimes that manage model selection themselves (`"claude-code"`, `"group-chat"`). When null and the runtime requires a model, the runner applies its configured default.
 
 | `systemPrompt`
 | no
-| Base system prompt defining this agent's identity, role, and general behaviour. Combined with the pipeline phase `instructions` at run time — the system prompt sets up who the agent is; the phase instructions set up what it should do in this specific pipeline context. Null defers entirely to the runtime's default system prompt.
+| Base system prompt defining this agent's identity, role, and general behaviour. Combined with the pipeline phase `instructions` at run time — the system prompt sets up who the agent is; the phase instructions set up what it should do in this specific pipeline context. For `"group-chat"` runtime this is the *facilitator prompt* — it frames the conversation and sets the rules of engagement for participants; each participant agent's own `systemPrompt` drives their individual voice. Null defers entirely to the runtime's default system prompt.
 
 | `tools`
 | no
-| Array of MCP tool names this agent can access. Restricting tools is a safety measure — a read-only analysis agent should not have `kanecta_delete`; an implementation agent should not reach production datastores. Null means all tools available in the current MCP context are accessible.
+| Array of MCP tool names this agent can access. Restricting tools is a safety measure — a read-only analysis agent should not have `kanecta_delete`; an implementation agent should not reach production datastores. For `"group-chat"` agents, include `kanecta_conclude_discussion` if using `terminationCondition: "explicit"`. Null means all tools available in the current MCP context are accessible.
 
 | `config`
 | no
-| Runtime-specific configuration. For `"claude-api"`: `max_tokens`, `temperature`, `top_p`. For `"claude-code"`: `working_directory`, `env`. For `"python"`: `script_path`, `interpreter`. For `"kanecta-function"`: `functionId` (UUID of the function item to execute). Structure is determined by the runtime adapter — the spec does not constrain it. Null means runtime defaults apply.
+| Runtime-specific configuration. Structure is determined by the runtime adapter — the spec does not constrain it beyond the known runtimes documented here. Null means runtime defaults apply.
+For `"claude-api"`: `max_tokens`, `temperature`, `top_p`.
+For `"claude-code"`: `working_directory`, `env`.
+For `"python"`: `script_path`, `interpreter`.
+For `"kanecta-function"`: `functionId` (UUID of the function item to execute).
+For `"group-chat"`: `participants` (array of agent UUIDs, required), `maxTurns` (integer, default 10, hard cap on total turns regardless of termination condition), `terminationCondition` (`"explicit"` or `"max-turns"` — see note below), `outputAgent` (UUID of the agent that writes final items after `"max-turns"` termination; null for `"explicit"` termination where the concluding agent writes its own items).
 |===
 
 NOTE: `runtime: "kanecta-function"` executes a Kanecta `function` item directly via the kanecta-sdk, rather than invoking an external process. The runner provides the function with a pre-scoped sdk client that automatically tags all created items with `meta.sourceRunId` (the pipeline run UUID) and adds their UUIDs to the phase's `itemsProduced` list. This means a function-based phase can call `sdk.ai.complete()` for AI reasoning and `sdk.items.create()` for deterministic writes in the same execution unit — no MCP round-trips, no subprocess overhead. Function params are validated against pipeline params before the run starts. Because the function item is itself a versioned Kanecta item, the pipeline run record captures exactly which function version executed each phase.
+
+NOTE: `runtime: "group-chat"` runs a structured deliberation between multiple agents before producing output. Agents in `config.participants` take turns in round-robin order, each receiving the full conversation transcript as context on every turn. Two termination modes:
+`"explicit"` — the conversation continues until any participant calls `kanecta_conclude_discussion`. That participant then writes the consensus items to the datastore using its normal item-creation tools. The runner treats those items as `itemsProduced` for the phase. No `outputAgent` is needed — whichever agent concluded the discussion is the writer.
+`"max-turns"` — the conversation runs for exactly `maxTurns` turns, then the runner re-invokes `outputAgent` once with the full transcript as context. That agent synthesises the discussion and writes the consensus items.
+In both modes the full conversation transcript is stored as a `body.md` sidecar on the phase's `pipeline-run` item record, so the deliberation is fully inspectable. The `systemPrompt` on the group-chat agent item serves as the facilitator prompt — it frames the rules of the debate; individual participant agents bring their own `systemPrompt` as their voice and perspective. Group-chat agents participate in the full phase model: they have `confidenceGate`, `pauseAfter`, `forEach`, and `loopBack` exactly like single-model phases — the runner does not distinguish at the pipeline level.
 
 [#pipelinePayload]
 === pipelinePayload
