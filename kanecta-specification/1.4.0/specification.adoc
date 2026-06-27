@@ -152,7 +152,7 @@ NOTE: Tree traversal hits only `items`. List rendering hits only `items`. Item o
 
 === The `item` Section
 
-Six fields. Always a short string for `value` (≤255 chars, stored `VARCHAR(255)` in databases).
+Seven fields. Always a short string for `value` (≤255 chars, stored `VARCHAR(255)` in databases).
 
 [cols="1,1,1,2", options="header"]
 |===
@@ -186,16 +186,25 @@ Six fields. Always a short string for `value` (≤255 chars, stored `VARCHAR(255
 | `sortOrder`
 | number \| null
 | no
-| Numeric sort position among siblings, scoped per aspect.
+| Numeric sort position among siblings.
+
+| `aspect`
+| string \| UUID \| null
+| no
+| When non-null, this item is a named dimension (aspect) of its parent. `parentId` then points to the item this is an aspect of — not a type item. A plain string (e.g. `"comments"`, `"joes-version"`) is an informal or unstructured dimension name. A UUID points to an `aspect-type` item that defines the schema and semantics of this dimension, enabling validation and typed queries. Null means this item is not an aspect — its `parentId` follows the normal rules.
 |===
 
 [#parentid-rules]
 ==== parentId Rules
 
-* `parentId` is always required. No item is parentless.
-* The *root* item is self-referencing: `id = parentId = "00000000-0000-0000-0000-000000000000"` (the well-known all-zeros UUID).
-* *Typed objects* (`type: "object"`) use their type item's UUID as `parentId` — they live in the type's collection. Symlinks place them in the user-facing tree wherever needed.
-* *Free-form items* use their tree parent's UUID.
+`parentId` is always required. No item is parentless. The value of `parentId` depends on the item's type and whether it carries an `aspect` field:
+
+* *Root* → self-referencing: `id = parentId = "00000000-0000-0000-0000-000000000000"`.
+* *Aspect items* (`aspect` is non-null) → `parentId` = UUID of the item this is a named dimension of.
+* *Payload-less primitives* (`string`, `number`, `text`, `heading`, `url`) → `parentId` = their actual parent in the tree. These are content items — they have no type bucket and no synthetic type item.
+* *User-defined objects* (`type: "object"`) → `parentId` = their custom type item UUID (`item.typeId`).
+* *All other built-in typed items* → `parentId` = the synthetic type item for that built-in type, bootstrapped at datastore initialisation.
+* *Additional-tree nodes* (`type: "node"`) → `parentId` = parent node UUID, or tree item UUID for root-level nodes.
 * Circular `parentId` chains (other than the root self-reference) are not permitted.
 
 TIP: *Postgres* — the self-referential FK on `items(parent_id)` must be `DEFERRABLE INITIALLY DEFERRED` so root can be inserted in a single transaction. `CONSTRAINT fk_items_parent FOREIGN KEY (parent_id) REFERENCES items(id) DEFERRABLE INITIALLY DEFERRED`
@@ -552,7 +561,7 @@ Types with defined semantic intent.
 | `contextPayload` (required)
 
 | `reference`
-| A declared dependency on a UUID that exists outside the item graph — physical (engraved on machinery, printed on a label, QR code), external system, function argument, or function output. `payload.blockDeletion: true` prevents deletion of the target until this reference is resolved. Lives under the referenced item in the `"references"` aspect. Structural references (inline `[[uuid]]` links, payload UUID fields, `parentId`) are tracked automatically in the `item_references` derived index; `reference` items cover declared and manual cases.
+| A declared dependency on a UUID that exists outside the item graph — physical (engraved on machinery, printed on a label, QR code), external system, function argument, or function output. `payload.blockDeletion: true` prevents deletion of the target until this reference is resolved. `parentId` is the synthetic reference type item UUID (universal rule); `payload.targetId` identifies the item being depended on. Structural references (inline `[[uuid]]` links, payload UUID fields, `parentId`) are tracked automatically in the `item_references` derived index; `reference` items cover declared and manual cases.
 | `referencePayload` (required)
 
 | `subscription`
@@ -590,35 +599,52 @@ All other top-level groupings (system layer, app layer, data layer, etc.) are or
 
 [IMPORTANT]
 ====
-Every item's `parentId` is the UUID of its *type item*. No exceptions. You should never need to ask "where does this item go?" — the answer is always its type.
+`parentId` is always required. The value depends on which of the following cases applies — in priority order:
 
-* *User-defined objects* (`type: "object"`) → `parentId` = their custom type item UUID (`item.typeId`).
-* *Built-in type instances* → `parentId` = the synthetic type item for that built-in type, bootstrapped at datastore initialisation.
-* *Root* → self-referencing: `parentId = id = 00000000-0000-0000-0000-000000000000`.
-* *Additional-tree nodes* (`type: "node"`) → `parentId` = parent node UUID, or tree item UUID for root-level nodes. Tree positioning is the one structural exception — node items are pointers, not data.
+. *Root* → self-referencing: `parentId = id = 00000000-0000-0000-0000-000000000000`.
+. *Aspect items* (`item.aspect` is non-null) → `parentId` = UUID of the item this is a named dimension of. The aspect field, not the type, governs parentId for these items.
+. *Payload-less primitives* (`string`, `number`, `text`, `heading`, `url`) → `parentId` = their actual parent in the tree. These are content items — a string field of a task lives under that task. There is no type bucket for bare primitive values and no synthetic type item for these types.
+. *User-defined objects* (`type: "object"`) → `parentId` = their custom type item UUID (`item.typeId`). They live in the type's collection.
+. *All other built-in typed items* → `parentId` = the synthetic type item for that built-in type, bootstrapped at datastore initialisation.
+. *Additional-tree nodes* (`type: "node"`) → `parentId` = parent node UUID, or tree item UUID for root-level nodes.
 ====
 
-The semantic relationship between an item and what it relates to is *always carried in the payload*, never encoded in `parentId`. A `grant` item's `governedItemId` says what it governs. An `alias` item's `targetId` says what it aliases. An `item_history` item's `targetId` says what item it is a snapshot of. `parentId` says only one thing: which type this item belongs to.
+For structured built-in types (grant, alias, relationship, subscription, item_history, activity, etc.), the semantic relationship to another item is *always carried in the payload*, never encoded in `parentId`. A `grant` item's `governedItemId` says what it governs. An `alias` item's `targetId` says what it aliases. `parentId` says only one thing for these items: which type they belong to.
 
-This rule is a hard constraint enforced at write time by every adapter.
+For aspect items and payload-less primitives, `parentId` carries the real tree position directly — there is no indirection through a type.
+
+These rules are hard constraints enforced at write time by every adapter.
 
 === Synthetic type items
 
-Every built-in type has a corresponding synthetic type item created at datastore initialisation. These items have type `"type"`, `layer: "system"`, and a stable well-known UUID assigned at init (stored in the bootstrapper). They are the canonical homes for all instances of their type.
+Most built-in types have a corresponding synthetic type item created at datastore initialisation. These items have type `"type"`, `layer: "system"`, and a stable well-known UUID assigned at init (stored in the bootstrapper). They are the canonical homes for all instances of their type.
 
-Built-in types with synthetic type items: `alias`, `annotation`, `claim`, `component`, `concept`, `context`, `decision`, `entity`, `event`, `file`, `formula`, `function`, `grant`, `heading`, `item_history`, `activity`, `note`, `number`, `object`, `question`, `reference`, `relationship`, `relationship-type`, `runner`, `string`, `subscription`, `symlink`, `task`, `text`, `tree`, `url`, `view`.
+Built-in types with synthetic type items: `alias`, `annotation`, `aspect-type`, `claim`, `component`, `concept`, `context`, `decision`, `entity`, `event`, `file`, `formula`, `function`, `grant`, `item_history`, `activity`, `note`, `object`, `question`, `reference`, `relationship`, `relationship-type`, `runner`, `subscription`, `symlink`, `task`, `tree`, `view`.
 
-=== Aspects as a view concept
+NOTE: The payload-less primitive types — `string`, `number`, `text`, `heading`, `url` — do *not* have synthetic type items. These types are content items that live directly under their parent in the tree. Creating a synthetic type bucket for bare strings or numbers would produce a meaningless collection of decontextualised values. Their `parentId` is always their actual tree parent.
 
-Aspects are *not a storage concept*. No item has an `aspect` field that encodes its relationship to another item. The word "aspect" describes how the UI *groups and presents* related items when viewing an item — it is a query and rendering concern.
+=== Aspects
 
-When viewing an item, the UI queries for items whose payload references this UUID (via `governedItemId`, `targetId`, `sourceId`, etc.) and groups them by type. Those groups are called aspects (`"grants"`, `"relationships"`, `"aliases"`, etc.) by convention. Nothing in the data model enforces or stores this grouping.
+An aspect is a named dimension of an item. Any item can be marked as an aspect of its parent by setting the `aspect` field to a non-null value. When `aspect` is set, `parentId` is the UUID of the item this is a dimension of — the aspect item is a direct child of that item in the primary tree.
 
-=== Well-known aspect names (view convention)
+A company procedure might have a `"simplified"` aspect (a trimmed-down version for new starters), a `"joes-version"` aspect (a personal adaptation), a `"financial-costs"` aspect (cost breakdown for finance), and a `"comments"` aspect (discussion). Each of these is a real item — with its own type, its own payload, its own embedding — whose `parentId` is the procedure UUID and whose `aspect` field names the dimension.
+
+The `aspect` field is a string or a UUID:
+
+* *Plain string* — an informal or unstructured dimension name (`"comments"`, `"joes-version"`, `"draft"`). No schema enforced. Good for personal use, unstructured content, or dimensions whose structure is implicit.
+* *UUID* — points to an `aspect-type` item (see <<aspectTypePayload>>). The aspect-type item defines the schema, cardinality rules, and semantics of this dimension, enabling validation and structured queries across all items of a given aspect type. Use this when the dimension has consistent structure across many parents — for example, a `"financial-costs"` aspect-type might define a schema requiring `amount`, `currency`, and `approvedBy` fields.
+
+Because each aspect item is a full Kanecta item, it carries its own `search.embedding`. This makes aspect dimensions queryable in semantic space independently of the parent item's embedding — you can search for "procedures with a financial-costs aspect similar to budget X" by querying the embeddings of financial-costs aspect items directly, without loading the parent procedures. Each named dimension is its own projection of the parent into semantic space.
+
+Any item type can be an aspect: a `note`, an `object` with a user-defined type, a `file`, a `task`. The aspect field is what distinguishes "this is a named dimension of my parent" from "this is a standalone item that happens to be a child."
+
+=== Well-known payload dimension names
+
+The following built-in types use a payload reference field (not the aspect pattern) to associate themselves with another item. The conventional dimension names below are used by tooling and adapters when presenting these associations, but the items themselves live under their synthetic type UUID — not as children of the referenced item.
 
 [cols="1,1,2", options="header"]
 |===
-| Type | Aspect name | Payload field linking back to the viewed item
+| Type | Dimension name | Payload field referencing the associated item
 
 | `grant`
 | `"grants"`
@@ -1187,6 +1213,48 @@ Relationship items coexist with the lighter-weight inline `[[uuid]]` link syntax
 
 TIP: *Postgres* — `payload_relationship` table for efficient graph queries: `CREATE TABLE payload_relationship (id UUID PRIMARY KEY REFERENCES items(id), source_id UUID NOT NULL REFERENCES items(id), target_id UUID NOT NULL REFERENCES items(id), type_id UUID NOT NULL REFERENCES items(id))`. GIN indexes on `source_id` and `target_id` for bidirectional traversal.
 
+[#aspectTypePayload]
+=== aspectTypePayload
+
+For `type: "aspect-type"`. Defines the schema and semantics of a named aspect dimension — the meta-type for structured aspect items, mirroring the role of `relationship-type` for relationship items. When `item.aspect` on an item is a UUID, that UUID must point to an `aspect-type` item.
+
+`item.value` on the aspect-type item is the canonical string name of this dimension (e.g. `"financial-costs"`, `"comments"`, `"simplified"`). This is the string you would use as the plain-string form of `aspect` on informal/unstructured items; the UUID form provides schema enforcement on top of it.
+
+[source,json]
+----
+{
+  "jsonSchema": {
+    "type": "object",
+    "required": ["amount", "currency"],
+    "properties": {
+      "amount":     { "type": "number" },
+      "currency":   { "type": "string" },
+      "approvedBy": { "type": "string" }
+    }
+  },
+  "description": "Financial cost breakdown for this item — amount, currency, and optional approver."
+}
+----
+
+[cols="1,1,2", options="header"]
+|===
+| Field | Required | Description
+
+| `jsonSchema`
+| no
+| JSON Schema object that validates the `payload` of aspect items of this type. Null means no schema enforcement — any payload is accepted. When present, the adapter validates on write and rejects items whose payload does not conform.
+
+| `description`
+| no
+| Human-readable description of what this dimension represents and how it should be used. Captured here so tooling and query results can surface it without loading every aspect item.
+|===
+
+`aspect-type` items live under the synthetic `aspect-type` type item UUID (universal parentId rule). Their `parentId` is never the item they describe — that relationship runs the other way: aspect items' `parentId` points to the item they are a dimension of.
+
+Well-known aspect-type items (e.g. `"comments"`, `"simplified"`, `"draft"`) may be bootstrapped as system items with stable UUIDs. Custom aspect types are user-defined items of type `"aspect-type"` with `layer: "user"` or `layer: "app"`.
+
+TIP: *Postgres* — `CREATE TABLE payload_aspect_type (id UUID PRIMARY KEY REFERENCES items(id), json_schema JSONB, description TEXT)`. To find all aspect items of a given aspect type across all parents: `SELECT * FROM items WHERE aspect = $aspectTypeUUID`. To find all aspect items (both string and UUID forms) for a parent item X: `SELECT * FROM items WHERE parent_id = $x AND aspect IS NOT NULL`.
+
 === grantPayload
 
 For `type: "grant"`. Access control grants. The grant item's `parentId` is the synthetic `grant` type item UUID (the universal rule). The item being governed is identified by `payload.governedItemId` — this is the field that was previously implied by parentId placement.
@@ -1610,11 +1678,108 @@ Items can reference external files via the `meta.files` map — a plain object m
 
 *Multiple files:* A single item can have multiple entries in `files`. A complex component with multiple source files uses additional roles (e.g. `"styles"`, `"utils"`).
 
+=== Sidecar decision rule (content-type determines storage)
+
+Not every item field belongs in `item.json`. The rule is analogous to Postgres TOAST (The Oversized-Attribute Storage Technique): large binary or text content is stored out-of-line as a sidecar, while structured searchable metadata stays in the main document. The same principle applies across all adapters — the `item.json` is always small, fast to index, and human-readable; heavy content lives alongside it in a sidecar (or in equivalent object storage for Postgres/S3 deployments).
+
+The decision of whether to put content in `item.json` or in a sidecar is driven by content type, not item type:
+
+[cols="1,1,2", options="header"]
+|===
+| Content type | Storage location | Reason
+
+| Short string values (`item.value`, payload scalars)
+| `item.json`
+| Always small; needed for indexing, FTS, and rendering list items without reading sidecars.
+
+| Structured payload objects (UUIDs, booleans, numbers, short strings)
+| `item.json`
+| Same — small by design and needed for queries.
+
+| Long prose (document body, markdown, code)
+| Sidecar (`body.md`, `body.ts`, etc.)
+| Unbounded length; not needed for list views; would bloat the index.
+
+| Binary content (images, PDFs, embeddings)
+| Sidecar (`image.png`, `embedding.bin`, etc.)
+| Binary is not JSON-serialisable and can be very large.
+
+| Float32 embedding vector
+| `embedding.bin` sidecar
+| Always exactly `dimensions × 4` bytes; loaded directly into pg_vector or memory without parsing.
+|===
+
+An embedding is never inlined into `item.json` even when it would technically fit — the binary format and specialised access pattern make a sidecar strictly better. The Postgres adapter stores embeddings in a dedicated column (`embedding vector(1536)`) rather than a sidecar file; the adapter translates between representations transparently.
+
 === Adapter Behaviour
 
-* *Filesystem and SQLite adapters* — `files` contains sidecar filenames. Files live alongside `item.json`.
-* *Postgres adapter* — equivalent content is stored inline (body in a column, image in object storage). `files` is omitted from the DB row.
-* *S3 and object storage* — when Postgres is paired with S3, sidecar content is stored under a key derived from the item UUID and role name. The adapter constructs S3 keys deterministically.
+* *Filesystem and SQLite adapters* — `files` contains sidecar filenames. Files live alongside `item.json` in the item's directory. The adapter is responsible for reading and writing sidecars atomically alongside `item.json` (write sidecar first, then `item.json` — see <<Filesystem Adapter Architecture>>).
+* *Postgres adapter* — equivalent content is stored inline where possible (body in a `TEXT` column, structured payload in `JSONB`). Large binary content is stored in object storage (S3, GCS, or similar). `files` is omitted from the DB row; the adapter synthesises the role map from its own internal column layout if a caller needs it.
+* *S3 and object storage* — when Postgres is paired with S3, sidecar content is stored under a deterministic key derived from the item UUID and role name: `<uuid>/<role>.<ext>`. The adapter constructs S3 keys from the `files` map entries and never guesses extensions from content.
+
+[#filesystem-adapter-architecture]
+== Filesystem Adapter Architecture
+
+The filesystem adapter for Kanecta is organised as three cooperating layers, each with a distinct role. The design is deliberately analogous to a CPU cache hierarchy: each layer is faster to access than the layer below it, and the layer below it is more authoritative and durable.
+
+----
+┌─────────────────────────────────────────────────┐
+│  Memory Map (warm cache — volatile)             │  ← fastest, not durable
+├─────────────────────────────────────────────────┤
+│  SQLite index (fast, rebuildable)               │  ← fast, durable, derived
+├─────────────────────────────────────────────────┤
+│  Filesystem (item.json + sidecars)              │  ← authoritative source of truth
+└─────────────────────────────────────────────────┘
+----
+
+=== Layer 1: Filesystem (source of truth)
+
+The filesystem is the only authoritative store. Every item is a directory containing `item.json` and zero or more sidecar files. The filesystem layer has no schema enforced by a database engine — correctness is enforced by the adapter at write time through JSON Schema validation against the spec.
+
+The filesystem layer is what Git tracks. Git branches, commits, and merges operate entirely at the filesystem layer. The other two layers are derived from the filesystem and must never be committed to Git.
+
+Write path: sidecars are written *before* `item.json`. This ordering ensures that if the process crashes between writing a sidecar and writing `item.json`, the partial write is detected on next startup (sidecar exists but `item.json` has not been updated to reference it, or `item.json` is missing entirely). The startup repair routine sweeps for orphaned sidecars and incomplete `item.json` files and resolves them.
+
+=== Layer 2: SQLite index (fast, always rebuildable)
+
+SQLite provides a queryable index over the filesystem layer. It mirrors the structure of the items table — every column that exists in the Postgres adapter also exists in the SQLite index, including JSONB-equivalent columns stored as SQLite JSON. The search index (FTS5 virtual table) and derived payload tables (`payload_relationship`, `payload_grant`, `aliases`) live here.
+
+The SQLite index is *not* the source of truth and *must never* be treated as one. It is fully rebuildable from the filesystem at any time by scanning all `item.json` files and repopulating the index. The rebuild process is deterministic — given the same filesystem contents it produces identical SQLite state.
+
+The SQLite file is named `index.db` and lives in the workspace root alongside the items directory. It is gitignored. On first open, if `index.db` does not exist, the adapter builds it from scratch before serving any requests. On startup after a crash or Git branch switch, the adapter detects that the filesystem and index may have diverged (by comparing the last-modified timestamps of `item.json` files against the SQLite `updated_at` column) and runs a targeted reconcile rather than a full rebuild.
+
+NOTE: A Git branch switch changes the filesystem layer (checkout replaces `item.json` files with a different branch's versions) but does not touch the SQLite index. The adapter must detect this divergence — the simplest approach is storing the current Git HEAD SHA in the SQLite index at write time and comparing it at startup. If the SHAs differ, a full reconcile is required.
+
+=== Layer 3: Memory Map (warm cache, volatile)
+
+The memory layer is an in-process `Map<uuid, Item>` populated on first access and kept warm as long as the process runs. It holds the most recently accessed items — LRU eviction keeps memory use bounded. The memory layer is *not* persisted anywhere. On process restart it is empty and repopulated on demand from SQLite (not from the filesystem directly, unless the SQLite index is stale).
+
+The memory layer exists purely for throughput. Studio renders deep trees that require fetching dozens of items per navigation; without caching, each navigation round-trip would hit SQLite (already fast) but at high frequency. The memory layer eliminates repeated SQLite reads for recently accessed items.
+
+=== Write path summary
+
+When the adapter writes an item:
+
+. Validate the item against the JSON Schema.
+. Write sidecar files to the item directory (if any).
+. Write `item.json` to the item directory.
+. Update the SQLite index — `items` row, FTS index, derived payload tables.
+. Update the memory cache — replace or insert the item in the `Map`.
+
+If any step fails after step 3 (filesystem write succeeded), the adapter logs the failure and schedules a reconcile. The next startup or explicit `kanecta reconcile` call will catch and repair the inconsistency.
+
+=== Read path summary
+
+. Check memory cache. If present and not expired, return immediately.
+. Query SQLite. If found, populate memory cache and return.
+. If SQLite returns nothing (e.g. during a reconcile in progress), fall back to reading `item.json` from the filesystem directly.
+. If `item.json` does not exist, the item does not exist — return null.
+
+The fallback to the filesystem in step 3 is rare in normal operation but essential for correctness during startup and after a Git branch switch before reconcile completes.
+
+=== Rebuildability guarantee
+
+The SQLite index and memory cache are always 100% rebuildable from the filesystem. Any tool, script, or manual operation that reads only the filesystem layer and ignores SQLite/memory is always correct — it will read the same data that the adapter would eventually surface. This property is fundamental to the design: it means the filesystem can be manipulated by Git, rsync, or any other tool without corrupting the authoritative data.
 
 == Search
 
@@ -1819,33 +1984,32 @@ TIP: *Postgres* — types are normalised into a `types` table (1:1 with `items`)
 
 *Status* is a free-form string. Common values: `active`, `archived`, `draft`, `in-progress`, `blocked`.
 
-== Aspects
+=== AI confidence convention
 
-An aspect is a named dimension of an item's children. Every item has a main aspect (`aspect: null`) which is the default tree. Additional aspects are named strings.
+AI-assisted creation introduces a distinct lifecycle for confidence values. When the system or an AI agent creates an item or relationship, the default `confidence` is `"experimental"` — the item is speculative, has not been reviewed by a human, and may change significantly or be deleted outright. This default is intentional: AI-created content should never be silently promoted to a status that implies human endorsement.
 
-Well-known aspect names (by convention):
+The lifecycle for AI-created content:
 
 [cols="1,2", options="header"]
 |===
-| Value | Meaning
+| Confidence | What it means in the AI context
 
-| `null`
-| Main tree (user-visible by default)
+| `experimental`
+| Default for all AI-created items and relationships. The system set this without human review. Treat as draft.
 
-| `"grants"`
-| Access control grant items
+| `exploring`
+| A human has looked at the item and decided it is worth investigating further, but has not committed to keeping it. Human review required to reach this level.
 
-| `"settings"`
-| Configuration items
+| `decided`
+| A human has accepted this item or relationship as a genuine part of the knowledge graph. It can still be changed but is no longer provisional.
 
-| `"archive"`
-| Archived children
-
-| `"relationships"`
-| Relationship items (alternative to tree-position)
+| `locked`
+| A human has explicitly asserted this item or relationship will not change. The strongest human signal available. Never set by the AI — only ever set by a deliberate user action.
 |===
 
-An item belongs to exactly one aspect. `sortOrder` is scoped per aspect. Traversal always targets exactly one aspect.
+NOTE: The confidence field on `relationshipPayload` follows this same convention — AI-inferred relationships default to `"experimental"`. The rule is: anything the machine writes without a human in the loop starts at `experimental`. Everything above `experimental` requires at least one human decision to reach.
+
+The practical implication for the adapter: when ingesting AI output (via MCP, a runner, or an external pipeline), set `confidence: "experimental"` on every item and relationship unless the caller explicitly overrides. Never default AI ingestion to `"decided"` or higher.
 
 == Templates
 

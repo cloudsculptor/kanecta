@@ -21,7 +21,7 @@ const ALL_ITEM_TYPES = new Set([
   'string','number','text','heading','file','symlink','url',
   'formula','function','component','runner','node','tree',
   // structured
-  'type','alias',
+  'type','alias','aspect-type',
   'object','decision','annotation','claim','question','task','note',
   'concept','entity','event','grant','relationship','relationship-type','view','context','reference','subscription','item_history','activity',
   // well-known (the one fixed anchor — see specification.adoc)
