@@ -527,95 +527,111 @@ Types are grouped into three categories.
 
 [cols="1,2,1", options="header"]
 |===
-| Type | Description | Payload
+| Type | Description | Type definition
 
 | `file`
 | Any file-backed content — images, markdown, PDFs, audio, video, code. Replaces the former `image` and `markdown` primitives. Use `payload.mimeType` to distinguish.
-| `filePayload` (required)
+| link:../built-in-types/types/file.json[file.json^]
 
 | `formula`
 | A reusable calculation. Three levels: template string (`"TASK-{n}"`), Excel-like DSL evaluated by formulajs, or a pointer to a `function` item for full programmatic power. Referenced by UUID from wherever a computed value is needed.
-| `formulaPayload` (required)
+| link:../built-in-types/types/formula.json[formula.json^]
 
 | `function`
 | A typed function definition with optional implementation.
-| `functionPayload` (required)
+| link:../built-in-types/types/function.json[function.json^]
 
 | `component`
 | A React component definition.
-| `componentPayload` (required)
+| link:../built-in-types/types/component.json[component.json^]
 
 | `type`
-| A custom type definition. The meta-type — `object` instances live under their type item as their canonical home. Type items themselves live under a bootstrapper-created collection tree under root.
-| `typePayload` (required)
+| A custom type definition. The meta-type — `object` instances live under their type item as their canonical home. Type items live under the types-tree.
+| link:../built-in-types/types/type.json[type.json^]
 
 | `alias`
 | A human-readable string that resolves to a UUID. The alias string lives in `item.value`; lookup is case-insensitive. Distinct from `symlink` — a symlink is a tree-placement item; an alias is a string lookup. Lives under the aliased item as its canonical home. Provisional aliases are computed locally at creation and confirmed as globally unique at merge time.
-| `aliasPayload` (required)
+| link:../built-in-types/types/alias.json[alias.json^]
 
 | `aspect-type`
 | Defines the schema and semantics of a named aspect dimension — the meta-type for aspect items. When `item.aspect` is a UUID, it points to an aspect-type item. `payload.jsonSchema` validates the payload of aspect items of this type.
-| `aspectTypePayload` (required)
+| link:../built-in-types/types/aspect-type.json[aspect-type.json^]
 
 | `object`
 | An instance of a custom type definition. `item.typeId` identifies the type.
-| Free-form object validated against the type's `jsonSchema`.
+| link:../built-in-types/types/object.json[object.json^]
 
 | `grant`
 | An access control grant on the parent item. Lives in the `"grants"` aspect.
-| `grantPayload` (required)
+| link:../built-in-types/types/grant.json[grant.json^]
 
 | `relationship`
 | A typed, first-class relationship between two items. `typeId` points to a `relationship-type` item.
-| `relationshipPayload` (required)
+| link:../built-in-types/types/relationship.json[relationship.json^]
 
 | `relationship-type`
 | Defines a relationship vocabulary entry — the meta-type for relationship instances. Carries `meta.directional` and `meta.inverse` (UUID of the paired inverse). `jsonSchema` validates the `data` payload on instances. Nine canonical instances are bootstrapped as system items.
-| `typePayload` (shared schema with type items)
+| link:../built-in-types/types/relationship-type.json[relationship-type.json^]
 
 | `view`
 | A specific perspective on an item: item + renderer + context. The view UUID is a single pointer to all three. Used for bookmarking, sharing, embedding, and bootstrapping.
-| `viewPayload` (required)
+| link:../built-in-types/types/view.json[view.json^]
 
 | `context`
 | An execution and display environment (runtime + display position + capabilities). First-class item — reusable, versioned, shareable across view bindings.
-| `contextPayload` (required)
+| link:../built-in-types/types/context.json[context.json^]
 
 | `reference`
-| A declared dependency on a UUID that exists outside the item graph — physical (engraved on machinery, printed on a label, QR code), external system, function argument, or function output. `payload.blockDeletion: true` prevents deletion of the target until this reference is resolved. `parentId` is the synthetic reference type item UUID (universal rule); `payload.targetId` identifies the item being depended on. Structural references (inline `[[uuid]]` links, payload UUID fields, `parentId`) are tracked automatically in the `item_references` derived index; `reference` items cover declared and manual cases.
-| `referencePayload` (required)
+| A declared dependency on a UUID that exists outside the item graph — physical (engraved on machinery, printed on a label, QR code), external system, function argument, or function output. `payload.blockDeletion: true` prevents deletion of the target until this reference is resolved. `parentId` is the reference type item UUID (universal rule); `payload.targetId` identifies the item being depended on. Structural references (inline `[[uuid]]` links, payload UUID fields, `parentId`) are tracked automatically in the `item_references` derived index; `reference` items cover declared and manual cases.
+| link:../built-in-types/types/reference.json[reference.json^]
 
 | `subscription`
 | A live notification channel registered against a UUID. Distinct from `reference` — a subscription is about change notification, not external dependency or deletion protection. `payload.targetId` identifies the watched item.
-| `subscriptionPayload` (required)
+| link:../built-in-types/types/subscription.json[subscription.json^]
+
+| `query`
+| A saved, named query expression. Executes against the item graph and returns a result set. Two classes: single-type filter or derived result set. Three dialects: kanecta / sql / graph.
+| link:../built-in-types/types/query.json[query.json^]
+
+| `action`
+| A named, reusable pipeline invocation — the imperative counterpart to pipeline triggers. Defines what pipeline to run, which item types it applies to, and default params.
+| link:../built-in-types/types/action.json[action.json^]
+
+| `grid`
+| A two-dimensional sparse container. Only occupied cells exist as items. Columns can be named or auto-indexed (A, B, C…). Any item type can live in a cell.
+| link:../built-in-types/types/grid.json[grid.json^]
+
+| `cell`
+| A positioned slot in a grid. `parentId` is always the grid item UUID.
+| link:../built-in-types/types/cell.json[cell.json^]
 
 | `item_history`
 | An event in an item's lifecycle. Fully event-source capable — the complete sequence for any `targetId` is sufficient to replay and reconstruct any past state. `payload.targetId` identifies the item being recorded.
-| `itemHistoryPayload` (required)
+| link:../built-in-types/types/item_history.json[item_history.json^]
 
 | `activity`
 | A discrete workspace event (item viewed, search performed, sync completed). Distinct from `item_history` — activity tracks what happened, history tracks what changed. `payload.targetId` identifies the related item (null for workspace-level events).
-| `activityPayload` (required)
+| link:../built-in-types/types/activity.json[activity.json^]
 
 | `agent`
 | A reusable executor definition — declares the runtime, model, system prompt, and tool access for a pipeline phase. Agent items are reused across pipelines; separates agent identity and capability from task-specific instructions.
-| `agentPayload` (required)
+| link:../built-in-types/types/agent.json[agent.json^]
 
 | `pipeline`
 | An ordered sequence of agent-executed phases. Captures the full definition of a multi-step AI workflow — what phases run, which agent handles each, what Kanecta items each phase produces, and what confidence thresholds gate phase transitions. Executions are separate `pipeline-run` items that live as children of the pipeline in the tree.
-| `pipelinePayload` (required)
+| link:../built-in-types/types/pipeline.json[pipeline.json^]
 
 | `pipeline-run`
 | The execution record of a single pipeline invocation. Updated in real time as the run progresses. Lives as a child of its `pipeline` item — the run history of any pipeline is immediately visible in the tree. Subscriptions on this item deliver live phase progress to the Studio pipeline view.
-| `pipelineRunPayload` (required)
+| link:../built-in-types/types/pipeline-run.json[pipeline-run.json^]
 
 | `eval`
 | An automated test definition for a pipeline. Declares input params and per-phase assertions (count, type, payload, meta, llm-judge, no-regression) evaluated against `itemsProduced` after the pipeline completes. Lives as a child of the pipeline it tests — evals and runs share the same tree.
-| `evalPayload` (required)
+| link:../built-in-types/types/eval.json[eval.json^]
 
 | `eval-run`
 | The execution record of a single eval invocation. Holds a reference to the `pipeline-run` created for this execution and per-assertion results including LLM judge verdicts and reasoning. Lives as a child of its `eval` item.
-| `evalRunPayload` (required)
+| link:../built-in-types/types/eval-run.json[eval-run.json^]
 |===
 
 NOTE: `pipeline`, `agent`, `pipeline-run`, `eval`, and `eval-run` are built-in structured types, but they are categorically different from types like `file`, `function`, or `relationship`. They are *platform types* — built in not because they are primitives of the data model, but because Kanecta needs to understand them to support AI-native workflows. The adapter indexes run status for live UI updates, subscriptions deliver phase progress in real time, the Studio pipeline view depends on a stable payload contract, and the eval runner needs to know how to evaluate assertions and invoke judge agents. Domain types (`epic`, `stakeholder`, `finding`) remain user-defined; these five types are built in because Kanecta *executes and tests* pipelines — the system has behaviour that depends on these types existing. This is the line: if the generic layer needs to understand a type to do its job, the type belongs in the spec.
