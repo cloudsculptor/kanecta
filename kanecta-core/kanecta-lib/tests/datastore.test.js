@@ -5,7 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES } = require('../src/index');
 
-const SAMPLE = path.resolve(__dirname, '../../../kanecta-datastore-sample');
+const SAMPLE = path.resolve(__dirname, '../kanecta-datastore-sample');
 const ROOT_ID = 'f1a00001-b45e-4c3d-9e7f-000000000001';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

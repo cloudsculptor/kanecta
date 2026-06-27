@@ -7,7 +7,7 @@ const request = require('supertest');
 const { Datastore } = require('@kanecta/lib');
 const app = require('../src/app');
 
-const SAMPLE = path.resolve(__dirname, '../../../kanecta-datastore-sample');
+const SAMPLE = path.resolve(__dirname, '../kanecta-datastore-sample');
 const ROOT_ID = 'f1a00001-b45e-4c3d-9e7f-000000000001';
 const CLARIFY_ID = 'f1a00002-b45e-4c3d-9e7f-000000000001';
 

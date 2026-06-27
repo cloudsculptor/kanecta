@@ -9,7 +9,7 @@ const { execFileSync } = require('node:child_process');
 
 const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, DEFAULT_LICENSE } = require('@kanecta/lib');
 
-const SAMPLE = path.resolve(__dirname, '..', 'kanecta-datastore-sample');
+const SAMPLE = path.resolve(__dirname, '../kanecta-datastore-sample');
 const CLI = path.resolve(__dirname, 'index.js');
 
 const ROOT_ID = 'f1a00001-b45e-4c3d-9e7f-000000000001';
