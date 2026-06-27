@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "componentPayload",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "description": {
+      "type": "string",
+      "description": "What this component renders."
+    },
+    "props": {
+      "type": "array",
+      "items": { "$ref": "function.json#/definitions/parameterOrProp" },
+      "description": "Component props. Use the same parameterOrProp definition as function parameters — including functionId for callback props."
+    },
+    "dependencies": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "npm packages required by this component."
+    }
+  }
+}

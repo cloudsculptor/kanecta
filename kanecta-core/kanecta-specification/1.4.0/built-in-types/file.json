@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "filePayload",
+  "type": "object",
+  "required": ["mimeType"],
+  "additionalProperties": false,
+  "properties": {
+    "mimeType": {
+      "type": "string",
+      "description": "IANA media type (e.g. \"image/jpeg\", \"text/markdown\", \"application/pdf\"). See https://www.iana.org/assignments/media-types/"
+    },
+    "size": {
+      "type": "integer",
+      "description": "File size in bytes."
+    },
+    "width": {
+      "type": "integer",
+      "description": "Width in pixels. For image/* and video/*."
+    },
+    "height": {
+      "type": "integer",
+      "description": "Height in pixels. For image/* and video/*."
+    },
+    "duration": {
+      "type": "number",
+      "description": "Duration in seconds. For audio/* and video/*."
+    },
+    "altText": {
+      "type": "string",
+      "description": "Accessible description. Primarily for images."
+    }
+  }
+}

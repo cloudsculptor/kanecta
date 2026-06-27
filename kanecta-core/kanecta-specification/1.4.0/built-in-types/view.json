@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "viewPayload",
+  "type": "object",
+  "required": ["itemId", "componentId", "contextId"],
+  "additionalProperties": false,
+  "properties": {
+    "itemId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID of the item being viewed. Always a specific item — a view without an item is a component."
+    },
+    "componentId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID of the component or function item that renders this view. Overrides the type's default componentId for this specific binding."
+    },
+    "contextId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID of the context item describing the runtime and display environment."
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "aspectTypePayload",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "jsonSchema": {
+      "type": ["object", "null"],
+      "description": "JSON Schema validating the payload of aspect items of this type. null means no schema enforcement — any payload is accepted."
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable description of what this dimension represents and how it should be used."
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "activityPayload",
+  "type": "object",
+  "required": ["eventType", "actor", "targetId"],
+  "additionalProperties": false,
+  "properties": {
+    "eventType": {
+      "type": "string",
+      "description": "Dot-separated event identifier (e.g. item.viewed, search.performed, sync.completed, workspace.opened). Free-form — new event types do not require a spec change."
+    },
+    "actor": {
+      "type": "string",
+      "description": "Identity string of who triggered this event."
+    },
+    "targetId": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "description": "UUID of the item this event relates to. null for workspace-level events that do not relate to a single item."
+    },
+    "data": {
+      "type": ["object", "null"],
+      "description": "Event-specific detail (e.g. the search query, the export format). Structure is determined by eventType. null when no additional data is needed."
+    }
+  }
+}

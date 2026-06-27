@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "relationshipPayload",
+  "type": "object",
+  "required": ["typeId", "sourceId", "targetId"],
+  "additionalProperties": false,
+  "properties": {
+    "typeId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID of the relationship-type item that defines this relationship's schema and semantics."
+    },
+    "sourceId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID of the source item."
+    },
+    "targetId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID of the target item."
+    },
+    "data": {
+      "type": ["object", "null"],
+      "description": "Free-form object validated against the relationship type's jsonSchema (if defined). null for relationship types with no payload schema."
+    },
+    "confidence": {
+      "type": ["string", "null"],
+      "enum": ["experimental", "exploring", "decided", "locked", null],
+      "description": "Confidence level. Defaults to experimental for AI-created relationships. null when not specified."
+    },
+    "note": {
+      "type": ["string", "null"],
+      "description": "Free-text annotation about this specific relationship instance."
+    }
+  }
+}

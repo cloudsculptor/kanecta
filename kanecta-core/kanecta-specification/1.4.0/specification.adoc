@@ -417,7 +417,7 @@ Type-specific content. Null for primitive items that carry no structured data. R
 Payload shapes are defined per type — see <<payload-definitions>>.
 
 [#item-types]
-== Item Types
+== Built-in Types
 
 *Source of truth: `./types/built-in-types.json`*
 

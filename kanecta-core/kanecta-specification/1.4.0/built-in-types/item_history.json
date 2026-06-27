@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "itemHistoryPayload",
+  "type": "object",
+  "required": ["targetId", "eventType", "sequence", "delta", "snapshot"],
+  "additionalProperties": false,
+  "properties": {
+    "targetId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID of the item this event belongs to."
+    },
+    "eventType": {
+      "type": "string",
+      "enum": ["created", "updated", "deleted"],
+      "description": "What happened. created — first event for this item. updated — one or more fields changed. deleted — item has been removed."
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Monotonically increasing event number scoped per targetId. Starts at 1 for created. Never reused."
+    },
+    "delta": {
+      "type": "object",
+      "description": "Field-level diff. Keys are dot-separated paths (e.g. \"item.value\", \"payload.status\"). Each value is { from, to }. Empty object {} for created and deleted events."
+    },
+    "snapshot": {
+      "type": "object",
+      "description": "The complete four-section item.json after this event was applied. For deleted, the snapshot is the final state before deletion."
+    }
+  }
+}

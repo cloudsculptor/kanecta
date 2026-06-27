@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "contextPayload",
+  "type": "object",
+  "required": ["runtime", "display"],
+  "additionalProperties": false,
+  "properties": {
+    "runtime": {
+      "type": "string",
+      "description": "The execution environment. Known values: web, desktop, cli, mcp, pdf, api. Free-form string — new runtimes do not require a spec change."
+    },
+    "display": {
+      "type": "string",
+      "description": "Where inside the runtime the view is rendered. Known values: tree-node, detail-panel, modal, preview, embed, fullscreen. Free-form string."
+    },
+    "capabilities": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "What the runtime supports. Exploratory — expected to evolve through use. Examples: [\"react\", \"css\", \"images\"], [\"markdown\"], [\"ansi-colour\"]."
+    }
+  }
+}

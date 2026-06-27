@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "grantPayload",
+  "type": "object",
+  "required": ["governedItemId", "principal", "permissions"],
+  "additionalProperties": false,
+  "properties": {
+    "governedItemId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID of the item this grant controls."
+    },
+    "principal": {
+      "description": "Identity string, namespace path, or { itemId, relation } object (ReBAC).",
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "required": ["itemId", "relation"],
+          "additionalProperties": false,
+          "properties": {
+            "itemId": { "type": "string", "format": "uuid", "description": "UUID of the group item." },
+            "relation": { "type": "string", "description": "Relation the principal must hold to itemId (e.g. \"member\")." }
+          }
+        }
+      ]
+    },
+    "permissions": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["read", "write", "subscribe", "admin"] },
+      "minItems": 1,
+      "description": "Permissions granted."
+    },
+    "cascade": {
+      "type": "boolean",
+      "description": "When true, grant applies to all descendants of governedItemId."
+    }
+  }
+}

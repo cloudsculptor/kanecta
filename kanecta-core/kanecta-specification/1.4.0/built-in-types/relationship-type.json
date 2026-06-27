@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "relationshipTypePayload",
+  "$comment": "relationship-type items use typePayload extended with directional and inverse meta fields.",
+  "allOf": [
+    { "$ref": "./type.json" },
+    {
+      "type": "object",
+      "properties": {
+        "meta": {
+          "type": "object",
+          "properties": {
+            "directional": {
+              "type": "boolean",
+              "description": "Whether the relationship has direction (source → target). false means the relationship is symmetric."
+            },
+            "inverse": {
+              "type": ["string", "null"],
+              "format": "uuid",
+              "description": "UUID of the paired inverse relationship-type item (e.g. depends-on ↔ enables). null for self-inverse types like relates-to."
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,115 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "typePayload",
+  "type": "object",
+  "required": ["meta", "jsonSchema", "sqlSchema"],
+  "additionalProperties": false,
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["description"],
+      "additionalProperties": false,
+      "properties": {
+        "icon": {
+          "type": "string",
+          "description": "MUI icon component name (e.g. \"Person\")."
+        },
+        "description": {
+          "type": "string",
+          "description": "One-sentence summary (required)."
+        },
+        "details": {
+          "type": "string",
+          "description": "Longer description."
+        },
+        "keywords": {
+          "type": "string",
+          "description": "Space-separated search keywords."
+        },
+        "tags": {
+          "type": "string",
+          "description": "Comma-separated grouping tags."
+        },
+        "aliasFormulas": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "format": "uuid" },
+          "description": "Map of named formula references for alias auto-generation. Keys are scope names (\"default\" is conventional); values are UUIDs of formula items."
+        },
+        "primaryField": {
+          "description": "The field or expression that computes item.value for instances. Three forms: plain string path (\"name\"), object with fields array + optional expression, or object with fields + functionId.",
+          "oneOf": [
+            { "type": "string" },
+            {
+              "type": "object",
+              "required": ["fields"],
+              "properties": {
+                "fields": { "type": "array", "items": { "type": "string" } },
+                "expression": { "type": "string" },
+                "functionId": { "type": "string", "format": "uuid" }
+              }
+            }
+          ]
+        },
+        "searchFields": {
+          "type": ["array", "null"],
+          "items": { "type": "string" },
+          "description": "Payload field names to include in the FTS corpus. Null = all fields."
+        },
+        "componentId": {
+          "type": ["string", "null"],
+          "format": "uuid",
+          "description": "UUID of a Kanecta component item that renders instances of this type."
+        },
+        "skills": {
+          "type": "object",
+          "properties": {
+            "claude": { "type": "string", "description": "Guidance for Claude on when and how to use this type." }
+          },
+          "additionalProperties": false
+        },
+        "functions": {
+          "type": "array",
+          "items": { "type": "string", "format": "uuid" },
+          "description": "UUIDs of associated function items."
+        },
+        "sync": {
+          "type": "array",
+          "items": { "type": "string", "format": "uuid" },
+          "description": "UUIDs of function items that can refresh instances from an external source."
+        },
+        "supersededBy": {
+          "type": "array",
+          "items": { "type": "string", "format": "uuid" },
+          "description": "UUIDs of type definitions that replace this one."
+        },
+        "implements": {
+          "type": "array",
+          "items": { "type": "string", "format": "uuid" },
+          "description": "UUIDs of types whose contract this type fulfils (interface-style). Declared, not enforced by storage."
+        },
+        "extends": {
+          "type": "array",
+          "items": { "type": "string", "format": "uuid" },
+          "description": "UUIDs of types this type extends or specialises. Declared relationship only — no storage inheritance."
+        },
+        "immutable": {
+          "type": "boolean",
+          "description": "When true, the type's contract is sealed."
+        },
+        "hash": {
+          "type": "string",
+          "description": "SHA-256 over jsonSchema + sqlSchema + primaryField. Computed and set when immutable is true."
+        }
+      }
+    },
+    "jsonSchema": {
+      "type": "object",
+      "description": "JSON Schema Draft-07 for instances. Types are flat — exactly one level deep. Each property must carry a stable x-id UUID."
+    },
+    "sqlSchema": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Ordered SQL DDL statements (PostgreSQL dialect) that create all storage for instances of this type."
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "formulaPayload",
+  "type": "object",
+  "required": ["level"],
+  "additionalProperties": false,
+  "properties": {
+    "level": {
+      "type": "string",
+      "enum": ["template", "dsl", "function"],
+      "description": "Which evaluation level this formula uses."
+    },
+    "expression": {
+      "type": "string",
+      "description": "The formula expression. Required when level is template or dsl. For template: a string with {variable} placeholders. For dsl: an Excel-like formula string (must begin with =)."
+    },
+    "functionId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID of the function item to delegate to. Required when level is function."
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable explanation of what this formula computes and any non-obvious behaviour."
+    }
+  }
+}

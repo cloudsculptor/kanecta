@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "subscriptionPayload",
+  "type": "object",
+  "required": ["targetId", "channel", "events"],
+  "additionalProperties": false,
+  "properties": {
+    "targetId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID of the item being watched."
+    },
+    "channel": {
+      "type": "object",
+      "required": ["type"],
+      "description": "Notification channel configuration.",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["webhook", "mcp", "reactive"],
+          "description": "Channel type. webhook: HTTP POST. mcp: active MCP session. reactive: reactive UI component."
+        },
+        "url": { "type": "string", "description": "Required for webhook. Use $VAR for secrets." },
+        "secret": { "type": "string", "description": "Optional HMAC secret for webhook signature verification." },
+        "sessionId": { "type": "string", "description": "Required for mcp." },
+        "componentId": { "type": "string", "format": "uuid", "description": "Required for reactive." }
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["create", "update", "delete", "children"] },
+      "minItems": 1,
+      "description": "Which events trigger notification. At least one required."
+    },
+    "principal": {
+      "type": "string",
+      "description": "Identity string of who registered this subscription. Used for audit and notification routing."
+    }
+  }
+}
