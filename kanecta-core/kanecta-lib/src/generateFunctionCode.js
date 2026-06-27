@@ -196,7 +196,7 @@ function generateFunctionScaffold(itemDir, itemName, fnData, root) {
   const dependencies = {};
   if (usesKanecta) {
     const localLibPath = path.join(repoRoot, 'kanecta-lib');
-    const localUtilsPath = path.join(repoRoot, 'kanecta-datastore-utils');
+    const localUtilsPath = path.join(repoRoot, 'kanecta-storage-adapters', 'kanecta-datastore-utils');
     if (fs.existsSync(path.join(localLibPath, 'package.json'))) {
       // Running from source — use file: refs so npm doesn't hit the registry
       dependencies['@kanecta/lib'] = `file:${localLibPath}`;
