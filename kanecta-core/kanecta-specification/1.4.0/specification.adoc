@@ -88,24 +88,41 @@ v1.4.0 is a breaking change from v1.3.0. A migration script is provided in `kane
 
 == Directory Structure
 
+1.4.0 collapses what was eight specialised subdirectories in 1.3.0 down to two directories and one derived file. Everything that previously lived in its own folder (`history/`, `aliases/`, `annotations/`, `links/`, `remotes/`) is now a first-class item in `data/` — an `item_history` item, an `alias` item, an aspect item, a `relationship` item, a `reference` item. The filesystem has no knowledge of these distinctions; it just stores items.
+
+.1.3.0 (before)
 [source]
 ----
 datastore/
 └── .kanecta/
-    ├── data/           ← all items (source of truth)
-    ├── config/         ← datastore configuration
-    ├── history/        ← point-in-time item snapshots
-    ├── aliases/        ← human-readable shortcuts → UUIDs
-    ├── annotations/    ← comments and reactions on items
-    ├── links/          ← backlinks index cache
-    ├── remotes/        ← cached copies of remote items
-    ├── remotes-index/  ← owner → remote items index
-    └── search/         ← search index cache (managed by adapter)
+    ├── data/            ← items
+    ├── config/          ← configuration
+    ├── history/         ← now: item_history items in data/
+    ├── aliases/         ← now: alias items in data/
+    ├── annotations/     ← now: aspect items in data/
+    ├── links/           ← now: relationship items in data/
+    ├── remotes/         ← now: reference items in data/
+    ├── remotes-index/   ← now: reference items in data/
+    └── search/          ← now: index.db
 ----
 
-All keyed folders use *mandatory 2+2+full UUID sharding*: first 2 chars / next 2 chars / full UUID with hyphens.
+.1.4.0 (after)
+[source]
+----
+datastore/
+└── .kanecta/
+    ├── data/            ← all items, source of truth (Git-tracked)
+    │   └── a1/b2/a1b2c3d4-e5f6-4abc-9def-123456789012/
+    │       ├── item.json
+    │       ├── body.md       ← optional sidecar (body text, code)
+    │       └── embedding.bin ← optional sidecar (float32 vector)
+    ├── index.db         ← SQLite index, derived, gitignored
+    └── config/          ← datastore configuration (Git-tracked)
+----
 
-Example for UUID `a1b2c3d4-e5f6-4abc-9def-123456789012`:
+The significant difference: `data/` and `config/` are committed to Git. `index.db` is always gitignored — it is a derived cache rebuilt from `data/` at any time. Any tool that reads only `data/` and ignores `index.db` is always correct.
+
+Item directories use *mandatory 2+2+full UUID sharding*: first 2 hex chars / next 2 hex chars / full UUID with hyphens. This keeps directory fan-out bounded regardless of datastore size — no single directory ever holds more than 256 child directories.
 
 [source]
 ----
@@ -727,9 +744,9 @@ This is distinct from the primary tree, where items carry `parentId` directly. A
 | Sort position among siblings. Lower numbers appear first. Defaults to 0.
 
 | `aspect`
-| string \| null
+| string \| UUID \| null
 | No
-| Optional dimension label. `null` = normal content node. Named strings indicate the role this node plays (e.g. `"history"`, `"annotations"`, `"archive"`). Allows a single item to participate in multiple conceptual layers of the same tree.
+| Optional dimension label for the node's role in this tree. `null` = normal content node. A plain string (e.g. `"history"`, `"annotations"`, `"archive"`) is an informal dimension name — no schema enforcement. A UUID points to an `aspect-type` item that defines and validates the dimension. Allows a single item to participate in multiple conceptual layers of the same tree. Follows the same string/UUID duality as `item.aspect`.
 |===
 
 *Moving a node* — update `parentId` and `path` on the node item, and update `path` on all descendant nodes. The target item is not touched.
