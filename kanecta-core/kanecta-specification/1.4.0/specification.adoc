@@ -774,7 +774,7 @@ TIP: *Postgres* — the `payload_node` table exists alongside the main `items` t
 
 === filePayload
 
-link:../built-in-types/types/file.json[JSON Schema^]
+link:../built-in-types/types/file.json[Seed item^]
 
 For `type: "file"`. Replaces the former `image` and `markdown` primitives — use `mimeType` to distinguish.
 
@@ -823,7 +823,7 @@ The file content lives in a sidecar referenced via `meta.files` (e.g. `{ "body":
 
 === functionPayload
 
-link:../built-in-types/types/function.json[JSON Schema^]
+link:../built-in-types/types/function.json[Seed item^]
 
 For `type: "function"`. The function name lives in `item.value`.
 
@@ -856,7 +856,7 @@ TIP: *Postgres* — `function_parameters` and `function_throws` are child tables
 
 === formulaPayload
 
-link:../built-in-types/types/formula.json[JSON Schema^]
+link:../built-in-types/types/formula.json[Seed item^]
 
 For `type: "formula"`. A reusable calculation that can be referenced by UUID from anywhere a computed value is needed — alias generation, `primaryField` derivation, derived fields, display labels, or any other context. The formula name/label lives in `item.value`.
 
@@ -987,7 +987,7 @@ NOTE: `formulajs` (MIT licence) is the evaluation engine for `dsl` level formula
 
 === componentPayload
 
-link:../built-in-types/types/component.json[JSON Schema^]
+link:../built-in-types/types/component.json[Seed item^]
 
 For `type: "component"`. Describes a React component. Return type is always `ReactNode` — implicit, no field. The component body (JSX/TSX) lives in `meta.files.body = "body.tsx"`.
 
@@ -1007,7 +1007,7 @@ Props use the same `parameterOrProp` definition as function parameters — inclu
 
 === typePayload
 
-link:../built-in-types/types/type.json[JSON Schema^]
+link:../built-in-types/types/type.json[Seed item^]
 
 For `type: "type"`. Defines a custom Kanecta type. Three top-level keys: `meta`, `jsonSchema`, `sqlSchema`.
 
@@ -1129,7 +1129,7 @@ NOTE: *Required even for filesystem-only types* — every type defines `sqlSchem
 
 === aliasPayload
 
-link:../built-in-types/types/alias.json[JSON Schema^]
+link:../built-in-types/types/alias.json[Seed item^]
 
 For `type: "alias"`. The alias string itself lives in `item.value` — this is the human-readable label the user types to address the target item. Lookup is always case-insensitive; the adapter normalises to lowercase when querying but preserves original casing in `item.value` for display.
 
@@ -1209,7 +1209,7 @@ TIP: *Postgres* — the derived aliases lookup table schema: `CREATE TABLE alias
 
 === relationshipPayload
 
-link:../built-in-types/types/relationship.json[JSON Schema^]
+link:../built-in-types/types/relationship.json[Seed item^]
 
 For `type: "relationship"`. A typed, first-class relationship between two items. The human-readable label lives in `item.value` (e.g. `"depends on"`).
 
@@ -1282,7 +1282,7 @@ NOTE: Relationship-as-item keeps the git history clean: creating a relationship 
 [#aspectTypePayload]
 === aspectTypePayload
 
-link:../built-in-types/types/aspect-type.json[JSON Schema^]
+link:../built-in-types/types/aspect-type.json[Seed item^]
 
 For `type: "aspect-type"`. Defines the schema and semantics of a named aspect dimension — the meta-type for structured aspect items, mirroring the role of `relationship-type` for relationship items. When `item.aspect` on an item is a UUID, that UUID must point to an `aspect-type` item.
 
@@ -1325,7 +1325,7 @@ TIP: *Postgres* — `CREATE TABLE payload_aspect_type (id UUID PRIMARY KEY REFER
 
 === grantPayload
 
-link:../built-in-types/types/grant.json[JSON Schema^]
+link:../built-in-types/types/grant.json[Seed item^]
 
 For `type: "grant"`. Access control grants. The grant item's `parentId` is the synthetic `grant` type item UUID (the universal rule). The item being governed is identified by `payload.governedItemId` — this is the field that was previously implied by parentId placement.
 
@@ -1382,7 +1382,7 @@ TIP: *Postgres* — `payload_grant` derived table for O(1) grant resolution: `CR
 
 === viewPayload
 
-link:../built-in-types/types/view.json[JSON Schema^]
+link:../built-in-types/types/view.json[Seed item^]
 
 For `type: "view"`. Binds a specific item to a renderer and a context. The view's UUID is a single pointer to all three — usable for bookmarking, sharing, embedding, and bootstrapping.
 
@@ -1450,7 +1450,7 @@ A view item UUID is a stable, shareable reference to "this item, rendered this w
 
 === contextPayload
 
-link:../built-in-types/types/context.json[JSON Schema^]
+link:../built-in-types/types/context.json[Seed item^]
 
 For `type: "context"`. Describes the environment in which a view is rendered. Contexts are first-class items — reusable, versioned, shareable.
 
@@ -1528,7 +1528,7 @@ Different deployments of the same datastore (web UI, API server, CLI) each have 
 
 === referencePayload
 
-link:../built-in-types/types/reference.json[JSON Schema^]
+link:../built-in-types/types/reference.json[Seed item^]
 
 For `type: "reference"`. A declared external dependency on a UUID — physical, system, functional, or subscription-based.
 
@@ -1588,7 +1588,7 @@ NOTE: *Deletion governance:* `blockDeletion: true` does not determine who can de
 
 === subscriptionPayload
 
-link:../built-in-types/types/subscription.json[JSON Schema^]
+link:../built-in-types/types/subscription.json[Seed item^]
 
 For `type: "subscription"`. Registers a live notification channel against a target UUID. When the target item changes, the platform notifies the channel.
 
@@ -1695,7 +1695,7 @@ NOTE: Pre-merge notifications are distinct from post-merge event delivery. After
 
 === itemHistoryPayload
 
-link:../built-in-types/types/item_history.json[JSON Schema^]
+link:../built-in-types/types/item_history.json[Seed item^]
 
 For `type: "item_history"`. Records a single event in an item's lifecycle.
 
@@ -1812,7 +1812,7 @@ Recovery: to restore a deleted item, read its history, find the `deleted` event,
 
 === activityPayload
 
-link:../built-in-types/types/activity.json[JSON Schema^]
+link:../built-in-types/types/activity.json[Seed item^]
 
 For `type: "activity"`. Records a discrete workspace event — not a snapshot of item state, but a meaningful occurrence at the application level (item viewed, search performed, sync started, export triggered). Distinct from `item_history`: history tracks *what changed*; activity tracks *what happened*.
 
@@ -1878,7 +1878,7 @@ NOTE: Activity items are not replicated to remotes by default — activity is lo
 
 === queryPayload
 
-link:../built-in-types/types/query.json[JSON Schema^]
+link:../built-in-types/types/query.json[Seed item^]
 
 For `type: "query"`. A saved, named query expression — the Kanecta equivalent of a named query in Microsoft Access. A query item stores an expression that can be run at any time to produce a result set. Results are displayed as a grid in Studio when the query item is viewed.
 
@@ -1931,7 +1931,7 @@ Queries are executed via the `kanecta_run_query` MCP tool (see <<mcp-api-surface
 
 === actionPayload
 
-link:../built-in-types/types/action.json[JSON Schema^]
+link:../built-in-types/types/action.json[Seed item^]
 
 For `type: "action"`. A named, reusable pipeline invocation — the imperative counterpart to pipeline triggers.
 
@@ -2001,7 +2001,7 @@ NOTE: Query items do not define new types. A `"sql"` query that joins tasks and 
 
 === gridPayload
 
-link:../built-in-types/types/grid.json[JSON Schema^]
+link:../built-in-types/types/grid.json[Seed item^]
 
 For `type: "grid"`. A two-dimensional sparse container — the grid is to tables what `tree` is to hierarchies. Just as a tree uses `node` items as its placement primitive, a grid uses `cell` items. Only occupied cells exist as items; empty cells have no storage cost. A 1000×1000 grid with 50 values is 51 items total.
 
@@ -2051,7 +2051,7 @@ Any Kanecta item type can live in a cell. Simple scalars go in `item.value` on t
 
 === cellPayload
 
-link:../built-in-types/types/cell.json[JSON Schema^]
+link:../built-in-types/types/cell.json[Seed item^]
 
 For `type: "cell"`. A positioned slot in a grid. The `parentId` of every cell item is the grid item UUID — cells are children of their grid. Position is given by `row` and `column` in the payload.
 
@@ -2505,7 +2505,7 @@ The full comparison is documented in `kanecta-docs/kanecta-media/comparisons-wit
 [#agentPayload]
 === agentPayload
 
-link:../built-in-types/types/agent.json[JSON Schema^]
+link:../built-in-types/types/agent.json[Seed item^]
 
 For `type: "agent"`. An agent is a reusable executor definition — it declares the runtime environment, model, system prompt, and tool access for a pipeline phase. Agent items are reused across pipelines; a single agent definition can be referenced by multiple phase definitions across multiple pipelines.
 
@@ -2602,7 +2602,7 @@ NOTE: `runtime: "http"` makes a single HTTP request and optionally writes the re
 [#pipelinePayload]
 === pipelinePayload
 
-link:../built-in-types/types/pipeline.json[JSON Schema^]
+link:../built-in-types/types/pipeline.json[Seed item^]
 
 For `type: "pipeline"`. A pipeline is a directed acyclic graph of phases, each executed by a designated agent. Pipelines are the primary mechanism for defining multi-step workflows in Kanecta — AI-driven, deterministic, or mixed. They capture what agents should do, how phases depend on each other, what Kanecta items each phase produces, and what gates must be cleared before downstream phases proceed.
 
@@ -2846,7 +2846,7 @@ When blocked, the run enters `"waiting"` status. See <<pipeline-gate-approval>>.
 [#pipelineRunPayload]
 === pipelineRunPayload
 
-link:../built-in-types/types/pipeline-run.json[JSON Schema^]
+link:../built-in-types/types/pipeline-run.json[Seed item^]
 
 For `type: "pipeline-run"`. A pipeline run is the execution record of a single invocation of a pipeline. It tracks the overall run status, the parameter values used, the execution state of each phase (including retries and escalations), items produced per phase, and gate results.
 
@@ -3088,7 +3088,7 @@ NOTE: Gate approval is a deliberate human decision — it is not reversible via 
 [#evalPayload]
 === evalPayload
 
-link:../built-in-types/types/eval.json[JSON Schema^]
+link:../built-in-types/types/eval.json[Seed item^]
 
 For `type: "eval"`. An eval item is an automated test definition for a pipeline — it declares the input params to use and a set of assertions to evaluate against phase outputs. Evals live as children of the pipeline they test (`parentId` = pipeline UUID), alongside pipeline-run items.
 
@@ -3230,7 +3230,7 @@ For `type: "eval"`. An eval item is an automated test definition for a pipeline 
 [#evalRunPayload]
 === evalRunPayload
 
-link:../built-in-types/types/eval-run.json[JSON Schema^]
+link:../built-in-types/types/eval-run.json[Seed item^]
 
 For `type: "eval-run"`. The execution record of a single eval invocation. Created when the eval runs and updated in place as the pipeline executes and assertions are evaluated. `parentId` is always the eval item UUID — eval runs accumulate as children of their eval.
 
