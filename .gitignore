@@ -40,4 +40,4 @@ kanecta-inbox
 worktrees/
 
 # Generated spec output
-kanecta-specification/1.4.0/specification.html
+kanecta-core/kanecta-specification/1.4.0/specification.html
