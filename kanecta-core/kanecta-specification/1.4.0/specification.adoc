@@ -1897,6 +1897,196 @@ Create an `"eval-run"` item with `payload.status = "running"` as a child of the 
 
 Because evals are Kanecta items, they can be run on a schedule (via a `subscription` item watching a clock event), triggered by a pipeline-run completing (via a `subscription` on the pipeline), or invoked in a CI pipeline via MCP.
 
+=== Positioning relative to external frameworks
+
+Kanecta pipelines are in a different category from most external orchestration frameworks because they are *data-first* rather than *code-first*. External frameworks (LangGraph, CrewAI, Mastra, Inngest) define pipelines as code that lives in a repository. Kanecta pipelines are items that live in the datastore — queryable alongside the domain data they operate on, relatable to the decisions that motivated them, and editable by non-technical users in Studio without touching a codebase.
+
+The full comparison is documented in `kanecta-docs/kanecta-media/comparisons-with-other-tools/kanecta-pipelines-vs-frameworks.html`. The table below gives a high-level summary across the fourteen frameworks evaluated.
+
+[cols="2,1,1,1,1,1,1,1,1,1", options="header"]
+|===
+| Framework | Persistence | Cycles | Fan-out | Human gates | Evals | Sub-pipelines | Triggers | Visual editor | License
+
+| *Kanecta*
+| ✓ full item model
+| ✓
+| ✓ + maxConcurrent
+| ✓ 3-family gate system
+| ✓ 6 assertion types
+| ✓
+| ✓ 3 types
+| ✓ Studio
+| MIT
+
+| LangChain
+| ✗
+| partial
+| partial
+| ✗
+| ✗ (LangSmith paid)
+| ✗
+| ✗
+| ✗
+| MIT
+
+| LangGraph
+| ✗ (optional checkpoints)
+| ✓
+| partial
+| partial (interrupt API)
+| ✗
+| ✓ subgraphs
+| ✗
+| ✗
+| MIT
+
+| CrewAI
+| ✗
+| partial
+| partial
+| ✗
+| ✗
+| partial (sub-crews)
+| ✗
+| ✗ (paid Studio)
+| MIT
+
+| AutoGen
+| ✗
+| ✓ conversational
+| ✗
+| partial
+| ✗
+| ✗
+| ✗
+| partial (AutoGen Studio)
+| MIT
+
+| Mastra
+| partial
+| ✓
+| partial
+| partial
+| ✓
+| ✓
+| partial
+| ✗
+| MIT
+
+| LlamaIndex
+| ✗
+| partial
+| partial
+| ✗
+| ✓
+| ✗
+| ✗
+| ✗
+| MIT
+
+| Haystack
+| ✗
+| partial
+| partial
+| ✗
+| ✓
+| ✗
+| ✗
+| ✗
+| Apache 2.0
+
+| OpenAI Agents SDK
+| ✗ (dashboard only)
+| ✗
+| ✗
+| ✗
+| ✗
+| ✗
+| ✗
+| ✗
+| MIT
+
+| Dify
+| ✓ (Dify managed)
+| partial
+| ✓
+| ✗
+| partial
+| ✓
+| ✓
+| ✓ drag-and-drop
+| Apache 2.0
+
+| Temporal
+| ✓
+| ✓
+| ✓ (child workflows)
+| partial (signals)
+| ✗
+| ✓ (child workflows)
+| ✓
+| ✗ (operational UI)
+| MIT server
+
+| n8n
+| partial (logs)
+| partial
+| ✓
+| partial (wait node)
+| ✗
+| ✓
+| ✓ large library
+| ✓
+| Source-available
+
+| Windmill
+| partial (logs)
+| partial
+| ✓
+| partial (approval step)
+| ✗
+| ✓
+| ✓
+| ✓
+| AGPLv3
+
+| AWS Step Functions
+| ✓
+| partial
+| ✓ (Map state)
+| partial (waitForTaskToken)
+| ✗
+| ✓ (nested state machines)
+| ✓ (EventBridge)
+| ✓ (Workflow Studio)
+| Proprietary
+
+| Inngest
+| partial
+| ✓ (step loops)
+| partial
+| ✗
+| ✗
+| partial
+| ✓ event-driven
+| ✗
+| Source-available
+
+|===
+
+*Key advantages Kanecta holds across all categories:*
+
+- *Knowledge graph persistence* — every pipeline, run, finding, decision, and agent is a queryable item in the same datastore. No other framework provides this. You can ask "show me all runs of pipelines that relate to the 'auth' architectural decision" — that query is trivial in Kanecta; it does not exist as a concept in any other framework.
+- *Three-family confidence gates* — `accuracy:` (automated, AI self-assessment), `review:` (per-item human sign-off), `manual` (unconditional human stop). No other framework models human review as a first-class workflow primitive at this granularity.
+- *Six-type eval system* — count, type, payload, meta, llm-judge, and no-regression assertions all tracked as first-class items. Mastra and LlamaIndex have evals, but they are separate from the workflow execution record; Kanecta evals live in the same tree as runs.
+- *Provider independence* — `runtime` is an open string; any model, any inference provider, on-premise or cloud, is supported without code changes to pipelines.
+
+*Where gaps remain:*
+
+- *Integration library* — n8n and Inngest have hundreds of pre-built connectors. Kanecta's `runtime: "http"` covers the general case but does not provide pre-built Slack, Jira, GitHub, etc. nodes with typed configs. This is an ecosystem gap, not a spec gap.
+- *Visual pipeline editing* — Dify, n8n, Windmill, and AWS Step Functions support drag-and-drop construction. Kanecta's Studio renders and reads pipelines but editing is currently in JSON. Studio editing is a planned implementation feature, not a spec limitation.
+- *Durability at scale* — Temporal's durable execution model is more battle-tested at scale than Kanecta's. Kanecta's spec now guarantees resumption from the last completed phase (via `pipelineSnapshot` and the run record as source of truth), but the runner implementation needs to match that spec commitment.
+
 [#agentPayload]
 === agentPayload
 
@@ -1982,6 +2172,7 @@ For `"claude-code"`: `working_directory`, `env`.
 For `"python"`: `script_path`, `interpreter`.
 For `"kanecta-function"`: `functionId` (UUID of the function item to execute).
 For `"group-chat"`: `participants` (array of agent UUIDs, required), `maxTurns` (integer, default 10, hard cap on total turns regardless of termination condition), `terminationCondition` (`"explicit"` or `"max-turns"` — see note below), `outputAgent` (UUID of the agent that writes final items after `"max-turns"` termination; null for `"explicit"` termination where the concluding agent writes its own items).
+For `"http"`: `url` (required, string, supports `{{params.name}}` substitution), `method` (`"GET"` \| `"POST"` \| `"PUT"` \| `"PATCH"` \| `"DELETE"`, default `"GET"`), `headers` (key-value object, string values support substitution), `body` (any JSON-serialisable value, string leaves support substitution, ignored for GET/DELETE), `outputItemType` (string type name — if set, the response body is written as a Kanecta item of this type; if null, the response is stored in `phases[].output.httpResponse`), `timeoutSeconds` (integer ≥ 1, defaults to runner global HTTP timeout, typically 30s). Secret header values should be injected via runner environment variable substitution rather than stored in the agent item.
 |===
 
 NOTE: `runtime: "kanecta-function"` executes a Kanecta `function` item directly via the kanecta-sdk, rather than invoking an external process. The runner provides the function with a pre-scoped sdk client that automatically tags all created items with `meta.sourceRunId` (the pipeline run UUID) and adds their UUIDs to the phase's `itemsProduced` list. This means a function-based phase can call `sdk.ai.complete()` for AI reasoning and `sdk.items.create()` for deterministic writes in the same execution unit — no MCP round-trips, no subprocess overhead. Function params are validated against pipeline params before the run starts. Because the function item is itself a versioned Kanecta item, the pipeline run record captures exactly which function version executed each phase.
@@ -1990,6 +2181,8 @@ NOTE: `runtime: "group-chat"` runs a structured deliberation between multiple ag
 `"explicit"` — the conversation continues until any participant calls `kanecta_conclude_discussion`. That participant then writes the consensus items to the datastore using its normal item-creation tools. The runner treats those items as `itemsProduced` for the phase. No `outputAgent` is needed — whichever agent concluded the discussion is the writer.
 `"max-turns"` — the conversation runs for exactly `maxTurns` turns, then the runner re-invokes `outputAgent` once with the full transcript as context. That agent synthesises the discussion and writes the consensus items.
 In both modes the full conversation transcript is stored as a `body.md` sidecar on the phase's `pipeline-run` item record, so the deliberation is fully inspectable. The `systemPrompt` on the group-chat agent item serves as the facilitator prompt — it frames the rules of the debate; individual participant agents bring their own `systemPrompt` as their voice and perspective. Group-chat agents participate in the full phase model: they have `confidenceGate`, `pauseAfter`, `forEach`, and `loopBack` exactly like single-model phases — the runner does not distinguish at the pipeline level.
+
+NOTE: `runtime: "http"` makes a single HTTP request and optionally writes the response as a Kanecta item. No LLM is invoked. This is the lightweight primitive for side effects and data fetches that do not need AI reasoning — posting a Slack notification, triggering a CI build, fetching a Jira ticket before a downstream AI phase reasons about it. When `config.outputItemType` is set, the HTTP response body is parsed as JSON and written as a Kanecta item of that type, tracked in `itemsProduced` exactly like items produced by an AI agent. When `outputItemType` is null, the response is stored as `phases[].output.httpResponse` for downstream phase expressions and context preambles. Secret values in headers must not be stored in the agent item directly — use runner-level environment variable substitution (e.g. `"Authorization": "Bearer {{env.SLACK_TOKEN}}"`) so secrets are resolved at run time from the runner's environment, never committed to the datastore.
 
 [#pipelinePayload]
 === pipelinePayload
