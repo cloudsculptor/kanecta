@@ -86,19 +86,21 @@ function buildIndexTs(fnName, fnData, typeIdMap) {
   lines.push('// Only edit the body of the function below.');
   lines.push('');
 
-  const usesSdk = fnData.includeKanectaSdk !== false;
+  const usesKanecta = fnData.includeKanectaSdk !== false;
   const extraDeps = fnData.dependencies ?? [];
-  if (usesSdk || extraDeps.length > 0) {
+  if (usesKanecta || extraDeps.length > 0) {
     lines.push('// Dependencies:');
-    if (usesSdk) lines.push('//   @kanecta/sdk');
+    if (usesKanecta) lines.push('//   @kanecta/lib');
+    if (usesKanecta) lines.push('//   @kanecta/datastore-utils');
     for (const dep of extraDeps) lines.push(`//   ${dep}`);
     lines.push('');
   }
 
-  if (usesSdk) {
-    lines.push("import { createClient } from '@kanecta/sdk';");
+  if (usesKanecta) {
+    lines.push("import { Datastore } from '@kanecta/lib';");
+    lines.push("import { openFilesystemAdapter } from '@kanecta/datastore-utils';");
     lines.push('');
-    lines.push('const kanecta = createClient();');
+    lines.push('const kanecta = new Datastore(openFilesystemAdapter(process.env.KANECTA_DATASTORE!));');
     lines.push('');
   }
 
@@ -189,18 +191,20 @@ function generateFunctionScaffold(itemDir, itemName, fnData, root) {
 
   // package.json — always regenerated so dependencies stay in sync with function.json
   const repoRoot = path.resolve(__dirname, '../../..');
-  const usesSdk = fnData.includeKanectaSdk !== false;
+  const usesKanecta = fnData.includeKanectaSdk !== false;
   const extraDeps = fnData.dependencies ?? [];
   const dependencies = {};
-  if (usesSdk) {
-    const localSdkPath = path.join(repoRoot, 'kanecta-sdk');
-    if (fs.existsSync(path.join(localSdkPath, 'package.json'))) {
+  if (usesKanecta) {
+    const localLibPath = path.join(repoRoot, 'kanecta-lib');
+    const localUtilsPath = path.join(repoRoot, 'kanecta-datastore-utils');
+    if (fs.existsSync(path.join(localLibPath, 'package.json'))) {
       // Running from source — use file: refs so npm doesn't hit the registry
-      dependencies['@kanecta/api-client'] = `file:${path.join(repoRoot, 'kanecta-api-client')}`;
-      dependencies['@kanecta/sdk'] = `file:${localSdkPath}`;
+      dependencies['@kanecta/lib'] = `file:${localLibPath}`;
+      dependencies['@kanecta/datastore-utils'] = `file:${localUtilsPath}`;
     } else {
       // Installed from npm — packages are on the registry
-      dependencies['@kanecta/sdk'] = '*';
+      dependencies['@kanecta/lib'] = '*';
+      dependencies['@kanecta/datastore-utils'] = '*';
     }
   }
   for (const dep of extraDeps) {

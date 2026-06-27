@@ -5,14 +5,12 @@ const os = require('os');
 const fs = require('fs');
 const path = require('path');
 const { createHash } = require('crypto');
-const { spawnSync, spawn } = require('child_process');
+const { spawnSync } = require('child_process');
 const {
   Datastore,
   VALID_TYPES,
   VALID_CONFIDENCES,
   VALID_REL_TYPES,
-} = require('@kanecta/lib');
-const {
   generateFunctionScaffold,
   toCamelCase,
 } = require('@kanecta/lib');
@@ -126,39 +124,6 @@ async function openDs(selector) {
   };
 }
 
-// ─── Function runner API server (temporary until functions use kanecta-lib directly) ──
-
-function sleepSync(ms) {
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
-}
-
-function isApiRunning() {
-  const check = spawnSync(
-    'node',
-    [
-      '-e',
-      `const h=require('http');h.get('http://127.0.0.1:3001/',()=>process.exit(0)).on('error',()=>process.exit(1));`,
-    ],
-    { timeout: 1000 },
-  );
-  return check.status === 0;
-}
-
-function ensureApiRunning(datastorePath) {
-  if (isApiRunning()) return;
-  const serverPath = path.resolve(__dirname, '../kanecta-api/src/server.js');
-  const proc = spawn(process.execPath, [serverPath], {
-    env: { ...process.env, KANECTA_DATASTORE: datastorePath },
-    detached: true,
-    stdio: 'ignore',
-  });
-  proc.unref();
-  for (let i = 0; i < 25; i++) {
-    sleepSync(200);
-    if (isApiRunning()) return;
-  }
-  throw new Error('Kanecta API server failed to start on localhost:3001');
-}
 
 // ─── Secret detection ─────────────────────────────────────────────────────────
 
@@ -1740,8 +1705,6 @@ async function dispatch(name, args) {
         }
       }
 
-      ensureApiRunning(datastorePath);
-
       const fnName = toCamelCase(item.value ?? id);
       const params = fnData.parameters ?? [];
       const RESULT_START = '__KANECTA_RESULT_START__';
@@ -1769,7 +1732,6 @@ Promise.resolve(mod[${JSON.stringify(fnName)}](...values))
         timeout: 300_000,
         env: {
           ...process.env,
-          KANECTA_API_URL: 'http://localhost:3001',
           KANECTA_DATASTORE: datastorePath,
         },
       });
