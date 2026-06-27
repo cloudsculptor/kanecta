@@ -1443,9 +1443,20 @@ Distinct from `reference` — a subscription is about change notification, not d
 
 === itemHistoryPayload
 
-For `type: "item_history"`. Records a single event in an item's lifecycle. The design is *event-source capable* — the complete sequence of `item_history` items for any given target is sufficient to replay the item's full history from nothing and reconstruct any past state. Current state is always derivable by replaying all events in sequence order.
+For `type: "item_history"`. Records a single event in an item's lifecycle.
 
-The `item_history` item's `parentId` is the synthetic `item_history` type item UUID. The item being snapshotted is identified by `payload.targetId`. Writing an `item_history` item does *not* itself trigger a further history event — the adapter applies a recursion guard.
+[IMPORTANT]
+====
+*`item_history` is optional.* Enable it per workspace via `features.history: true` in config.json. When disabled (the default), the system is fully functional — no core feature requires history.
+
+*For filesystem workspaces tracked by Git:* leave history disabled. Git already provides history and does it better in that context — it tracks in-place changes, supports branching, and integrates with standard tooling. Writing `item_history` items alongside Git changes doubles up the history and conflicts with Git's in-place model.
+
+*Storage routing:* in high-volume workspaces, the adapter may route `item_history` items to a dedicated storage location (a separate Postgres table `items_history`, or a separate directory `history/` on the filesystem) to avoid bloating the main items table. The schema of that storage is *identical* to the main items table — same columns, same structure, same rules. It is still conceptually one big items table; the adapter just routes by type. This is a deployment decision, not a data model change.
+====
+
+*Event sourcing guarantee:* when history is enabled, the complete sequence of `item_history` items for any given `targetId` is sufficient to replay the item's full history from nothing and reconstruct the current state. This includes the `created` event (sequence 1) — history begins at creation, not at first edit. If you have been running `item_history` from datastore initialisation, you can reconstruct the complete current state of every item purely by replaying history, with no other input.
+
+The `item_history` item's `parentId` is the synthetic `item_history` type item UUID. The item being recorded is identified by `payload.targetId`. Writing an `item_history` item does *not* itself trigger a further history event — the adapter applies a recursion guard. History items themselves have no history.
 
 [source,json]
 ----
@@ -1497,7 +1508,18 @@ NOTE: Event sourcing guarantee: replaying all `item_history` events for a given 
 
 For `type: "activity"`. Records a discrete workspace event — not a snapshot of item state, but a meaningful occurrence at the application level (item viewed, search performed, sync started, export triggered). Distinct from `item_history`: history tracks *what changed*; activity tracks *what happened*.
 
-The `activity` item's `parentId` is the synthetic `activity` type item UUID. `payload.targetId` is the item the event relates to — null for workspace-level events. Activity items are append-only. Writing an activity item does not itself log another activity event.
+[IMPORTANT]
+====
+*`activity` is optional.* Enable it per workspace via `features.activity: true` in config.json. When disabled (the default), the system is fully functional — no core feature requires activity.
+
+*Activity can grow extremely large.* A single popular item can generate millions of activity events (e.g. one activity item per view, per like, per comment on a high-traffic piece of content). Think carefully before enabling activity on any workspace that handles social-scale interaction.
+
+*Storage routing:* the adapter may route `activity` items to a dedicated storage location (a separate Postgres table `items_activity`, or a separate directory `activity/` on the filesystem) to avoid bloating the main items table. As with `item_history`, the schema of that storage is *identical* to the main items table — same columns, same structure, same rules. It is still conceptually one big items table; the adapter routes by type.
+
+*Activity does not play well with Git.* For filesystem workspaces tracked by Git, enabling activity would generate a large volume of new files on every user action, polluting git status and making commits noisy. Leave activity disabled on Git-backed workspaces.
+====
+
+The `activity` item's `parentId` is the synthetic `activity` type item UUID. `payload.targetId` is the item the event relates to — null for workspace-level events. Activity items are append-only. Writing an activity item does not itself log another activity event. Activity items have no history.
 
 [source,json]
 ----
