@@ -1321,6 +1321,7 @@ For `type: "type"`. Defines a custom Kanecta type. Three top-level keys: `meta`,
   "meta": {
     "icon": "Person",
     "description": "A human individual.",
+    "plural": "people",
     "primaryField": "name",
     "searchFields": ["name", "bio", "email"],
     "componentId": null,
@@ -1361,6 +1362,9 @@ For `type: "type"`. Defines a custom Kanecta type. Three top-level keys: `meta`,
 
 | `description`
 | One-sentence summary (required).
+
+| `plural`
+| The plural display form of this type's name. Optional — null or absent when standard pluralisation of `item.value` is unambiguous. Provide it in two cases: (1) *irregular plurals*, where a pluralisation library would produce the wrong word — `person` → `people`, `child` → `children`, `criterion` → `criteria`, `analysis` → `analyses`, `matrix` → `matrices`, `sheep` → `sheep`; (2) *domain-specific forms*, where the plural matters stylistically to the domain even if a library would get it right — `finding` → `findings` in a security audit context, `line-item` → `line items` (not `line-items`). Do not add boilerplate `plural: "cars"` when `+s` is correct — the field exists for the cases where it is needed, not as a required annotation. Consumers that need a plural and find this field null should apply a standard pluralisation library as a fallback; they must not display the raw singular in contexts where a plural is expected.
 
 | `details`
 | Longer description.
