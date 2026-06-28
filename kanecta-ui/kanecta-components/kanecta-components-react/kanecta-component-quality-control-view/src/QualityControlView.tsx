@@ -17,10 +17,10 @@ export interface QualityControlViewProps {
 
 export function QualityControlView({ stats, isLoading, error, typeIcons = {} }: QualityControlViewProps) {
   if (isLoading) {
-    return <div className="QualityControlView"><div className="QualityControlView-loading">Loading…</div></div>;
+    return <div className="QualityControlView"><div className="QualityControlView-state">Loading…</div></div>;
   }
   if (error || !stats) {
-    return <div className="QualityControlView"><div className="QualityControlView-error">Failed to load stats</div></div>;
+    return <div className="QualityControlView"><div className="QualityControlView-state">Failed to load stats</div></div>;
   }
 
   const { total, typedCount, structured, unstructured } = stats;
@@ -28,14 +28,17 @@ export function QualityControlView({ stats, isLoading, error, typeIcons = {} }: 
 
   return (
     <div className="QualityControlView">
-      <div className="QualityControlView-panel">
+      <div className="QualityControlView-col QualityControlView-col--overview">
         <div className="QualityControlView-label">Data quality</div>
         <div className="QualityControlView-percentage">{percentage}%</div>
         <div className="QualityControlView-fraction">{typedCount} / {total}</div>
+      </div>
 
-        {unstructured.length > 0 && (
-          <>
-            <div className="QualityControlView-section-heading">Primitive / Unstructured</div>
+      <div className="QualityControlView-col">
+        <div className="QualityControlView-col-heading">Primitive</div>
+        {unstructured.length === 0
+          ? <div className="QualityControlView-empty">None</div>
+          : (
             <table className="QualityControlView-table">
               <thead>
                 <tr><th>Type</th><th>Count</th></tr>
@@ -57,12 +60,15 @@ export function QualityControlView({ stats, isLoading, error, typeIcons = {} }: 
                 })}
               </tbody>
             </table>
-          </>
-        )}
+          )
+        }
+      </div>
 
-        {structured.length > 0 && (
-          <>
-            <div className="QualityControlView-section-heading">Templated / Structured</div>
+      <div className="QualityControlView-col">
+        <div className="QualityControlView-col-heading">Structured</div>
+        {structured.length === 0
+          ? <div className="QualityControlView-empty">None</div>
+          : (
             <table className="QualityControlView-table">
               <thead>
                 <tr><th>Type</th><th>Count</th></tr>
@@ -87,8 +93,8 @@ export function QualityControlView({ stats, isLoading, error, typeIcons = {} }: 
                 })}
               </tbody>
             </table>
-          </>
-        )}
+          )
+        }
       </div>
     </div>
   );
