@@ -1,0 +1,52 @@
+{
+  "item": {
+    "id": "81a0d317-2264-4e21-93bb-edfe671e5980",
+    "parentId": "00000000-0000-0000-0000-000000000000",
+    "type": "component",
+    "typeId": null,
+    "value": "Breadcrumb",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "owner": "kanecta.org",
+    "ownerDomain": "kanecta.org",
+    "namespace": "kanecta.org/ui/components",
+    "copyrightHolder": null,
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "visibility": "public",
+    "aspect": null,
+    "confidence": "decided",
+    "status": "active",
+    "tags": [
+      "ui",
+      "component",
+      "react"
+    ],
+    "template": null,
+    "createdAt": "2026-06-27T00:00:00.000Z",
+    "modifiedAt": "2026-06-27T00:00:00.000Z",
+    "createdBy": null,
+    "modifiedBy": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "files": {
+      "body": "src/index.ts"
+    }
+  },
+  "search": null,
+  "payload": {
+    "description": "Kanecta Breadcrumb UI component.",
+    "props": [],
+    "dependencies": [
+      "@mui/icons-material",
+      "@mui/material"
+    ]
+  }
+}
