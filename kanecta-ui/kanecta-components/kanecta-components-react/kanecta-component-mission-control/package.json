@@ -8,7 +8,7 @@
     "@kanecta/component-tag-chip": "*",
     "@kanecta/component-type-badge": "*",
     "@kanecta/component-workspace-indicator": "*",
-    "@tanstack/react-query": ">=5",
+    "@tanstack/react-query": "^5.101.2",
     "react": ">=19"
   }
 }
