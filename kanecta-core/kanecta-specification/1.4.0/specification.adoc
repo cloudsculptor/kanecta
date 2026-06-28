@@ -837,7 +837,7 @@ All items of `type: "type"` — both built-in type items seeded from the core ma
 
 Built-in type items are seeded idempotently at datastore initialisation from the core manifest. If a type item already exists with the correct UUID, the seed is a no-op. See <<manifests-and-built-in-type-items>> for the full mechanism, UUID registry, and seed file format.
 
-Built-in types with type items (30 total): `action`, `activity`, `agent`, `alias`, `annotation`, `aspect-type`, `cell`, `component`, `connector`, `context`, `eval`, `eval-run`, `file`, `formula`, `function`, `grant`, `grid`, `item_history`, `object`, `pipeline`, `pipeline-run`, `query`, `reference`, `relationship`, `relationship-type`, `runner`, `subscription`, `symlink`, `tree`, `view`.
+Built-in types with type items (31 total): `action`, `activity`, `agent`, `alias`, `annotation`, `aspect-type`, `cell`, `component`, `connector`, `context`, `document`, `eval`, `eval-run`, `file`, `formula`, `function`, `grant`, `grid`, `item_history`, `object`, `pipeline`, `pipeline-run`, `query`, `reference`, `relationship`, `relationship-type`, `runner`, `subscription`, `symlink`, `tree`, `view`.
 
 NOTE: The payload-less primitive types — `string`, `number`, `text`, `heading`, `url` — do *not* have type items. These types are content items that live directly under their parent in the tree. Creating a type bucket for bare strings or numbers would produce a meaningless collection of decontextualised values. Their `parentId` is always their actual tree parent.
 
@@ -890,6 +890,10 @@ The following built-in types use a payload reference field (not the aspect patte
 
 | `item_history`
 | `"history"`
+| `payload.targetId`
+
+| `document`
+| `"documents"`
 | `payload.targetId`
 |===
 
@@ -2258,6 +2262,115 @@ When a branch is prepared for merge, the adapter runs a pre-flight check that in
 This is the data-level equivalent of GitHub's CODEOWNERS. If a type definition, a shared pipeline, or a critical entity item has subscribers, any PR touching it automatically loops in those subscribers — not through code review, but through the subscription channel they registered. A webhook subscriber might post a Slack message; an MCP subscriber might kick off a validation pipeline against the proposed changes.
 
 NOTE: Pre-merge notifications are distinct from post-merge event delivery. After the merge completes and items are updated, the normal subscription fan-out fires for each changed item — subscribers receive the standard `"update"` event as they would for any other write.
+
+=== documentPayload
+
+link:../built-in-types/types/document.json[Seed item^]
+
+For `type: "document"`. A named projection of a subtree into document form — mapping tree depth and/or item type to document roles (heading, body, caption, etc.) so a plain tree can be exported or rendered as a well-formed document without restructuring the data.
+
+A document item does not own the subtree it projects. It points at a target item via `payload.targetId` and declares how the tree under that item should be interpreted. Multiple document items can project the same subtree differently — a quarterly review might have one document for the executive summary and another for the detailed breakdown, both reading from the same item graph.
+
+`parentId` for a document item is the synthetic `document` type item UUID (the universal rule). The target item is identified by `payload.targetId`. To find all documents for item X: `SELECT * FROM items WHERE type = 'document' AND payload->>'targetId' = $x`. The adapter maintains a derived `documents` lookup for O(1) resolution; that lookup is never the source of truth, it is rebuilt from items.
+
+The role map controls how items at each depth are rendered:
+
+* `roleMap.byDepth` — positional defaults. Keys are depth integers (as strings) where depth 1 is the direct children of `targetId` and depth 0 is `targetId` itself. The role at a given depth applies to all items at that depth unless a `byType` entry overrides it.
+* `roleMap.byType` — per-type overrides. The item's `item.type` string (or `item.typeId` UUID for object items) is matched. A type override wins over the depth default for items of that type at any depth. UUID-keyed entries take precedence over string-keyed entries when both match.
+* Role precedence: `byType[typeId]` → `byType[type]` → `byDepth[depth]` → `"body"` (fallback).
+
+Valid role values: `title`, `heading`, `subheading`, `body`, `caption`, `list-item`, `code-block`, `ignore`.
+
+The `ignore` role suppresses an item and all of its descendants from the document output. This is useful when a subtree contains administrative children, aspect items, or metadata that should not appear in the exported document.
+
+The expand state controls how deep the tree is rendered:
+
+* `expandState.defaultDepth` — how many levels to expand from `targetId`. 0 means expand only `targetId`'s direct children (show them, do not recurse into them). 1 means expand one level of children; 2 means expand two levels; and so on. Very large values should be avoided — the renderer may apply its own depth cap.
+* `expandState.exceptions` — a sparse map of item UUID → integer depth (expand that item's subtree to that many additional levels) or `false` (collapse the item, rendering neither it nor its descendants, regardless of `defaultDepth`). Only items that differ from `defaultDepth` need an entry. An empty object `{}` is equivalent to omitting the field.
+
+Org default vs personal:
+
+* `isOrgDefault: true` marks this document as the canonical org-level view for this target item. At most one document per `targetId` should carry `isOrgDefault: true`; tooling surfaces it first in document lists.
+* When a user modifies an org-default document, the intended behaviour is fork-on-modify: a new personal document is created with `baseDocumentId` pointing at the source document and `meta.visibility: 'private'`. The org default is left untouched. The `baseDocumentId` link allows tooling to diff or sync the fork against the upstream canonical when needed.
+* `meta.visibility: 'org'` — visible to all org members. `meta.visibility: 'private'` — visible only to the owner.
+
+[source,json]
+----
+{
+  "targetId": "uuid-of-target-item",
+  "name": "Executive summary",
+  "expandState": {
+    "defaultDepth": 2,
+    "exceptions": {
+      "uuid-of-collapsed-subtree": false,
+      "uuid-of-deep-dive-section": 4
+    }
+  },
+  "roleMap": {
+    "byDepth": {
+      "0": "title",
+      "1": "heading",
+      "2": "subheading",
+      "3": "body"
+    },
+    "byType": {
+      "annotation": "caption",
+      "formula": "ignore"
+    }
+  },
+  "isOrgDefault": false,
+  "baseDocumentId": null
+}
+----
+
+[cols="1,1,2", options="header"]
+|===
+| Field | Required | Description
+
+| `targetId`
+| yes
+| UUID of the item whose subtree this document projects.
+
+| `name`
+| yes
+| Human-readable name for this document (e.g. `"Executive summary"`, `"Onboarding guide"`).
+
+| `expandState`
+| no
+| Controls which parts of the tree are rendered. When absent, the renderer uses its own default depth. Both sub-fields are optional — omit `exceptions` for a flat expansion at `defaultDepth`, omit `defaultDepth` to leave the renderer's default in place while still applying the listed exceptions.
+
+| `expandState.defaultDepth`
+| no
+| Number of levels below `targetId` to expand by default. 0 = render only `targetId`'s immediate children; 1 = expand one level; 2 = expand two levels. The renderer may apply its own cap.
+
+| `expandState.exceptions`
+| no
+| Sparse map of item UUID → integer (expand that item's subtree to this many additional levels) or `false` (collapse entirely — suppress that item and all its descendants). Only include items that differ from `defaultDepth`. An empty object `{}` is equivalent to omitting the field.
+
+| `roleMap`
+| no
+| Controls how items are assigned document roles. When absent, all items render as `body`. When present, both sub-fields are optional.
+
+| `roleMap.byDepth`
+| no
+| Map of depth integer (as string key) → role name. Depth 0 = `targetId` itself; depth 1 = direct children. Unspecified depths render as `body`.
+
+| `roleMap.byType`
+| no
+| Map of item type string or typeId UUID → role name. Overrides `byDepth` for matching items at any depth. UUID-keyed entries take precedence over string-keyed entries when both match the same item.
+
+| `isOrgDefault`
+| no
+| When `true`, this is the canonical org-level document for `targetId`. Tooling surfaces it first. At most one document per `targetId` should have this set. Default: `false`.
+
+| `baseDocumentId`
+| no
+| UUID of the document this was forked from (set on fork-on-modify). `null` for original documents. Allows tooling to diff or sync the fork against the upstream canonical.
+|===
+
+NOTE: *Export:* The initial export target is Markdown, implemented as the `exportMarkdown(adapter, documentId)` pure function in `kanecta-lib`. Plain text and HTML are planned. PDF requires a rendering pipeline and is not in this release.
+
+NOTE: *Inline references:* When an item with `type: "reference"` appears in the document subtree and its `payload.kind` is not `"physical"`, the Markdown exporter renders an inline link using the target item's `item.value` as link text. Transclusion (embedding a target item's full content) is deferred.
 
 === itemHistoryPayload
 

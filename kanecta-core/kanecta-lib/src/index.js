@@ -8,4 +8,5 @@ module.exports = {
   ...require('./connectorEngine'),
   ...require('./scheduleRunner'),
   ...require('./syncEngine'),
+  ...require('./exportMarkdown'),
 };

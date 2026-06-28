@@ -1335,6 +1335,69 @@ class SqliteFsAdapter {
     this.writeObjectJson(id, data);
   }
 
+  // ─── Document type helpers ─────────────────────────────────────────────────
+
+  // Stable UUID of the synthetic 'document' type item — seeded from
+  // built-in-types/types/document.json and identical across all installations.
+  static get DOCUMENT_TYPE_UUID() { return 'b4e2f1c3-a0d5-4e6f-8b9c-d7f2e1a3b5c0'; }
+
+  createDocument(targetId, name, {
+    expandState = null,
+    roleMap = null,
+    isOrgDefault = false,
+    baseDocumentId = null,
+    owner, visibility = 'private',
+  } = {}) {
+    if (!targetId) throw new Error('createDocument: targetId is required');
+    if (!name)     throw new Error('createDocument: name is required');
+    const item = this.create({
+      type: 'document',
+      parentId: SqliteFsAdapter.DOCUMENT_TYPE_UUID,
+      value: name,
+      owner,
+      visibility,
+    });
+    const payload = {
+      targetId,
+      name,
+      expandState: expandState ?? { defaultDepth: 2, exceptions: {} },
+      roleMap: roleMap ?? { byDepth: { '1': 'heading', '2': 'subheading', '3': 'body' }, byType: {} },
+      isOrgDefault,
+      baseDocumentId: baseDocumentId ?? null,
+    };
+    this.writeObjectJson(item.id, payload);
+    return item;
+  }
+
+  readDocumentPayload(id) {
+    return this.readObjectJson(id);
+  }
+
+  writeDocumentPayload(id, payload) {
+    const doc = this._readItemJson(id);
+    if (!doc) throw new Error(`Item not found: ${id}`);
+    if (doc.item?.type !== 'document') throw new Error(`Item ${id} is not a document`);
+    this.writeObjectJson(id, payload);
+  }
+
+  listDocuments(targetId) {
+    const rows = this._openDb().prepare(`
+      SELECT i.*, m.owner, m.license, m.visibility, m.confidence, m.status, m.tags,
+             m.created_at, m.modified_at, m.created_by, m.modified_by,
+             m.completed_at, m.due_at, m.expires_at, m.deleted_at, m.cached_at,
+             m.connector_id, m.materialized, m.files, m.layer,
+             m.source_system, m.source_external_id, m.icon
+      FROM items i
+      LEFT JOIN items_meta m ON m.item_id = i.id
+      JOIN items_payload ip ON ip.item_id = i.id
+      WHERE i.type = 'document'
+        AND json_extract(ip.payload, '$.targetId') = ?
+        AND (m.deleted_at IS NULL)
+      ORDER BY i.id
+    `).all(targetId);
+    return rows.map(r => this._rowToItem(r));
+  }
+
   listDueSchedules(beforeAt) {
     const rows = this._openDb().prepare(`
       SELECT i.*, m.owner, m.license, m.visibility, m.confidence, m.status, m.tags,

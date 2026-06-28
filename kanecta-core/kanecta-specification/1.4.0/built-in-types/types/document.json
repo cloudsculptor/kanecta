@@ -1,0 +1,115 @@
+{
+  "item": {
+    "id": "b4e2f1c3-a0d5-4e6f-8b9c-d7f2e1a3b5c0",
+    "parentId": "31ef9fcb-636d-4007-b25f-80c1c4f054ef",
+    "type": "type",
+    "typeId": null,
+    "value": "document",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "A named projection of a subtree into document form — maps tree depth and item type to document roles (heading, body, caption, etc.) so any tree can be exported or rendered as a well-formed document without restructuring the data.",
+      "confidence": "locked"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "documentPayload",
+      "type": "object",
+      "required": ["targetId", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "targetId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "UUID of the item whose subtree this document projects."
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable name for this document (e.g. 'Executive summary', 'Onboarding guide')."
+        },
+        "expandState": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "defaultDepth": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of levels below targetId to expand by default."
+            },
+            "exceptions": {
+              "type": "object",
+              "description": "Sparse map of item UUID to integer depth or false (collapse). Only items that differ from defaultDepth need an entry.",
+              "additionalProperties": {
+                "oneOf": [
+                  { "type": "integer", "minimum": 0 },
+                  { "type": "boolean", "enum": [false] }
+                ]
+              }
+            }
+          }
+        },
+        "roleMap": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "byDepth": {
+              "type": "object",
+              "description": "Map of depth integer (as string key) to role name. Depth 0 = targetId itself.",
+              "additionalProperties": {
+                "type": "string",
+                "enum": ["title", "heading", "subheading", "body", "caption", "list-item", "code-block", "ignore"]
+              }
+            },
+            "byType": {
+              "type": "object",
+              "description": "Map of item type string or typeId UUID to role name. Overrides byDepth. UUID-keyed entries take precedence.",
+              "additionalProperties": {
+                "type": "string",
+                "enum": ["title", "heading", "subheading", "body", "caption", "list-item", "code-block", "ignore"]
+              }
+            }
+          }
+        },
+        "isOrgDefault": {
+          "type": "boolean",
+          "description": "When true, this is the canonical org-level document for targetId. At most one document per targetId should have this set."
+        },
+        "baseDocumentId": {
+          "type": ["string", "null"],
+          "format": "uuid",
+          "description": "UUID of the document this was forked from (set on fork-on-modify). Null for original documents."
+        }
+      }
+    },
+    "sqlSchema": [
+      "-- Built-in type: adapter handles storage natively."
+    ]
+  }
+}

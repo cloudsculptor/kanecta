@@ -36,7 +36,7 @@ const BUILT_IN_TYPES = new Set([
   'object', 'file', 'function', 'runner', 'symlink',
   'action', 'activity', 'agent', 'alias', 'annotation', 'aspect-type',
   'cell', 'component', 'connector', 'context', 'eval', 'eval-run',
-  'formula', 'grant', 'grid', 'item_history', 'pipeline', 'pipeline-run',
+  'document', 'formula', 'grant', 'grid', 'item_history', 'pipeline', 'pipeline-run',
   'query', 'reference', 'relationship', 'relationship-type', 'subscription',
   'tree', 'node', 'view', 'type',
   // Well-known root types
@@ -1146,6 +1146,68 @@ class PostgresAdapter {
     await this._pool.query(
       'UPDATE items SET schedule_data = $1 WHERE id = $2', [data, id],
     );
+  }
+
+  // ─── Document type helpers ─────────────────────────────────────────────────
+
+  // Stable UUID of the synthetic 'document' type item — seeded from
+  // built-in-types/types/document.json and identical across all installations.
+  static get DOCUMENT_TYPE_UUID() { return 'b4e2f1c3-a0d5-4e6f-8b9c-d7f2e1a3b5c0'; }
+
+  async createDocument(targetId, name, {
+    expandState = null,
+    roleMap = null,
+    isOrgDefault = false,
+    baseDocumentId = null,
+    owner, visibility = 'private',
+  } = {}) {
+    if (!targetId) throw new Error('createDocument: targetId is required');
+    if (!name)     throw new Error('createDocument: name is required');
+    const item = await this.create({
+      type: 'document',
+      parentId: PostgresAdapter.DOCUMENT_TYPE_UUID,
+      value: name,
+      owner,
+      visibility,
+    });
+    const payload = {
+      targetId,
+      name,
+      expandState: expandState ?? { defaultDepth: 2, exceptions: {} },
+      roleMap: roleMap ?? { byDepth: { '1': 'heading', '2': 'subheading', '3': 'body' }, byType: {} },
+      isOrgDefault,
+      baseDocumentId: baseDocumentId ?? null,
+    };
+    await this.writeDocumentPayload(item.id, payload);
+    return item;
+  }
+
+  async readDocumentPayload(id) {
+    const { rows } = await this._pool.query(
+      'SELECT payload FROM documents WHERE item_id = $1', [id],
+    );
+    return rows[0]?.payload ?? null;
+  }
+
+  async writeDocumentPayload(id, payload) {
+    await this._pool.query(
+      `INSERT INTO documents (item_id, payload) VALUES ($1, $2)
+       ON CONFLICT (item_id) DO UPDATE SET payload = EXCLUDED.payload`,
+      [id, JSON.stringify(payload)],
+    );
+  }
+
+  async listDocuments(targetId) {
+    const { rows } = await this._pool.query(`
+      SELECT i.*
+      FROM items i
+      JOIN documents d ON d.item_id = i.id
+      WHERE i.type = 'document'
+        AND d.payload->>'targetId' = $1
+        AND i.deleted_at IS NULL
+      ORDER BY i.id
+    `, [targetId]);
+    return rows.map(rowToItem);
   }
 
   // Active schedule items whose next fire time is at or before beforeAt.
