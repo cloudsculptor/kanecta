@@ -1499,6 +1499,260 @@ class PostgresAdapter {
       UPDATE items SET path = paths.path FROM paths WHERE items.id = paths.id
     `);
   }
+
+  // ─── Branching ──────────────────────────────────────────────────────────────
+
+  async createBranch(name) {
+    if (!name || typeof name !== 'string' || !name.trim()) throw new Error('branch name is required');
+    name = name.trim();
+    if (name === 'main') throw new Error('Cannot create a branch named "main"');
+    const existing = await this._pool.query('SELECT id FROM branches WHERE name = $1 AND deleted_at IS NULL', [name]);
+    if (existing.rows.length) throw new Error(`Branch "${name}" already exists`);
+    const { rows } = await this._pool.query(
+      'INSERT INTO branches (name, base_branch) VALUES ($1, $2) RETURNING id, name, base_branch, created_at',
+      [name, 'main'],
+    );
+    const r = rows[0];
+    return { id: r.id, name: r.name, baseBranch: r.base_branch, createdAt: r.created_at.toISOString() };
+  }
+
+  async listBranches() {
+    const { rows } = await this._pool.query(
+      'SELECT id, name, base_branch, created_at, merged_at, deleted_at FROM branches WHERE deleted_at IS NULL ORDER BY created_at',
+    );
+    return rows.map(r => ({
+      id: r.id, name: r.name, baseBranch: r.base_branch,
+      createdAt: r.created_at.toISOString(),
+      mergedAt:  r.merged_at?.toISOString() ?? null,
+      deletedAt: r.deleted_at?.toISOString() ?? null,
+    }));
+  }
+
+  async getBranch(name) {
+    const { rows } = await this._pool.query(
+      'SELECT id, name, base_branch, created_at, merged_at, deleted_at FROM branches WHERE name = $1 AND deleted_at IS NULL',
+      [name],
+    );
+    if (!rows.length) return null;
+    const r = rows[0];
+    return { id: r.id, name: r.name, baseBranch: r.base_branch, createdAt: r.created_at.toISOString(), mergedAt: r.merged_at?.toISOString() ?? null };
+  }
+
+  // Write an array of change entries to branch_changes. Each entry: { itemId, changeType, section, data }.
+  // Callers pass the full five-section breakdown.
+  async applyBranchChanges(branchId, changes) {
+    if (!changes?.length) return;
+    const client = await this._pool.connect();
+    try {
+      await client.query('BEGIN');
+      const stmt = `
+        INSERT INTO branch_changes (branch_id, item_id, change_type, section, data, changed_at)
+        VALUES ($1, $2, $3, $4, $5, now())
+        ON CONFLICT (branch_id, item_id, section) DO UPDATE
+          SET change_type = EXCLUDED.change_type, data = EXCLUDED.data, changed_at = now()
+      `;
+      for (const c of changes) {
+        await client.query(stmt, [branchId, c.itemId, c.changeType, c.section, c.data ? JSON.stringify(c.data) : null]);
+      }
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
+  async getBranchChanges(branchId) {
+    const { rows } = await this._pool.query(
+      'SELECT item_id, change_type, section, data, changed_at FROM branch_changes WHERE branch_id = $1 ORDER BY item_id, section',
+      [branchId],
+    );
+    return rows.map(r => ({
+      itemId: r.item_id, changeType: r.change_type, section: r.section,
+      data: r.data, changedAt: r.changed_at.toISOString(),
+    }));
+  }
+
+  // Pre-flight scan: returns the blast radius for all items in a branch.
+  // Blocks merge when any reference item with blockDeletion=true targets a deleted item.
+  async preFlightScan(branchId) {
+    // Collect the set of deleted item IDs on this branch
+    const { rows: delRows } = await this._pool.query(
+      "SELECT DISTINCT item_id FROM branch_changes WHERE branch_id = $1 AND change_type = 'delete'",
+      [branchId],
+    );
+    const deletedIds = delRows.map(r => r.item_id);
+
+    // Get all changed item IDs (creates, updates, deletes)
+    const { rows: allRows } = await this._pool.query(
+      "SELECT DISTINCT item_id, change_type FROM branch_changes WHERE branch_id = $1 AND section = 'item'",
+      [branchId],
+    );
+
+    const adds    = allRows.filter(r => r.change_type === 'create').map(r => r.item_id);
+    const edits   = allRows.filter(r => r.change_type === 'update').map(r => r.item_id);
+    const deletes = deletedIds;
+    const changedIds = [...new Set([...adds, ...edits, ...deletes])];
+
+    // Blast radius: items that reference any of the changed IDs
+    let structuralRefs = [];
+    let blockingRefs   = [];
+    if (changedIds.length) {
+      const { rows: refRows } = await this._pool.query(
+        'SELECT source_item_id, target_item_id, reference_type, field_name FROM item_references WHERE target_item_id = ANY($1)',
+        [changedIds],
+      ).catch(() => ({ rows: [] })); // item_references may not exist on older schemas
+      structuralRefs = refRows.map(r => ({
+        sourceId: r.source_item_id, targetId: r.target_item_id,
+        referenceType: r.reference_type, fieldName: r.field_name,
+      }));
+
+      // Check for reference items with blockDeletion:true pointing at deleted items
+      if (deletes.length) {
+        // Reference items store targetId and blockDeletion flag in the main items value field
+        // or time_data column as JSON — query items of type 'reference' pointing at deleted IDs.
+        // This is a best-effort check; full payload scanning is handled by the SyncEngine.
+        const { rows: blockRows } = await this._pool.query(`
+          SELECT id FROM items
+          WHERE type = 'reference'
+            AND parent_id = ANY($1)
+        `, [deletes]).catch(() => ({ rows: [] }));
+        blockingRefs = blockRows.map(r => ({ referenceItemId: r.id }));
+      }
+    }
+
+    return {
+      branchId,
+      summary: { adds: adds.length, edits: edits.length, deletes: deletes.length },
+      structuralRefs,
+      blockingRefs,
+      blocked: blockingRefs.length > 0,
+    };
+  }
+
+  // Atomically merge all branch_changes into main tables, then mark branch merged.
+  async mergeBranch(branchId) {
+    const { rows: branchRows } = await this._pool.query(
+      'SELECT id, name FROM branches WHERE id = $1 AND deleted_at IS NULL AND merged_at IS NULL',
+      [branchId],
+    );
+    if (!branchRows.length) throw new Error(`Branch ${branchId} not found or already merged`);
+
+    const changeRows = await this.getBranchChanges(branchId);
+
+    // Group by item
+    const byItem = new Map();
+    for (const r of changeRows) {
+      if (!byItem.has(r.itemId)) byItem.set(r.itemId, { changeType: r.changeType, sections: {} });
+      const entry = byItem.get(r.itemId);
+      if (r.changeType === 'delete') entry.changeType = 'delete';
+      if (r.data) entry.sections[r.section] = r.data;
+    }
+
+    const client = await this._pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      for (const [itemId, entry] of byItem) {
+        if (entry.changeType === 'delete') {
+          await client.query('DELETE FROM items WHERE id = $1', [itemId]);
+        } else {
+          const item    = entry.sections.item    ?? {};
+          const meta    = entry.sections.meta    ?? {};
+          const payload = entry.sections.payload ?? null;
+
+          if (entry.changeType === 'create') {
+            // Insert into items table
+            await client.query(`
+              INSERT INTO items (id, parent_id, value, type, type_id, sort_order, aspect, spec_version,
+                owner, license, visibility, confidence, status, tags,
+                created_at, modified_at, created_by, modified_by,
+                expires_at, deleted_at, connector_id, materialized,
+                source_system, source_external_id, path)
+              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
+              ON CONFLICT (id) DO UPDATE SET
+                parent_id = EXCLUDED.parent_id, value = EXCLUDED.value, type = EXCLUDED.type,
+                type_id = EXCLUDED.type_id, sort_order = EXCLUDED.sort_order, aspect = EXCLUDED.aspect,
+                modified_at = EXCLUDED.modified_at, modified_by = EXCLUDED.modified_by
+            `, [
+              itemId, item.parentId ?? null, item.value ?? null, item.type ?? 'text',
+              item.typeId ?? null, item.sortOrder ?? 0, item.aspect ?? null,
+              meta.specVersion ?? specVersion,
+              meta.owner ?? this.config.owner, meta.license ?? DEFAULT_LICENSE, meta.visibility ?? 'private',
+              meta.confidence ?? null, meta.status ?? null, meta.tags ?? [],
+              meta.createdAt ? new Date(meta.createdAt) : new Date(),
+              meta.modifiedAt ? new Date(meta.modifiedAt) : new Date(),
+              meta.createdBy ?? this.config.owner, meta.modifiedBy ?? this.config.owner,
+              meta.expiresAt ? new Date(meta.expiresAt) : null,
+              meta.deletedAt ? new Date(meta.deletedAt) : null,
+              meta.connectorId ?? null, meta.materialized ?? null,
+              meta.sourceSystem ?? null, meta.sourceExternalId ?? null,
+              null, // path: recomputed by rebuildPaths
+            ]);
+          } else {
+            // Update existing item
+            await client.query(`
+              UPDATE items SET
+                parent_id = COALESCE($2, parent_id), value = COALESCE($3, value),
+                type = COALESCE($4, type), type_id = $5, sort_order = COALESCE($6, sort_order),
+                aspect = $7, modified_at = $8, modified_by = COALESCE($9, modified_by),
+                expires_at = $10, deleted_at = $11, connector_id = $12, materialized = $13,
+                visibility = COALESCE($14, visibility), status = $15, tags = COALESCE($16, tags)
+              WHERE id = $1
+            `, [
+              itemId, item.parentId ?? null, item.value ?? null, item.type ?? null,
+              item.typeId ?? null, item.sortOrder ?? null, item.aspect ?? null,
+              meta.modifiedAt ? new Date(meta.modifiedAt) : new Date(),
+              meta.modifiedBy ?? null,
+              meta.expiresAt  ? new Date(meta.expiresAt)  : null,
+              meta.deletedAt  ? new Date(meta.deletedAt)  : null,
+              meta.connectorId ?? null, meta.materialized ?? null,
+              meta.visibility ?? null, meta.status ?? null, meta.tags ?? null,
+            ]);
+          }
+
+          // Payload for object types is stored via writeObjectJson (on-disk JSON),
+          // not in a separate DB table. The payload section in branch_changes carries
+          // merge metadata only; full payload sync is handled by the SyncEngine.
+        }
+      }
+
+      // Mark branch merged and clear changes
+      await client.query('UPDATE branches SET merged_at = now() WHERE id = $1', [branchId]);
+      await client.query('DELETE FROM branch_changes WHERE branch_id = $1', [branchId]);
+
+      // Rebuild paths for items that moved or were created
+      await client.query(`
+        WITH RECURSIVE paths AS (
+          SELECT id, id::text AS path FROM items
+          WHERE id = '00000000-0000-0000-0000-000000000000'
+          UNION ALL
+          SELECT i.id, p.path || '/' || i.id::text
+          FROM items i
+          JOIN paths p ON i.parent_id = p.id AND i.id != i.parent_id
+        )
+        UPDATE items SET path = paths.path FROM paths WHERE items.id = paths.id AND items.path IS DISTINCT FROM paths.path
+      `);
+
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+
+    return { merged: byItem.size, branchName: branchRows[0].name };
+  }
+
+  async deleteBranch(name) {
+    if (!name || name === 'main') throw new Error('Cannot delete the main branch');
+    const { rows } = await this._pool.query('SELECT id FROM branches WHERE name = $1 AND deleted_at IS NULL', [name]);
+    if (!rows.length) throw new Error(`Branch "${name}" not found`);
+    await this._pool.query('UPDATE branches SET deleted_at = now() WHERE id = $1', [rows[0].id]);
+    await this._pool.query('DELETE FROM branch_changes WHERE branch_id = $1', [rows[0].id]);
+  }
 }
 
 module.exports = {

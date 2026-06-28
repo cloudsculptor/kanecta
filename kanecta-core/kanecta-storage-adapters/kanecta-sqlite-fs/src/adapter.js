@@ -183,6 +183,34 @@ CREATE TABLE IF NOT EXISTS type_defs (
   schema_json   TEXT NOT NULL DEFAULT '{}',
   metadata_json TEXT NOT NULL DEFAULT '{}'
 );
+
+-- ─── Branching (directory overlay model) ──────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS workspace_meta (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS branches (
+  id          TEXT PRIMARY KEY,
+  name        TEXT NOT NULL UNIQUE,
+  base_branch TEXT NOT NULL DEFAULT 'main',
+  created_at  TEXT NOT NULL,
+  merged_at   TEXT,
+  deleted_at  TEXT
+);
+
+CREATE TABLE IF NOT EXISTS branch_changes (
+  branch_id   TEXT NOT NULL REFERENCES branches(id),
+  item_id     TEXT NOT NULL,
+  change_type TEXT NOT NULL CHECK (change_type IN ('create', 'update', 'delete')),
+  section     TEXT NOT NULL CHECK (section IN ('item', 'meta', 'search', 'payload', 'time')),
+  data        TEXT,
+  changed_at  TEXT NOT NULL,
+  PRIMARY KEY (branch_id, item_id, section)
+);
+CREATE INDEX IF NOT EXISTS idx_bc_branch ON branch_changes(branch_id);
+CREATE INDEX IF NOT EXISTS idx_bc_item   ON branch_changes(branch_id, item_id);
 `;
 
 class SqliteFsAdapter {
@@ -193,6 +221,7 @@ class SqliteFsAdapter {
     this._config = null;
     this._mem    = new Map();
     this._roots  = null;
+    this._branch = 'main';
   }
 
   // ─── Filesystem helpers ────────────────────────────────────────────────────
@@ -213,6 +242,20 @@ class SqliteFsAdapter {
   }
 
   _readItemJson(id) {
+    // On a non-main branch: check overlay first, respect delete markers.
+    if (this._branch !== 'main') {
+      const branchId = this._branchId(this._branch);
+      if (branchId) {
+        const row = this._openDb().prepare(
+          "SELECT change_type FROM branch_changes WHERE branch_id = ? AND item_id = ? AND section = 'item'"
+        ).get(branchId, id);
+        if (row?.change_type === 'delete') return null;
+        if (row) {
+          const doc = this._readBranchItemJsonRaw(id);
+          if (doc) return doc;
+        }
+      }
+    }
     const p = this._itemPath(id);
     try { return JSON.parse(fs.readFileSync(p, 'utf8')); }
     catch { return null; }
@@ -231,6 +274,82 @@ class SqliteFsAdapter {
   _deleteItemDir(id) {
     const dir = this._itemDir(id);
     if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
+  }
+
+  // ─── Branch filesystem helpers ─────────────────────────────────────────────
+
+  _encodeBranchName(name) { return name.replace(/\//g, '__'); }
+
+  _branchDir(name) {
+    return path.join(this.k, 'branches', this._encodeBranchName(name));
+  }
+
+  _branchItemDir(name, id) {
+    const [s1, s2] = this._shard(id);
+    return path.join(this._branchDir(name), 'items', s1, s2, id);
+  }
+
+  _branchItemPath(name, id) {
+    return path.join(this._branchItemDir(name, id), 'item.json');
+  }
+
+  _readBranchItemJsonRaw(id) {
+    const p = this._branchItemPath(this._branch, id);
+    try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; }
+  }
+
+  _writeBranchItemJson(name, id, doc) {
+    const dir = this._branchItemDir(name, id);
+    fs.mkdirSync(dir, { recursive: true });
+    const p   = this._branchItemPath(name, id);
+    const tmp = p + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(doc, null, 2), 'utf8');
+    fs.renameSync(tmp, p);
+  }
+
+  _deleteBranchItemFile(name, id) {
+    const dir = this._branchItemDir(name, id);
+    if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
+  }
+
+  _branchId(name) {
+    const n = name ?? this._branch;
+    if (!n || n === 'main') return null;
+    const row = this._openDb().prepare('SELECT id FROM branches WHERE name = ? AND deleted_at IS NULL').get(n);
+    return row?.id ?? null;
+  }
+
+  // Record an item change in branch_changes. For delete: single marker row.
+  // For create/update: one row per section.
+  _recordBranchChange(db, branchId, itemId, changeType, doc) {
+    const now = new Date().toISOString();
+    if (changeType === 'delete') {
+      db.prepare('DELETE FROM branch_changes WHERE branch_id = ? AND item_id = ?').run(branchId, itemId);
+      db.prepare('INSERT OR REPLACE INTO branch_changes (branch_id, item_id, change_type, section, data, changed_at) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(branchId, itemId, 'delete', 'item', null, now);
+      return;
+    }
+    const stmt = db.prepare('INSERT OR REPLACE INTO branch_changes (branch_id, item_id, change_type, section, data, changed_at) VALUES (?, ?, ?, ?, ?, ?)');
+    for (const sec of ['item', 'meta', 'search', 'payload', 'time']) {
+      const data = doc?.[sec];
+      stmt.run(branchId, itemId, changeType, sec, data != null ? JSON.stringify(data) : null, now);
+    }
+  }
+
+  // Returns sets of deleted/changed/created item IDs for the current branch.
+  _getBranchOverlay(branchName) {
+    const branchId = this._branchId(branchName);
+    if (!branchId) return { deletedIds: new Set(), changedIds: new Set(), createdIds: new Set() };
+    const rows = this._openDb().prepare(
+      "SELECT DISTINCT item_id, change_type FROM branch_changes WHERE branch_id = ? AND section = 'item'"
+    ).all(branchId);
+    const deletedIds = new Set(), changedIds = new Set(), createdIds = new Set();
+    for (const r of rows) {
+      if (r.change_type === 'delete')      deletedIds.add(r.item_id);
+      else if (r.change_type === 'update') changedIds.add(r.item_id);
+      else if (r.change_type === 'create') createdIds.add(r.item_id);
+    }
+    return { deletedIds, changedIds, createdIds };
   }
 
   // Walk every item.json under items/ (or a custom dir).
@@ -257,6 +376,10 @@ class SqliteFsAdapter {
     const dbPath = path.join(this.k, 'index.db');
     this._db = new Database(dbPath);
     this._db.exec(SCHEMA_SQL);
+    // Seed default branch tracking and restore active branch
+    this._db.prepare("INSERT OR IGNORE INTO workspace_meta (key, value) VALUES ('current_branch', 'main')").run();
+    const brow = this._db.prepare("SELECT value FROM workspace_meta WHERE key = 'current_branch'").get();
+    if (brow?.value) this._branch = brow.value;
     return this._db;
   }
 
@@ -833,13 +956,20 @@ class SqliteFsAdapter {
     doc.payload = resolvedPayload;
 
     // Write file FIRST, then update index.
-    this._writeItemJson(id, doc);
-
-    const db = this._openDb();
-    db.transaction(() => {
-      this._insertIndexTx(db, id, doc, itemPath);
-      this._snapshot(db, item, 'create', actor, now);
-    })();
+    if (this._branch !== 'main') {
+      // Branch: write to overlay, record in branch_changes (main index untouched).
+      this._writeBranchItemJson(this._branch, id, doc);
+      const db       = this._openDb();
+      const branchId = this._branchId(this._branch);
+      if (branchId) db.transaction(() => { this._recordBranchChange(db, branchId, id, 'create', doc); })();
+    } else {
+      this._writeItemJson(id, doc);
+      const db = this._openDb();
+      db.transaction(() => {
+        this._insertIndexTx(db, id, doc, itemPath);
+        this._snapshot(db, item, 'create', actor, now);
+      })();
+    }
 
     this._mem.set(id, item);
 
@@ -881,6 +1011,25 @@ class SqliteFsAdapter {
       return this._buildSyntheticNode(realId, parentId, key, val, fieldPath, 0);
     }
 
+    // On a non-main branch: check overlay first (delete markers + branch items).
+    if (this._branch !== 'main') {
+      const branchId = this._branchId(this._branch);
+      if (branchId) {
+        const row = this._openDb().prepare(
+          "SELECT change_type FROM branch_changes WHERE branch_id = ? AND item_id = ? AND section = 'item'"
+        ).get(branchId, id);
+        if (row?.change_type === 'delete') return null;
+        if (row) {
+          const doc = this._readBranchItemJsonRaw(id);
+          if (doc) {
+            const item = this._docToItem(doc);
+            if (item) this._mem.set(id, item);
+            return item;
+          }
+        }
+      }
+    }
+
     // 1. Memory cache
     if (this._mem.has(id)) return this._mem.get(id);
 
@@ -892,7 +1041,7 @@ class SqliteFsAdapter {
       return item;
     }
 
-    // 3. Filesystem fallback (e.g. during reconcile or after git branch switch)
+    // 3. Filesystem fallback
     const doc = this._readItemJson(id);
     if (!doc) return null;
     const item = this._docToItem(doc);
@@ -955,6 +1104,22 @@ class SqliteFsAdapter {
     // Read existing doc to preserve payload/time/search sections.
     const existingDoc = this._readItemJson(id);
     const newDoc      = this._itemToDoc(updated, existingDoc);
+
+    if (this._branch !== 'main') {
+      // Branch: write to overlay. Keep change_type='create' if item was created on this branch.
+      this._writeBranchItemJson(this._branch, id, newDoc);
+      this._mem.delete(id);
+      const db       = this._openDb();
+      const branchId = this._branchId(this._branch);
+      if (branchId) {
+        const prev = db.prepare("SELECT change_type FROM branch_changes WHERE branch_id = ? AND item_id = ? AND section = 'item'").get(branchId, id);
+        const ct   = prev?.change_type === 'create' ? 'create' : 'update';
+        db.transaction(() => { this._recordBranchChange(db, branchId, id, ct, newDoc); })();
+      }
+      this._mem.set(id, updated);
+      if (typeWarning) Object.defineProperty(updated, 'warning', { value: typeWarning, enumerable: false, configurable: true });
+      return updated;
+    }
 
     // Write file FIRST.
     this._writeItemJson(id, newDoc);
@@ -1029,6 +1194,24 @@ class SqliteFsAdapter {
     const now      = new Date();
     const warnings = this.deleteWarnings(id);
 
+    if (this._branch !== 'main') {
+      const db       = this._openDb();
+      const branchId = this._branchId(this._branch);
+      if (branchId) {
+        const prev = db.prepare("SELECT change_type FROM branch_changes WHERE branch_id = ? AND item_id = ? AND section = 'item'").get(branchId, id);
+        if (prev?.change_type === 'create') {
+          // Item was created on this branch — undo it entirely
+          db.prepare('DELETE FROM branch_changes WHERE branch_id = ? AND item_id = ?').run(branchId, id);
+        } else {
+          // Item lives in main — record a delete marker
+          this._recordBranchChange(db, branchId, id, 'delete', null);
+        }
+      }
+      this._deleteBranchItemFile(this._branch, id);
+      this._mem.delete(id);
+      return { warnings };
+    }
+
     // Delete file.
     this._deleteItemDir(id);
     this._mem.delete(id);
@@ -1058,6 +1241,15 @@ class SqliteFsAdapter {
 
     const existingDoc = this._readItemJson(id);
     const newDoc      = this._itemToDoc(updated, existingDoc);
+
+    if (this._branch !== 'main') {
+      this._writeBranchItemJson(this._branch, id, newDoc);
+      this._mem.delete(id);
+      const db = this._openDb(); const branchId = this._branchId(this._branch);
+      if (branchId) { const prev = db.prepare("SELECT change_type FROM branch_changes WHERE branch_id = ? AND item_id = ? AND section = 'item'").get(branchId, id); const ct = prev?.change_type === 'create' ? 'create' : 'update'; db.transaction(() => { this._recordBranchChange(db, branchId, id, ct, newDoc); })(); }
+      return updated;
+    }
+
     this._writeItemJson(id, newDoc);
     this._mem.delete(id);
 
@@ -1080,6 +1272,15 @@ class SqliteFsAdapter {
 
     const existingDoc = this._readItemJson(id);
     const newDoc      = this._itemToDoc(updated, existingDoc);
+
+    if (this._branch !== 'main') {
+      this._writeBranchItemJson(this._branch, id, newDoc);
+      this._mem.delete(id);
+      const db = this._openDb(); const branchId = this._branchId(this._branch);
+      if (branchId) { const prev = db.prepare("SELECT change_type FROM branch_changes WHERE branch_id = ? AND item_id = ? AND section = 'item'").get(branchId, id); const ct = prev?.change_type === 'create' ? 'create' : 'update'; db.transaction(() => { this._recordBranchChange(db, branchId, id, ct, newDoc); })(); }
+      return updated;
+    }
+
     this._writeItemJson(id, newDoc);
     this._mem.delete(id);
 
@@ -1408,7 +1609,7 @@ class SqliteFsAdapter {
   }
 
   loadAll() {
-    return this._openDb().prepare(`
+    const mainItems = this._openDb().prepare(`
       SELECT i.*, m.owner, m.license, m.visibility, m.confidence, m.status, m.tags,
              m.created_at, m.modified_at, m.created_by, m.modified_by,
              m.completed_at, m.due_at, m.expires_at, m.deleted_at, m.cached_at,
@@ -1416,6 +1617,24 @@ class SqliteFsAdapter {
              m.source_system, m.source_external_id, m.icon
       FROM items i LEFT JOIN items_meta m ON m.item_id = i.id
     `).all().map(r => this._rowToItem(r));
+
+    if (this._branch === 'main') return mainItems;
+
+    const { deletedIds, changedIds, createdIds } = this._getBranchOverlay(this._branch);
+
+    // Start from main items, filter out deleted and changed (changed re-added from overlay).
+    let result = mainItems.filter(i => !deletedIds.has(i.id) && !changedIds.has(i.id));
+
+    for (const id of changedIds) {
+      const doc = this._readBranchItemJsonRaw(id);
+      if (doc) { const item = this._docToItem(doc); if (item) result.push(item); }
+    }
+    for (const id of createdIds) {
+      const doc = this._readBranchItemJsonRaw(id);
+      if (doc) { const item = this._docToItem(doc); if (item) result.push(item); }
+    }
+
+    return result;
   }
 
   // ─── Tree ──────────────────────────────────────────────────────────────────
@@ -1452,7 +1671,26 @@ class SqliteFsAdapter {
     const rows = (aspect === null || aspect === undefined)
       ? db.prepare(sql).all(parentId)
       : db.prepare(sql).all(parentId, aspect);
-    const realChildren = rows.map(r => this._rowToItem(r));
+    let realChildren = rows.map(r => this._rowToItem(r));
+
+    if (this._branch !== 'main') {
+      const { deletedIds, changedIds, createdIds } = this._getBranchOverlay(this._branch);
+      // Remove deleted and changed items (changed re-added from overlay below)
+      realChildren = realChildren.filter(i => !deletedIds.has(i.id) && !changedIds.has(i.id));
+      // Overlay updated items
+      for (const id of changedIds) {
+        const doc = this._readBranchItemJsonRaw(id);
+        if (doc && doc.item.parentId === parentId && (aspect === null ? doc.item.aspect == null : doc.item.aspect === aspect))
+          realChildren.push(this._docToItem(doc));
+      }
+      // Add branch-created children with this parentId
+      for (const id of createdIds) {
+        const doc = this._readBranchItemJsonRaw(id);
+        if (doc && doc.item.parentId === parentId && (aspect === null ? doc.item.aspect == null : doc.item.aspect === aspect))
+          realChildren.push(this._docToItem(doc));
+      }
+      realChildren.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    }
 
     const obj = this.readObjectJson(parentId);
     if (!obj) return realChildren;
@@ -1710,6 +1948,147 @@ class SqliteFsAdapter {
     this._mem.clear();
     const cnt = db.prepare('SELECT COUNT(*) AS n FROM items').get();
     return cnt?.n ?? 0;
+  }
+
+  // ─── Branching ────────────────────────────────────────────────────────────
+
+  currentBranch() { return this._branch; }
+
+  createBranch(name) {
+    if (!name || typeof name !== 'string' || !name.trim()) throw new Error('branch name is required');
+    name = name.trim();
+    if (name === 'main') throw new Error('Cannot create a branch named "main"');
+    const db  = this._openDb();
+    const existing = db.prepare('SELECT id FROM branches WHERE name = ? AND deleted_at IS NULL').get(name);
+    if (existing) throw new Error(`Branch "${name}" already exists`);
+    const id  = crypto.randomUUID();
+    const now = new Date().toISOString();
+    fs.mkdirSync(path.join(this._branchDir(name), 'items'), { recursive: true });
+    fs.writeFileSync(
+      path.join(this._branchDir(name), 'branch.json'),
+      JSON.stringify({ id, name, baseBranch: this._branch, createdAt: now }, null, 2),
+      'utf8',
+    );
+    db.prepare('INSERT INTO branches (id, name, base_branch, created_at) VALUES (?, ?, ?, ?)').run(id, name, this._branch, now);
+    return { id, name, baseBranch: this._branch, createdAt: now };
+  }
+
+  switchBranch(name) {
+    name = (name || 'main').trim();
+    if (name !== 'main') {
+      const row = this._openDb().prepare('SELECT id FROM branches WHERE name = ? AND deleted_at IS NULL AND merged_at IS NULL').get(name);
+      if (!row) throw new Error(`Branch "${name}" not found or already merged`);
+    }
+    this._branch = name;
+    this._mem.clear(); // cache is stale after branch switch
+    this._openDb().prepare("INSERT OR REPLACE INTO workspace_meta (key, value) VALUES ('current_branch', ?)").run(name);
+  }
+
+  listBranches() {
+    return this._openDb().prepare('SELECT id, name, base_branch, created_at, merged_at, deleted_at FROM branches WHERE deleted_at IS NULL ORDER BY created_at').all()
+      .map(r => ({ id: r.id, name: r.name, baseBranch: r.base_branch, createdAt: r.created_at, mergedAt: r.merged_at ?? null, deletedAt: r.deleted_at ?? null }));
+  }
+
+  deleteBranch(name) {
+    if (!name || name === 'main') throw new Error('Cannot delete the main branch');
+    if (this._branch === name) throw new Error(`Cannot delete the currently active branch "${name}" — switch to main first`);
+    const db  = this._openDb();
+    const row = db.prepare('SELECT id FROM branches WHERE name = ? AND deleted_at IS NULL').get(name);
+    if (!row) throw new Error(`Branch "${name}" not found`);
+    db.prepare('UPDATE branches SET deleted_at = ? WHERE id = ?').run(new Date().toISOString(), row.id);
+    const dir = this._branchDir(name);
+    if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
+  }
+
+  // Returns the full ADD/EDIT/DELETE diff for a branch vs main.
+  branchDiff(name) {
+    name = (name ?? this._branch).trim();
+    const branchId = this._branchId(name);
+    if (!branchId) return { adds: [], edits: [], deletes: [] };
+    const db   = this._openDb();
+    const rows = db.prepare("SELECT item_id, change_type FROM branch_changes WHERE branch_id = ? AND section = 'item'").all(branchId);
+    const adds = [], edits = [], deletes = [];
+    for (const r of rows) {
+      if (r.change_type === 'delete') {
+        const mainDoc = this._readItemJson(r.item_id);
+        deletes.push({ id: r.item_id, before: mainDoc ? this._docToItem(mainDoc) : null });
+      } else if (r.change_type === 'create') {
+        const doc  = this._readBranchItemJsonRaw_forBranch(name, r.item_id);
+        adds.push({ id: r.item_id, after: doc ? this._docToItem(doc) : null, doc });
+      } else {
+        const branchDoc = this._readBranchItemJsonRaw_forBranch(name, r.item_id);
+        const mainDoc   = (() => { const p = this._itemPath(r.item_id); try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } })();
+        edits.push({ id: r.item_id, before: mainDoc ? this._docToItem(mainDoc) : null, after: branchDoc ? this._docToItem(branchDoc) : null, doc: branchDoc });
+      }
+    }
+    return { adds, edits, deletes };
+  }
+
+  // Read branch item.json for a specific named branch (not necessarily current branch).
+  _readBranchItemJsonRaw_forBranch(branchName, id) {
+    const p = this._branchItemPath(branchName, id);
+    try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; }
+  }
+
+  // Merge a local branch into main. Must be on a different branch (switch to main first).
+  mergeBranchLocally(name) {
+    if (!name || name === 'main') throw new Error('Cannot merge the main branch into itself');
+    if (this._branch === name) throw new Error(`Switch to main before merging branch "${name}"`);
+    const branchId = this._branchId(name);
+    if (!branchId) throw new Error(`Branch "${name}" not found`);
+    const db = this._openDb();
+    const changeRows = db.prepare('SELECT item_id, change_type, section, data FROM branch_changes WHERE branch_id = ? ORDER BY item_id, section').all(branchId);
+
+    // Group by item
+    const byItem = new Map();
+    for (const r of changeRows) {
+      if (!byItem.has(r.item_id)) byItem.set(r.item_id, { changeType: r.change_type, sections: {} });
+      const entry = byItem.get(r.item_id);
+      if (r.change_type === 'delete') entry.changeType = 'delete';
+      if (r.data) entry.sections[r.section] = JSON.parse(r.data);
+    }
+
+    db.transaction(() => {
+      for (const [itemId, entry] of byItem) {
+        if (entry.changeType === 'delete') {
+          this._deleteItemDir(itemId);
+          this._mem.delete(itemId);
+          db.prepare('DELETE FROM item_tags     WHERE item_id = ?').run(itemId);
+          db.prepare('DELETE FROM backlinks     WHERE source_id = ? OR target_id = ?').run(itemId, itemId);
+          db.prepare('DELETE FROM relationships WHERE source_id = ? OR target_id = ?').run(itemId, itemId);
+          db.prepare('DELETE FROM items_meta    WHERE item_id = ?').run(itemId);
+          db.prepare('DELETE FROM items_payload WHERE item_id = ?').run(itemId);
+          db.prepare('DELETE FROM items_search  WHERE item_id = ?').run(itemId);
+          db.prepare('DELETE FROM items_time    WHERE item_id = ?').run(itemId);
+          db.prepare('DELETE FROM items         WHERE id = ?').run(itemId);
+        } else {
+          // Reconstruct doc from stored sections
+          const doc = { item: entry.sections.item ?? null, meta: entry.sections.meta ?? null,
+                        search: entry.sections.search ?? null, payload: entry.sections.payload ?? null,
+                        time: entry.sections.time ?? null };
+          if (!doc.item) {
+            // Fallback: read from branch overlay file
+            const branchDoc = this._readBranchItemJsonRaw_forBranch(name, itemId);
+            if (branchDoc) {
+              this._writeItemJson(itemId, branchDoc);
+              this._insertIndexTx(db, itemId, branchDoc, null);
+            }
+          } else {
+            this._writeItemJson(itemId, doc);
+            this._insertIndexTx(db, itemId, doc, null);
+          }
+          this._mem.delete(itemId);
+        }
+      }
+      db.prepare('UPDATE branches SET merged_at = ? WHERE id = ?').run(new Date().toISOString(), branchId);
+      db.prepare('DELETE FROM branch_changes WHERE branch_id = ?').run(branchId);
+    })();
+
+    // Remove branch overlay directory
+    const dir = this._branchDir(name);
+    if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
+
+    return { merged: byItem.size };
   }
 
   // ─── Integrity checks ─────────────────────────────────────────────────────

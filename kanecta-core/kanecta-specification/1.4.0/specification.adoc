@@ -4850,7 +4850,13 @@ A branch is *never a full copy of the datastore*. It is an overlay — a bounded
 | Adapter | Branch implementation
 
 | Filesystem
-| Git branch. The filesystem JSON files are the source of truth; branching is native Git. SQLite (local search/index cache) is strictly derived — always rebuildable from the filesystem JSON files. On branch switch, SQLite is rebuilt from the new branch's file state. Nothing meaningful lives only in SQLite.
+| Directory overlay. `main` branch items live in `.kanecta/items/` as always. Each non-main branch gets its own overlay directory: `.kanecta/branches/<encoded-name>/items/` containing only the items that were added or changed on that branch — nothing else. A `.kanecta/branches/<encoded-name>/branch.json` manifest records branch id, name, base branch, and creation timestamp. Deletions are tracked as entries in `branch_changes` (see below) rather than in the filesystem — removing the file would make "what was deleted" invisible.
+
+`index.db` gains `workspace_meta`, `branches`, and `branch_changes` tables mirroring the Postgres schema (SQLite-typed). On branch switch the adapter updates `workspace_meta.current_branch` — no file moves, no index rebuild. Read path: check `branch_changes` for a delete marker first; if the item has a create/update entry, read from the branch overlay directory; otherwise fall through to main `items/`. Write path: on a non-main branch, item.json is written to the branch overlay directory and `branch_changes` is updated — main `items/` is never touched until merge.
+
+Git is deliberately excluded. Depending on Git would mean branch switches require a `git checkout` (blocking, slow, requires a clean working tree) and `index.db` would immediately become stale — it is gitignored and does not switch with the branch. The directory overlay model is branch-agnostic, works with or without Git, and keeps index.db always consistent with the active branch without any rebuild.
+
+Branch name encoding for directory: `/` becomes `__` (double underscore), matching the Postgres and S3 conventions. Example: `feature/new-types` → `.kanecta/branches/feature__new-types/`.
 
 | Postgres
 | Schema per branch within one database. `main` branch lives in the `main` schema. Each other branch gets its own schema — `feature__new_types` (slashes in branch names become double underscores). The adapter queries the branch schema first and falls through to `main` for unmodified items. Schema names are capped at 63 chars (Postgres limit); branch names that exceed this after encoding are rejected at creation time.
@@ -4858,6 +4864,45 @@ A branch is *never a full copy of the datastore*. It is an overlay — a bounded
 | S3 / object storage
 | Key prefix per branch. `main/` for main, `feature__new_types/` for a feature branch. Only changed or new objects are written to the branch prefix; deletions are tracked in a per-branch manifest file. Merge copies changed objects to `main/` and removes the branch prefix.
 |===
+
+=== Filesystem branching tables
+
+Three tables in `index.db` govern branching on filesystem workspaces. The schema mirrors Postgres so the SyncEngine can treat both adapters uniformly.
+
+[source,sql]
+----
+-- Tracks the active branch for this workspace instance
+CREATE TABLE IF NOT EXISTS workspace_meta (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+-- Seed: INSERT OR IGNORE INTO workspace_meta VALUES ('current_branch', 'main');
+
+-- Branch registry
+CREATE TABLE IF NOT EXISTS branches (
+  id          TEXT PRIMARY KEY,          -- UUID
+  name        TEXT NOT NULL UNIQUE,
+  base_branch TEXT NOT NULL DEFAULT 'main',
+  created_at  TEXT NOT NULL,             -- ISO 8601
+  merged_at   TEXT,
+  deleted_at  TEXT
+);
+
+-- Delta store — one row per changed section per item (same shape as Postgres)
+CREATE TABLE IF NOT EXISTS branch_changes (
+  branch_id   TEXT NOT NULL REFERENCES branches(id),
+  item_id     TEXT NOT NULL,
+  change_type TEXT NOT NULL CHECK (change_type IN ('create', 'update', 'delete')),
+  section     TEXT NOT NULL CHECK (section IN ('item', 'meta', 'search', 'payload', 'time')),
+  data        TEXT,                      -- JSON blob (null for delete entries)
+  changed_at  TEXT NOT NULL,
+  PRIMARY KEY (branch_id, item_id, section)
+);
+CREATE INDEX IF NOT EXISTS idx_bc_branch   ON branch_changes(branch_id);
+CREATE INDEX IF NOT EXISTS idx_bc_item     ON branch_changes(branch_id, item_id);
+----
+
+The `branch_changes` table is the index of what is in the branch overlay directory. It is strictly derived from the overlay files and can be rebuilt by walking `.kanecta/branches/<name>/items/`. It is never the source of truth for item content — the item.json files are.
 
 === Postgres branching tables
 

@@ -7,4 +7,5 @@ module.exports = {
   ...require('./generateFunctionCode'),
   ...require('./connectorEngine'),
   ...require('./scheduleRunner'),
+  ...require('./syncEngine'),
 };
