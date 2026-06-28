@@ -67,8 +67,9 @@ async function openDatastore(res) {
     opener = () => Datastore.openWorkspace(workspace);
     errorPrefix = `Failed to open workspace '${name}'`;
   } else {
-    // Filesystem fallback (no config.json yet — first run, or pre-migration)
-    const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
+    // Filesystem fallback (no config.json yet — first run, or pre-migration).
+    // Re-read from process.env at request time so tests can override without reloading the module.
+    const root = _expandHome(process.env.KANECTA_DATASTORE) || KANECTA_DATASTORE || DEFAULT_DATASTORE;
     if (!Datastore.isDatastore(root)) {
       res.status(503).json({
         error: `No Kanecta datastore found at ${root}. Run: cd kanecta-cli && npm run cli init --owner you@example.com`,
@@ -261,11 +262,11 @@ app.post('/open-in-browser', async (req, res) => {
   res.json({ ok: true });
 });
 
-// GET /search?q=&rootId=&limit=&fields= — full-text search with optional subtree scope, ancestor breadcrumb, and fields scoping
+// GET /search?q=&rootId=&limit=&fields=&includeDeleted= — full-text search with optional subtree scope, ancestor breadcrumb, and fields scoping
 app.get('/search', async (req, res) => {
   const ds = await openDatastore(res);
   if (!ds) return;
-  const { q, rootId, limit = '10', fields } = req.query;
+  const { q, rootId, limit = '10', fields, includeDeleted } = req.query;
   if (!q) return res.status(400).json({ error: 'q is required' });
   const maxResults = parseInt(limit, 10);
   if (isNaN(maxResults) || maxResults < 1)
@@ -283,8 +284,9 @@ app.get('/search', async (req, res) => {
   }
 
   const queryLower = q.toLowerCase();
+  const showDeleted = includeDeleted === 'true' || includeDeleted === '1';
 
-  const allItems = await ds.loadAll();
+  const allItems = (await ds.loadAll()).filter(i => showDeleted || i.deletedAt == null);
   let candidates = [];
   for (const i of allItems) {
     if (i.value && typeof i.value === 'string' && i.value.toLowerCase().includes(queryLower)) {
@@ -518,6 +520,10 @@ app.put('/items/:id', async (req, res) => {
   if ('status' in body) changes.status = body.status;
   if ('tags' in body) changes.tags = body.tags;
   if ('completedAt' in body) changes.completedAt = body.completedAt;
+  if ('expiresAt' in body) changes.expiresAt = body.expiresAt;
+  if ('connectorId' in body) changes.connectorId = body.connectorId;
+  if ('materialized' in body) changes.materialized = body.materialized;
+  if ('cachedAt' in body) changes.cachedAt = body.cachedAt;
 
   try {
     const updated = await ds.update(id, changes, body.actor);
@@ -549,6 +555,63 @@ app.delete('/items/:id', async (req, res) => {
   const deleted = ids.reverse();
   for (const itemId of deleted) await ds.delete(itemId);
   res.json({ deleted });
+});
+
+// POST /items/:id/soft-delete — soft-delete item (sets deletedAt to now, retains data)
+app.post('/items/:id/soft-delete', async (req, res) => {
+  const { id } = req.params;
+  if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
+  const ds = await openDatastore(res);
+  if (!ds) return;
+  if (!await ds.get(id)) return res.status(404).json({ error: 'Item not found' });
+  const updated = await ds.softDelete(id, req.body.actor);
+  res.json(updated);
+});
+
+// POST /items/:id/restore — restore a soft-deleted item (clears deletedAt)
+app.post('/items/:id/restore', async (req, res) => {
+  const { id } = req.params;
+  if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
+  const ds = await openDatastore(res);
+  if (!ds) return;
+  if (!await ds.get(id)) return res.status(404).json({ error: 'Item not found' });
+  const updated = await ds.restore(id, req.body.actor);
+  res.json(updated);
+});
+
+// GET /items/:id/time — read the time.json (keyed temporal contexts) for an item
+app.get('/items/:id/time', async (req, res) => {
+  const { id } = req.params;
+  if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
+  const ds = await openDatastore(res);
+  if (!ds) return;
+  if (!await ds.get(id)) return res.status(404).json({ error: 'Item not found' });
+  const time = await ds.readTimeJson(id);
+  res.json(time ?? {});
+});
+
+// PUT /items/:id/time — write or replace time.json (keyed temporal contexts)
+app.put('/items/:id/time', async (req, res) => {
+  const { id } = req.params;
+  if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
+  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body))
+    return res.status(400).json({ error: 'Request body must be a JSON object mapping context keys to temporal context objects' });
+  const ds = await openDatastore(res);
+  if (!ds) return;
+  if (!await ds.get(id)) return res.status(404).json({ error: 'Item not found' });
+  await ds.writeTimeJson(id, req.body);
+  res.json({ ok: true });
+});
+
+// DELETE /items/:id/time — remove the time.json entirely
+app.delete('/items/:id/time', async (req, res) => {
+  const { id } = req.params;
+  if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
+  const ds = await openDatastore(res);
+  if (!ds) return;
+  if (!await ds.get(id)) return res.status(404).json({ error: 'Item not found' });
+  await ds.deleteTimeJson(id);
+  res.json({ ok: true });
 });
 
 // GET /items/:id/children — list children of item (accepts real UUIDs and synthetic IDs)
