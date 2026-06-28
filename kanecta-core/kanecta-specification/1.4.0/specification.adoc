@@ -31,8 +31,17 @@ v1.4.0 is a breaking change from v1.3.0. A migration script is provided in `kane
 | *Single item.json*
 | Replaces `metadata.json` + `function.json` + `type.json` + `object.json`. Every item is one file.
 
-| *Four-section structure*
-| `item` / `meta` / `search` / `payload` — maps directly to four database tables.
+| *Five-section structure*
+| `item` / `meta` / `search` / `payload` / `time` — maps directly to five database tables.
+
+| *`time` section*
+| New fifth section for keyed temporal contexts. Replaces ad-hoc time fields scattered across type payloads. Sparse: only items with temporal data carry the section. The adapter indexes `next_occurrence_at` across all keys for the scheduler.
+
+| *`expiresAt` in `meta`*
+| Universal expiry field. When set, the adapter surfaces this item as stale after the given datetime. Not a deletion trigger — a signal that the item needs reevaluation. Designed to fight information rot: documents, decisions, cached API data, and policies can all declare when they should be reviewed.
+
+| *`deletedAt` in `meta`*
+| Soft-delete timestamp. Null means live. When set, the item is excluded from default queries but physically retained. Hard delete remains a separate explicit operation. Enables recovery, audit trails, and staged cleanup.
 
 | *`parentId` always required*
 | No item is parentless. Root is self-referencing with all-zeros UUID.
@@ -148,7 +157,7 @@ Item directories use *mandatory 2+2+full UUID sharding*: first 2 hex chars / nex
 
 Every item is a single `item.json` file. No other JSON files exist in an item folder (sidecars are allowed — see <<files-and-sidecars>>).
 
-=== Four Sections
+=== Five Sections
 
 [source,json]
 ----
@@ -156,11 +165,12 @@ Every item is a single `item.json` file. No other JSON files exist in an item fo
   "item":    { ... },
   "meta":    { ... },
   "search":  { ... },
-  "payload": { ... }
+  "payload": { ... },
+  "time":    { ... }
 }
 ----
 
-These map directly to four database tables in SQLite and Postgres adapters:
+These map directly to five database tables in SQLite and Postgres adapters:
 
 [cols="1,1,2", options="header"]
 |===
@@ -181,9 +191,13 @@ These map directly to four database tables in SQLite and Postgres adapters:
 | `payload`
 | `items_payload`
 | Type-specific content. Loaded when item is opened.
+
+| `time`
+| `items_time`
+| Keyed temporal contexts. Sparse — only items with time data have rows. See <<the-time-section>>.
 |===
 
-NOTE: Tree traversal hits only `items`. List rendering hits only `items`. Item open hits `items` + `items_meta` + `items_payload`. Search hits `items_search` plus FTS/vector indexes.
+NOTE: Tree traversal hits only `items`. List rendering hits only `items`. Item open hits `items` + `items_meta` + `items_payload`. Search hits `items_search` plus FTS/vector indexes. Scheduling queries hit only `items_time`.
 
 === The `item` Section
 
@@ -357,7 +371,17 @@ All provenance, ownership, operational, and bookkeeping fields.
 | `dueAt`
 | ISO 8601 \| null
 | no
-| Due date.
+| Due date. Universal deadline signal — any item can carry one. The generic calendar view and "due soon" queries use this field across all item types without type knowledge. For richer temporal modelling (start times, recurrence, multiple named time contexts) see the `time` section.
+
+| `expiresAt`
+| ISO 8601 \| null
+| no
+| When this item's content should be considered stale and needs reevaluation. Not a deletion trigger — the item remains fully accessible and queryable after expiry. `expiresAt` is a signal: adapters surface expired items in a separate "needs review" query; by default, expired items are *not* excluded from normal results (use `expiredOnly: true` or `excludeExpired: true` query params to filter). The distinction from `dueAt` is intentional: `dueAt` is a deadline for action; `expiresAt` is an information-freshness marker. A strategy document might have `dueAt: null` (no deadline for completing it) and `expiresAt: "2027-01-01"` (it should be reread and confirmed accurate annually). Use with `time.review.recurrenceRule` to set up a repeating reevaluation schedule.
+
+| `deletedAt`
+| ISO 8601 \| null
+| no
+| Soft-delete timestamp. Null = live item, included in all normal queries. Set = soft-deleted: the item is excluded from default query results but physically retained in the datastore. Adapters must expose `includeDeleted: true` on all query operations to allow recovery tools to find soft-deleted items. Hard delete (physical removal) is a separate, explicit adapter operation and never happens automatically. When recovering a soft-deleted item, clear `deletedAt` and update `modifiedAt`. The `deletedAt` timestamp is useful for retention policies: a scheduled pipeline can query for items where `deletedAt` is older than a configured threshold and permanently purge them. Note: `meta.status` alone is insufficient for soft delete — it provides no timestamp and gives the adapter no indexed column to filter on efficiently.
 
 | `cachedAt`
 | ISO 8601 \| null
@@ -400,9 +424,9 @@ All provenance, ownership, operational, and bookkeeping fields.
 | Identifier of the ingestion run that created or last updated this item (e.g. a UUID or a pipeline run ID). Null for native items or manual edits. Enables tracing which sync run last touched each item and rolling back a faulty ingestion run.
 |===
 
-TIP: *Postgres* — all timestamp columns must be `TIMESTAMPTZ`. Applications always write UTC. `tags` is stored as `TEXT[] NOT NULL DEFAULT '{}'` with a GIN index (`CREATE INDEX idx_items_tags ON items USING GIN (tags)`) — no separate junction table. `source_system` + `source_external_id` carry a partial unique index: `CREATE UNIQUE INDEX idx_items_source ON items (source_system, source_external_id) WHERE source_system IS NOT NULL AND source_external_id IS NOT NULL`.
+TIP: *Postgres* — all timestamp columns must be `TIMESTAMPTZ`. Applications always write UTC. `tags` is stored as `TEXT[] NOT NULL DEFAULT '{}'` with a GIN index (`CREATE INDEX idx_items_tags ON items USING GIN (tags)`) — no separate junction table. `source_system` + `source_external_id` carry a partial unique index: `CREATE UNIQUE INDEX idx_items_source ON items (source_system, source_external_id) WHERE source_system IS NOT NULL AND source_external_id IS NOT NULL`. Add partial indexes on the new fields: `CREATE INDEX idx_items_meta_expires ON items_meta (expires_at) WHERE expires_at IS NOT NULL` and `CREATE INDEX idx_items_meta_deleted ON items_meta (deleted_at) WHERE deleted_at IS NOT NULL` — partial indexes keep these fast while adding zero overhead for the common case (null).
 
-TIP: *SQLite* — store timestamps as ISO 8601 `TEXT`. Store tags as a JSON array in a `TEXT` column; parse in the adapter layer.
+TIP: *SQLite* — store timestamps as ISO 8601 `TEXT`. Store tags as a JSON array in a `TEXT` column; parse in the adapter layer. Partial indexes on `expires_at` and `deleted_at`: `CREATE INDEX idx_meta_expires ON items_meta (expires_at) WHERE expires_at IS NOT NULL`.
 
 === The `search` Section
 
@@ -450,6 +474,135 @@ TIP: *SQLite* — use FTS5 virtual table (`CREATE VIRTUAL TABLE items_fts USING 
 Type-specific content. Null for primitive items that carry no structured data. Required for `function`, `type`, `grant`, `relationship`, `component`, `file`, `view`, `context`, and `root` items. Present for `object` items as a free-form key-value object validated at runtime against the type's `jsonSchema`.
 
 Payload shapes are defined per type — see <<payload-definitions>>.
+
+[#the-time-section]
+=== The `time` Section
+
+Keyed temporal contexts for this item. Null or absent when the item has no temporal data — the adapter handles null gracefully and writes no rows to `items_time`. Like `search`, the `time` section is sparse: in a datastore with millions of items, only a small fraction carry time data, and storing nothing for the rest keeps the table and its indexes lean.
+
+==== Why keyed?
+
+A single item may have several independent temporal concerns. A policy document might have a primary time window (`main`), a quarterly review schedule (`review`), and an annual renewal date (`renewal`). Each concern is independent: the review fires quarterly regardless of when the main window ends; the renewal is a one-shot deadline, not a recurring check. A flat set of fields (`startAt`, `endAt`, `recurrenceRule`) cannot express this — you would need to pick one concern or invent ad-hoc payload fields per type. Keyed entries give every item an open-ended set of named temporal contexts without type coupling.
+
+==== Shape of a time entry
+
+Each key maps to a time entry object:
+
+[source,json]
+----
+"time": {
+  "main": {
+    "startAt":              "2026-07-01T09:00:00Z",
+    "endAt":                "2026-09-30T17:00:00Z",
+    "recurrenceRule":       null,
+    "recurrenceExceptions": [],
+    "nextOccurrenceAt":     null,
+    "completedAt":          null
+  },
+  "review": {
+    "startAt":              null,
+    "endAt":                null,
+    "recurrenceRule":       "FREQ=QUARTERLY;BYDAY=MO;BYHOUR=9",
+    "recurrenceExceptions": ["2026-10-13T09:00:00Z"],
+    "nextOccurrenceAt":     "2027-01-05T09:00:00Z",
+    "completedAt":          null
+  },
+  "renewal": {
+    "startAt":              null,
+    "endAt":                "2027-06-01T00:00:00Z",
+    "recurrenceRule":       null,
+    "recurrenceExceptions": [],
+    "nextOccurrenceAt":     null,
+    "completedAt":          null
+  }
+}
+----
+
+[cols="1,1,2", options="header"]
+|===
+| Field | Type | Description
+
+| `startAt`
+| ISO 8601 \| null
+| Start of this temporal context. Null when the entry represents a deadline or recurrence with no defined start.
+
+| `endAt`
+| ISO 8601 \| null
+| End of this temporal context — the closing boundary of a time window (meeting end, sprint end, licence expiry). Distinct from `meta.dueAt`: `endAt` models a time window boundary; `dueAt` models a deadline for action on the item. Both can coexist on the same item.
+
+| `recurrenceRule`
+| RRULE string \| null
+| RFC 5545 recurrence rule defining when this temporal context repeats. Examples: `"FREQ=WEEKLY;BYDAY=MO"` (every Monday), `"FREQ=QUARTERLY;BYDAY=MO;BYHOUR=9"` (first Monday of each quarter at 9am), `"FREQ=YEARLY;BYMONTH=1;BYMONTHDAY=1"` (every 1 January). Null for one-shot entries (those use `startAt`/`endAt` directly). The adapter parses and validates the RRULE at write time; malformed rules are rejected.
+
+| `recurrenceExceptions`
+| ISO 8601[]
+| Array of datetimes to skip in the recurrence sequence. Used to cancel individual occurrences — e.g. skip the public holiday that falls on a normally scheduled review. Empty array when no exceptions apply. Never null — always an array (may be empty).
+
+| `nextOccurrenceAt`
+| ISO 8601 \| null
+| *Computed by the adapter. Never set by the client.* When `recurrenceRule` is set, the adapter calculates the next scheduled occurrence after the last fire time (or after `startAt` for a rule that has never fired) and writes it here. The scheduling loop queries `WHERE next_occurrence_at <= NOW()` — this is the primary index the scheduler uses. When `recurrenceRule` is null and `endAt` is set, the adapter writes `endAt` into `nextOccurrenceAt` so the scheduler can fire a one-shot at the deadline. When `recurrenceRule` is null and `endAt` is null, `nextOccurrenceAt` is null (no scheduling needed).
+
+| `completedAt`
+| ISO 8601 \| null
+| When this time context was marked complete — e.g. the review was conducted, the renewal was processed. Null until completed. Setting `completedAt` on a recurring entry does not stop the recurrence; the adapter advances `nextOccurrenceAt` to the next occurrence on the next scheduling pass. To stop a recurring entry entirely, remove the key from `time` or set `recurrenceRule` to null.
+|===
+
+==== Well-known keys
+
+Keys are free-form strings. The following are conventional — tools, Studio views, and the scheduler treat these keys with known semantics:
+
+[cols="1,3", options="header"]
+|===
+| Key | Meaning
+
+| `main`
+| The primary time window of this item: start of a meeting, duration of a sprint, active phase of a project. When a calendar view renders items, it reads `time.main.startAt` and `time.main.endAt`. No semantic enforcement — the adapter does not validate that `main` exists or that it has both fields set.
+
+| `review`
+| Reevaluation schedule. When `nextOccurrenceAt` fires for the `review` key, the item surfaces in the "needs review" query. Typically carries a `recurrenceRule`. Designed to fight information rot: decisions, policies, strategy documents, and cached integrations should all declare a review cadence. `meta.expiresAt` handles the absolute expiry; `time.review` handles the recurring check before that expiry.
+
+| `renewal`
+| Renewal deadline for licences, subscriptions, certifications, or contracts. Typically carries an `endAt` with no `recurrenceRule` (one-shot), but can carry a `recurrenceRule` for automatically renewing items. When the scheduler fires for a `renewal` key, it can invoke a renewal pipeline via a `schedule` item targeting this key.
+|===
+
+All other keys are user-defined and carry no special platform semantics. Examples: `"launch"` (product launch window), `"embargo"` (publication embargo end), `"probation"` (probationary period for a team member item), `"billing"` (next billing date for a tracked subscription).
+
+==== Adapter responsibilities
+
+. *Write time*: validate the RRULE string if present. Compute `nextOccurrenceAt` from the RRULE (or from `endAt` for one-shot entries) and write it. Clients must not send `nextOccurrenceAt` — the adapter overwrites it unconditionally.
+. *Scheduling loop*: periodically query `items_time WHERE next_occurrence_at <= NOW()`. For each matching entry, deliver to any `schedule` items targeting that `(item_id, key)` pair. After delivery, advance `nextOccurrenceAt` to the next occurrence (RRULE) or set to null (one-shot). Write the updated entry.
+. *Query operations*: expose `dueBefore(datetime, key?)`, `startingAfter(datetime, key?)`, `needsReview()` (items where `time.review.nextOccurrenceAt <= NOW()`), and `expired()` (items where `meta.expiresAt <= NOW()`) as first-class adapter query methods.
+. *Null handling*: if `time` is null or absent in `item.json`, write no rows to `items_time` for that item. Treat null and absent identically.
+
+==== Database storage
+
+`items_time` is a separate table with one row per `(item_id, key)` pair. This is sparse by design — most items have no temporal data and therefore no rows in `items_time`.
+
+[source,sql]
+----
+CREATE TABLE items_time (
+  item_id              UUID        NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+  key                  TEXT        NOT NULL,
+  start_at             TIMESTAMPTZ,
+  end_at               TIMESTAMPTZ,
+  recurrence_rule      TEXT,
+  recurrence_exceptions JSONB      NOT NULL DEFAULT '[]',
+  next_occurrence_at   TIMESTAMPTZ,
+  completed_at         TIMESTAMPTZ,
+  PRIMARY KEY (item_id, key)
+);
+
+-- Scheduler primary index: only rows with a scheduled next occurrence
+CREATE INDEX idx_items_time_next
+  ON items_time (next_occurrence_at)
+  WHERE next_occurrence_at IS NOT NULL;
+
+-- Calendar range queries: find all items with a time window overlapping a date range
+CREATE INDEX idx_items_time_start ON items_time (start_at) WHERE start_at IS NOT NULL;
+CREATE INDEX idx_items_time_end   ON items_time (end_at)   WHERE end_at   IS NOT NULL;
+----
+
+TIP: *SQLite* — composite primary key `(item_id, key)` works as-is. Store `recurrence_exceptions` as a JSON `TEXT` column. Timestamps as ISO 8601 `TEXT`. The partial index on `next_occurrence_at` is supported from SQLite 3.8.9.
 
 [#item-types]
 == Built-in Types
@@ -2043,7 +2196,7 @@ The `item_history` item's `parentId` is the synthetic `item_history` type item U
 | `snapshot`
 | object
 | Yes
-| The complete four-section `item.json` *after* this event was applied. For `deleted`, the snapshot is the final state before deletion. Stored alongside the delta so that point-in-time queries do not require full log replay — read the snapshot at or before the target time.
+| The complete five-section `item.json` *after* this event was applied. For `deleted`, the snapshot is the final state before deletion. Stored alongside the delta so that point-in-time queries do not require full log replay — read the snapshot at or before the target time.
 |===
 
 NOTE: Event sourcing guarantee: replaying all `item_history` events for a given `targetId` in `sequence` order, starting from an empty state, must produce the current item state. Adapters must validate this invariant on write. The `snapshot` field is a read-performance optimisation — it must always equal the state produced by replaying events 1..sequence.
@@ -4066,7 +4219,7 @@ TIP: *Postgres* — insert root in its own `BEGIN ... COMMIT` transaction. The d
 
 == Database Table Mapping
 
-The four `item.json` sections map directly to database tables, enabling efficient queries without loading unnecessary data.
+The five `item.json` sections map directly to database tables, enabling efficient queries without loading unnecessary data.
 
 [cols="1,1,1,2", options="header"]
 |===
@@ -4080,7 +4233,7 @@ The four `item.json` sections map directly to database tables, enabling efficien
 | `meta`
 | `items_meta`
 | `id` (FK → items)
-| All provenance and bookkeeping fields
+| All provenance and bookkeeping fields including `expires_at`, `deleted_at`
 
 | `search`
 | `items_search`
@@ -4091,6 +4244,11 @@ The four `item.json` sections map directly to database tables, enabling efficien
 | `items_payload`
 | `id` (FK → items)
 | `data JSONB` (or type-specific columns per object type)
+
+| `time`
+| `items_time`
+| `(item_id, key)` composite
+| `start_at`, `end_at`, `recurrence_rule`, `recurrence_exceptions`, `next_occurrence_at`, `completed_at` — sparse, one row per named temporal context
 |===
 
 TIP: *Postgres* — `items` also carries a denormalised `children UUID[]` column (updated by a trigger on INSERT/UPDATE/DELETE of `parent_id`) as a read-performance cache for tree traversal. Source of truth remains `parent_id`; `children` can always be rebuilt. A singleton `schema_version` table records the DB schema version; the application reads this at connection time and refuses to run on a mismatch.
@@ -4585,7 +4743,7 @@ Kanecta exposes its capabilities as MCP (Model Context Protocol) tools. All tool
 
 === Core item tools
 
-`kanecta_get` — Get a single item by UUID or alias. Returns full item including all four sections.
+`kanecta_get` — Get a single item by UUID or alias. Returns full item including all five sections.
 
 `kanecta_get_many` — Get multiple items by UUID in one call. Eliminates N round trips after graph or search queries.
 
