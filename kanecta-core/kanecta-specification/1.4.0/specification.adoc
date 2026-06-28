@@ -650,7 +650,7 @@ Two well-known types exist. Each has exactly one instance in every datastore, cr
 
 | `types`
 | `11111111-1111-1111-1111-111111111111`
-| The canonical parent for every schema-definition item in the datastore. All `type` items, `relationship-type` items, and `aspect-type` items — whether built-in (seeded from the core manifest, `meta.layer: "core"`) or user-defined (`meta.layer: "user"`) — have this UUID as their `parentId`. The all-ones UUID is a deliberate mnemonic: it is visually distinct and unmistakable in any log, query result, or raw data file. *Consumers must treat this node as a lazy boundary.* A mature datastore can hold thousands of type definitions; each user-defined type may itself be the parent of millions of object instances. Tree walkers, search indexers, and sync engines must never eagerly load the children of this node — always paginate or filter by type-level criteria before descending. See <<lazy-boundary-rule>>.
+| The canonical parent for every `type: "type"` item in the datastore — both built-in type items (seeded from the core manifest, `meta.layer: "core"`) and user-defined type items created at runtime (`meta.layer: "user"` or `"app"`). `relationship-type` and `aspect-type` instances follow the universal parentId rule and live under their own type items (`15861dd7-...` and `45bc6fbe-...` respectively). The all-ones UUID is a deliberate mnemonic: it is visually distinct and unmistakable in any log, query result, or raw data file. *Consumers must treat this node as a lazy boundary.* A mature datastore can hold thousands of type definitions; each user-defined type may itself be the parent of millions of object instances. Tree walkers, search indexers, and sync engines must never eagerly load the children of this node — always paginate or filter by type-level criteria before descending. See <<lazy-boundary-rule>>.
 |===
 
 All other top-level groupings (system layer, app layer, etc.) are ordinary `tree` items created as children of root by the bootstrapper. Access separation is enforced via `grant` items on those trees, not by reserving types in the spec. New groupings are a data change, not a spec change.
@@ -677,7 +677,7 @@ The UUID itself is the signal. Any system reading a `parentId` of `11111111-1111
 `parentId` is always required. The value depends on which of the following cases applies — in priority order:
 
 . *Root* → self-referencing: `parentId = id = 00000000-0000-0000-0000-000000000000`.
-. *Schema-definition items* (`type: "type"`, `type: "relationship-type"`, `type: "aspect-type"`) → `parentId` = `11111111-1111-1111-1111-111111111111` (the `types` node). This applies to both built-in type items (seeded from the core manifest) and user-defined type items created at runtime. No type item of any kind lives anywhere else.
+. *Type items* (`type: "type"`) → `parentId` = `11111111-1111-1111-1111-111111111111` (the `types` node). This applies to both built-in type items (seeded from the core manifest) and user-defined type items created at runtime. This is the one exception to the universal "instances live under their type item" rule — `type: "type"` items cannot follow that rule without creating a circular parent chain (the `type` type item would be its own parent). `relationship-type` and `aspect-type` instances are not circular and follow the normal rule — they live under the `relationship-type` type item (`15861dd7-e54c-4209-bceb-bdd65de4f472`) and the `aspect-type` type item (`45bc6fbe-aa63-41be-8566-7217a9a15ece`) respectively.
 . *Aspect items* (`item.aspect` is non-null) → `parentId` = UUID of the item this is a named dimension of. The aspect field, not the type, governs parentId for these items.
 . *Payload-less primitives* (`string`, `number`, `text`, `heading`, `url`) → `parentId` = their actual parent in the tree. These are content items — a string field of a task lives under that task. There is no type bucket for bare primitive values and no synthetic type item for these types.
 . *User-defined objects* (`type: "object"`) → `parentId` = their custom type item UUID (`item.typeId`). They live in the type's collection.
@@ -697,7 +697,7 @@ These rules are hard constraints enforced at write time by every adapter.
 
 Most built-in types have a corresponding type item — an item of type `"type"` — that acts as the canonical parent bucket for all items of that type. These items carry `meta.layer: "core"` and a *globally fixed, pre-assigned UUID* defined in the core manifest. The UUID is stable across every installation — two datastores seeded from the same version of Kanecta will always have the same UUID for the `task` type item. This global consistency is a sync requirement: when items from two datastores merge, their `parentId` values must refer to the same type bucket without UUID translation or mapping tables.
 
-All built-in type items — and all user-defined type items created at runtime — have `parentId = 11111111-1111-1111-1111-111111111111` (the `types` node). This includes `type` items, `relationship-type` items, and `aspect-type` items. There is no other valid parent for a type-definition item.
+All items of `type: "type"` — both built-in type items seeded from the core manifest and user-defined type items created at runtime — have `parentId = 11111111-1111-1111-1111-111111111111` (the `types` node). `relationship-type` and `aspect-type` instances follow the universal parentId rule: instances live under their respective type items (`15861dd7-...` and `45bc6fbe-...`). Those type items themselves live under `11111111-...` like all other built-in type items.
 
 Built-in type items are seeded idempotently at datastore initialisation from the core manifest. If a type item already exists with the correct UUID, the seed is a no-op. See <<manifests-and-built-in-type-items>> for the full mechanism, UUID registry, and seed file format.
 
@@ -4078,7 +4078,7 @@ Every datastore contains exactly two reserved items created during initialisatio
 
 The root node's `payload` is the datastore's configuration record. There is no separate `config.json` file — configuration lives in the item graph alongside everything else, versioned and queryable like any other item. See <<rootPayload>>.
 
-The `types` node is a lazy boundary — see <<lazy-boundary-rule>>. Its `payload` is null; it carries no configuration. Its sole purpose is to be the fixed, universal parent for every schema-definition item (`type`, `relationship-type`, `aspect-type`) in the datastore.
+The `types` node is a lazy boundary — see <<lazy-boundary-rule>>. Its `payload` is null; it carries no configuration. Its sole purpose is to be the fixed, universal parent for every `type: "type"` item in the datastore. `relationship-type` and `aspect-type` instances are not direct children of this node — they follow the universal parentId rule and live under their own type items.
 
 Everything else — system layer, app layer, component trees — is created by the bootstrapper as ordinary `tree` items, children of root. Access separation is enforced by `grant` items on those trees. What the bootstrapper creates is a deployment decision, not a spec constraint.
 
@@ -4197,7 +4197,7 @@ The bootstrapper creates a small fixed set of items before manifests are process
 
 | `types`
 | types
-| The canonical parent for every schema-definition item — `type`, `relationship-type`, and `aspect-type` items, both built-in and user-defined. A lazy boundary: consumers must not eagerly load its children. The all-ones UUID is a deliberate mnemonic. `parentId = root`.
+| The canonical parent for every `type: "type"` item — both built-in (core manifest) and user-defined. `relationship-type` and `aspect-type` instances follow the normal rule and live under their own type items, not here. A lazy boundary: consumers must not eagerly load its children. The all-ones UUID is a deliberate mnemonic. `parentId = root`.
 | `11111111-1111-1111-1111-111111111111`
 
 | `tree`
