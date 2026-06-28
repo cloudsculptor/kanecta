@@ -14,6 +14,7 @@ const WELL_KNOWN_ORDER = ['system_root', 'app_root', 'component_root', 'data_roo
 const VALID_TYPES = [
   'string', 'number', 'text', 'heading', 'file', 'symlink', 'url', 'image', 'function',
   'markdown', 'runner', 'object', 'annotation', 'connector', 'schedule',
+  'pipeline', 'pipeline-run', 'agent',
   'root', 'system_root', 'app_root', 'component_root', 'data_root',
 ];
 const VALID_CONFIDENCES = ['experimental', 'exploring', 'decided', 'locked', 'low', 'medium', 'high', 'verified'];
