@@ -1323,3 +1323,189 @@ describe('persistence across reopen', () => {
     expect(ds2._getPath(item.id)).toBe(pathB4);
   });
 });
+
+// ─── sourceSystem / sourceExternalId ──────────────────────────────────────────
+
+describe('sourceSystem and sourceExternalId', () => {
+  it('default to null on a freshly created item', () => {
+    const item = ds.create({ value: 'x' });
+    expect(item.sourceSystem).toBeNull();
+    expect(item.sourceExternalId).toBeNull();
+  });
+
+  it('round-trip via update + get', () => {
+    const item = ds.create({ value: 'x' });
+    ds.update(item.id, { sourceSystem: 'jira', sourceExternalId: 'ENG-42' });
+    const got = ds.get(item.id);
+    expect(got.sourceSystem).toBe('jira');
+    expect(got.sourceExternalId).toBe('ENG-42');
+  });
+
+  it('can be cleared back to null', () => {
+    const item = ds.create({ value: 'x' });
+    ds.update(item.id, { sourceSystem: 'jira', sourceExternalId: 'ENG-1' });
+    ds.update(item.id, { sourceSystem: null, sourceExternalId: null });
+    const got = ds.get(item.id);
+    expect(got.sourceSystem).toBeNull();
+    expect(got.sourceExternalId).toBeNull();
+  });
+
+  it('survive reopen', () => {
+    const item = ds.create({ value: 'x' });
+    ds.update(item.id, { sourceSystem: 'github', sourceExternalId: 'issue/99' });
+    const ds2 = SqliteFsAdapter.open(tmp);
+    const got = ds2.get(item.id);
+    expect(got.sourceSystem).toBe('github');
+    expect(got.sourceExternalId).toBe('issue/99');
+  });
+
+  it('enforces uniqueness — same (system, externalId) pair throws', () => {
+    const a = ds.create({ value: 'a' });
+    const b = ds.create({ value: 'b' });
+    ds.update(a.id, { sourceSystem: 'jira', sourceExternalId: 'ENG-1' });
+    expect(() => ds.update(b.id, { sourceSystem: 'jira', sourceExternalId: 'ENG-1' }))
+      .toThrow();
+  });
+
+  it('allows same externalId under different systems', () => {
+    const a = ds.create({ value: 'a' });
+    const b = ds.create({ value: 'b' });
+    ds.update(a.id, { sourceSystem: 'jira',   sourceExternalId: 'ENG-1' });
+    ds.update(b.id, { sourceSystem: 'github', sourceExternalId: 'ENG-1' });
+    expect(ds.get(a.id).sourceSystem).toBe('jira');
+    expect(ds.get(b.id).sourceSystem).toBe('github');
+  });
+});
+
+// ─── listStubs ────────────────────────────────────────────────────────────────
+
+describe('listStubs', () => {
+  function mkConn() {
+    const c = ds.create({ type: 'connector', value: 'Conn' });
+    ds.writeObjectJson(c.id, { system: 'test' });
+    return c;
+  }
+
+  it('returns all stub items for a connector', () => {
+    const conn = mkConn();
+    const a = ds.create({ value: 'a' });
+    const b = ds.create({ value: 'b' });
+    ds.update(a.id, { connectorId: conn.id, materialized: false });
+    ds.update(b.id, { connectorId: conn.id, materialized: false });
+
+    const stubs = ds.listStubs(conn.id);
+    const ids   = stubs.map(s => s.id);
+    expect(ids).toContain(a.id);
+    expect(ids).toContain(b.id);
+    expect(stubs.every(s => s.materialized === false)).toBe(true);
+  });
+
+  it('excludes materialized items', () => {
+    const conn = mkConn();
+    const stub = ds.create({ value: 'stub' });
+    const real = ds.create({ value: 'real' });
+    ds.update(stub.id, { connectorId: conn.id, materialized: false });
+    ds.update(real.id, { connectorId: conn.id, materialized: true });
+
+    const stubs = ds.listStubs(conn.id);
+    expect(stubs.map(s => s.id)).toContain(stub.id);
+    expect(stubs.map(s => s.id)).not.toContain(real.id);
+  });
+
+  it('excludes items from a different connector', () => {
+    const conn1 = mkConn();
+    const conn2 = mkConn();
+    const item  = ds.create({ value: 'x' });
+    ds.update(item.id, { connectorId: conn1.id, materialized: false });
+
+    expect(ds.listStubs(conn2.id)).toHaveLength(0);
+  });
+
+  it('excludes deleted stubs', () => {
+    const conn = mkConn();
+    const item = ds.create({ value: 'x' });
+    ds.update(item.id, { connectorId: conn.id, materialized: false });
+    ds.delete(item.id);
+
+    expect(ds.listStubs(conn.id)).toHaveLength(0);
+  });
+
+  it('returns empty array when connector has no stubs', () => {
+    const conn = mkConn();
+    expect(ds.listStubs(conn.id)).toEqual([]);
+  });
+});
+
+// ─── listDueForRefresh ────────────────────────────────────────────────────────
+
+describe('listDueForRefresh', () => {
+  function mkConn() {
+    const c = ds.create({ type: 'connector', value: 'Conn' });
+    ds.writeObjectJson(c.id, { system: 'test' });
+    return c;
+  }
+
+  it('returns connector items cached before beforeAt', () => {
+    const conn = mkConn();
+    const item = ds.create({ value: 'x' });
+    ds.update(item.id, {
+      connectorId: conn.id,
+      materialized: true,
+      cachedAt: '2025-01-01T00:00:00Z',
+    });
+
+    const due = ds.listDueForRefresh('2026-01-01T00:00:00Z');
+    expect(due.map(d => d.id)).toContain(item.id);
+  });
+
+  it('excludes items cached after beforeAt', () => {
+    const conn = mkConn();
+    const item = ds.create({ value: 'x' });
+    ds.update(item.id, {
+      connectorId: conn.id,
+      materialized: true,
+      cachedAt: '2026-06-01T00:00:00Z',
+    });
+
+    const due = ds.listDueForRefresh('2026-01-01T00:00:00Z');
+    expect(due.map(d => d.id)).not.toContain(item.id);
+  });
+
+  it('excludes native items (no connectorId)', () => {
+    const item = ds.create({ value: 'native' });
+    ds.update(item.id, { cachedAt: '2020-01-01T00:00:00Z' });
+
+    const due = ds.listDueForRefresh('2099-01-01T00:00:00Z');
+    expect(due.map(d => d.id)).not.toContain(item.id);
+  });
+
+  it('excludes deleted items', () => {
+    const conn = mkConn();
+    const item = ds.create({ value: 'x' });
+    ds.update(item.id, {
+      connectorId: conn.id,
+      materialized: true,
+      cachedAt: '2025-01-01T00:00:00Z',
+    });
+    ds.delete(item.id);
+
+    expect(ds.listDueForRefresh('2026-01-01T00:00:00Z')).toHaveLength(0);
+  });
+
+  it('includes stubs (materialized=false) that are overdue', () => {
+    const conn = mkConn();
+    const item = ds.create({ value: 'x' });
+    ds.update(item.id, {
+      connectorId: conn.id,
+      materialized: false,
+      cachedAt: '2025-01-01T00:00:00Z',
+    });
+
+    const due = ds.listDueForRefresh('2026-01-01T00:00:00Z');
+    expect(due.map(d => d.id)).toContain(item.id);
+  });
+
+  it('returns empty array when nothing is stale', () => {
+    expect(ds.listDueForRefresh('2000-01-01T00:00:00Z')).toEqual([]);
+  });
+});

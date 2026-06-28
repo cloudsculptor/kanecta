@@ -80,12 +80,14 @@ function rowToItem(row) {
     cachedAt:     row.cached_at?.toISOString() ?? null,
     expiresAt:    row.expires_at?.toISOString() ?? null,
     deletedAt:    row.deleted_at?.toISOString() ?? null,
-    connectorId:  row.connector_id ?? null,
-    materialized: row.materialized ?? null,
-    completedAt:  row.completed_at?.toISOString() ?? null,
-    dueAt:        row.due_at?.toISOString() ?? null,
-    visibility:   row.visibility ?? 'private',
-    aspect:       row.aspect ?? null,
+    connectorId:       row.connector_id ?? null,
+    materialized:      row.materialized ?? null,
+    completedAt:       row.completed_at?.toISOString() ?? null,
+    dueAt:             row.due_at?.toISOString() ?? null,
+    visibility:        row.visibility ?? 'private',
+    aspect:            row.aspect ?? null,
+    sourceSystem:      row.source_system ?? null,
+    sourceExternalId:  row.source_external_id ?? null,
   };
 }
 
@@ -330,6 +332,7 @@ class PostgresAdapter {
     owner, license = null, sortOrder, confidence = null, status = null,
     tags = [], createdBy, objectData = null, dueAt = null, aspect = null,
     expiresAt = null, connectorId = null, materialized = null, cachedAt = null,
+    sourceSystem = null, sourceExternalId = null,
     strict,
   } = {}) {
     if (WELL_KNOWN_TYPES.has(type))
@@ -364,8 +367,9 @@ class PostgresAdapter {
       `INSERT INTO items
          (id, spec_version, parent_id, path, value, type, type_id, owner, license, sort_order,
           confidence, status, tags, created_at, modified_at, created_by, modified_by,
-          due_at, visibility, aspect, expires_at, connector_id, materialized, cached_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$14,$15,$15,$16,'private',$17,$18,$19,$20,$21)`,
+          due_at, visibility, aspect, expires_at, connector_id, materialized, cached_at,
+          source_system, source_external_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$14,$15,$15,$16,'private',$17,$18,$19,$20,$21,$22,$23)`,
       [
         id, specVersion, parentId, itemPath, value,
         type, type === 'object' ? typeId : null,
@@ -373,6 +377,7 @@ class PostgresAdapter {
         sortOrder, confidence, status, tags,
         now, actor, dueAt, aspect,
         expiresAt, connectorId, materialized, cachedAt,
+        sourceSystem, sourceExternalId,
       ],
     );
 
@@ -440,9 +445,11 @@ class PostgresAdapter {
     if ('tags' in changes)        maybeSet('tags',         changes.tags);
     if ('expiresAt' in changes)   maybeSet('expires_at',   changes.expiresAt);
     if ('deletedAt' in changes)   maybeSet('deleted_at',   changes.deletedAt);
-    if ('connectorId' in changes) maybeSet('connector_id', changes.connectorId);
-    if ('materialized' in changes) maybeSet('materialized', changes.materialized);
-    if ('cachedAt' in changes)    maybeSet('cached_at',    changes.cachedAt);
+    if ('connectorId' in changes)       maybeSet('connector_id',       changes.connectorId);
+    if ('materialized' in changes)      maybeSet('materialized',       changes.materialized);
+    if ('cachedAt' in changes)          maybeSet('cached_at',          changes.cachedAt);
+    if ('sourceSystem' in changes)      maybeSet('source_system',      changes.sourceSystem);
+    if ('sourceExternalId' in changes)  maybeSet('source_external_id', changes.sourceExternalId);
 
     // Cascade path when parentId changes
     if ('parentId' in changes && changes.parentId !== current.parentId) {
@@ -1088,6 +1095,29 @@ class PostgresAdapter {
         [crypto.randomUUID(), id, i, t.type, t.description ?? null],
       );
     }
+  }
+
+  // ─── Connector queries ────────────────────────────────────────────────────────
+
+  // All stub items (materialized=false) managed by a specific connector.
+  async listStubs(connectorId) {
+    const { rows } = await this._pool.query(
+      `SELECT * FROM items
+       WHERE connector_id = $1 AND materialized = false AND deleted_at IS NULL`,
+      [connectorId],
+    );
+    return rows.map(rowToItem);
+  }
+
+  // All connector-managed items whose cached_at is older than beforeAt.
+  // Used by ConnectorEngine to drive scheduled refresh.
+  async listDueForRefresh(beforeAt) {
+    const { rows } = await this._pool.query(
+      `SELECT * FROM items
+       WHERE connector_id IS NOT NULL AND cached_at < $1 AND deleted_at IS NULL`,
+      [beforeAt],
+    );
+    return rows.map(rowToItem);
   }
 
   // ─── Time data ───────────────────────────────────────────────────────────────

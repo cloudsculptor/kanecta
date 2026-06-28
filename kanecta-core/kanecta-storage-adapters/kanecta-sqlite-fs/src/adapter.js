@@ -67,10 +67,14 @@ CREATE TABLE IF NOT EXISTS items (
   due_at        TEXT,
   expires_at    TEXT,
   deleted_at    TEXT,
-  connector_id  TEXT,
-  materialized  INTEGER,
-  cached_at     TEXT
+  connector_id        TEXT,
+  materialized        INTEGER,
+  cached_at           TEXT,
+  source_system       TEXT,
+  source_external_id  TEXT
 );
+CREATE UNIQUE INDEX IF NOT EXISTS idx_items_source ON items (source_system, source_external_id)
+  WHERE source_system IS NOT NULL AND source_external_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_items_parent   ON items(parent_id);
 CREATE INDEX IF NOT EXISTS idx_items_path     ON items(path);
 CREATE INDEX IF NOT EXISTS idx_items_type     ON items(type);
@@ -160,6 +164,13 @@ class SqliteFsAdapter {
     const dbPath = path.join(this.k, 'kanecta.db');
     this._db = new Database(dbPath);
     this._db.exec(SCHEMA_SQL);
+    // Additive column migrations — safe to re-run; catch duplicate-column errors
+    for (const sql of [
+      'ALTER TABLE items ADD COLUMN source_system TEXT',
+      'ALTER TABLE items ADD COLUMN source_external_id TEXT',
+    ]) {
+      try { this._db.exec(sql); } catch { /* already exists */ }
+    }
     return this._db;
   }
 
@@ -259,9 +270,11 @@ class SqliteFsAdapter {
       dueAt:        row.due_at,
       expiresAt:    row.expires_at,
       deletedAt:    row.deleted_at,
-      connectorId:  row.connector_id,
-      materialized: row.materialized === null ? null : (row.materialized === 0 ? false : true),
-      cachedAt:     row.cached_at,
+      connectorId:       row.connector_id,
+      materialized:      row.materialized === null ? null : (row.materialized === 0 ? false : true),
+      cachedAt:          row.cached_at,
+      sourceSystem:      row.source_system ?? null,
+      sourceExternalId:  row.source_external_id ?? null,
     };
     if (row.icon) item.icon = row.icon;
     return item;
@@ -284,9 +297,6 @@ class SqliteFsAdapter {
       confidence:   item.confidence ?? null,
       status:       item.status ?? null,
       tags:         JSON.stringify(item.tags || []),
-      object_data:  null,
-      function_data: null,
-      time_data:    null,
       icon:         item.icon ?? null,
       created_at:   item.createdAt,
       modified_at:  item.modifiedAt,
@@ -296,11 +306,13 @@ class SqliteFsAdapter {
       due_at:       item.dueAt ?? null,
       expires_at:   item.expiresAt ?? null,
       deleted_at:   item.deletedAt ?? null,
-      connector_id: item.connectorId ?? null,
-      materialized: item.materialized === null || item.materialized === undefined
+      connector_id:       item.connectorId ?? null,
+      materialized:       item.materialized === null || item.materialized === undefined
         ? null
         : (item.materialized ? 1 : 0),
-      cached_at:    item.cachedAt ?? null,
+      cached_at:          item.cachedAt ?? null,
+      source_system:      item.sourceSystem ?? null,
+      source_external_id: item.sourceExternalId ?? null,
     };
   }
 
@@ -482,6 +494,7 @@ class SqliteFsAdapter {
       createdBy: actor, modifiedBy: actor,
       cachedAt: null, expiresAt: null, deletedAt: null,
       connectorId: null, materialized: null, completedAt: null, dueAt,
+      sourceSystem: null, sourceExternalId: null,
     };
 
     let typeWarning = null;
@@ -610,8 +623,10 @@ class SqliteFsAdapter {
     if ('materialized' in changes) updated.materialized = changes.materialized;
     if ('completedAt' in changes) updated.completedAt = changes.completedAt;
     if ('dueAt' in changes)     updated.dueAt      = changes.dueAt;
-    if ('deletedAt' in changes) updated.deletedAt  = changes.deletedAt;
-    if ('tags' in changes)      updated.tags       = changes.tags;
+    if ('deletedAt' in changes)       updated.deletedAt       = changes.deletedAt;
+    if ('tags' in changes)            updated.tags            = changes.tags;
+    if ('sourceSystem' in changes)    updated.sourceSystem    = changes.sourceSystem;
+    if ('sourceExternalId' in changes) updated.sourceExternalId = changes.sourceExternalId;
 
     if ('type' in changes && changes.type !== current.type) {
       updated.type   = changes.type;
@@ -748,6 +763,25 @@ class SqliteFsAdapter {
 
   writeFunctionJson(id, data) {
     this._openDb().prepare('UPDATE items SET function_data = ? WHERE id = ?').run(JSON.stringify(data), id);
+  }
+
+  // ─── Connector queries ────────────────────────────────────────────────────
+
+  // All stub items (materialized=false) managed by a specific connector.
+  listStubs(connectorId) {
+    const rows = this._openDb()
+      .prepare('SELECT * FROM items WHERE connector_id = ? AND materialized = 0 AND deleted_at IS NULL')
+      .all(connectorId);
+    return rows.map(r => this._rowToItem(r));
+  }
+
+  // All connector-managed items whose cached_at is older than beforeAt.
+  // Used by ConnectorEngine to drive scheduled refresh.
+  listDueForRefresh(beforeAt) {
+    const rows = this._openDb()
+      .prepare('SELECT * FROM items WHERE connector_id IS NOT NULL AND cached_at < ? AND deleted_at IS NULL')
+      .all(beforeAt);
+    return rows.map(r => this._rowToItem(r));
   }
 
   readTimeJson(id) {
