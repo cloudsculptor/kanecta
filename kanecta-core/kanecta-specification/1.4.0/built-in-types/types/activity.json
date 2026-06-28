@@ -35,8 +35,9 @@
   "search": null,
   "payload": {
     "meta": {
-      "description": "A discrete workspace event \u2014 not a snapshot of item state, but a meaningful occurrence at the application level.",
-      "confidence": "locked"
+      "description": "A discrete workspace event — not a snapshot of item state, but a meaningful occurrence at the application level.",
+      "confidence": "locked",
+      "icon": "Timeline"
     },
     "jsonSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -51,7 +52,7 @@
       "properties": {
         "eventType": {
           "type": "string",
-          "description": "Dot-separated event identifier (e.g. item.viewed, search.performed, sync.completed, workspace.opened). Free-form \u2014 new event types do not require a spec change."
+          "description": "Dot-separated event identifier (e.g. item.viewed, search.performed, sync.completed, workspace.opened). Free-form — new event types do not require a spec change."
         },
         "actor": {
           "type": "string",

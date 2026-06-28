@@ -8,14 +8,14 @@ const { version: specVersion } = require('@kanecta/specification');
 
 const ROOT_ID    = '00000000-0000-0000-0000-000000000000';
 const TYPES_NODE = '11111111-1111-1111-1111-111111111111';
-const WELL_KNOWN_TYPES = new Set(['root', 'system_root', 'app_root', 'component_root', 'data_root']);
-const WELL_KNOWN_ORDER = ['system_root', 'app_root', 'component_root', 'data_root'];
+const WELL_KNOWN_TYPES = new Set(['root', 'types']);
+const WELL_KNOWN_ORDER = [];
 
 const VALID_TYPES = [
   'string', 'number', 'text', 'heading', 'file', 'symlink', 'url', 'image', 'function',
   'markdown', 'runner', 'object', 'annotation', 'connector', 'schedule',
   'pipeline', 'pipeline-run', 'agent',
-  'root', 'system_root', 'app_root', 'component_root', 'data_root',
+  'root',
 ];
 const VALID_CONFIDENCES = ['experimental', 'exploring', 'decided', 'locked', 'low', 'medium', 'high', 'verified'];
 const VALID_REL_TYPES = [
@@ -830,7 +830,7 @@ class SqliteFsAdapter {
     const owner = this.config.owner;
     const item  = {
       id, specVersion, parentId,
-      value: type === 'data_root' ? "Your name or organisation's name here" : type,
+      value: type,
       type, typeId: null, owner, license: DEFAULT_LICENSE, visibility: 'private',
       aspect: null, sortOrder, confidence: null, status: null, tags: [],
       createdAt: now.toISOString(), modifiedAt: now.toISOString(),
@@ -857,11 +857,8 @@ class SqliteFsAdapter {
   }
 
   _initRoots() {
-    if (!this.get(ROOT_ID)) this._createWellKnownNode(ROOT_ID, ROOT_ID, 'root', 0);
-    const existing = this.children(ROOT_ID).map(c => c.type);
-    WELL_KNOWN_ORDER.forEach((type, i) => {
-      if (!existing.includes(type)) this._createWellKnownNode(crypto.randomUUID(), ROOT_ID, type, i);
-    });
+    if (!this.get(ROOT_ID))       this._createWellKnownNode(ROOT_ID,    ROOT_ID,    'root',  0);
+    if (!this.get(TYPES_NODE))    this._createWellKnownNode(TYPES_NODE, ROOT_ID,    'types', 1);
     this._loadRoots();
   }
 
@@ -880,13 +877,12 @@ class SqliteFsAdapter {
   }
 
   getRoot()     { return this._getRoots().root; }
-  getDataRoot() { return this._getRoots().data_root || null; }
 
   // ─── Guard helpers ─────────────────────────────────────────────────────────
 
   _assertEditable(item, id) {
     if (!item) throw new Error(`Item not found: ${id}`);
-    if (item.type !== 'data_root' && (WELL_KNOWN_TYPES.has(item.type) || item.id === ROOT_ID))
+    if (WELL_KNOWN_TYPES.has(item.type) || item.id === ROOT_ID)
       throw new Error(`Item '${id}' (type: ${item.type}) is a reserved root node and cannot be modified`);
   }
 
@@ -908,9 +904,7 @@ class SqliteFsAdapter {
       throw new Error(`Type '${type}' is a well-known root type and cannot be created via create()`);
 
     if (parentId == null) {
-      const dr = this.getDataRoot();
-      if (!dr) throw new Error('Datastore not initialised: data_root not found.');
-      parentId = dr.id;
+      parentId = ROOT_ID;
     }
 
     const id       = crypto.randomUUID();
@@ -929,9 +923,9 @@ class SqliteFsAdapter {
 
     let resolvedIcon = null;
     if (type === 'object' && typeId) {
-      const tr = this._openDb().prepare('SELECT schema_json FROM type_defs WHERE id = ?').get(typeId);
+      const tr = this._openDb().prepare('SELECT payload FROM items_payload WHERE item_id = ?').get(typeId);
       if (tr) {
-        try { resolvedIcon = JSON.parse(tr.schema_json)?.meta?.icon || null; } catch {}
+        try { resolvedIcon = JSON.parse(tr.payload)?.meta?.icon || null; } catch {}
       }
     }
 
@@ -1134,9 +1128,9 @@ class SqliteFsAdapter {
       // Icon update
       let newIcon = current.icon || null;
       if (updated.typeId && updated.typeId !== current.typeId) {
-        const tr = db.prepare('SELECT schema_json FROM type_defs WHERE id = ?').get(updated.typeId);
+        const tr = db.prepare('SELECT payload FROM items_payload WHERE item_id = ?').get(updated.typeId);
         if (tr) {
-          try { newIcon = JSON.parse(tr.schema_json)?.meta?.icon || null; } catch {}
+          try { newIcon = JSON.parse(tr.payload)?.meta?.icon || null; } catch {}
         }
       }
       updated.icon = newIcon;
@@ -1425,6 +1419,11 @@ class SqliteFsAdapter {
     return rows.map(r => this._rowToItem(r));
   }
 
+  getDocument(id) {
+    if (this._isSyntheticId(id)) return null;
+    return this._readItemJson(id) ?? null;
+  }
+
   readTimeJson(id) {
     if (this._isSyntheticId(id)) return null;
     const doc = this._readItemJson(id);
@@ -1498,23 +1497,19 @@ class SqliteFsAdapter {
 
   // ─── Type definitions ─────────────────────────────────────────────────────
 
-  createType(value, { schema, createdBy, id: explicitId } = {}) {
+  createType(value, { schema, createdBy, id: explicitId, icon } = {}) {
     if (!value || typeof value !== 'string' || !value.trim()) throw new Error('value is required');
+    const resolvedIcon = schema?.meta?.icon ?? icon;
+    if (!resolvedIcon || typeof resolvedIcon !== 'string' || !resolvedIcon.trim()) {
+      throw new Error('icon is required — provide a non-empty MUI icon name (e.g. "Person")');
+    }
     const id    = explicitId || crypto.randomUUID();
     const now   = new Date();
     const owner = this.config.owner;
     const actor = createdBy || owner;
-    const meta  = {
-      id, specVersion, parentId: null, value: value.trim(), type: 'type', typeId: null,
-      owner, license: null, sortOrder: null, confidence: null, status: null, tags: [],
-      createdAt: now.toISOString(), modifiedAt: now.toISOString(),
-      createdBy: actor, modifiedBy: actor,
-      cachedAt: null, expiresAt: null, deletedAt: null, connectorId: null,
-      materialized: null, completedAt: null, dueAt: null,
-    };
     const resolvedSchema = schema || {
       meta: {
-        icon: '', description: '', details: '', keywords: '', tags: '',
+        icon: resolvedIcon.trim(), description: '', details: '', keywords: '', tags: '',
         'ai-instructions': { claude: '' },
       },
       jsonSchema: {
@@ -1523,24 +1518,57 @@ class SqliteFsAdapter {
         additionalProperties: false,
       },
     };
-    this._openDb().prepare(
-      'INSERT OR REPLACE INTO type_defs (id, value, schema_json, metadata_json) VALUES (?, ?, ?, ?)'
-    ).run(id, value.trim(), JSON.stringify(resolvedSchema), JSON.stringify(meta));
-    return { metadata: meta, schema: resolvedSchema };
+
+    const item = {
+      id, specVersion, parentId: TYPES_NODE,
+      value: value.trim(), type: 'type', typeId: null,
+      owner, license: DEFAULT_LICENSE, visibility: 'private',
+      aspect: null, confidence: null, status: null, tags: [],
+      createdAt: now.toISOString(), modifiedAt: now.toISOString(),
+      createdBy: actor, modifiedBy: actor,
+      cachedAt: null, expiresAt: null, deletedAt: null, connectorId: null,
+      materialized: null, completedAt: null, dueAt: null, files: {}, layer: 'user',
+      sourceSystem: null, sourceExternalId: null, icon: resolvedIcon.trim(),
+    };
+
+    const db = this._openDb();
+    const siblings   = db.prepare('SELECT sort_order FROM items WHERE parent_id = ?').all(TYPES_NODE);
+    item.sortOrder   = siblings.length === 0 ? 0 : Math.max(...siblings.map(s => s.sort_order)) + 1;
+    const parentPath = this._getPath(TYPES_NODE);
+    const itemPath   = parentPath != null ? `${parentPath}/${id}` : id;
+
+    const doc = { ...this._itemToDoc(item), payload: resolvedSchema };
+    this._writeItemJson(id, doc);
+
+    db.transaction(() => {
+      this._insertIndexTx(db, id, doc, itemPath);
+      this._snapshot(db, item, 'create', actor, now);
+    })();
+
+    this._mem.set(id, item);
+    return { metadata: this.get(id), schema: resolvedSchema };
   }
 
   readTypeJson(id) {
-    const row = this._openDb().prepare('SELECT schema_json FROM type_defs WHERE id = ?').get(id);
-    return row ? JSON.parse(row.schema_json) : null;
+    const doc = this._readItemJson(id);
+    return doc?.payload ?? null;
   }
 
   writeTypeJson(id, data) {
-    this._openDb().prepare('UPDATE type_defs SET schema_json = ? WHERE id = ?').run(JSON.stringify(data), id);
+    const icon = data?.meta?.icon;
+    if (!icon || typeof icon !== 'string' || !icon.trim()) {
+      throw new Error('meta.icon is required and must be a non-empty MUI icon name');
+    }
+    const doc = this._readItemJson(id);
+    if (!doc) throw new Error(`type item ${id} not found`);
+    const updated = { ...doc, payload: data };
+    this._writeItemJson(id, updated);
+    this._openDb().prepare('INSERT OR REPLACE INTO items_payload (item_id, payload) VALUES (?,?)').run(id, JSON.stringify(data));
   }
 
   _getTypeName(typeId) {
     if (!typeId) return null;
-    const row = this._openDb().prepare('SELECT value FROM type_defs WHERE id = ?').get(typeId);
+    const row = this._openDb().prepare(`SELECT value FROM items WHERE id = ? AND type = 'type'`).get(typeId);
     return row ? row.value : null;
   }
 
@@ -1557,16 +1585,18 @@ class SqliteFsAdapter {
   }
 
   _listTypeDefs() {
-    return this._openDb().prepare('SELECT id, value FROM type_defs ORDER BY value').all();
+    return this._openDb()
+      .prepare(`SELECT id, value FROM items WHERE type = 'type' ORDER BY value`)
+      .all();
   }
 
   resolveTypeId(name) {
     if (!name) return { unknown: true };
     if (VALID_TYPES.includes(name)) return { primitive: true };
-    for (const def of this._listTypeDefs()) {
-      if (def.value === name) return { id: def.id };
-    }
-    return { unknown: true };
+    const row = this._openDb()
+      .prepare(`SELECT id FROM items WHERE type = 'type' AND value = ? LIMIT 1`)
+      .get(name);
+    return row ? { id: row.id } : { unknown: true };
   }
 
   // ─── Aliases ───────────────────────────────────────────────────────────────
@@ -1779,14 +1809,12 @@ class SqliteFsAdapter {
     const db = this._openDb();
 
     if (!rootId) {
-      const dr = this.getDataRoot();
-      rootId   = dr ? dr.id : null;
-      if (!rootId) return [];
+      rootId = ROOT_ID;
       implicitRoot = true;
     }
 
     const rootRow = db.prepare('SELECT path FROM items WHERE id = ?').get(rootId);
-    if (!rootRow?.path && !implicitRoot) return this._treeSlow(rootId, maxDepth, implicitRoot);
+    if (!rootRow?.path) return this._treeSlow(rootId, maxDepth, implicitRoot);
 
     const rootPath  = rootRow?.path ?? rootId;
     const rootDepth = (rootPath.match(/\//g) || []).length;

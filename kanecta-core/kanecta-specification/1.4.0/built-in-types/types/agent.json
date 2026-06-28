@@ -36,7 +36,8 @@
   "payload": {
     "meta": {
       "description": "A reusable executor definition for pipeline phases.",
-      "confidence": "locked"
+      "confidence": "locked",
+      "icon": "SmartToy"
     },
     "jsonSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -49,7 +50,7 @@
       "properties": {
         "runtime": {
           "type": "string",
-          "description": "Identifies the execution environment. Known values: 'claude-api' (direct Anthropic API call managed by the runner), 'claude-code' (Claude Code CLI, invoked as a subprocess), 'python' (Python script), 'kanecta-function' (executes a Kanecta function item via kanecta-sdk \u2014 config.functionId required), 'group-chat' (structured multi-agent deliberation between config.participants \u2014 config.participants required), 'http' (makes a single HTTP request to an external API and optionally writes the response as a Kanecta item \u2014 config.url required; no LLM invoked). Open string \u2014 new runtimes can be added without spec changes; the runner resolves runtime names to adapter implementations."
+          "description": "Identifies the execution environment. Known values: 'claude-api' (direct Anthropic API call managed by the runner), 'claude-code' (Claude Code CLI, invoked as a subprocess), 'python' (Python script), 'kanecta-function' (executes a Kanecta function item via kanecta-sdk — config.functionId required), 'group-chat' (structured multi-agent deliberation between config.participants — config.participants required), 'http' (makes a single HTTP request to an external API and optionally writes the response as a Kanecta item — config.url required; no LLM invoked). Open string — new runtimes can be added without spec changes; the runner resolves runtime names to adapter implementations."
         },
         "model": {
           "type": [
@@ -63,7 +64,7 @@
             "string",
             "null"
           ],
-          "description": "Base system prompt defining this agent's identity, role, and general behaviour. Combined with the pipeline phase instructions at run time \u2014 the system prompt sets up who the agent is; the phase instructions set up what it should do. For 'group-chat' runtime this is the facilitator prompt \u2014 it frames the conversation and rules of engagement; each participant agent's own systemPrompt drives their individual voice. Null defers to the runtime's default system prompt."
+          "description": "Base system prompt defining this agent's identity, role, and general behaviour. Combined with the pipeline phase instructions at run time — the system prompt sets up who the agent is; the phase instructions set up what it should do. For 'group-chat' runtime this is the facilitator prompt — it frames the conversation and rules of engagement; each participant agent's own systemPrompt drives their individual voice. Null defers to the runtime's default system prompt."
         },
         "tools": {
           "type": [
@@ -88,7 +89,7 @@
             },
             "temperature": {
               "type": "number",
-              "description": "claude-api: sampling temperature (0.0\u20131.0)."
+              "description": "claude-api: sampling temperature (0.0–1.0)."
             },
             "top_p": {
               "type": "number",
@@ -126,7 +127,7 @@
             "maxTurns": {
               "type": "integer",
               "minimum": 1,
-              "description": "group-chat: hard cap on total turns across all participants. Applies regardless of terminationCondition \u2014 prevents runaway conversations. Default 10."
+              "description": "group-chat: hard cap on total turns across all participants. Applies regardless of terminationCondition — prevents runaway conversations. Default 10."
             },
             "terminationCondition": {
               "type": "string",
@@ -134,7 +135,7 @@
                 "explicit",
                 "max-turns"
               ],
-              "description": "group-chat: how the conversation ends. 'explicit' \u2014 continues until any participant calls kanecta_conclude_discussion; that participant writes the final items. 'max-turns' \u2014 runs for maxTurns turns then outputAgent synthesises and writes final items."
+              "description": "group-chat: how the conversation ends. 'explicit' — continues until any participant calls kanecta_conclude_discussion; that participant writes the final items. 'max-turns' — runs for maxTurns turns then outputAgent synthesises and writes final items."
             },
             "outputAgent": {
               "type": [

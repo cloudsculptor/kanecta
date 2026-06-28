@@ -35,8 +35,9 @@
   "search": null,
   "payload": {
     "meta": {
-      "description": "A file-backed item \u2014 replaces the former image and markdown primitives.",
-      "confidence": "locked"
+      "description": "A file-backed item — replaces the former image and markdown primitives.",
+      "confidence": "locked",
+      "icon": "InsertDriveFile"
     },
     "jsonSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",

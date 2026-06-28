@@ -36,7 +36,8 @@
   "payload": {
     "meta": {
       "description": "Defines the schema and semantics of a named aspect dimension.",
-      "confidence": "locked"
+      "confidence": "locked",
+      "icon": "CallSplit"
     },
     "jsonSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -49,7 +50,7 @@
             "object",
             "null"
           ],
-          "description": "JSON Schema validating the payload of aspect items of this type. null means no schema enforcement \u2014 any payload is accepted."
+          "description": "JSON Schema validating the payload of aspect items of this type. null means no schema enforcement — any payload is accepted."
         },
         "description": {
           "type": "string",

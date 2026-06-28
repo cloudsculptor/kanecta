@@ -1517,7 +1517,7 @@ For `type: "type"`. Defines a custom Kanecta type. Four top-level keys: `meta`, 
 | Field | Description
 
 | `icon`
-| MUI icon component name (e.g. `"Person"`).
+| *Required.* Non-empty MUI icon component name (e.g. `"Person"`). Enforced by the adapter (`createType`, `writeTypeJson`) and the API (`POST /types`, `PUT /types/:id/schema`). Cosmetic — may be updated even on immutable types.
 
 | `description`
 | One-sentence summary (required).

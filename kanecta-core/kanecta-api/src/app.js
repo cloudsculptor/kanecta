@@ -140,12 +140,24 @@ async function withChildCounts(ds, items) {
       counts.set(item.parentId, (counts.get(item.parentId) || 0) + 1);
     }
   }
+
+  // Resolve icons: typeId → type item → schema.meta.icon
+  const typeIds = [...new Set(items.map(i => i.typeId).filter(Boolean))];
+  const iconByTypeId = {};
+  await Promise.all(typeIds.map(async tid => {
+    try {
+      const schema = await ds.readTypeJson(tid);
+      iconByTypeId[tid] = schema?.meta?.icon ?? null;
+    } catch { iconByTypeId[tid] = null; }
+  }));
+
   return Promise.all(items.map(async item => {
     if (item._synthetic) return item;
     const realCount = counts.get(item.id) || 0;
     const obj = await ds.readObjectJson(item.id);
     const synCount = obj ? Object.keys(obj).length : 0;
-    return { ...item, childCount: realCount + synCount, _hasObject: synCount > 0 };
+    const icon = item.typeId ? (iconByTypeId[item.typeId] ?? null) : null;
+    return { ...item, icon, childCount: realCount + synCount, _hasObject: synCount > 0 };
   }));
 }
 
@@ -423,12 +435,23 @@ app.get('/search', async (req, res) => {
 
 // ─── Items ────────────────────────────────────────────────────────────────────
 
-// GET /items — list children of data_root (the user's top-level items)
+// GET /items — list children of root (the top-level items).
+// If Accept header contains a type parameter (e.g. application/json; type=<uuid>),
+// returns all items whose typeId matches that UUID instead of root children.
 app.get('/items', async (req, res) => {
   const ds = await openDatastore(res);
   if (!ds) return;
-  const dataRoot = await ds.getDataRoot();
-  const items = dataRoot ? await ds.children(dataRoot.id) : [];
+  const accept = req.headers['accept'] ?? '';
+  const typeMatch = accept.match(/type=([0-9a-f-]{36})/i);
+  if (typeMatch) {
+    const typeId = typeMatch[1];
+    const ids = await ds.byType(typeId);
+    const items = (await Promise.all(ids.map(id => ds.get(id)))).filter(Boolean);
+    return res.json(await withChildCounts(ds, items));
+  }
+  const root = await ds.getRoot();
+  const all = root ? await ds.children(root.id) : [];
+  const items = all.filter(i => !i.id.includes('__') && !i._synthetic);
   res.json(await withChildCounts(ds, items));
 });
 
@@ -533,8 +556,9 @@ app.get('/items/stats', async (req, res) => {
     typeInfo[def.id] = { name: def.value, icon: typeDef?.meta?.icon ?? null };
   }
 
-  const ROOT_TYPES      = new Set(['root', 'data_root', 'app_root', 'component_root', 'system_root']);
-  const BUILT_IN_TYPES  = new Set(['pipeline', 'pipeline-run', 'agent']);
+  const ROOT_TYPES      = new Set(['root']);
+  const BUILT_IN_TYPE_ICONS = { pipeline: 'Schema', agent: 'SmartToy', 'pipeline-run': 'PlayCircle' };
+  const BUILT_IN_TYPES  = new Set(Object.keys(BUILT_IN_TYPE_ICONS));
   const structuredMap = {};
   const unstructuredMap = {};
   let total = 0;
@@ -552,7 +576,7 @@ app.get('/items/stats', async (req, res) => {
       structuredMap[item.typeId].count++;
     } else if (BUILT_IN_TYPES.has(raw)) {
       if (!structuredMap[raw]) {
-        structuredMap[raw] = { typeId: raw, name: raw, icon: null, count: 0 };
+        structuredMap[raw] = { typeId: raw, name: raw, icon: BUILT_IN_TYPE_ICONS[raw], count: 0 };
       }
       structuredMap[raw].count++;
     } else {
@@ -569,13 +593,13 @@ app.get('/items/stats', async (req, res) => {
   res.json({ total, typedCount, structured, unstructured });
 });
 
-// GET /items/root — get the data_root item
+// GET /items/root — get the root item
 app.get('/items/root', async (req, res) => {
   const ds = await openDatastore(res);
   if (!ds) return;
-  const dataRoot = await ds.getDataRoot();
-  if (!dataRoot) return res.status(404).json({ error: 'data_root not found' });
-  res.json(dataRoot);
+  const root = await ds.getRoot();
+  if (!root) return res.status(404).json({ error: 'root not found' });
+  res.json(root);
 });
 
 // GET /items/:id — get item (accepts real UUIDs and synthetic IDs)
@@ -584,9 +608,9 @@ app.get('/items/:id', async (req, res) => {
   if (!isValidId(id)) return res.status(400).json({ error: 'Invalid ID format' });
   const ds = await openDatastore(res);
   if (!ds) return;
-  const item = await ds.get(id);
-  if (!item) return res.status(404).json({ error: 'Item not found' });
-  res.json(item);
+  const doc = await ds.getDocument(id);
+  if (!doc) return res.status(404).json({ error: 'Item not found' });
+  res.json(doc);
 });
 
 // PUT /items/:id — update item
@@ -1277,13 +1301,16 @@ app.get('/types', async (req, res) => {
 app.post('/types', async (req, res) => {
   const ds = await openDatastore(res);
   if (!ds) return;
-  const { value } = req.body;
+  const { value, icon } = req.body;
   if (!value || typeof value !== 'string' || !value.trim()) {
     return res.status(400).json({ error: 'value is required' });
   }
+  if (!icon || typeof icon !== 'string' || !icon.trim()) {
+    return res.status(400).json({ error: 'icon is required — provide a non-empty MUI icon name (e.g. "Person")' });
+  }
   try {
-    const { metadata } = await ds.createType(value.trim());
-    res.status(201).json({ ...metadata, icon: null, description: null, details: null, keywords: null, primaryField: null, 'ai-instructions': null });
+    const { metadata } = await ds.createType(value.trim(), { icon: icon.trim() });
+    res.status(201).json({ ...metadata, icon: icon.trim(), description: null, details: null, keywords: null, primaryField: null, 'ai-instructions': null });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1294,10 +1321,10 @@ function validateTypeSchema(schema) {
     return 'Schema must be a JSON object';
   if (!schema.meta || typeof schema.meta !== 'object') return 'meta is required';
   if (!schema.jsonSchema || typeof schema.jsonSchema !== 'object') return 'jsonSchema is required';
-  for (const key of ['icon', 'description']) {
-    if (typeof schema.meta[key] !== 'string')
-      return `meta.${key} is required and must be a string`;
-  }
+  if (typeof schema.meta.icon !== 'string' || !schema.meta.icon.trim())
+    return 'meta.icon is required and must be a non-empty MUI icon name';
+  if (typeof schema.meta.description !== 'string')
+    return 'meta.description is required and must be a string';
   const js = schema.jsonSchema;
   for (const key of ['$schema', '$id', 'title', 'type', 'properties']) {
     if (js[key] === undefined || js[key] === null)

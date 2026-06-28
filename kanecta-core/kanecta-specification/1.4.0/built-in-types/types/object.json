@@ -36,12 +36,13 @@
   "payload": {
     "meta": {
       "description": "An instance of a user-defined type.",
-      "confidence": "locked"
+      "confidence": "locked",
+      "icon": "DataObject"
     },
     "jsonSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "objectPayload",
-      "$comment": "No fixed schema. The payload is a free-form object validated at runtime against the typePayload.jsonSchema of the item's typeId. This file is a placeholder \u2014 the actual schema is defined per custom type.",
+      "$comment": "No fixed schema. The payload is a free-form object validated at runtime against the typePayload.jsonSchema of the item's typeId. This file is a placeholder — the actual schema is defined per custom type.",
       "type": "object"
     },
     "sqlSchema": [

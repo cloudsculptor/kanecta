@@ -36,7 +36,8 @@
   "payload": {
     "meta": {
       "description": "A typed, first-class relationship between two items.",
-      "confidence": "locked"
+      "confidence": "locked",
+      "icon": "Share"
     },
     "jsonSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",

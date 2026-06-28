@@ -36,13 +36,17 @@
   "payload": {
     "meta": {
       "description": "A named projection of a subtree into document form — maps tree depth and item type to document roles (heading, body, caption, etc.) so any tree can be exported or rendered as a well-formed document without restructuring the data.",
-      "confidence": "locked"
+      "confidence": "locked",
+      "icon": "Article"
     },
     "jsonSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "documentPayload",
       "type": "object",
-      "required": ["targetId", "name"],
+      "required": [
+        "targetId",
+        "name"
+      ],
       "additionalProperties": false,
       "properties": {
         "targetId": {
@@ -68,8 +72,16 @@
               "description": "Sparse map of item UUID to integer depth or false (collapse). Only items that differ from defaultDepth need an entry.",
               "additionalProperties": {
                 "oneOf": [
-                  { "type": "integer", "minimum": 0 },
-                  { "type": "boolean", "enum": [false] }
+                  {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  {
+                    "type": "boolean",
+                    "enum": [
+                      false
+                    ]
+                  }
                 ]
               }
             }
@@ -84,7 +96,16 @@
               "description": "Map of depth integer (as string key) to role name. Depth 0 = targetId itself.",
               "additionalProperties": {
                 "type": "string",
-                "enum": ["title", "heading", "subheading", "body", "caption", "list-item", "code-block", "ignore"]
+                "enum": [
+                  "title",
+                  "heading",
+                  "subheading",
+                  "body",
+                  "caption",
+                  "list-item",
+                  "code-block",
+                  "ignore"
+                ]
               }
             },
             "byType": {
@@ -92,7 +113,16 @@
               "description": "Map of item type string or typeId UUID to role name. Overrides byDepth. UUID-keyed entries take precedence.",
               "additionalProperties": {
                 "type": "string",
-                "enum": ["title", "heading", "subheading", "body", "caption", "list-item", "code-block", "ignore"]
+                "enum": [
+                  "title",
+                  "heading",
+                  "subheading",
+                  "body",
+                  "caption",
+                  "list-item",
+                  "code-block",
+                  "ignore"
+                ]
               }
             }
           }
@@ -102,7 +132,10 @@
           "description": "When true, this is the canonical org-level document for targetId. At most one document per targetId should have this set."
         },
         "baseDocumentId": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "format": "uuid",
           "description": "UUID of the document this was forked from (set on fork-on-modify). Null for original documents."
         }

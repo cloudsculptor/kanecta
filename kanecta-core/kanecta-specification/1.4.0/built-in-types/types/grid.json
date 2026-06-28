@@ -35,8 +35,9 @@
   "search": null,
   "payload": {
     "meta": {
-      "description": "A two-dimensional sparse container \u2014 the grid is to tables what tree is to hierarchies.",
-      "confidence": "locked"
+      "description": "A two-dimensional sparse container — the grid is to tables what tree is to hierarchies.",
+      "confidence": "locked",
+      "icon": "GridOn"
     },
     "jsonSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -45,7 +46,7 @@
       "additionalProperties": false,
       "properties": {
         "columns": {
-          "description": "Column definitions. null means indexed mode \u2014 columns are auto-labelled A, B, C\u2026 (Excel-style) and unbounded; Studio renders columns as they are occupied. When set to an array, the grid is in named-column mode \u2014 only the declared columns exist; Studio renders them in declaration order with their labels and optional type hints. Mixed mode is not supported: a grid is either fully indexed or fully named.",
+          "description": "Column definitions. null means indexed mode — columns are auto-labelled A, B, C… (Excel-style) and unbounded; Studio renders columns as they are occupied. When set to an array, the grid is in named-column mode — only the declared columns exist; Studio renders them in declaration order with their labels and optional type hints. Mixed mode is not supported: a grid is either fully indexed or fully named.",
           "oneOf": [
             {
               "type": "null"
@@ -62,7 +63,7 @@
                 "properties": {
                   "key": {
                     "type": "string",
-                    "description": "Internal identifier for this column. Used in cell.payload.column to reference the column. Must be unique within this grid. Stable \u2014 changing a column key orphans existing cell items that reference the old key."
+                    "description": "Internal identifier for this column. Used in cell.payload.column to reference the column. Must be unique within this grid. Stable — changing a column key orphans existing cell items that reference the old key."
                   },
                   "label": {
                     "type": "string",
@@ -73,14 +74,14 @@
                       "string",
                       "null"
                     ],
-                    "description": "Optional type hint for Studio rendering and input form generation. Known values: 'string' (text input), 'number' (numeric input), 'boolean' (checkbox), 'date' (date picker), 'uuid' (UUID picker \u2014 links to another item), 'formula' (formula expression \u2014 Studio evaluates and renders the result). Open string \u2014 new type hints do not require a spec change. Null means no type constraint; Studio renders the cell value as plain text."
+                    "description": "Optional type hint for Studio rendering and input form generation. Known values: 'string' (text input), 'number' (numeric input), 'boolean' (checkbox), 'date' (date picker), 'uuid' (UUID picker — links to another item), 'formula' (formula expression — Studio evaluates and renders the result). Open string — new type hints do not require a spec change. Null means no type constraint; Studio renders the cell value as plain text."
                   },
                   "width": {
                     "type": [
                       "integer",
                       "null"
                     ],
-                    "description": "Display width hint in pixels. Null means Studio chooses a default. Informational \u2014 the grid component may ignore this on small viewports."
+                    "description": "Display width hint in pixels. Null means Studio chooses a default. Informational — the grid component may ignore this on small viewports."
                   }
                 }
               }
@@ -93,7 +94,7 @@
             "null"
           ],
           "minimum": 1,
-          "description": "Display hint: how many rows Studio renders initially before the user scrolls or expands. Does not cap how many rows can be occupied \u2014 a cell with row=9999 is valid regardless of rowCount. Null means Studio renders until the last occupied row plus a small buffer. In indexed mode (columns: null), this is the only way to define the visible grid size before any cells are filled."
+          "description": "Display hint: how many rows Studio renders initially before the user scrolls or expands. Does not cap how many rows can be occupied — a cell with row=9999 is valid regardless of rowCount. Null means Studio renders until the last occupied row plus a small buffer. In indexed mode (columns: null), this is the only way to define the visible grid size before any cells are filled."
         },
         "description": {
           "type": [

@@ -35,8 +35,9 @@
   "search": null,
   "payload": {
     "meta": {
-      "description": "A custom type definition \u2014 the meta-type.",
-      "confidence": "locked"
+      "description": "A custom type definition — the meta-type.",
+      "confidence": "locked",
+      "icon": "Category"
     },
     "jsonSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -206,7 +207,7 @@
                 "type": "string",
                 "format": "uuid"
               },
-              "description": "UUIDs of types this type extends or specialises. Declared relationship only \u2014 no storage inheritance."
+              "description": "UUIDs of types this type extends or specialises. Declared relationship only — no storage inheritance."
             },
             "immutable": {
               "type": "boolean",
@@ -220,7 +221,7 @@
         },
         "jsonSchema": {
           "type": "object",
-          "description": "JSON Schema Draft-07 for instances. Types are flat \u2014 exactly one level deep. Each property must carry a stable x-id UUID."
+          "description": "JSON Schema Draft-07 for instances. Types are flat — exactly one level deep. Each property must carry a stable x-id UUID."
         },
         "sqlSchema": {
           "type": "array",

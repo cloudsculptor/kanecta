@@ -1,5 +1,52 @@
 // ─── Shared types ────────────────────────────────────────────────────────────
 
+export interface KanectaItemCore {
+  id: string;
+  parentId?: string | null;
+  type: string;
+  typeId?: string | null;
+  value?: string | null;
+  sortOrder?: number | null;
+  aspect?: string | null;
+}
+
+export interface KanectaItemMeta {
+  specVersion?: string;
+  owner?: string | null;
+  license?: string | null;
+  visibility?: string;
+  confidence?: string | null;
+  status?: string | null;
+  tags?: string[];
+  createdAt: string;
+  modifiedAt: string;
+  createdBy?: string | null;
+  modifiedBy?: string | null;
+  completedAt?: string | null;
+  dueAt?: string | null;
+  expiresAt?: string | null;
+  deletedAt?: string | null;
+  cachedAt?: string | null;
+  connectorId?: string | null;
+  materialized?: boolean | null;
+  files?: Record<string, unknown>;
+  layer?: string | null;
+  sourceSystem?: string | null;
+  sourceExternalId?: string | null;
+  icon?: string | null;
+}
+
+export interface KanectaItemDocument {
+  item: KanectaItemCore;
+  meta: KanectaItemMeta;
+  payload: Record<string, unknown> | null;
+  time: Record<string, unknown> | null;
+  // Tree enrichment fields added by the API
+  childCount?: number;
+  _hasObject?: boolean;
+  _synthetic?: boolean;
+}
+
 export interface KanectaItem {
   id: string;
   value?: string | null;
@@ -293,7 +340,7 @@ export interface ItemsApi {
   list(): Promise<KanectaItem[]>;
   root(): Promise<KanectaItem>;
   stats(): Promise<ItemStats>;
-  get(id: string): Promise<KanectaItem>;
+  get(id: string): Promise<KanectaItemDocument>;
   create(payload: CreateItemPayload): Promise<KanectaItem>;
   bulkCreate(items: CreateItemPayload[]): Promise<BulkCreateResult>;
   update(id: string, payload: UpdateItemPayload): Promise<KanectaItem>;
@@ -310,6 +357,7 @@ export interface ItemsApi {
   history(id: string): Promise<HistoryEntry[]>;
   getObject(id: string): Promise<Record<string, unknown>>;
   saveObject(id: string, data: Record<string, unknown>): Promise<{ ok: boolean }>;
+  getTime(id: string): Promise<Record<string, unknown>>;
   complete(id: string, actor?: string): Promise<KanectaItem>;
   uncomplete(id: string, actor?: string): Promise<KanectaItem>;
   getFunction(id: string): Promise<FunctionDefinition>;
@@ -352,6 +400,7 @@ export interface TypesApi {
   list(): Promise<TypeMetadata[]>;
   create(value: string): Promise<TypeMetadata>;
   get(id: string): Promise<TypeMetadata>;
+  schema(id: string): Promise<TypeSchema>;
   getSchema(id: string): Promise<TypeSchema>;
   updateSchema(id: string, schema: TypeSchema): Promise<TypeSchema>;
 }

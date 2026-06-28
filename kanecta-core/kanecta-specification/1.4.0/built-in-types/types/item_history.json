@@ -36,7 +36,8 @@
   "payload": {
     "meta": {
       "description": "An event in an item's lifecycle.",
-      "confidence": "locked"
+      "confidence": "locked",
+      "icon": "ManageHistory"
     },
     "jsonSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -63,7 +64,7 @@
             "updated",
             "deleted"
           ],
-          "description": "What happened. created \u2014 first event for this item. updated \u2014 one or more fields changed. deleted \u2014 item has been removed."
+          "description": "What happened. created — first event for this item. updated — one or more fields changed. deleted — item has been removed."
         },
         "sequence": {
           "type": "integer",

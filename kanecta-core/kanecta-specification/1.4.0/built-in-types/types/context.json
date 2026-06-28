@@ -36,7 +36,8 @@
   "payload": {
     "meta": {
       "description": "An execution and display environment.",
-      "confidence": "locked"
+      "confidence": "locked",
+      "icon": "FilterAlt"
     },
     "jsonSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -50,7 +51,7 @@
       "properties": {
         "runtime": {
           "type": "string",
-          "description": "The execution environment. Known values: web, desktop, cli, mcp, pdf, api. Free-form string \u2014 new runtimes do not require a spec change."
+          "description": "The execution environment. Known values: web, desktop, cli, mcp, pdf, api. Free-form string — new runtimes do not require a spec change."
         },
         "display": {
           "type": "string",
@@ -61,7 +62,7 @@
           "items": {
             "type": "string"
           },
-          "description": "What the runtime supports. Exploratory \u2014 expected to evolve through use. Examples: [\"react\", \"css\", \"images\"], [\"markdown\"], [\"ansi-colour\"]."
+          "description": "What the runtime supports. Exploratory — expected to evolve through use. Examples: [\"react\", \"css\", \"images\"], [\"markdown\"], [\"ansi-colour\"]."
         }
       }
     },

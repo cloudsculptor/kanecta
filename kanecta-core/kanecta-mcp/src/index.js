@@ -728,7 +728,7 @@ const TOOLS = [
   {
     name: 'kanecta_create_type',
     description:
-      'Create a new custom type definition in the Kanecta datastore. Returns the full metadata record for the new type.',
+      'Create a new custom type definition in the Kanecta datastore. Returns the full metadata record for the new type. Both value and icon are required.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -736,8 +736,12 @@ const TOOLS = [
           type: 'string',
           description: 'Name of the type (e.g. "Person", "Place", "Event")',
         },
+        icon: {
+          type: 'string',
+          description: 'MUI icon component name (e.g. "Person", "Gavel", "School"). Required — every type must have an icon.',
+        },
       },
-      required: ['value'],
+      required: ['value', 'icon'],
     },
   },
   {
@@ -1722,8 +1726,9 @@ async function dispatch(name, args) {
     }
 
     case 'kanecta_stats': {
-      const ROOT_TYPES     = new Set(['root', 'data_root', 'app_root', 'component_root', 'system_root']);
-      const BUILT_IN_TYPES = new Set(['pipeline', 'pipeline-run', 'agent']);
+      const ROOT_TYPES          = new Set(['root']);
+      const BUILT_IN_TYPE_ICONS = { pipeline: 'Schema', agent: 'SmartToy', 'pipeline-run': 'PlayCircle' };
+      const BUILT_IN_TYPES      = new Set(Object.keys(BUILT_IN_TYPE_ICONS));
       const defs = await ds.listTypeDefs();
       const typeInfo = {};
       for (const def of defs) {
@@ -1744,7 +1749,7 @@ async function dispatch(name, args) {
           structuredMap[item.typeId].count++;
         } else if (BUILT_IN_TYPES.has(raw)) {
           if (!structuredMap[raw])
-            structuredMap[raw] = { typeId: raw, name: raw, icon: null, count: 0 };
+            structuredMap[raw] = { typeId: raw, name: raw, icon: BUILT_IN_TYPE_ICONS[raw], count: 0 };
           structuredMap[raw].count++;
         } else {
           unstructuredMap[raw] = (unstructuredMap[raw] || 0) + 1;
@@ -1758,7 +1763,7 @@ async function dispatch(name, args) {
     }
 
     case 'kanecta_create_type': {
-      const { metadata, schema } = await ds.createType(args.value);
+      const { metadata, schema } = await ds.createType(args.value, { icon: args.icon });
       return { ...metadata, schema };
     }
 

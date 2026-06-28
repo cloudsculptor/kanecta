@@ -49,7 +49,8 @@
     "eval-run"
   ],
   "wellKnown": [
-    "root"
+    "root",
+    "types"
   ],
   "_notes": {
     "file": "Replaces the former 'image' and 'markdown' primitives. Use payload.mimeType to distinguish — e.g. 'image/jpeg', 'text/markdown', 'application/pdf'. Any IANA media type is valid.",

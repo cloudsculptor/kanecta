@@ -36,7 +36,8 @@
   "payload": {
     "meta": {
       "description": "A declared dependency on a UUID from outside the item graph.",
-      "confidence": "locked"
+      "confidence": "locked",
+      "icon": "Link"
     },
     "jsonSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -55,7 +56,7 @@
         },
         "kind": {
           "type": "string",
-          "description": "Nature of the reference. Known values: physical, external, function-arg, function-output, component-dep. Free-form string \u2014 new kinds do not require a spec change."
+          "description": "Nature of the reference. Known values: physical, external, function-arg, function-output, component-dep. Free-form string — new kinds do not require a spec change."
         },
         "medium": {
           "type": "string",
@@ -75,7 +76,7 @@
         },
         "removable": {
           "type": "boolean",
-          "description": "Whether this reference can be removed. False for physical engravings that cannot be undone. Informational \u2014 does not enforce system behaviour."
+          "description": "Whether this reference can be removed. False for physical engravings that cannot be undone. Informational — does not enforce system behaviour."
         },
         "description": {
           "type": "string",

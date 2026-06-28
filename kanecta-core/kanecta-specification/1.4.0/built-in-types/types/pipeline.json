@@ -36,7 +36,8 @@
   "payload": {
     "meta": {
       "description": "An ordered sequence of agent-executed phases defining a multi-step AI workflow.",
-      "confidence": "locked"
+      "confidence": "locked",
+      "icon": "Schema"
     },
     "jsonSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -119,14 +120,14 @@
             "cancel-previous",
             null
           ],
-          "description": "What to do when a new run is triggered while a run of this pipeline is already in a non-terminal state (pending or running). 'allow' (default) starts the new run immediately \u2014 multiple runs coexist. 'queue' holds the new run at pending status and the runner will not pick it up until the current run reaches a terminal state (complete, failed, or cancelled). 'cancel-previous' cancels the existing run (sets its status to 'cancelled') before starting the new one. Use 'queue' for pipelines that must not overlap (writes to shared state). Use 'cancel-previous' for pipelines triggered by events where only the latest trigger matters (e.g. a re-audit triggered on every commit \u2014 only the most recent matters). Null defaults to 'allow'."
+          "description": "What to do when a new run is triggered while a run of this pipeline is already in a non-terminal state (pending or running). 'allow' (default) starts the new run immediately — multiple runs coexist. 'queue' holds the new run at pending status and the runner will not pick it up until the current run reaches a terminal state (complete, failed, or cancelled). 'cancel-previous' cancels the existing run (sets its status to 'cancelled') before starting the new one. Use 'queue' for pipelines that must not overlap (writes to shared state). Use 'cancel-previous' for pipelines triggered by events where only the latest trigger matters (e.g. a re-audit triggered on every commit — only the most recent matters). Null defaults to 'allow'."
         },
         "triggers": {
           "type": [
             "array",
             "null"
           ],
-          "description": "Declared trigger conditions that cause the runner to automatically create a pipeline-run item when the condition fires. Triggers are evaluated by the runner's subscription machinery \u2014 each trigger registers an internal subscription. Null means the pipeline is only triggered explicitly (via sdk.pipelines.run(), kanecta_run_pipeline, or manual run-item creation). Triggers do not replace explicit invocation; they add reactive invocation on top of it.",
+          "description": "Declared trigger conditions that cause the runner to automatically create a pipeline-run item when the condition fires. Triggers are evaluated by the runner's subscription machinery — each trigger registers an internal subscription. Null means the pipeline is only triggered explicitly (via sdk.pipelines.run(), kanecta_run_pipeline, or manual run-item creation). Triggers do not replace explicit invocation; they add reactive invocation on top of it.",
           "items": {
             "type": "object",
             "required": [
@@ -148,7 +149,7 @@
                   "object",
                   "null"
                 ],
-                "description": "For item-created and item-updated triggers: a kanecta_query-compatible filter object. The trigger fires only when the created or updated item matches this filter. Null means any item creation or update fires the trigger (rarely useful \u2014 use a specific filter). Example: { \"type\": \"finding\", \"payload.severity\": \"P1\" }."
+                "description": "For item-created and item-updated triggers: a kanecta_query-compatible filter object. The trigger fires only when the created or updated item matches this filter. Null means any item creation or update fires the trigger (rarely useful — use a specific filter). Example: { \"type\": \"finding\", \"payload.severity\": \"P1\" }."
               },
               "cron": {
                 "type": [
@@ -162,7 +163,7 @@
                   "object",
                   "null"
                 ],
-                "description": "Static param values supplied to the triggered run. For item-created and item-updated triggers, the triggering item's UUID is automatically available as params.triggerItemId \u2014 no need to declare it here. Values declared here are merged with any params derived from the triggering event. Null means only event-derived params are supplied."
+                "description": "Static param values supplied to the triggered run. For item-created and item-updated triggers, the triggering item's UUID is automatically available as params.triggerItemId — no need to declare it here. Values declared here are merged with any params derived from the triggering event. Null means only event-derived params are supplied."
               },
               "description": {
                 "type": [
@@ -200,7 +201,7 @@
                   "null"
                 ],
                 "format": "uuid",
-                "description": "UUID of the agent item that executes this phase. Exactly one of agentId or subPipelineId must be set \u2014 set agentId for agent phases, null it when subPipelineId is set."
+                "description": "UUID of the agent item that executes this phase. Exactly one of agentId or subPipelineId must be set — set agentId for agent phases, null it when subPipelineId is set."
               },
               "subPipelineId": {
                 "type": [
@@ -208,14 +209,14 @@
                   "null"
                 ],
                 "format": "uuid",
-                "description": "UUID of a pipeline item to run as a child pipeline. When set, this phase does not invoke an agent \u2014 instead the runner creates a child pipeline-run (with parentRunId pointing to the current run's UUID) and waits for it to complete. The child run's pipelineSnapshot ensures it executes against the pipeline definition as it was at trigger time, not whatever the definition is when it runs. The child run's itemsProduced feeds into this phase's itemsProduced on the parent run record. The child run's terminal status determines this phase's status: 'complete' maps to 'complete', 'failed' follows onFailure, 'cancelled' fails this phase. On loopBack, re-running a sub-pipeline phase creates a new child run \u2014 the old child run is preserved. Set agentId to null when subPipelineId is used. Null means this is a normal agent phase."
+                "description": "UUID of a pipeline item to run as a child pipeline. When set, this phase does not invoke an agent — instead the runner creates a child pipeline-run (with parentRunId pointing to the current run's UUID) and waits for it to complete. The child run's pipelineSnapshot ensures it executes against the pipeline definition as it was at trigger time, not whatever the definition is when it runs. The child run's itemsProduced feeds into this phase's itemsProduced on the parent run record. The child run's terminal status determines this phase's status: 'complete' maps to 'complete', 'failed' follows onFailure, 'cancelled' fails this phase. On loopBack, re-running a sub-pipeline phase creates a new child run — the old child run is preserved. Set agentId to null when subPipelineId is used. Null means this is a normal agent phase."
               },
               "subPipelineParams": {
                 "type": [
                   "object",
                   "null"
                 ],
-                "description": "Param values to pass to the child pipeline run when subPipelineId is set. Keys must match the child pipeline's params[].name declarations. String values support {{params.name}} and run-state expression substitution (e.g. '{{phases.audit.output.targetId}}'). The triggering item UUID is automatically available to the child run as params.triggerItemId \u2014 no need to declare it here. Null or omitted means the child pipeline receives no params (valid only if it declares none as required)."
+                "description": "Param values to pass to the child pipeline run when subPipelineId is set. Keys must match the child pipeline's params[].name declarations. String values support {{params.name}} and run-state expression substitution (e.g. '{{phases.audit.output.targetId}}'). The triggering item UUID is automatically available to the child run as params.triggerItemId — no need to declare it here. Null or omitted means the child pipeline receives no params (valid only if it declares none as required)."
               },
               "instructions": {
                 "type": [
@@ -246,7 +247,7 @@
                   "array",
                   "null"
                 ],
-                "description": "Declared key-value outputs this phase will write via kanecta_set_phase_output. Informational \u2014 used by the Studio and by downstream phases to know what values are available via phases.<id>.output.<key>. The runner does not validate these declarations against actual output; they document intent and enable tooling.",
+                "description": "Declared key-value outputs this phase will write via kanecta_set_phase_output. Informational — used by the Studio and by downstream phases to know what values are available via phases.<id>.output.<key>. The runner does not validate these declarations against actual output; they document intent and enable tooling.",
                 "items": {
                   "type": "object",
                   "required": [
@@ -295,7 +296,7 @@
                   "string",
                   "null"
                 ],
-                "description": "Gate condition evaluated against itemsProduced before downstream phases may start. Null means no gate. Two gate families: 'accuracy:<level>' checks payload.confidence on produced items (high/medium/low \u2014 cleared automatically when all items meet the threshold); 'review:<level>' checks meta.confidence (decided/locked) and requires a human to have explicitly reviewed each item; 'manual' always blocks until a human approves via kanecta_approve_gate regardless of item state. Examples: 'accuracy:high', 'review:decided', 'manual'.",
+                "description": "Gate condition evaluated against itemsProduced before downstream phases may start. Null means no gate. Two gate families: 'accuracy:<level>' checks payload.confidence on produced items (high/medium/low — cleared automatically when all items meet the threshold); 'review:<level>' checks meta.confidence (decided/locked) and requires a human to have explicitly reviewed each item; 'manual' always blocks until a human approves via kanecta_approve_gate regardless of item state. Examples: 'accuracy:high', 'review:decided', 'manual'.",
                 "examples": [
                   "accuracy:high",
                   "accuracy:medium",
@@ -309,7 +310,7 @@
                   "string",
                   "null"
                 ],
-                "description": "Condition expression evaluated after the phase completes (and after confidenceGate is evaluated, if set). If true, the run enters 'waiting' status regardless of item confidence \u2014 a human must call kanecta_approve_gate to resume. Unlike confidenceGate, pauseAfter is not about item quality; it is an explicit checkpoint in the workflow. Use it to pause before a high-impact phase ('implement' about to write code), to require sign-off after a phase that produces decisions rather than findings, or to implement circuit-breaker behaviour ('pause if more than 20 regressions found'). Expression context: phases.<id>.output.<key>, phases.<id>.itemsProduced, phases.<id>.itemsProduced.length, params.<name>. Null means no conditional pause."
+                "description": "Condition expression evaluated after the phase completes (and after confidenceGate is evaluated, if set). If true, the run enters 'waiting' status regardless of item confidence — a human must call kanecta_approve_gate to resume. Unlike confidenceGate, pauseAfter is not about item quality; it is an explicit checkpoint in the workflow. Use it to pause before a high-impact phase ('implement' about to write code), to require sign-off after a phase that produces decisions rather than findings, or to implement circuit-breaker behaviour ('pause if more than 20 regressions found'). Expression context: phases.<id>.output.<key>, phases.<id>.itemsProduced, phases.<id>.itemsProduced.length, params.<name>. Null means no conditional pause."
               },
               "fallbackAgentId": {
                 "type": [
@@ -346,7 +347,7 @@
                       "null"
                     ],
                     "minimum": 1,
-                    "description": "Maximum number of per-item invocations that may run simultaneously. Null means no limit \u2014 all invocations start in parallel immediately. Set this when fanning out over a large source list where simultaneous invocations would exhaust model rate limits, incur excessive cost, or overwhelm downstream systems. The runner queues remaining invocations and starts each one as a running invocation completes. Example: forEach over 100 findings with maxConcurrent: 5 runs five agents at a time."
+                    "description": "Maximum number of per-item invocations that may run simultaneously. Null means no limit — all invocations start in parallel immediately. Set this when fanning out over a large source list where simultaneous invocations would exhaust model rate limits, incur excessive cost, or overwhelm downstream systems. The runner queues remaining invocations and starts each one as a running invocation completes. Example: forEach over 100 findings with maxConcurrent: 5 runs five agents at a time."
                   }
                 },
                 "description": "Fan-out configuration. When set, the runner invokes the phase agent once per source item rather than once for the phase. All invocations run in parallel (subject to maxConcurrent). itemsProduced in the phase record collects output from all invocations. Null means no fan-out (single invocation)."
@@ -383,7 +384,7 @@
                     "description": "What to do when the global iteration counter reaches maxIterations and the loopBack condition is still true. 'complete' (default) marks the run complete with a warning in the run payload. 'fail' marks the run failed."
                   }
                 },
-                "description": "Cycle configuration. When the condition is true after this phase completes, the runner resets the target phase and all its descendants and re-executes them. Useful for audit \u2192 implement \u2192 verify loops. The global iteration counter is checked before each cycle; when it reaches maxIterations the onMaxIterations policy applies. Null means no cycle."
+                "description": "Cycle configuration. When the condition is true after this phase completes, the runner resets the target phase and all its descendants and re-executes them. Useful for audit → implement → verify loops. The global iteration counter is checked before each cycle; when it reaches maxIterations the onMaxIterations policy applies. Null means no cycle."
               },
               "fanIn": {
                 "type": [
@@ -411,7 +412,7 @@
                     "description": "How to group the aggregated items in the context summary. 'sourceItemId' (default and currently the only option) groups outputs by the source item each invocation was called with. Future values may support grouping by type or payload field."
                   }
                 },
-                "description": "Fan-in configuration. Marks this phase as an aggregation step that consolidates outputs from a preceding forEach phase. The runner waits for all invocations of the source phase to reach a terminal state (complete or failed) before starting this phase \u2014 the dependency is still declared via 'needs', but fanIn additionally shapes how the runner presents the aggregated results to the agent. Without fanIn, the agent receives a flat list of produced-item UUIDs in context; with fanIn, it receives a structured per-source-item summary. Null means no aggregation \u2014 this is a normal phase."
+                "description": "Fan-in configuration. Marks this phase as an aggregation step that consolidates outputs from a preceding forEach phase. The runner waits for all invocations of the source phase to reach a terminal state (complete or failed) before starting this phase — the dependency is still declared via 'needs', but fanIn additionally shapes how the runner presents the aggregated results to the agent. Without fanIn, the agent receives a flat list of produced-item UUIDs in context; with fanIn, it receives a structured per-source-item summary. Null means no aggregation — this is a normal phase."
               },
               "runIf": {
                 "type": [
@@ -426,7 +427,7 @@
                   "null"
                 ],
                 "minimum": 10,
-                "description": "If set, the runner expects the agent to call kanecta_heartbeat(runId, phaseId) at least once every heartbeatIntervalSeconds seconds. If the agent stops heartbeating \u2014 due to a crash, infinite loop, or runaway tool call \u2014 the runner terminates the phase and marks it 'failed' after one missed interval. The agent should call kanecta_heartbeat periodically during long-running work (e.g. after each file it processes, after each sub-task it completes). Without this field, the runner has no way to distinguish a slow-but-alive agent from a zombie \u2014 it can only rely on timeout, which must be set generously. With heartbeats, you can set timeout generously for the overall budget while using heartbeats for early dead-process detection. Minimum 10 seconds. Null means no heartbeat required."
+                "description": "If set, the runner expects the agent to call kanecta_heartbeat(runId, phaseId) at least once every heartbeatIntervalSeconds seconds. If the agent stops heartbeating — due to a crash, infinite loop, or runaway tool call — the runner terminates the phase and marks it 'failed' after one missed interval. The agent should call kanecta_heartbeat periodically during long-running work (e.g. after each file it processes, after each sub-task it completes). Without this field, the runner has no way to distinguish a slow-but-alive agent from a zombie — it can only rely on timeout, which must be set generously. With heartbeats, you can set timeout generously for the overall budget while using heartbeats for early dead-process detection. Minimum 10 seconds. Null means no heartbeat required."
               },
               "timeout": {
                 "type": [
@@ -480,7 +481,7 @@
                       "compensate": {
                         "type": "string",
                         "format": "uuid",
-                        "description": "UUID of a pipeline item to run as a compensation workflow. When this phase fails and retries are exhausted, the runner creates a run of the compensation pipeline (with the current run's params injected plus params.failedRunId and params.failedPhaseId). The parent run waits for the compensation run to complete before marking itself 'failed'. Use for saga-pattern cleanup \u2014 if an 'implement' phase fails mid-way through writing files, a compensation pipeline can revert partial changes."
+                        "description": "UUID of a pipeline item to run as a compensation workflow. When this phase fails and retries are exhausted, the runner creates a run of the compensation pipeline (with the current run's params injected plus params.failedRunId and params.failedPhaseId). The parent run waits for the compensation run to complete before marking itself 'failed'. Use for saga-pattern cleanup — if an 'implement' phase fails mid-way through writing files, a compensation pipeline can revert partial changes."
                       },
                       "params": {
                         "type": [

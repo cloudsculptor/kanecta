@@ -33,7 +33,7 @@ export function CombinatorView() {
 
   return (
     <CombinatorViewPkg
-      onGetItem={(id) => api.items.get(id)}
+      onGetItem={(id) => api.items.get(id).then((doc) => ({ id: doc.item.id, value: doc.item.value ?? '', type: doc.item.type }))}
       onGetTree={(id) => api.items.tree(id)}
       getTypeIcon={getTypeIcon}
       starredPanel={<StarredView />}

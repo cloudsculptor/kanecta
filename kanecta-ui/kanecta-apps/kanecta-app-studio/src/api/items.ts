@@ -17,7 +17,7 @@ export function itemsApi(client: KanectaApiClient) {
 
     stats: () => client.items.stats(),
 
-    get: (id: string) => client.items.get(id) as unknown as Promise<KanectaItem>,
+    get: (id: string) => client.items.get(id),
 
     create: (payload: CreateItemPayload) =>
       client.items.create(payload as never) as unknown as Promise<KanectaItem>,

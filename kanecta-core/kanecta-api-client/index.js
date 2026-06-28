@@ -87,6 +87,7 @@ class KanectaApiClient {
       history: (id) => c._fetch('GET', `/items/${id}/history`),
       getObject: (id) => c._fetch('GET', `/items/${id}/object`),
       saveObject: (id, data) => c._fetch('PUT', `/items/${id}/object`, data),
+      getTime: (id) => c._fetch('GET', `/items/${id}/time`),
       complete: (id, actor) => c._fetch('POST', `/items/${id}/complete`, actor ? { actor } : {}),
       uncomplete: (id, actor) => c._fetch('POST', `/items/${id}/uncomplete`, actor ? { actor } : {}),
       getFunction: (id) => c._fetch('GET', `/items/${id}/function`),
@@ -147,6 +148,7 @@ class KanectaApiClient {
       list: () => c._fetch('GET', '/types'),
       create: (value) => c._fetch('POST', '/types', { value }),
       get: (id) => c._fetch('GET', `/types/${id}`),
+      schema: (id) => c._fetch('GET', `/types/${id}/schema`),
       getSchema: (id) => c._fetch('GET', `/types/${id}/schema`),
       updateSchema: (id, schema) => c._fetch('PUT', `/types/${id}/schema`, schema),
     };

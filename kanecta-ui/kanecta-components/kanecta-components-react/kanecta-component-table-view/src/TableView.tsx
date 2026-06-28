@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import { AllCommunityModule, themeQuartz, type ColDef } from 'ag-grid-community';
 import { useQuery } from '@tanstack/react-query';
@@ -21,7 +21,7 @@ export interface TableStats {
 export interface TableViewProps {
   onFetchTypes: () => Promise<TypeItem[]>;
   onFetchStats: () => Promise<TableStats>;
-  onFetchItems: () => Promise<TableItem[]>;
+  onFetchItemsByType: (typeId: string) => Promise<TableItem[]>;
   onFetchSchema: (typeId: string) => Promise<unknown>;
   onFetchObjects: (itemIds: string[]) => Promise<unknown[]>;
   onCreateItem: (type: TypeItem) => Promise<unknown>;
@@ -64,7 +64,7 @@ function schemaToColDefs(schema: unknown): ColDef[] {
 export function TableView({
   onFetchTypes,
   onFetchStats,
-  onFetchItems,
+  onFetchItemsByType,
   onFetchSchema,
   onFetchObjects,
   onCreateItem,
@@ -82,18 +82,8 @@ export function TableView({
     queryFn: onFetchStats,
   });
 
-  const { data: allItems = [] } = useQuery({
-    queryKey: ['table-items', queryKey],
-    queryFn: onFetchItems,
-  });
-
   const countByTypeId = new Map<string, number>(
     (stats?.structured ?? []).map(({ typeId, count }) => [typeId, count]),
-  );
-
-  const typeItems = useMemo(
-    () => (selectedType ? allItems.filter((item) => item.typeId === selectedType.id) : []),
-    [allItems, selectedType],
   );
 
   const { data: schema } = useQuery({
@@ -102,7 +92,13 @@ export function TableView({
     enabled: !!selectedType,
   });
 
-  const columnDefs = useMemo(() => schemaToColDefs(schema), [schema]);
+  const columnDefs = schemaToColDefs(schema);
+
+  const { data: typeItems = [] } = useQuery({
+    queryKey: ['table-items-by-type', queryKey, selectedType?.id],
+    queryFn: () => onFetchItemsByType(selectedType!.id),
+    enabled: !!selectedType,
+  });
 
   const { data: rowData = [] } = useQuery({
     queryKey: ['table-objects', queryKey, selectedType?.id, typeItems.length],

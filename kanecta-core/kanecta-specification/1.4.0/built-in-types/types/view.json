@@ -36,7 +36,8 @@
   "payload": {
     "meta": {
       "description": "A specific perspective on an item: the item being viewed, the renderer, and the environment.",
-      "confidence": "locked"
+      "confidence": "locked",
+      "icon": "Dashboard"
     },
     "jsonSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -52,7 +53,7 @@
         "itemId": {
           "type": "string",
           "format": "uuid",
-          "description": "UUID of the item being viewed. Always a specific item \u2014 a view without an item is a component."
+          "description": "UUID of the item being viewed. Always a specific item — a view without an item is a component."
         },
         "componentId": {
           "type": "string",

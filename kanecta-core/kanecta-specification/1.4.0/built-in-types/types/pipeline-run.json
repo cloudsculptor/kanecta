@@ -36,7 +36,8 @@
   "payload": {
     "meta": {
       "description": "The execution record of a single pipeline invocation.",
-      "confidence": "locked"
+      "confidence": "locked",
+      "icon": "PlayCircle"
     },
     "jsonSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -59,7 +60,7 @@
             "object",
             "null"
           ],
-          "description": "A snapshot of the pipeline item's payload at the moment this run was created. The runner executes against this snapshot, not the live pipeline definition. This guarantees that editing the pipeline item after a run has started does not affect the in-flight run \u2014 the run always executes the definition as it was when it was triggered. For sub-pipeline runs (parentRunId set), the snapshot is taken from the child pipeline's definition at trigger time. The runner stores this field before beginning execution; consumers (Studio, audit tooling) can always reconstruct exactly what definition was used for any historical run. Null for runs created before this field was introduced (pre-1.4.0 runs)."
+          "description": "A snapshot of the pipeline item's payload at the moment this run was created. The runner executes against this snapshot, not the live pipeline definition. This guarantees that editing the pipeline item after a run has started does not affect the in-flight run — the run always executes the definition as it was when it was triggered. For sub-pipeline runs (parentRunId set), the snapshot is taken from the child pipeline's definition at trigger time. The runner stores this field before beginning execution; consumers (Studio, audit tooling) can always reconstruct exactly what definition was used for any historical run. Null for runs created before this field was introduced (pre-1.4.0 runs)."
         },
         "parentRunId": {
           "type": [
@@ -126,7 +127,7 @@
         },
         "phases": {
           "type": "array",
-          "description": "Per-phase execution records, one per phase in the pipeline definition. All present from run creation \u2014 not-yet-started phases have status pending and attempt 0. On loopBack, the target phase and its dependents are reset to pending (attempt resets to 0, itemsProduced preserved across iterations so the full history is queryable).",
+          "description": "Per-phase execution records, one per phase in the pipeline definition. All present from run creation — not-yet-started phases have status pending and attempt 0. On loopBack, the target phase and its dependents are reset to pending (attempt resets to 0, itemsProduced preserved across iterations so the full history is queryable).",
           "items": {
             "type": "object",
             "required": [
@@ -185,14 +186,14 @@
                   "type": "string",
                   "format": "uuid"
                 },
-                "description": "UUIDs of all items written during this phase across all attempts and all iterations. Updated incrementally. Preserved across loopBack resets so the full lineage is queryable. The gate evaluator checks meta.confidence (for 'review:' gates) or payload.confidence (for 'accuracy:' gates) on the most recent iteration's items only \u2014 identified by meta.sourceRunIteration on each item."
+                "description": "UUIDs of all items written during this phase across all attempts and all iterations. Updated incrementally. Preserved across loopBack resets so the full lineage is queryable. The gate evaluator checks meta.confidence (for 'review:' gates) or payload.confidence (for 'accuracy:' gates) on the most recent iteration's items only — identified by meta.sourceRunIteration on each item."
               },
               "output": {
                 "type": [
                   "object",
                   "null"
                 ],
-                "description": "Key-value map of ephemeral values the agent wrote via kanecta_set_phase_output. Not persisted as separate Kanecta items \u2014 stored only on this run record. Available to downstream phases as phases.<id>.output.<key> in runIf, forEach.filter, loopBack.if, and pauseAfter expressions, and injected into downstream agent context preambles. Reset to null on loopBack. Null if the phase wrote no outputs or has not yet completed."
+                "description": "Key-value map of ephemeral values the agent wrote via kanecta_set_phase_output. Not persisted as separate Kanecta items — stored only on this run record. Available to downstream phases as phases.<id>.output.<key> in runIf, forEach.filter, loopBack.if, and pauseAfter expressions, and injected into downstream agent context preambles. Reset to null on loopBack. Null if the phase wrote no outputs or has not yet completed."
               },
               "invocations": {
                 "type": [
@@ -283,7 +284,7 @@
                   "null"
                 ],
                 "format": "date-time",
-                "description": "ISO 8601 timestamp of the most recent kanecta_heartbeat call from the agent for this phase. Updated in place by the runner each time the agent calls kanecta_heartbeat. The runner compares this against the current time and the phase's heartbeatIntervalSeconds \u2014 if the gap exceeds the interval, the runner terminates the phase. Null if the phase is not yet running or has no heartbeatIntervalSeconds declared."
+                "description": "ISO 8601 timestamp of the most recent kanecta_heartbeat call from the agent for this phase. Updated in place by the runner each time the agent calls kanecta_heartbeat. The runner compares this against the current time and the phase's heartbeatIntervalSeconds — if the gap exceeds the interval, the runner terminates the phase. Null if the phase is not yet running or has no heartbeatIntervalSeconds declared."
               },
               "error": {
                 "type": [

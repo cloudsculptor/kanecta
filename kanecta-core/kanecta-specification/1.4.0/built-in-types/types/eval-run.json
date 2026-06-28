@@ -36,7 +36,8 @@
   "payload": {
     "meta": {
       "description": "The execution record of a single eval invocation.",
-      "confidence": "locked"
+      "confidence": "locked",
+      "icon": "PlaylistAddCheck"
     },
     "jsonSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -53,7 +54,7 @@
         "evalId": {
           "type": "string",
           "format": "uuid",
-          "description": "UUID of the eval item this run is executing. Also the parentId of this eval-run item \u2014 eval runs accumulate as children of their eval."
+          "description": "UUID of the eval item this run is executing. Also the parentId of this eval-run item — eval runs accumulate as children of their eval."
         },
         "pipelineRunId": {
           "type": "string",

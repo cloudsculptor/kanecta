@@ -36,7 +36,8 @@
   "payload": {
     "meta": {
       "description": "A human-readable string that resolves to a UUID.",
-      "confidence": "locked"
+      "confidence": "locked",
+      "icon": "Label"
     },
     "jsonSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -63,7 +64,7 @@
             "org",
             "type"
           ],
-          "description": "Visibility layer. personal \u2014 visible only in the personal workspace. org \u2014 shared across the org workspace. type \u2014 defined at the type level, applies to all items of that type."
+          "description": "Visibility layer. personal — visible only in the personal workspace. org — shared across the org workspace. type — defined at the type level, applies to all items of that type."
         },
         "provisional": {
           "type": "boolean",

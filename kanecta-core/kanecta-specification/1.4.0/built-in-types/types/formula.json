@@ -36,7 +36,8 @@
   "payload": {
     "meta": {
       "description": "A reusable calculation used wherever a computed value is needed.",
-      "confidence": "locked"
+      "confidence": "locked",
+      "icon": "Functions"
     },
     "jsonSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",

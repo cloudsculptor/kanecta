@@ -36,7 +36,8 @@
   "payload": {
     "meta": {
       "description": "A typed, multi-runtime function definition. The contract (name, parameters, return type) lives in the item; the implementation lives in a deployment bundle on disk and in cloud storage.",
-      "confidence": "locked"
+      "confidence": "locked",
+      "icon": "Code"
     },
     "jsonSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -46,14 +47,14 @@
       "properties": {
         "runtime": {
           "type": "string",
-          "description": "Execution runtime for this function. Open string \u2014 new runtimes can be added without a spec change. The runtime name is also the subdirectory name inside the .function/ bundle directory. Defaults to 'typescript' if absent. The runtime name must be a valid directory name (lowercase letters, hyphens, digits)."
+          "description": "Execution runtime for this function. Open string — new runtimes can be added without a spec change. The runtime name is also the subdirectory name inside the .function/ bundle directory. Defaults to 'typescript' if absent. The runtime name must be a valid directory name (lowercase letters, hyphens, digits)."
         },
         "bundleHash": {
           "type": "object",
           "additionalProperties": {
             "type": "string"
           },
-          "description": "SHA-256 hashes of the source bundle, keyed by runtime name (e.g. { \"typescript\": \"sha256:a3f1c9...\" }). The adapter compares this against the locally unpacked bundle before executing \u2014 a mismatch triggers a re-fetch and re-unpack. node_modules/ is excluded from the hash. Updated by kanecta function save."
+          "description": "SHA-256 hashes of the source bundle, keyed by runtime name (e.g. { \"typescript\": \"sha256:a3f1c9...\" }). The adapter compares this against the locally unpacked bundle before executing — a mismatch triggers a re-fetch and re-unpack. node_modules/ is excluded from the hash. Updated by kanecta function save."
         },
         "description": {
           "type": "string",
@@ -81,7 +82,7 @@
         "returnTypeId": {
           "type": "string",
           "format": "uuid",
-          "description": "UUID of a Kanecta type item for object-typed return values. Runtime-neutral \u2014 the adapter maps the type's jsonSchema to the appropriate declaration. Exactly one of returnType or returnTypeId must be present."
+          "description": "UUID of a Kanecta type item for object-typed return values. Runtime-neutral — the adapter maps the type's jsonSchema to the appropriate declaration. Exactly one of returnType or returnTypeId must be present."
         },
         "typeParameters": {
           "type": "array",
@@ -148,12 +149,12 @@
             },
             "type": {
               "type": "string",
-              "description": "Primitive type name in the target runtime's type system. Prefer typeId for object-typed parameters \u2014 typeId is runtime-neutral."
+              "description": "Primitive type name in the target runtime's type system. Prefer typeId for object-typed parameters — typeId is runtime-neutral."
             },
             "typeId": {
               "type": "string",
               "format": "uuid",
-              "description": "UUID of a Kanecta type item. Runtime-neutral \u2014 the adapter generates the appropriate type declaration from the type's jsonSchema."
+              "description": "UUID of a Kanecta type item. Runtime-neutral — the adapter generates the appropriate type declaration from the type's jsonSchema."
             },
             "functionId": {
               "type": "string",

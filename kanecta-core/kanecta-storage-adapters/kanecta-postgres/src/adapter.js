@@ -14,8 +14,8 @@ const { createEmbeddingProvider, reciprocalRankFusion } = require('./embeddings'
 
 const ROOT_ID         = '00000000-0000-0000-0000-000000000000';
 const DEFAULT_LICENSE = 'bb3bf137-d8a9-4264-9fb7-ac373b1d4739';
-const WELL_KNOWN_TYPES = new Set(['root', 'system_root', 'app_root', 'component_root', 'data_root']);
-const WELL_KNOWN_ORDER = ['system_root', 'app_root', 'component_root', 'data_root'];
+const WELL_KNOWN_TYPES = new Set(['root']);
+const WELL_KNOWN_ORDER = [];
 const UUID_RE  = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const LINK_RE  = /\[\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]\]/gi;
 
@@ -40,7 +40,7 @@ const BUILT_IN_TYPES = new Set([
   'query', 'reference', 'relationship', 'relationship-type', 'subscription',
   'tree', 'node', 'view', 'type',
   // Well-known root types
-  'root', 'system_root', 'app_root', 'component_root', 'data_root',
+  'root',
 ]);
 
 // Keep the old export name for backward compatibility.
@@ -217,7 +217,7 @@ class PostgresAdapter {
   async _createWellKnownNode(id, parentId, type, sortOrder) {
     const now    = new Date();
     const owner  = this.config.owner;
-    const value  = type === 'data_root' ? "Your name or organisation's name here" : type;
+    const value  = type;
     // Compute path: root is self-referencing, so its path = id; others get parent path prefix.
     let path;
     if (id === parentId) {
@@ -238,7 +238,6 @@ class PostgresAdapter {
   }
 
   async getRoot()     { return this._getByType('root'); }
-  async getDataRoot() { return this._getByType('data_root'); }
 
   async _getByType(type) {
     const { rows } = await this._pool.query(
@@ -249,7 +248,7 @@ class PostgresAdapter {
 
   _assertEditable(item, id) {
     if (!item) throw new Error(`Item not found: ${id}`);
-    if (item.type !== 'data_root' && (WELL_KNOWN_TYPES.has(item.type) || item.id === ROOT_ID))
+    if (WELL_KNOWN_TYPES.has(item.type) || item.id === ROOT_ID)
       throw new Error(`Item '${id}' (type: ${item.type}) is a reserved root node and cannot be modified`);
   }
 
@@ -344,9 +343,7 @@ class PostgresAdapter {
     }
 
     if (parentId == null) {
-      const dr = await this.getDataRoot();
-      if (!dr) throw new Error('Datastore not initialised: data_root not found');
-      parentId = dr.id;
+      parentId = ROOT_ID;
     }
 
     const id       = crypto.randomUUID();
@@ -707,9 +704,7 @@ class PostgresAdapter {
 
   async tree(rootId, maxDepth = Infinity) {
     if (!rootId) {
-      const dr = await this.getDataRoot();
-      rootId = dr?.id ?? null;
-      if (!rootId) return [];
+      rootId = ROOT_ID;
     }
 
     const { rows: rootRows } = await this._pool.query(
@@ -1121,6 +1116,35 @@ class PostgresAdapter {
   }
 
   // ─── Time data ───────────────────────────────────────────────────────────────
+
+  async getDocument(id) {
+    const flat = await this.get(id);
+    if (!flat) return null;
+    const payload = (['object', 'type'].includes(flat.type))
+      ? await this.readObjectJson(id, flat.typeId).catch(() => null)
+      : null;
+    const time = await this.readTimeJson(id).catch(() => null);
+    return {
+      item: {
+        id: flat.id, parentId: flat.parentId, type: flat.type, typeId: flat.typeId ?? null,
+        value: flat.value ?? null, sortOrder: flat.sortOrder ?? 0, aspect: flat.aspect ?? null,
+      },
+      meta: {
+        specVersion: flat.specVersion, owner: flat.owner ?? null, license: flat.license ?? null,
+        visibility: flat.visibility ?? 'private', confidence: flat.confidence ?? null,
+        status: flat.status ?? null, tags: flat.tags ?? [], createdAt: flat.createdAt,
+        modifiedAt: flat.modifiedAt, createdBy: flat.createdBy ?? null, modifiedBy: flat.modifiedBy ?? null,
+        completedAt: flat.completedAt ?? null, dueAt: flat.dueAt ?? null,
+        expiresAt: flat.expiresAt ?? null, deletedAt: flat.deletedAt ?? null,
+        cachedAt: flat.cachedAt ?? null, connectorId: flat.connectorId ?? null,
+        materialized: flat.materialized ?? null, files: flat.files ?? {},
+        layer: flat.layer ?? null, sourceSystem: flat.sourceSystem ?? null,
+        sourceExternalId: flat.sourceExternalId ?? null, icon: flat.icon ?? null,
+      },
+      payload: payload ?? null,
+      time: time && Object.keys(time).length > 0 ? time : null,
+    };
+  }
 
   async readTimeJson(id) {
     const { rows } = await this._pool.query('SELECT time_data FROM items WHERE id = $1', [id]);

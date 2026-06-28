@@ -17,7 +17,7 @@ const ALL_ITEM_TYPES = new Set([
   'function','markdown','runner',
   'object','decision','annotation','claim','question','task','note',
   'concept','entity','event',
-  'root','system_root','app_root','component_root','data_root',
+  'root','types',
   'type',
 ]);
 

@@ -2,7 +2,6 @@ import type { ViewMeta } from '../../../lib/viewMeta';
 import { useViewLocation } from '../../../context/LocationContext';
 import { TableView as TableViewPkg } from '@kanecta/component-table-view';
 import { useWorkspaceStore } from '../../../store/workspace';
-import { flattenTree } from '../../../lib/items';
 import type { ItemType } from '../../../types/kanecta';
 
 export const TableViewMeta: ViewMeta = {
@@ -14,23 +13,29 @@ export const TableViewMeta: ViewMeta = {
 
 export function TableView() {
   useViewLocation(TableViewMeta.uuid);
-  const { getApi, activeWorkspaceId } = useWorkspaceStore();
+  const { getApi, getActiveWorkspace, activeWorkspaceId } = useWorkspaceStore();
   const api = getApi();
+  const apiUrl = getActiveWorkspace()?.apiUrl ?? '/api';
 
   return (
     <TableViewPkg
       onFetchTypes={() => api.types.list()}
       onFetchStats={() => api.items.stats()}
-      onFetchItems={async () => {
-        const tree = await api.tree.full();
-        return flattenTree(tree).map((i) => ({ id: i.id, typeId: i.typeId ?? null }));
-      }}
+      onFetchItemsByType={(typeId) =>
+        fetch(`${apiUrl}/items`, {
+          headers: { Accept: `application/json; type=${typeId}` },
+        })
+          .then((r) => r.json())
+          .then((items: Array<{ id: string; typeId?: string | null }>) =>
+            items.map((i) => ({ id: i.id, typeId: i.typeId ?? null })),
+          )
+      }
       onFetchSchema={(typeId) => api.types.schema(typeId)}
       onFetchObjects={(ids) =>
         Promise.all(ids.map((id) => api.items.getObject(id).catch(() => ({}))))
       }
       onCreateItem={(type) =>
-        api.items.create({ value: `New ${type.value}`, type: type.value as ItemType })
+        api.items.create({ value: `New ${type.value}`, type: type.value as ItemType, parentId: type.id })
       }
       queryKey={activeWorkspaceId ?? ''}
     />

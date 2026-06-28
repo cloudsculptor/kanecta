@@ -125,6 +125,7 @@ class Datastore {
   async loadAll()                            { return this._adapter.loadAll(); }
   async children(parentId, aspect)           { return this._adapter.children(parentId, aspect); }
   async tree(rootId, maxDepth)               { return this._adapter.tree(rootId, maxDepth); }
+  async getDocument(id)                      { return this._adapter.getDocument(id); }
   async readObjectJson(id)                   { return this._adapter.readObjectJson(id); }
   async writeObjectJson(id, data)            { return this._adapter.writeObjectJson(id, data); }
   async readFunctionJson(id)                 { return this._adapter.readFunctionJson(id); }
@@ -133,7 +134,6 @@ class Datastore {
   async writeTypeJson(id, data)              { return this._adapter.writeTypeJson(id, data); }
   async listTypeDefs()                       { return this._adapter._listTypeDefs(); }
   async getRoot()                            { return this._adapter.getRoot(); }
-  async getDataRoot()                        { return this._adapter.getDataRoot(); }
 
   // ─── File store ────────────────────────────────────────────────────────────
 

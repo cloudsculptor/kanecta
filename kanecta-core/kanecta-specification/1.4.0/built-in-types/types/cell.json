@@ -36,7 +36,8 @@
   "payload": {
     "meta": {
       "description": "A positioned slot in a grid.",
-      "confidence": "locked"
+      "confidence": "locked",
+      "icon": "GridView"
     },
     "jsonSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -51,11 +52,11 @@
         "row": {
           "type": "integer",
           "minimum": 1,
-          "description": "1-based row position. Row 1 is the first data row (not a header \u2014 headers are column labels in the grid definition). There is no upper bound enforced by the spec; the grid renders rows up to the highest occupied row."
+          "description": "1-based row position. Row 1 is the first data row (not a header — headers are column labels in the grid definition). There is no upper bound enforced by the spec; the grid renders rows up to the highest occupied row."
         },
         "column": {
           "type": "string",
-          "description": "Column reference. For indexed grids (gridPayload.columns is null): letter-index matching Excel convention \u2014 'A' through 'Z', then 'AA', 'AB'\u2026 For named-column grids: the column key from gridPayload.columns[].key. The adapter validates that this key exists in the grid definition when the grid is in named-column mode."
+          "description": "Column reference. For indexed grids (gridPayload.columns is null): letter-index matching Excel convention — 'A' through 'Z', then 'AA', 'AB'… For named-column grids: the column key from gridPayload.columns[].key. The adapter validates that this key exists in the grid definition when the grid is in named-column mode."
         },
         "colSpan": {
           "type": [
@@ -63,7 +64,7 @@
             "null"
           ],
           "minimum": 1,
-          "description": "Number of columns this cell spans. 1 means no merge (default). When colSpan > 1, the cell visually occupies columns [column \u2026 column + colSpan - 1]. The adapter does not create cell items for the covered columns \u2014 the spanning cell item is the authority for that rectangle. Null is equivalent to 1."
+          "description": "Number of columns this cell spans. 1 means no merge (default). When colSpan > 1, the cell visually occupies columns [column … column + colSpan - 1]. The adapter does not create cell items for the covered columns — the spanning cell item is the authority for that rectangle. Null is equivalent to 1."
         },
         "rowSpan": {
           "type": [
@@ -71,7 +72,7 @@
             "null"
           ],
           "minimum": 1,
-          "description": "Number of rows this cell spans. 1 means no merge (default). When rowSpan > 1, the cell visually occupies rows [row \u2026 row + rowSpan - 1]. As with colSpan, no additional cell items are created for covered positions. Null is equivalent to 1."
+          "description": "Number of rows this cell spans. 1 means no merge (default). When rowSpan > 1, the cell visually occupies rows [row … row + rowSpan - 1]. As with colSpan, no additional cell items are created for covered positions. Null is equivalent to 1."
         }
       }
     },

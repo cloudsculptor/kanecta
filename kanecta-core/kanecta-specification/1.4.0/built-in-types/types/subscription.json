@@ -36,7 +36,8 @@
   "payload": {
     "meta": {
       "description": "A live notification channel registered against a UUID.",
-      "confidence": "locked"
+      "confidence": "locked",
+      "icon": "Notifications"
     },
     "jsonSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -72,7 +73,7 @@
             },
             "url": {
               "type": "string",
-              "description": "webhook: endpoint URL. Use $VAR syntax for secrets \u2014 never inline credentials."
+              "description": "webhook: endpoint URL. Use $VAR syntax for secrets — never inline credentials."
             },
             "secret": {
               "type": "string",
@@ -101,7 +102,7 @@
             ]
           },
           "minItems": 1,
-          "description": "Which events trigger notification. 'create' \u2014 item created. 'update' \u2014 item updated. 'delete' \u2014 item deleted. 'children' \u2014 a child item added or removed. At least one required."
+          "description": "Which events trigger notification. 'create' — item created. 'update' — item updated. 'delete' — item deleted. 'children' — a child item added or removed. At least one required."
         },
         "filter": {
           "type": [
