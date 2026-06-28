@@ -14,7 +14,9 @@ import { skillsApi } from './skills';
 import { claudeApi } from './claude';
 import { viewApi } from './view';
 import { layoutsApi } from './layouts';
+import { workingSetsApi } from './workingSets';
 export type { ViewSettings } from './view';
+export type { WorkingSet, WorkingSetBranch, WorkingSetRemote } from './workingSets';
 
 export { ApiError };
 export type { AliasEntry } from './aliases';
@@ -52,6 +54,7 @@ export function createApi(baseUrl: string) {
     systemItems: systemItemsApi(client),
     view: viewApi(client),
     layouts: layoutsApi(client),
+    workingSets: workingSetsApi(client),
   };
 }
 

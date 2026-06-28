@@ -256,6 +256,19 @@ class KanectaApiClient {
       cancelSession: (id) => c._fetch('DELETE', `/claude/sessions/${id}`),
     };
   }
+
+  // ─── Working sets ────────────────────────────────────────────────────────────
+
+  get workingSets() {
+    const c = this;
+    return {
+      list: () => c._fetch('GET', '/working-sets'),
+      createBranch: (workspaceName, branchName) =>
+        c._fetch('POST', `/working-sets/${encodeURIComponent(workspaceName)}/branches`, { branchName }),
+      switchBranch: (workspaceName, branch) =>
+        c._fetch('POST', `/working-sets/${encodeURIComponent(workspaceName)}/branches/${encodeURIComponent(branch)}/switch`),
+    };
+  }
 }
 
 /**

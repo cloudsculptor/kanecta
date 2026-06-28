@@ -29,7 +29,9 @@ async function openCloudAdapter(cloudConfig) {
   const { S3Adapter }       = require('@kanecta/s3');
   const { CloudAdapter }    = require('@kanecta/cloud');
 
-  const pool = new Pool({ connectionString: cloudConfig.pg.connectionString });
+  const pgOpts = { connectionString: cloudConfig.pg.connectionString };
+  if (cloudConfig.pg.ssl) pgOpts.ssl = cloudConfig.pg.ssl;
+  const pool = new Pool(pgOpts);
   const items = await PostgresAdapter.open(pool, { embeddings: cloudConfig.embeddings ?? null });
 
   const s3Cfg = cloudConfig.s3;
@@ -51,7 +53,9 @@ async function createCloudAdapter(cloudConfig, owner) {
   const { S3Adapter }       = require('@kanecta/s3');
   const { CloudAdapter }    = require('@kanecta/cloud');
 
-  const pool = new Pool({ connectionString: cloudConfig.pg.connectionString });
+  const pgOpts = { connectionString: cloudConfig.pg.connectionString };
+  if (cloudConfig.pg.ssl) pgOpts.ssl = cloudConfig.pg.ssl;
+  const pool = new Pool(pgOpts);
   const items = await PostgresAdapter.init(pool, owner, { embeddings: cloudConfig.embeddings ?? null });
 
   const s3Cfg = cloudConfig.s3;

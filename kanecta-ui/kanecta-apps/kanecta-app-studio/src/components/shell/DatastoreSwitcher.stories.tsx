@@ -46,3 +46,38 @@ export const PanelOpen: Story = {
     await expect(trigger).toHaveAttribute('aria-expanded', 'true');
   },
 };
+
+// Visual regression baseline — captures the full panel UI before and after wiring.
+// This story must continue to pass after real data replaces the mock constants.
+export const PanelFullVisualBaseline: Story = {
+  decorators: MultipleWorkspaces.decorators,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // Open the panel
+    const trigger = canvas.getByRole('button', { name: 'Switch datastore' });
+    await userEvent.click(trigger);
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+
+    // Structural sections must be present
+    await expect(canvas.getByText('Active working set')).toBeInTheDocument();
+    await expect(canvas.getByText('Available working sets')).toBeInTheDocument();
+
+    // Active working set must show name, cloud row, local row, branches heading
+    await expect(canvas.getByText('Kanecta Internal')).toBeInTheDocument();
+    await expect(canvas.getByText('Branches')).toBeInTheDocument();
+
+    // Branch list must include the active branch indicator (⎇ glyph)
+    const branchGlyphs = canvas.getAllByText('⎇');
+    await expect(branchGlyphs.length).toBeGreaterThan(0);
+
+    // Sync status row must be present (push indicator)
+    await expect(canvas.getByText(/↑/)).toBeInTheDocument();
+
+    // Available list must have at least one item
+    await expect(canvas.getAllByText('Make active').length).toBeGreaterThan(0);
+
+    // Create PR action must be present
+    await expect(canvas.getByText('Create Pull Request')).toBeInTheDocument();
+  },
+};

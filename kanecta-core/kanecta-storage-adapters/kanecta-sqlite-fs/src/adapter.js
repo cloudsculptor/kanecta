@@ -1117,6 +1117,7 @@ class SqliteFsAdapter {
         db.transaction(() => { this._recordBranchChange(db, branchId, id, ct, newDoc); })();
       }
       this._mem.set(id, updated);
+      if (this._roots && WELL_KNOWN_TYPES.has(updated.type)) this._roots[updated.type] = updated;
       if (typeWarning) Object.defineProperty(updated, 'warning', { value: typeWarning, enumerable: false, configurable: true });
       return updated;
     }
@@ -1170,6 +1171,7 @@ class SqliteFsAdapter {
     })();
 
     this._mem.set(id, updated);
+    if (this._roots && WELL_KNOWN_TYPES.has(updated.type)) this._roots[updated.type] = updated;
 
     if (typeWarning)
       Object.defineProperty(updated, 'warning', { value: typeWarning, enumerable: false, configurable: true });

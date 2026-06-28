@@ -68,7 +68,7 @@ function resolveWorkspace() {
   const appCfg = readAppConfig();
   const workspaces = appCfg?.workspaces ?? {};
   const names = Object.keys(workspaces);
-  const requested = process.env.KANECTA_WORKSPACE || appCfg?.default;
+  const requested = process.env.KANECTA_WORKSPACE || appCfg?.defaultWorkspace || appCfg?.default;
   if (requested) {
     if (!workspaces[requested]) {
       throw new Error(

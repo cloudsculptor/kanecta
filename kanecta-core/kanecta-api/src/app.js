@@ -49,25 +49,52 @@ function readAppConfig() {
 // re-open only if the resolved workspace/path changes.
 let _datastoreCache = null; // { key, promise }
 
+// Resolve a workspace entry from config (supports 1.4.0 and 1.3.x formats).
+// Returns { localPath, branch } or null for cloud-only workspaces.
+function resolveWorkspaceLocal(workspace) {
+  if (!workspace) return null;
+  // 1.4.0: { local, branch? }
+  if (workspace.local !== undefined) {
+    const localPath = typeof workspace.local === 'string' ? workspace.local : workspace.local?.path;
+    return { localPath: _expandHome(localPath), branch: workspace.branch ?? 'main' };
+  }
+  // 1.3.x: { mode, datastore? }
+  if (workspace.mode === 'FILESYSTEM') {
+    return { localPath: _expandHome(workspace.datastore), branch: 'main' };
+  }
+  return null; // cloud-only
+}
+
 async function openDatastore(res) {
-  // Workspace mode: ~/.config/kanecta/config.json has named workspaces → resolve
-  // by KANECTA_WORKSPACE env (set by ensure-datastore's launcher) or config.default
   const appCfg = readAppConfig();
 
   let key, opener, errorPrefix;
   if (appCfg?.workspaces) {
-    const name = process.env.KANECTA_WORKSPACE || appCfg.default;
+    const name = process.env.KANECTA_WORKSPACE || appCfg.defaultWorkspace || appCfg.default;
     const workspace = appCfg.workspaces[name];
     if (!workspace) {
       res.status(503).json({ error: `Workspace '${name}' not found in ~/.config/kanecta/config.json` });
       return null;
     }
-    key = `workspace:${name}`;
-    opener = () => Datastore.openWorkspace(workspace);
-    errorPrefix = `Failed to open workspace '${name}'`;
+    const local = resolveWorkspaceLocal(workspace);
+    if (!local) {
+      // Cloud-only (old 1.3.x CLOUD mode) — use legacy openWorkspace
+      key = `workspace:${name}`;
+      opener = () => Datastore.openWorkspace(workspace);
+      errorPrefix = `Failed to open workspace '${name}'`;
+    } else {
+      const branch = process.env.KANECTA_BRANCH || local.branch;
+      key = `fs:${local.localPath}:${branch}`;
+      opener = async () => {
+        const ds = Datastore.open(local.localPath);
+        if (branch && branch !== 'main') {
+          try { ds.switchBranch(branch); } catch { /* branch may not exist yet */ }
+        }
+        return ds;
+      };
+      errorPrefix = `Failed to open datastore at ${local.localPath}`;
+    }
   } else {
-    // Filesystem fallback (no config.json yet — first run, or pre-migration).
-    // Re-read from process.env at request time so tests can override without reloading the module.
     const root = _expandHome(process.env.KANECTA_DATASTORE) || KANECTA_DATASTORE || DEFAULT_DATASTORE;
     if (!Datastore.isDatastore(root)) {
       res.status(503).json({
@@ -202,10 +229,92 @@ function matchObjectData(objectData, q, fields) {
 
 // GET /config — datastore configuration visible to the studio
 app.get('/config', async (req, res) => {
-  const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const appCfg = readAppConfig();
+  const name = process.env.KANECTA_WORKSPACE || appCfg?.defaultWorkspace || appCfg?.default;
+  const workspace = appCfg?.workspaces?.[name];
+  const local = resolveWorkspaceLocal(workspace);
+  const datastorePath = local?.localPath || _expandHome(process.env.KANECTA_DATASTORE) || KANECTA_DATASTORE || DEFAULT_DATASTORE;
   const whichCmd = process.platform === 'win32' ? 'where' : 'which';
   const vscodeCheck = spawnSync(whichCmd, ['code'], { encoding: 'utf8' });
-  res.json({ datastorePath: root, vscodeAvailable: vscodeCheck.status === 0 });
+  res.json({ datastorePath, workspaceName: name, vscodeAvailable: vscodeCheck.status === 0 });
+});
+
+// GET /working-sets — all configured workspaces with branch info
+app.get('/working-sets', async (req, res) => {
+  const appCfg = readAppConfig();
+  if (!appCfg?.workspaces) return res.json({ workingSets: [], activeWorkspace: null });
+
+  const activeWorkspace = process.env.KANECTA_WORKSPACE || appCfg.defaultWorkspace || appCfg.default;
+
+  const workingSets = await Promise.all(
+    Object.entries(appCfg.workspaces).map(async ([name, ws]) => {
+      const local = resolveWorkspaceLocal(ws);
+      const configBranch = process.env.KANECTA_BRANCH || local?.branch || 'main';
+      let branches = [{ name: 'main', active: configBranch === 'main', baseBranch: null }];
+      let currentBranch = configBranch;
+
+      if (local?.localPath && Datastore.isDatastore(local.localPath)) {
+        try {
+          const ds = Datastore.open(local.localPath);
+          const dbBranch = ds.currentBranch();
+          const dbBranches = ds.listBranches();
+          currentBranch = dbBranch;
+          branches = [
+            { name: 'main', active: dbBranch === 'main', baseBranch: null },
+            ...dbBranches.map(b => ({ name: b.name, active: b.name === dbBranch, baseBranch: b.baseBranch })),
+          ];
+        } catch { /* use defaults */ }
+      }
+
+      const remotes = ws.remotes ?? (ws.cloud ? { origin: { type: 'cloud', ...ws.cloud } } : {});
+      return {
+        name,
+        local: local ? { path: local.localPath, ok: Datastore.isDatastore(local.localPath) } : null,
+        remotes,
+        branch: currentBranch,
+        branches,
+        isActive: name === activeWorkspace,
+      };
+    })
+  );
+
+  res.json({ workingSets, activeWorkspace });
+});
+
+// POST /working-sets/:name/branches — create a branch
+app.post('/working-sets/:name/branches', async (req, res) => {
+  const { name } = req.params;
+  const { branchName } = req.body;
+  if (!branchName) return res.status(400).json({ error: 'branchName is required' });
+  const appCfg = readAppConfig();
+  const ws = appCfg?.workspaces?.[name];
+  const local = resolveWorkspaceLocal(ws);
+  if (!local) return res.status(404).json({ error: `Workspace '${name}' not found or has no local datastore` });
+  try {
+    const ds = Datastore.open(local.localPath);
+    const branch = ds.createBranch(branchName);
+    res.json({ ok: true, branch });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// POST /working-sets/:name/branches/:branch/switch — switch active branch
+app.post('/working-sets/:name/branches/:branch/switch', async (req, res) => {
+  const { name, branch } = req.params;
+  const appCfg = readAppConfig();
+  const ws = appCfg?.workspaces?.[name];
+  const local = resolveWorkspaceLocal(ws);
+  if (!local) return res.status(404).json({ error: `Workspace '${name}' not found or has no local datastore` });
+  try {
+    const ds = Datastore.open(local.localPath);
+    ds.switchBranch(branch);
+    // Invalidate the datastore cache so next request picks up the new branch
+    _datastoreCache = null;
+    res.json({ ok: true, branch });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 // POST /open-in-vscode — open a path in VS Code

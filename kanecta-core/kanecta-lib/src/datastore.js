@@ -58,6 +58,13 @@ class Datastore {
   // `workspaces.<name>` shape. This is the single dispatch point so consumers
   // don't need to branch on mode themselves.
   static async openWorkspace(workspace) {
+    // 1.4.0 format: { local, branch, remotes }
+    if (workspace.local) {
+      const ds = Datastore.open(workspace.local);
+      if (workspace.branch) await ds.switchBranch(workspace.branch);
+      return ds;
+    }
+    // 1.3.x format: { mode, datastore, cloud }
     switch (workspace.mode) {
       case 'FILESYSTEM':
         return Datastore.open(workspace.datastore);
@@ -152,6 +159,15 @@ class Datastore {
   async readTimeJson(id)                     { return this._adapter.readTimeJson(id); }
   async writeTimeJson(id, data)              { return this._adapter.writeTimeJson(id, data); }
   async deleteTimeJson(id)                   { return this._adapter.deleteTimeJson(id); }
+
+  // ─── Branching ────────────────────────────────────────────────────────────────
+
+  currentBranch()        { return this._adapter.currentBranch(); }
+  createBranch(name)     { return this._adapter.createBranch(name); }
+  switchBranch(name)     { return this._adapter.switchBranch(name); }
+  listBranches()         { return this._adapter.listBranches(); }
+  deleteBranch(name)     { return this._adapter.deleteBranch(name); }
+  branchDiff(name)       { return this._adapter.branchDiff(name); }
 }
 
 module.exports = { Datastore, ROOT_ID, TYPES_NODE, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE, DEFAULT_LICENSE };

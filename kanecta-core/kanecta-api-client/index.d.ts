@@ -455,8 +455,38 @@ export declare class KanectaApiClient {
   readonly layouts: LayoutsApi;
   readonly skills: SkillsApi;
   readonly claude: ClaudeApi;
+  readonly workingSets: WorkingSetsApi;
   search(q: string, options?: SearchOptions): Promise<SearchResult>;
   rebuildIndexes(): Promise<{ rebuilt: boolean; itemCount: number }>;
+}
+
+export interface WorkingSetBranch {
+  name: string;
+  active: boolean;
+  baseBranch: string | null;
+}
+
+export interface WorkingSetRemote {
+  type: string;
+  host?: string;
+  port?: number;
+  database?: string;
+  [key: string]: unknown;
+}
+
+export interface WorkingSet {
+  name: string;
+  local: { path: string; ok: boolean } | null;
+  remotes: Record<string, WorkingSetRemote>;
+  branch: string;
+  branches: WorkingSetBranch[];
+  isActive: boolean;
+}
+
+export interface WorkingSetsApi {
+  list(): Promise<{ workingSets: WorkingSet[]; activeWorkspace: string }>;
+  createBranch(workspaceName: string, branchName: string): Promise<{ ok: boolean; branch: WorkingSetBranch }>;
+  switchBranch(workspaceName: string, branch: string): Promise<{ ok: boolean; branch: string }>;
 }
 
 export declare function createApiClient(options?: ApiClientOptions): KanectaApiClient;

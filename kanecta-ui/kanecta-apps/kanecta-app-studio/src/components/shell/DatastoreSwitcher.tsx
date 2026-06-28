@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import CloudOutlinedIcon from '@mui/icons-material/CloudOutlined';
@@ -9,9 +9,10 @@ import ErrorOutlinedIcon from '@mui/icons-material/ErrorOutlined';
 import AltRouteIcon from '@mui/icons-material/AltRoute';
 import Divider from '@mui/material/Divider';
 import Popover from '@mui/material/Popover';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useWorkspaceStore } from '../../store/workspace';
 import { api } from '../../api';
+import type { WorkingSet } from '../../api';
 import './DatastoreSwitcher.scss';
 
 interface AvatarProps {
@@ -32,45 +33,54 @@ function DatastoreAvatar({ label, colour, size = 'md' }: AvatarProps) {
   );
 }
 
-// Hardcoded mock data — UI only, wired up later
-const MOCK_ACTIVE_NAME = 'Kanecta Internal';
-const MOCK_DISPLAY_NAME = 'Kanecta Internal'; // TODO: replace with datastoreName when wired
-const MOCK_REMOTE = { name: 'origin', description: 'Kanecta Internal - DigitalOcean Postgres' };
-const MOCK_LOCAL = { name: 'local', description: 'Kanecta Internal - Filesystem + SQLite', branch: 'main' };
-const MOCK_TO_PUSH = { add: 2, edit: 1, del: 0 };
-const MOCK_AVAILABLE = [
-  { id: 'ws-work',     name: 'Work',     remote: 'work',     remoteDesc: 'Work shared server',     local: 'work',     branch: 'main' },
-  { id: 'ws-personal', name: 'Personal', remote: 'personal', remoteDesc: 'Personal cloud storage', local: 'personal', branch: 'draft/semantic-search' },
-];
-const MOCK_BRANCHES = [
-  { name: 'main', active: true },
-  { name: 'feature/ai-tagging', active: false },
-  { name: 'experiment/graph-viz', active: false },
-];
+function toDisplayName(name: string): string {
+  return name.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+function remoteDescription(ws: WorkingSet): string | null {
+  const origin = ws.remotes?.origin;
+  if (!origin) return null;
+  if (origin.type === 'postgres' && origin.host) {
+    return `${origin.host}/${origin.database ?? ''}`;
+  }
+  return origin.type ?? null;
+}
+
+function localDescription(ws: WorkingSet): string {
+  if (!ws.local?.path) return 'local';
+  const parts = ws.local.path.split('/');
+  return parts[parts.length - 1] || ws.local.path;
+}
 
 export function DatastoreSwitcher() {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const { workspaces, activeWorkspaceId, updateWorkspace } = useWorkspaceStore();
+  const { workspaces, activeWorkspaceId } = useWorkspaceStore();
   const active = workspaces.find((w) => w.id === activeWorkspaceId);
+  const queryClient = useQueryClient();
 
   const open = Boolean(anchor);
 
-  const { data: activeConfig, isError: activeConfigError } = useQuery({
-    queryKey: ['config', activeWorkspaceId],
-    queryFn: () => api.config.get(),
+  const { data: wsSummary, isError: wsError } = useQuery({
+    queryKey: ['working-sets'],
+    queryFn: () => api.workingSets.list(),
     retry: 1,
+    staleTime: 10_000,
   });
 
-  useEffect(() => {
-    if (activeConfig?.datastorePath) {
-      updateWorkspace(activeWorkspaceId, {
-        datastorePath: activeConfig.datastorePath,
-      });
-    }
-  }, [activeConfig?.datastorePath, activeWorkspaceId, updateWorkspace]);
+  const switchBranchMutation = useMutation({
+    mutationFn: ({ workspaceName, branch }: { workspaceName: string; branch: string }) =>
+      api.workingSets.switchBranch(workspaceName, branch),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['working-sets'] }),
+  });
 
-  const resolvedPath = activeConfig?.datastorePath ?? active?.datastorePath;
-  const showError = activeConfigError && !resolvedPath;
+  const activeWs = wsSummary?.workingSets.find((w) => w.isActive);
+  const availableWs = wsSummary?.workingSets.filter((w) => !w.isActive) ?? [];
+
+  const displayName = activeWs ? toDisplayName(activeWs.name) : (active?.name ?? 'Kanecta');
+  const showError = wsError && !activeWs;
+
+  const originDesc = activeWs ? remoteDescription(activeWs) : null;
+  const hasRemote  = Boolean(activeWs && Object.keys(activeWs.remotes ?? {}).length > 0);
 
   return (
     <>
@@ -83,12 +93,12 @@ export function DatastoreSwitcher() {
       >
         {showError
           ? <ErrorOutlinedIcon className="DatastoreSwitcher__error-icon" />
-          : <DatastoreAvatar label={MOCK_DISPLAY_NAME} colour={active?.colour ?? '#888'} size="sm" />
+          : <DatastoreAvatar label={displayName} colour={active?.colour ?? '#888'} size="sm" />
         }
         <span className="DatastoreSwitcher__name">
-          {showError ? 'Unavailable' : MOCK_DISPLAY_NAME}
+          {showError ? 'Unavailable' : displayName}
         </span>
-<ArrowDropDownIcon className="DatastoreSwitcher__arrow" />
+        <ArrowDropDownIcon className="DatastoreSwitcher__arrow" />
       </button>
 
       <Popover
@@ -103,28 +113,44 @@ export function DatastoreSwitcher() {
         {/* ── Active Working Set ── */}
         <div className="DatastoreSwitcher__section-header">Active working set</div>
         <div className="DatastoreSwitcher__working-set">
-          <div className="DatastoreSwitcher__ws-name">{MOCK_ACTIVE_NAME}</div>
-          <button className="DatastoreSwitcher__ws-row DatastoreSwitcher__ws-row--clickable">
-            <CloudOutlinedIcon className="DatastoreSwitcher__ws-icon" />
-            <span className="DatastoreSwitcher__ws-label">
-              <strong>{MOCK_REMOTE.name}</strong>
-              <span className="DatastoreSwitcher__ws-sub">{MOCK_REMOTE.description}</span>
-            </span>
-            <ChevronRightIcon className="DatastoreSwitcher__ws-chevron" />
-          </button>
-          <button className="DatastoreSwitcher__ws-row DatastoreSwitcher__ws-row--clickable DatastoreSwitcher__ws-row--bordered">
+          <div className="DatastoreSwitcher__ws-name">{displayName}</div>
+
+          {hasRemote && (
+            <button className="DatastoreSwitcher__ws-row DatastoreSwitcher__ws-row--clickable">
+              <CloudOutlinedIcon className="DatastoreSwitcher__ws-icon" />
+              <span className="DatastoreSwitcher__ws-label">
+                <strong>origin</strong>
+                <span className="DatastoreSwitcher__ws-sub">
+                  {originDesc ?? `${displayName} — Remote`}
+                </span>
+              </span>
+              <ChevronRightIcon className="DatastoreSwitcher__ws-chevron" />
+            </button>
+          )}
+
+          <button className={`DatastoreSwitcher__ws-row DatastoreSwitcher__ws-row--clickable${hasRemote ? ' DatastoreSwitcher__ws-row--bordered' : ''}`}>
             <StorageIcon className="DatastoreSwitcher__ws-icon" />
             <span className="DatastoreSwitcher__ws-label">
-              <strong>{MOCK_LOCAL.name}</strong>
-              <span className="DatastoreSwitcher__ws-sub">{MOCK_LOCAL.description}</span>
+              <strong>local</strong>
+              <span className="DatastoreSwitcher__ws-sub">
+                {activeWs ? `${localDescription(activeWs)} — Filesystem + SQLite` : 'Filesystem + SQLite'}
+              </span>
             </span>
             <ChevronRightIcon className="DatastoreSwitcher__ws-chevron" />
           </button>
+
           <div className="DatastoreSwitcher__branches-heading">Branches</div>
           <ul className="DatastoreSwitcher__branches DatastoreSwitcher__branches--inset">
-            {MOCK_BRANCHES.map((b) => (
+            {(activeWs?.branches ?? []).map((b) => (
               <li key={b.name}>
-                <button className={`DatastoreSwitcher__branch${b.active ? ' DatastoreSwitcher__branch--active' : ''}`}>
+                <button
+                  className={`DatastoreSwitcher__branch${b.active ? ' DatastoreSwitcher__branch--active' : ''}`}
+                  onClick={() => {
+                    if (!b.active && activeWs) {
+                      switchBranchMutation.mutate({ workspaceName: activeWs.name, branch: b.name });
+                    }
+                  }}
+                >
                   <span className="DatastoreSwitcher__branch-glyph">⎇</span>
                   <span className="DatastoreSwitcher__branch-name">{b.name}</span>
                   {b.active && <CheckIcon className="DatastoreSwitcher__branch-check" />}
@@ -138,20 +164,23 @@ export function DatastoreSwitcher() {
               </button>
             </li>
           </ul>
-          <div className="DatastoreSwitcher__ws-status">
-            <div className="DatastoreSwitcher__ws-status-row">
-              <span className="DatastoreSwitcher__ws-status-arrow">↑</span>
-              <span className={`DatastoreSwitcher__ws-stat DatastoreSwitcher__ws-stat--add${MOCK_TO_PUSH.add === 0 ? ' DatastoreSwitcher__ws-stat--zero' : ''}`}>
-                +{MOCK_TO_PUSH.add} add
-              </span>
-              <span className={`DatastoreSwitcher__ws-stat DatastoreSwitcher__ws-stat--edit${MOCK_TO_PUSH.edit === 0 ? ' DatastoreSwitcher__ws-stat--zero' : ''}`}>
-                ±{MOCK_TO_PUSH.edit} edit
-              </span>
-              <span className={`DatastoreSwitcher__ws-stat DatastoreSwitcher__ws-stat--del${MOCK_TO_PUSH.del === 0 ? ' DatastoreSwitcher__ws-stat--zero' : ''}`}>
-                −{MOCK_TO_PUSH.del} del
-              </span>
+
+          {hasRemote && (
+            <div className="DatastoreSwitcher__ws-status">
+              <div className="DatastoreSwitcher__ws-status-row">
+                <span className="DatastoreSwitcher__ws-status-arrow">↑</span>
+                <span className="DatastoreSwitcher__ws-stat DatastoreSwitcher__ws-stat--add DatastoreSwitcher__ws-stat--zero">
+                  +0 add
+                </span>
+                <span className="DatastoreSwitcher__ws-stat DatastoreSwitcher__ws-stat--edit DatastoreSwitcher__ws-stat--zero">
+                  ±0 edit
+                </span>
+                <span className="DatastoreSwitcher__ws-stat DatastoreSwitcher__ws-stat--del DatastoreSwitcher__ws-stat--zero">
+                  −0 del
+                </span>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <Divider />
@@ -159,24 +188,31 @@ export function DatastoreSwitcher() {
         {/* ── Available Working Sets ── */}
         <div className="DatastoreSwitcher__section-header">Available working sets</div>
         <ul className="DatastoreSwitcher__available-list">
-          {MOCK_AVAILABLE.map((ws) => (
-            <li key={ws.id} className="DatastoreSwitcher__available-item">
-              <div className="DatastoreSwitcher__available-item-header">
-                <span className="DatastoreSwitcher__available-item-name">{ws.name}</span>
-                <button className="DatastoreSwitcher__make-active-btn">Make active</button>
-              </div>
-              <div className="DatastoreSwitcher__available-row">
-                <CloudOutlinedIcon className="DatastoreSwitcher__available-icon" />
-                <span className="DatastoreSwitcher__available-name">{ws.remote}</span>
-                <span className="DatastoreSwitcher__available-sub">{ws.remoteDesc}</span>
-              </div>
-              <div className="DatastoreSwitcher__available-row">
-                <StorageIcon className="DatastoreSwitcher__available-icon" />
-                <span className="DatastoreSwitcher__available-name">{ws.local}</span>
-                <span className="DatastoreSwitcher__available-sub">⎇ {ws.branch}</span>
-              </div>
-            </li>
-          ))}
+          {availableWs.map((ws) => {
+            const remDesc = remoteDescription(ws);
+            const wsHasRemote = Boolean(Object.keys(ws.remotes ?? {}).length > 0);
+            const activeBranch = ws.branches.find((b) => b.active)?.name ?? ws.branch;
+            return (
+              <li key={ws.name} className="DatastoreSwitcher__available-item">
+                <div className="DatastoreSwitcher__available-item-header">
+                  <span className="DatastoreSwitcher__available-item-name">{toDisplayName(ws.name)}</span>
+                  <button className="DatastoreSwitcher__make-active-btn">Make active</button>
+                </div>
+                {wsHasRemote && (
+                  <div className="DatastoreSwitcher__available-row">
+                    <CloudOutlinedIcon className="DatastoreSwitcher__available-icon" />
+                    <span className="DatastoreSwitcher__available-name">origin</span>
+                    <span className="DatastoreSwitcher__available-sub">{remDesc ?? 'Remote'}</span>
+                  </div>
+                )}
+                <div className="DatastoreSwitcher__available-row">
+                  <StorageIcon className="DatastoreSwitcher__available-icon" />
+                  <span className="DatastoreSwitcher__available-name">{localDescription(ws)}</span>
+                  <span className="DatastoreSwitcher__available-sub">⎇ {activeBranch}</span>
+                </div>
+              </li>
+            );
+          })}
         </ul>
         <div className="DatastoreSwitcher__available-add">
           <button className="DatastoreSwitcher__available-add-btn">

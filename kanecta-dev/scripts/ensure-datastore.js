@@ -55,6 +55,11 @@ function checkWorkspacesFormat(workspaces, propSpec, errors) {
 }
 
 function checkPointerFileFormat(data, sourceFile) {
+  if (data.format === '1.4.0') {
+    console.log(`  ✓ pointer file format OK (1.4.0)`);
+    return;
+  }
+
   const spec = POINTER_SPEC;
   const errors = [];
 
@@ -200,11 +205,32 @@ function migrateOldConfig(file, oldData) {
   return newData;
 }
 
+// Normalises a workspace entry from either config format into:
+//   { localPath, branch, remotes }
+function normaliseWorkspace(ws) {
+  if (!ws) return null;
+  // 1.4.0 format: { local, remotes?, branch? }
+  if (ws.local !== undefined) {
+    const localPath = typeof ws.local === 'string' ? ws.local : ws.local?.path;
+    return { localPath: expandHome(localPath), branch: ws.branch ?? 'main', remotes: ws.remotes ?? {} };
+  }
+  // 1.3.x format: { mode, datastore?, cloud? }
+  if (ws.mode === 'FILESYSTEM') {
+    return { localPath: expandHome(ws.datastore), branch: 'main', remotes: {} };
+  }
+  return null;
+}
+
 function readPointer(file) {
   try {
     const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+    // 1.4.0 format: specVersion + defaultWorkspace
+    if (data.specVersion && data.defaultWorkspace && typeof data.workspaces === 'object') {
+      return { format: '1.4.0', default: data.defaultWorkspace, workspaces: data.workspaces, studioPort: data.studioPort ?? 9743, apiPort: data.apiPort ?? 9744 };
+    }
+    // 1.3.x format: default + workspaces map
     if (data.default && data.workspaces && typeof data.workspaces === 'object' && !Array.isArray(data.workspaces)) {
-      return data;
+      return { format: '1.3.x', ...data };
     }
     if (data.default && Array.isArray(data.datastores)) return migrateOldConfig(file, data);
   } catch {}
@@ -652,7 +678,7 @@ async function syncSystemItems(datastorePath, systemItemsDir) {
 // `workspaceName` is null when launched via an explicit KANECTA_DATASTORE env
 // override (no named workspace involved); `datastorePath` is null for pure-cloud
 // workspaces (no filesystem path to expose).
-async function launch(workspaceName, datastorePath, apiPort, studioPort, systemItemsDir) {
+async function launch(workspaceName, datastorePath, apiPort, studioPort, systemItemsDir, branch) {
   const [apiFree, studioFree] = await Promise.all([
     checkPortFree(apiPort),
     checkPortFree(studioPort),
@@ -689,8 +715,8 @@ async function launch(workspaceName, datastorePath, apiPort, studioPort, systemI
       '-n', 'api,studio',
       '-c', 'cyan,magenta',
       '--kill-others-on-fail',
-      'npm run dev -w kanecta-api',
-      `npm run dev -w kanecta-ui/kanecta-apps/kanecta-app-studio -- --port ${studioPort} --strictPort`,
+      'npm run dev -w @kanecta/api',
+      `npm run dev -w @kanecta/studio -- --port ${studioPort} --strictPort`,
     ],
     {
       cwd: repoRoot,
@@ -699,8 +725,10 @@ async function launch(workspaceName, datastorePath, apiPort, studioPort, systemI
         // in the parent shell (e.g. unexpanded tilde) can't leak into the server.
         const e = { ...process.env };
         delete e.KANECTA_DATASTORE;
+        delete e.KANECTA_BRANCH;
         if (workspaceName) e.KANECTA_WORKSPACE = workspaceName;
         if (datastorePath) e.KANECTA_DATASTORE = datastorePath;
+        if (branch) e.KANECTA_BRANCH = branch;
         e.PORT = String(apiPort);
         e.KANECTA_API_URL = `http://localhost:${apiPort}`;
         if (systemItemsDir) e.KANECTA_SYSTEM_ITEMS_DIR = systemItemsDir;
@@ -759,19 +787,21 @@ async function main() {
       process.exit(1);
     }
 
-    if (workspace.mode === 'CLOUD') {
-      console.log(`✓ Workspace: ${name} (${selectionReason}; cloud — Postgres + S3)`);
-      return launch(name, null, data.apiPort ?? 9744, data.studioPort ?? 9743, data.systemItemsDir);
+    const norm = normaliseWorkspace(workspace);
+    if (!norm) {
+      // CLOUD-only workspace (old format mode: CLOUD) — no local path
+      console.log(`✓ Workspace: ${name} (${selectionReason}; cloud)`);
+      return launch(name, null, data.apiPort ?? 9744, data.studioPort ?? 9743, data.systemItemsDir, null);
     }
-    if (!Datastore.isDatastore(workspace.datastore)) {
-      console.error(`Datastore not found at configured path: ${workspace.datastore}`);
+    if (!Datastore.isDatastore(norm.localPath)) {
+      console.error(`Datastore not found at configured path: ${norm.localPath}`);
       process.exit(1);
     }
-    console.log(`✓ Workspace: ${name} (${selectionReason}; ${workspace.datastore})`);
-    checkSpecVersion(workspace.datastore);
-    await syncSystemItems(workspace.datastore, data.systemItemsDir);
+    console.log(`✓ Workspace: ${name} (${selectionReason}; ${norm.localPath}; branch: ${norm.branch})`);
+    checkSpecVersion(norm.localPath);
+    await syncSystemItems(norm.localPath, data.systemItemsDir);
 
-    return launch(name, workspace.datastore, data.apiPort ?? 9744, data.studioPort ?? 9743, data.systemItemsDir);
+    return launch(name, norm.localPath, data.apiPort ?? 9744, data.studioPort ?? 9743, data.systemItemsDir, norm.branch);
   }
 
   // 3. First-run wizard
