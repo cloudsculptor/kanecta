@@ -1,0 +1,36 @@
+{
+  "name": "@kanecta/ui-specification",
+  "version": "1.4.0",
+  "description": "Kanecta UI layer specification and validator for component packages and app manifests",
+  "main": "index.js",
+  "module": "index.mjs",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./index.mjs",
+      "require": "./index.js",
+      "types": "./index.d.ts"
+    },
+    "./validator": {
+      "import": "./1.4.0/kanecta-ui-validator/index.mjs",
+      "require": "./1.4.0/kanecta-ui-validator/index.js",
+      "types": "./1.4.0/kanecta-ui-validator/index.d.ts"
+    },
+    "./1.4.0/validator": {
+      "import": "./1.4.0/kanecta-ui-validator/index.mjs",
+      "require": "./1.4.0/kanecta-ui-validator/index.js",
+      "types": "./1.4.0/kanecta-ui-validator/index.d.ts"
+    },
+    "./1.4.0/*": "./1.4.0/*"
+  },
+  "files": [
+    "index.js",
+    "index.mjs",
+    "index.d.ts",
+    "1.4.0/"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}
