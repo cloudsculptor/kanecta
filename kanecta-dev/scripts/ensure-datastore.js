@@ -19,90 +19,29 @@ const POINTER_LOCATIONS = [
 
 const NAME_RE = /^[a-zA-Z0-9-]+$/;
 
-const POINTER_SPEC = require('@kanecta/specification/1.3.0/file-specs/config.json');
-
-function checkWorkspacesFormat(workspaces, propSpec, errors) {
-  if (typeof workspaces !== 'object' || workspaces === null || Array.isArray(workspaces)) {
-    errors.push('"workspaces" must be an object');
-    return;
-  }
-  const names = Object.keys(workspaces);
-  if (propSpec.minProperties && names.length < propSpec.minProperties) {
-    errors.push(`"workspaces" must have at least ${propSpec.minProperties} entr${propSpec.minProperties === 1 ? 'y' : 'ies'}`);
-    return;
-  }
-  for (const name of names) {
-    const ws = workspaces[name];
-    const prefix = `workspaces.${name}`;
-    if (typeof ws !== 'object' || ws === null || Array.isArray(ws)) {
-      errors.push(`"${prefix}" must be an object`);
-      continue;
-    }
-    if (!ws.mode) {
-      errors.push(`"${prefix}.mode" is required`);
-    } else if (!propSpec.modes.includes(ws.mode)) {
-      errors.push(`"${prefix}.mode" must be one of: ${propSpec.modes.join(', ')}`);
-    }
-    const needsDatastore = ws.mode === 'FILESYSTEM' || ws.mode === 'DUAL_FILESYSTEM_PRIMARY' || ws.mode === 'DUAL_CLOUD_PRIMARY';
-    const needsCloud      = ws.mode === 'CLOUD'      || ws.mode === 'DUAL_FILESYSTEM_PRIMARY' || ws.mode === 'DUAL_CLOUD_PRIMARY';
-    if (needsDatastore && typeof ws.datastore !== 'string') {
-      errors.push(`"${prefix}.datastore" must be a string (required for ${ws.mode} mode)`);
-    }
-    if (needsCloud && (typeof ws.cloud !== 'object' || ws.cloud === null || Array.isArray(ws.cloud))) {
-      errors.push(`"${prefix}.cloud" must be an object (required for ${ws.mode} mode)`);
-    }
-  }
-}
-
 function checkPointerFileFormat(data, sourceFile) {
-  if (data.format === '1.4.0') {
-    console.log(`  ✓ pointer file format OK (1.4.0)`);
-    return;
-  }
-
-  const spec = POINTER_SPEC;
   const errors = [];
-
-  for (const key of spec.required) {
-    if (!(key in data)) errors.push(`missing required field "${key}"`);
-  }
-
-  for (const [key, val] of Object.entries(data)) {
-    if (spec.additionalProperties === false && !(key in spec.properties)) {
-      errors.push(`unexpected field "${key}"`);
-      continue;
-    }
-    const propSpec = spec.properties[key];
-    if (!propSpec) continue;
-    if (key === 'workspaces') {
-      checkWorkspacesFormat(val, propSpec, errors);
-    } else if (propSpec.type === 'integer' && !Number.isInteger(val)) {
-      errors.push(`"${key}" must be an integer`);
-    } else if (propSpec.type === 'string' && typeof val !== 'string') {
-      errors.push(`"${key}" must be a string`);
-    } else if (propSpec.type === 'array') {
-      if (!Array.isArray(val)) {
-        errors.push(`"${key}" must be an array`);
-      } else if (propSpec.minItems && val.length < propSpec.minItems) {
-        errors.push(`"${key}" must have at least ${propSpec.minItems} item(s)`);
-      } else if (propSpec.items?.type) {
-        val.forEach((item, i) => {
-          if (typeof item !== propSpec.items.type) {
-            errors.push(`"${key}[${i}]" must be a ${propSpec.items.type}`);
-          }
-        });
-      }
+  if (!data.specVersion) errors.push('missing required field "specVersion"');
+  if (!data.defaultWorkspace) errors.push('missing required field "defaultWorkspace"');
+  if (typeof data.workspaces !== 'object' || data.workspaces === null || Array.isArray(data.workspaces))
+    errors.push('"workspaces" must be an object');
+  else if (Object.keys(data.workspaces).length === 0)
+    errors.push('"workspaces" must have at least one entry');
+  else {
+    for (const [name, ws] of Object.entries(data.workspaces)) {
+      if (typeof ws !== 'object' || ws === null || Array.isArray(ws))
+        errors.push(`"workspaces.${name}" must be an object`);
+      else if (typeof ws.local !== 'string')
+        errors.push(`"workspaces.${name}.local" must be a string path`);
     }
   }
-
   if (errors.length > 0) {
-    console.error(`\n  ✗ Pointer file format is invalid (${sourceFile}):`);
+    console.error(`\n  ✗ Config file is invalid (${sourceFile}):`);
     errors.forEach(e => console.error(`    - ${e}`));
-    console.error(`\n  Expected format is defined in @kanecta/specification/1.3.0/file-specs/config.json`);
     console.error(`  Fix ${sourceFile} and try again.\n`);
     process.exit(1);
   }
-  console.log(`  ✓ pointer file format OK (checked against @kanecta/specification/1.3.0/file-specs/config.json)`);
+  console.log(`  ✓ config format OK (${data.specVersion}; ${Object.keys(data.workspaces).length} workspace(s))`);
 }
 
 function checkPortFree(port) {
@@ -226,7 +165,7 @@ function readPointer(file) {
     const data = JSON.parse(fs.readFileSync(file, 'utf8'));
     // 1.4.0 format: specVersion + defaultWorkspace
     if (data.specVersion && data.defaultWorkspace && typeof data.workspaces === 'object') {
-      return { format: '1.4.0', default: data.defaultWorkspace, workspaces: data.workspaces, studioPort: data.studioPort ?? 9743, apiPort: data.apiPort ?? 9744 };
+      return { format: '1.4.0', specVersion: data.specVersion, defaultWorkspace: data.defaultWorkspace, default: data.defaultWorkspace, workspaces: data.workspaces, studioPort: data.studioPort ?? 9743, apiPort: data.apiPort ?? 9744 };
     }
     // 1.3.x format: default + workspaces map
     if (data.default && data.workspaces && typeof data.workspaces === 'object' && !Array.isArray(data.workspaces)) {
