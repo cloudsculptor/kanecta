@@ -12,9 +12,9 @@
     "@emotion/react": ">=11",
     "@emotion/styled": ">=11",
     "@kanecta/specification": "*",
-    "@mui/icons-material": ">=9",
+    "@mui/icons-material": "^9.1.1",
     "@mui/material": ">=9",
-    "@tanstack/react-query": ">=5",
+    "@tanstack/react-query": "^5.101.2",
     "react": ">=19",
     "react-dom": ">=19",
     "sass": ">=1"

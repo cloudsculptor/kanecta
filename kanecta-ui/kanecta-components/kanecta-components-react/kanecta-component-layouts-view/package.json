@@ -4,8 +4,8 @@
   "private": true,
   "main": "src/index.ts",
   "peerDependencies": {
-    "@mui/icons-material": ">=9",
-    "@tanstack/react-query": ">=5",
+    "@mui/icons-material": "^9.1.1",
+    "@tanstack/react-query": "^5.101.2",
     "react": ">=19"
   }
 }

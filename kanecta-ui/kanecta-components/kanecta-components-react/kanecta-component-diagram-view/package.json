@@ -10,7 +10,7 @@
   },
   "peerDependencies": {
     "@mui/material": ">=9",
-    "@xyflow/react": ">=12",
+    "@xyflow/react": "^12.11.1",
     "react": ">=19"
   },
   "devDependencies": {
