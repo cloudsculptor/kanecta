@@ -132,7 +132,7 @@ When you do want Kanecta to manage history or activity, you have two placement o
 
 * `"ITEM"` — history and activity items are written directly into `items/`, alongside all other items. Simple to set up; no extra directories. The drawback is that history and activity events are write-heavy and accumulate rapidly — over time they will dwarf the count of actual data items, making queries across `items/` slower and the folder tree harder to navigate.
 
-* `"EXTERNAL"` _(recommended)_ — history items go into `item-history/` and activity items go into `activity/`, both sibling directories of `items/` under `.kanecta/`. The structure and content of these directories is identical to `items/` — the same 2+2+full UUID sharding, the same `item.json` format. The only difference is physical separation. This keeps the main `items/` tree lean and makes targeted queries (e.g. "all items of type `task`") fast regardless of how much history has accumulated.
+* `"EXTERNAL"` _(recommended)_ — history items go into `item-history/` and activity items go into `activity/`, both sibling directories of `items/` under `.kanecta/`. The structure and content of these directories is identical to `items/` — the same 2+2+full UUID sharding, the same `item.json` format. The only difference is physical separation. This keeps the main `items/` tree lean and makes targeted queries (e.g. "all items of type `pipeline`") fast regardless of how much history has accumulated.
 
 Mixing modes is valid: for example, `itemHistory: "EXTERNAL"` with `activity: "NONE"` tracks item changes as structured history items while skipping the workspace event log entirely.
 ****
@@ -493,32 +493,8 @@ Types are grouped into three categories.
 | `runner`
 | An execution environment or script runner.
 
-| `decision`
-| A recorded decision with context, alternatives, and reasoning.
-
 | `annotation`
 | A comment or note on another item, without modifying it.
-
-| `claim`
-| A factual assertion that may have a confidence level.
-
-| `question`
-| An open question awaiting resolution.
-
-| `task`
-| An actionable item with optional due date and completion tracking.
-
-| `note`
-| A freeform note.
-
-| `concept`
-| An abstract concept or idea.
-
-| `entity`
-| A real-world entity (organisation, product, place).
-
-| `event`
-| A point in time or period of activity.
 |===
 
 === Structured Types
@@ -679,7 +655,7 @@ The UUID itself is the signal. Any system reading a `parentId` of `11111111-1111
 . *Root* → self-referencing: `parentId = id = 00000000-0000-0000-0000-000000000000`.
 . *Type items* (`type: "type"`) → `parentId` = `11111111-1111-1111-1111-111111111111` (the `types` node). This applies to both built-in type items (seeded from the core manifest) and user-defined type items created at runtime. This is the one exception to the universal "instances live under their type item" rule — `type: "type"` items cannot follow that rule without creating a circular parent chain (the `type` type item would be its own parent). `relationship-type` and `aspect-type` instances are not circular and follow the normal rule — they live under the `relationship-type` type item (`15861dd7-e54c-4209-bceb-bdd65de4f472`) and the `aspect-type` type item (`45bc6fbe-aa63-41be-8566-7217a9a15ece`) respectively.
 . *Aspect items* (`item.aspect` is non-null) → `parentId` = UUID of the item this is a named dimension of. The aspect field, not the type, governs parentId for these items.
-. *Payload-less primitives* (`string`, `number`, `text`, `heading`, `url`) → `parentId` = their actual parent in the tree. These are content items — a string field of a task lives under that task. There is no type bucket for bare primitive values and no synthetic type item for these types.
+. *Payload-less primitives* (`string`, `number`, `text`, `heading`, `url`) → `parentId` = their actual parent in the tree. These are content items — a string field of an item lives under that item. There is no type bucket for bare primitive values and no synthetic type item for these types.
 . *User-defined objects* (`type: "object"`) → `parentId` = their custom type item UUID (`item.typeId`). They live in the type's collection.
 . *All other built-in typed items* → `parentId` = the synthetic type item for that built-in type, bootstrapped at datastore initialisation.
 . *Additional-tree nodes* (`type: "node"`) → `parentId` = parent node UUID, or tree item UUID for root-level nodes.
@@ -695,13 +671,13 @@ These rules are hard constraints enforced at write time by every adapter.
 [#synthetic-type-items]
 === Built-in type items
 
-Most built-in types have a corresponding type item — an item of type `"type"` — that acts as the canonical parent bucket for all items of that type. These items carry `meta.layer: "core"` and a *globally fixed, pre-assigned UUID* defined in the core manifest. The UUID is stable across every installation — two datastores seeded from the same version of Kanecta will always have the same UUID for the `task` type item. This global consistency is a sync requirement: when items from two datastores merge, their `parentId` values must refer to the same type bucket without UUID translation or mapping tables.
+Most built-in types have a corresponding type item — an item of type `"type"` — that acts as the canonical parent bucket for all items of that type. These items carry `meta.layer: "core"` and a *globally fixed, pre-assigned UUID* defined in the core manifest. The UUID is stable across every installation — two datastores seeded from the same version of Kanecta will always have the same UUID for the `pipeline` type item. This global consistency is a sync requirement: when items from two datastores merge, their `parentId` values must refer to the same type bucket without UUID translation or mapping tables.
 
 All items of `type: "type"` — both built-in type items seeded from the core manifest and user-defined type items created at runtime — have `parentId = 11111111-1111-1111-1111-111111111111` (the `types` node). `relationship-type` and `aspect-type` instances follow the universal parentId rule: instances live under their respective type items (`15861dd7-...` and `45bc6fbe-...`). Those type items themselves live under `11111111-...` like all other built-in type items.
 
 Built-in type items are seeded idempotently at datastore initialisation from the core manifest. If a type item already exists with the correct UUID, the seed is a no-op. See <<manifests-and-built-in-type-items>> for the full mechanism, UUID registry, and seed file format.
 
-Built-in types with type items (37 total): `action`, `agent`, `alias`, `annotation`, `aspect-type`, `cell`, `claim`, `component`, `concept`, `context`, `decision`, `entity`, `eval`, `eval-run`, `event`, `file`, `formula`, `function`, `grant`, `grid`, `item_history`, `activity`, `note`, `object`, `pipeline`, `pipeline-run`, `query`, `question`, `reference`, `relationship`, `relationship-type`, `runner`, `subscription`, `symlink`, `task`, `tree`, `view`.
+Built-in types with type items (29 total): `action`, `activity`, `agent`, `alias`, `annotation`, `aspect-type`, `cell`, `component`, `context`, `eval`, `eval-run`, `file`, `formula`, `function`, `grant`, `grid`, `item_history`, `object`, `pipeline`, `pipeline-run`, `query`, `reference`, `relationship`, `relationship-type`, `runner`, `subscription`, `symlink`, `tree`, `view`.
 
 NOTE: The payload-less primitive types — `string`, `number`, `text`, `heading`, `url` — do *not* have type items. These types are content items that live directly under their parent in the tree. Creating a type bucket for bare strings or numbers would produce a meaningless collection of decontextualised values. Their `parentId` is always their actual tree parent.
 
@@ -718,7 +694,7 @@ The `aspect` field is a string or a UUID:
 
 Because each aspect item is a full Kanecta item, it carries its own `search.embedding`. This makes aspect dimensions queryable in semantic space independently of the parent item's embedding — you can search for "procedures with a financial-costs aspect similar to budget X" by querying the embeddings of financial-costs aspect items directly, without loading the parent procedures. Each named dimension is its own projection of the parent into semantic space.
 
-Any item type can be an aspect: a `note`, an `object` with a user-defined type, a `file`, a `task`. The aspect field is what distinguishes "this is a named dimension of my parent" from "this is a standalone item that happens to be a child."
+Any item type can be an aspect: an `annotation`, an `object` with a user-defined type, a `file`, a `formula`. The aspect field is what distinguishes "this is a named dimension of my parent" from "this is a standalone item that happens to be a child."
 
 === Well-known payload dimension names
 
@@ -1027,8 +1003,8 @@ Three levels of increasing power, controlled by `payload.level`:
 ----
 {
   "level": "template",
-  "expression": "TASK-{n}",
-  "description": "Default task identifier: type prefix followed by a workspace-scoped sequence number."
+  "expression": "PIPE-{n}",
+  "description": "Default pipeline identifier: type prefix followed by a workspace-scoped sequence number."
 }
 ----
 
@@ -1098,7 +1074,7 @@ Available in both `template` (as `{variable}`) and `dsl` (as plain identifiers, 
 | Current date as `YYYY-MM-DD` string.
 
 | `type`
-| The type name string of the item being processed (e.g. `"task"`).
+| The type name string of the item being processed (e.g. `"pipeline"`).
 
 | `uuid8`
 | First 8 characters of the new item's UUID. Useful for short, collision-resistant identifiers.
@@ -1734,7 +1710,7 @@ When Studio needs to render item X in the current context C, it resolves the com
 
 . *Built-in generic renderer* — final fallback. The adapter provides a generic renderer that reads `jsonSchema` from the item's type and renders all payload fields in a standard layout. No custom component required. Used during type development and for types that do not define any component.
 
-Built-in types (pipeline, query, task, etc.) have their default components defined in their built-in manifests, seeded as `component` items at datastore initialisation. The Studio type loader uses these seeded components when no user-defined override exists.
+Built-in types (pipeline, query, function, etc.) have their default components defined in their built-in manifests, seeded as `component` items at datastore initialisation. The Studio type loader uses these seeded components when no user-defined override exists.
 
 ==== Bootstrap sequence
 
@@ -2199,12 +2175,12 @@ Two classes of query:
 ----
 {
   "language": "sql",
-  "expression": "SELECT i.id, i.value, i.payload->>'status' AS status, i.payload->>'assignee' AS assignee FROM items i WHERE i.type = 'task' AND i.payload->>'status' = {{params.status}} ORDER BY i.meta->>'createdAt' DESC",
+  "expression": "SELECT i.id, i.value, i.payload->>'status' AS status, i.payload->>'assignee' AS assignee FROM items i WHERE i.type = 'pipeline' AND i.payload->>'status' = {{params.status}} ORDER BY i.meta->>'createdAt' DESC",
   "params": [
-    { "name": "status", "type": "string", "description": "Task status to filter by", "default": "open" }
+    { "name": "status", "type": "string", "description": "Pipeline status to filter by", "default": "active" }
   ],
-  "returnType": "uuid-of-task-type-item",
-  "description": "All tasks filtered by status. Defaults to open tasks."
+  "returnType": "90bdc2b2-0963-4ec9-a37c-4b42f724752d",
+  "description": "All pipelines filtered by status. Defaults to active pipelines."
 }
 ----
 
@@ -2264,7 +2240,7 @@ The distinction is important:
 ----
 {
   "pipelineId": "uuid-of-summarise-pipeline",
-  "targetTypes": ["task", "note", "uuid-of-custom-finding-type"],
+  "targetTypes": ["uuid-of-custom-finding-type", "uuid-of-another-custom-type"],
   "params": { "outputFormat": "bullet-points" },
   "description": "Summarise this item using the current LLM model.",
   "icon": "AutoAwesome",
@@ -2282,7 +2258,7 @@ The distinction is important:
 
 | `targetTypes`
 | no
-| Item types this action is available on. Each entry is a built-in type name (`"task"`, `"note"`) or a UUID of a custom type item. Studio renders this action as a button or menu item when the user is viewing a matching item. Null = workspace-level action — appears in the global palette without a type restriction; `params.targetItemId` is null when invoked this way.
+| Item types this action is available on. Each entry is the UUID of a type item (built-in or user-defined). Studio renders this action as a button or menu item when the user is viewing a matching item. Null = workspace-level action — appears in the global palette without a type restriction; `params.targetItemId` is null when invoked this way.
 
 | `params`
 | no
@@ -3286,7 +3262,7 @@ This example shows a second-iteration run (`iteration: 1` — the first loop-bac
 
 | `triggeredBy`
 | no
-| UUID of the Kanecta item that triggered this run (e.g. a `task`, a `finding` from another pipeline). Null for manually triggered runs.
+| UUID of the Kanecta item that triggered this run (e.g. a `finding` from another pipeline, a user-defined `screen` item). Null for manually triggered runs.
 
 | `startedAt`
 | no
@@ -3987,7 +3963,7 @@ Old types remain readable indefinitely. `supersededBy` is a suggestion, not a fo
 
 === Types are Items
 
-Types are first-class Kanecta items (`type: "type"`). They can be linked, tagged, annotated, subscribed to, and related just like any other item. Their `parentId` is whatever tree item the bootstrapper designates for types (a deployment decision, not a spec constraint).
+Types are first-class Kanecta items (`type: "type"`). They can be linked, tagged, annotated, subscribed to, and related just like any other item. Their `parentId` is always `11111111-1111-1111-1111-111111111111` (the well-known `types` node). See <<well-known-types>>.
 
 TIP: *Postgres* — types are normalised into a `types` table (1:1 with `items`) that stores `meta` fields as columns and `jsonSchema` as the only `JSONB` column in the schema. `types.table_name` records the per-type object table name (`obj_<uuid>`); null until the type's first instance is created.
 
@@ -4182,7 +4158,7 @@ TIP: *SQLite* — use WAL mode (`PRAGMA journal_mode = WAL`) for concurrent read
 
 A *manifest* is a JSON file that declares which items a package wants seeded into the datastore on startup. Manifests replace the old "synthetic type" concept — in 1.4.0, every built-in type item is a real item.json file with a fixed UUID, declared in a manifest, seeded idempotently. There are no code-generated type buckets and no special cases in the adapter.
 
-The reason this matters: a Kanecta item's `parentId` is what anchors it in the tree and identifies its type bucket. If two datastores have different UUIDs for the `task` type item, then task items from one datastore cannot merge into the other without a UUID translation table — which would break the append-only, conflict-free sync model. Fixed UUIDs in manifests eliminate this class of sync failure entirely. Once assigned, a built-in type item UUID is permanent and can never be changed, because every item of that type in every datastore in the world carries it as `parentId`.
+The reason this matters: a Kanecta item's `parentId` is what anchors it in the tree and identifies its type bucket. If two datastores have different UUIDs for the `pipeline` type item, then pipeline items from one datastore cannot merge into the other without a UUID translation table — which would break the append-only, conflict-free sync model. Fixed UUIDs in manifests eliminate this class of sync failure entirely. Once assigned, a built-in type item UUID is permanent and can never be changed, because every item of that type in every datastore in the world carries it as `parentId`.
 
 The distinction between `system` layer (root, container trees) and `core` layer (manifest-seeded built-in type items) reflects how they are created. Root and the container trees are created by the bootstrapper in code and have no seed files — they are infrastructure. Core type items are created from manifest seed files, exactly like user-defined types, and are visible to the same queries and tooling as everything else.
 
@@ -4228,8 +4204,7 @@ A manifest is a `kanecta.manifest.json` file in the root of a package. The adapt
   "package": "kanecta-core",
   "layer": "core",
   "items": [
-    { "id": "0735e3c3-ce28-406c-850a-c9e20be70231", "type": "task",     "file": "built-in-types/types/task.json" },
-    { "id": "24dec6ba-d59a-4edf-87c5-9e42e5430d5c", "type": "note",     "file": "built-in-types/types/note.json" },
+    { "id": "3672b0ca-e81f-44b0-92e8-1b3253cbf38a", "type": "function", "file": "built-in-types/types/function.json" },
     { "id": "90bdc2b2-0963-4ec9-a37c-4b42f724752d", "type": "pipeline", "file": "built-in-types/types/pipeline.json" }
   ]
 }
@@ -4261,10 +4236,10 @@ A seed item file is a standard 1.4.0 item.json with two constraints: `id` must b
 [source,json]
 ----
 {
-  "id": "0735e3c3-ce28-406c-850a-c9e20be70231",
+  "id": "90bdc2b2-0963-4ec9-a37c-4b42f724752d",
   "type": "type",
   "parentId": "11111111-1111-1111-1111-111111111111",
-  "value": "task",
+  "value": "pipeline",
   "meta": {
     "layer": "core",
     "createdAt": "2026-01-01T00:00:00Z",
@@ -4296,34 +4271,26 @@ These UUIDs can never be changed without a global migration of every `parentId` 
 | `annotation`        | `8797b002-091a-4289-abf0-850d4b05a743`
 | `aspect-type`       | `45bc6fbe-aa63-41be-8566-7217a9a15ece`
 | `cell`              | `42561614-32d6-4c01-93c8-2f6e023ad19f`
-| `claim`             | `8e3374c0-c891-467f-b997-cc706914cecf`
 | `component`         | `fab55d91-6975-422a-9398-2b16f72bc805`
-| `concept`           | `bae6304f-eac9-4fb8-ae4c-4c6505401387`
 | `context`           | `bd48218a-1c21-4c8e-ac0e-9ea026f2cf4d`
-| `decision`          | `983527aa-8783-4eeb-b0ad-a7c320a1476e`
-| `entity`            | `cdf05c6e-54a4-431d-a76c-f81468f49eed`
 | `eval`              | `2aca4d8b-ec15-4e95-9dcd-78a97b30e321`
 | `eval-run`          | `ddb8b941-8e44-49f8-acd6-614495ac968e`
-| `event`             | `be4c7d08-a061-4631-b41e-defb07559e95`
 | `file`              | `c0f603f1-a3ac-4a7d-b9ac-983822c7304f`
 | `formula`           | `d605ed1b-2c53-44a0-b4ac-3a307b61e82a`
 | `function`          | `3672b0ca-e81f-44b0-92e8-1b3253cbf38a`
 | `grant`             | `89138971-cd16-4c7a-b4cd-669711bfab75`
 | `grid`              | `35b535ad-520d-4570-9a71-b49514e9ae67`
 | `item_history`      | `b81923c7-ecf5-4fef-8588-2d91c3985aea`
-| `note`              | `24dec6ba-d59a-4edf-87c5-9e42e5430d5c`
 | `object`            | `2f866767-7a54-4eb4-a581-8207fafee8c1`
 | `pipeline`          | `90bdc2b2-0963-4ec9-a37c-4b42f724752d`
 | `pipeline-run`      | `ddf28c53-d691-434b-9bcf-bd1997558ad1`
 | `query`             | `1c23396d-c3a0-4f51-9307-a1aecd1f44fa`
-| `question`          | `c6b22329-3521-48f6-a84a-342c69a5fbf7`
 | `reference`         | `cb120719-5a23-4b4f-b614-898f79f1904f`
 | `relationship`      | `334ea5f6-6bfa-43e5-b77f-5d811642d897`
 | `relationship-type` | `15861dd7-e54c-4209-bceb-bdd65de4f472`
 | `runner`            | `bf3592de-7509-486e-ac67-8abfb8a7104b`
 | `subscription`      | `cf066390-a599-4dbe-bc20-491de885cb18`
 | `symlink`           | `9e733cbc-1d2e-4e33-8f0e-9024b5867a64`
-| `task`              | `0735e3c3-ce28-406c-850a-c9e20be70231`
 | `tree`              | `f77bf291-2a0f-4875-92e5-98f6315c9b30`
 | `type`              | `abbd7b52-92aa-4fca-b458-d9c4e1a60061`
 | `view`              | `cfba24ea-be40-46ba-b4db-e15a55af4392`
