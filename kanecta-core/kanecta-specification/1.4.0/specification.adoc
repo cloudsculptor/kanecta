@@ -2780,6 +2780,78 @@ The function or pipeline must not store auth credentials in any created item or 
 . *Refresh*: when a materialized item's `meta.cachedAt` is older than the connector's refresh threshold (derived from `refreshPolicy` and `time.review`), the adapter invokes `fetch` again and updates the payload in place. `meta.cachedAt` is updated; `meta.materialized` remains true.
 . *Write-back*: if `writeBack: true` and the item is modified locally, the adapter queues a `push` invocation. On success, `meta.cachedAt` is updated. On failure, the item is marked with a conflict flag (TBD — conflict resolution is out of scope for 1.4.0).
 
+[#schedulePayload]
+=== schedulePayload
+
+For `type: "schedule"`. Represents a recurring or one-shot execution binding — a cron expression paired with an action (a `function` or `pipeline` item) that the adapter fires on schedule. A `schedule` item is the mechanism by which Kanecta drives time-based automation without requiring an external cron daemon: the adapter's `ScheduleRunner` ticks periodically, queries for overdue schedules, invokes the configured action, and advances the next-fire time.
+
+`schedule` earns built-in status for the same reason `connector` does: the adapter must understand its payload to execute behaviour. A schedule cannot be treated as an opaque blob — the runner must read `cronExpression`, `timezone`, `actionId`, and `actionType` to do its job.
+
+*Relationship to the time section.* Every `schedule` item carries its own temporal state in `meta.dueAt` (the next fire time) rather than in the `time` section. This is intentional: the `time` section is for human-meaningful temporal metadata on any item (deadlines, review cadences, renewal dates). `meta.dueAt` is a first-class indexed column that the scheduler's query hits directly — `WHERE type = 'schedule' AND status = 'active' AND due_at <= NOW()`. This keeps the scheduling query O(due-schedules) rather than requiring a join against the `items_time` table. In a future release, `schedule` items may also accept a `time.main` recurrence rule as an alternative to `cronExpression`, so the time-section scheduler and the schedule-item runner converge; in 1.4.0 they are separate.
+
+*Enable/disable.* The item's `meta.status` field controls whether the schedule fires:
+
+* `"active"` — schedule is live and will fire on its next due time.
+* `"paused"` — schedule is suspended; `meta.dueAt` is preserved so it can be resumed without recomputing the next occurrence from scratch.
+
+*Cron format.* `cronExpression` uses five-field standard cron syntax: `minute hour day-of-month month day-of-week`. No seconds field. Examples: `"0 * * * *"` (every hour on the hour), `"30 2 * * 1"` (02:30 every Monday), `"0 9 1 * *"` (09:00 on the first of every month). The adapter validates the expression at write time and rejects malformed expressions. Timezone-aware parsing uses the IANA timezone database.
+
+*Next fire time.* `meta.dueAt` stores the ISO 8601 UTC timestamp of the next scheduled fire. The adapter computes this when the schedule is first written and after each successful fire. Clients must never write `meta.dueAt` on a `schedule` item — the adapter overwrites it unconditionally based on the `cronExpression` and `timezone`.
+
+*Action invocation.* When the `ScheduleRunner` fires a schedule it calls `runOperation(actionRef, params)` where `actionRef = { type: actionType, id: actionId }` and `params` is the static `params` object merged with `{ scheduleId, targetItemId, firedAt }`. The same `runOperation` abstraction used by `ConnectorEngine` is reused here — the runner itself has no knowledge of whether the action is a function or a pipeline; that is the caller's concern.
+
+*Execution state.* After each fire, the runner updates `schedulePayload.lastFiredAt`, `schedulePayload.lastResult`, and `schedulePayload.lastError` in place. A failed fire (`lastResult: "error"`) does not stop the schedule — the runner logs the failure, advances `meta.dueAt` to the next occurrence, and continues. This matches the behaviour of most cron implementations: a single failed run does not cancel future runs. If the caller wants a schedule to stop on failure, it should disable it via a separate step.
+
+*Missed fires.* The runner queries `due_at <= NOW()` on each tick, which means a schedule missed while the server was down will fire once on the next tick (not once per missed occurrence). This is the standard missed-fire policy for operational cron: fire once, then advance to the next future occurrence. The `lastFiredAt` field records when the action actually ran, which is sufficient for diagnosing outage windows.
+
+.schedulePayload fields
+[cols="20,15,65"]
+|===
+| Field | Type | Description
+
+| `cronExpression`
+| string
+| Five-field cron expression (minute hour day month weekday). Validated at write time; malformed expressions are rejected. Required — a schedule with no expression has no trigger. Example: `"0 3 * * *"` (03:00 every day).
+
+| `timezone`
+| string \| null
+| IANA timezone string for cron evaluation. When null, UTC is used. Example: `"Pacific/Auckland"`. The adapter resolves the timezone when computing `nextFireAt`. Invalid timezone strings are rejected at write time.
+
+| `actionId`
+| UUID
+| The `id` of the `function` or `pipeline` item to invoke when the schedule fires. The referenced item must exist in the same datastore; the runner validates this before firing and records a `"not-found"` error if the action has been deleted.
+
+| `actionType`
+| `"function"` \| `"pipeline"`
+| Discriminator for `actionId`. Required alongside `actionId`. Tells the runner which `runOperation` path to take.
+
+| `targetItemId`
+| UUID \| null
+| Optional UUID of a Kanecta item to pass to the action as context. Injected into `params.targetItemId`. Use this when the schedule drives work on a specific item — e.g. a weekly review schedule targeting a strategy document. Null for schedules that operate globally or need no item context.
+
+| `params`
+| object \| null
+| Static key-value params merged into the invocation alongside the runtime-injected fields (`scheduleId`, `targetItemId`, `firedAt`). Null is equivalent to `{}`. Must be a flat JSON object — nested objects are allowed but the runner does not validate their shape.
+
+| `lastFiredAt`
+| ISO 8601 \| null
+| UTC timestamp of the most recent fire. Null until the schedule has fired at least once. Written by the runner after each fire (success or failure). Never written by the client.
+
+| `lastResult`
+| `"ok"` \| `"error"` \| null
+| Outcome of the most recent fire. Null until first fire. `"ok"` means `runOperation` resolved without throwing. `"error"` means it threw or the action item was not found. Never written by the client.
+
+| `lastError`
+| string \| null
+| The error message from the most recent failed fire. Null when `lastResult` is `"ok"` or null. Truncated to 2 000 characters to prevent very large error payloads bloating the schedule record. Never written by the client.
+
+|===
+
+.Adapter responsibilities for schedule items
+. *Write time*: validate `cronExpression` syntax and `timezone` string. Compute the next fire time after `now` and write it to `meta.dueAt`. Reject if `cronExpression` is absent or malformed. Reject if `actionId` or `actionType` is absent.
+. *Scheduling loop*: periodically query `WHERE type = 'schedule' AND status = 'active' AND due_at <= NOW() AND deleted_at IS NULL`. For each result, load the schedule payload, validate the action item exists, invoke `runOperation`, update `lastFiredAt`/`lastResult`/`lastError`, and advance `meta.dueAt` to the next occurrence after the fire time. If the cron expression produces no future occurrence (e.g. a one-shot expression in the past), set `meta.dueAt = null` and set `meta.status = 'paused'` so the schedule does not fire again.
+. *Tick frequency*: the `ScheduleRunner` is invoked by the host process at whatever interval is appropriate. A one-minute tick is the practical minimum for minute-granularity cron. The runner is idempotent: calling it more frequently than the cron granularity is safe — the `due_at <= NOW()` guard prevents double-firing.
+
 [#pipelines]
 == Pipelines
 

@@ -1137,6 +1137,26 @@ class PostgresAdapter {
     await this._pool.query('UPDATE items SET time_data = NULL WHERE id = $1', [id]);
   }
 
+  async readScheduleJson(id) {
+    const { rows } = await this._pool.query('SELECT schedule_data FROM items WHERE id = $1', [id]);
+    return rows[0]?.schedule_data ?? null;
+  }
+
+  async writeScheduleJson(id, data) {
+    await this._pool.query(
+      'UPDATE items SET schedule_data = $1 WHERE id = $2', [data, id],
+    );
+  }
+
+  // Active schedule items whose next fire time is at or before beforeAt.
+  async listDueSchedules(beforeAt) {
+    const { rows } = await this._pool.query(
+      "SELECT * FROM items WHERE type = 'schedule' AND status = 'active' AND due_at <= $1 AND deleted_at IS NULL",
+      [beforeAt],
+    );
+    return rows.map(r => this.rowToItem(r));
+  }
+
   // ─── Type definitions ─────────────────────────────────────────────────────────
 
   async createType(value, { schema, createdBy, id: explicitId } = {}) {

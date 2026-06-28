@@ -13,7 +13,7 @@ const WELL_KNOWN_ORDER = ['system_root', 'app_root', 'component_root', 'data_roo
 
 const VALID_TYPES = [
   'string', 'number', 'text', 'heading', 'file', 'symlink', 'url', 'image', 'function',
-  'markdown', 'runner', 'object', 'annotation', 'connector',
+  'markdown', 'runner', 'object', 'annotation', 'connector', 'schedule',
   'root', 'system_root', 'app_root', 'component_root', 'data_root',
 ];
 const VALID_CONFIDENCES = ['experimental', 'exploring', 'decided', 'locked', 'low', 'medium', 'high', 'verified'];
@@ -71,7 +71,8 @@ CREATE TABLE IF NOT EXISTS items (
   materialized        INTEGER,
   cached_at           TEXT,
   source_system       TEXT,
-  source_external_id  TEXT
+  source_external_id  TEXT,
+  schedule_data       TEXT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_items_source ON items (source_system, source_external_id)
   WHERE source_system IS NOT NULL AND source_external_id IS NOT NULL;
@@ -168,6 +169,7 @@ class SqliteFsAdapter {
     for (const sql of [
       'ALTER TABLE items ADD COLUMN source_system TEXT',
       'ALTER TABLE items ADD COLUMN source_external_id TEXT',
+      'ALTER TABLE items ADD COLUMN schedule_data TEXT',
     ]) {
       try { this._db.exec(sql); } catch { /* already exists */ }
     }
@@ -780,6 +782,26 @@ class SqliteFsAdapter {
   listDueForRefresh(beforeAt) {
     const rows = this._openDb()
       .prepare('SELECT * FROM items WHERE connector_id IS NOT NULL AND cached_at < ? AND deleted_at IS NULL')
+      .all(beforeAt);
+    return rows.map(r => this._rowToItem(r));
+  }
+
+  readScheduleJson(id) {
+    if (this._isSyntheticId(id)) return null;
+    const row = this._openDb().prepare('SELECT schedule_data FROM items WHERE id = ?').get(id);
+    if (!row || row.schedule_data == null) return null;
+    return JSON.parse(row.schedule_data);
+  }
+
+  writeScheduleJson(id, data) {
+    this._openDb().prepare('UPDATE items SET schedule_data = ? WHERE id = ?').run(JSON.stringify(data), id);
+  }
+
+  // Active schedule items whose next fire time is at or before beforeAt.
+  // Used by ScheduleRunner on each tick.
+  listDueSchedules(beforeAt) {
+    const rows = this._openDb()
+      .prepare("SELECT * FROM items WHERE type = 'schedule' AND status = 'active' AND due_at <= ? AND deleted_at IS NULL")
       .all(beforeAt);
     return rows.map(r => this._rowToItem(r));
   }
