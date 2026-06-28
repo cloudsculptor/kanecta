@@ -1,7 +1,7 @@
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
+const fs     = require('fs');
+const path   = require('path');
 const crypto = require('crypto');
 const Database = require('better-sqlite3');
 const { version: specVersion } = require('@kanecta/specification');
@@ -21,18 +21,22 @@ const VALID_REL_TYPES = [
   'relates-to', 'depends-on', 'enables', 'contradicts',
   'blocks', 'blocked-by', 'prerequisite-for', 'derived-from', 'supersedes',
 ];
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_RE      = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DEFAULT_LICENSE = 'bb3bf137-d8a9-4264-9fb7-ac373b1d4739';
-const LINK_SOURCE = '\\[\\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\\]\\]';
+const LINK_SOURCE  = '\\[\\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\\]\\]';
 
 class UnknownTypeError extends Error {
   constructor(typeName) {
     super(`unknown type "${typeName}" — not a registered type definition`);
-    this.name  = 'UnknownTypeError';
-    this.code  = 'UNKNOWN_TYPE';
+    this.name     = 'UnknownTypeError';
+    this.code     = 'UNKNOWN_TYPE';
     this.typeName = typeName;
   }
 }
+
+// ─── SQLite Schema ────────────────────────────────────────────────────────────
+// index.db mirrors the five-section item.json format across five tables.
+// The filesystem (items/**/*.json) is the source of truth; this is the index.
 
 const SCHEMA_SQL = `
 PRAGMA journal_mode = WAL;
@@ -40,49 +44,86 @@ PRAGMA foreign_keys = ON;
 PRAGMA synchronous  = NORMAL;
 
 CREATE TABLE IF NOT EXISTS items (
-  id            TEXT PRIMARY KEY,
-  spec_version  TEXT NOT NULL DEFAULT '1.4.0',
-  parent_id     TEXT,
-  path          TEXT,
-  value         TEXT,
-  type          TEXT NOT NULL DEFAULT 'text',
-  type_id       TEXT,
-  owner         TEXT,
-  license       TEXT,
-  visibility    TEXT NOT NULL DEFAULT 'private',
-  aspect        TEXT,
-  sort_order    REAL NOT NULL DEFAULT 0,
-  confidence    TEXT,
-  status        TEXT,
-  tags          TEXT NOT NULL DEFAULT '[]',
-  object_data   TEXT,
-  function_data TEXT,
-  time_data     TEXT,
-  icon          TEXT,
-  created_at    TEXT NOT NULL,
-  modified_at   TEXT NOT NULL,
-  created_by    TEXT,
-  modified_by   TEXT,
-  completed_at  TEXT,
-  due_at        TEXT,
-  expires_at    TEXT,
-  deleted_at    TEXT,
-  connector_id        TEXT,
-  materialized        INTEGER,
-  cached_at           TEXT,
-  source_system       TEXT,
-  source_external_id  TEXT,
-  schedule_data       TEXT
+  id           TEXT PRIMARY KEY,
+  parent_id    TEXT,
+  type         TEXT NOT NULL DEFAULT 'text',
+  type_id      TEXT,
+  value        TEXT,
+  sort_order   REAL NOT NULL DEFAULT 0,
+  aspect       TEXT,
+  spec_version TEXT NOT NULL DEFAULT '1.4.0',
+  path         TEXT
 );
-CREATE UNIQUE INDEX IF NOT EXISTS idx_items_source ON items (source_system, source_external_id)
+CREATE INDEX IF NOT EXISTS idx_items_parent  ON items(parent_id);
+CREATE INDEX IF NOT EXISTS idx_items_path    ON items(path);
+CREATE INDEX IF NOT EXISTS idx_items_type    ON items(type);
+CREATE INDEX IF NOT EXISTS idx_items_type_id ON items(type_id);
+
+CREATE TABLE IF NOT EXISTS items_meta (
+  item_id            TEXT PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
+  owner              TEXT,
+  owner_domain       TEXT,
+  namespace          TEXT,
+  copyright_holder   TEXT,
+  license            TEXT,
+  content_hash       TEXT,
+  mirrors            TEXT NOT NULL DEFAULT '[]',
+  same_as            TEXT NOT NULL DEFAULT '[]',
+  visibility         TEXT NOT NULL DEFAULT 'private',
+  confidence         TEXT,
+  status             TEXT,
+  tags               TEXT NOT NULL DEFAULT '[]',
+  template           TEXT,
+  created_at         TEXT NOT NULL,
+  modified_at        TEXT NOT NULL,
+  created_by         TEXT,
+  modified_by        TEXT,
+  completed_at       TEXT,
+  due_at             TEXT,
+  expires_at         TEXT,
+  deleted_at         TEXT,
+  cached_at          TEXT,
+  connector_id       TEXT,
+  materialized       INTEGER,
+  files              TEXT NOT NULL DEFAULT '{}',
+  layer              TEXT,
+  source_system      TEXT,
+  source_external_id TEXT,
+  source_run_id      TEXT,
+  icon               TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_meta_deleted   ON items_meta(deleted_at);
+CREATE INDEX IF NOT EXISTS idx_meta_expires   ON items_meta(expires_at);
+CREATE INDEX IF NOT EXISTS idx_meta_connector ON items_meta(connector_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_meta_source ON items_meta(source_system, source_external_id)
   WHERE source_system IS NOT NULL AND source_external_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_items_parent   ON items(parent_id);
-CREATE INDEX IF NOT EXISTS idx_items_path     ON items(path);
-CREATE INDEX IF NOT EXISTS idx_items_type     ON items(type);
-CREATE INDEX IF NOT EXISTS idx_items_type_id  ON items(type_id);
-CREATE INDEX IF NOT EXISTS idx_items_deleted  ON items(deleted_at);
-CREATE INDEX IF NOT EXISTS idx_items_expires  ON items(expires_at);
-CREATE INDEX IF NOT EXISTS idx_items_aspect   ON items(parent_id, aspect);
+
+CREATE TABLE IF NOT EXISTS items_search (
+  item_id                TEXT PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
+  corpus_hash            TEXT,
+  embedding_model        TEXT,
+  embedding_dimensions   INTEGER,
+  embedding_generated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS items_payload (
+  item_id TEXT PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
+  payload TEXT
+);
+
+CREATE TABLE IF NOT EXISTS items_time (
+  item_id               TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+  key                   TEXT NOT NULL,
+  start_at              TEXT,
+  end_at                TEXT,
+  recurrence_rule       TEXT,
+  recurrence_exceptions TEXT NOT NULL DEFAULT '[]',
+  next_occurrence_at    TEXT,
+  completed_at          TEXT,
+  PRIMARY KEY (item_id, key)
+);
+CREATE INDEX IF NOT EXISTS idx_time_next ON items_time(next_occurrence_at)
+  WHERE next_occurrence_at IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS item_tags (
   item_id TEXT NOT NULL,
@@ -142,11 +183,6 @@ CREATE TABLE IF NOT EXISTS type_defs (
   schema_json   TEXT NOT NULL DEFAULT '{}',
   metadata_json TEXT NOT NULL DEFAULT '{}'
 );
-
-CREATE TABLE IF NOT EXISTS settings (
-  key   TEXT PRIMARY KEY,
-  value TEXT NOT NULL
-);
 `;
 
 class SqliteFsAdapter {
@@ -155,38 +191,101 @@ class SqliteFsAdapter {
     this.k       = path.join(this.root, '.kanecta');
     this._db     = null;
     this._config = null;
+    this._mem    = new Map();
     this._roots  = null;
   }
 
-  // ─── DB lifecycle ─────────────────────────────────────────────────────────
+  // ─── Filesystem helpers ────────────────────────────────────────────────────
+
+  _shard(id) {
+    // 2+2 sharding on the raw hex chars of the UUID (hyphens stripped)
+    const hex = id.replace(/-/g, '');
+    return [hex.slice(0, 2), hex.slice(2, 4)];
+  }
+
+  _itemDir(id) {
+    const [s1, s2] = this._shard(id);
+    return path.join(this.k, 'items', s1, s2, id);
+  }
+
+  _itemPath(id) {
+    return path.join(this._itemDir(id), 'item.json');
+  }
+
+  _readItemJson(id) {
+    const p = this._itemPath(id);
+    try { return JSON.parse(fs.readFileSync(p, 'utf8')); }
+    catch { return null; }
+  }
+
+  // Atomic write: temp file + rename so item.json is never partially written.
+  _writeItemJson(id, doc) {
+    const dir = this._itemDir(id);
+    fs.mkdirSync(dir, { recursive: true });
+    const p   = this._itemPath(id);
+    const tmp = p + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(doc, null, 2), 'utf8');
+    fs.renameSync(tmp, p);
+  }
+
+  _deleteItemDir(id) {
+    const dir = this._itemDir(id);
+    if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
+  }
+
+  // Walk every item.json under items/ (or a custom dir).
+  * _scanItemFiles(baseDir) {
+    if (!fs.existsSync(baseDir)) return;
+    for (const s1 of fs.readdirSync(baseDir).sort()) {
+      const d1 = path.join(baseDir, s1);
+      if (!fs.statSync(d1).isDirectory()) continue;
+      for (const s2 of fs.readdirSync(d1).sort()) {
+        const d2 = path.join(d1, s2);
+        if (!fs.statSync(d2).isDirectory()) continue;
+        for (const uuid of fs.readdirSync(d2).sort()) {
+          const itemJson = path.join(d2, uuid, 'item.json');
+          if (fs.existsSync(itemJson)) yield itemJson;
+        }
+      }
+    }
+  }
+
+  // ─── DB lifecycle ──────────────────────────────────────────────────────────
 
   _openDb() {
     if (this._db) return this._db;
-    const dbPath = path.join(this.k, 'kanecta.db');
+    const dbPath = path.join(this.k, 'index.db');
     this._db = new Database(dbPath);
     this._db.exec(SCHEMA_SQL);
-    // Additive column migrations — safe to re-run; catch duplicate-column errors
-    for (const sql of [
-      'ALTER TABLE items ADD COLUMN source_system TEXT',
-      'ALTER TABLE items ADD COLUMN source_external_id TEXT',
-      'ALTER TABLE items ADD COLUMN schedule_data TEXT',
-    ]) {
-      try { this._db.exec(sql); } catch { /* already exists */ }
-    }
     return this._db;
   }
 
   static isDatastore(root) {
-    return fs.existsSync(path.join(root, '.kanecta', 'kanecta.db'));
+    return fs.existsSync(path.join(root, '.kanecta', 'items'));
   }
 
   static init(root, owner) {
-    fs.mkdirSync(path.join(root, '.kanecta'), { recursive: true });
-    const adapter = new SqliteFsAdapter(root);
+    const k = path.join(root, '.kanecta');
+    fs.mkdirSync(path.join(k, 'items'), { recursive: true });
+    fs.writeFileSync(path.join(k, '.gitignore'), 'index.db\n', 'utf8');
+
+    const adapter   = new SqliteFsAdapter(root);
+    const now       = new Date().toISOString();
+    const rootPayload = {
+      owner, specVersion: '1.4.0', itemHistory: 'NONE', activity: 'NONE',
+    };
+
+    const rootDoc = adapter._buildDoc(
+      { id: ROOT_ID, parentId: ROOT_ID, type: 'root', typeId: null, value: 'root', sortOrder: 0, aspect: null },
+      { specVersion: '1.4.0', owner, license: DEFAULT_LICENSE, visibility: 'private', confidence: null, status: null, tags: [], createdAt: now, modifiedAt: now, createdBy: owner, modifiedBy: owner, completedAt: null, dueAt: null, expiresAt: null, deletedAt: null, cachedAt: null, connectorId: null, materialized: null, files: {}, layer: 'system', sourceSystem: null, sourceExternalId: null },
+      rootPayload, null, null,
+    );
+    adapter._writeItemJson(ROOT_ID, rootDoc);
+    adapter._config = { owner, specVersion: '1.4.0' };
+
     const db = adapter._openDb();
-    const cfg = { owner, specVersion: '1.4.0' };
-    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('app', ?)").run(JSON.stringify(cfg));
-    adapter._config = cfg;
+    adapter._insertIndexTx(db, ROOT_ID, rootDoc, ROOT_ID);
+
     adapter._initRoots();
     adapter.create({ value: 'Welcome to Kanecta!', type: 'text', owner });
     return adapter;
@@ -195,28 +294,326 @@ class SqliteFsAdapter {
   static open(root) {
     if (!SqliteFsAdapter.isDatastore(root)) throw new Error(`Not a Kanecta datastore: ${root}`);
     const adapter = new SqliteFsAdapter(root);
-    adapter._openDb();
-    adapter._initRoots();
+    const db      = adapter._openDb();
+    // If index is empty (e.g. after git clone / index.db deleted), rebuild.
+    const cnt = db.prepare('SELECT COUNT(*) AS n FROM items').get();
+    if (!cnt || cnt.n === 0) adapter._rebuildFromFs(db);
+    adapter._loadRoots();
     return adapter;
   }
 
+  // ─── Config (lives in root item's payload) ─────────────────────────────────
+
   get config() {
-    if (!this._config) {
-      const row = this._openDb().prepare("SELECT value FROM settings WHERE key = 'app'").get();
-      if (!row) throw new Error(`Not a Kanecta datastore: ${this.root}`);
-      this._config = JSON.parse(row.value);
-    }
+    if (this._config) return this._config;
+    const doc = this._readItemJson(ROOT_ID);
+    if (!doc) throw new Error(`Not a Kanecta datastore: ${this.root}`);
+    const p = doc.payload || {};
+    this._config = {
+      owner:        p.owner     || doc.meta?.owner || 'unknown',
+      specVersion:  p.specVersion || '1.4.0',
+      relTypes:     Array.isArray(p.relTypes) ? p.relTypes : [],
+      strictTypeIds: p.strictTypeIds || false,
+      itemHistory:  p.itemHistory || 'NONE',
+      activity:     p.activity   || 'NONE',
+    };
     return this._config;
   }
 
   _saveConfig() {
-    this._openDb().prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('app', ?)").run(JSON.stringify(this._config));
+    const doc = this._readItemJson(ROOT_ID);
+    if (!doc) return;
+    doc.payload = { ...(doc.payload || {}), ...this._config };
+    doc.meta.modifiedAt = new Date().toISOString();
+    this._writeItemJson(ROOT_ID, doc);
+    const db = this._openDb();
+    const payloadStr = JSON.stringify(doc.payload);
+    const row = db.prepare('SELECT item_id FROM items_payload WHERE item_id = ?').get(ROOT_ID);
+    if (row) db.prepare('UPDATE items_payload SET payload = ? WHERE item_id = ?').run(payloadStr, ROOT_ID);
+    else     db.prepare('INSERT INTO items_payload (item_id, payload) VALUES (?, ?)').run(ROOT_ID, payloadStr);
+    this._mem.delete(ROOT_ID);
   }
 
-  // ─── Materialized path helpers ────────────────────────────────────────────
-  // Path = slash-separated UUID chain from root to node: "root-id/parent-id/node-id"
-  // Enables O(1) subtree reads: WHERE path LIKE parentPath || '/%'
-  // Ancestor lookup: WHERE ? LIKE path || '/%' (target's path starts with ancestor's path)
+  // ─── Document ↔ item conversion ────────────────────────────────────────────
+
+  // Build a five-section doc from separate pieces.
+  _buildDoc(itemSection, metaSection, payload, time, search) {
+    return { item: itemSection, meta: metaSection, search: search ?? null, payload: payload ?? null, time: time ?? null };
+  }
+
+  // Five-section doc → flat item object (what the public API returns).
+  _docToItem(doc) {
+    if (!doc?.item || !doc?.meta) return null;
+    const { item, meta } = doc;
+    let icon = meta.icon ?? null;
+    return {
+      id:               item.id,
+      specVersion:      meta.specVersion || specVersion,
+      parentId:         item.parentId,
+      value:            item.value ?? null,
+      type:             item.type,
+      typeId:           item.typeId ?? null,
+      owner:            meta.owner ?? null,
+      license:          meta.license ?? null,
+      visibility:       meta.visibility || 'private',
+      aspect:           item.aspect ?? null,
+      sortOrder:        item.sortOrder ?? 0,
+      confidence:       meta.confidence ?? null,
+      status:           meta.status ?? null,
+      tags:             Array.isArray(meta.tags) ? meta.tags : [],
+      createdAt:        meta.createdAt,
+      modifiedAt:       meta.modifiedAt,
+      createdBy:        meta.createdBy ?? null,
+      modifiedBy:       meta.modifiedBy ?? null,
+      completedAt:      meta.completedAt ?? null,
+      dueAt:            meta.dueAt ?? null,
+      expiresAt:        meta.expiresAt ?? null,
+      deletedAt:        meta.deletedAt ?? null,
+      cachedAt:         meta.cachedAt ?? null,
+      connectorId:      meta.connectorId ?? null,
+      materialized:     meta.materialized ?? null,
+      layer:            meta.layer ?? null,
+      sourceSystem:     meta.sourceSystem ?? null,
+      sourceExternalId: meta.sourceExternalId ?? null,
+      files:            meta.files ?? {},
+      icon,
+    };
+  }
+
+  // Flat item object → five-section doc, preserving existing payload/time/search.
+  _itemToDoc(item, existingDoc = null) {
+    return {
+      item: {
+        id:        item.id,
+        parentId:  item.parentId,
+        type:      item.type,
+        typeId:    item.typeId ?? null,
+        value:     item.value ?? null,
+        sortOrder: item.sortOrder ?? 0,
+        aspect:    item.aspect ?? null,
+      },
+      meta: {
+        specVersion:      item.specVersion || specVersion,
+        owner:            item.owner ?? null,
+        license:          item.license ?? null,
+        visibility:       item.visibility || 'private',
+        confidence:       item.confidence ?? null,
+        status:           item.status ?? null,
+        tags:             Array.isArray(item.tags) ? item.tags : [],
+        createdAt:        item.createdAt,
+        modifiedAt:       item.modifiedAt,
+        createdBy:        item.createdBy ?? null,
+        modifiedBy:       item.modifiedBy ?? null,
+        completedAt:      item.completedAt ?? null,
+        dueAt:            item.dueAt ?? null,
+        expiresAt:        item.expiresAt ?? null,
+        deletedAt:        item.deletedAt ?? null,
+        cachedAt:         item.cachedAt ?? null,
+        connectorId:      item.connectorId ?? null,
+        materialized:     item.materialized ?? null,
+        files:            item.files ?? {},
+        layer:            item.layer ?? null,
+        sourceSystem:     item.sourceSystem ?? null,
+        sourceExternalId: item.sourceExternalId ?? null,
+        icon:             item.icon ?? null,
+      },
+      search:  existingDoc?.search  ?? null,
+      payload: existingDoc?.payload ?? null,
+      time:    existingDoc?.time    ?? null,
+    };
+  }
+
+  // DB row (items JOIN items_meta) → flat item object.
+  _rowToItem(row) {
+    if (!row) return null;
+    return {
+      id:               row.id,
+      specVersion:      row.spec_version || specVersion,
+      parentId:         row.parent_id,
+      value:            row.value,
+      type:             row.type,
+      typeId:           row.type_id ?? null,
+      owner:            row.owner ?? null,
+      license:          row.license ?? null,
+      visibility:       row.visibility || 'private',
+      aspect:           row.aspect ?? null,
+      sortOrder:        row.sort_order ?? 0,
+      confidence:       row.confidence ?? null,
+      status:           row.status ?? null,
+      tags:             row.tags ? JSON.parse(row.tags) : [],
+      createdAt:        row.created_at,
+      modifiedAt:       row.modified_at,
+      createdBy:        row.created_by ?? null,
+      modifiedBy:       row.modified_by ?? null,
+      completedAt:      row.completed_at ?? null,
+      dueAt:            row.due_at ?? null,
+      expiresAt:        row.expires_at ?? null,
+      deletedAt:        row.deleted_at ?? null,
+      cachedAt:         row.cached_at ?? null,
+      connectorId:      row.connector_id ?? null,
+      materialized:     row.materialized === null ? null : (row.materialized === 0 ? false : true),
+      layer:            row.layer ?? null,
+      sourceSystem:     row.source_system ?? null,
+      sourceExternalId: row.source_external_id ?? null,
+      files:            row.files ? JSON.parse(row.files) : {},
+      icon:             row.icon ?? null,
+    };
+  }
+
+  // ─── Index helpers ─────────────────────────────────────────────────────────
+
+  _insertIndexTx(db, id, doc, itemPath) {
+    const { item, meta, search, payload, time } = doc;
+    const tags = Array.isArray(meta.tags) ? meta.tags : [];
+
+    db.prepare(`
+      INSERT OR REPLACE INTO items (id, parent_id, type, type_id, value, sort_order, aspect, spec_version, path)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, item.parentId, item.type, item.typeId ?? null, item.value ?? null,
+           item.sortOrder ?? 0, item.aspect ?? null, meta.specVersion || specVersion, itemPath ?? null);
+
+    db.prepare(`
+      INSERT OR REPLACE INTO items_meta
+        (item_id, owner, license, visibility, confidence, status, tags, created_at, modified_at,
+         created_by, modified_by, completed_at, due_at, expires_at, deleted_at, cached_at,
+         connector_id, materialized, files, layer, source_system, source_external_id, icon)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id, meta.owner ?? null, meta.license ?? null, meta.visibility || 'private',
+      meta.confidence ?? null, meta.status ?? null, JSON.stringify(tags),
+      meta.createdAt, meta.modifiedAt, meta.createdBy ?? null, meta.modifiedBy ?? null,
+      meta.completedAt ?? null, meta.dueAt ?? null, meta.expiresAt ?? null, meta.deletedAt ?? null,
+      meta.cachedAt ?? null, meta.connectorId ?? null,
+      meta.materialized === null || meta.materialized === undefined ? null : (meta.materialized ? 1 : 0),
+      JSON.stringify(meta.files ?? {}), meta.layer ?? null,
+      meta.sourceSystem ?? null, meta.sourceExternalId ?? null, meta.icon ?? null,
+    );
+
+    if (payload != null) {
+      db.prepare('INSERT OR REPLACE INTO items_payload (item_id, payload) VALUES (?, ?)').run(id, JSON.stringify(payload));
+    }
+
+    if (search != null) {
+      db.prepare(`
+        INSERT OR REPLACE INTO items_search (item_id, corpus_hash, embedding_model, embedding_dimensions, embedding_generated_at)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(id, search.corpusHash ?? null, search.embedding?.model ?? null,
+             search.embedding?.dimensions ?? null, search.embedding?.generatedAt ?? null);
+    }
+
+    if (time != null) {
+      db.prepare('DELETE FROM items_time WHERE item_id = ?').run(id);
+      const ins = db.prepare(`
+        INSERT INTO items_time (item_id, key, start_at, end_at, recurrence_rule, recurrence_exceptions, next_occurrence_at, completed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      for (const [key, entry] of Object.entries(time)) {
+        if (!entry) continue;
+        ins.run(id, key, entry.startAt ?? null, entry.endAt ?? null, entry.recurrenceRule ?? null,
+                JSON.stringify(entry.recurrenceExceptions ?? []), entry.nextOccurrenceAt ?? null, entry.completedAt ?? null);
+      }
+    }
+
+    // Tags and backlinks
+    for (const tag of tags)
+      db.prepare('INSERT OR IGNORE INTO item_tags (item_id, tag) VALUES (?, ?)').run(id, tag);
+
+    for (const link of this._parseLinks(item.value))
+      db.prepare('INSERT OR IGNORE INTO backlinks (source_id, target_id) VALUES (?, ?)').run(id, link);
+  }
+
+  _updateIndexMeta(db, id, meta, tags) {
+    db.prepare(`
+      UPDATE items_meta SET
+        owner = ?, license = ?, visibility = ?, confidence = ?, status = ?, tags = ?,
+        modified_at = ?, modified_by = ?, completed_at = ?, due_at = ?, expires_at = ?,
+        deleted_at = ?, cached_at = ?, connector_id = ?, materialized = ?,
+        files = ?, layer = ?, source_system = ?, source_external_id = ?, icon = ?
+      WHERE item_id = ?
+    `).run(
+      meta.owner ?? null, meta.license ?? null, meta.visibility || 'private',
+      meta.confidence ?? null, meta.status ?? null, JSON.stringify(tags),
+      meta.modifiedAt, meta.modifiedBy ?? null, meta.completedAt ?? null,
+      meta.dueAt ?? null, meta.expiresAt ?? null, meta.deletedAt ?? null,
+      meta.cachedAt ?? null, meta.connectorId ?? null,
+      meta.materialized === null || meta.materialized === undefined ? null : (meta.materialized ? 1 : 0),
+      JSON.stringify(meta.files ?? {}), meta.layer ?? null,
+      meta.sourceSystem ?? null, meta.sourceExternalId ?? null, meta.icon ?? null,
+      id,
+    );
+  }
+
+  // Full JOIN query for a single item (items + items_meta).
+  _getRow(db, id) {
+    return db.prepare(`
+      SELECT i.*, m.owner, m.license, m.visibility, m.confidence, m.status, m.tags,
+             m.created_at, m.modified_at, m.created_by, m.modified_by,
+             m.completed_at, m.due_at, m.expires_at, m.deleted_at, m.cached_at,
+             m.connector_id, m.materialized, m.files, m.layer,
+             m.source_system, m.source_external_id, m.icon
+      FROM items i LEFT JOIN items_meta m ON m.item_id = i.id
+      WHERE i.id = ?
+    `).get(id);
+  }
+
+  // ─── Index rebuild from filesystem ────────────────────────────────────────
+
+  _rebuildFromFs(db) {
+    const itemsDir = path.join(this.k, 'items');
+    // First pass: read all item.json files and collect items
+    const docs = [];
+    for (const jsonPath of this._scanItemFiles(itemsDir)) {
+      try {
+        const doc = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+        if (doc?.item?.id) docs.push(doc);
+      } catch { /* skip corrupt files */ }
+    }
+
+    // Compute materialized paths in parent→child order
+    const parentMap = new Map();
+    for (const doc of docs) {
+      const id = doc.item.id;
+      const pid = doc.item.parentId;
+      if (id !== pid) {
+        if (!parentMap.has(pid)) parentMap.set(pid, []);
+        parentMap.get(pid).push(id);
+      }
+    }
+    const docById = new Map(docs.map(d => [d.item.id, d]));
+    const paths   = new Map();
+
+    const computePath = (id, parentPath) => {
+      const p = parentPath ? `${parentPath}/${id}` : id;
+      paths.set(id, p);
+      for (const childId of (parentMap.get(id) || [])) computePath(childId, p);
+    };
+    computePath(ROOT_ID, null);
+    // Handle any items not reachable from root (orphans get path = their own id)
+    for (const doc of docs) {
+      if (!paths.has(doc.item.id)) paths.set(doc.item.id, doc.item.id);
+    }
+
+    db.transaction(() => {
+      for (const doc of docs) {
+        const id = doc.item.id;
+        this._insertIndexTx(db, id, doc, paths.get(id) ?? id);
+      }
+    })();
+  }
+
+  // ─── History ───────────────────────────────────────────────────────────────
+
+  _snapshot(db, item, changeType, changedBy, now) {
+    db.prepare(
+      'INSERT INTO history (item_id, change_type, snapshot, changed_at, changed_by) VALUES (?, ?, ?, ?, ?)'
+    ).run(
+      item.id, changeType,
+      JSON.stringify({ ...item, snapshotAt: now.toISOString(), changedBy, changeType }),
+      now.toISOString(), changedBy,
+    );
+  }
+
+  // ─── Materialized path helpers ─────────────────────────────────────────────
 
   _getPath(id) {
     const row = this._openDb().prepare('SELECT path FROM items WHERE id = ?').get(id);
@@ -228,94 +625,15 @@ class SqliteFsAdapter {
     return (p.match(/\//g) || []).length;
   }
 
-  // Rewrite path of id and all its descendants when the node moves to a new parent.
   _cascadePathUpdate(db, id, newPath) {
     const oldPath = this._getPath(id);
-    if (!oldPath) {
-      db.prepare('UPDATE items SET path = ? WHERE id = ?').run(newPath, id);
-      return;
-    }
-    // Update the node itself
     db.prepare('UPDATE items SET path = ? WHERE id = ?').run(newPath, id);
-    // Update all descendants: replace old-path prefix with new-path in each path string.
-    // Using SUBSTR(path, oldPath.length + 2) to get the suffix after "oldPath/"
-    const oldPrefix = oldPath + '/';
-    db.prepare(
-      `UPDATE items SET path = ? || '/' || SUBSTR(path, ?) WHERE path LIKE ?`
-    ).run(newPath, oldPrefix.length + 1, oldPrefix + '%');
-  }
-
-  // ─── Row ↔ item conversion ─────────────────────────────────────────────────
-
-  _rowToItem(row) {
-    if (!row) return null;
-    const item = {
-      id:           row.id,
-      specVersion:  row.spec_version,
-      parentId:     row.parent_id,
-      value:        row.value,
-      type:         row.type,
-      typeId:       row.type_id,
-      owner:        row.owner,
-      license:      row.license,
-      visibility:   row.visibility,
-      aspect:       row.aspect,
-      sortOrder:    row.sort_order,
-      confidence:   row.confidence,
-      status:       row.status,
-      tags:         JSON.parse(row.tags || '[]'),
-      createdAt:    row.created_at,
-      modifiedAt:   row.modified_at,
-      createdBy:    row.created_by,
-      modifiedBy:   row.modified_by,
-      completedAt:  row.completed_at,
-      dueAt:        row.due_at,
-      expiresAt:    row.expires_at,
-      deletedAt:    row.deleted_at,
-      connectorId:       row.connector_id,
-      materialized:      row.materialized === null ? null : (row.materialized === 0 ? false : true),
-      cachedAt:          row.cached_at,
-      sourceSystem:      row.source_system ?? null,
-      sourceExternalId:  row.source_external_id ?? null,
-    };
-    if (row.icon) item.icon = row.icon;
-    return item;
-  }
-
-  _itemToCols(item) {
-    return {
-      id:           item.id,
-      spec_version: item.specVersion || specVersion,
-      parent_id:    item.parentId ?? null,
-      path:         item._path ?? null,
-      value:        item.value ?? null,
-      type:         item.type,
-      type_id:      item.typeId ?? null,
-      owner:        item.owner ?? null,
-      license:      item.license ?? null,
-      visibility:   item.visibility || 'private',
-      aspect:       item.aspect ?? null,
-      sort_order:   item.sortOrder ?? 0,
-      confidence:   item.confidence ?? null,
-      status:       item.status ?? null,
-      tags:         JSON.stringify(item.tags || []),
-      icon:         item.icon ?? null,
-      created_at:   item.createdAt,
-      modified_at:  item.modifiedAt,
-      created_by:   item.createdBy ?? null,
-      modified_by:  item.modifiedBy ?? null,
-      completed_at: item.completedAt ?? null,
-      due_at:       item.dueAt ?? null,
-      expires_at:   item.expiresAt ?? null,
-      deleted_at:   item.deletedAt ?? null,
-      connector_id:       item.connectorId ?? null,
-      materialized:       item.materialized === null || item.materialized === undefined
-        ? null
-        : (item.materialized ? 1 : 0),
-      cached_at:          item.cachedAt ?? null,
-      source_system:      item.sourceSystem ?? null,
-      source_external_id: item.sourceExternalId ?? null,
-    };
+    if (oldPath) {
+      const oldPrefix = oldPath + '/';
+      db.prepare(
+        `UPDATE items SET path = ? || '/' || SUBSTR(path, ?) WHERE path LIKE ?`
+      ).run(newPath, oldPrefix.length + 1, oldPrefix + '%');
+    }
   }
 
   // ─── Synthetic node helpers ────────────────────────────────────────────────
@@ -341,14 +659,14 @@ class SqliteFsAdapter {
       confidence: null, status: null, tags: [],
       createdAt: null, modifiedAt: null, createdBy: null, modifiedBy: null,
       cachedAt: null, expiresAt: null, deletedAt: null, connectorId: null,
-      materialized: null, completedAt: null, dueAt: null,
+      materialized: null, completedAt: null, dueAt: null, files: {}, icon: null,
       _synthetic: true, _fieldPath: fieldPath, _realId: realId,
       childCount: isNull ? 0 : isObj ? Object.keys(val).length : 1,
     };
   }
 
   _buildValueLeaf(realId, parentFieldPath, val) {
-    const isArr   = Array.isArray(val);
+    const isArr    = Array.isArray(val);
     const parentId = parentFieldPath ? `${realId}__${parentFieldPath}` : realId;
     return {
       id: `${realId}__${parentFieldPath}.__`, parentId,
@@ -357,7 +675,7 @@ class SqliteFsAdapter {
       confidence: null, status: null, tags: [],
       createdAt: null, modifiedAt: null, createdBy: null, modifiedBy: null,
       cachedAt: null, expiresAt: null, deletedAt: null, connectorId: null,
-      materialized: null, completedAt: null, dueAt: null,
+      materialized: null, completedAt: null, dueAt: null, files: {}, icon: null,
       _synthetic: true, _fieldPath: `${parentFieldPath}.__`, _realId: realId,
       childCount: 0,
     };
@@ -381,18 +699,6 @@ class SqliteFsAdapter {
     return [...links];
   }
 
-  // ─── History ───────────────────────────────────────────────────────────────
-
-  _snapshot(item, changeType, changedBy, now) {
-    this._openDb().prepare(
-      'INSERT INTO history (item_id, change_type, snapshot, changed_at, changed_by) VALUES (?, ?, ?, ?, ?)'
-    ).run(
-      item.id, changeType,
-      JSON.stringify({ ...item, snapshotAt: now.toISOString(), changedBy, changeType }),
-      now.toISOString(), changedBy,
-    );
-  }
-
   // ─── Well-known root nodes ─────────────────────────────────────────────────
 
   _createWellKnownNode(id, parentId, type, sortOrder) {
@@ -405,19 +711,24 @@ class SqliteFsAdapter {
       aspect: null, sortOrder, confidence: null, status: null, tags: [],
       createdAt: now.toISOString(), modifiedAt: now.toISOString(),
       createdBy: owner, modifiedBy: owner,
-      cachedAt: null, expiresAt: null, deletedAt: null,
-      connectorId: null, materialized: null, completedAt: null, dueAt: null,
+      cachedAt: null, expiresAt: null, deletedAt: null, connectorId: null,
+      materialized: null, completedAt: null, dueAt: null, files: {}, layer: 'system',
+      sourceSystem: null, sourceExternalId: null,
     };
-    // Root node is its own parent — path = just its own id.
-    const parentPath = id === parentId ? null : this._getPath(parentId);
-    item._path = parentPath != null ? `${parentPath}/${id}` : id;
 
-    const cols = this._itemToCols(item);
-    const keys = Object.keys(cols);
-    this._openDb().prepare(
-      `INSERT INTO items (${keys.join(', ')}) VALUES (${keys.map(() => '?').join(', ')})`
-    ).run(...Object.values(cols));
-    this._snapshot(item, 'create', owner, now);
+    const parentPath = id === parentId ? null : this._getPath(parentId);
+    const itemPath   = parentPath != null ? `${parentPath}/${id}` : id;
+
+    const doc = this._itemToDoc(item);
+    this._writeItemJson(id, doc);
+
+    const db = this._openDb();
+    db.transaction(() => {
+      this._insertIndexTx(db, id, doc, itemPath);
+      this._snapshot(db, item, 'create', owner, now);
+    })();
+
+    this._mem.set(id, item);
     return item;
   }
 
@@ -433,7 +744,7 @@ class SqliteFsAdapter {
   _loadRoots() {
     const rootItem = this.get(ROOT_ID);
     const children = this.children(ROOT_ID);
-    this._roots = { root: rootItem };
+    this._roots    = { root: rootItem };
     for (const c of children) {
       if (WELL_KNOWN_TYPES.has(c.type)) this._roots[c.type] = c;
     }
@@ -446,6 +757,8 @@ class SqliteFsAdapter {
 
   getRoot()     { return this._getRoots().root; }
   getDataRoot() { return this._getRoots().data_root || null; }
+
+  // ─── Guard helpers ─────────────────────────────────────────────────────────
 
   _assertEditable(item, id) {
     if (!item) throw new Error(`Item not found: ${id}`);
@@ -486,6 +799,20 @@ class SqliteFsAdapter {
       sortOrder = siblings.length === 0 ? 0 : Math.max(...siblings.map(s => s.sortOrder)) + 1;
     }
 
+    let typeWarning = null;
+    if (type === 'object' && typeId && this._getTypeName(typeId) === null)
+      typeWarning = this._guardTypeIdRef(typeId, strict);
+
+    let resolvedIcon = null;
+    if (type === 'object' && typeId) {
+      const tr = this._openDb().prepare('SELECT schema_json FROM type_defs WHERE id = ?').get(typeId);
+      if (tr) {
+        try { resolvedIcon = JSON.parse(tr.schema_json)?.meta?.icon || null; } catch {}
+      }
+    }
+
+    const resolvedPayload = (type === 'object' && typeId) ? (objectData ?? {}) : null;
+
     const item = {
       id, specVersion, parentId, value, type,
       typeId: type === 'object' ? (typeId || null) : null,
@@ -496,46 +823,25 @@ class SqliteFsAdapter {
       createdBy: actor, modifiedBy: actor,
       cachedAt: null, expiresAt: null, deletedAt: null,
       connectorId: null, materialized: null, completedAt: null, dueAt,
-      sourceSystem: null, sourceExternalId: null,
+      layer: null, sourceSystem: null, sourceExternalId: null, files: {}, icon: resolvedIcon,
     };
 
-    let typeWarning = null;
-    if (type === 'object' && typeId && this._getTypeName(typeId) === null)
-      typeWarning = this._guardTypeIdRef(typeId, strict);
-
-    // Resolve icon from type schema
-    let resolvedIcon = null;
-    if (type === 'object' && typeId) {
-      const tr = this._openDb().prepare('SELECT schema_json FROM type_defs WHERE id = ?').get(typeId);
-      if (tr) {
-        const schema = JSON.parse(tr.schema_json || '{}');
-        resolvedIcon = schema?.meta?.icon || null;
-      }
-    }
-
-    const resolvedObjectData = (type === 'object' && typeId) ? (objectData ?? {}) : null;
-
-    // Materialized path: parent's path + "/" + this id.
     const parentPath = this._getPath(parentId);
-    item._path = parentPath != null ? `${parentPath}/${id}` : id;
+    const itemPath   = parentPath != null ? `${parentPath}/${id}` : id;
+
+    const doc = this._itemToDoc(item);
+    doc.payload = resolvedPayload;
+
+    // Write file FIRST, then update index.
+    this._writeItemJson(id, doc);
 
     const db = this._openDb();
     db.transaction(() => {
-      const cols = this._itemToCols({ ...item, icon: resolvedIcon });
-      // object_data is already null in cols; overwrite if needed
-      cols.object_data = resolvedObjectData !== null ? JSON.stringify(resolvedObjectData) : null;
-      const keys = Object.keys(cols);
-      db.prepare(
-        `INSERT INTO items (${keys.join(', ')}) VALUES (${keys.map(() => '?').join(', ')})`
-      ).run(...Object.values(cols));
-
-      for (const link of this._parseLinks(value))
-        db.prepare('INSERT OR IGNORE INTO backlinks (source_id, target_id) VALUES (?, ?)').run(id, link);
-      for (const tag of tags)
-        db.prepare('INSERT OR IGNORE INTO item_tags (item_id, tag) VALUES (?, ?)').run(id, tag);
-
-      this._snapshot(item, 'create', actor, now);
+      this._insertIndexTx(db, id, doc, itemPath);
+      this._snapshot(db, item, 'create', actor, now);
     })();
+
+    this._mem.set(id, item);
 
     if (typeWarning)
       Object.defineProperty(item, 'warning', { value: typeWarning, enumerable: false, configurable: true });
@@ -575,8 +881,23 @@ class SqliteFsAdapter {
       return this._buildSyntheticNode(realId, parentId, key, val, fieldPath, 0);
     }
 
-    const row = this._openDb().prepare('SELECT * FROM items WHERE id = ?').get(id);
-    return this._rowToItem(row);
+    // 1. Memory cache
+    if (this._mem.has(id)) return this._mem.get(id);
+
+    // 2. Index
+    const row = this._getRow(this._openDb(), id);
+    if (row) {
+      const item = this._rowToItem(row);
+      this._mem.set(id, item);
+      return item;
+    }
+
+    // 3. Filesystem fallback (e.g. during reconcile or after git branch switch)
+    const doc = this._readItemJson(id);
+    if (!doc) return null;
+    const item = this._docToItem(doc);
+    if (item) this._mem.set(id, item);
+    return item;
   }
 
   resolveAlias(alias) {
@@ -605,30 +926,21 @@ class SqliteFsAdapter {
       typeWarning = this._guardTypeIdRef(prospectiveTypeId, strict);
 
     actor = actor || this.config.owner;
-    const now = new Date();
-
+    const now     = new Date();
     const updated = { ...current };
 
     const oldLinks = this._parseLinks(current.value);
     const newLinks = 'value' in changes ? this._parseLinks(changes.value) : oldLinks;
-    if ('value' in changes)     updated.value      = changes.value;
-    if ('parentId' in changes)  updated.parentId   = changes.parentId;
-    if ('sortOrder' in changes) updated.sortOrder  = changes.sortOrder;
-    if ('confidence' in changes) updated.confidence = changes.confidence;
-    if ('status' in changes)    updated.status     = changes.status;
-    if ('license' in changes)   updated.license    = changes.license;
-    if ('visibility' in changes) updated.visibility = changes.visibility;
-    if ('aspect' in changes)    updated.aspect     = changes.aspect;
-    if ('cachedAt' in changes)  updated.cachedAt   = changes.cachedAt;
-    if ('expiresAt' in changes) updated.expiresAt  = changes.expiresAt;
-    if ('connectorId' in changes) updated.connectorId = changes.connectorId;
-    if ('materialized' in changes) updated.materialized = changes.materialized;
-    if ('completedAt' in changes) updated.completedAt = changes.completedAt;
-    if ('dueAt' in changes)     updated.dueAt      = changes.dueAt;
-    if ('deletedAt' in changes)       updated.deletedAt       = changes.deletedAt;
-    if ('tags' in changes)            updated.tags            = changes.tags;
-    if ('sourceSystem' in changes)    updated.sourceSystem    = changes.sourceSystem;
-    if ('sourceExternalId' in changes) updated.sourceExternalId = changes.sourceExternalId;
+
+    const SCALAR_FIELDS = [
+      'value', 'parentId', 'sortOrder', 'confidence', 'status', 'license',
+      'visibility', 'aspect', 'cachedAt', 'expiresAt', 'connectorId',
+      'materialized', 'completedAt', 'dueAt', 'deletedAt', 'tags',
+      'sourceSystem', 'sourceExternalId', 'layer',
+    ];
+    for (const f of SCALAR_FIELDS) {
+      if (f in changes) updated[f] = changes[f];
+    }
 
     if ('type' in changes && changes.type !== current.type) {
       updated.type   = changes.type;
@@ -640,25 +952,43 @@ class SqliteFsAdapter {
     updated.modifiedAt = now.toISOString();
     updated.modifiedBy = actor;
 
+    // Read existing doc to preserve payload/time/search sections.
+    const existingDoc = this._readItemJson(id);
+    const newDoc      = this._itemToDoc(updated, existingDoc);
+
+    // Write file FIRST.
+    this._writeItemJson(id, newDoc);
+    this._mem.delete(id);
+
     const db = this._openDb();
     db.transaction(() => {
-      this._snapshot(current, 'update', actor, now);
+      this._snapshot(db, current, 'update', actor, now);
 
-      // Update icon if typeId changed
+      // Icon update
       let newIcon = current.icon || null;
       if (updated.typeId && updated.typeId !== current.typeId) {
         const tr = db.prepare('SELECT schema_json FROM type_defs WHERE id = ?').get(updated.typeId);
         if (tr) {
-          const schema = JSON.parse(tr.schema_json || '{}');
-          newIcon = schema?.meta?.icon || null;
+          try { newIcon = JSON.parse(tr.schema_json)?.meta?.icon || null; } catch {}
         }
       }
+      updated.icon = newIcon;
 
-      // Backlink maintenance
+      // Update items table
+      db.prepare(`
+        UPDATE items SET parent_id = ?, type = ?, type_id = ?, value = ?, sort_order = ?, aspect = ?
+        WHERE id = ?
+      `).run(updated.parentId, updated.type, updated.typeId ?? null, updated.value ?? null,
+             updated.sortOrder ?? 0, updated.aspect ?? null, id);
+
+      // Update meta table
+      this._updateIndexMeta(db, id, newDoc.meta, updated.tags || []);
+
+      // Backlinks
       for (const l of oldLinks) if (!newLinks.includes(l)) db.prepare('DELETE FROM backlinks WHERE source_id = ? AND target_id = ?').run(id, l);
       for (const l of newLinks) if (!oldLinks.includes(l)) db.prepare('INSERT OR IGNORE INTO backlinks (source_id, target_id) VALUES (?, ?)').run(id, l);
 
-      // Tag maintenance
+      // Tags
       if ('tags' in changes) {
         const oldTags = current.tags || [];
         const newTags = changes.tags;
@@ -666,19 +996,15 @@ class SqliteFsAdapter {
         for (const t of newTags) if (!oldTags.includes(t)) db.prepare('INSERT OR IGNORE INTO item_tags (item_id, tag) VALUES (?, ?)').run(id, t);
       }
 
-      // Materialized path — cascade if parent changed
-      let newPath = this._getPath(id);
+      // Materialized path cascade
       if ('parentId' in changes && changes.parentId !== current.parentId) {
         const parentPath = this._getPath(changes.parentId);
-        newPath = parentPath != null ? `${parentPath}/${id}` : id;
+        const newPath    = parentPath != null ? `${parentPath}/${id}` : id;
         this._cascadePathUpdate(db, id, newPath);
       }
-
-      const cols = this._itemToCols({ ...updated, icon: newIcon, _path: newPath });
-      const setClauses = Object.keys(cols).filter(k => k !== 'id').map(k => `${k} = ?`).join(', ');
-      const vals       = Object.entries(cols).filter(([k]) => k !== 'id').map(([, v]) => v);
-      db.prepare(`UPDATE items SET ${setClauses} WHERE id = ?`).run(...vals, id);
     })();
+
+    this._mem.set(id, updated);
 
     if (typeWarning)
       Object.defineProperty(updated, 'warning', { value: typeWarning, enumerable: false, configurable: true });
@@ -690,8 +1016,8 @@ class SqliteFsAdapter {
     const bl   = this.backlinks(id);
     const rels = this.relationships(id);
     const w    = [];
-    if (bl.length)                    w.push(`${bl.length} item(s) link to this via [[uuid]] syntax`);
-    if ((rels.inbound || []).length)  w.push(`${rels.inbound.length} inbound relationship(s) point to this item`);
+    if (bl.length)                   w.push(`${bl.length} item(s) link to this via [[uuid]] syntax`);
+    if ((rels.inbound || []).length) w.push(`${rels.inbound.length} inbound relationship(s) point to this item`);
     return w;
   }
 
@@ -703,13 +1029,21 @@ class SqliteFsAdapter {
     const now      = new Date();
     const warnings = this.deleteWarnings(id);
 
+    // Delete file.
+    this._deleteItemDir(id);
+    this._mem.delete(id);
+
     const db = this._openDb();
     db.transaction(() => {
-      this._snapshot(item, 'delete', actor, now);
-      db.prepare('DELETE FROM item_tags   WHERE item_id = ?').run(id);
-      db.prepare('DELETE FROM backlinks   WHERE source_id = ? OR target_id = ?').run(id, id);
+      this._snapshot(db, item, 'delete', actor, now);
+      db.prepare('DELETE FROM item_tags    WHERE item_id = ?').run(id);
+      db.prepare('DELETE FROM backlinks    WHERE source_id = ? OR target_id = ?').run(id, id);
       db.prepare('DELETE FROM relationships WHERE source_id = ? OR target_id = ?').run(id, id);
-      db.prepare('DELETE FROM items       WHERE id = ?').run(id);
+      db.prepare('DELETE FROM items_meta   WHERE item_id = ?').run(id);
+      db.prepare('DELETE FROM items_payload WHERE item_id = ?').run(id);
+      db.prepare('DELETE FROM items_search WHERE item_id = ?').run(id);
+      db.prepare('DELETE FROM items_time   WHERE item_id = ?').run(id);
+      db.prepare('DELETE FROM items        WHERE id = ?').run(id);
     })();
 
     return { warnings };
@@ -719,114 +1053,170 @@ class SqliteFsAdapter {
     const item = this.get(id);
     this._assertEditable(item, id);
     actor = actor || this.config.owner;
-    const now = new Date();
-    const db  = this._openDb();
+    const now     = new Date();
+    const updated = { ...item, deletedAt: now.toISOString(), modifiedAt: now.toISOString(), modifiedBy: actor };
+
+    const existingDoc = this._readItemJson(id);
+    const newDoc      = this._itemToDoc(updated, existingDoc);
+    this._writeItemJson(id, newDoc);
+    this._mem.delete(id);
+
+    const db = this._openDb();
     db.transaction(() => {
-      this._snapshot(item, 'soft-delete', actor, now);
-      db.prepare('UPDATE items SET deleted_at = ?, modified_at = ?, modified_by = ? WHERE id = ?')
+      this._snapshot(db, item, 'soft-delete', actor, now);
+      db.prepare('UPDATE items_meta SET deleted_at = ?, modified_at = ?, modified_by = ? WHERE item_id = ?')
         .run(now.toISOString(), now.toISOString(), actor, id);
     })();
-    return { ...item, deletedAt: now.toISOString(), modifiedAt: now.toISOString(), modifiedBy: actor };
+
+    return updated;
   }
 
   restore(id, actor) {
     const item = this.get(id);
     if (!item) throw new Error(`Item not found: ${id}`);
     actor = actor || this.config.owner;
-    const now = new Date();
-    const db  = this._openDb();
+    const now     = new Date();
+    const updated = { ...item, deletedAt: null, modifiedAt: now.toISOString(), modifiedBy: actor };
+
+    const existingDoc = this._readItemJson(id);
+    const newDoc      = this._itemToDoc(updated, existingDoc);
+    this._writeItemJson(id, newDoc);
+    this._mem.delete(id);
+
+    const db = this._openDb();
     db.transaction(() => {
-      this._snapshot(item, 'restore', actor, now);
-      db.prepare('UPDATE items SET deleted_at = NULL, modified_at = ?, modified_by = ? WHERE id = ?')
+      this._snapshot(db, item, 'restore', actor, now);
+      db.prepare('UPDATE items_meta SET deleted_at = NULL, modified_at = ?, modified_by = ? WHERE item_id = ?')
         .run(now.toISOString(), actor, id);
     })();
-    return { ...item, deletedAt: null, modifiedAt: now.toISOString(), modifiedBy: actor };
+
+    return updated;
   }
 
-  // ─── JSON sidecars (stored in columns) ────────────────────────────────────
+  // ─── Payload sidecars (read/write item.json payload section) ──────────────
 
   readObjectJson(id) {
     if (this._isSyntheticId(id)) return null;
-    const row = this._openDb().prepare('SELECT object_data FROM items WHERE id = ?').get(id);
-    if (!row || row.object_data == null) return null;
-    return JSON.parse(row.object_data);
+    const doc = this._readItemJson(id);
+    if (!doc) return null;
+    return doc.payload ?? null;
   }
 
   writeObjectJson(id, data) {
-    this._openDb().prepare('UPDATE items SET object_data = ? WHERE id = ?').run(JSON.stringify(data), id);
+    const doc = this._readItemJson(id);
+    if (!doc) throw new Error(`Item not found: ${id}`);
+    doc.payload = data;
+    this._writeItemJson(id, doc);
+    const db = this._openDb();
+    const row = db.prepare('SELECT item_id FROM items_payload WHERE item_id = ?').get(id);
+    if (row) db.prepare('UPDATE items_payload SET payload = ? WHERE item_id = ?').run(JSON.stringify(data), id);
+    else     db.prepare('INSERT INTO items_payload (item_id, payload) VALUES (?, ?)').run(id, JSON.stringify(data));
+    this._mem.delete(id);
   }
 
   readFunctionJson(id) {
     if (this._isSyntheticId(id)) return null;
-    const row = this._openDb().prepare('SELECT function_data FROM items WHERE id = ?').get(id);
-    if (!row || row.function_data == null) return null;
-    return JSON.parse(row.function_data);
+    const doc = this._readItemJson(id);
+    return doc?.payload ?? null;
   }
 
   writeFunctionJson(id, data) {
-    this._openDb().prepare('UPDATE items SET function_data = ? WHERE id = ?').run(JSON.stringify(data), id);
-  }
-
-  // ─── Connector queries ────────────────────────────────────────────────────
-
-  // All stub items (materialized=false) managed by a specific connector.
-  listStubs(connectorId) {
-    const rows = this._openDb()
-      .prepare('SELECT * FROM items WHERE connector_id = ? AND materialized = 0 AND deleted_at IS NULL')
-      .all(connectorId);
-    return rows.map(r => this._rowToItem(r));
-  }
-
-  // All connector-managed items whose cached_at is older than beforeAt.
-  // Used by ConnectorEngine to drive scheduled refresh.
-  listDueForRefresh(beforeAt) {
-    const rows = this._openDb()
-      .prepare('SELECT * FROM items WHERE connector_id IS NOT NULL AND cached_at < ? AND deleted_at IS NULL')
-      .all(beforeAt);
-    return rows.map(r => this._rowToItem(r));
+    this.writeObjectJson(id, data);
   }
 
   readScheduleJson(id) {
     if (this._isSyntheticId(id)) return null;
-    const row = this._openDb().prepare('SELECT schedule_data FROM items WHERE id = ?').get(id);
-    if (!row || row.schedule_data == null) return null;
-    return JSON.parse(row.schedule_data);
+    const doc = this._readItemJson(id);
+    return doc?.payload ?? null;
   }
 
   writeScheduleJson(id, data) {
-    this._openDb().prepare('UPDATE items SET schedule_data = ? WHERE id = ?').run(JSON.stringify(data), id);
+    this.writeObjectJson(id, data);
   }
 
-  // Active schedule items whose next fire time is at or before beforeAt.
-  // Used by ScheduleRunner on each tick.
   listDueSchedules(beforeAt) {
-    const rows = this._openDb()
-      .prepare("SELECT * FROM items WHERE type = 'schedule' AND status = 'active' AND due_at <= ? AND deleted_at IS NULL")
-      .all(beforeAt);
+    const rows = this._openDb().prepare(`
+      SELECT i.*, m.owner, m.license, m.visibility, m.confidence, m.status, m.tags,
+             m.created_at, m.modified_at, m.created_by, m.modified_by,
+             m.completed_at, m.due_at, m.expires_at, m.deleted_at, m.cached_at,
+             m.connector_id, m.materialized, m.files, m.layer,
+             m.source_system, m.source_external_id, m.icon
+      FROM items i LEFT JOIN items_meta m ON m.item_id = i.id
+      WHERE i.type = 'schedule' AND m.status = 'active' AND m.due_at <= ? AND m.deleted_at IS NULL
+    `).all(beforeAt);
     return rows.map(r => this._rowToItem(r));
   }
 
   readTimeJson(id) {
     if (this._isSyntheticId(id)) return null;
-    const row = this._openDb().prepare('SELECT time_data FROM items WHERE id = ?').get(id);
-    if (!row || row.time_data == null) return null;
-    return JSON.parse(row.time_data);
+    const doc = this._readItemJson(id);
+    return doc?.time ?? null;
   }
 
   writeTimeJson(id, data) {
-    this._openDb().prepare('UPDATE items SET time_data = ? WHERE id = ?').run(JSON.stringify(data), id);
+    const doc = this._readItemJson(id);
+    if (!doc) throw new Error(`Item not found: ${id}`);
+    doc.time = data;
+    this._writeItemJson(id, doc);
+    const db = this._openDb();
+    db.prepare('DELETE FROM items_time WHERE item_id = ?').run(id);
+    if (data) {
+      const ins = db.prepare(`
+        INSERT INTO items_time (item_id, key, start_at, end_at, recurrence_rule, recurrence_exceptions, next_occurrence_at, completed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      for (const [key, entry] of Object.entries(data)) {
+        if (!entry) continue;
+        ins.run(id, key, entry.startAt ?? null, entry.endAt ?? null, entry.recurrenceRule ?? null,
+                JSON.stringify(entry.recurrenceExceptions ?? []), entry.nextOccurrenceAt ?? null, entry.completedAt ?? null);
+      }
+    }
+    this._mem.delete(id);
   }
 
   deleteTimeJson(id) {
-    this._openDb().prepare('UPDATE items SET time_data = NULL WHERE id = ?').run(id);
+    const doc = this._readItemJson(id);
+    if (!doc) return;
+    doc.time = null;
+    this._writeItemJson(id, doc);
+    this._openDb().prepare('DELETE FROM items_time WHERE item_id = ?').run(id);
+    this._mem.delete(id);
+  }
+
+  // ─── Connector queries ─────────────────────────────────────────────────────
+
+  listStubs(connectorId) {
+    const rows = this._openDb().prepare(`
+      SELECT i.*, m.owner, m.license, m.visibility, m.confidence, m.status, m.tags,
+             m.created_at, m.modified_at, m.created_by, m.modified_by,
+             m.completed_at, m.due_at, m.expires_at, m.deleted_at, m.cached_at,
+             m.connector_id, m.materialized, m.files, m.layer,
+             m.source_system, m.source_external_id, m.icon
+      FROM items i LEFT JOIN items_meta m ON m.item_id = i.id
+      WHERE m.connector_id = ? AND m.materialized = 0 AND m.deleted_at IS NULL
+    `).all(connectorId);
+    return rows.map(r => this._rowToItem(r));
+  }
+
+  listDueForRefresh(beforeAt) {
+    const rows = this._openDb().prepare(`
+      SELECT i.*, m.owner, m.license, m.visibility, m.confidence, m.status, m.tags,
+             m.created_at, m.modified_at, m.created_by, m.modified_by,
+             m.completed_at, m.due_at, m.expires_at, m.deleted_at, m.cached_at,
+             m.connector_id, m.materialized, m.files, m.layer,
+             m.source_system, m.source_external_id, m.icon
+      FROM items i LEFT JOIN items_meta m ON m.item_id = i.id
+      WHERE m.connector_id IS NOT NULL AND m.cached_at < ? AND m.deleted_at IS NULL
+    `).all(beforeAt);
+    return rows.map(r => this._rowToItem(r));
   }
 
   // ─── File store stubs ──────────────────────────────────────────────────────
 
-  putFile()   { throw new Error('putFile is not supported in sqlite-fs mode'); }
-  getFile()   { return null; }
-  deleteFile(){}
-  listFiles() { return []; }
+  putFile()    { throw new Error('putFile is not supported in sqlite-fs mode'); }
+  getFile()    { return null; }
+  deleteFile() {}
+  listFiles()  { return []; }
 
   // ─── Type definitions ─────────────────────────────────────────────────────
 
@@ -880,8 +1270,8 @@ class SqliteFsAdapter {
     const effectiveStrict = strict !== undefined ? !!strict : !!this.config.strictTypeIds;
     if (effectiveStrict) {
       const err = new Error(`unknown typeId "${typeId}" — no registered type definition`);
-      err.name  = 'UnknownTypeError';
-      err.code  = 'UNKNOWN_TYPE';
+      err.name   = 'UnknownTypeError';
+      err.code   = 'UNKNOWN_TYPE';
       err.typeId = typeId;
       throw err;
     }
@@ -956,7 +1346,7 @@ class SqliteFsAdapter {
       if (!/^[a-z][a-z0-9-]*$/.test(n))
         throw new Error(`Invalid relationship type name: "${n}" (use a lowercase slug, e.g. "affects")`);
     }
-    const cfg     = this.config;
+    const cfg      = this.config;
     const builtins = new Set(VALID_REL_TYPES);
     const existing = Array.isArray(cfg.relTypes) ? cfg.relTypes : [];
     cfg.relTypes   = [...new Set([...existing, ...list.filter(n => !builtins.has(n))])];
@@ -1017,11 +1407,18 @@ class SqliteFsAdapter {
       .map(r => r.id);
   }
 
-  // ─── Tree ──────────────────────────────────────────────────────────────────
-
   loadAll() {
-    return this._openDb().prepare('SELECT * FROM items').all().map(r => this._rowToItem(r));
+    return this._openDb().prepare(`
+      SELECT i.*, m.owner, m.license, m.visibility, m.confidence, m.status, m.tags,
+             m.created_at, m.modified_at, m.created_by, m.modified_by,
+             m.completed_at, m.due_at, m.expires_at, m.deleted_at, m.cached_at,
+             m.connector_id, m.materialized, m.files, m.layer,
+             m.source_system, m.source_external_id, m.icon
+      FROM items i LEFT JOIN items_meta m ON m.item_id = i.id
+    `).all().map(r => this._rowToItem(r));
   }
+
+  // ─── Tree ──────────────────────────────────────────────────────────────────
 
   children(parentId, aspect = null) {
     if (this._isSyntheticId(parentId)) {
@@ -1041,10 +1438,20 @@ class SqliteFsAdapter {
       return [this._buildValueLeaf(realId, fieldPath, cur)];
     }
 
-    const db = this._openDb();
-    const rows = aspect === null || aspect === undefined
-      ? db.prepare('SELECT * FROM items WHERE parent_id = ? AND id != parent_id AND aspect IS NULL ORDER BY sort_order').all(parentId)
-      : db.prepare('SELECT * FROM items WHERE parent_id = ? AND id != parent_id AND aspect = ? ORDER BY sort_order').all(parentId, aspect);
+    const db  = this._openDb();
+    const sql = `
+      SELECT i.*, m.owner, m.license, m.visibility, m.confidence, m.status, m.tags,
+             m.created_at, m.modified_at, m.created_by, m.modified_by,
+             m.completed_at, m.due_at, m.expires_at, m.deleted_at, m.cached_at,
+             m.connector_id, m.materialized, m.files, m.layer,
+             m.source_system, m.source_external_id, m.icon
+      FROM items i LEFT JOIN items_meta m ON m.item_id = i.id
+      WHERE i.parent_id = ? AND i.id != i.parent_id AND i.aspect ${aspect === null || aspect === undefined ? 'IS NULL' : '= ?'}
+      ORDER BY i.sort_order
+    `;
+    const rows = (aspect === null || aspect === undefined)
+      ? db.prepare(sql).all(parentId)
+      : db.prepare(sql).all(parentId, aspect);
     const realChildren = rows.map(r => this._rowToItem(r));
 
     const obj = this.readObjectJson(parentId);
@@ -1052,12 +1459,6 @@ class SqliteFsAdapter {
     return [...this._buildSyntheticChildren(parentId, obj, parentId), ...realChildren];
   }
 
-  // Fast subtree read using the materialized path index.
-  // Instead of loadAll() + in-memory filter, we do a single indexed SQL range scan:
-  //   WHERE path = rootPath OR path LIKE rootPath || '/%'
-  // For maxDepth limits we add a depth check in SQL (avoids loading and discarding deep rows).
-  // Results are then topologically sorted by parent+sortOrder in JS — the SQL scan is the
-  // hot path; the JS sort is O(n log n) on just the subtree, not the full datastore.
   tree(rootId, maxDepth = Infinity) {
     let implicitRoot = false;
     const db = this._openDb();
@@ -1069,34 +1470,32 @@ class SqliteFsAdapter {
       implicitRoot = true;
     }
 
-    // Get the root's materialized path so we can do a prefix scan.
     const rootRow = db.prepare('SELECT path FROM items WHERE id = ?').get(rootId);
-    if (!rootRow?.path && !implicitRoot) {
-      // No path yet (e.g. item was created without path column); fall back to full scan.
-      return this._treeSlow(rootId, maxDepth, implicitRoot);
-    }
+    if (!rootRow?.path && !implicitRoot) return this._treeSlow(rootId, maxDepth, implicitRoot);
 
     const rootPath  = rootRow?.path ?? rootId;
     const rootDepth = (rootPath.match(/\//g) || []).length;
 
-    // Fetch only the subtree — SQL range scan on the path index.
+    const joinSql = `
+      SELECT i.*, m.owner, m.license, m.visibility, m.confidence, m.status, m.tags,
+             m.created_at, m.modified_at, m.created_by, m.modified_by,
+             m.completed_at, m.due_at, m.expires_at, m.deleted_at, m.cached_at,
+             m.connector_id, m.materialized, m.files, m.layer,
+             m.source_system, m.source_external_id, m.icon
+      FROM items i LEFT JOIN items_meta m ON m.item_id = i.id
+    `;
+
     let rows;
     if (maxDepth === Infinity) {
-      rows = db.prepare(
-        'SELECT * FROM items WHERE path = ? OR path LIKE ?'
-      ).all(rootPath, rootPath + '/%');
+      rows = db.prepare(joinSql + ' WHERE i.path = ? OR i.path LIKE ?').all(rootPath, rootPath + '/%');
     } else {
-      // SQLite: count slashes via length(path) - length(replace(path,'/',''))
-      rows = db.prepare(
-        `SELECT * FROM items WHERE (path = ? OR path LIKE ?)
-         AND (length(path) - length(replace(path, '/', ''))) <= ?`
+      rows = db.prepare(joinSql + ` WHERE (i.path = ? OR i.path LIKE ?)
+        AND (length(i.path) - length(replace(i.path, '/', ''))) <= ?`
       ).all(rootPath, rootPath + '/%', rootDepth + maxDepth);
     }
 
     const subtreeItems = rows.map(r => this._rowToItem(r));
-
-    // Build a by-parent map (sorted by sortOrder) and traverse depth-first.
-    const byParent = new Map();
+    const byParent     = new Map();
     for (const item of subtreeItems) {
       if (item.id === item.parentId) continue;
       if (!byParent.has(item.parentId)) byParent.set(item.parentId, []);
@@ -1133,7 +1532,6 @@ class SqliteFsAdapter {
     return result;
   }
 
-  // Fallback for items missing a path (e.g. migrated datastores).
   _treeSlow(rootId, maxDepth, implicitRoot) {
     const all      = this.loadAll();
     const byParent = new Map();
@@ -1160,24 +1558,25 @@ class SqliteFsAdapter {
     return result;
   }
 
-  // Fast ancestor chain for a given item (ordered root → parent, excludes self).
   ancestors(id) {
     const row = this._openDb().prepare('SELECT path FROM items WHERE id = ?').get(id);
     if (!row?.path) return [];
-    const segments = row.path.split('/');
-    // All segments except the last (which is `id` itself) = ancestor IDs.
-    const ancestorIds = segments.slice(0, -1);
+    const ancestorIds = row.path.split('/').slice(0, -1);
     if (!ancestorIds.length) return [];
     const placeholders = ancestorIds.map(() => '?').join(', ');
-    const rows = this._openDb().prepare(
-      `SELECT * FROM items WHERE id IN (${placeholders})`
-    ).all(...ancestorIds);
+    const rows = this._openDb().prepare(`
+      SELECT i.*, m.owner, m.license, m.visibility, m.confidence, m.status, m.tags,
+             m.created_at, m.modified_at, m.created_by, m.modified_by,
+             m.completed_at, m.due_at, m.expires_at, m.deleted_at, m.cached_at,
+             m.connector_id, m.materialized, m.files, m.layer,
+             m.source_system, m.source_external_id, m.icon
+      FROM items i LEFT JOIN items_meta m ON m.item_id = i.id
+      WHERE i.id IN (${placeholders})
+    `).all(...ancestorIds);
     const byId = new Map(rows.map(r => [r.id, this._rowToItem(r)]));
-    // Return in root-to-parent order (same as path segment order).
     return ancestorIds.map(aid => byId.get(aid)).filter(Boolean);
   }
 
-  // Fast subtree item count — just a COUNT(*) on the path index.
   subtreeCount(rootId) {
     const row = this._openDb().prepare('SELECT path FROM items WHERE id = ?').get(rootId);
     if (!row?.path) return 0;
@@ -1187,28 +1586,26 @@ class SqliteFsAdapter {
     return r?.cnt ?? 0;
   }
 
+  // ─── Query ─────────────────────────────────────────────────────────────────
+
   _evaluatePredicate(fieldValue, op, expectedValue) {
     switch (op) {
       case '=':        return fieldValue === expectedValue;
       case '!=':       return fieldValue !== expectedValue;
-      case 'in':
-        if (!Array.isArray(expectedValue)) return false;
-        return expectedValue.includes(fieldValue);
+      case 'in':       return Array.isArray(expectedValue) && expectedValue.includes(fieldValue);
       case 'contains':
-        if (typeof fieldValue === 'string') {
-          if (typeof expectedValue === 'string') return fieldValue.toLowerCase().includes(expectedValue.toLowerCase());
-          return false;
-        } else if (Array.isArray(fieldValue)) {
+        if (typeof fieldValue === 'string')
+          return typeof expectedValue === 'string' && fieldValue.toLowerCase().includes(expectedValue.toLowerCase());
+        if (Array.isArray(fieldValue))
           return fieldValue.some(v =>
             typeof v === 'string' && typeof expectedValue === 'string'
               ? v.toLowerCase().includes(expectedValue.toLowerCase())
-              : v === expectedValue
+              : v === expectedValue,
           );
-        }
         return false;
-      case '>':        return fieldValue > expectedValue;
-      case '<':        return fieldValue < expectedValue;
-      default:         return false;
+      case '>':  return fieldValue > expectedValue;
+      case '<':  return fieldValue < expectedValue;
+      default:   return false;
     }
   }
 
@@ -1216,17 +1613,14 @@ class SqliteFsAdapter {
     type, where, rootId, sort, limit, strictTypes,
     includeDeleted = false, excludeExpired = false, expiredOnly = false,
   } = {}) {
-    let items      = this.loadAll();
+    let items       = this.loadAll();
     let typeWarning = null;
 
     if (!includeDeleted) items = items.filter(i => i.deletedAt == null);
 
     const now = new Date().toISOString();
-    if (expiredOnly) {
-      items = items.filter(i => i.expiresAt != null && i.expiresAt <= now);
-    } else if (excludeExpired) {
-      items = items.filter(i => i.expiresAt == null || i.expiresAt > now);
-    }
+    if (expiredOnly)       items = items.filter(i => i.expiresAt != null && i.expiresAt <= now);
+    else if (excludeExpired) items = items.filter(i => i.expiresAt == null || i.expiresAt > now);
 
     if (rootId) {
       const byP = new Map();
@@ -1236,11 +1630,7 @@ class SqliteFsAdapter {
         byP.get(item.parentId).push(item.id);
       }
       const subtree = new Set();
-      const walk    = (id) => {
-        if (subtree.has(id)) return;
-        subtree.add(id);
-        for (const c of (byP.get(id) || [])) walk(c);
-      };
+      const walk    = (id) => { if (subtree.has(id)) return; subtree.add(id); for (const c of (byP.get(id) || [])) walk(c); };
       walk(rootId);
       items = items.filter(i => subtree.has(i.id));
     }
@@ -1258,17 +1648,16 @@ class SqliteFsAdapter {
       }
     }
 
-    const hasWhere = where && Object.keys(where).length > 0;
     items = items.map(item => {
       if (item.type === 'object') return { ...item, objectData: this.readObjectJson(item.id) };
       return item;
     });
 
-    if (hasWhere) {
+    if (where && Object.keys(where).length > 0) {
       items = items.filter(item => {
         if (item.type !== 'object' || !item.objectData) return false;
         for (const [field, predicate] of Object.entries(where)) {
-          const fieldValue   = item.objectData[field];
+          const fieldValue = item.objectData[field];
           let op = '=', expectedValue = predicate;
           if (predicate !== null && typeof predicate === 'object' && 'op' in predicate && 'value' in predicate) {
             op = predicate.op; expectedValue = predicate.value;
@@ -1279,16 +1668,16 @@ class SqliteFsAdapter {
       });
     }
 
-    if (sort && sort.field) {
+    if (sort?.field) {
       const { field, dir = 'asc' } = sort;
       const isDesc = dir.toLowerCase() === 'desc';
       items.sort((a, b) => {
-        let vA = a[field] ?? a.objectData?.[field];
-        let vB = b[field] ?? b.objectData?.[field];
-        if (vA === undefined || vA === null) return isDesc ? -1 :  1;
-        if (vB === undefined || vB === null) return isDesc ?  1 : -1;
-        if (vA < vB) return isDesc ?  1 : -1;
-        if (vA > vB) return isDesc ? -1 :  1;
+        const vA = a[field] ?? a.objectData?.[field];
+        const vB = b[field] ?? b.objectData?.[field];
+        if (vA == null) return isDesc ? -1 :  1;
+        if (vB == null) return isDesc ?  1 : -1;
+        if (vA < vB)   return isDesc ?  1 : -1;
+        if (vA > vB)   return isDesc ? -1 :  1;
         return 0;
       });
     }
@@ -1303,25 +1692,27 @@ class SqliteFsAdapter {
     return items;
   }
 
-  // ─── Index maintenance ─────────────────────────────────────────────────────
+  // ─── Index maintenance ────────────────────────────────────────────────────
 
+  // Rebuild the SQLite index entirely from the filesystem.
   rebuildIndexes() {
-    const db  = this._openDb();
-    const all = db.prepare('SELECT * FROM items').all().map(r => this._rowToItem(r));
+    const db = this._openDb();
     db.transaction(() => {
+      db.prepare('DELETE FROM items_time').run();
+      db.prepare('DELETE FROM items_search').run();
+      db.prepare('DELETE FROM items_payload').run();
+      db.prepare('DELETE FROM items_meta').run();
       db.prepare('DELETE FROM item_tags').run();
       db.prepare('DELETE FROM backlinks').run();
-      const insTag  = db.prepare('INSERT OR IGNORE INTO item_tags (item_id, tag) VALUES (?, ?)');
-      const insLink = db.prepare('INSERT OR IGNORE INTO backlinks (source_id, target_id) VALUES (?, ?)');
-      for (const item of all) {
-        for (const tag  of (item.tags || []))           insTag.run(item.id, tag);
-        for (const link of this._parseLinks(item.value)) insLink.run(item.id, link);
-      }
+      db.prepare('DELETE FROM items').run();
+      this._rebuildFromFs(db);
     })();
-    return all.length;
+    this._mem.clear();
+    const cnt = db.prepare('SELECT COUNT(*) AS n FROM items').get();
+    return cnt?.n ?? 0;
   }
 
-  // ─── Integrity checks ──────────────────────────────────────────────────────
+  // ─── Integrity checks ─────────────────────────────────────────────────────
 
   checkIntegrity({ checks } = {}) {
     const wanted   = Array.isArray(checks) && checks.length ? new Set(checks) : null;
@@ -1341,6 +1732,18 @@ class SqliteFsAdapter {
             nodeId: item.id, typeId: item.typeId,
             message: `object ${item.id} references typeId ${item.typeId}, which has no type definition`,
             fix: 'register the missing type definition, or remove/retype the node',
+          });
+        }
+      }
+    }
+    if (run('missing-item-file')) {
+      for (const item of this.loadAll()) {
+        if (!fs.existsSync(this._itemPath(item.id))) {
+          findings.push({
+            check: 'missing-item-file', severity: 'error',
+            nodeId: item.id,
+            message: `item ${item.id} is in index but has no item.json on disk`,
+            fix: 'run rebuildIndexes() to re-sync index from filesystem',
           });
         }
       }

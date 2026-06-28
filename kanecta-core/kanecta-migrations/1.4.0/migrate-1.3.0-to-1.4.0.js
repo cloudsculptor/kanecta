@@ -5,29 +5,28 @@
  * Kanecta datastore migration: v1.3.0 → v1.4.0
  *
  * Reads a 1.3.0 filesystem datastore (.kanecta/data/, .kanecta/types/,
- * .kanecta/relationships/, .kanecta/config/) and writes a 1.4.0 SQLite
- * datastore (.kanecta/kanecta.db).
+ * .kanecta/relationships/, .kanecta/config/) and writes a 1.4.0 filesystem
+ * datastore (.kanecta/items/<s1>/<s2>/<uuid>/item.json).
+ *
+ * The filesystem is the source of truth. After migration, open the datastore
+ * with the 1.4.0 adapter — it will build index.db automatically from the
+ * item.json files on first open.
  *
  * Usage:
  *   node migrate-1.3.0-to-1.4.0.js <datastore-path> [--dry-run] [--force]
  *
- * --dry-run  Report what would change without writing kanecta.db.
- * --force    Re-run even if kanecta.db already exists (overwrites it).
+ * --dry-run  Report what would change without writing any files.
+ * --force    Re-run even if items/ already exists (overwrites existing item.json files).
  *
- * Safe to re-run with --force — the old kanecta.db is replaced atomically.
- * The original .kanecta/ JSON files are NOT deleted — the old adapter cannot
- * open a SQLite-based 1.4.0 datastore, but they serve as a backup until you
- * have verified the migration. Delete them manually once satisfied.
+ * Safe to re-run with --force — each item.json is written atomically.
+ * The original .kanecta/ JSON files are NOT deleted — they remain as backup
+ * until you have verified the migration. Delete data/, types/, relationships/,
+ * and config/ manually once satisfied.
  */
 
-const fs      = require('fs');
-const path    = require('path');
-const crypto  = require('crypto');
-
-// better-sqlite3 is a dependency of kanecta-sqlite-fs; require it from there.
-const Database = require(
-  path.resolve(__dirname, '../../kanecta-storage-adapters/kanecta-sqlite-fs/node_modules/better-sqlite3'),
-);
+const fs     = require('fs');
+const path   = require('path');
+const crypto = require('crypto');
 
 // ─── CLI ─────────────────────────────────────────────────────────────────────
 
@@ -46,148 +45,64 @@ if (!fs.existsSync(kanectaDir)) {
   process.exit(1);
 }
 
-const dbPath    = path.join(kanectaDir, 'kanecta.db');
-const dbPathTmp = dbPath + '.migration-tmp';
+const itemsDir = path.join(kanectaDir, 'items');
 
-if (fs.existsSync(dbPath) && !FORCE) {
-  console.log('Already migrated — kanecta.db exists. Run with --force to overwrite.');
+if (fs.existsSync(itemsDir) && !FORCE) {
+  console.log('Already migrated — items/ directory exists. Run with --force to overwrite.');
   process.exit(0);
 }
 
-// ─── Schema ──────────────────────────────────────────────────────────────────
-// Mirrors the SCHEMA_SQL in kanecta-sqlite-fs/src/adapter.js.
-// Keep in sync if that schema changes.
+// ─── Constants ───────────────────────────────────────────────────────────────
 
-const SCHEMA_SQL = `
-PRAGMA journal_mode = WAL;
-PRAGMA foreign_keys = OFF;
-PRAGMA synchronous  = NORMAL;
-
-CREATE TABLE IF NOT EXISTS items (
-  id            TEXT PRIMARY KEY,
-  spec_version  TEXT NOT NULL DEFAULT '1.4.0',
-  parent_id     TEXT,
-  path          TEXT,
-  value         TEXT,
-  type          TEXT NOT NULL DEFAULT 'text',
-  type_id       TEXT,
-  owner         TEXT,
-  license       TEXT,
-  visibility    TEXT NOT NULL DEFAULT 'private',
-  aspect        TEXT,
-  sort_order    REAL NOT NULL DEFAULT 0,
-  confidence    TEXT,
-  status        TEXT,
-  tags          TEXT NOT NULL DEFAULT '[]',
-  object_data   TEXT,
-  function_data TEXT,
-  time_data     TEXT,
-  icon          TEXT,
-  created_at    TEXT NOT NULL,
-  modified_at   TEXT NOT NULL,
-  created_by    TEXT,
-  modified_by   TEXT,
-  completed_at  TEXT,
-  due_at        TEXT,
-  expires_at    TEXT,
-  deleted_at    TEXT,
-  connector_id       TEXT,
-  materialized       INTEGER,
-  cached_at          TEXT,
-  source_system      TEXT,
-  source_external_id TEXT,
-  schedule_data      TEXT
-);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_items_source ON items (source_system, source_external_id)
-  WHERE source_system IS NOT NULL AND source_external_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_items_parent  ON items(parent_id);
-CREATE INDEX IF NOT EXISTS idx_items_path    ON items(path);
-CREATE INDEX IF NOT EXISTS idx_items_type    ON items(type);
-CREATE INDEX IF NOT EXISTS idx_items_type_id ON items(type_id);
-CREATE INDEX IF NOT EXISTS idx_items_deleted ON items(deleted_at);
-CREATE INDEX IF NOT EXISTS idx_items_expires ON items(expires_at);
-CREATE INDEX IF NOT EXISTS idx_items_aspect  ON items(parent_id, aspect);
-
-CREATE TABLE IF NOT EXISTS item_tags (
-  item_id TEXT NOT NULL,
-  tag     TEXT NOT NULL,
-  PRIMARY KEY (item_id, tag)
-);
-CREATE INDEX IF NOT EXISTS idx_tags_tag ON item_tags(tag);
-
-CREATE TABLE IF NOT EXISTS backlinks (
-  source_id TEXT NOT NULL,
-  target_id TEXT NOT NULL,
-  PRIMARY KEY (source_id, target_id)
-);
-CREATE INDEX IF NOT EXISTS idx_backlinks_target ON backlinks(target_id);
-
-CREATE TABLE IF NOT EXISTS relationships (
-  id         TEXT PRIMARY KEY,
-  source_id  TEXT NOT NULL,
-  type       TEXT NOT NULL,
-  target_id  TEXT NOT NULL,
-  note       TEXT,
-  created_at TEXT NOT NULL,
-  created_by TEXT
-);
-CREATE INDEX IF NOT EXISTS idx_rel_source ON relationships(source_id);
-CREATE INDEX IF NOT EXISTS idx_rel_target ON relationships(target_id);
-
-CREATE TABLE IF NOT EXISTS annotations (
-  id                   TEXT PRIMARY KEY,
-  target_id            TEXT NOT NULL,
-  author               TEXT,
-  content              TEXT NOT NULL,
-  created_at           TEXT NOT NULL,
-  parent_annotation_id TEXT
-);
-CREATE INDEX IF NOT EXISTS idx_ann_target ON annotations(target_id);
-
-CREATE TABLE IF NOT EXISTS history (
-  seq         INTEGER PRIMARY KEY AUTOINCREMENT,
-  item_id     TEXT NOT NULL,
-  change_type TEXT NOT NULL,
-  snapshot    TEXT NOT NULL,
-  changed_at  TEXT NOT NULL,
-  changed_by  TEXT
-);
-CREATE INDEX IF NOT EXISTS idx_hist_item    ON history(item_id);
-CREATE INDEX IF NOT EXISTS idx_hist_changed ON history(changed_at);
-
-CREATE TABLE IF NOT EXISTS aliases (
-  alias     TEXT PRIMARY KEY,
-  target_id TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS type_defs (
-  id            TEXT PRIMARY KEY,
-  value         TEXT NOT NULL,
-  schema_json   TEXT NOT NULL DEFAULT '{}',
-  metadata_json TEXT NOT NULL DEFAULT '{}'
-);
-
-CREATE TABLE IF NOT EXISTS settings (
-  key   TEXT PRIMARY KEY,
-  value TEXT NOT NULL
-);
-`;
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
+const SPEC_VERSION  = '1.4.0';
 const DEFAULT_LICENSE = 'bb3bf137-d8a9-4264-9fb7-ac373b1d4739';
+const ROOT_ID         = '00000000-0000-0000-0000-000000000000';
 const LINK_RE         = /\[\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]\]/gi;
 
-const counts = { items: 0, types: 0, relationships: 0, annotations: 0, aliases: 0, skipped: 0, errors: [] };
+const BUILT_IN_REL_TYPES = new Set([
+  'relates-to', 'depends-on', 'enables', 'contradicts',
+  'blocks', 'blocked-by', 'prerequisite-for', 'derived-from', 'supersedes',
+]);
+
+const counts = { items: 0, types: 0, relationships: 0, skipped: 0, errors: [] };
+const reshapeQueue = [];
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function readJson(filePath) {
   try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); } catch { return null; }
 }
 
-function log(msg)    { console.log(msg); }
-function warn(msg)   { console.warn(`  WARN: ${msg}`); counts.errors.push(msg); }
+function log(msg)  { console.log(msg); }
+function warn(msg) { console.warn(`  WARN: ${msg}`); counts.errors.push(msg); }
 
-/** Walk all item directories in a sharded layout: ab/cd/<uuid>/ */
+/** Compute the 2+2 shard pair for a UUID. */
+function shard(id) {
+  const hex = id.replace(/-/g, '');
+  return [hex.slice(0, 2), hex.slice(2, 4)];
+}
+
+/** Return the directory for a given item id under the items/ tree. */
+function itemDir(id) {
+  const [s1, s2] = shard(id);
+  return path.join(itemsDir, s1, s2, id);
+}
+
+/**
+ * Write a five-section item.json atomically (temp + rename).
+ * doc must be { item, meta, search, payload, time }.
+ */
+function writeItemJson(id, doc) {
+  if (DRY_RUN) return;
+  const dir = itemDir(id);
+  fs.mkdirSync(dir, { recursive: true });
+  const p   = path.join(dir, 'item.json');
+  const tmp = p + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(doc, null, 2), 'utf8');
+  fs.renameSync(tmp, p);
+}
+
+/** Walk all item directories in a sharded layout: <s1>/<s2>/<uuid>/ */
 function* walkSharded(dir) {
   if (!fs.existsSync(dir)) return;
   for (const s1 of fs.readdirSync(dir).sort()) {
@@ -213,7 +128,61 @@ function extractBacklinks(value) {
   return [...new Set(ids)];
 }
 
-// ─── Step 1: Read config ─────────────────────────────────────────────────────
+// ─── Five-section item.json builder ──────────────────────────────────────────
+
+/**
+ * Build a five-section item.json document from migration fields.
+ *
+ * item    — the canonical tree fields (id, parentId, type, value, sortOrder, aspect)
+ * meta    — provenance, lifecycle, and indexing fields
+ * search  — placeholder (no embeddings at migration time)
+ * payload — arbitrary structured data (object.json, function.json, or relationship payload)
+ * time    — null (temporal contexts not used in 1.3.0)
+ */
+function buildDoc(fields) {
+  const {
+    id, parentId, type, typeId, value, sortOrder, aspect,
+    owner, license, visibility, tags,
+    createdAt, modifiedAt, deletedAt, expiresAt,
+    connectorId, materialized,
+    sourceSystem, sourceExternalId,
+    payload,
+  } = fields;
+
+  return {
+    item: {
+      id,
+      parentId:  parentId  ?? null,
+      type:      type       ?? 'text',
+      typeId:    typeId     ?? null,
+      value:     value      ?? null,
+      sortOrder: sortOrder  ?? 0,
+      aspect:    aspect     ?? null,
+    },
+    meta: {
+      specVersion:      SPEC_VERSION,
+      owner:            owner            ?? null,
+      license:          license          ?? DEFAULT_LICENSE,
+      visibility:       visibility       ?? 'private',
+      tags:             tags             ?? [],
+      createdAt:        createdAt        ?? new Date().toISOString(),
+      modifiedAt:       modifiedAt       ?? new Date().toISOString(),
+      deletedAt:        deletedAt        ?? null,
+      expiresAt:        expiresAt        ?? null,
+      connectorId:      connectorId      ?? null,
+      materialized:     materialized     ?? null,
+      files:            [],
+      layer:            null,
+      sourceSystem:     sourceSystem     ?? null,
+      sourceExternalId: sourceExternalId ?? null,
+    },
+    search:  { corpusHash: null, embedding: null },
+    payload: payload ?? null,
+    time:    null,
+  };
+}
+
+// ─── Step 1: Read config ──────────────────────────────────────────────────────
 
 function readConfig() {
   const configPath = path.join(kanectaDir, 'config', 'config.json');
@@ -228,269 +197,142 @@ function readConfig() {
   return config;
 }
 
-// ─── Step 2: Build the SQLite database ───────────────────────────────────────
+// ─── Step 2: Write root item (ROOT_ID) with config as payload ────────────────
 
-function openDb() {
-  if (DRY_RUN) return null;
-  if (fs.existsSync(dbPathTmp)) fs.unlinkSync(dbPathTmp);
-  const db = new Database(dbPathTmp);
-  db.exec(SCHEMA_SQL);
-  return db;
+function writeRootItem(config) {
+  log('\n── Step 1: Write root item ───────────────────────────────');
+  const now = new Date().toISOString();
+
+  const rootPayload = {
+    owner:            config.owner ?? 'unknown',
+    specVersion:      SPEC_VERSION,
+    itemHistory:      config.itemHistory      ?? 'NONE',
+    activity:         config.activity         ?? 'NONE',
+    defaultVisibility: config.defaultVisibility ?? 'private',
+    defaultLicense:   config.defaultLicense   ?? DEFAULT_LICENSE,
+    connectors:       config.connectors       ?? [],
+  };
+
+  const doc = buildDoc({
+    id:        ROOT_ID,
+    parentId:  null,
+    type:      'root',
+    value:     config.name ?? 'kanecta',
+    owner:     config.owner ?? null,
+    createdAt: config.createdAt ?? now,
+    modifiedAt: now,
+    payload:   rootPayload,
+  });
+
+  writeItemJson(ROOT_ID, doc);
+  log(`  Root item written (${ROOT_ID})`);
 }
 
-function saveDb(db) {
-  if (DRY_RUN) return;
-  db.close();
-  // Atomic rename so we never leave a partially-written kanecta.db.
-  if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
-  fs.renameSync(dbPathTmp, dbPath);
-}
-
-function insertItem(db, row) {
-  if (DRY_RUN) return;
-  db.prepare(`
-    INSERT OR REPLACE INTO items (
-      id, spec_version, parent_id, path, value, type, type_id, owner, license,
-      visibility, aspect, sort_order, confidence, status, tags,
-      object_data, function_data, time_data,
-      created_at, modified_at, created_by, modified_by,
-      completed_at, due_at, expires_at, deleted_at,
-      connector_id, materialized, cached_at,
-      source_system, source_external_id, schedule_data
-    ) VALUES (
-      @id, @spec_version, @parent_id, @path, @value, @type, @type_id, @owner, @license,
-      @visibility, @aspect, @sort_order, @confidence, @status, @tags,
-      @object_data, @function_data, @time_data,
-      @created_at, @modified_at, @created_by, @modified_by,
-      @completed_at, @due_at, @expires_at, @deleted_at,
-      @connector_id, @materialized, @cached_at,
-      @source_system, @source_external_id, @schedule_data
-    )
-  `).run(row);
-}
-
-function insertTags(db, itemId, tags) {
-  if (DRY_RUN || !tags?.length) return;
-  const stmt = db.prepare('INSERT OR IGNORE INTO item_tags (item_id, tag) VALUES (?, ?)');
-  for (const tag of tags) stmt.run(itemId, tag);
-}
-
-function insertBacklinks(db, sourceId, targetIds) {
-  if (DRY_RUN || !targetIds?.length) return;
-  const stmt = db.prepare('INSERT OR IGNORE INTO backlinks (source_id, target_id) VALUES (?, ?)');
-  for (const tid of targetIds) stmt.run(sourceId, tid);
-}
-
-// ─── Step 3: Import data/ items ──────────────────────────────────────────────
+// ─── Step 3: Import data/ items ───────────────────────────────────────────────
 // 1.3.0 items live in .kanecta/data/<s1>/<s2>/<uuid>/metadata.json
-// with optional object.json (for type:object) and function.json (for type:function).
-// Removed in 1.4.0: subscribedAt, subscriptionSource, template.
-// Added in 1.4.0: expiresAt, deletedAt, layer (→ null default = 'user').
-// Grant items: parentId held the governed item UUID; in 1.4.0 parentId should
-// point to the grant type item. We record the old parentId as payload.governedItemId
-// and set parentId to the grant-types-node UUID (which we store as null here —
-// a reconcile step can fix it once the type hierarchy is known).
+// with optional object.json (type:object) and function.json (type:function).
+//
+// Fields removed in 1.4.0: subscribedAt, subscriptionSource, template.
+// Fields added in 1.4.0: expiresAt, deletedAt, layer, files.
+//
+// Grant items: in 1.3.0 the parentId was the governed item UUID; in 1.4.0
+// grants live as aspect children of the source item, with a payload containing
+// governedItemId and grantType. We preserve the old parentId in
+// payload.governedItemId and leave parentId unchanged — a manual reconcile
+// step can move grants into the correct tree position.
 
-function importDataItems(db) {
-  log('\n── Step 1: Import data/ items ───────────────────────────');
+function importDataItems() {
+  log('\n── Step 2: Import data/ items ────────────────────────────');
   const dataDir = path.join(kanectaDir, 'data');
 
-  for (const itemDir of walkSharded(dataDir)) {
-    const meta = readJson(path.join(itemDir, 'metadata.json'));
-    if (!meta) {
-      warn(`No metadata.json in ${itemDir}`);
-      continue;
-    }
+  for (const dir of walkSharded(dataDir)) {
+    const meta = readJson(path.join(dir, 'metadata.json'));
+    if (!meta) { warn(`No metadata.json in ${dir}`); continue; }
+    if (!meta.id || !meta.type) { warn(`Missing id or type in ${dir}`); continue; }
 
-    if (!meta.id || !meta.type) {
-      warn(`Invalid metadata.json in ${itemDir} (missing id or type)`);
-      continue;
-    }
+    let payload = null;
 
-    // Object payload (object.json)
-    let objectData = null;
     if (meta.type === 'object') {
-      objectData = readJson(path.join(itemDir, 'object.json'));
+      payload = readJson(path.join(dir, 'object.json'));
+    } else if (meta.type === 'function') {
+      payload = readJson(path.join(dir, 'function.json'));
     }
 
-    // Function payload (function.json)
-    let functionData = null;
-    if (meta.type === 'function') {
-      const fnJson = readJson(path.join(itemDir, 'function.json'));
-      if (fnJson) {
-        // In 1.4.0 the function body lives inline in function_data.
-        // 1.3.0 stored it in function.json under 'body'.
-        functionData = fnJson;
-      }
+    // Grant: preserve governed item reference in payload
+    if (meta.type === 'grant' && meta.parentId && !payload?.governedItemId) {
+      payload = { ...(payload ?? {}), governedItemId: meta.parentId };
     }
 
-    // Grant parentId audit: in 1.3.0 grants used parentId for the governed item.
-    // In 1.4.0 grants carry payload.governedItemId and parentId → type bucket.
-    // We preserve the old parentId as governedItemId if not already set.
-    let resolvedParentId = meta.parentId ?? null;
-    let resolvedObjectData = objectData;
-    if (meta.type === 'grant' && meta.parentId) {
-      const existingGoverned = objectData?.governedItemId;
-      if (!existingGoverned) {
-        resolvedObjectData = { ...(objectData ?? {}), governedItemId: meta.parentId };
-        // parentId stays as-is for now — no well-known grant type UUID known here.
-        // A manual reconcile step can update it once the type bucket UUID is known.
-      }
-    }
+    const doc = buildDoc({
+      id:         meta.id,
+      parentId:   meta.parentId   ?? null,
+      type:       meta.type,
+      typeId:     meta.typeId     ?? null,
+      value:      meta.value      ?? null,
+      sortOrder:  meta.sortOrder  ?? 0,
+      aspect:     meta.aspect     ?? null,
+      owner:      meta.owner      ?? null,
+      license:    meta.license    ?? DEFAULT_LICENSE,
+      visibility: meta.visibility ?? 'private',
+      tags:       Array.isArray(meta.tags) ? meta.tags : [],
+      createdAt:  meta.createdAt  ?? null,
+      modifiedAt: meta.modifiedAt ?? null,
+      payload,
+    });
 
-    // layer: not in 1.3.0. Default null (treated as 'user' by the adapter).
-    // Items from data/ are user items.
-
-    // visibility: default 'private' if not set
-    const visibility = meta.visibility ?? 'private';
-
-    // tags: array or null → always array
-    const tags = Array.isArray(meta.tags) ? meta.tags : [];
-
-    const now = new Date().toISOString();
-
-    const row = {
-      id:           meta.id,
-      spec_version: '1.4.0',
-      parent_id:    resolvedParentId,
-      path:         null,       // computed by adapter on first open
-      value:        meta.value ?? null,
-      type:         meta.type,
-      type_id:      meta.typeId ?? null,
-      owner:        meta.owner ?? null,
-      license:      meta.license ?? DEFAULT_LICENSE,
-      visibility,
-      aspect:       meta.aspect ?? null,
-      sort_order:   meta.sortOrder ?? 0,
-      confidence:   meta.confidence ?? null,
-      status:       meta.status ?? null,
-      tags:         JSON.stringify(tags),
-      object_data:  resolvedObjectData ? JSON.stringify(resolvedObjectData) : null,
-      function_data: functionData ? JSON.stringify(functionData) : null,
-      time_data:    null,
-      created_at:   meta.createdAt ?? now,
-      modified_at:  meta.modifiedAt ?? now,
-      created_by:   meta.createdBy ?? meta.owner ?? null,
-      modified_by:  meta.modifiedBy ?? meta.owner ?? null,
-      completed_at: meta.completedAt ?? null,
-      due_at:       meta.dueAt ?? null,
-      expires_at:   null,   // not in 1.3.0
-      deleted_at:   null,   // not in 1.3.0
-      connector_id:       null,
-      materialized:       null,
-      cached_at:          meta.cachedAt ?? null,
-      source_system:      null,
-      source_external_id: null,
-      schedule_data:      null,
-    };
-
-    insertItem(db, row);
-    insertTags(db, meta.id, tags);
-    insertBacklinks(db, meta.id, extractBacklinks(meta.value));
+    writeItemJson(meta.id, doc);
     counts.items++;
   }
 
-  log(`  Done: ${counts.items} items imported`);
+  log(`  Done: ${counts.items} data items`);
 }
 
-// ─── Step 4: Import type definitions from types/ ─────────────────────────────
+// ─── Step 4: Import type definitions from types/ ──────────────────────────────
 // 1.3.0 type defs live in .kanecta/types/<s1>/<s2>/<uuid>/metadata.json + type.json.
-// In 1.4.0 they become items of type 'object' (or a type-def type) stored in
-// items + type_defs. We write them to both: items (for tree/query) + type_defs
-// (for the adapter's type lookup).
-// layer → 'core' for system type definitions.
+// In 1.4.0 they become items of type 'object' with the type schema in payload.
+// layer → 'core' for system-registered type definitions.
 
-function importTypeItems(db) {
-  log('\n── Step 2: Import type definitions ─────────────────────');
+function importTypeItems() {
+  log('\n── Step 3: Import type definitions ──────────────────────');
   const typesDir = path.join(kanectaDir, 'types');
 
-  for (const typeDir of walkSharded(typesDir)) {
-    const meta    = readJson(path.join(typeDir, 'metadata.json'));
-    const typeDef = readJson(path.join(typeDir, 'type.json'));
+  for (const dir of walkSharded(typesDir)) {
+    const meta    = readJson(path.join(dir, 'metadata.json'));
+    const typeDef = readJson(path.join(dir, 'type.json'));
+    if (!meta) { warn(`No metadata.json in ${dir}`); continue; }
 
-    if (!meta) {
-      warn(`No metadata.json in ${typeDir}`);
-      continue;
-    }
+    const doc = buildDoc({
+      id:         meta.id,
+      parentId:   meta.parentId   ?? null,
+      type:       meta.type       ?? 'object',
+      typeId:     meta.typeId     ?? null,
+      value:      meta.value      ?? null,
+      sortOrder:  meta.sortOrder  ?? 0,
+      aspect:     meta.aspect     ?? null,
+      owner:      meta.owner      ?? null,
+      license:    meta.license    ?? DEFAULT_LICENSE,
+      visibility: meta.visibility ?? 'private',
+      tags:       Array.isArray(meta.tags) ? meta.tags : [],
+      createdAt:  meta.createdAt  ?? null,
+      modifiedAt: meta.modifiedAt ?? null,
+      payload:    typeDef ?? null,
+    });
 
-    const tags       = Array.isArray(meta.tags) ? meta.tags : [];
-    const visibility = meta.visibility ?? 'private';
-    const now        = new Date().toISOString();
-    const schemaJson = typeDef ? JSON.stringify(typeDef) : '{}';
-
-    const row = {
-      id:           meta.id,
-      spec_version: '1.4.0',
-      parent_id:    meta.parentId ?? null,
-      path:         null,
-      value:        meta.value ?? null,
-      type:         meta.type ?? 'object',
-      type_id:      meta.typeId ?? null,
-      owner:        meta.owner ?? null,
-      license:      meta.license ?? DEFAULT_LICENSE,
-      visibility,
-      aspect:       meta.aspect ?? null,
-      sort_order:   meta.sortOrder ?? 0,
-      confidence:   meta.confidence ?? null,
-      status:       meta.status ?? null,
-      tags:         JSON.stringify(tags),
-      object_data:  typeDef ? schemaJson : null,
-      function_data: null,
-      time_data:    null,
-      created_at:   meta.createdAt ?? now,
-      modified_at:  meta.modifiedAt ?? now,
-      created_by:   meta.createdBy ?? meta.owner ?? null,
-      modified_by:  meta.modifiedBy ?? meta.owner ?? null,
-      completed_at: null,
-      due_at:       null,
-      expires_at:   null,
-      deleted_at:   null,
-      connector_id:       null,
-      materialized:       null,
-      cached_at:          null,
-      source_system:      null,
-      source_external_id: null,
-      schedule_data:      null,
-    };
-
-    insertItem(db, row);
-    insertTags(db, meta.id, tags);
-
-    // Also write to type_defs for the adapter's type lookup
-    if (!DRY_RUN && meta.id && meta.value) {
-      db.prepare(`
-        INSERT OR REPLACE INTO type_defs (id, value, schema_json, metadata_json)
-        VALUES (?, ?, ?, ?)
-      `).run(meta.id, meta.value, schemaJson, JSON.stringify(meta));
-    }
-
+    writeItemJson(meta.id, doc);
     counts.types++;
   }
 
-  log(`  Done: ${counts.types} type definitions imported`);
+  log(`  Done: ${counts.types} type definitions`);
 }
 
-// ─── Step 5: Convert relationships → relationship items ───────────────────────
-// 1.3.0 relationships.json outbound entries become items of type 'relationship'.
-// The relationship type is preserved as a string slug in payload.
-// Relationship types → UUID is aspirational (requires a separate relationship-type
-// item registry). For now: store the slug in object_data and validate against
-// VALID_REL_TYPES. Custom types (outside the built-in set) are recorded in
-// the reshape queue for manual review.
-//
-// The 1.3.0 relationships/ directory also contains inbound indexes — we skip
-// those (they are derived data, not source of truth).
+// ─── Step 5: Convert relationships → relationship items ────────────────────────
+// 1.3.0 outbound relationship entries become items of type 'relationship'.
+// Each relationship item is a child (aspect) of its source item.
+// The relationship type slug is preserved in payload.relationshipType.
+// Custom types (not in BUILT_IN_REL_TYPES) are flagged in the reshape queue.
 
-const BUILT_IN_REL_TYPES = new Set([
-  'relates-to', 'depends-on', 'enables', 'contradicts',
-  'blocks', 'blocked-by', 'prerequisite-for', 'derived-from', 'supersedes',
-]);
-
-const customRelTypes = new Set();
-const reshapeQueue   = [];
-
-function importRelationships(db) {
-  log('\n── Step 3: Convert relationships → items ─────────────────');
+function importRelationships() {
+  log('\n── Step 4: Convert relationships → items ─────────────────');
   const relsDir = path.join(kanectaDir, 'relationships');
   if (!fs.existsSync(relsDir)) {
     log('  No relationships/ directory — skipping');
@@ -500,7 +342,6 @@ function importRelationships(db) {
   for (const relDir of walkSharded(relsDir)) {
     const relsPath = path.join(relDir, 'relationships.json');
     if (!fs.existsSync(relsPath)) continue;
-
     const relsData = readJson(relsPath);
     if (!relsData?.outbound?.length) continue;
 
@@ -510,130 +351,63 @@ function importRelationships(db) {
       if (!entry.targetId || !entry.type) continue;
 
       if (!BUILT_IN_REL_TYPES.has(entry.type)) {
-        customRelTypes.add(entry.type);
         reshapeQueue.push({
           reason: 'custom-relationship-type',
           sourceId,
           targetId: entry.targetId,
           relType: entry.type,
-          note: 'Not a built-in relationship type — verify correct slug or register as a custom type',
+          note: 'Not a built-in relationship type — verify or register as custom type',
         });
       }
 
       const id  = crypto.randomUUID();
       const now = new Date().toISOString();
 
-      const row = {
+      const doc = buildDoc({
         id,
-        spec_version: '1.4.0',
-        parent_id:    sourceId,
-        path:         null,
-        value:        entry.note ?? null,
-        type:         'relationship',
-        type_id:      null,
-        owner:        entry.createdBy ?? null,
-        license:      DEFAULT_LICENSE,
-        visibility:   'private',
-        aspect:       'relationships',
-        sort_order:   0,
-        confidence:   null,
-        status:       null,
-        tags:         '[]',
-        // payload stored as object_data (relationship items have structured payload)
-        object_data:  JSON.stringify({
+        parentId:   sourceId,
+        type:       'relationship',
+        value:      entry.note ?? null,
+        sortOrder:  0,
+        aspect:     'relationships',
+        owner:      entry.createdBy ?? null,
+        license:    DEFAULT_LICENSE,
+        visibility: 'private',
+        tags:       [],
+        createdAt:  entry.createdAt ?? now,
+        modifiedAt: entry.createdAt ?? now,
+        payload: {
           sourceId,
-          targetId:        entry.targetId,
+          targetId:         entry.targetId,
           relationshipType: entry.type,
-          direction:       'directed',
-          note:            entry.note ?? null,
-        }),
-        function_data: null,
-        time_data:    null,
-        created_at:   entry.createdAt ?? now,
-        modified_at:  entry.createdAt ?? now,
-        created_by:   entry.createdBy ?? null,
-        modified_by:  entry.createdBy ?? null,
-        completed_at: null,
-        due_at:       null,
-        expires_at:   null,
-        deleted_at:   null,
-        connector_id:       null,
-        materialized:       null,
-        cached_at:          null,
-        source_system:      null,
-        source_external_id: null,
-        schedule_data:      null,
-      };
+          direction:        'directed',
+          note:             entry.note ?? null,
+        },
+      });
 
-      insertItem(db, row);
+      writeItemJson(id, doc);
       counts.relationships++;
     }
   }
 
-  log(`  Done: ${counts.relationships} relationship items created`);
-  if (customRelTypes.size > 0) {
-    log(`  Custom relationship types (added to reshape queue): ${[...customRelTypes].join(', ')}`);
-  }
+  log(`  Done: ${counts.relationships} relationship items`);
 }
 
-// ─── Step 6: Compute materialized paths ──────────────────────────────────────
-// The 1.4.0 SQLite adapter uses a materialized path column (path) for O(1)
-// subtree reads. We compute these after all items are inserted.
-// Walk from root outward using a recursive pass over the in-memory items.
+// ─── Step 6: Write .gitignore (ignore index.db — it is derived, not source) ──
 
-function computePaths(db) {
+function writeGitignore() {
   if (DRY_RUN) return;
-  log('\n── Step 4: Compute materialized paths ───────────────────');
-
-  const ROOT_ID = '00000000-0000-0000-0000-000000000000';
-
-  // Build parent→children map
-  const rows    = db.prepare('SELECT id, parent_id FROM items').all();
-  const children = new Map();
-  for (const r of rows) {
-    const pid = r.parent_id;
-    if (!children.has(pid)) children.set(pid, []);
-    children.get(pid).push(r.id);
+  const giPath = path.join(kanectaDir, '.gitignore');
+  const line   = 'index.db\n';
+  // Append only if not already present
+  const existing = fs.existsSync(giPath) ? fs.readFileSync(giPath, 'utf8') : '';
+  if (!existing.includes('index.db')) {
+    fs.appendFileSync(giPath, line, 'utf8');
   }
-
-  const updateStmt = db.prepare('UPDATE items SET path = ? WHERE id = ?');
-  let count = 0;
-
-  function walk(id, parentPath) {
-    const p = parentPath ? `${parentPath}/${id}` : id;
-    updateStmt.run(p, id);
-    count++;
-    for (const childId of (children.get(id) ?? [])) {
-      if (childId !== id) walk(childId, p);  // skip self-referential root
-    }
-  }
-
-  db.transaction(() => walk(ROOT_ID, null))();
-  log(`  Done: paths computed for ${count} items`);
+  log('\n── Step 5: .gitignore updated (index.db ignored) ────────');
 }
 
-// ─── Step 7: Write settings and update config.json ───────────────────────────
-
-function writeSettings(db, config) {
-  if (DRY_RUN) return;
-  const appConfig = {
-    owner:       config.owner ?? 'unknown',
-    specVersion: '1.4.0',
-  };
-  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('app', ?)").run(JSON.stringify(appConfig));
-}
-
-function updateConfigJson(config) {
-  const configPath = path.join(kanectaDir, 'config', 'config.json');
-  const updated    = { ...config, specVersion: '1.4.0' };
-  if (!DRY_RUN) {
-    fs.writeFileSync(configPath, JSON.stringify(updated, null, 2) + '\n', 'utf8');
-  }
-  log(`\n── Step 5: Config updated ───────────────────────────────`);
-  log(`  specVersion → 1.4.0`);
-}
-
-// ─── Step 8: Write reshape queue ─────────────────────────────────────────────
+// ─── Step 7: Write reshape queue ─────────────────────────────────────────────
 
 function writeReshapeQueue() {
   if (reshapeQueue.length === 0) return;
@@ -642,7 +416,6 @@ function writeReshapeQueue() {
     fs.writeFileSync(queuePath, JSON.stringify(reshapeQueue, null, 2) + '\n', 'utf8');
   }
   log(`\n  reshape-queue.json: ${reshapeQueue.length} item(s) need attention`);
-  log(`  See README.md for how to handle these.`);
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
@@ -655,30 +428,20 @@ const config = readConfig();
 log(`Owner: ${config.owner ?? '(not set)'}`);
 log(`Current specVersion: ${config.specVersion ?? '(not set)'}`);
 
-const db = openDb();
-
-if (db) {
-  db.transaction(() => {
-    importDataItems(db);
-    importTypeItems(db);
-    importRelationships(db);
-  })();
-  computePaths(db);
-  writeSettings(db, config);
-} else {
-  // Dry run — still walk the filesystem to produce accurate counts
-  importDataItems(null);
-  importTypeItems(null);
-  importRelationships(null);
+if (!DRY_RUN) {
+  fs.mkdirSync(itemsDir, { recursive: true });
 }
 
-updateConfigJson(config);
+writeRootItem(config);
+importDataItems();
+importTypeItems();
+importRelationships();
+writeGitignore();
 writeReshapeQueue();
 
-if (db) saveDb(db);
-
 log('\n── Summary ──────────────────────────────────────────────');
-log(`  Data items imported:      ${counts.items}`);
+log(`  Root item:                1`);
+log(`  Data items:               ${counts.items}`);
 log(`  Type definitions:         ${counts.types}`);
 log(`  Relationship items:       ${counts.relationships}`);
 
@@ -690,7 +453,9 @@ if (counts.errors.length > 0) {
 if (DRY_RUN) {
   log('\nDry run complete — no files were written.');
 } else {
-  log(`\nMigration complete. kanecta.db written to ${dbPath}`);
-  log('The original JSON files remain as backup. Delete .kanecta/data/, .kanecta/types/,');
-  log('and .kanecta/relationships/ once you have verified the migrated datastore.');
+  log(`\nMigration complete. item.json files written to ${itemsDir}`);
+  log('Open the datastore with the 1.4.0 adapter — it will build index.db');
+  log('automatically from the item.json files on first open.');
+  log('The original data/, types/, relationships/, config/ remain as backup.');
+  log('Delete them manually once you have verified the migrated datastore.');
 }

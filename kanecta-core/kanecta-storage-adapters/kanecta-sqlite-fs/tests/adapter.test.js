@@ -44,14 +44,10 @@ describe('isDatastore', () => {
     }
   });
 
-  it('returns false for a filesystem-adapter datastore (no kanecta.db)', () => {
+  it('returns false for a directory with no items/ subdirectory', () => {
     const fsRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fspath-'));
     try {
-      fs.mkdirSync(path.join(fsRoot, '.kanecta', 'config'), { recursive: true });
-      fs.writeFileSync(
-        path.join(fsRoot, '.kanecta', 'config', 'config.json'),
-        JSON.stringify({ owner: 'x@y.com', specVersion: '1.4.0' })
-      );
+      fs.mkdirSync(path.join(fsRoot, '.kanecta'), { recursive: true });
       expect(SqliteFsAdapter.isDatastore(fsRoot)).toBe(false);
     } finally {
       fs.rmSync(fsRoot, { recursive: true, force: true });
@@ -60,8 +56,17 @@ describe('isDatastore', () => {
 });
 
 describe('init', () => {
-  it('creates kanecta.db in .kanecta/', () => {
-    expect(fs.existsSync(path.join(tmp, '.kanecta', 'kanecta.db'))).toBe(true);
+  it('creates items/ directory in .kanecta/', () => {
+    expect(fs.existsSync(path.join(tmp, '.kanecta', 'items'))).toBe(true);
+  });
+
+  it('creates index.db (derived SQLite index) in .kanecta/', () => {
+    expect(fs.existsSync(path.join(tmp, '.kanecta', 'index.db'))).toBe(true);
+  });
+
+  it('creates .gitignore excluding index.db', () => {
+    const gi = fs.readFileSync(path.join(tmp, '.kanecta', '.gitignore'), 'utf8');
+    expect(gi).toContain('index.db');
   });
 
   it('seeds well-known root nodes (root, system_root, app_root, component_root, data_root)', () => {
@@ -89,7 +94,7 @@ describe('open', () => {
     expect(ds2.getRoot().id).toBe(ROOT_ID);
   });
 
-  it('throws for a path without kanecta.db', () => {
+  it('throws for a path without items/ directory', () => {
     const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'empty-'));
     try {
       expect(() => SqliteFsAdapter.open(empty)).toThrow(/Not a Kanecta datastore/);
@@ -101,6 +106,119 @@ describe('open', () => {
   it('does not duplicate well-known nodes on reopen', () => {
     const ds2 = SqliteFsAdapter.open(tmp);
     expect(ds2.children(ROOT_ID).length).toBe(ds.children(ROOT_ID).length);
+  });
+});
+
+// ─── filesystem / file-first model ────────────────────────────────────────────
+
+describe('filesystem: file-first model', () => {
+  it('writes item.json to sharded items/ directory on create', () => {
+    const item = ds.create({ value: 'file-first test' });
+    const hex  = item.id.replace(/-/g, '');
+    const s1   = hex.slice(0, 2);
+    const s2   = hex.slice(2, 4);
+    const p    = path.join(tmp, '.kanecta', 'items', s1, s2, item.id, 'item.json');
+    expect(fs.existsSync(p)).toBe(true);
+  });
+
+  it('item.json contains five sections: item, meta, search, payload, time', () => {
+    const item = ds.create({ value: 'sections test' });
+    const hex  = item.id.replace(/-/g, '');
+    const p    = path.join(tmp, '.kanecta', 'items', hex.slice(0, 2), hex.slice(2, 4), item.id, 'item.json');
+    const doc  = JSON.parse(fs.readFileSync(p, 'utf8'));
+    expect(doc).toHaveProperty('item');
+    expect(doc).toHaveProperty('meta');
+    expect(doc).toHaveProperty('search');
+    expect(doc).toHaveProperty('payload');
+    expect(doc).toHaveProperty('time');
+  });
+
+  it('item section contains id, parentId, type, value, sortOrder, aspect, typeId', () => {
+    const item = ds.create({ value: 'item section' });
+    const hex  = item.id.replace(/-/g, '');
+    const p    = path.join(tmp, '.kanecta', 'items', hex.slice(0, 2), hex.slice(2, 4), item.id, 'item.json');
+    const doc  = JSON.parse(fs.readFileSync(p, 'utf8'));
+    expect(doc.item.id).toBe(item.id);
+    expect(doc.item.parentId).toBe(item.parentId);
+    expect(doc.item.type).toBe('string');
+    expect(doc.item.value).toBe('item section');
+  });
+
+  it('meta section contains owner, visibility, tags, createdAt', () => {
+    const item = ds.create({ value: 'meta section', tags: ['a', 'b'] });
+    const hex  = item.id.replace(/-/g, '');
+    const p    = path.join(tmp, '.kanecta', 'items', hex.slice(0, 2), hex.slice(2, 4), item.id, 'item.json');
+    const doc  = JSON.parse(fs.readFileSync(p, 'utf8'));
+    expect(doc.meta.owner).toBe('test@example.com');
+    expect(doc.meta.visibility).toBe('private');
+    expect(doc.meta.tags).toEqual(['a', 'b']);
+    expect(doc.meta.createdAt).toBeTruthy();
+  });
+
+  it('payload stored in item.json via writeObjectJson', () => {
+    const item = ds.create({ value: 'payload test' });
+    ds.writeObjectJson(item.id, { foo: 'bar' });
+    const hex = item.id.replace(/-/g, '');
+    const p   = path.join(tmp, '.kanecta', 'items', hex.slice(0, 2), hex.slice(2, 4), item.id, 'item.json');
+    const doc = JSON.parse(fs.readFileSync(p, 'utf8'));
+    expect(doc.payload).toEqual({ foo: 'bar' });
+  });
+
+  it('readObjectJson reads from item.json', () => {
+    const item = ds.create({ value: 'read payload' });
+    ds.writeObjectJson(item.id, { x: 42 });
+    expect(ds.readObjectJson(item.id)).toEqual({ x: 42 });
+  });
+
+  it('update writes updated item.json to disk', () => {
+    const item    = ds.create({ value: 'before' });
+    ds.update(item.id, { value: 'after' });
+    const hex = item.id.replace(/-/g, '');
+    const p   = path.join(tmp, '.kanecta', 'items', hex.slice(0, 2), hex.slice(2, 4), item.id, 'item.json');
+    const doc = JSON.parse(fs.readFileSync(p, 'utf8'));
+    expect(doc.item.value).toBe('after');
+  });
+
+  it('delete removes item.json from disk', () => {
+    const item = ds.create({ value: 'to delete' });
+    const hex  = item.id.replace(/-/g, '');
+    const p    = path.join(tmp, '.kanecta', 'items', hex.slice(0, 2), hex.slice(2, 4), item.id, 'item.json');
+    expect(fs.existsSync(p)).toBe(true);
+    ds.delete(item.id);
+    expect(fs.existsSync(p)).toBe(false);
+  });
+
+  it('rebuildIndexes scans item.json files and repopulates index', () => {
+    const a = ds.create({ value: 'rebuild-a' });
+    const b = ds.create({ value: 'rebuild-b' });
+    // Wipe the SQLite index manually
+    const db = ds._openDb();
+    db.prepare('DELETE FROM items_meta').run();
+    db.prepare('DELETE FROM items').run();
+    ds._mem.clear();
+    // Rebuild
+    const count = ds.rebuildIndexes();
+    expect(count).toBeGreaterThan(0);
+    // Both items must be findable again
+    expect(ds.get(a.id)).not.toBeNull();
+    expect(ds.get(b.id)).not.toBeNull();
+  });
+
+  it('open() rebuilds index from filesystem when index.db is empty', () => {
+    const item = ds.create({ value: 'persist check' });
+    // Delete index.db to force rebuild on next open
+    const dbPath = path.join(tmp, '.kanecta', 'index.db');
+    ds._db.close();
+    ds._db = null;
+    fs.unlinkSync(dbPath);
+    const ds2 = SqliteFsAdapter.open(tmp);
+    expect(ds2.get(item.id)).not.toBeNull();
+    expect(ds2.get(item.id).value).toBe('persist check');
+  });
+
+  it('config is read from root item.json payload', () => {
+    expect(ds.config.owner).toBe('test@example.com');
+    expect(ds.config.specVersion).toBe('1.4.0');
   });
 });
 
