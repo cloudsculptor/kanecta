@@ -37,6 +37,9 @@ v1.4.0 is a breaking change from v1.3.0. A migration script is provided in `kane
 | *`time` section*
 | New fifth section for keyed temporal contexts. Replaces ad-hoc time fields scattered across type payloads. Sparse: only items with temporal data carry the section. The adapter indexes `next_occurrence_at` across all keys for the scheduler.
 
+| *`connector` type*
+| New built-in structured type. Represents one authenticated connection to one external system. The adapter reads connector items to execute lazy stub materialization — when a stub item is accessed, the adapter finds the connector via `meta.connectorId` and invokes its configured fetch function or pipeline. Each connector operation (`fetch`, `list`, `webhook`, `push`) may use either a `function` item or a `pipeline` item. New meta fields: `connectorId` (UUID of the managing connector) and `materialized` (false for stubs, true once payload is fetched). This is the foundation of Kanecta's virtual-DOM model for external systems.
+
 | *`expiresAt` in `meta`*
 | Universal expiry field. When set, the adapter surfaces this item as stale after the given datetime. Not a deletion trigger — a signal that the item needs reevaluation. Designed to fight information rot: documents, decisions, cached API data, and policies can all declare when they should be reviewed.
 
@@ -386,17 +389,17 @@ All provenance, ownership, operational, and bookkeeping fields.
 | `cachedAt`
 | ISO 8601 \| null
 | no
-| When remote content was last cached locally.
+| When remote content was last cached locally. Set by the adapter when it writes a materialized copy of an externally-owned item. Together with `meta.expiresAt` this gives the adapter everything it needs to decide whether a cached item is fresh enough to serve or should be refreshed from source.
 
-| `subscribedAt`
-| ISO 8601 \| null
+| `connectorId`
+| UUID \| null
 | no
-| When this item subscribed to a remote source.
+| UUID of the `connector` item responsible for refreshing this item from its external source. Null for native items (Kanecta is their source of truth). When set, the adapter knows which connector to invoke for on-demand or scheduled refresh. The connector item holds auth config, base URL, rate limits, and the function or pipeline that executes the fetch. See <<connectorPayload>>.
 
-| `subscriptionSource`
-| string \| null
+| `materialized`
+| boolean \| null
 | no
-| URI of the remote source.
+| Whether this item's payload has been fetched from the external source. Null and `true` are equivalent for native items — all native items are considered fully materialized. `false` marks a *stub*: the item exists in the tree (has an `id`, `parentId`, `type`, and `value`) but its payload has not yet been fetched. The adapter serves stubs from the local index; on first access to payload, it triggers a fetch via the connector. Stubs are how Kanecta models the virtual DOM concept: you can know that a Jira project contains 500 issues (and build a tree of 500 stub items) without having fetched a single payload — only materializing what is actually opened. Partial index: `WHERE materialized = false AND connector_id IS NOT NULL` for the adapter's stub-refresh queue.
 
 | `files`
 | object
@@ -710,6 +713,10 @@ Types are grouped into three categories.
 | An execution and display environment (runtime + display position + capabilities). First-class item — reusable, versioned, shareable across view bindings.
 | link:../built-in-types/types/context.json[context.json^]
 
+| `connector`
+| An authenticated connection to one external system — one Jira workspace, one GitHub org, one Xero account. Earns built-in status because the adapter must understand it to execute lazy materialization: when a stub item is accessed, the adapter reads the item's `meta.connectorId`, loads the connector, and invokes the configured fetch function or pipeline. The connector payload declares the external system, auth config reference, rate limits, refresh policy, and the function or pipeline to call for each operation (fetch, list, webhook, push). See <<connectorPayload>>.
+| link:../built-in-types/types/connector.json[connector.json^]
+
 | `reference`
 | A declared dependency on a UUID that exists outside the item graph — physical (engraved on machinery, printed on a label, QR code), external system, function argument, or function output. `payload.blockDeletion: true` prevents deletion of the target until this reference is resolved. `parentId` is the reference type item UUID (universal rule); `payload.targetId` identifies the item being depended on. Structural references (inline `[[uuid]]` links, payload UUID fields, `parentId`) are tracked automatically in the `item_references` derived index; `reference` items cover declared and manual cases.
 | link:../built-in-types/types/reference.json[reference.json^]
@@ -830,7 +837,7 @@ All items of `type: "type"` — both built-in type items seeded from the core ma
 
 Built-in type items are seeded idempotently at datastore initialisation from the core manifest. If a type item already exists with the correct UUID, the seed is a no-op. See <<manifests-and-built-in-type-items>> for the full mechanism, UUID registry, and seed file format.
 
-Built-in types with type items (29 total): `action`, `activity`, `agent`, `alias`, `annotation`, `aspect-type`, `cell`, `component`, `context`, `eval`, `eval-run`, `file`, `formula`, `function`, `grant`, `grid`, `item_history`, `object`, `pipeline`, `pipeline-run`, `query`, `reference`, `relationship`, `relationship-type`, `runner`, `subscription`, `symlink`, `tree`, `view`.
+Built-in types with type items (30 total): `action`, `activity`, `agent`, `alias`, `annotation`, `aspect-type`, `cell`, `component`, `connector`, `context`, `eval`, `eval-run`, `file`, `formula`, `function`, `grant`, `grid`, `item_history`, `object`, `pipeline`, `pipeline-run`, `query`, `reference`, `relationship`, `relationship-type`, `runner`, `subscription`, `symlink`, `tree`, `view`.
 
 NOTE: The payload-less primitive types — `string`, `number`, `text`, `heading`, `url` — do *not* have type items. These types are content items that live directly under their parent in the tree. Creating a type bucket for bare strings or numbers would produce a meaningless collection of decontextualised values. Their `parentId` is always their actual tree parent.
 
@@ -2530,6 +2537,126 @@ This means a cell can hold anything a tree node can hold — it is a positioned 
 Because `cell` is a first-class Kanecta item, individual cells participate fully in the item model: they can be related to other items, subscribed to, access-controlled via `grant` items, and change-tracked via `item_history`. A shared budget grid can have per-cell ownership. A formula cell can trigger a pipeline when its value changes via a subscription.
 
 NOTE: The adapter enforces that a cell's `parentId` points to a `grid` item. Cells cannot be orphaned outside a grid. When a grid item is deleted, all its cell items are cascade-deleted.
+
+[#connectorPayload]
+=== connectorPayload
+
+link:../built-in-types/types/connector.json[Seed item^]
+
+For `type: "connector"`. Represents one authenticated connection to one external system. A connector item is the executable bridge between Kanecta's local item graph and a remote data source. The adapter reads a connector item's payload whenever it needs to materialize a stub item or execute a scheduled refresh.
+
+Kanecta's connector model is a virtual DOM for external systems: remote data is represented as a local item tree, populated lazily on demand. Stub items hold tree position without payload; the connector materializes payload on first access or on a scheduled cadence. This means the entire shape of a Jira project (500 issues, their hierarchy and metadata) can exist in the item graph as stubs — visible to tree queries and search — without a single API call until a specific item is opened.
+
+A connector earns built-in status because the adapter has execution behaviour that depends on understanding it — the same test `pipeline` passes. The adapter cannot treat a connector as an opaque blob: it must read `authConfigRef`, invoke the correct operation, handle rate limits, and write the result back.
+
+==== Operations
+
+Each connector operation is defined as either a `function` item or a `pipeline` item — the choice is per-operation, not per-connector. A simple Jira fetch might use a function (one HTTP call, deterministic field mapping); a complex Confluence page extraction might use a pipeline (fetch phase + AI extraction phase + link-detection phase). Kanecta functions can call `kanecta.ai(context, prompt)` via the SDK, so even single-function operations can use AI when needed.
+
+For each operation, exactly one of `functionId` or `pipelineId` must be set — never both, never neither for required operations. The adapter validates this constraint at write time.
+
+[source,json]
+----
+{
+  "system": "jira",
+  "baseUrl": "https://acme.atlassian.net",
+  "authType": "oauth2",
+  "authConfigRef": "$JIRA_OAUTH_TOKEN",
+  "fetch": { "type": "function", "id": "uuid-of-jira-fetch-fn" },
+  "list":  { "type": "pipeline", "id": "uuid-of-jira-list-pipeline" },
+  "webhook": { "type": "function", "id": "uuid-of-jira-webhook-fn" },
+  "push": null,
+  "refreshPolicy": "on-demand",
+  "rateLimitPerMinute": 60,
+  "writeBack": false
+}
+----
+
+[cols="1,1,2", options="header"]
+|===
+| Field | Required | Description
+
+| `system`
+| yes
+| Human-readable identifier of the external system (e.g. `"jira"`, `"github"`, `"xero"`, `"confluence"`, `"linear"`). Used for display and for grouping items by source system alongside `meta.sourceSystem`. Should match `meta.sourceSystem` on all items managed by this connector.
+
+| `baseUrl`
+| yes
+| The root URL of the external system instance (e.g. `"https://acme.atlassian.net"` for a specific Jira Cloud workspace). Required even when individual operations construct their own URLs — the adapter uses it for health checks and to detect if the endpoint has moved.
+
+| `authType`
+| yes
+| Authentication mechanism. One of: `"oauth2"`, `"api-key"`, `"basic"`, `"bearer"`, `"none"`. Determines how the adapter resolves `authConfigRef` and injects credentials into function/pipeline execution context.
+
+| `authConfigRef`
+| yes
+| Reference to the auth credentials. *Never a literal token or password.* Always an environment variable reference (`"$JIRA_OAUTH_TOKEN"`) or a secret manager path (`"$SECRET:jira/oauth"`). The adapter resolves this at execution time; the connector item itself never contains raw credentials. If committed to a repository with a literal secret value, rotate the credential immediately.
+
+| `fetch`
+| yes
+| The operation that retrieves a single item by `externalId`. Called when the adapter materializes a stub. Shape: `{ "type": "function" \| "pipeline", "id": "<uuid>" }`. The function or pipeline receives `{ connectorId, externalId, baseUrl, auth }` as params and must return a valid Kanecta item JSON. Exactly one of `"function"` or `"pipeline"` — the adapter rejects both or neither.
+
+| `list`
+| no
+| The operation that lists available items in the connector's scope. Called during bulk sync to create or update stubs. Same shape as `fetch`. Receives `{ connectorId, baseUrl, auth, syncScope }` as params; must return an array of `{ externalId, value, type }` objects from which the adapter creates or updates stub items. Null if bulk listing is not supported — items are only fetched on demand.
+
+| `webhook`
+| no
+| The operation that handles an incoming webhook payload from the external system. Called when the adapter receives a webhook delivery matching this connector. Receives `{ connectorId, event, payload }` as params. The function or pipeline decides whether to create, update, or delete items in response. Null if webhook delivery is not configured.
+
+| `push`
+| no
+| The operation that writes a changed Kanecta item back to the external system. Called when `writeBack: true` and an item managed by this connector is modified. Receives `{ connectorId, externalId, item }` as params. Null for read-only connectors — changes are local only and will be overwritten on next refresh.
+
+| `refreshPolicy`
+| yes
+| When to refresh cached items. `"on-demand"` — refresh only when a stub is accessed or explicitly requested. `"scheduled"` — refresh on the cadence defined in the connector item's `time.review` entry. `"webhook"` — refresh is driven by incoming webhooks; no polling. `"never"` — frozen snapshot; the connector fetches once and never refreshes unless explicitly triggered. Most external API connectors use `"on-demand"` or `"scheduled"`.
+
+| `rateLimitPerMinute`
+| no
+| Maximum number of external API calls this connector may make per minute. The adapter enforces this with a token bucket. Null means no adapter-level rate limiting — the function or pipeline is responsible for handling rate limit responses from the external system.
+
+| `writeBack`
+| no
+| Whether changes to Kanecta items managed by this connector should be pushed back to the external system via the `push` operation. Default false. When true, `push` must be set. Write-back creates a two-way sync: Kanecta is no longer a read-only cache but a live replica. Use with care — write-back conflicts (external system changed while Kanecta was offline) must be handled in the `push` function or pipeline.
+
+| `syncScope`
+| no
+| Connector-specific scope definition passed to the `list` operation. Shape is free-form and system-specific — a Jira connector might use `{ "projects": ["ENG", "OPS"] }`, a GitHub connector might use `{ "repos": ["acme/api", "acme/frontend"] }`. Null means all accessible resources. The adapter passes this value verbatim to the list function or pipeline.
+|===
+
+==== Execution context
+
+When the adapter invokes a connector's fetch or list function/pipeline, it injects the following into the execution context (function params or pipeline params):
+
+[cols="1,2", options="header"]
+|===
+| Param | Value
+
+| `connectorId`
+| UUID of the connector item.
+
+| `externalId`
+| (fetch only) The external system ID of the item to fetch.
+
+| `baseUrl`
+| The connector's `baseUrl` value.
+
+| `auth`
+| The resolved auth credentials object (not the `authConfigRef` string — the adapter resolves the reference and injects the value; the function never needs to handle env var resolution).
+
+| `syncScope`
+| The connector's `syncScope` value (list only).
+|===
+
+The function or pipeline must not store auth credentials in any created item or log output. The adapter logs a warning and redacts known credential patterns from function stdout.
+
+==== Materialization lifecycle
+
+. *Stub creation*: the `list` operation (or an external import) creates a stub item — `meta.materialized: false`, `meta.connectorId` set, `payload: null`.
+. *On-demand materialization*: when any client requests the payload of a stub, the adapter invokes the `fetch` operation with `params.externalId = meta.sourceExternalId`. The fetch function or pipeline returns a full item JSON. The adapter merges the payload into the stub, sets `meta.materialized: true`, and writes `meta.cachedAt`.
+. *Refresh*: when a materialized item's `meta.cachedAt` is older than the connector's refresh threshold (derived from `refreshPolicy` and `time.review`), the adapter invokes `fetch` again and updates the payload in place. `meta.cachedAt` is updated; `meta.materialized` remains true.
+. *Write-back*: if `writeBack: true` and the item is modified locally, the adapter queues a `push` invocation. On success, `meta.cachedAt` is updated. On failure, the item is marked with a conflict flag (TBD — conflict resolution is out of scope for 1.4.0).
 
 [#pipelines]
 == Pipelines
@@ -4430,6 +4557,7 @@ These UUIDs can never be changed without a global migration of every `parentId` 
 | `aspect-type`       | `45bc6fbe-aa63-41be-8566-7217a9a15ece`
 | `cell`              | `42561614-32d6-4c01-93c8-2f6e023ad19f`
 | `component`         | `fab55d91-6975-422a-9398-2b16f72bc805`
+| `connector`         | `7c4e9a21-83bf-4d6a-b501-2e8f0c3d9a47`
 | `context`           | `bd48218a-1c21-4c8e-ac0e-9ea026f2cf4d`
 | `eval`              | `2aca4d8b-ec15-4e95-9dcd-78a97b30e321`
 | `eval-run`          | `ddb8b941-8e44-49f8-acd6-614495ac968e`
