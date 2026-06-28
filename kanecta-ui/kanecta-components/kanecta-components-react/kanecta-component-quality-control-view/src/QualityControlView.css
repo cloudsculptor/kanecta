@@ -64,6 +64,13 @@
   color: var(--color-text-muted);
 }
 
+.QualityControlView-col-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+  color: var(--color-text-muted);
+  margin-left: 4px;
+}
+
 .QualityControlView-empty {
   font-size: 0.85rem;
   color: var(--color-text-muted);

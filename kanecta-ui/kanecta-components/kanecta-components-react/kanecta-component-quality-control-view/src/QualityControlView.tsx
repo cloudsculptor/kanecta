@@ -25,6 +25,8 @@ export function QualityControlView({ stats, isLoading, error, typeIcons = {} }: 
 
   const { total, typedCount, structured, unstructured } = stats;
   const percentage = total > 0 ? Math.round((typedCount / total) * 100) : 0;
+  const unstructuredTotal = unstructured.reduce((s, r) => s + r.count, 0);
+  const structuredTotal   = structured.reduce((s, r) => s + r.count, 0);
 
   return (
     <div className="QualityControlView">
@@ -35,7 +37,7 @@ export function QualityControlView({ stats, isLoading, error, typeIcons = {} }: 
       </div>
 
       <div className="QualityControlView-col">
-        <div className="QualityControlView-col-heading">Primitive</div>
+        <div className="QualityControlView-col-heading">Primitive <span className="QualityControlView-col-count">{unstructuredTotal}</span></div>
         {unstructured.length === 0
           ? <div className="QualityControlView-empty">None</div>
           : (
@@ -65,7 +67,7 @@ export function QualityControlView({ stats, isLoading, error, typeIcons = {} }: 
       </div>
 
       <div className="QualityControlView-col">
-        <div className="QualityControlView-col-heading">Structured</div>
+        <div className="QualityControlView-col-heading">Structured <span className="QualityControlView-col-count">{structuredTotal}</span></div>
         {structured.length === 0
           ? <div className="QualityControlView-empty">None</div>
           : (
