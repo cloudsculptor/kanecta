@@ -11,14 +11,17 @@
     "test": "jest --runInBand",
     "docker:up": "node scripts/ensure-running.js",
     "docker:down": "docker compose down",
-    "docker:logs": "docker compose logs -f postgres"
+    "docker:logs": "docker compose logs -f postgres",
+    "test:docker:up": "docker compose -f docker-compose.test.yml up -d",
+    "test:docker:down": "docker compose -f docker-compose.test.yml down",
+    "test:ci": "npm run test:docker:up && sleep 5 && npm test"
   },
   "keywords": [
     "kanecta",
     "datastore",
     "postgres"
   ],
-  "author": "Richie Thomas <richardsempire@gmail.com>",
+  "author": "Kanecta",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
