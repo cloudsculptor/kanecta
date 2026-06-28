@@ -1767,15 +1767,22 @@ async function dispatch(name, args) {
         return { error: 'kanecta_list_types requires filesystem mode' };
       return handleListTypes(datastorePath);
 
-    case 'kanecta_get_type_schema':
-      if (!datastorePath)
-        return { error: 'kanecta_get_type_schema requires filesystem mode' };
-      return handleGetTypeSchema(datastorePath, args.id);
+    case 'kanecta_get_type_schema': {
+      if (!UUID_RE.test(args.id)) return { error: 'Invalid UUID format' };
+      if (datastorePath) return handleGetTypeSchema(datastorePath, args.id);
+      const schema = await ds.readTypeJson(args.id);
+      if (!schema) return { error: `Type not found: ${args.id}` };
+      return schema;
+    }
 
-    case 'kanecta_update_type_schema':
-      if (!datastorePath)
-        return { error: 'kanecta_update_type_schema requires filesystem mode' };
-      return handleUpdateTypeSchema(datastorePath, args.id, args.schema);
+    case 'kanecta_update_type_schema': {
+      if (!UUID_RE.test(args.id)) return { error: 'Invalid UUID format' };
+      if (datastorePath) return handleUpdateTypeSchema(datastorePath, args.id, args.schema);
+      const existing = await ds.readTypeJson(args.id);
+      if (!existing) return { error: `Type not found: ${args.id}` };
+      await ds.writeTypeJson(args.id, args.schema);
+      return args.schema;
+    }
 
     // ─── Function tools ────────────────────────────────────────────────────────
 
