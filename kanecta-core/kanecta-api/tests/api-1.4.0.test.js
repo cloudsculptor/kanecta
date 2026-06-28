@@ -375,3 +375,86 @@ describe('GET /search: soft-delete filtering', () => {
     expect(res.body.count).toBe(1);
   });
 });
+
+// ─── GET /items/stats ─────────────────────────────────────────────────────────
+
+describe('GET /items/stats', () => {
+  it('returns no structured items and no typedCount for a fresh datastore', async () => {
+    const res = await request(app).get('/items/stats');
+    expect(res.status).toBe(200);
+    expect(res.body.typedCount).toBe(0);
+    expect(res.body.structured).toEqual([]);
+  });
+
+  it('counts primitive items in unstructured', async () => {
+    const baseline = await request(app).get('/items/stats');
+    const baseTotal = baseline.body.total;
+
+    await createItem({ type: 'string', value: 'a' });
+    await createItem({ type: 'string', value: 'b' });
+    await createItem({ type: 'number', value: '42' });
+
+    const res = await request(app).get('/items/stats');
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(baseTotal + 3);
+    expect(res.body.typedCount).toBe(0);
+
+    const stringRow = res.body.unstructured.find(r => r.type === 'string');
+    const numberRow = res.body.unstructured.find(r => r.type === 'number');
+    expect(stringRow?.count).toBe(2);
+    expect(numberRow?.count).toBe(1);
+  });
+
+  it('shows type name (not UUID) for structured objects', async () => {
+    const { metadata } = await ds.createType('Widget');
+    const typeId = metadata.id;
+    await ds.create({ type: 'object', typeId, value: 'w1' });
+    await ds.create({ type: 'object', typeId, value: 'w2' });
+
+    const res = await request(app).get('/items/stats');
+    expect(res.status).toBe(200);
+    expect(res.body.typedCount).toBe(2);
+
+    const row = res.body.structured.find(r => r.typeId === typeId);
+    expect(row).toBeDefined();
+    expect(row.name).toBe('Widget');
+    expect(row.count).toBe(2);
+  });
+
+  it('includes icon from type schema when present', async () => {
+    const { metadata } = await ds.createType('Gadget', {
+      schema: {
+        meta: { icon: 'star', description: 'A gadget', details: '', keywords: '', 'ai-instructions': { claude: '' } },
+        jsonSchema: {
+          '$schema': 'http://json-schema.org/draft-07/schema#', '$id': '',
+          title: 'Gadget', type: 'object', properties: {}, required: [], additionalProperties: false,
+        },
+      },
+    });
+    await ds.create({ type: 'object', typeId: metadata.id, value: 'g1' });
+
+    const res = await request(app).get('/items/stats');
+    const row = res.body.structured.find(r => r.typeId === metadata.id);
+    expect(row.icon).toBe('star');
+  });
+
+  it('falls back to typeId when no matching type_def exists', async () => {
+    const orphanTypeId = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+    await ds.create({ type: 'object', typeId: orphanTypeId, value: 'orphan' });
+
+    const res = await request(app).get('/items/stats');
+    const row = res.body.structured.find(r => r.typeId === orphanTypeId);
+    expect(row).toBeDefined();
+    expect(row.name).toBe(orphanTypeId);
+  });
+
+  it('excludes root-type items from total and unstructured', async () => {
+    const res = await request(app).get('/items/stats');
+    // root, data_root, app_root, component_root, system_root are created by
+    // Datastore.init() and must never appear in the stats output
+    const rootRow = res.body.unstructured.find(r =>
+      ['root', 'data_root', 'app_root', 'component_root', 'system_root'].includes(r.type)
+    );
+    expect(rootRow).toBeUndefined();
+  });
+});

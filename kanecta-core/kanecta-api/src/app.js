@@ -533,7 +533,8 @@ app.get('/items/stats', async (req, res) => {
     typeInfo[def.id] = { name: def.value, icon: typeDef?.meta?.icon ?? null };
   }
 
-  const ROOT_TYPES = new Set(['root', 'data_root', 'app_root', 'component_root', 'system_root']);
+  const ROOT_TYPES      = new Set(['root', 'data_root', 'app_root', 'component_root', 'system_root']);
+  const BUILT_IN_TYPES  = new Set(['pipeline', 'pipeline-run', 'agent']);
   const structuredMap = {};
   const unstructuredMap = {};
   let total = 0;
@@ -549,6 +550,11 @@ app.get('/items/stats', async (req, res) => {
         structuredMap[item.typeId] = { typeId: item.typeId, name: info.name, icon: info.icon, count: 0 };
       }
       structuredMap[item.typeId].count++;
+    } else if (BUILT_IN_TYPES.has(raw)) {
+      if (!structuredMap[raw]) {
+        structuredMap[raw] = { typeId: raw, name: raw, icon: null, count: 0 };
+      }
+      structuredMap[raw].count++;
     } else {
       unstructuredMap[raw] = (unstructuredMap[raw] || 0) + 1;
     }

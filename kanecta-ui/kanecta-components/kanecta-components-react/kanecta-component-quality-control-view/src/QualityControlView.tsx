@@ -69,7 +69,7 @@ export function QualityControlView({ stats, isLoading, error, typeIcons = {} }: 
               </thead>
               <tbody>
                 {structured.map(({ typeId, name, icon, count }) => {
-                  const FallbackIcon = typeIcons['object'];
+                  const FallbackIcon = typeIcons[typeId] ?? typeIcons['object'];
                   return (
                     <tr key={typeId}>
                       <td>
