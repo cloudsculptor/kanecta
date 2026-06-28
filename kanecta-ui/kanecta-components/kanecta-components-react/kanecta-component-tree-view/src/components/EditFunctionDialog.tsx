@@ -11,7 +11,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import CodeIcon from '@mui/icons-material/Code';
-import { functionSpec } from '@kanecta/specification';
+import functionSpec from '@kanecta/specification/1.2.0/file-specs/function.json';
 import { useTreeViewContext } from '../context';
 import { BodyConflictDialog } from './BodyConflictDialog';
 import type { KanectaItem } from '../types';

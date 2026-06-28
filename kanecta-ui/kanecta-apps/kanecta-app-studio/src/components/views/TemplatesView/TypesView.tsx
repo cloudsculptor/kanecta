@@ -3,7 +3,7 @@ import { useViewLocation } from '../../../context/LocationContext';
 import { TypesView as TypesViewPkg } from '@kanecta/component-types-view';
 import { useWorkspaceStore } from '../../../store/workspace';
 import type { ItemType } from '../../../types/kanecta';
-import typeSpecRaw from '../../../../../../kanecta-specification/1.2.0/file-specs/type.json?raw';
+import typeSpecRaw from '@kanecta/specification/1.2.0/file-specs/type.json?raw';
 
 export const TypesViewMeta: ViewMeta = {
   uuid: 'd5c4e3f2-a6b7-4c8d-9e0f-1a2b3c4d5e6f',
