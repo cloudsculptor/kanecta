@@ -34,6 +34,9 @@
 }
 
 .QualityControlView-col-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -41,6 +44,19 @@
   color: var(--color-text-muted);
   margin-bottom: 12px;
   flex-shrink: 0;
+}
+
+.QualityControlView-col-count {
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-text-muted);
+  background: var(--color-border);
+  padding: 1px 7px;
+  border-radius: 999px;
+  line-height: 1.6;
 }
 
 .QualityControlView-label {
@@ -62,13 +78,6 @@
 .QualityControlView-fraction {
   font-size: 1.1rem;
   color: var(--color-text-muted);
-}
-
-.QualityControlView-col-count {
-  font-variant-numeric: tabular-nums;
-  font-weight: 400;
-  color: var(--color-text-muted);
-  margin-left: 4px;
 }
 
 .QualityControlView-empty {
@@ -106,6 +115,10 @@
   position: sticky;
   top: 0;
   background: var(--color-bg);
+}
+
+.QualityControlView-table th:last-child {
+  text-align: right;
 }
 
 .QualityControlView-table td {
