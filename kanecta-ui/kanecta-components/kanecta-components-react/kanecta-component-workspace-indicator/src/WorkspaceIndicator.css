@@ -1,0 +1,15 @@
+.WorkspaceIndicator {
+  display: inline-block;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.WorkspaceIndicator--sm {
+  width: 8px;
+  height: 8px;
+}
+
+.WorkspaceIndicator--md {
+  width: 12px;
+  height: 12px;
+}

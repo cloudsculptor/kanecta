@@ -1,0 +1,21 @@
+{
+  "id": "04ca89a9-9e31-41c6-a50f-d7a2e3542357",
+  "specVersion": "1.4.0",
+  "parentId": null,
+  "value": "Pipeline Spec Step",
+  "type": "type",
+  "typeId": null,
+  "owner": "richardsempire@gmail.com",
+  "license": null,
+  "sortOrder": 110,
+  "confidence": null,
+  "status": null,
+  "tags": [],
+  "createdAt": "2026-06-06T21:49:01.000Z",
+  "modifiedAt": "2026-06-06T21:49:01.000Z",
+  "createdBy": "richardsempire@gmail.com",
+  "modifiedBy": "richardsempire@gmail.com",
+  "cachedAt": null,
+  "subscribedAt": null,
+  "subscriptionSource": null
+}

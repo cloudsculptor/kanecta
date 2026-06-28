@@ -1,0 +1,42 @@
+{
+  "name": "@kanecta/postgres",
+  "version": "1.4.0",
+  "description": "Kanecta postgres adapter — REMOTE mode items storage",
+  "main": "src/index.js",
+  "files": [
+    "src/",
+    "migrations/"
+  ],
+  "scripts": {
+    "test": "jest --runInBand",
+    "docker:up": "node scripts/ensure-running.js",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f postgres",
+    "test:docker:up": "docker compose -f docker-compose.test.yml up -d",
+    "test:docker:down": "docker compose -f docker-compose.test.yml down",
+    "test:ci": "npm run test:docker:up && sleep 5 && npm test"
+  },
+  "keywords": [
+    "kanecta",
+    "datastore",
+    "postgres"
+  ],
+  "author": "Kanecta",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@kanecta/specification": "^1.2.0"
+  },
+  "peerDependencies": {
+    "pg": ">=8.0.0"
+  },
+  "devDependencies": {
+    "jest": "^30.4.2",
+    "pg": "^8.0.0"
+  }
+}

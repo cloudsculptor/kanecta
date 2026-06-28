@@ -1,0 +1,10 @@
+{
+  "name": "@kanecta/component-pull-requests-view",
+  "version": "1.4.0",
+  "private": true,
+  "main": "src/index.ts",
+  "peerDependencies": {
+    "@mui/icons-material": ">=9",
+    "react": ">=19"
+  }
+}

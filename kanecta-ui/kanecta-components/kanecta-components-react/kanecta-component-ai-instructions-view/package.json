@@ -1,0 +1,22 @@
+{
+  "name": "@kanecta/component-ai-instructions-view",
+  "version": "1.4.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@mui/material": ">=9",
+    "@tanstack/react-query": ">=5",
+    "react": ">=19",
+    "react-markdown": ">=9",
+    "remark-gfm": ">=4"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "typescript": "~6.0.2"
+  }
+}

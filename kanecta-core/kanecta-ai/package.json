@@ -1,0 +1,28 @@
+{
+  "name": "@kanecta/ai",
+  "version": "1.4.0",
+  "description": "Kanecta AI layer — exposes Claude integration to kanecta-api via kanecta-claude-bridge",
+  "main": "index.js",
+  "files": [
+    "index.js"
+  ],
+  "scripts": {
+    "test": "echo \"No tests yet\""
+  },
+  "dependencies": {
+    "@kanecta/claude-bridge": "*"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "kanecta",
+    "ai",
+    "claude"
+  ],
+  "author": "Richie Thomas <richardsempire@gmail.com>",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}

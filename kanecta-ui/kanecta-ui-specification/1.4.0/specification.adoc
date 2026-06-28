@@ -1,0 +1,536 @@
+= Kanecta UI Specification v1.4.0
+:version: 1.4.0
+:toc: left
+:toc-title: Contents
+:toclevels: 3
+:sectnums:
+:icons: font
+:source-highlighter: rouge
+:license: MIT
+:status: Active
+
+== Overview
+
+This document defines the rules for every package in `kanecta-ui/`. It is the UI-layer equivalent of `kanecta-core/kanecta-specification/`. Tooling in `kanecta-ui-validator` enforces these rules programmatically.
+
+The UI layer is divided into two sub-directories:
+
+* `kanecta-components/` — standalone React component packages, one per component or view
+* `kanecta-apps/` — consuming applications (Studio, Claude app, platform variants)
+
+A third directory, `kanecta-ui-specification/`, contains this document and the validator.
+
+== Directory Layout
+
+[source]
+----
+kanecta-ui/
+  kanecta-apps/
+    kanecta-app-studio/
+      kanecta.manifest.json       <1>
+      src/
+  kanecta-components/
+    kanecta-component-<slug>/
+      package.json                <2>
+      src/
+        index.ts                  <3>
+      kanecta.item.json           <4>
+  kanecta-ui-specification/
+    1.4.0/
+      specification.adoc          ← this file
+      kanecta-ui-validator/
+    vNext/
+----
+<1> Required for every app. Catalogs all component items the app ships or consumes.
+<2> Required. Must conform to <<package-json-rules>>.
+<3> Required. Named exports only — no default export.
+<4> Required. A Kanecta item of type `component` describing this package.
+
+== Component Package Naming
+
+[cols="1,2", options="header"]
+|===
+| Thing | Convention
+
+| Folder
+| `kanecta-component-<slug>`
+
+| npm name
+| `@kanecta/component-<slug>`
+
+| Slug
+| Lowercase kebab-case, alphabetic start, no trailing hyphens
+|===
+
+.Examples
+----
+kanecta-component-confidence-badge    →   @kanecta/component-confidence-badge
+kanecta-component-layouts-view        →   @kanecta/component-layouts-view
+kanecta-component-mission-control     →   @kanecta/component-mission-control
+----
+
+[[package-json-rules]]
+== `package.json` Rules
+
+Every component package `package.json` must conform to the following rules. The `validateComponentPackage` function in `kanecta-ui-validator` enforces all of these programmatically.
+
+=== Required fields
+
+[cols="1,2,2", options="header"]
+|===
+| Field | Required value | Reason
+
+| `name`
+| `@kanecta/component-<slug>`
+| Scoped name ensures uniqueness and allows tree-shaking by consumers.
+
+| `private`
+| `true`
+| Component packages are workspace-only; they are not independently published to npm.
+
+| `main`
+| `src/index.ts` or `src/index.tsx`
+| No build step. TypeScript sources are consumed directly by the workspace.
+
+| `types`
+| `src/index.ts` or `src/index.tsx`
+| TypeScript resolves types from the source entry, not a build artifact.
+|===
+
+=== `peerDependencies` rules
+
+All runtime dependencies are peer dependencies. The `dependencies` block must be absent.
+
+* Use `>=` version ranges for all peer dependencies — never `^`. This ensures the consuming app's already-installed version is always accepted without forcing a duplicate install.
+* `@kanecta/component-*` workspace packages use `*` (any workspace version).
+
+.Minimum required peer dependency version ranges
+[cols="1,1", options="header"]
+|===
+| Package | Minimum range
+
+| `react`
+| `>=19`
+
+| `@mui/material`
+| `>=9`
+
+| `@mui/icons-material`
+| `>=9`
+
+| `@tanstack/react-query`
+| `>=5`
+
+| `@kanecta/component-*`
+| `*`
+|===
+
+=== `devDependencies` rules
+
+Include only `typescript` and `@types/react`. Do not add MUI or TanStack as devDeps — TypeScript resolves their types through the workspace's installed peerDeps without needing separate type packages.
+
+=== Minimal valid `package.json`
+
+[source,json]
+----
+{
+  "name": "@kanecta/component-my-widget",
+  "version": "1.4.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": ">=19"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "typescript": "~6.0.2"
+  }
+}
+----
+
+== TypeScript Rules
+
+=== Named exports only
+
+No `export default`. Every exported symbol must be named so consumers can tree-shake and so re-exports are unambiguous.
+
+[source,typescript]
+----
+// ✓ correct
+export function ConfidenceBadge({ confidence }: ConfidenceBadgeProps) { ... }
+export type { ConfidenceLevel };
+
+// ✗ wrong
+export default function ConfidenceBadge(...) { ... }
+----
+
+=== No store imports
+
+Component packages must not import from Studio stores (`useWorkspaceStore`, `useReviewStore`, `useUiStore`, `useLocationStore`, etc.) or from any `kanecta-app-*` package. All data flows in through props. This makes components testable in isolation and usable outside Studio.
+
+=== Props-only API
+
+Every stateful dependency — fetch functions, callbacks, current workspace ID, active item ID — must be an explicit prop. The component receives data; it does not reach out to get it.
+
+[source,typescript]
+----
+// ✓ correct — Studio passes fetch callbacks as props
+export interface TodoViewProps {
+  onFetchItems: () => Promise<TodoItem[]>;
+  onCreateItem: (value: string) => Promise<void>;
+  queryKey?: string;
+}
+
+// ✗ wrong — component reaches into Studio
+import { useWorkspaceStore } from '../../stores/workspaceStore';
+----
+
+=== No `?raw` or `?url` imports
+
+Vite query suffixes only resolve at the consuming app's build time. Pass the result as a prop instead.
+
+[source,typescript]
+----
+// ✓ correct — Studio does the ?raw import and passes the string down
+export interface TypesViewProps {
+  typeSpec?: string;   // caller passes: import typeSpecRaw from '...?raw'
+}
+
+// ✗ wrong — won't resolve outside of Vite's build pipeline
+import typeSpecRaw from '../../kanecta-specification/type.json?raw';
+----
+
+=== No hooks in a loop
+
+If parallel queries are needed over a dynamic list, use `useQueries` from TanStack Query — not `useQuery` inside `.map()`.
+
+[source,typescript]
+----
+// ✓ correct
+const results = useQueries({
+  queries: workspaces.map((ws) => ({
+    queryKey: ['items', ws.id],
+    queryFn: () => onFetchItems(ws.id),
+  })),
+});
+
+// ✗ wrong — React hooks violation
+const results = workspaces.map((ws) => useQuery(...)); // eslint-disable doesn't fix this
+----
+
+=== React context within a package
+
+A package may define a React context internally to avoid deep prop-drilling within a complex component tree. The context must not escape the package boundary — it is an internal implementation detail, not part of the public API.
+
+== CSS Rules
+
+=== Flat CSS files only
+
+No SCSS, no PostCSS, no CSS Modules. One `.css` file per component file, imported directly:
+
+[source,typescript]
+----
+import './MyComponent.css';
+----
+
+=== BEM class names
+
+Block name is derived from the component filename (PascalCase → BEM block). Modifier values use `--`, elements use `__`.
+
+[source,css]
+----
+/* Block */
+.ConfidenceBadge { ... }
+
+/* Element */
+.ConfidenceBadge__label { ... }
+
+/* Modifier */
+.ConfidenceBadge--high { ... }
+.ConfidenceBadge--low { ... }
+----
+
+=== Self-contained
+
+No `@import` from other packages or shared token files. When converting from SCSS, inline all variable values as literals. Example: `$color-border: #e0e0e0` → write `#e0e0e0` directly.
+
+=== CSS custom properties
+
+MUI and Studio CSS custom properties may be referenced — they are resolved by the consuming app's theme at runtime:
+
+[source,css]
+----
+.MyView {
+  color: var(--mui-palette-text-primary);
+  border-color: var(--color-border);
+}
+----
+
+=== No nested selectors
+
+Flatten all nesting. Each rule is a standalone block at the top level.
+
+[source,css]
+----
+/* ✓ correct */
+.MyView__item { ... }
+.MyView__item--active { ... }
+
+/* ✗ wrong — nested */
+.MyView {
+  .item { ... }
+  &--active { ... }
+}
+----
+
+[[component-item]]
+== `kanecta.item.json` Rules
+
+Every component package must include a `kanecta.item.json` at its root. This file is a Kanecta item conforming to the core `item.json` spec (v1.4.0) with the following constraints. The `validateComponentItem` function in `kanecta-ui-validator` enforces these programmatically.
+
+=== Identity rules
+
+[cols="1,3", options="header"]
+|===
+| Field | Rule
+
+| `item.type`
+| Must be `"component"`.
+
+| `item.id`
+| A stable UUID v4. *Never change it after the package is created* — this UUID is the component's permanent identity in the Kanecta item graph. If a workspace caches this component by ID, changing the UUID breaks the link silently.
+
+| `item.parentId`
+| Must be `"00000000-0000-0000-0000-000000000000"` (the well-known root UUID). Component packages live at the root of the item graph, not under any other item.
+
+| `item.value`
+| A human-readable display name derived from the slug, title-cased with spaces. Example: `kanecta-component-confidence-badge` → `"Confidence Badge"`.
+|===
+
+=== Required meta fields
+
+All fields required by the core `item.json` meta section apply. Additionally:
+
+* `meta.specVersion` — must be `"1.4.0"`.
+* `meta.files.body` — must be `"src/index.ts"` (or `.tsx`). Points to the sidecar containing the component source entry.
+
+=== Payload
+
+`payload` must be present and conform to the `componentPayload` shape from the core spec:
+
+[cols="1,1,3", options="header"]
+|===
+| Field | Required | Notes
+
+| `payload.props`
+| Yes
+| Array of prop definitions (may be empty). Each prop uses the `parameterOrProp` shape — exactly one of `type`, `typeId`, or `functionId`.
+
+| `payload.dependencies`
+| No
+| Array of npm package names this component imports beyond React. Derived from `peerDependencies` excluding `react`.
+
+| `payload.description`
+| No (recommended)
+| One-sentence summary of what the component renders.
+|===
+
+=== Example
+
+[source,json]
+----
+{
+  "item": {
+    "id": "626c2e16-1608-440a-84c5-cc0a6460ac58",
+    "parentId": "00000000-0000-0000-0000-000000000000",
+    "type": "component",
+    "typeId": null,
+    "value": "Confidence Badge",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "owner": "kanecta.org",
+    "ownerDomain": "kanecta.org",
+    "namespace": "kanecta.org/ui/components",
+    "copyrightHolder": null,
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "visibility": "public",
+    "aspect": null,
+    "confidence": "decided",
+    "status": "active",
+    "tags": ["ui", "component", "react"],
+    "template": null,
+    "createdAt": "2026-06-27T00:00:00.000Z",
+    "modifiedAt": "2026-06-27T00:00:00.000Z",
+    "createdBy": null,
+    "modifiedBy": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "files": { "body": "src/index.ts" }
+  },
+  "search": null,
+  "payload": {
+    "description": "Kanecta Confidence Badge display component.",
+    "props": [],
+    "dependencies": []
+  }
+}
+----
+
+[[manifest]]
+== App Manifest (`kanecta.manifest.json`)
+
+Every app in `kanecta-apps/` that ships or consumes UI components must include a `kanecta.manifest.json` at its root. Its structure mirrors the core `kanecta.manifest.json` pattern. The `validateManifest` function in `kanecta-ui-validator` enforces these rules.
+
+=== Shape
+
+[source,json]
+----
+{
+  "schemaVersion": "1.4.0",
+  "package": "kanecta-app-studio",
+  "layer": "ui",
+  "items": [
+    {
+      "id": "626c2e16-1608-440a-84c5-cc0a6460ac58",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-component-confidence-badge/kanecta.item.json"
+    }
+  ]
+}
+----
+
+=== Field rules
+
+[cols="1,3", options="header"]
+|===
+| Field | Rule
+
+| `schemaVersion`
+| Semver string matching the spec version in use (`"1.4.0"`).
+
+| `package`
+| The npm package name of this app, without the `@kanecta/` scope.
+
+| `layer`
+| Must be `"ui"`. Distinguishes UI manifests from core manifests.
+
+| `items[].id`
+| UUID v4. Must match the `item.id` in the referenced `kanecta.item.json`. The manifest never assigns its own IDs — it mirrors the component's canonical identity.
+
+| `items[].type`
+| Kanecta item type string (typically `"component"`).
+
+| `items[].file`
+| Path to the `kanecta.item.json`, relative to this manifest file. No duplicate IDs allowed.
+|===
+
+== Storybook
+
+Every component package that exports a renderable React component must include at least one Storybook story file alongside the component source:
+
+* File: `src/<ComponentName>.stories.tsx`
+* Must include at least one `Default` story exercising the happy path with realistic props.
+* Stories must not import from Studio or any `kanecta-app-*` package.
+* Stories use CSF3 format (`@storybook/react`).
+
+Shared display components (badge, chip, indicator, bar) must additionally include a story for each meaningful visual state — for example, a story per `ConfidenceLevel` value for `ConfidenceBadge`.
+
+== Validator Reference
+
+The `kanecta-ui-validator` package is at `kanecta-ui-specification/1.4.0/kanecta-ui-validator/`. Import via the `@kanecta/ui-specification` package:
+
+[source,javascript]
+----
+import { validateComponentItem, validateManifest, validateComponentPackage }
+  from '@kanecta/ui-specification/validator';
+----
+
+All three functions return `{ valid: boolean, errors: ValidationError[] }` where each error has:
+
+* `path` — dot-notation path to the offending field (e.g. `"item.type"`, `"payload.props[0].name"`)
+* `message` — human-readable explanation
+* `rule` — machine-readable rule ID (e.g. `"kanecta-ui:component-type"`, `"format:uuid"`)
+
+[cols="2,3", options="header"]
+|===
+| Rule ID | Meaning
+
+| `kanecta-ui:component-type`
+| `item.type` must be `"component"`
+
+| `kanecta-ui:non-root-id`
+| `item.id` must not be the all-zeros root UUID
+
+| `kanecta-ui:root-parent`
+| `item.parentId` must be the all-zeros root UUID
+
+| `kanecta-ui:files-required`
+| `meta.files` must be present
+
+| `kanecta-ui:body-required`
+| `meta.files.body` must be set
+
+| `kanecta-ui:body-path`
+| `meta.files.body` must start with `src/`
+
+| `kanecta-ui:payload-required`
+| `payload` must be present for component items
+
+| `kanecta-ui:props-required`
+| `payload.props` must be an array
+
+| `kanecta-ui:layer`
+| Manifest `layer` must be `"ui"`
+
+| `kanecta-ui:duplicate-id`
+| Manifest item IDs must be unique
+
+| `kanecta-ui:component-name`
+| Package `name` must match `@kanecta/component-<slug>`
+
+| `kanecta-ui:private`
+| Package `private` must be `true`
+
+| `kanecta-ui:main-src`
+| Package `main` must point into `src/`
+
+| `kanecta-ui:no-dependencies`
+| `dependencies` block must be absent
+
+| `kanecta-ui:peer-deps-required`
+| `peerDependencies` must be present
+
+| `kanecta-ui:react-peer`
+| `react` must be listed as a peer dependency
+
+| `kanecta-ui:peer-range`
+| All peer ranges must use `>=` not `^`
+|===
+
+== Version Compatibility
+
+[cols="1,1,1,1,2", options="header"]
+|===
+| Spec version | React | MUI | TanStack Query | Notes
+
+| 1.4.0
+| >=19
+| >=9
+| >=5
+| Initial UI specification
+|===
+
+When bumping the spec version, create a new versioned folder (e.g. `2.0.0/`) and update the `package.json` exports map. The `vNext/` folder is a scratchpad for breaking changes under consideration — nothing in `vNext/` is enforced by the validator.

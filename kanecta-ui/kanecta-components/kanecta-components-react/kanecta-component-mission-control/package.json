@@ -1,0 +1,14 @@
+{
+  "name": "@kanecta/component-mission-control",
+  "version": "1.4.0",
+  "private": true,
+  "main": "src/index.ts",
+  "peerDependencies": {
+    "@kanecta/component-confidence-badge": "*",
+    "@kanecta/component-tag-chip": "*",
+    "@kanecta/component-type-badge": "*",
+    "@kanecta/component-workspace-indicator": "*",
+    "@tanstack/react-query": ">=5",
+    "react": ">=19"
+  }
+}

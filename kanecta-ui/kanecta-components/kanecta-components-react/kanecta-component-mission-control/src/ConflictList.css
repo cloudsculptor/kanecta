@@ -1,0 +1,103 @@
+.ConflictList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.ConflictList-empty {
+  padding: 24px;
+  font-size: 0.875rem;
+  color: var(--mui-palette-text-secondary);
+  text-align: center;
+}
+
+.ConflictList-card {
+  border: 1px solid var(--mui-palette-divider);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--mui-palette-background-paper);
+}
+
+.ConflictList-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--mui-palette-action-hover);
+  border-bottom: 1px solid var(--mui-palette-divider);
+}
+
+.ConflictList-card-reason {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  color: var(--mui-palette-text-secondary);
+}
+
+.ConflictList-card-sim {
+  font-size: 0.6875rem;
+  color: var(--mui-palette-warning-main);
+  font-weight: 600;
+}
+
+.ConflictList-card-sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border-bottom: 1px solid var(--mui-palette-divider);
+}
+
+.ConflictList-card-side {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ConflictList-card-side:first-child { border-right: 1px solid var(--mui-palette-divider); }
+
+.ConflictList-card-ws {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid;
+  border-radius: 4px;
+  padding: 1px 6px;
+  display: inline-block;
+}
+
+.ConflictList-card-badges { display: flex; gap: 4px; }
+
+.ConflictList-card-value {
+  font-size: 0.875rem;
+  color: var(--mui-palette-text-primary);
+  margin: 0;
+  flex: 1;
+}
+
+.ConflictList-card-keep {
+  padding: 5px 10px;
+  border: 1px solid var(--mui-palette-divider);
+  border-radius: 5px;
+  background: transparent;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.ConflictList-card-keep:hover { background: var(--mui-palette-action-selected); }
+
+.ConflictList-card-dismiss {
+  display: block;
+  width: 100%;
+  padding: 8px;
+  border: none;
+  background: transparent;
+  font-size: 0.75rem;
+  color: var(--mui-palette-text-secondary);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.ConflictList-card-dismiss:hover { background: var(--mui-palette-action-hover); }

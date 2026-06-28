@@ -1,0 +1,35 @@
+{
+  "name": "@kanecta/lib",
+  "version": "1.4.0",
+  "description": "Kanecta filesystem datastore — core library",
+  "main": "src/index.js",
+  "files": [
+    "src/"
+  ],
+  "scripts": {
+    "test": "jest --runInBand",
+    "release": "bash scripts/release.sh",
+    "release:minor": "bash scripts/release.sh minor",
+    "release:major": "bash scripts/release.sh major"
+  },
+  "keywords": [
+    "kanecta",
+    "datastore"
+  ],
+  "author": "Kanecta",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@kanecta/datastore-utils": "^1.4.0",
+    "@kanecta/sqlite-fs": "^1.4.0",
+    "cron-parser": "^5.6.1"
+  },
+  "devDependencies": {
+    "jest": "^30.4.2"
+  }
+}

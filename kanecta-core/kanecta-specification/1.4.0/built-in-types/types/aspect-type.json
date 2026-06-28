@@ -1,0 +1,65 @@
+{
+  "item": {
+    "id": "45bc6fbe-aa63-41be-8566-7217a9a15ece",
+    "parentId": "31ef9fcb-636d-4007-b25f-80c1c4f054ef",
+    "type": "type",
+    "typeId": null,
+    "value": "aspect-type",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "Defines the schema and semantics of a named aspect dimension.",
+      "confidence": "locked",
+      "icon": "CallSplit"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "aspectTypePayload",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "jsonSchema": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "JSON Schema validating the payload of aspect items of this type. null means no schema enforcement — any payload is accepted."
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of what this dimension represents and how it should be used."
+        }
+      }
+    },
+    "sqlSchema": [
+      "-- Built-in type: adapter handles storage natively."
+    ]
+  }
+}

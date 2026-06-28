@@ -1,0 +1,21 @@
+{
+  "id": "97723a14-bc20-46ec-bf50-260200f2be8a",
+  "specVersion": "1.4.0",
+  "parentId": null,
+  "value": "Future State Requirement",
+  "type": "type",
+  "typeId": null,
+  "owner": "richardsempire@gmail.com",
+  "license": null,
+  "sortOrder": 118,
+  "confidence": null,
+  "status": null,
+  "tags": [],
+  "createdAt": "2026-06-06T21:49:01.000Z",
+  "modifiedAt": "2026-06-06T21:49:01.000Z",
+  "createdBy": "richardsempire@gmail.com",
+  "modifiedBy": "richardsempire@gmail.com",
+  "cachedAt": null,
+  "subscribedAt": null,
+  "subscriptionSource": null
+}

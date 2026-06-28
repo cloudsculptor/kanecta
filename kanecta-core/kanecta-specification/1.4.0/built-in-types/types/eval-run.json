@@ -1,0 +1,187 @@
+{
+  "item": {
+    "id": "ddb8b941-8e44-49f8-acd6-614495ac968e",
+    "parentId": "31ef9fcb-636d-4007-b25f-80c1c4f054ef",
+    "type": "type",
+    "typeId": null,
+    "value": "eval-run",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "The execution record of a single eval invocation.",
+      "confidence": "locked",
+      "icon": "PlaylistAddCheck"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "evalRunPayload",
+      "type": "object",
+      "required": [
+        "evalId",
+        "pipelineRunId",
+        "status",
+        "phases"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "evalId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "UUID of the eval item this run is executing. Also the parentId of this eval-run item — eval runs accumulate as children of their eval."
+        },
+        "pipelineRunId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "UUID of the pipeline-run item created for this eval execution. The full pipeline run record (phase statuses, itemsProduced, gate results) is available there."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "running",
+            "passed",
+            "failed",
+            "error"
+          ],
+          "description": "Overall eval result. running=pipeline or assertion evaluation in progress; passed=all assertions passed; failed=one or more assertions failed (pipeline completed successfully but output did not meet assertions); error=pipeline run itself failed before assertions could be evaluated."
+        },
+        "startedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when the eval run started."
+        },
+        "completedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when all assertions finished evaluating."
+        },
+        "phases": {
+          "type": "array",
+          "description": "Per-phase assertion results, one entry per phase declared in the eval definition.",
+          "items": {
+            "type": "object",
+            "required": [
+              "phaseId",
+              "status",
+              "assertions"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "phaseId": {
+                "type": "string",
+                "description": "Matches the phaseId in the eval definition."
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "running",
+                  "passed",
+                  "failed",
+                  "skipped"
+                ],
+                "description": "pending=pipeline phase not yet complete; running=assertions evaluating; passed=all assertions in this phase passed; failed=one or more assertions failed; skipped=phase was skipped by the pipeline runner so assertions were not evaluated."
+              },
+              "assertions": {
+                "type": "array",
+                "description": "Results for each assertion declared in the eval definition for this phase.",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "status"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "Matches the assertion id in the eval definition."
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "passed",
+                        "failed",
+                        "skipped",
+                        "error"
+                      ],
+                      "description": "passed=assertion condition met; failed=assertion condition not met; skipped=phase was skipped or assertion could not run; error=assertion evaluation threw an exception."
+                    },
+                    "detail": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Human-readable explanation of why the assertion failed or errored. Null if passed. For count assertions: actual vs expected count. For payload/meta: which items failed the expression and what their values were. For no-regression: which golden concepts were missing."
+                    },
+                    "verdict": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "PASS",
+                        "FAIL",
+                        null
+                      ],
+                      "description": "llm-judge assertions only: the verdict returned by the judge agent via kanecta_judge_verdict. Null for other assertion types."
+                    },
+                    "reasoning": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "llm-judge assertions only: the judge agent's reasoning behind the verdict. Stored verbatim. Null for other assertion types."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Top-level error message if the eval run errored before completing assertion evaluation. Null otherwise."
+        }
+      }
+    },
+    "sqlSchema": [
+      "-- Built-in type: adapter handles storage natively."
+    ]
+  }
+}

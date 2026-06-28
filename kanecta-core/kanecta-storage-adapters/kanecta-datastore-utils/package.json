@@ -1,0 +1,41 @@
+{
+  "name": "@kanecta/datastore-utils",
+  "version": "1.4.0",
+  "description": "Kanecta major datastore operations — create, open, copy, merge",
+  "main": "src/index.js",
+  "files": [
+    "src/"
+  ],
+  "scripts": {
+    "test": "echo \"No standalone tests — tested via integration\" && exit 0"
+  },
+  "keywords": [
+    "kanecta",
+    "datastore"
+  ],
+  "author": "Kanecta",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@kanecta/sqlite-fs": "^1.4.0"
+  },
+  "peerDependencies": {
+    "@aws-sdk/client-s3": ">=3.0.0",
+    "@kanecta/cloud": "^1.0.0",
+    "@kanecta/database": "^1.4.0",
+    "@kanecta/s3": "^1.0.0",
+    "pg": ">=8.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@aws-sdk/client-s3": { "optional": true },
+    "@kanecta/cloud": { "optional": true },
+    "@kanecta/database": { "optional": true },
+    "@kanecta/s3": { "optional": true },
+    "pg": { "optional": true }
+  }
+}

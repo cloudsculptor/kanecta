@@ -1,0 +1,100 @@
+.TopBar {
+  grid-area: top;
+  display: grid;
+  grid-template-columns: minmax(80px, max-content) 1fr minmax(80px, max-content);
+  align-items: stretch;
+  overflow: hidden;
+  background: var(--sidebar-bg, transparent);
+
+  &-topLeftCorner,
+  &-topRightCorner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &-center {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+
+    &-left {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    &-mid {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      padding: 4px;
+      flex-shrink: 0;
+    }
+
+    &-right {
+      flex: 1;
+    }
+  }
+
+  &-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    height: 100%;
+    padding: 6px 12px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: var(--sidebar-fg);
+    border-radius: 6px;
+
+
+    &--active {
+      background: var(--content-bg, #ffffff);
+      color: var(--sidebar-fg-selected);
+      border-radius: 0;
+    }
+
+    .MuiSvgIcon-root {
+      font-size: 32px;
+      width: 32px;
+      height: 32px;
+    }
+  }
+
+  &-item-label {
+    font-size: 12px;
+    line-height: 1.2;
+  }
+
+  &-input-wrap {
+    width: 400px;
+    flex-shrink: 0;
+    margin: 0 36px;
+    background: #ffffff;
+    border: 1px solid var(--location-border, #cccccc);
+    border-radius: 20px;
+    padding: 6px 14px;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+
+  &-input {
+    width: 100%;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 0.8125rem;
+    color: #333;
+    text-align: center;
+
+    &::placeholder {
+      color: #aaa;
+    }
+  }
+}

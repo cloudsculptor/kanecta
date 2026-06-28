@@ -1,0 +1,43 @@
+{
+  "name": "kanecta-studio-vscode",
+  "displayName": "Kanecta Studio",
+  "description": "Open Kanecta Studio inside VS Code, wrapping the Studio frontend in a webview",
+  "version": "1.4.0",
+  "private": true,
+  "publisher": "kanecta",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cloudsculptor/kanecta"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "icon": "build/icon.png",
+  "main": "./extension.js",
+  "files": [
+    "extension.js",
+    "build/icon.png",
+    "README.md",
+    "LICENSE"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "kanecta-studio.open",
+        "title": "Open Kanecta Studio",
+        "category": "Kanecta"
+      }
+    ]
+  },
+  "scripts": {
+    "package": "vsce package --out dist --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.0.0"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,36 @@
+{
+  "name": "@kanecta/claude",
+  "version": "1.4.0",
+  "description": "Kanecta Claude integration — captures context, decisions, and insights across all Claude sessions.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo 'Tests live in kanecta-cli — run: cd ../kanecta-cli && npm test'",
+    "prepublishOnly": "node scripts/prepublish.js"
+  },
+  "files": [
+    "index.js",
+    "lib/",
+    "commands/"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@kanecta/cli": "^1.0.3",
+    "@kanecta/mcp": "^1.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "mcp",
+    "knowledge-base",
+    "personal-memory",
+    "notes",
+    "ai",
+    "kanecta"
+  ],
+  "license": "MIT"
+}

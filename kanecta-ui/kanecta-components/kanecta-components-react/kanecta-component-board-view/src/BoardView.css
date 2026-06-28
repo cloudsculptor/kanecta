@@ -1,0 +1,142 @@
+.BoardView {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.BoardView-controls {
+  flex-shrink: 0;
+}
+
+.BoardView-group-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-raised);
+  flex-shrink: 0;
+}
+
+.BoardView-group-select select {
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 0.8rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+  outline: none;
+}
+
+.BoardView-columns {
+  flex: 1;
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  overflow-x: auto;
+  align-items: flex-start;
+}
+
+.BoardView-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  flex: 1;
+}
+
+.BoardColumn {
+  display: flex;
+  flex-direction: column;
+  width: 260px;
+  flex-shrink: 0;
+  background: var(--color-surface-raised);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.BoardColumn-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.BoardColumn-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: capitalize;
+  letter-spacing: 0.04em;
+}
+
+.BoardColumn-count {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border-radius: 100px;
+  padding: 1px 7px;
+  font-weight: 600;
+}
+
+.BoardColumn-cards {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 80px;
+}
+
+.BoardColumn--over {
+  background: var(--color-primary-muted);
+}
+
+.BoardCard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: grab;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: box-shadow 150ms;
+}
+
+.BoardCard:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.BoardCard--dragging {
+  opacity: 0.5;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.BoardCard--focused {
+  border-color: var(--color-primary);
+  background: var(--color-primary-muted);
+}
+
+.BoardCard-value {
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--color-text);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.BoardCard-footer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}

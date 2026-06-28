@@ -1,0 +1,444 @@
+// GitHub colour tokens
+$gh-border:      #d0d7de;
+$gh-bg:          #ffffff;
+$gh-bg-subtle:   #f6f8fa;
+$gh-bg-hover:    #f3f4f6;
+$gh-text:        #24292f;
+$gh-text-muted:  #57606a;
+$gh-accent:      #0969da;
+$gh-green:       #1a7f37;
+$gh-shadow:      0 8px 24px rgba(140, 149, 159, 0.2);
+
+.DatastoreSwitcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 400px;
+  height: 48px;
+  padding: 0 24px;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  color: var(--sidebar-fg);
+  border-radius: 10px;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  font-family: inherit;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.25);
+  }
+
+  &--error {
+    background: rgba(255, 80, 80, 0.2);
+    &:hover { background: rgba(255, 80, 80, 0.3); }
+  }
+
+  &__error-icon {
+    font-size: 18px !important;
+    opacity: 0.8;
+  }
+
+  &__avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: 0;
+    flex-shrink: 0;
+    line-height: 1;
+    user-select: none;
+
+    &--sm {
+      width: 22px;
+      height: 22px;
+      font-size: 0.75rem;
+      border-radius: 5px;
+    }
+
+    &--md {
+      width: 30px;
+      height: 30px;
+      font-size: 0.875rem;
+      border-radius: 6px;
+    }
+  }
+
+  &__name {
+    flex: 1;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__arrow {
+    font-size: 20px !important;
+    opacity: 0.7;
+  }
+
+  // ── Panel ──────────────────────────────────────────────
+  &__panel {
+    width: 550px;
+    background: $gh-bg;
+    border: 1px solid $gh-border;
+    border-radius: 12px !important;
+    box-shadow: $gh-shadow !important;
+    overflow: hidden;
+  }
+
+  &__section-header {
+    padding: 8px 16px 4px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: $gh-text-muted;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  // ── Working Set card ───────────────────────────────────
+  &__working-set {
+    margin: 4px 10px 10px;
+    border: 1px solid $gh-border;
+    border-radius: 6px;
+    overflow: hidden;
+    background: $gh-bg;
+  }
+
+  &__ws-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    background: none;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 0.8125rem;
+    color: $gh-text;
+    text-align: left;
+
+    &--clickable {
+      cursor: pointer;
+      background: $gh-bg-subtle;
+
+      &:hover {
+        background: $gh-bg-hover;
+      }
+    }
+
+    &--bordered {
+      border-top: 1px solid $gh-border !important;
+    }
+  }
+
+  &__ws-icon {
+    font-size: 15px !important;
+    color: $gh-text-muted;
+    flex-shrink: 0;
+  }
+
+  &__ws-chevron {
+    font-size: 16px !important;
+    color: #c6cad0;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  &__ws-label {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    flex: 1;
+    overflow: hidden;
+
+    strong {
+      font-weight: 600;
+      font-size: 0.8125rem;
+    }
+  }
+
+  &__ws-sub {
+    font-size: 0.6875rem;
+    color: $gh-text-muted;
+  }
+
+  &__ws-name {
+    padding: 9px 12px 7px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: $gh-text;
+    border-bottom: 1px solid $gh-border;
+  }
+
+
+  &__branches-heading {
+    padding: 8px 16px 2px 36px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: $gh-text-muted;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-top: 1px solid $gh-border;
+  }
+
+  &__ws-status {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 7px 12px;
+    font-size: 0.6875rem;
+    border-top: 1px solid $gh-border;
+    background: $gh-bg-subtle;
+  }
+
+  &__ws-status-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &__ws-status-arrow {
+    color: $gh-text-muted;
+    flex-shrink: 0;
+    width: 10px;
+  }
+
+  &__ws-stat {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+
+    &--add  { color: #1a7f37; }
+    &--edit { color: #9a6700; }
+    &--del  { color: #cf222e; }
+
+    &--zero {
+      font-weight: 400;
+      opacity: 0.35;
+    }
+  }
+
+  // ── Branch list ────────────────────────────────────────
+  &__branches {
+    list-style: none;
+    margin: 0;
+    padding: 4px 0 6px;
+
+    &--inset {
+      padding: 2px 0 4px;
+      border-top: none;
+
+      .DatastoreSwitcher__branch {
+        padding-left: 36px;
+      }
+    }
+  }
+
+  &__branch {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 16px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    text-align: left;
+    font-size: 0.8125rem;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: $gh-text;
+
+    &:hover {
+      background: $gh-bg-hover;
+    }
+
+    &--active {
+      font-weight: 600;
+    }
+
+    &--add {
+      color: $gh-text-muted;
+
+      .DatastoreSwitcher__branch-add-icon {
+        font-size: 15px !important;
+        color: #adb5bd;
+      }
+    }
+  }
+
+  &__branch-glyph {
+    font-size: 0.8125rem;
+    color: $gh-text-muted;
+    flex-shrink: 0;
+    width: 16px;
+    text-align: center;
+  }
+
+  &__branch-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__branch-check {
+    font-size: 14px !important;
+    color: $gh-accent;
+    flex-shrink: 0;
+  }
+
+  // ── Available working sets ─────────────────────────────
+  &__available-list {
+    list-style: none;
+    margin: 0;
+    padding: 4px 10px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__available-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 12px;
+    border: 1px solid $gh-border;
+    border-radius: 8px;
+    background: $gh-bg;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    cursor: default;
+    transition: border-color 120ms, box-shadow 120ms;
+
+    &:hover {
+      border-color: #0969da55;
+      box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.08);
+    }
+  }
+
+  &__available-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2px;
+  }
+
+  &__available-item-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: $gh-text;
+  }
+
+  &__make-active-btn {
+    padding: 4px 10px;
+    border: 1px solid $gh-border;
+    background: $gh-bg;
+    border-radius: 6px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: $gh-text-muted;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color 80ms, color 80ms;
+
+    &:hover {
+      border-color: $gh-accent;
+      color: $gh-accent;
+    }
+  }
+
+  &__available-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &__available-icon {
+    font-size: 13px !important;
+    color: $gh-text-muted;
+    flex-shrink: 0;
+  }
+
+  &__available-name {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: $gh-text;
+  }
+
+  &__available-sub {
+    font-size: 0.6875rem;
+    color: $gh-text-muted;
+  }
+
+  &__available-add {
+    padding: 2px 10px 8px;
+  }
+
+  &__available-add-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 6px 6px;
+    border: 1px dashed $gh-border;
+    background: none;
+    cursor: pointer;
+    border-radius: 6px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 0.8125rem;
+    color: $gh-text-muted;
+
+    .MuiSvgIcon-root {
+      font-size: 15px !important;
+      color: #adb5bd;
+    }
+
+    &:hover {
+      background: $gh-bg-hover;
+      border-color: $gh-accent;
+      color: $gh-accent;
+
+      .MuiSvgIcon-root { color: $gh-accent; }
+    }
+  }
+
+  // ── Actions row ────────────────────────────────────────
+  &__actions {
+    padding: 10px 12px 12px;
+    background: $gh-bg;
+    border-top: 1px solid $gh-border;
+  }
+
+  &__action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 36px 6px 16px;
+    border: 1px solid rgba(31, 35, 40, 0.15);
+    background: #1f883d;
+    cursor: pointer;
+    border-radius: 6px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 20px;
+    color: #ffffff;
+    box-shadow: 0 1px 0 rgba(31, 35, 40, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    transition: background 80ms;
+
+    .MuiSvgIcon-root {
+      font-size: 16px !important;
+      color: #ffffff;
+    }
+
+    &:hover {
+      background: #1a7f37;
+    }
+
+    &:active {
+      background: #196c2e;
+      box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.2);
+    }
+  }
+}

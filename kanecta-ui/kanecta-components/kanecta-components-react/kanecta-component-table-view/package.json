@@ -1,0 +1,13 @@
+{
+  "name": "@kanecta/component-table-view",
+  "version": "1.4.0",
+  "private": true,
+  "main": "src/index.ts",
+  "peerDependencies": {
+    "@kanecta/component-type-list": "*",
+    "@tanstack/react-query": ">=5",
+    "ag-grid-community": "^35",
+    "ag-grid-react": "^35",
+    "react": ">=19"
+  }
+}

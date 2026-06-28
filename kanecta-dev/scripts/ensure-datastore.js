@@ -19,87 +19,29 @@ const POINTER_LOCATIONS = [
 
 const NAME_RE = /^[a-zA-Z0-9-]+$/;
 
-const POINTER_SPEC = JSON.parse(
-  fs.readFileSync(path.join(__dirname, '../pointer-file-spec.json'), 'utf8'),
-);
-
-function checkWorkspacesFormat(workspaces, propSpec, errors) {
-  if (typeof workspaces !== 'object' || workspaces === null || Array.isArray(workspaces)) {
-    errors.push('"workspaces" must be an object');
-    return;
-  }
-  const names = Object.keys(workspaces);
-  if (propSpec.minProperties && names.length < propSpec.minProperties) {
-    errors.push(`"workspaces" must have at least ${propSpec.minProperties} entr${propSpec.minProperties === 1 ? 'y' : 'ies'}`);
-    return;
-  }
-  for (const name of names) {
-    const ws = workspaces[name];
-    const prefix = `workspaces.${name}`;
-    if (typeof ws !== 'object' || ws === null || Array.isArray(ws)) {
-      errors.push(`"${prefix}" must be an object`);
-      continue;
-    }
-    if (!ws.mode) {
-      errors.push(`"${prefix}.mode" is required`);
-    } else if (!propSpec.modes.includes(ws.mode)) {
-      errors.push(`"${prefix}.mode" must be one of: ${propSpec.modes.join(', ')}`);
-    }
-    const needsDatastore = ws.mode === 'FILESYSTEM' || ws.mode === 'DUAL_FILESYSTEM_PRIMARY' || ws.mode === 'DUAL_CLOUD_PRIMARY';
-    const needsCloud      = ws.mode === 'CLOUD'      || ws.mode === 'DUAL_FILESYSTEM_PRIMARY' || ws.mode === 'DUAL_CLOUD_PRIMARY';
-    if (needsDatastore && typeof ws.datastore !== 'string') {
-      errors.push(`"${prefix}.datastore" must be a string (required for ${ws.mode} mode)`);
-    }
-    if (needsCloud && (typeof ws.cloud !== 'object' || ws.cloud === null || Array.isArray(ws.cloud))) {
-      errors.push(`"${prefix}.cloud" must be an object (required for ${ws.mode} mode)`);
-    }
-  }
-}
-
 function checkPointerFileFormat(data, sourceFile) {
-  const spec = POINTER_SPEC;
   const errors = [];
-
-  for (const key of spec.required) {
-    if (!(key in data)) errors.push(`missing required field "${key}"`);
-  }
-
-  for (const [key, val] of Object.entries(data)) {
-    if (spec.additionalProperties === false && !(key in spec.properties)) {
-      errors.push(`unexpected field "${key}"`);
-      continue;
-    }
-    const propSpec = spec.properties[key];
-    if (!propSpec) continue;
-    if (key === 'workspaces') {
-      checkWorkspacesFormat(val, propSpec, errors);
-    } else if (propSpec.type === 'integer' && !Number.isInteger(val)) {
-      errors.push(`"${key}" must be an integer`);
-    } else if (propSpec.type === 'string' && typeof val !== 'string') {
-      errors.push(`"${key}" must be a string`);
-    } else if (propSpec.type === 'array') {
-      if (!Array.isArray(val)) {
-        errors.push(`"${key}" must be an array`);
-      } else if (propSpec.minItems && val.length < propSpec.minItems) {
-        errors.push(`"${key}" must have at least ${propSpec.minItems} item(s)`);
-      } else if (propSpec.items?.type) {
-        val.forEach((item, i) => {
-          if (typeof item !== propSpec.items.type) {
-            errors.push(`"${key}[${i}]" must be a ${propSpec.items.type}`);
-          }
-        });
-      }
+  if (!data.specVersion) errors.push('missing required field "specVersion"');
+  if (!data.defaultWorkspace) errors.push('missing required field "defaultWorkspace"');
+  if (typeof data.workspaces !== 'object' || data.workspaces === null || Array.isArray(data.workspaces))
+    errors.push('"workspaces" must be an object');
+  else if (Object.keys(data.workspaces).length === 0)
+    errors.push('"workspaces" must have at least one entry');
+  else {
+    for (const [name, ws] of Object.entries(data.workspaces)) {
+      if (typeof ws !== 'object' || ws === null || Array.isArray(ws))
+        errors.push(`"workspaces.${name}" must be an object`);
+      else if (typeof ws.local !== 'string')
+        errors.push(`"workspaces.${name}.local" must be a string path`);
     }
   }
-
   if (errors.length > 0) {
-    console.error(`\n  ✗ Pointer file format is invalid (${sourceFile}):`);
+    console.error(`\n  ✗ Config file is invalid (${sourceFile}):`);
     errors.forEach(e => console.error(`    - ${e}`));
-    console.error(`\n  Expected format is defined in kanecta-dev/pointer-file-spec.json`);
     console.error(`  Fix ${sourceFile} and try again.\n`);
     process.exit(1);
   }
-  console.log(`  ✓ pointer file format OK (checked against pointer-file-spec.json)`);
+  console.log(`  ✓ config format OK (${data.specVersion}; ${Object.keys(data.workspaces).length} workspace(s))`);
 }
 
 function checkPortFree(port) {
@@ -202,11 +144,32 @@ function migrateOldConfig(file, oldData) {
   return newData;
 }
 
+// Normalises a workspace entry from either config format into:
+//   { localPath, branch, remotes }
+function normaliseWorkspace(ws) {
+  if (!ws) return null;
+  // 1.4.0 format: { local, remotes?, branch? }
+  if (ws.local !== undefined) {
+    const localPath = typeof ws.local === 'string' ? ws.local : ws.local?.path;
+    return { localPath: expandHome(localPath), branch: ws.branch ?? 'main', remotes: ws.remotes ?? {} };
+  }
+  // 1.3.x format: { mode, datastore?, cloud? }
+  if (ws.mode === 'FILESYSTEM') {
+    return { localPath: expandHome(ws.datastore), branch: 'main', remotes: {} };
+  }
+  return null;
+}
+
 function readPointer(file) {
   try {
     const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+    // 1.4.0 format: specVersion + defaultWorkspace
+    if (data.specVersion && data.defaultWorkspace && typeof data.workspaces === 'object') {
+      return { format: '1.4.0', specVersion: data.specVersion, defaultWorkspace: data.defaultWorkspace, default: data.defaultWorkspace, workspaces: data.workspaces, studioPort: data.studioPort ?? 9743, apiPort: data.apiPort ?? 9744 };
+    }
+    // 1.3.x format: default + workspaces map
     if (data.default && data.workspaces && typeof data.workspaces === 'object' && !Array.isArray(data.workspaces)) {
-      return data;
+      return { format: '1.3.x', ...data };
     }
     if (data.default && Array.isArray(data.datastores)) return migrateOldConfig(file, data);
   } catch {}
@@ -329,13 +292,14 @@ async function wizard() {
   console.log('│         Kanecta — First Run Setup        │');
   console.log('└──────────────────────────────────────────┘\n');
   console.log('No datastore configured. How would you like to proceed?\n');
-  console.log('  1. Create a new datastore (filesystem)');
-  console.log('  2. Use an existing filesystem datastore');
-  console.log('  3. Import from a zip file');
-  console.log('  4. Connect to a Postgres + S3 cloud datastore');
-  console.log('  5. Exit\n');
+  console.log('  1. Create a new datastore (filesystem + SQLite)');
+  console.log('  2. Create a new datastore (filesystem)');
+  console.log('  3. Use an existing filesystem datastore');
+  console.log('  4. Import from a zip file');
+  console.log('  5. Connect to a Postgres + S3 cloud datastore');
+  console.log('  6. Exit\n');
 
-  const choice = await ask(rl, 'Choice [1-5]: ');
+  const choice = await ask(rl, 'Choice [1-6]: ');
 
   // ── Collect all inputs before doing anything ──────────────────────────────
 
@@ -344,9 +308,9 @@ async function wizard() {
   let owner = null;
   let cloudConfig = null;
   let isNewCloudDb = false;
-  let mode; // 'create' | 'existing' | 'zip' | 'cloud'
+  let mode; // 'create-sqlite' | 'create' | 'existing' | 'zip' | 'cloud'
 
-  if (choice === '4') {
+  if (choice === '5') {
     mode = 'cloud';
     console.log('\nCloud datastore setup — you will need a Postgres connection string and S3-compatible credentials.\n');
 
@@ -369,13 +333,13 @@ async function wizard() {
     };
     datastorePath = 'cloud'; // placeholder — not a real path
 
-  } else if (choice === '5') {
+  } else if (choice === '6') {
     rl.close();
     console.log('Aborted.');
     process.exit(0);
 
   } else if (choice === '1') {
-    mode = 'create';
+    mode = 'create-sqlite';
     const dirInput = await ask(rl, 'Datastore parent directory [~/]:');
     const dir = dirInput || '~/';
 
@@ -393,6 +357,24 @@ async function wizard() {
     datastorePath = path.join(expandHome(dir), name);
 
   } else if (choice === '2') {
+    mode = 'create';
+    const dirInput = await ask(rl, 'Datastore parent directory [~/]:');
+    const dir = dirInput || '~/';
+
+    let name;
+    while (true) {
+      name = await ask(rl, 'Datastore name (letters, numbers, hyphens only) [kanecta]: ') || 'kanecta';
+      if (NAME_RE.test(name)) break;
+      console.log('  Invalid name. Use letters, numbers, and hyphens only.');
+    }
+
+    console.log('  (used to mark data ownership — not for communication. Should be globally unique: an email or domain is ideal.)');
+    owner = await ask(rl, 'Owner identifier: ');
+    if (!owner) { console.error('Owner identifier required.'); rl.close(); process.exit(1); }
+
+    datastorePath = path.join(expandHome(dir), name);
+
+  } else if (choice === '3') {
     mode = 'existing';
     const dir = await ask(rl, 'Path to datastore: ');
     datastorePath = expandHome(dir);
@@ -402,7 +384,7 @@ async function wizard() {
       process.exit(1);
     }
 
-  } else if (choice === '3') {
+  } else if (choice === '4') {
     mode = 'zip';
     const zipInput = await ask(rl, 'Path to zip file: ');
     zipPath = expandHome(zipInput);
@@ -472,6 +454,8 @@ async function wizard() {
     ? `extract zip and create datastore at ${datastorePath}`
     : mode === 'cloud'
     ? `connect to Postgres at ${cloudConfig.pg.connectionString.replace(/:\/\/[^@]+@/, '://<credentials>@')}`
+    : mode === 'create-sqlite'
+    ? `create datastore (filesystem + SQLite) at ${datastorePath}`
     : `create datastore at ${datastorePath}`;
 
   const confirm = await ask(rl, `OK to ${action} and write ${POINTER_LOCATIONS[0]}? [Y/n]: `);
@@ -494,6 +478,11 @@ async function wizard() {
     const workspace = { mode: 'CLOUD', cloud: cloudConfig };
     writePointer(workspaceName, workspace, apiPort, studioPort, systemItemsDir);
     return { name: workspaceName, workspace, apiPort, studioPort, systemItemsDir };
+
+  } else if (mode === 'create-sqlite') {
+    fs.mkdirSync(datastorePath, { recursive: true });
+    Datastore.init(datastorePath, owner); // TODO: replace with SQLiteFilesystemAdapter init
+    console.log(`\n✓ Created datastore (filesystem + SQLite) at ${datastorePath}`);
 
   } else if (mode === 'create') {
     fs.mkdirSync(datastorePath, { recursive: true });
@@ -628,7 +617,7 @@ async function syncSystemItems(datastorePath, systemItemsDir) {
 // `workspaceName` is null when launched via an explicit KANECTA_DATASTORE env
 // override (no named workspace involved); `datastorePath` is null for pure-cloud
 // workspaces (no filesystem path to expose).
-async function launch(workspaceName, datastorePath, apiPort, studioPort, systemItemsDir) {
+async function launch(workspaceName, datastorePath, apiPort, studioPort, systemItemsDir, branch) {
   const [apiFree, studioFree] = await Promise.all([
     checkPortFree(apiPort),
     checkPortFree(studioPort),
@@ -665,8 +654,8 @@ async function launch(workspaceName, datastorePath, apiPort, studioPort, systemI
       '-n', 'api,studio',
       '-c', 'cyan,magenta',
       '--kill-others-on-fail',
-      'npm run dev -w kanecta-api',
-      `npm run dev -w kanecta-apps/kanecta-app-studio -- --port ${studioPort} --strictPort`,
+      'npm run dev -w @kanecta/api',
+      `npm run dev -w @kanecta/studio -- --port ${studioPort} --strictPort`,
     ],
     {
       cwd: repoRoot,
@@ -675,8 +664,10 @@ async function launch(workspaceName, datastorePath, apiPort, studioPort, systemI
         // in the parent shell (e.g. unexpanded tilde) can't leak into the server.
         const e = { ...process.env };
         delete e.KANECTA_DATASTORE;
+        delete e.KANECTA_BRANCH;
         if (workspaceName) e.KANECTA_WORKSPACE = workspaceName;
         if (datastorePath) e.KANECTA_DATASTORE = datastorePath;
+        if (branch) e.KANECTA_BRANCH = branch;
         e.PORT = String(apiPort);
         e.KANECTA_API_URL = `http://localhost:${apiPort}`;
         if (systemItemsDir) e.KANECTA_SYSTEM_ITEMS_DIR = systemItemsDir;
@@ -735,19 +726,21 @@ async function main() {
       process.exit(1);
     }
 
-    if (workspace.mode === 'CLOUD') {
-      console.log(`✓ Workspace: ${name} (${selectionReason}; cloud — Postgres + S3)`);
-      return launch(name, null, data.apiPort ?? 9744, data.studioPort ?? 9743, data.systemItemsDir);
+    const norm = normaliseWorkspace(workspace);
+    if (!norm) {
+      // CLOUD-only workspace (old format mode: CLOUD) — no local path
+      console.log(`✓ Workspace: ${name} (${selectionReason}; cloud)`);
+      return launch(name, null, data.apiPort ?? 9744, data.studioPort ?? 9743, data.systemItemsDir, null);
     }
-    if (!Datastore.isDatastore(workspace.datastore)) {
-      console.error(`Datastore not found at configured path: ${workspace.datastore}`);
+    if (!Datastore.isDatastore(norm.localPath)) {
+      console.error(`Datastore not found at configured path: ${norm.localPath}`);
       process.exit(1);
     }
-    console.log(`✓ Workspace: ${name} (${selectionReason}; ${workspace.datastore})`);
-    checkSpecVersion(workspace.datastore);
-    await syncSystemItems(workspace.datastore, data.systemItemsDir);
+    console.log(`✓ Workspace: ${name} (${selectionReason}; ${norm.localPath}; branch: ${norm.branch})`);
+    checkSpecVersion(norm.localPath);
+    await syncSystemItems(norm.localPath, data.systemItemsDir);
 
-    return launch(name, workspace.datastore, data.apiPort ?? 9744, data.studioPort ?? 9743, data.systemItemsDir);
+    return launch(name, norm.localPath, data.apiPort ?? 9744, data.studioPort ?? 9743, data.systemItemsDir, norm.branch);
   }
 
   // 3. First-run wizard

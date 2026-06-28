@@ -1,0 +1,196 @@
+{
+  "item": {
+    "id": "e5d3fad0-5123-46cc-a827-80954f7f96b2",
+    "parentId": "31ef9fcb-636d-4007-b25f-80c1c4f054ef",
+    "type": "type",
+    "typeId": null,
+    "value": "agent",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "A reusable executor definition for pipeline phases.",
+      "confidence": "locked",
+      "icon": "SmartToy"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "agentPayload",
+      "type": "object",
+      "required": [
+        "runtime"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "runtime": {
+          "type": "string",
+          "description": "Identifies the execution environment. Known values: 'claude-api' (direct Anthropic API call managed by the runner), 'claude-code' (Claude Code CLI, invoked as a subprocess), 'python' (Python script), 'kanecta-function' (executes a Kanecta function item via kanecta-sdk — config.functionId required), 'group-chat' (structured multi-agent deliberation between config.participants — config.participants required), 'http' (makes a single HTTP request to an external API and optionally writes the response as a Kanecta item — config.url required; no LLM invoked). Open string — new runtimes can be added without spec changes; the runner resolves runtime names to adapter implementations."
+        },
+        "model": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Model identifier for API-based runtimes (e.g. 'claude-sonnet-4-6', 'claude-opus-4-8'). Null for runtimes that manage model selection themselves ('claude-code', 'group-chat'). When null and the runtime requires a model, the runner applies its configured default."
+        },
+        "systemPrompt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Base system prompt defining this agent's identity, role, and general behaviour. Combined with the pipeline phase instructions at run time — the system prompt sets up who the agent is; the phase instructions set up what it should do. For 'group-chat' runtime this is the facilitator prompt — it frames the conversation and rules of engagement; each participant agent's own systemPrompt drives their individual voice. Null defers to the runtime's default system prompt."
+        },
+        "tools": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of MCP tool names this agent can access. Restricting tools is a safety measure. For 'group-chat' agents, include 'kanecta_conclude_discussion' if using terminationCondition 'explicit'. Null means all tools available in the current MCP context are accessible."
+        },
+        "config": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Runtime-specific configuration. Structure is determined by the runtime adapter. Null means runtime defaults apply.",
+          "properties": {
+            "max_tokens": {
+              "type": "integer",
+              "description": "claude-api: maximum tokens in the model response."
+            },
+            "temperature": {
+              "type": "number",
+              "description": "claude-api: sampling temperature (0.0–1.0)."
+            },
+            "top_p": {
+              "type": "number",
+              "description": "claude-api: nucleus sampling parameter."
+            },
+            "working_directory": {
+              "type": "string",
+              "description": "claude-code: working directory for the Claude Code subprocess."
+            },
+            "env": {
+              "type": "object",
+              "description": "claude-code: environment variables injected into the subprocess."
+            },
+            "script_path": {
+              "type": "string",
+              "description": "python: path to the Python script to execute."
+            },
+            "interpreter": {
+              "type": "string",
+              "description": "python: Python interpreter path (e.g. 'python3', '/usr/bin/python3.11'). Defaults to 'python3'."
+            },
+            "functionId": {
+              "type": "string",
+              "format": "uuid",
+              "description": "kanecta-function: UUID of the Kanecta function item to execute."
+            },
+            "participants": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "description": "group-chat: UUIDs of the agent items that participate in the conversation. Agents take turns in round-robin order. Each participant's own systemPrompt and tools are used for their turns."
+            },
+            "maxTurns": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "group-chat: hard cap on total turns across all participants. Applies regardless of terminationCondition — prevents runaway conversations. Default 10."
+            },
+            "terminationCondition": {
+              "type": "string",
+              "enum": [
+                "explicit",
+                "max-turns"
+              ],
+              "description": "group-chat: how the conversation ends. 'explicit' — continues until any participant calls kanecta_conclude_discussion; that participant writes the final items. 'max-turns' — runs for maxTurns turns then outputAgent synthesises and writes final items."
+            },
+            "outputAgent": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid",
+              "description": "group-chat: UUID of the agent re-invoked to synthesise and write final items after 'max-turns' termination. Null for 'explicit' termination where the concluding participant is the writer."
+            },
+            "url": {
+              "type": "string",
+              "description": "http: URL to request. May contain {{params.name}} placeholders substituted by the runner before the request is made."
+            },
+            "method": {
+              "type": "string",
+              "enum": [
+                "GET",
+                "POST",
+                "PUT",
+                "PATCH",
+                "DELETE"
+              ],
+              "description": "http: HTTP method. Defaults to 'GET'."
+            },
+            "headers": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "description": "http: key-value map of request headers. Values may contain {{params.name}} placeholders. Use for Authorization, Content-Type, and other standard headers. Secret values should be referenced via environment variable substitution in the runner config, not stored in the agent item."
+            },
+            "body": {
+              "description": "http: request body. Any JSON-serialisable value. May contain {{params.name}} placeholders in string leaves. Ignored for GET and DELETE requests."
+            },
+            "outputItemType": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "http: if set, the runner writes the HTTP response body as a Kanecta item of this type (e.g. 'note', 'text'). The response JSON is stored as the item payload; item.value is set to the HTTP status code and URL. If null, the response is injected into the phase's output map as phases.<id>.output.httpResponse and is not written as a standalone item. Use null for lightweight data passing between phases; use outputItemType when the response should be a first-class queryable item."
+            },
+            "timeoutSeconds": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "description": "http: request timeout in seconds. If the server does not respond within this time the phase fails. Null defaults to the runner's global HTTP timeout (typically 30s)."
+            }
+          }
+        }
+      }
+    },
+    "sqlSchema": [
+      "-- Built-in type: adapter handles storage natively."
+    ]
+  }
+}

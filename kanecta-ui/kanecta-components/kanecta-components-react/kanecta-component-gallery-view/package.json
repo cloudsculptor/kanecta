@@ -1,0 +1,24 @@
+{
+  "name": "@kanecta/component-gallery-view",
+  "version": "1.4.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@kanecta/component-confidence-badge": "*",
+    "@kanecta/component-core": "*",
+    "@kanecta/component-filter-bar": "*",
+    "@kanecta/component-sort-bar": "*",
+    "@kanecta/component-tag-chip": "*",
+    "@kanecta/component-type-badge": "*",
+    "react": ">=19"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "typescript": "~6.0.2"
+  }
+}

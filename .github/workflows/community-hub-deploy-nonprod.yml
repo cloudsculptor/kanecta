@@ -1,12 +1,12 @@
 name: Deploy Community Hub (nonprod)
 
 on:
+  push:
+    branches: ['test/community-hub*']
+    paths:
+      - 'kanecta-apps/kanecta-app-community-hub/**'
+      - '.github/workflows/community-hub-deploy-nonprod.yml'
   workflow_dispatch:
-    inputs:
-      branch:
-        description: Branch to deploy
-        required: true
-        default: master
 
 jobs:
   deploy:
@@ -14,8 +14,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.inputs.branch }}
 
       - uses: actions/setup-node@v4
         with:
@@ -40,12 +38,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          ACTUAL_SHA=$(git rev-parse HEAD)
-          PR_TITLE=$(gh pr list --head "${{ github.event.inputs.branch }}" --json title --jq '.[0].title // ""' 2>/dev/null || echo "")
+          PR_TITLE=$(gh pr list --head "${{ github.ref_name }}" --json title --jq '.[0].title // ""' 2>/dev/null || echo "")
           jq -n \
-            --arg branch "${{ github.event.inputs.branch }}" \
-            --arg sha "$ACTUAL_SHA" \
-            --arg shortSha "${ACTUAL_SHA:0:7}" \
+            --arg branch "${{ github.ref_name }}" \
+            --arg sha "${{ github.sha }}" \
+            --arg shortSha "${GITHUB_SHA:0:7}" \
             --arg prTitle "$PR_TITLE" \
             --arg deployedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             '{branch: $branch, sha: $sha, shortSha: $shortSha, prTitle: $prTitle, deployedAt: $deployedAt}' \

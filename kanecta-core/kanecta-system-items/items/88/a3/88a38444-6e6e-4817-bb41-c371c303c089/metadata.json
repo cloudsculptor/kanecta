@@ -1,0 +1,21 @@
+{
+  "id": "88a38444-6e6e-4817-bb41-c371c303c089",
+  "specVersion": "1.4.0",
+  "parentId": null,
+  "value": "Runbook",
+  "type": "type",
+  "typeId": null,
+  "owner": "richardsempire@gmail.com",
+  "license": null,
+  "sortOrder": 21,
+  "confidence": null,
+  "status": null,
+  "tags": [],
+  "createdAt": "2026-05-28T02:03:36.095Z",
+  "modifiedAt": "2026-05-28T02:03:36.095Z",
+  "createdBy": "richardsempire@gmail.com",
+  "modifiedBy": "richardsempire@gmail.com",
+  "cachedAt": null,
+  "subscribedAt": null,
+  "subscriptionSource": null
+}

@@ -1,0 +1,26 @@
+{
+  "name": "kanecta",
+  "version": "1.4.0",
+  "description": "Open source connectivity platform",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@kanecta/cli": "^1.0.0",
+    "@kanecta/studio": "^1.4.0"
+  },
+  "optionalDependencies": {
+    "@kanecta/claude": "^1.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "kanecta",
+    "claude",
+    "knowledge-base",
+    "personal-memory",
+    "ai"
+  ],
+  "license": "MIT"
+}

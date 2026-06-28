@@ -1,0 +1,21 @@
+{
+  "id": "b252e9ed-a977-4249-b34d-159ce000d3e4",
+  "specVersion": "1.4.0",
+  "parentId": null,
+  "value": "Data Flow",
+  "type": "type",
+  "typeId": null,
+  "owner": "richardsempire@gmail.com",
+  "license": null,
+  "sortOrder": 22,
+  "confidence": null,
+  "status": null,
+  "tags": [],
+  "createdAt": "2026-05-28T02:03:36.121Z",
+  "modifiedAt": "2026-05-28T02:03:36.121Z",
+  "createdBy": "richardsempire@gmail.com",
+  "modifiedBy": "richardsempire@gmail.com",
+  "cachedAt": null,
+  "subscribedAt": null,
+  "subscriptionSource": null
+}

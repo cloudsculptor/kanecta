@@ -1,0 +1,49 @@
+{
+  "name": "kanecta-studio-debian",
+  "version": "1.4.0",
+  "private": true,
+  "description": "Desktop wrapper for Kanecta Studio, packaged as a .deb for Debian/Ubuntu",
+  "main": "main.cjs",
+  "author": {
+    "name": "Kanecta",
+    "email": "richardsempire@gmail.com"
+  },
+  "homepage": "https://github.com/cloudsculptor/kanecta",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --linux deb"
+  },
+  "devDependencies": {
+    "electron": "42.4.0",
+    "electron-builder": "^26.15.2"
+  },
+  "license": "MIT",
+  "build": {
+    "appId": "com.kanecta.studio",
+    "productName": "Kanecta Studio",
+    "files": [
+      "main.cjs"
+    ],
+    "linux": {
+      "target": [
+        "deb"
+      ],
+      "category": "Office",
+      "icon": "build/icon.png",
+      "executableName": "kanecta-studio",
+      "syncDesktopName": true
+    },
+    "deb": {
+      "synopsis": "Desktop wrapper for Kanecta Studio",
+      "depends": [
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libsecret-1-0"
+      ]
+    }
+  }
+}

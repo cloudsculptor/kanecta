@@ -1,0 +1,12 @@
+services:
+  postgres-test:
+    image: pgvector/pgvector:pg18
+    container_name: kanecta-postgres-test
+    environment:
+      POSTGRES_DB: kanecta
+      POSTGRES_USER: kanecta
+      POSTGRES_PASSWORD: kanecta
+    ports:
+      - "45432:5432"
+    tmpfs:
+      - /var/lib/postgresql/data

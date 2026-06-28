@@ -1,0 +1,87 @@
+{
+  "item": {
+    "id": "fab55d91-6975-422a-9398-2b16f72bc805",
+    "parentId": "31ef9fcb-636d-4007-b25f-80c1c4f054ef",
+    "type": "type",
+    "typeId": null,
+    "value": "component",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "A UI component definition with a target rendering environment, typed props contract, and deployment bundle. Structurally parallel to functionPayload — same bundle directory convention, same bundleHash mechanism, same tsc validation. Entry point is index.tsx (default export) rather than index.ts (main function).",
+      "confidence": "locked",
+      "icon": "Extension"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "componentPayload",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "type": "string",
+          "description": "Rendering environment for this component. Open string — new targets can be added without a spec change. The target name is also the subdirectory name inside the .component/ bundle directory. Defaults to 'react' if absent. Named targets: 'react' (ReactNode, index.tsx), 'web' (Custom Element, index.ts), 'ink' (Ink component, index.tsx)."
+        },
+        "bundleHash": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "SHA-256 hashes of the source bundle keyed by target name (e.g. { \"react\": \"sha256:b7c2d1...\" }). Excludes node_modules/. Updated by kanecta component save. Stale hash triggers re-fetch and re-unpack before rendering."
+        },
+        "description": {
+          "type": "string",
+          "description": "What this component renders or does."
+        },
+        "props": {
+          "type": "array",
+          "items": {
+            "$ref": "function.json#/definitions/parameterOrProp"
+          },
+          "description": "Ordered list of props. The adapter generates interface.ts from this list. Uses the same parameterOrProp definition as functionPayload — including typeId for Kanecta-typed props and functionId for callback props."
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Package dependencies declared for this component (e.g. ['date-fns']). Merged into the generated package.json. MUI and @kanecta/component-core are peer dependencies — list only direct runtime dependencies specific to this component."
+        },
+        "deprecated": {
+          "type": "string",
+          "description": "If set, marks the component as deprecated. Value is the deprecation message."
+        }
+      }
+    },
+    "sqlSchema": [
+      "-- Built-in type: adapter handles storage natively."
+    ]
+  }
+}

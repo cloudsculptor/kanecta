@@ -1,0 +1,91 @@
+{
+  "item": {
+    "id": "cb120719-5a23-4b4f-b614-898f79f1904f",
+    "parentId": "31ef9fcb-636d-4007-b25f-80c1c4f054ef",
+    "type": "type",
+    "typeId": null,
+    "value": "reference",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "A declared dependency on a UUID from outside the item graph.",
+      "confidence": "locked",
+      "icon": "Link"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "referencePayload",
+      "type": "object",
+      "required": [
+        "targetId",
+        "kind"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "targetId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "UUID of the item being referenced."
+        },
+        "kind": {
+          "type": "string",
+          "description": "Nature of the reference. Known values: physical, external, function-arg, function-output, component-dep. Free-form string — new kinds do not require a spec change."
+        },
+        "medium": {
+          "type": "string",
+          "description": "For physical kind: engraved, printed, qr-code, label, published-doc. Free-form."
+        },
+        "location": {
+          "type": "string",
+          "description": "Human-readable description of where this reference exists (e.g. \"Workshop bay 3, nameplate\")."
+        },
+        "url": {
+          "type": "string",
+          "description": "For webhook kind: the endpoint URL. Use $VAR for secrets."
+        },
+        "blockDeletion": {
+          "type": "boolean",
+          "description": "When true, deletion of targetId is blocked until this reference item is removed. Default: false."
+        },
+        "removable": {
+          "type": "boolean",
+          "description": "Whether this reference can be removed. False for physical engravings that cannot be undone. Informational — does not enforce system behaviour."
+        },
+        "description": {
+          "type": "string",
+          "description": "Free-form human explanation of this reference and its implications."
+        }
+      }
+    },
+    "sqlSchema": [
+      "-- Built-in type: adapter handles storage natively."
+    ]
+  }
+}

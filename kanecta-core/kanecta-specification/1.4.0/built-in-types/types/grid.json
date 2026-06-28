@@ -1,0 +1,112 @@
+{
+  "item": {
+    "id": "35b535ad-520d-4570-9a71-b49514e9ae67",
+    "parentId": "31ef9fcb-636d-4007-b25f-80c1c4f054ef",
+    "type": "type",
+    "typeId": null,
+    "value": "grid",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "A two-dimensional sparse container — the grid is to tables what tree is to hierarchies.",
+      "confidence": "locked",
+      "icon": "GridOn"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "gridPayload",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "columns": {
+          "description": "Column definitions. null means indexed mode — columns are auto-labelled A, B, C… (Excel-style) and unbounded; Studio renders columns as they are occupied. When set to an array, the grid is in named-column mode — only the declared columns exist; Studio renders them in declaration order with their labels and optional type hints. Mixed mode is not supported: a grid is either fully indexed or fully named.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "key",
+                  "label"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "description": "Internal identifier for this column. Used in cell.payload.column to reference the column. Must be unique within this grid. Stable — changing a column key orphans existing cell items that reference the old key."
+                  },
+                  "label": {
+                    "type": "string",
+                    "description": "Display name shown in the column header in Studio."
+                  },
+                  "type": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Optional type hint for Studio rendering and input form generation. Known values: 'string' (text input), 'number' (numeric input), 'boolean' (checkbox), 'date' (date picker), 'uuid' (UUID picker — links to another item), 'formula' (formula expression — Studio evaluates and renders the result). Open string — new type hints do not require a spec change. Null means no type constraint; Studio renders the cell value as plain text."
+                  },
+                  "width": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "description": "Display width hint in pixels. Null means Studio chooses a default. Informational — the grid component may ignore this on small viewports."
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "rowCount": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "description": "Display hint: how many rows Studio renders initially before the user scrolls or expands. Does not cap how many rows can be occupied — a cell with row=9999 is valid regardless of rowCount. Null means Studio renders until the last occupied row plus a small buffer. In indexed mode (columns: null), this is the only way to define the visible grid size before any cells are filled."
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Human-readable description of what this grid contains and how it should be used. Shown in Studio alongside the grid label."
+        }
+      }
+    },
+    "sqlSchema": [
+      "-- Built-in type: adapter handles storage natively."
+    ]
+  }
+}

@@ -1,0 +1,65 @@
+.BottomBar {
+  grid-area: bottom;
+  display: grid;
+  grid-template-columns: minmax(80px, max-content) 1fr minmax(80px, max-content);
+  align-items: stretch;
+  overflow: visible;
+  background: var(--sidebar-bg, transparent);
+  position: relative;
+
+  &-bottomLeftCorner,
+  &-bottomRightCorner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &-center {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 0 16px;
+  }
+
+  &--raised {
+    z-index: 201;
+  }
+
+  &-logo {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  &-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 12px;
+    border: none;
+    background: none;
+    color: var(--sidebar-fg);
+    cursor: pointer;
+    border-radius: 6px;
+    font-size: 0.6875rem;
+
+    &--active {
+      background: var(--content-bg, #ffffff);
+      color: var(--sidebar-fg-selected);
+      border-radius: 0;
+    }
+
+    .MuiSvgIcon-root {
+      font-size: 32px;
+      width: 32px;
+      height: 32px;
+    }
+  }
+
+  &-item-label {
+    line-height: 1;
+  }
+}

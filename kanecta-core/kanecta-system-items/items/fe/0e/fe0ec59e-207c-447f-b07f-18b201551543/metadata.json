@@ -1,0 +1,21 @@
+{
+  "id": "fe0ec59e-207c-447f-b07f-18b201551543",
+  "specVersion": "1.4.0",
+  "parentId": null,
+  "value": "Pipeline Run",
+  "type": "type",
+  "typeId": null,
+  "owner": "richardsempire@gmail.com",
+  "license": null,
+  "sortOrder": null,
+  "confidence": null,
+  "status": null,
+  "tags": [],
+  "createdAt": "2026-06-02T08:16:05.291Z",
+  "modifiedAt": "2026-06-02T08:16:05.291Z",
+  "createdBy": "richardsempire@gmail.com",
+  "modifiedBy": "richardsempire@gmail.com",
+  "cachedAt": null,
+  "subscribedAt": null,
+  "subscriptionSource": null
+}

@@ -1,0 +1,256 @@
+.LayoutsView {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.LayoutsView-loading {
+  padding: 24px;
+  color: var(--color-text-muted, #888);
+  font-size: 0.875rem;
+}
+
+.LayoutsView-tabbar {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 2px;
+  padding: 4px 8px 0;
+  background: transparent;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+}
+
+.LayoutsView-tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px 5px 10px;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid transparent;
+  border-bottom: none;
+  font-size: 0.8125rem;
+  user-select: none;
+  min-width: 60px;
+}
+.LayoutsView-tab--active {
+  background: transparent;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+.LayoutsView-tab-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.LayoutsView-tab-input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.8125rem;
+  width: 80px;
+}
+
+.LayoutsView-tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 3px;
+  color: inherit;
+  opacity: 0.5;
+}
+.LayoutsView-tab-close:hover { opacity: 1; background: rgba(0, 0, 0, 0.08); }
+
+.LayoutsView-tab-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px 6px 0 0;
+  color: inherit;
+  opacity: 0.6;
+}
+.LayoutsView-tab-add:hover { opacity: 1; background: rgba(0, 0, 0, 0.06); }
+
+.LayoutsView-canvas {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+}
+
+.LayoutsView-split {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+.LayoutsView-split--horizontal { flex-direction: row; }
+.LayoutsView-split--vertical { flex-direction: column; }
+
+.LayoutsView-split-child {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+}
+
+.LayoutsView-divider {
+  background: rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+  z-index: 1;
+  transition: background 0.1s;
+}
+.LayoutsView-divider--horizontal {
+  width: 4px;
+  cursor: col-resize;
+}
+.LayoutsView-divider--horizontal:hover,
+.LayoutsView-divider--horizontal:active {
+  background: var(--sidebar-fg, #666);
+}
+.LayoutsView-divider--vertical {
+  height: 4px;
+  cursor: row-resize;
+}
+.LayoutsView-divider--vertical:hover,
+.LayoutsView-divider--vertical:active {
+  background: var(--sidebar-fg, #666);
+}
+
+.LayoutsView-leaf {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+}
+
+.LayoutsView-leaf-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: transparent;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
+  min-height: 36px;
+}
+
+.LayoutsView-leaf-view-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  opacity: 0.7;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.LayoutsView-leaf-view-label .MuiSvgIcon-root {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+}
+
+.LayoutsView-leaf-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.LayoutsView-leaf-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  color: inherit;
+  opacity: 0.5;
+}
+.LayoutsView-leaf-btn:hover { opacity: 1; background: rgba(0, 0, 0, 0.08); }
+.LayoutsView-leaf-btn--close:hover { color: #c00; }
+
+.LayoutsView-leaf-content {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.LayoutsView-item-input-wrap {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 1px solid var(--location-border, #ddd);
+  border-radius: 12px;
+  padding: 3px 10px;
+  display: flex;
+  align-items: center;
+  max-width: 280px;
+}
+
+.LayoutsView-item-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.8125rem;
+  color: #333;
+  text-align: center;
+}
+.LayoutsView-item-input::placeholder { color: #aaa; }
+
+.LayoutsView-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 24px;
+  align-content: flex-start;
+}
+
+.LayoutsView-picker-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 80px;
+  height: 80px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--sidebar-fg-selected, #444);
+  border-radius: 10px;
+  font-size: 0.75rem;
+  transition: background 0.1s;
+}
+.LayoutsView-picker-item:hover { background: rgba(0, 0, 0, 0.06); }
+.LayoutsView-picker-item .MuiSvgIcon-root {
+  font-size: 28px;
+  width: 28px;
+  height: 28px;
+}
+
+.LayoutsView-pane-placeholder {
+  padding: 24px;
+  color: var(--color-text-muted, #888);
+  font-size: 0.875rem;
+}

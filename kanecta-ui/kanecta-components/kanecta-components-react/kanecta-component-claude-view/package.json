@@ -1,0 +1,12 @@
+{
+  "name": "@kanecta/component-claude-view",
+  "version": "1.4.0",
+  "private": true,
+  "main": "src/index.ts",
+  "peerDependencies": {
+    "@mui/icons-material": ">=9",
+    "@mui/material": ">=9",
+    "react": ">=19",
+    "react-markdown": "^10"
+  }
+}

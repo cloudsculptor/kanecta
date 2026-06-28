@@ -1,0 +1,27 @@
+{
+  "name": "@kanecta/api-client",
+  "version": "1.4.0",
+  "description": "Kanecta API client — typed HTTP client for all kanecta-api endpoints",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "files": [
+    "index.js",
+    "index.d.ts"
+  ],
+  "scripts": {
+    "test": "echo \"No tests yet\""
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "kanecta",
+    "api",
+    "client"
+  ],
+  "author": "Richie Thomas <richardsempire@gmail.com>",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}

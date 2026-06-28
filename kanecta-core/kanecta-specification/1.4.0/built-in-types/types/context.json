@@ -1,0 +1,73 @@
+{
+  "item": {
+    "id": "bd48218a-1c21-4c8e-ac0e-9ea026f2cf4d",
+    "parentId": "31ef9fcb-636d-4007-b25f-80c1c4f054ef",
+    "type": "type",
+    "typeId": null,
+    "value": "context",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "An execution and display environment.",
+      "confidence": "locked",
+      "icon": "FilterAlt"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "contextPayload",
+      "type": "object",
+      "required": [
+        "runtime",
+        "display"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "runtime": {
+          "type": "string",
+          "description": "The execution environment. Known values: web, desktop, cli, mcp, pdf, api. Free-form string — new runtimes do not require a spec change."
+        },
+        "display": {
+          "type": "string",
+          "description": "Where inside the runtime the view is rendered. Known values: tree-node, detail-panel, modal, preview, embed, fullscreen. Free-form string."
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "What the runtime supports. Exploratory — expected to evolve through use. Examples: [\"react\", \"css\", \"images\"], [\"markdown\"], [\"ansi-colour\"]."
+        }
+      }
+    },
+    "sqlSchema": [
+      "-- Built-in type: adapter handles storage natively."
+    ]
+  }
+}

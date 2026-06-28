@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.4.0",
+  "package": "kanecta-core",
+  "layer": "core",
+  "items": [
+    { "id": "1ab2a990-c2cf-4b91-aace-588c66b0a78b", "type": "action",            "file": "built-in-types/types/action.json" },
+    { "id": "2033f23f-f1d6-43bb-b74e-f62e96251df7", "type": "activity",          "file": "built-in-types/types/activity.json" },
+    { "id": "e5d3fad0-5123-46cc-a827-80954f7f96b2", "type": "agent",             "file": "built-in-types/types/agent.json" },
+    { "id": "80f95b21-6c51-43b5-bdfb-35aad8991c7a", "type": "alias",             "file": "built-in-types/types/alias.json" },
+    { "id": "45bc6fbe-aa63-41be-8566-7217a9a15ece", "type": "aspect-type",       "file": "built-in-types/types/aspect-type.json" },
+    { "id": "42561614-32d6-4c01-93c8-2f6e023ad19f", "type": "cell",              "file": "built-in-types/types/cell.json" },
+    { "id": "fab55d91-6975-422a-9398-2b16f72bc805", "type": "component",         "file": "built-in-types/types/component.json" },
+    { "id": "bd48218a-1c21-4c8e-ac0e-9ea026f2cf4d", "type": "context",           "file": "built-in-types/types/context.json" },
+    { "id": "2aca4d8b-ec15-4e95-9dcd-78a97b30e321", "type": "eval",              "file": "built-in-types/types/eval.json" },
+    { "id": "ddb8b941-8e44-49f8-acd6-614495ac968e", "type": "eval-run",          "file": "built-in-types/types/eval-run.json" },
+    { "id": "c0f603f1-a3ac-4a7d-b9ac-983822c7304f", "type": "file",              "file": "built-in-types/types/file.json" },
+    { "id": "d605ed1b-2c53-44a0-b4ac-3a307b61e82a", "type": "formula",           "file": "built-in-types/types/formula.json" },
+    { "id": "3672b0ca-e81f-44b0-92e8-1b3253cbf38a", "type": "function",          "file": "built-in-types/types/function.json" },
+    { "id": "89138971-cd16-4c7a-b4cd-669711bfab75", "type": "grant",             "file": "built-in-types/types/grant.json" },
+    { "id": "35b535ad-520d-4570-9a71-b49514e9ae67", "type": "grid",              "file": "built-in-types/types/grid.json" },
+    { "id": "b81923c7-ecf5-4fef-8588-2d91c3985aea", "type": "item_history",      "file": "built-in-types/types/item_history.json" },
+    { "id": "2f866767-7a54-4eb4-a581-8207fafee8c1", "type": "object",            "file": "built-in-types/types/object.json" },
+    { "id": "90bdc2b2-0963-4ec9-a37c-4b42f724752d", "type": "pipeline",          "file": "built-in-types/types/pipeline.json" },
+    { "id": "ddf28c53-d691-434b-9bcf-bd1997558ad1", "type": "pipeline-run",      "file": "built-in-types/types/pipeline-run.json" },
+    { "id": "1c23396d-c3a0-4f51-9307-a1aecd1f44fa", "type": "query",             "file": "built-in-types/types/query.json" },
+    { "id": "cb120719-5a23-4b4f-b614-898f79f1904f", "type": "reference",         "file": "built-in-types/types/reference.json" },
+    { "id": "334ea5f6-6bfa-43e5-b77f-5d811642d897", "type": "relationship",      "file": "built-in-types/types/relationship.json" },
+    { "id": "15861dd7-e54c-4209-bceb-bdd65de4f472", "type": "relationship-type", "file": "built-in-types/types/relationship-type.json" },
+    { "id": "cf066390-a599-4dbe-bc20-491de885cb18", "type": "subscription",      "file": "built-in-types/types/subscription.json" },
+    { "id": "abbd7b52-92aa-4fca-b458-d9c4e1a60061", "type": "type",              "file": "built-in-types/types/type.json" },
+    { "id": "cfba24ea-be40-46ba-b4db-e15a55af4392", "type": "view",              "file": "built-in-types/types/view.json" }
+  ]
+}

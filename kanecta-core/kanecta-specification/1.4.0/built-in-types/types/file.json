@@ -1,0 +1,81 @@
+{
+  "item": {
+    "id": "c0f603f1-a3ac-4a7d-b9ac-983822c7304f",
+    "parentId": "31ef9fcb-636d-4007-b25f-80c1c4f054ef",
+    "type": "type",
+    "typeId": null,
+    "value": "file",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "A file-backed item — replaces the former image and markdown primitives.",
+      "confidence": "locked",
+      "icon": "InsertDriveFile"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "filePayload",
+      "type": "object",
+      "required": [
+        "mimeType"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "mimeType": {
+          "type": "string",
+          "description": "IANA media type (e.g. \"image/jpeg\", \"text/markdown\", \"application/pdf\"). See https://www.iana.org/assignments/media-types/"
+        },
+        "size": {
+          "type": "integer",
+          "description": "File size in bytes."
+        },
+        "width": {
+          "type": "integer",
+          "description": "Width in pixels. For image/* and video/*."
+        },
+        "height": {
+          "type": "integer",
+          "description": "Height in pixels. For image/* and video/*."
+        },
+        "duration": {
+          "type": "number",
+          "description": "Duration in seconds. For audio/* and video/*."
+        },
+        "altText": {
+          "type": "string",
+          "description": "Accessible description. Primarily for images."
+        }
+      }
+    },
+    "sqlSchema": [
+      "-- Built-in type: adapter handles storage natively."
+    ]
+  }
+}

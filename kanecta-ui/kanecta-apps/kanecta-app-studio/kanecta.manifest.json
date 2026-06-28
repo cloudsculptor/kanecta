@@ -1,0 +1,177 @@
+{
+  "schemaVersion": "1.4.0",
+  "package": "kanecta-app-studio",
+  "layer": "ui",
+  "items": [
+    {
+      "id": "45329df1-4255-4361-acd2-bc5352e1b93e",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-ai-instructions-view/kanecta.item.json"
+    },
+    {
+      "id": "b98b9e89-cd7d-4fe0-adb8-5ecda7f0fb86",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-board-view/kanecta.item.json"
+    },
+    {
+      "id": "81a0d317-2264-4e21-93bb-edfe671e5980",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-breadcrumb/kanecta.item.json"
+    },
+    {
+      "id": "2b9cb1bb-7c2f-4e68-aa2a-70e3d13f8e67",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-calendar-view/kanecta.item.json"
+    },
+    {
+      "id": "5d31dbe4-2731-4136-9128-b6c39f14cdeb",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-claude-view/kanecta.item.json"
+    },
+    {
+      "id": "371c0f0c-3fea-4cf5-aeae-b6768d89b1a8",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-combinator-view/kanecta.item.json"
+    },
+    {
+      "id": "0e2c5d22-4ac0-42dd-a454-02ede89dfd60",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-command-palette/kanecta.item.json"
+    },
+    {
+      "id": "626c2e16-1608-440a-84c5-cc0a6460ac58",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-confidence-badge/kanecta.item.json"
+    },
+    {
+      "id": "c60898f7-10b2-4066-8303-d22a07718106",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-core/kanecta.item.json"
+    },
+    {
+      "id": "4186523f-dbfa-4c16-b8c9-cc439869eb39",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-diagram-view/kanecta.item.json"
+    },
+    {
+      "id": "c10896c4-bd2b-4056-90b1-8ababfa9185a",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-dynamic-icon/kanecta.item.json"
+    },
+    {
+      "id": "921b72de-aace-4b12-8efa-f4d31df9f2b1",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-filter-bar/kanecta.item.json"
+    },
+    {
+      "id": "53d473b1-aa92-4e1d-861e-7f20c61503ac",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-functions-view/kanecta.item.json"
+    },
+    {
+      "id": "8f38afd7-7576-408a-84c6-6e3c26140776",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-gallery-view/kanecta.item.json"
+    },
+    {
+      "id": "4b45dfa0-4679-4b52-b53f-d46d1f03fad0",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-graph-view/kanecta.item.json"
+    },
+    {
+      "id": "6398e8cf-b0c0-45d3-b8db-12685690315b",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-history-view/kanecta.item.json"
+    },
+    {
+      "id": "be170b0c-21fc-4a2f-b1d7-1d049a14a54b",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-home-view/kanecta.item.json"
+    },
+    {
+      "id": "60d27b60-e76c-4ce5-8132-7c1e77b06af6",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-item-value/kanecta.item.json"
+    },
+    {
+      "id": "05fd4e0c-ffd3-4799-b38e-995f9b96c3a4",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-layouts-view/kanecta.item.json"
+    },
+    {
+      "id": "96afeef5-28a5-4cc2-b878-5f76fe627ece",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-list-view/kanecta.item.json"
+    },
+    {
+      "id": "e31e39a7-9646-4b38-a859-ee7d52618eb4",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-mission-control/kanecta.item.json"
+    },
+    {
+      "id": "8b0bd0cf-7472-4e30-8a41-8e2225efe506",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-pull-requests-view/kanecta.item.json"
+    },
+    {
+      "id": "38175115-eca8-4e50-b097-f0ed9915eab7",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-quality-control-view/kanecta.item.json"
+    },
+    {
+      "id": "aca410c5-60e1-4feb-8e38-e6e8b9296b2c",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-quick-capture/kanecta.item.json"
+    },
+    {
+      "id": "c0efa813-6c79-4b23-aab5-8a7fffe78c5a",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-sort-bar/kanecta.item.json"
+    },
+    {
+      "id": "088f6bf9-91aa-43de-979a-99b1e2b410de",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-starred-view/kanecta.item.json"
+    },
+    {
+      "id": "3e84f003-88fd-4e4e-a3df-ebc536496879",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-table-view/kanecta.item.json"
+    },
+    {
+      "id": "54568ce5-5434-449d-af8e-7f718b4fa30d",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-tag-chip/kanecta.item.json"
+    },
+    {
+      "id": "dccb1160-a9fb-4033-bfdb-6d98da20044e",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-todo-view/kanecta.item.json"
+    },
+    {
+      "id": "607e9c8e-6ea5-4f4e-9132-41ae6582fa85",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-tree-view/kanecta.item.json"
+    },
+    {
+      "id": "940a4f38-e7bd-4144-b3ee-098d799f6240",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-type-badge/kanecta.item.json"
+    },
+    {
+      "id": "0a10d4a7-5504-404e-b0d4-1e36a213326e",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-type-list/kanecta.item.json"
+    },
+    {
+      "id": "c8322f8d-3312-44c4-a9bd-cbd4188b39bb",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-types-view/kanecta.item.json"
+    },
+    {
+      "id": "9d11cfe7-ab43-4a4d-8244-f046f39a5c7d",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-workspace-indicator/kanecta.item.json"
+    }
+  ]
+}

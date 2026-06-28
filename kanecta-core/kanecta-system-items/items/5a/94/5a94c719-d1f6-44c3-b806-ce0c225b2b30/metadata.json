@@ -1,0 +1,21 @@
+{
+  "id": "5a94c719-d1f6-44c3-b806-ce0c225b2b30",
+  "specVersion": "1.4.0",
+  "parentId": null,
+  "value": "Feature Flag Environment",
+  "type": "type",
+  "typeId": null,
+  "owner": "richardsempire@gmail.com",
+  "license": null,
+  "sortOrder": 100,
+  "confidence": null,
+  "status": null,
+  "tags": [],
+  "createdAt": "2026-06-06T21:49:01.000Z",
+  "modifiedAt": "2026-06-06T21:49:01.000Z",
+  "createdBy": "richardsempire@gmail.com",
+  "modifiedBy": "richardsempire@gmail.com",
+  "cachedAt": null,
+  "subscribedAt": null,
+  "subscriptionSource": null
+}

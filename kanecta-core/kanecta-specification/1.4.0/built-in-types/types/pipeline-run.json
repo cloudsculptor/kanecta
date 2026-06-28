@@ -1,0 +1,312 @@
+{
+  "item": {
+    "id": "ddf28c53-d691-434b-9bcf-bd1997558ad1",
+    "parentId": "31ef9fcb-636d-4007-b25f-80c1c4f054ef",
+    "type": "type",
+    "typeId": null,
+    "value": "pipeline-run",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "The execution record of a single pipeline invocation.",
+      "confidence": "locked",
+      "icon": "PlayCircle"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "pipelineRunPayload",
+      "type": "object",
+      "required": [
+        "pipelineId",
+        "status",
+        "phases"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "pipelineId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "UUID of the pipeline item this run is executing. Also the parentId of this run item."
+        },
+        "pipelineSnapshot": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "A snapshot of the pipeline item's payload at the moment this run was created. The runner executes against this snapshot, not the live pipeline definition. This guarantees that editing the pipeline item after a run has started does not affect the in-flight run — the run always executes the definition as it was when it was triggered. For sub-pipeline runs (parentRunId set), the snapshot is taken from the child pipeline's definition at trigger time. The runner stores this field before beginning execution; consumers (Studio, audit tooling) can always reconstruct exactly what definition was used for any historical run. Null for runs created before this field was introduced (pre-1.4.0 runs)."
+        },
+        "parentRunId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid",
+          "description": "UUID of the parent pipeline-run item when this run was created as a child by a sub-pipeline phase. The parent run's phases record contains this UUID in the relevant phase's subRunId field. Null for top-level runs (triggered directly, not from a parent pipeline phase)."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "running",
+            "waiting",
+            "complete",
+            "failed",
+            "cancelled"
+          ],
+          "description": "Overall run status. pending=not started, running=phase active, waiting=blocked at gate, complete=all phases done (including max-iteration cut-off), failed=unrecoverable error, cancelled=manually stopped."
+        },
+        "params": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Parameter values supplied at run creation. Keys match the pipeline's params[].name definitions. The runner substitutes these into instructions and inputQuery, and injects the full object into each agent's context preamble."
+        },
+        "iteration": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Current loop-back cycle count. Starts at 0 (initial pass), incremented by 1 before each loopBack reset. When iteration reaches the pipeline's maxIterations the runner applies the loopBack phase's onMaxIterations policy instead of looping again."
+        },
+        "triggeredBy": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid",
+          "description": "UUID of the Kanecta item that triggered this run. Null for manually triggered runs."
+        },
+        "startedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when the run moved from pending to running."
+        },
+        "completedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when the run reached a terminal state."
+        },
+        "currentPhaseId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "ID of the phase currently executing. Null when pending, waiting at a gate, or in a terminal state."
+        },
+        "phases": {
+          "type": "array",
+          "description": "Per-phase execution records, one per phase in the pipeline definition. All present from run creation — not-yet-started phases have status pending and attempt 0. On loopBack, the target phase and its dependents are reset to pending (attempt resets to 0, itemsProduced preserved across iterations so the full history is queryable).",
+          "items": {
+            "type": "object",
+            "required": [
+              "phaseId",
+              "status",
+              "attempt",
+              "escalated",
+              "itemsProduced"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "phaseId": {
+                "type": "string",
+                "description": "Matches the id of the corresponding phase in the pipeline definition."
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "running",
+                  "waiting",
+                  "complete",
+                  "failed",
+                  "skipped"
+                ],
+                "description": "pending=not started, running=agent executing, waiting=gate blocked, complete=success, failed=error exhausted retries, skipped=bypassed by runIf or upstream onFailure."
+              },
+              "attempt": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Current attempt number within the current iteration, 1-based. 0 while pending. Increments on each retry and on escalation invocation. Reset to 0 when the phase is reset by a loopBack."
+              },
+              "escalated": {
+                "type": "boolean",
+                "description": "True if the fallback agent was invoked for this phase in the current iteration."
+              },
+              "startedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time",
+                "description": "Timestamp of first agent invocation in the current iteration. Not reset on retry. Reset on loopBack."
+              },
+              "completedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time",
+                "description": "Timestamp when agent finished its final invocation. May predate gate clearance. Reset on loopBack."
+              },
+              "itemsProduced": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "UUIDs of all items written during this phase across all attempts and all iterations. Updated incrementally. Preserved across loopBack resets so the full lineage is queryable. The gate evaluator checks meta.confidence (for 'review:' gates) or payload.confidence (for 'accuracy:' gates) on the most recent iteration's items only — identified by meta.sourceRunIteration on each item."
+              },
+              "output": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "description": "Key-value map of ephemeral values the agent wrote via kanecta_set_phase_output. Not persisted as separate Kanecta items — stored only on this run record. Available to downstream phases as phases.<id>.output.<key> in runIf, forEach.filter, loopBack.if, and pauseAfter expressions, and injected into downstream agent context preambles. Reset to null on loopBack. Null if the phase wrote no outputs or has not yet completed."
+              },
+              "invocations": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "description": "Per-item invocation records for forEach phases. Null for non-forEach phases. Each entry corresponds to one fan-out invocation.",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "sourceItemId",
+                    "status"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "sourceItemId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "description": "UUID of the source item this invocation was called with."
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "running",
+                        "complete",
+                        "failed"
+                      ],
+                      "description": "Status of this individual fan-out invocation."
+                    },
+                    "itemsProduced": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "description": "UUIDs of items written by this specific invocation. All are also included in the parent phase's itemsProduced."
+                    },
+                    "error": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Error if this invocation failed."
+                    }
+                  }
+                }
+              },
+              "gateResult": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "passed",
+                  "blocked",
+                  "approved",
+                  null
+                ],
+                "description": "null=not yet evaluated. passed=items met threshold automatically. blocked=items below threshold or manual gate pending human action, run status set to waiting. approved=human explicitly approved via kanecta_approve_gate MCP tool."
+              },
+              "approvedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time",
+                "description": "Timestamp of explicit gate approval by a human. Null if gate cleared automatically or not yet approved."
+              },
+              "approvedBy": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Identity of the human who approved the gate. Null if automatic or pending."
+              },
+              "subRunId": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uuid",
+                "description": "UUID of the child pipeline-run created for this phase when the phase definition sets subPipelineId. The runner creates the child run, writes its UUID here, and waits for it to reach a terminal state. The child run's itemsProduced feeds into this phase's itemsProduced. Null for agent phases (agentId set)."
+              },
+              "lastHeartbeatAt": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time",
+                "description": "ISO 8601 timestamp of the most recent kanecta_heartbeat call from the agent for this phase. Updated in place by the runner each time the agent calls kanecta_heartbeat. The runner compares this against the current time and the phase's heartbeatIntervalSeconds — if the gap exceeds the interval, the runner terminates the phase. Null if the phase is not yet running or has no heartbeatIntervalSeconds declared."
+              },
+              "error": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Error message if phase failed. Null otherwise."
+              }
+            }
+          }
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Top-level error if the run failed. Null otherwise."
+        }
+      }
+    },
+    "sqlSchema": [
+      "-- Built-in type: adapter handles storage natively."
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "id": "1a7ca1f8-b06d-4808-b9d4-be4e46d464c7",
+  "specVersion": "1.4.0",
+  "parentId": null,
+  "value": "GitHub PR Commit",
+  "type": "type",
+  "typeId": null,
+  "owner": "richardsempire@gmail.com",
+  "license": null,
+  "sortOrder": 102,
+  "confidence": null,
+  "status": null,
+  "tags": [],
+  "createdAt": "2026-06-06T21:49:01.000Z",
+  "modifiedAt": "2026-06-06T21:49:01.000Z",
+  "createdBy": "richardsempire@gmail.com",
+  "modifiedBy": "richardsempire@gmail.com",
+  "cachedAt": null,
+  "subscribedAt": null,
+  "subscriptionSource": null
+}
