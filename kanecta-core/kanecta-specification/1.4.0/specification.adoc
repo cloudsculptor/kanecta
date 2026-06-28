@@ -1449,7 +1449,7 @@ The shared package that all Kanecta component packages peer-depend on. Exports:
 
 link:../built-in-types/types/type.json[Seed item^]
 
-For `type: "type"`. Defines a custom Kanecta type. Three top-level keys: `meta`, `jsonSchema`, `sqlSchema`.
+For `type: "type"`. Defines a custom Kanecta type. Four top-level keys: `meta`, `jsonSchema`, `sqlSchema`, `constraints`.
 
 [source,json]
 ----
@@ -1476,14 +1476,33 @@ For `type: "type"`. Defines a custom Kanecta type. Three top-level keys: `meta`,
     "title": "Person",
     "type": "object",
     "properties": {
-      "name": { "x-id": "550e8400-...", "type": "string" },
-      "born": { "x-id": "550e8401-...", "type": "string", "format": "date" }
+      "name":      { "x-id": "550e8400-...", "type": "string" },
+      "born":      { "x-id": "550e8401-...", "type": "string", "format": "date" },
+      "managerId": { "x-id": "550e8402-...", "type": "string", "format": "uuid",
+                     "typeId": "uuid-of-person-type" },
+      "teamId":    { "x-id": "550e8403-...", "type": "string", "format": "uuid",
+                     "x-kanecta-itemType": "pipeline" }
     },
     "required": ["name"]
   },
   "sqlSchema": [
     "CREATE TABLE \"obj_f1e2d3c4_...\" ( item_id UUID NOT NULL, ... )"
-  ]
+  ],
+  "constraints": {
+    "value": {
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "children": [
+      { "childType": "object", "childTypeId": "uuid-of-address-type",
+        "semantics": "list", "enforce": "reject" },
+      { "childType": "annotation",
+        "semantics": "list", "enforce": "none" },
+      { "childType": "object", "childTypeId": "uuid-of-skill-type",
+        "semantics": "set", "enforce": "warn" }
+    ],
+    "defaultEnforce": "warn"
+  }
 }
 ----
 
@@ -1557,9 +1576,27 @@ JSON Schema Draft-07 for instances. Types are *flat — exactly one level deep*.
 
 * Primitives: `string`, `number`, `integer`, `boolean` (optionally with `format`)
 * Arrays of primitives
-* UUID references to other Kanecta types: `{ "type": "string", "format": "uuid", "typeId": "<type-uuid>" }`
+* UUID references to other Kanecta custom types: `{ "type": "string", "format": "uuid", "typeId": "<type-uuid>" }`
+* UUID references to built-in Kanecta types: `{ "type": "string", "format": "uuid", "x-kanecta-itemType": "<built-in-type-name>" }`
 
 No inline nested objects. A reusable nested concept must be its own standalone type, referenced via `typeId`. This guarantees every type maps to exactly one table.
+
+===== Reference enforcement keywords
+
+Two Kanecta-specific JSON Schema extension keywords declare that a UUID field must point to a specific item type. The adapter enforces these at write time — using the `constraints.defaultEnforce` level unless overridden.
+
+[cols="1,2", options="header"]
+|===
+| Keyword | Meaning
+
+| `"typeId": "<uuid>"`
+| The referenced item must be an `object` whose `item.typeId` matches this UUID. Use for UUID fields that point to instances of a specific custom type (e.g. a `managerId` field that must point to a `person` object). The adapter performs a lookup at write time: if the UUID exists but its `typeId` is wrong, the write is rejected or warned per `constraints.defaultEnforce`.
+
+| `"x-kanecta-itemType": "<type-name>"`
+| The referenced item must have `item.type` equal to this string. Use for UUID fields that point to built-in typed items (e.g. a `pipelineId` field that must point to an item of `type: "pipeline"`). Works for all built-in types including `pipeline`, `function`, `agent`, `connector`, `component`, `formula`, etc. Cannot be combined with `typeId` on the same property.
+|===
+
+Both keywords also drive Postgres FK generation (see `sqlSchema` rules below) — the adapter adds `REFERENCES items(id)` for any UUID property that carries either keyword, so referential integrity is enforced at the DB layer regardless of the application-level enforcement setting.
 
 ==== sqlSchema rules
 
@@ -1570,6 +1607,91 @@ TIP: *Postgres* — table naming convention: `obj_<type-uuid-with-hyphens-as-und
 TIP: *SQLite* — `sqlSchema` is author-defined in Postgres dialect but adapters must translate to SQLite types at `CREATE TABLE` time: `UUID` → `TEXT`, `TIMESTAMPTZ` → `TEXT`, `BOOLEAN` → `INTEGER`, native arrays → JSON `TEXT`.
 
 NOTE: *Required even for filesystem-only types* — every type defines `sqlSchema` regardless of current adapter, so a future filesystem→cloud migration never needs retrofitting.
+
+==== constraints
+
+The `constraints` key is optional. When absent, no adapter-level enforcement applies beyond `jsonSchema` validation. When present, it adds three categories of constraint on top of `jsonSchema`: value constraints on `item.value`, child cardinality and semantics constraints, and reference enforcement for UUID fields in `jsonSchema`. These are the three things `jsonSchema` alone cannot express.
+
+===== constraints.value
+
+A JSON Schema subset applied to `item.value` for every instance of this type. Since `item.value` is always a string (or null), only string-relevant keywords are permitted: `minLength`, `maxLength`, `pattern`, `enum`, `const`. Null or absent = no value constraint.
+
+[source,json]
+----
+"value": { "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-z0-9.]+)?$", "minLength": 5 }
+----
+
+[source,json]
+----
+"value": { "enum": ["open", "in-progress", "done", "cancelled"] }
+----
+
+[source,json]
+----
+"value": { "minLength": 1, "maxLength": 120 }
+----
+
+The adapter enforces `constraints.value` on every create and update of an instance at the `constraints.defaultEnforce` level. An `enum` constraint here means `item.value` is a controlled vocabulary — Studio can render it as a dropdown. A `pattern` constraint means Studio can validate on input before the write is attempted.
+
+===== constraints.children
+
+An array of child constraint objects. Each constraint declares the permitted cardinality and structural semantics for children of a specific type under instances of this type. Constraints not listed here impose no restriction — unconstrained child types are allowed in any quantity.
+
+[cols="1,1,2", options="header"]
+|===
+| Field | Required | Description
+
+| `childType`
+| yes
+| The `item.type` of the children being constrained (e.g. `"object"`, `"annotation"`, `"file"`).
+
+| `childTypeId`
+| no
+| When `childType` is `"object"`, further narrows to a specific custom type by `item.typeId`. Null or absent = any object, regardless of typeId.
+
+| `semantics`
+| yes
+| One of: `"single"`, `"optional"`, `"list"`, `"set"`, `"map"`. See semantics table below.
+
+| `required`
+| no
+| Only meaningful for `"single"` and `"optional"`. When true with `"single"`: at least one child of this type must exist (adapter rejects delete of the last one). When false or absent: zero is permitted. Default false.
+
+| `enforce`
+| no
+| Per-constraint override of `defaultEnforce`. One of `"reject"`, `"warn"`, `"none"`. When absent, `defaultEnforce` applies.
+|===
+
+.Child semantics
+[cols="1,3", options="header"]
+|===
+| Semantics | Meaning
+
+| `"single"`
+| At most one child of this type (optionally required via `required: true`). The adapter rejects a second child of this type if `enforce: "reject"`. Use for a required config child, a primary image, a canonical summary.
+
+| `"optional"`
+| Alias for `"single"` with `required: false`. Explicit signal that zero or one is the intent.
+
+| `"list"`
+| Any number of children, ordered by `sortOrder`, duplicates allowed. This is Kanecta's default tree behaviour — declaring it explicitly makes the intent visible to tooling and Studio. Use for steps in a process, line items in an invoice, phases in a pipeline.
+
+| `"set"`
+| Children's `item.value` must be unique among siblings of this type. The adapter rejects a child whose `item.value` already exists among siblings with the same type (and `typeId`, if specified). Order is still maintained via `sortOrder`. Use for tags, labels, named skills — things that must not appear twice.
+
+| `"map"`
+| Children are key-value pairs: `item.value` is the key (unique, as in `"set"`), and the child's payload is the value. The adapter enforces uniqueness of `item.value` among siblings of this type. Order is not significant. Use for named settings, locale translations, named configurations.
+|===
+
+===== constraints.defaultEnforce
+
+Applies to all child constraints and reference constraints that do not specify their own `enforce` field, and to `constraints.value`. One of:
+
+* `"reject"` — adapter rejects the write with a validation error. The item is not written.
+* `"warn"` — adapter writes the item but logs a structured warning. Studio surfaces constraint violations as indicators on the item. Default when `constraints` is present but `defaultEnforce` is absent.
+* `"none"` — advisory only. The constraint is declared for tooling and documentation but the adapter takes no action.
+
+Enforcement is applied consistently across all adapters (filesystem+SQLite, Postgres). A type author choosing `"reject"` can rely on it being enforced regardless of which adapter is running.
 
 === aliasPayload
 
