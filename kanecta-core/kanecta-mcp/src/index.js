@@ -1045,6 +1045,11 @@ const TOOLS = [
       },
     },
   },
+  {
+    name: 'kanecta_stats',
+    description: 'Return data-quality statistics for the datastore: total item count, typed/structured count, per-type breakdown for structured objects, and per-type breakdown for unstructured primitives. Built-in structured types (pipeline, pipeline-run, agent) appear in the structured list. Root system types are excluded. Use this to get the same data shown in the QualityControlView.',
+    inputSchema: { type: 'object', properties: {} },
+  },
 ];
 
 // Every tool accepts an optional `datastore` selector, injected here so the single source of
@@ -1714,6 +1719,42 @@ async function dispatch(name, args) {
       };
       if (items.warning) out.warning = items.warning;
       return out;
+    }
+
+    case 'kanecta_stats': {
+      const ROOT_TYPES     = new Set(['root', 'data_root', 'app_root', 'component_root', 'system_root']);
+      const BUILT_IN_TYPES = new Set(['pipeline', 'pipeline-run', 'agent']);
+      const defs = await ds.listTypeDefs();
+      const typeInfo = {};
+      for (const def of defs) {
+        const typeDef = await ds.readTypeJson(def.id).catch(() => null);
+        typeInfo[def.id] = { name: def.value, icon: typeDef?.meta?.icon ?? null };
+      }
+      const structuredMap = {};
+      const unstructuredMap = {};
+      let total = 0;
+      for (const item of await ds.loadAll()) {
+        const raw = item.type;
+        if (!raw || ROOT_TYPES.has(raw)) continue;
+        total++;
+        if (raw === 'object' && item.typeId) {
+          const info = typeInfo[item.typeId] ?? { name: item.typeId, icon: null };
+          if (!structuredMap[item.typeId])
+            structuredMap[item.typeId] = { typeId: item.typeId, name: info.name, icon: info.icon, count: 0 };
+          structuredMap[item.typeId].count++;
+        } else if (BUILT_IN_TYPES.has(raw)) {
+          if (!structuredMap[raw])
+            structuredMap[raw] = { typeId: raw, name: raw, icon: null, count: 0 };
+          structuredMap[raw].count++;
+        } else {
+          unstructuredMap[raw] = (unstructuredMap[raw] || 0) + 1;
+        }
+      }
+      const structured   = Object.values(structuredMap).sort((a, b) => b.count - a.count);
+      const unstructured = Object.entries(unstructuredMap).sort((a, b) => b[1] - a[1]).map(([type, count]) => ({ type, count }));
+      const typedCount   = structured.reduce((s, r) => s + r.count, 0);
+      const percentage   = total > 0 ? Math.round((typedCount / total) * 100) : 0;
+      return { total, typedCount, percentage, structured, unstructured };
     }
 
     case 'kanecta_create_type': {
