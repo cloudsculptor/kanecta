@@ -525,29 +525,12 @@ app.patch('/items/bulk', async (req, res) => {
 app.get('/items/stats', async (req, res) => {
   const ds = await openDatastore(res);
   if (!ds) return;
-  const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
-
-  // Build typeId → { name, icon } from types directory
+  // Build typeId → { name, icon } from type_defs table
   const typeInfo = {};
-  const typesDir = path.join(root, '.kanecta', 'types');
-  if (fs.existsSync(typesDir)) {
-    for (const s1 of fs.readdirSync(typesDir)) {
-      const d1 = path.join(typesDir, s1);
-      if (!fs.statSync(d1).isDirectory()) continue;
-      for (const s2 of fs.readdirSync(d1)) {
-        const d2 = path.join(d1, s2);
-        if (!fs.statSync(d2).isDirectory()) continue;
-        for (const id of fs.readdirSync(d2)) {
-          try {
-            const metaPath = path.join(d2, id, 'metadata.json');
-            const specPath = path.join(d2, id, 'type.json');
-            const name = fs.existsSync(metaPath) ? JSON.parse(fs.readFileSync(metaPath, 'utf8')).value : null;
-            const icon = fs.existsSync(specPath) ? (JSON.parse(fs.readFileSync(specPath, 'utf8')).meta?.icon ?? null) : null;
-            if (name) typeInfo[id] = { name, icon };
-          } catch (_) {}
-        }
-      }
-    }
+  const defs = await ds.listTypeDefs();
+  for (const def of defs) {
+    const typeDef = await ds.readTypeJson(def.id).catch(() => null);
+    typeInfo[def.id] = { name: def.value, icon: typeDef?.meta?.icon ?? null };
   }
 
   const ROOT_TYPES = new Set(['root', 'data_root', 'app_root', 'component_root', 'system_root']);
