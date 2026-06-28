@@ -243,7 +243,7 @@ const TOOLS = [
         },
         type: {
           type: 'string',
-          enum: ['text', 'string', 'decision'],
+          enum: ['text', 'string'],
           description: 'Item type — defaults to "text"',
         },
       },
@@ -429,6 +429,22 @@ const TOOLS = [
           description:
             'ISO8601 timestamp to mark as completed, or null to clear',
         },
+        expiresAt: {
+          type: 'string',
+          description: 'ISO8601 freshness expiry marker (information staleness, NOT deletion). Null to clear.',
+        },
+        connectorId: {
+          type: 'string',
+          description: 'UUID of the connector item that manages refresh for this cached item. Null to clear.',
+        },
+        materialized: {
+          type: 'boolean',
+          description: 'false = stub (payload not yet fetched from source), null = native Kanecta item.',
+        },
+        cachedAt: {
+          type: 'string',
+          description: 'ISO8601 timestamp when this item was last materialized from its external source. Null to clear.',
+        },
         objectData: {
           type: 'object',
           description:
@@ -463,6 +479,70 @@ const TOOLS = [
     name: 'kanecta_delete_item',
     description:
       'Delete an item and all its descendants from the knowledge base.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Item UUID' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'kanecta_soft_delete',
+    description:
+      'Soft-delete an item — sets deletedAt to now. The item and all its data are retained on disk but excluded from all queries unless includeDeleted:true is passed. Use kanecta_restore to undo. Prefer this over kanecta_delete_item when you may want to recover the item later.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Item UUID' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'kanecta_restore',
+    description:
+      'Restore a soft-deleted item — clears deletedAt so the item re-appears in normal queries. No-op if the item is not soft-deleted.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Item UUID' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'kanecta_get_time',
+    description:
+      'Read the time section (time.json) for an item. Returns a map of context keys to temporal context objects. Well-known keys: "main" (primary window), "review" (reevaluation cadence), "renewal" (deadline). Each value has: startAt, endAt, recurrenceRule, recurrenceExceptions, nextOccurrenceAt (computed), completedAt. Returns null if the item has no time data.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Item UUID' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'kanecta_set_time',
+    description:
+      'Write the time section (time.json) for an item. Pass a map of context key → temporal context. Well-known keys: "main", "review", "renewal". Each value must include at least one temporal field. The adapter computes nextOccurrenceAt from recurrenceRule — do not set it directly. Replaces the entire time.json on each write.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Item UUID' },
+        time: {
+          type: 'object',
+          description: 'Map of context key → temporal context object. Example: {"main":{"startAt":"2026-07-01T09:00:00Z","endAt":null,"recurrenceRule":null,"recurrenceExceptions":[],"completedAt":null}}',
+        },
+      },
+      required: ['id', 'time'],
+    },
+  },
+  {
+    name: 'kanecta_delete_time',
+    description:
+      'Remove the entire time section (time.json) for an item. After this call the item has no temporal contexts.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -949,6 +1029,18 @@ const TOOLS = [
           description:
             'Optional. When true, querying a type name that is not a registered type definition (or built-in primitive) throws instead of returning an empty result. Default false: returns empty but includes a "warning" field so a typo or missing type definition is visible rather than silent.',
         },
+        includeDeleted: {
+          type: 'boolean',
+          description: 'When true, include soft-deleted items (those with deletedAt set) in results. Default false.',
+        },
+        excludeExpired: {
+          type: 'boolean',
+          description: 'When true, exclude items whose expiresAt is in the past. Mutually exclusive with expiredOnly.',
+        },
+        expiredOnly: {
+          type: 'boolean',
+          description: 'When true, return only items whose expiresAt is set and in the past. Mutually exclusive with excludeExpired.',
+        },
       },
     },
   },
@@ -1427,6 +1519,37 @@ async function dispatch(name, args) {
       const ids = (await collectSubtreeIds(ds, args.id)).reverse();
       for (const itemId of ids) await ds.delete(itemId, cfg?.owner);
       return { deleted: ids };
+    }
+
+    case 'kanecta_soft_delete': {
+      const item = await ds.get(args.id);
+      if (!item) return { error: `Not found: ${args.id}` };
+      return await ds.softDelete(args.id, cfg?.owner);
+    }
+
+    case 'kanecta_restore': {
+      const item = await ds.get(args.id);
+      if (!item) return { error: `Not found: ${args.id}` };
+      return await ds.restore(args.id, cfg?.owner);
+    }
+
+    case 'kanecta_get_time': {
+      if (!(await ds.get(args.id))) return { error: `Not found: ${args.id}` };
+      const time = await ds.readTimeJson(args.id);
+      return { id: args.id, time: time ?? null };
+    }
+
+    case 'kanecta_set_time': {
+      if (!(await ds.get(args.id))) return { error: `Not found: ${args.id}` };
+      if (!args.time || typeof args.time !== 'object') return { error: 'time must be an object' };
+      await ds.writeTimeJson(args.id, args.time);
+      return { id: args.id, time: args.time };
+    }
+
+    case 'kanecta_delete_time': {
+      if (!(await ds.get(args.id))) return { error: `Not found: ${args.id}` };
+      await ds.deleteTimeJson(args.id);
+      return { id: args.id, deleted: true };
     }
 
     case 'kanecta_bulk_create': {
