@@ -54,7 +54,7 @@
   text-transform: none;
   color: var(--color-text-muted);
   background: var(--color-border);
-  padding: 1px 7px;
+  padding: 4px 10px;
   border-radius: 999px;
   line-height: 1.6;
 }
