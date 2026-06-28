@@ -1,4 +1,4 @@
-import type { KanectaApiClient, WorkingSet } from '@kanecta/api-client';
+import type { KanectaApiClient } from '@kanecta/api-client';
 
 export type { WorkingSet, WorkingSetBranch, WorkingSetRemote } from '@kanecta/api-client';
 

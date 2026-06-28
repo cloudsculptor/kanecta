@@ -17,7 +17,23 @@ export function itemsApi(client: KanectaApiClient) {
 
     stats: () => client.items.stats(),
 
-    get: (id: string) => client.items.get(id),
+    get: (id: string) => client.items.get(id).then((doc) => ({
+      id: doc.item.id,
+      value: doc.item.value ?? '',
+      type: doc.item.type,
+      typeId: doc.item.typeId,
+      parentId: doc.item.parentId,
+      sortOrder: doc.item.sortOrder ?? 0,
+      tags: doc.meta.tags ?? [],
+      icon: doc.meta.icon ?? null,
+      status: doc.meta.status ?? null,
+      confidence: doc.meta.confidence ?? null,
+      createdAt: doc.meta.createdAt ?? null,
+      modifiedAt: doc.meta.modifiedAt ?? null,
+      childCount: doc.childCount,
+      _hasObject: doc._hasObject,
+      _synthetic: doc._synthetic,
+    } as KanectaItem)),
 
     create: (payload: CreateItemPayload) =>
       client.items.create(payload as never) as unknown as Promise<KanectaItem>,
