@@ -13,7 +13,7 @@
     "kanecta",
     "datastore"
   ],
-  "author": "Richie Thomas <richardsempire@gmail.com>",
+  "author": "Kanecta",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
@@ -22,7 +22,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@kanecta/filesystem": "^1.0.0"
+    "@kanecta/sqlite-fs": "^1.4.0"
   },
   "peerDependencies": {
     "@aws-sdk/client-s3": ">=3.0.0",

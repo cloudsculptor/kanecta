@@ -1,6 +1,6 @@
 'use strict';
 
-const { FilesystemAdapter } = require('@kanecta/filesystem');
+const { FilesystemAdapter } = require('@kanecta/sqlite-fs');
 
 // ─── Filesystem ────────────────────────────────────────────────────────────────
 
