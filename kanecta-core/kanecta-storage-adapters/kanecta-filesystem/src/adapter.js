@@ -15,12 +15,13 @@ function validateMetadata(obj) {
 }
 
 const ROOT_ID = '00000000-0000-0000-0000-000000000000';
+const TYPES_NODE = '11111111-1111-1111-1111-111111111111';
 const WELL_KNOWN_TYPES = new Set(['root', 'system_root', 'app_root', 'component_root', 'data_root']);
 const WELL_KNOWN_ORDER = ['system_root', 'app_root', 'component_root', 'data_root'];
 
 const VALID_TYPES = [
   'string', 'number', 'text', 'heading', 'file', 'symlink', 'url', 'image', 'function', 'markdown', 'runner',
-  'object', 'decision', 'annotation', 'claim', 'question', 'task', 'note', 'concept', 'entity', 'event',
+  'object', 'annotation', 'connector',
   'root', 'system_root', 'app_root', 'component_root', 'data_root',
 ];
 const VALID_CONFIDENCES = ['experimental', 'exploring', 'decided', 'locked', 'low', 'medium', 'high', 'verified'];
@@ -174,8 +175,10 @@ class FilesystemAdapter {
       createdBy: null,
       modifiedBy: null,
       cachedAt: null,
-      subscribedAt: null,
-      subscriptionSource: null,
+      expiresAt: null,
+      deletedAt: null,
+      connectorId: null,
+      materialized: null,
       completedAt: null,
       dueAt: null,
       _synthetic: true,
@@ -205,8 +208,10 @@ class FilesystemAdapter {
       createdBy: null,
       modifiedBy: null,
       cachedAt: null,
-      subscribedAt: null,
-      subscriptionSource: null,
+      expiresAt: null,
+      deletedAt: null,
+      connectorId: null,
+      materialized: null,
       completedAt: null,
       dueAt: null,
       _synthetic: true,
@@ -239,6 +244,20 @@ class FilesystemAdapter {
 
   writeFunctionJson(id, data) {
     this._writeJson(path.join(this._itemDir(id), 'function.json'), data);
+  }
+
+  readTimeJson(id) {
+    if (this._isSyntheticId(id)) return null;
+    return this._readJson(path.join(this._itemDir(id), 'time.json'), null);
+  }
+
+  writeTimeJson(id, data) {
+    this._writeJson(path.join(this._itemDir(id), 'time.json'), data);
+  }
+
+  deleteTimeJson(id) {
+    const f = path.join(this._itemDir(id), 'time.json');
+    try { fs.unlinkSync(f); } catch (e) { if (e.code !== 'ENOENT') throw e; }
   }
 
   // ─── File store (no-op stubs — filesystem adapter stores files on disk directly) ─
@@ -353,7 +372,8 @@ class FilesystemAdapter {
       confidence: null, tags: [],
       createdAt: now.toISOString(), modifiedAt: now.toISOString(),
       createdBy: owner, modifiedBy: owner,
-      cachedAt: null, subscribedAt: null, subscriptionSource: null, completedAt: null, dueAt: null,
+      cachedAt: null, expiresAt: null, deletedAt: null, connectorId: null, materialized: null,
+      completedAt: null, dueAt: null,
     };
     this._writeMetadata(path.join(this._itemDir(id), 'metadata.json'), item);
     this._snapshot(item, 'create', owner, now);
@@ -457,8 +477,10 @@ class FilesystemAdapter {
       createdBy: actor,
       modifiedBy: actor,
       cachedAt: null,
-      subscribedAt: null,
-      subscriptionSource: null,
+      expiresAt: null,
+      deletedAt: null,
+      connectorId: null,
+      materialized: null,
       completedAt: null,
       dueAt,
     };
@@ -614,6 +636,10 @@ class FilesystemAdapter {
     if ('license' in changes) updated.license = changes.license;
     if ('visibility' in changes) updated.visibility = changes.visibility;
     if ('aspect' in changes) updated.aspect = changes.aspect;
+    if ('cachedAt' in changes) updated.cachedAt = changes.cachedAt;
+    if ('expiresAt' in changes) updated.expiresAt = changes.expiresAt;
+    if ('connectorId' in changes) updated.connectorId = changes.connectorId;
+    if ('materialized' in changes) updated.materialized = changes.materialized;
     if ('completedAt' in changes) updated.completedAt = changes.completedAt;
     if ('dueAt' in changes) updated.dueAt = changes.dueAt;
 
@@ -676,6 +702,31 @@ class FilesystemAdapter {
     return { warnings };
   }
 
+  // Soft-delete: set deletedAt timestamp. Item remains on disk, excluded from
+  // default queries. Use restore() to undelete. Hard delete uses delete().
+  softDelete(id, actor) {
+    const item = this.get(id);
+    this._assertEditable(item, id);
+    actor = actor || this.config.owner;
+    const now = new Date();
+    this._snapshot(item, 'soft-delete', actor, now);
+    const updated = { ...item, deletedAt: now.toISOString(), modifiedAt: now.toISOString(), modifiedBy: actor };
+    this._writeMetadata(path.join(this._itemDir(id), 'metadata.json'), updated);
+    return updated;
+  }
+
+  // Restore a soft-deleted item by clearing deletedAt.
+  restore(id, actor) {
+    const item = this.get(id);
+    if (!item) throw new Error(`Item not found: ${id}`);
+    actor = actor || this.config.owner;
+    const now = new Date();
+    this._snapshot(item, 'restore', actor, now);
+    const updated = { ...item, deletedAt: null, modifiedAt: now.toISOString(), modifiedBy: actor };
+    this._writeMetadata(path.join(this._itemDir(id), 'metadata.json'), updated);
+    return updated;
+  }
+
   // ─── Type definitions ─────────────────────────────────────────────────────
 
   createType(value, { schema, createdBy, id: explicitId } = {}) {
@@ -705,8 +756,10 @@ class FilesystemAdapter {
       createdBy: actor,
       modifiedBy: actor,
       cachedAt: null,
-      subscribedAt: null,
-      subscriptionSource: null,
+      expiresAt: null,
+      deletedAt: null,
+      connectorId: null,
+      materialized: null,
       completedAt: null,
       dueAt: null,
     };
@@ -1117,11 +1170,24 @@ class FilesystemAdapter {
     }
   }
 
-  query({ type, where, rootId, sort, limit, strictTypes } = {}) {
+  query({ type, where, rootId, sort, limit, strictTypes, includeDeleted = false, excludeExpired = false, expiredOnly = false } = {}) {
     let items = this.loadAll();
     let typeWarning = null;
 
-    // 1. Root ID Scoping (including rootId itself and all descendants)
+    // 1. Soft-delete filter: exclude items with deletedAt set unless caller opts in.
+    if (!includeDeleted) {
+      items = items.filter(i => i.deletedAt == null);
+    }
+
+    // 1b. Expiry filters: expiredOnly/excludeExpired are mutually exclusive; expiredOnly wins.
+    const now = new Date().toISOString();
+    if (expiredOnly) {
+      items = items.filter(i => i.expiresAt != null && i.expiresAt <= now);
+    } else if (excludeExpired) {
+      items = items.filter(i => i.expiresAt == null || i.expiresAt > now);
+    }
+
+    // 2. Root ID Scoping (including rootId itself and all descendants)
     if (rootId) {
       const parentToChildren = new Map();
       for (const item of items) {
@@ -1145,7 +1211,7 @@ class FilesystemAdapter {
       items = items.filter(item => subtreeIds.has(item.id));
     }
 
-    // 2. Type Filtering. Resolve the name once (distinguishing "no such type"
+    // 3. Type Filtering. Resolve the name once (distinguishing "no such type"
     // from "type exists but empty"), then filter by the resolved id instead of
     // re-reading each candidate's type metadata.
     if (type) {
@@ -1164,7 +1230,7 @@ class FilesystemAdapter {
       }
     }
 
-    // 3. Where Clause Filter & Attach objectData inline
+    // 4. Where Clause Filter & Attach objectData inline
     const hasWhere = where && Object.keys(where).length > 0;
     
     items = items.map(item => {
@@ -1197,7 +1263,7 @@ class FilesystemAdapter {
       });
     }
 
-    // 4. Sorting
+    // 5. Sorting
     if (sort && sort.field) {
       const { field, dir = 'asc' } = sort;
       const isDesc = dir.toLowerCase() === 'desc';
@@ -1218,7 +1284,7 @@ class FilesystemAdapter {
       });
     }
 
-    // 5. Limit
+    // 6. Limit
     // limit must be a positive integer; 0 or negative is treated as "no limit" (return all).
     // Callers should pass a positive integer or omit the field to use the default of 50.
     const finalLimit = (limit !== undefined && Number.isInteger(limit) && limit > 0) ? limit : (limit === undefined ? 50 : 0);
@@ -1288,4 +1354,4 @@ class FilesystemAdapter {
   }
 }
 
-module.exports = { FilesystemAdapter, UnknownTypeError, ROOT_ID, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE, DEFAULT_LICENSE };
+module.exports = { FilesystemAdapter, UnknownTypeError, ROOT_ID, TYPES_NODE, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE, DEFAULT_LICENSE };
