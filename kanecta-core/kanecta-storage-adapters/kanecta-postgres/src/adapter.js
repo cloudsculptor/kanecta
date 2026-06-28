@@ -999,6 +999,7 @@ class PostgresAdapter {
     ]);
 
     const result = {};
+    result.runtime = fn.runtime ?? 'typescript';
     if (fn.description != null)    result.description = fn.description;
     if (fn.is_async)               result.async = true;
     if (fn.is_ai)                  result.ai = true;
@@ -1033,26 +1034,31 @@ class PostgresAdapter {
     if (fn.body != null)               result.body = fn.body;
     if (!fn.include_kanecta_sdk)       result.includeKanectaSdk = false;
     if (fn.dependencies?.length)       result.dependencies = fn.dependencies;
+    if (fn.bundle_hash != null)        result.bundleHash = fn.bundle_hash;
     return result;
   }
 
   async writeFunctionJson(id, data) {
     const {
+      runtime = 'typescript',
       description = null, async: isAsync = false, ai = false, skill = null,
       typeParameters = [], parameters = [], returnType = null, returnTypeId = null,
-      throws = [], deprecated = null, body = null, includeKanectaSdk = true, dependencies = [],
+      throws = [], deprecated = null, body = null, includeKanectaSdk = true,
+      dependencies = [], bundleHash = null,
     } = data;
 
     await this._pool.query(
       `INSERT INTO functions (
-         item_id, description, is_async, is_ai, skill_id, return_type, return_type_id,
-         deprecated_notice, body, include_kanecta_sdk, dependencies
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+         item_id, runtime, description, is_async, is_ai, skill_id, return_type, return_type_id,
+         deprecated_notice, body, include_kanecta_sdk, dependencies, bundle_hash
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
        ON CONFLICT (item_id) DO UPDATE SET
-         description = $2, is_async = $3, is_ai = $4, skill_id = $5,
-         return_type = $6, return_type_id = $7, deprecated_notice = $8,
-         body = $9, include_kanecta_sdk = $10, dependencies = $11`,
-      [id, description, isAsync, ai, skill, returnType, returnTypeId, deprecated, body, includeKanectaSdk, dependencies],
+         runtime = $2, description = $3, is_async = $4, is_ai = $5, skill_id = $6,
+         return_type = $7, return_type_id = $8, deprecated_notice = $9,
+         body = $10, include_kanecta_sdk = $11, dependencies = $12, bundle_hash = $13`,
+      [id, runtime, description, isAsync, ai, skill, returnType, returnTypeId,
+       deprecated, body, includeKanectaSdk, dependencies,
+       bundleHash ? JSON.stringify(bundleHash) : null],
     );
 
     await Promise.all([

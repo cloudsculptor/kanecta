@@ -952,6 +952,39 @@ describe('objectData / functionData / timeData', () => {
     expect(ds.readFunctionJson(item.id)).toEqual({ source: 'function main(){}', lang: 'ts' });
   });
 
+  it('runtime field round-trips', () => {
+    const item = ds.create({ value: 'fn-rt', type: 'function' });
+    ds.writeFunctionJson(item.id, { runtime: 'typescript', description: 'test' });
+    expect(ds.readFunctionJson(item.id).runtime).toBe('typescript');
+  });
+
+  it('python runtime round-trips', () => {
+    const item = ds.create({ value: 'fn-py', type: 'function' });
+    ds.writeFunctionJson(item.id, {
+      runtime: 'python',
+      parameters: [{ name: 'x', type: 'number' }],
+      returnType: 'boolean',
+    });
+    const fn = ds.readFunctionJson(item.id);
+    expect(fn.runtime).toBe('python');
+    expect(fn.parameters[0].name).toBe('x');
+    expect(fn.returnType).toBe('boolean');
+  });
+
+  it('bundleHash round-trips', () => {
+    const item = ds.create({ value: 'fn-bh', type: 'function' });
+    const bundleHash = { typescript: 'sha256:abc123', python: 'sha256:def456' };
+    ds.writeFunctionJson(item.id, { runtime: 'typescript', bundleHash });
+    expect(ds.readFunctionJson(item.id).bundleHash).toEqual(bundleHash);
+  });
+
+  it('runtime can be updated', () => {
+    const item = ds.create({ value: 'fn-switch', type: 'function' });
+    ds.writeFunctionJson(item.id, { runtime: 'typescript' });
+    ds.writeFunctionJson(item.id, { runtime: 'python' });
+    expect(ds.readFunctionJson(item.id).runtime).toBe('python');
+  });
+
   it('readTimeJson returns null when not set', () => {
     const item = ds.create({ value: 'x' });
     expect(ds.readTimeJson(item.id)).toBeNull();

@@ -3,25 +3,24 @@
 const express = require('express');
 const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE } = require('@kanecta/lib');
 const claude = require('@kanecta/ai');
-const { generateFunctionScaffold, toCamelCase } = require('@kanecta/lib');
+const { generateFunctionScaffold, getRuntimeDir, computeBundleHash, toCamelCase, toPythonName, VALID_RUNTIME_RE } = require('@kanecta/lib');
 const { requireAuth } = require('./middleware/auth');
 const { spawnSync, spawn } = require('child_process');
-const { createHash } = require('crypto');
 
-function hashIndexTs(fnDir) {
+function readBuildHash(runtimeDir) {
+  try { return fs.readFileSync(path.join(runtimeDir, '.build-hash'), 'utf8').trim(); } catch { return null; }
+}
+
+function writeBuildHash(runtimeDir) {
   try {
-    const src = fs.readFileSync(path.join(fnDir, 'index.ts'), 'utf8');
-    return createHash('sha256').update(src).digest('hex');
-  } catch { return null; }
+    const hash = computeBundleHash(runtimeDir);
+    if (hash) fs.writeFileSync(path.join(runtimeDir, '.build-hash'), hash + '\n', 'utf8');
+  } catch { /* not critical */ }
 }
 
-function readBuildHash(fnDir) {
-  try { return fs.readFileSync(path.join(fnDir, '.build-hash'), 'utf8').trim(); } catch { return null; }
-}
-
-function writeBuildHash(fnDir) {
-  const hash = hashIndexTs(fnDir);
-  if (hash) fs.writeFileSync(path.join(fnDir, '.build-hash'), hash + '\n', 'utf8');
+function runtimeFromQuery(req) {
+  const rt = req.query.runtime ?? 'typescript';
+  return VALID_RUNTIME_RE.test(rt) ? rt : 'typescript';
 }
 
 const app = express();
@@ -669,39 +668,50 @@ app.post('/items/:id/uncomplete', async (req, res) => {
 });
 
 // GET /items/:id/function/package-json — read the package.json inside the function scaffold directory
+// GET /items/:id/function/package-json?runtime=typescript
 app.get('/items/:id/function/package-json', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
   const s = id.replace(/-/g, '');
-  const pkgPath = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id, 'function', 'package.json');
-  if (!fs.existsSync(pkgPath)) return res.status(404).json({ error: 'package.json not found' });
+  const runtime = runtimeFromQuery(req);
+  const itemDir = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id);
+  const runtimeDir = getRuntimeDir(itemDir, runtime);
+  const pkgFile = runtime === 'python' ? 'requirements.txt' : 'package.json';
+  const pkgPath = path.join(runtimeDir, pkgFile);
+  if (!fs.existsSync(pkgPath)) return res.status(404).json({ error: `${pkgFile} not found` });
   try {
-    res.json(JSON.parse(fs.readFileSync(pkgPath, 'utf8')));
+    const content = fs.readFileSync(pkgPath, 'utf8');
+    res.json(runtime === 'python' ? { requirements: content } : JSON.parse(content));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /items/:id/function/scaffold — check whether the function/ code scaffold directory exists
-// Returns { exists, stale } where stale=true means the compiled dist is out of date with function.json
+// GET /items/:id/function/scaffold?runtime=typescript
+// Returns { exists, stale, runtime } where stale=true means compiled output is out of date.
 app.get('/items/:id/function/scaffold', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
   const s = id.replace(/-/g, '');
+  const runtime = runtimeFromQuery(req);
   const itemDir = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id);
-  const fnDir = path.join(itemDir, 'function');
-  const exists = fs.existsSync(fnDir);
-  if (!exists) return res.json({ exists: false, stale: false });
+  const runtimeDir = getRuntimeDir(itemDir, runtime);
+  const exists = fs.existsSync(runtimeDir);
+  if (!exists) return res.json({ exists: false, stale: false, runtime });
 
   let stale = false;
   try {
-    const currentHash = hashIndexTs(fnDir);
-    const buildHash = readBuildHash(fnDir);
-    stale = !currentHash || !buildHash || currentHash !== buildHash || !fs.existsSync(path.join(fnDir, 'dist', 'index.js'));
+    const currentHash = computeBundleHash(runtimeDir);
+    const buildHash = readBuildHash(runtimeDir);
+    if (!currentHash || !buildHash || currentHash !== buildHash) {
+      stale = true;
+    } else if (runtime === 'typescript') {
+      stale = !fs.existsSync(path.join(runtimeDir, 'dist', 'index.js'));
+    }
   } catch { stale = true; }
-  res.json({ exists, stale });
+  res.json({ exists, stale, runtime });
 });
 
 
@@ -725,36 +735,57 @@ app.put('/items/:id/function', async (req, res) => {
   const item = await ds.get(id);
   if (!item) return res.status(404).json({ error: 'Item not found' });
   await ds.writeFunctionJson(id, req.body);
+  let runtimeDir;
   try {
     const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
     const s = id.replace(/-/g, '');
     const itemDir = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id);
-    const fnDir = path.join(itemDir, 'function');
-    generateFunctionScaffold(itemDir, item.value ?? id, req.body, root);
-    writeBuildHash(fnDir);
+    runtimeDir = generateFunctionScaffold(itemDir, item.value ?? id, req.body, root);
+    writeBuildHash(runtimeDir);
   } catch (err) {
     console.error(`[kanecta] generateFunctionScaffold failed for ${id}:`, err);
   }
   res.json({ ok: true });
 });
 
-// POST /items/:id/function/compile — npm install + tsc in the function scaffold directory
+// POST /items/:id/function/compile?runtime=typescript
+// TypeScript: npm install + tsc. Python: pip install (no compile step).
 app.post('/items/:id/function/compile', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
   const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
   const s = id.replace(/-/g, '');
+  const runtime = runtimeFromQuery(req);
   const itemDir = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id);
-  const fnDir = path.join(itemDir, 'function');
+  const runtimeDir = getRuntimeDir(itemDir, runtime);
 
-  if (!fs.existsSync(fnDir)) {
+  if (!fs.existsSync(runtimeDir)) {
     return res.status(404).json({ error: 'Function scaffold not found. Save the function first.' });
   }
 
   const chunks = [];
 
+  if (runtime === 'python') {
+    const reqFile = path.join(runtimeDir, 'requirements.txt');
+    const reqContent = fs.existsSync(reqFile) ? fs.readFileSync(reqFile, 'utf8') : '';
+    const hasRealDeps = reqContent.split('\n').some(l => l.trim() && !l.trim().startsWith('#'));
+    if (hasRealDeps) {
+      const install = spawnSync('pip3', ['install', '-r', 'requirements.txt'], {
+        cwd: runtimeDir, encoding: 'utf8', shell: true, timeout: 120_000,
+      });
+      if (install.stdout) chunks.push(install.stdout);
+      if (install.stderr) chunks.push(install.stderr);
+      if (install.status !== 0) {
+        return res.json({ success: false, output: chunks.join('\n').trim() });
+      }
+    }
+    writeBuildHash(runtimeDir);
+    return res.json({ success: true, output: chunks.join('\n').trim() || 'No dependencies to install.' });
+  }
+
+  // TypeScript: npm install + tsc
   const install = spawnSync('npm', ['install'], {
-    cwd: fnDir, encoding: 'utf8', shell: true, timeout: 120_000,
+    cwd: runtimeDir, encoding: 'utf8', shell: true, timeout: 120_000,
   });
   if (install.stdout) chunks.push(install.stdout);
   if (install.stderr) chunks.push(install.stderr);
@@ -764,33 +795,27 @@ app.post('/items/:id/function/compile', async (req, res) => {
   }
 
   const build = spawnSync('npm', ['run', 'build'], {
-    cwd: fnDir, encoding: 'utf8', shell: true, timeout: 60_000,
+    cwd: runtimeDir, encoding: 'utf8', shell: true, timeout: 60_000,
   });
   if (build.stdout) chunks.push(build.stdout);
   if (build.stderr) chunks.push(build.stderr);
 
   const success = build.status === 0;
-
-  if (success) {
-    try { writeBuildHash(fnDir); } catch { /* not critical */ }
-  }
+  if (success) writeBuildHash(runtimeDir);
 
   return res.json({ success, output: chunks.join('\n').trim() });
 });
 
 // POST /items/:id/function/run — check hash, rebuild if stale, then execute the function
+// POST /items/:id/function/run — check hash, rebuild if stale, then execute the function.
+// Dispatches to a TypeScript (node) or Python (python3) runner based on the stored runtime.
 app.post('/items/:id/function/run', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
 
   const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
   const s = id.replace(/-/g, '');
-  const fnDir = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id, 'function');
-  const distIndex = path.join(fnDir, 'dist', 'index.js');
-
-  if (!fs.existsSync(fnDir)) {
-    return res.status(404).json({ error: 'Function scaffold not found. Save the function first.' });
-  }
+  const itemDir = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id);
 
   const ds = await openDatastore(res);
   if (!ds) return;
@@ -798,43 +823,101 @@ app.post('/items/:id/function/run', async (req, res) => {
   if (!item) return res.status(404).json({ error: 'Item not found' });
 
   const fnData = await ds.readFunctionJson(id) ?? {};
-  const currentHash = hashIndexTs(fnDir);
-  const buildHash = readBuildHash(fnDir);
+  const runtime = fnData.runtime ?? 'typescript';
+  const runtimeDir = getRuntimeDir(itemDir, runtime);
+
+  if (!fs.existsSync(runtimeDir)) {
+    return res.status(404).json({ error: 'Function scaffold not found. Save the function first.' });
+  }
+
+  const currentHash = computeBundleHash(runtimeDir);
+  const buildHash = readBuildHash(runtimeDir);
+  const params = fnData.parameters ?? [];
+  const { args = {} } = req.body;
+  const RESULT_START = '__KANECTA_RESULT_START__';
+  const RESULT_END = '__KANECTA_RESULT_END__';
+
+  // ─── Python runner ──────────────────────────────────────────────────────────
+  if (runtime === 'python') {
+    const needsRebuild = !currentHash || !buildHash || currentHash !== buildHash;
+    if (needsRebuild) {
+      const reqFile = path.join(runtimeDir, 'requirements.txt');
+      const reqContent = fs.existsSync(reqFile) ? fs.readFileSync(reqFile, 'utf8') : '';
+      const hasRealDeps = reqContent.split('\n').some(l => l.trim() && !l.trim().startsWith('#'));
+      if (hasRealDeps) {
+        const install = spawnSync('pip3', ['install', '-r', 'requirements.txt'], {
+          cwd: runtimeDir, encoding: 'utf8', shell: true, timeout: 120_000,
+        });
+        if (install.status !== 0) {
+          return res.json({ success: false, output: null, logs: `Auto-rebuild failed (pip3 install):\n${[install.stdout, install.stderr].filter(Boolean).join('\n').trim()}` });
+        }
+      }
+      writeBuildHash(runtimeDir);
+    }
+
+    const fnPyName = toPythonName(item.value ?? id);
+    const pyRunner = [
+      'import sys, json',
+      `sys.path.insert(0, ${JSON.stringify(runtimeDir)})`,
+      'import main as _mod',
+      `_fn = getattr(_mod, ${JSON.stringify(fnPyName)})`,
+      `_params = ${JSON.stringify(params)}`,
+      `_raw = ${JSON.stringify(args)}`,
+      '_vals = {}',
+      'for _p in _params:',
+      '    _v = _raw.get(_p["name"])',
+      '    if _v is not None and _v != "":',
+      '        try:',
+      '            _vals[_p["name"]] = json.loads(_v) if isinstance(_v, str) else _v',
+      '        except Exception:',
+      '            _vals[_p["name"]] = _v',
+      '_result = _fn(**_vals)',
+      `sys.stdout.write(${JSON.stringify(RESULT_START)} + json.dumps(_result, default=str) + ${JSON.stringify(RESULT_END)} + "\\n")`,
+    ].join('\n');
+
+    const child = spawn('python3', ['-c', pyRunner], { encoding: 'utf8' });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', chunk => { stdout += chunk; });
+    child.stderr.on('data', chunk => { stderr += chunk; });
+    const timer = setTimeout(() => { child.kill(); stderr += '\nExecution timed out after 30s'; }, 30_000);
+    child.on('close', code => {
+      clearTimeout(timer);
+      const resultMatch = stdout.match(new RegExp(`${RESULT_START}([\\s\\S]*?)${RESULT_END}`));
+      const output = resultMatch ? resultMatch[1].trim() : null;
+      const logsFromStdout = stdout.replace(new RegExp(`${RESULT_START}[\\s\\S]*?${RESULT_END}\\n?`), '').trim();
+      const logs = [logsFromStdout, stderr].filter(Boolean).join('\n').trim();
+      res.json({ success: code === 0, output, logs });
+    });
+    return;
+  }
+
+  // ─── TypeScript runner ──────────────────────────────────────────────────────
+  const distIndex = path.join(runtimeDir, 'dist', 'index.js');
   const needsRebuild = !fs.existsSync(distIndex) || !currentHash || !buildHash || currentHash !== buildHash;
 
   if (needsRebuild) {
     const rebuildChunks = [];
-
     const install = spawnSync('npm', ['install'], {
-      cwd: fnDir, encoding: 'utf8', shell: true, timeout: 120_000,
+      cwd: runtimeDir, encoding: 'utf8', shell: true, timeout: 120_000,
     });
     if (install.stdout) rebuildChunks.push(install.stdout);
     if (install.stderr) rebuildChunks.push(install.stderr);
-
     if (install.status !== 0) {
       return res.json({ success: false, output: null, logs: `Auto-rebuild failed (npm install):\n${rebuildChunks.join('\n').trim()}` });
     }
-
     const build = spawnSync('npm', ['run', 'build'], {
-      cwd: fnDir, encoding: 'utf8', shell: true, timeout: 60_000,
+      cwd: runtimeDir, encoding: 'utf8', shell: true, timeout: 60_000,
     });
     if (build.stdout) rebuildChunks.push(build.stdout);
     if (build.stderr) rebuildChunks.push(build.stderr);
-
     if (build.status !== 0) {
       return res.json({ success: false, output: null, logs: `Auto-rebuild failed (build):\n${rebuildChunks.join('\n').trim()}` });
     }
-
-    writeBuildHash(fnDir);
+    writeBuildHash(runtimeDir);
   }
 
   const fnName = toCamelCase(item.value ?? id);
-  const params = fnData.parameters ?? [];
-  const { args = {} } = req.body;
-
-  const RESULT_START = '__KANECTA_RESULT_START__';
-  const RESULT_END = '__KANECTA_RESULT_END__';
-
   const runnerCode = `
 const mod = require(${JSON.stringify(distIndex)});
 const params = ${JSON.stringify(params)};

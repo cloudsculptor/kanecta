@@ -987,6 +987,93 @@ describe('functionData round-trip', () => {
     expect(fn.parameters[0].name).toBe('input');
     expect(fn.returnType).toBe('boolean');
   });
+
+  test('runtime defaults to typescript when not specified', async () => {
+    const item = await adapter.create({ value: 'fn-rt-default', type: 'function' });
+    await adapter.writeFunctionJson(item.id, { description: 'test' });
+    const fn = await adapter.readFunctionJson(item.id);
+    expect(fn.runtime).toBe('typescript');
+  });
+
+  test('runtime persists when set to typescript', async () => {
+    const item = await adapter.create({ value: 'fn-rt-ts', type: 'function' });
+    await adapter.writeFunctionJson(item.id, { runtime: 'typescript', description: 'ts fn' });
+    const fn = await adapter.readFunctionJson(item.id);
+    expect(fn.runtime).toBe('typescript');
+  });
+
+  test('runtime persists when set to python', async () => {
+    const item = await adapter.create({ value: 'fn-rt-py', type: 'function' });
+    await adapter.writeFunctionJson(item.id, { runtime: 'python', description: 'py fn' });
+    const fn = await adapter.readFunctionJson(item.id);
+    expect(fn.runtime).toBe('python');
+  });
+
+  test('runtime can be updated from typescript to python', async () => {
+    const item = await adapter.create({ value: 'fn-rt-switch', type: 'function' });
+    await adapter.writeFunctionJson(item.id, { runtime: 'typescript' });
+    await adapter.writeFunctionJson(item.id, { runtime: 'python' });
+    const fn = await adapter.readFunctionJson(item.id);
+    expect(fn.runtime).toBe('python');
+  });
+
+  test('bundleHash round-trips', async () => {
+    const item = await adapter.create({ value: 'fn-bh', type: 'function' });
+    const bundleHash = { typescript: 'sha256:abc123', python: 'sha256:def456' };
+    await adapter.writeFunctionJson(item.id, { runtime: 'typescript', bundleHash });
+    const fn = await adapter.readFunctionJson(item.id);
+    expect(fn.bundleHash).toEqual(bundleHash);
+  });
+
+  test('bundleHash is null when not set', async () => {
+    const item = await adapter.create({ value: 'fn-bh-null', type: 'function' });
+    await adapter.writeFunctionJson(item.id, { runtime: 'typescript' });
+    const fn = await adapter.readFunctionJson(item.id);
+    expect(fn.bundleHash).toBeUndefined();
+  });
+
+  test('bundleHash can be updated independently', async () => {
+    const item = await adapter.create({ value: 'fn-bh-update', type: 'function' });
+    await adapter.writeFunctionJson(item.id, {
+      runtime: 'typescript',
+      bundleHash: { typescript: 'sha256:v1' },
+    });
+    await adapter.writeFunctionJson(item.id, {
+      runtime: 'typescript',
+      bundleHash: { typescript: 'sha256:v2', python: 'sha256:py1' },
+    });
+    const fn = await adapter.readFunctionJson(item.id);
+    expect(fn.bundleHash.typescript).toBe('sha256:v2');
+    expect(fn.bundleHash.python).toBe('sha256:py1');
+  });
+
+  test('full function payload round-trips with runtime and bundleHash', async () => {
+    const item = await adapter.create({ value: 'fn-full', type: 'function' });
+    await adapter.writeFunctionJson(item.id, {
+      runtime: 'python',
+      description: 'Full python function',
+      async: false,
+      parameters: [
+        { name: 'x', type: 'number', description: 'input value' },
+        { name: 'label', type: 'string', optional: true },
+      ],
+      returnType: 'boolean',
+      throws: [{ type: 'ValueError', description: 'bad input' }],
+      includeKanectaSdk: false,
+      dependencies: ['numpy>=1.24'],
+      bundleHash: { python: 'sha256:abc' },
+    });
+    const fn = await adapter.readFunctionJson(item.id);
+    expect(fn.runtime).toBe('python');
+    expect(fn.description).toBe('Full python function');
+    expect(fn.parameters).toHaveLength(2);
+    expect(fn.parameters[1].optional).toBe(true);
+    expect(fn.returnType).toBe('boolean');
+    expect(fn.throws[0].type).toBe('ValueError');
+    expect(fn.includeKanectaSdk).toBe(false);
+    expect(fn.dependencies).toContain('numpy>=1.24');
+    expect(fn.bundleHash.python).toBe('sha256:abc');
+  });
 });
 
 // ─── rebuildIndexes / checkIntegrity / rebuildPaths ───────────────────────────
