@@ -103,8 +103,9 @@ async function openDs(selector) {
     const cfg = readConfig();
     return { ds: Datastore.open(datastorePath), cfg, datastorePath };
   }
-  // KANECTA_DATASTORE env var explicitly forces filesystem mode (used by tests and CLI overrides)
-  if (process.env.KANECTA_DATASTORE) {
+  // KANECTA_WORKSPACE takes priority over KANECTA_DATASTORE when explicitly set.
+  // KANECTA_DATASTORE is a lower-priority override for tests and CLI single-store use.
+  if (!process.env.KANECTA_WORKSPACE && process.env.KANECTA_DATASTORE) {
     const datastorePath = process.env.KANECTA_DATASTORE.replace(
       /^~/,
       os.homedir(),
