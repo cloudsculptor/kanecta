@@ -4,11 +4,13 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const { version: specVersion, metadata: metadataSpec } = require('@kanecta/specification');
+const { version: specVersion } = require('@kanecta/specification');
+
+const METADATA_REQUIRED = ['id', 'specVersion', 'type', 'owner', 'createdAt', 'modifiedAt'];
 
 function validateMetadata(obj) {
   if (typeof obj !== 'object' || obj === null) return 'metadata must be a JSON object';
-  for (const key of metadataSpec.required) {
+  for (const key of METADATA_REQUIRED) {
     if (obj[key] === undefined) return `${key} is required`;
   }
   return null;

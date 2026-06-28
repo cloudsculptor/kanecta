@@ -3,9 +3,9 @@
 const os = require('os');
 const path = require('path');
 const fs = require('fs');
-const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES } = require('../src/index');
+const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, TYPES_NODE } = require('../src/index');
 
-const SAMPLE = path.resolve(__dirname, '../kanecta-datastore-sample');
+const SAMPLE = path.resolve(__dirname, '../../kanecta-datastore-sample');
 const ROOT_ID = 'f1a00001-b45e-4c3d-9e7f-000000000001';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -476,5 +476,196 @@ test('query supports sorting and limits', async () => {
   expect(descLimit).toHaveLength(2);
   expect(descLimit.map(a => a.objectData.score)).toEqual([30, 20]);
 
+  fs.rmSync(ds.root, { recursive: true });
+});
+
+// ─── 1.4.0: Type model ───────────────────────────────────────────────────────
+
+test('TYPES_NODE is exported with the correct well-known UUID', () => {
+  expect(TYPES_NODE).toBe('11111111-1111-1111-1111-111111111111');
+});
+
+test('VALID_TYPES includes connector and excludes removed primitive types', () => {
+  expect(VALID_TYPES).toContain('connector');
+  const removed = ['task', 'note', 'event', 'decision', 'claim', 'question', 'concept', 'entity'];
+  for (const t of removed) {
+    expect(VALID_TYPES).not.toContain(t);
+  }
+});
+
+// ─── 1.4.0: New meta fields ───────────────────────────────────────────────────
+
+test('create initialises 1.4.0 meta fields to null', async () => {
+  const ds = tmpDs();
+  const item = await ds.create({ value: 'test' });
+  expect(item.expiresAt).toBeNull();
+  expect(item.deletedAt).toBeNull();
+  expect(item.connectorId).toBeNull();
+  expect(item.materialized).toBeNull();
+  // removed fields must not exist
+  expect(item.subscribedAt).toBeUndefined();
+  expect(item.subscriptionSource).toBeUndefined();
+  fs.rmSync(ds.root, { recursive: true });
+});
+
+test('update accepts and persists expiresAt, connectorId, materialized, cachedAt', async () => {
+  const ds = tmpDs();
+  const item = await ds.create({ value: 'x' });
+  const connectorId = 'aaaaaaaa-0000-0000-0000-000000000001';
+  const expires = new Date(Date.now() + 86400_000).toISOString();
+  const cached = new Date().toISOString();
+  const updated = await ds.update(item.id, {
+    expiresAt: expires,
+    connectorId,
+    materialized: false,
+    cachedAt: cached,
+  });
+  expect(updated.expiresAt).toBe(expires);
+  expect(updated.connectorId).toBe(connectorId);
+  expect(updated.materialized).toBe(false);
+  expect(updated.cachedAt).toBe(cached);
+  // Persisted — reopen via get()
+  const fetched = await ds.get(item.id);
+  expect(fetched.expiresAt).toBe(expires);
+  expect(fetched.connectorId).toBe(connectorId);
+  expect(fetched.materialized).toBe(false);
+  fs.rmSync(ds.root, { recursive: true });
+});
+
+// ─── 1.4.0: Soft-delete ──────────────────────────────────────────────────────
+
+test('softDelete sets deletedAt, item still exists on disk', async () => {
+  const ds = tmpDs();
+  const item = await ds.create({ value: 'doomed' });
+  const deleted = await ds.softDelete(item.id);
+  expect(deleted.deletedAt).not.toBeNull();
+  // get() returns it (with deletedAt set)
+  const fetched = await ds.get(item.id);
+  expect(fetched.deletedAt).not.toBeNull();
+  fs.rmSync(ds.root, { recursive: true });
+});
+
+test('softDelete writes a soft-delete history entry', async () => {
+  const ds = tmpDs();
+  const item = await ds.create({ value: 'x' });
+  await ds.softDelete(item.id);
+  const hist = await ds.history(item.id);
+  expect(hist.map(h => h.changeType)).toContain('soft-delete');
+  fs.rmSync(ds.root, { recursive: true });
+});
+
+test('restore clears deletedAt and writes a restore history entry', async () => {
+  const ds = tmpDs();
+  const item = await ds.create({ value: 'x' });
+  await ds.softDelete(item.id);
+  const restored = await ds.restore(item.id);
+  expect(restored.deletedAt).toBeNull();
+  const hist = await ds.history(item.id);
+  expect(hist.map(h => h.changeType)).toContain('restore');
+  fs.rmSync(ds.root, { recursive: true });
+});
+
+test('query excludes soft-deleted items by default', async () => {
+  const ds = tmpDs();
+  const live = await ds.create({ value: 'live' });
+  const gone = await ds.create({ value: 'gone' });
+  await ds.softDelete(gone.id);
+  const results = await ds.query({ limit: 0 });
+  const ids = results.map(r => r.id);
+  expect(ids).toContain(live.id);
+  expect(ids).not.toContain(gone.id);
+  fs.rmSync(ds.root, { recursive: true });
+});
+
+test('query with includeDeleted: true returns soft-deleted items', async () => {
+  const ds = tmpDs();
+  const live = await ds.create({ value: 'live' });
+  const gone = await ds.create({ value: 'gone' });
+  await ds.softDelete(gone.id);
+  const results = await ds.query({ includeDeleted: true, limit: 0 });
+  const ids = results.map(r => r.id);
+  expect(ids).toContain(live.id);
+  expect(ids).toContain(gone.id);
+  fs.rmSync(ds.root, { recursive: true });
+});
+
+// ─── 1.4.0: expiresAt query filters ─────────────────────────────────────────
+
+test('query expiredOnly returns only items with expiresAt in the past', async () => {
+  const ds = tmpDs();
+  const past = new Date(Date.now() - 10_000).toISOString();
+  const future = new Date(Date.now() + 86400_000).toISOString();
+  const stale = await ds.create({ value: 'stale' });
+  const fresh = await ds.create({ value: 'fresh' });
+  const never = await ds.create({ value: 'never' });
+  await ds.update(stale.id, { expiresAt: past });
+  await ds.update(fresh.id, { expiresAt: future });
+  const results = await ds.query({ expiredOnly: true, limit: 0 });
+  const ids = results.map(r => r.id);
+  expect(ids).toContain(stale.id);
+  expect(ids).not.toContain(fresh.id);
+  expect(ids).not.toContain(never.id);
+  fs.rmSync(ds.root, { recursive: true });
+});
+
+test('query excludeExpired omits items with expiresAt in the past', async () => {
+  const ds = tmpDs();
+  const past = new Date(Date.now() - 10_000).toISOString();
+  const future = new Date(Date.now() + 86400_000).toISOString();
+  const stale = await ds.create({ value: 'stale' });
+  const fresh = await ds.create({ value: 'fresh' });
+  const never = await ds.create({ value: 'never' });
+  await ds.update(stale.id, { expiresAt: past });
+  await ds.update(fresh.id, { expiresAt: future });
+  const results = await ds.query({ excludeExpired: true, limit: 0 });
+  const ids = results.map(r => r.id);
+  expect(ids).not.toContain(stale.id);
+  expect(ids).toContain(fresh.id);
+  expect(ids).toContain(never.id);
+  fs.rmSync(ds.root, { recursive: true });
+});
+
+// ─── 1.4.0: Time section ─────────────────────────────────────────────────────
+
+test('readTimeJson returns null when no time.json exists', async () => {
+  const ds = tmpDs();
+  const item = await ds.create({ value: 'x' });
+  expect(await ds.readTimeJson(item.id)).toBeNull();
+  fs.rmSync(ds.root, { recursive: true });
+});
+
+test('writeTimeJson / readTimeJson round-trip persists keyed contexts', async () => {
+  const ds = tmpDs();
+  const item = await ds.create({ value: 'x' });
+  const timeData = {
+    main: {
+      startAt: '2026-07-01T09:00:00Z',
+      endAt: '2026-07-01T17:00:00Z',
+      recurrenceRule: null,
+      recurrenceExceptions: [],
+      nextOccurrenceAt: null,
+      completedAt: null,
+    },
+    review: {
+      startAt: null,
+      endAt: null,
+      recurrenceRule: 'FREQ=QUARTERLY;BYDAY=MO;BYHOUR=9',
+      recurrenceExceptions: [],
+      nextOccurrenceAt: '2026-10-05T09:00:00Z',
+      completedAt: null,
+    },
+  };
+  await ds.writeTimeJson(item.id, timeData);
+  const read = await ds.readTimeJson(item.id);
+  expect(read).toEqual(timeData);
+  fs.rmSync(ds.root, { recursive: true });
+});
+
+test('deleteTimeJson removes time.json, readTimeJson returns null afterwards', async () => {
+  const ds = tmpDs();
+  const item = await ds.create({ value: 'x' });
+  await ds.writeTimeJson(item.id, { main: { startAt: '2026-07-01T00:00:00Z' } });
+  await ds.deleteTimeJson(item.id);
+  expect(await ds.readTimeJson(item.id)).toBeNull();
   fs.rmSync(ds.root, { recursive: true });
 });

@@ -1,7 +1,7 @@
 'use strict';
 
 const {
-  ROOT_ID, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE, DEFAULT_LICENSE,
+  ROOT_ID, TYPES_NODE, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE, DEFAULT_LICENSE,
 } = require('@kanecta/filesystem');
 
 const datastoreUtils = require('@kanecta/datastore-utils');
@@ -141,6 +141,17 @@ class Datastore {
   // ─── Integrity checks ────────────────────────────────────────────────────────
 
   async checkIntegrity(opts)                 { return this._adapter.checkIntegrity(opts); }
+
+  // ─── Soft-delete lifecycle ────────────────────────────────────────────────────
+
+  async softDelete(id, actor)                { return this._adapter.softDelete(id, actor); }
+  async restore(id, actor)                   { return this._adapter.restore(id, actor); }
+
+  // ─── Time section ─────────────────────────────────────────────────────────────
+
+  async readTimeJson(id)                     { return this._adapter.readTimeJson(id); }
+  async writeTimeJson(id, data)              { return this._adapter.writeTimeJson(id, data); }
+  async deleteTimeJson(id)                   { return this._adapter.deleteTimeJson(id); }
 }
 
-module.exports = { Datastore, ROOT_ID, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE, DEFAULT_LICENSE };
+module.exports = { Datastore, ROOT_ID, TYPES_NODE, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE, DEFAULT_LICENSE };
