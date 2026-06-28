@@ -7,11 +7,14 @@
     "src/"
   ],
   "scripts": {
-    "test": "echo \"No standalone tests — tested via kanecta-lib\" && exit 0"
+    "test": "jest --runInBand"
   },
   "dependencies": {
     "@kanecta/specification": "^1.4.0",
     "better-sqlite3": "^9.0.0"
+  },
+  "devDependencies": {
+    "jest": "^30.4.2"
   },
   "keywords": [
     "kanecta",
@@ -19,7 +22,6 @@
     "sqlite",
     "filesystem"
   ],
-  "author": "Richie Thomas <richardsempire@gmail.com>",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
