@@ -47,6 +47,7 @@
 }
 
 .QualityControlView-col-count {
+  display: inline-block;
   font-size: 0.7rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -56,7 +57,7 @@
   background: var(--color-border);
   padding: 4px 10px;
   border-radius: 999px;
-  line-height: 1.6;
+  line-height: 1;
 }
 
 .QualityControlView-label {
