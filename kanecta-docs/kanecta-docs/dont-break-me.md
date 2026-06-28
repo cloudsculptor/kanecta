@@ -1,6 +1,6 @@
 # Don't Break Me
 
-This file is devs to call out critical things to consider before merging pull requests so we don't break critical functionality the others depend on.
+This file is for devs to call out critical things to consider before merging pull requests so we don't break critical functionality the others depend on.
 
 ## Community Hub must not break
 
