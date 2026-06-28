@@ -64,7 +64,11 @@
     "kanecta-components/kanecta-component-combinator-view",
     "kanecta-components/kanecta-component-claude-view",
     "kanecta-components/kanecta-component-graph-view",
-    "kanecta-components/kanecta-component-table-view"
+    "kanecta-components/kanecta-component-table-view",
+    "kanecta-components/kanecta-component-pull-requests-view",
+    "kanecta-components/kanecta-component-layouts-view",
+    "kanecta-components/kanecta-component-types-view",
+    "kanecta-components/kanecta-component-mission-control"
   ],
   "devDependencies": {
     "@changesets/cli": "^2.31.0",

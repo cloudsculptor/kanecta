@@ -1,0 +1,50 @@
+import { WorkspaceIndicator } from '@kanecta/component-workspace-indicator';
+import type { MissionWorkspace, MissionActivityEvent } from './types';
+import './ActivityFeed.css';
+
+function formatRelative(isoString: string): string {
+  const diffMs = Date.now() - new Date(isoString).getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return 'just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  return `${Math.floor(diffHr / 24)}d ago`;
+}
+
+interface ActivityFeedProps {
+  activityLog: MissionActivityEvent[];
+  workspaces: MissionWorkspace[];
+  onFocusItem: (id: string) => void;
+}
+
+export function ActivityFeed({ activityLog, workspaces, onFocusItem }: ActivityFeedProps) {
+  const wsMap = new Map(workspaces.map((w) => [w.id, w]));
+
+  if (activityLog.length === 0) {
+    return <div className="ActivityFeed-empty">No activity yet</div>;
+  }
+
+  return (
+    <div className="ActivityFeed" role="feed" aria-label="Activity feed">
+      {activityLog.map((event) => {
+        const ws = wsMap.get(event.workspaceId);
+        return (
+          <button
+            key={event.id}
+            className="ActivityFeed-event"
+            onClick={() => onFocusItem(event.item.id)}
+          >
+            {ws && <WorkspaceIndicator colour={ws.colour ?? ''} name={ws.name} />}
+            <span className={`ActivityFeed-event-op ActivityFeed-event-op--${event.operation}`}>
+              {event.operation === 'created' ? '+' : '~'}
+            </span>
+            <span className="ActivityFeed-event-value">{event.item.value}</span>
+            <span className="ActivityFeed-event-time">{formatRelative(event.seenAt)}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}

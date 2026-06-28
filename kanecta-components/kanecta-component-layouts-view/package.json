@@ -1,0 +1,11 @@
+{
+  "name": "@kanecta/component-layouts-view",
+  "version": "1.4.0",
+  "private": true,
+  "main": "src/index.ts",
+  "peerDependencies": {
+    "@mui/icons-material": ">=9",
+    "@tanstack/react-query": ">=5",
+    "react": ">=19"
+  }
+}
