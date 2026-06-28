@@ -125,7 +125,7 @@ Kanecta `typeId` params are resolved by reading `.kanecta/types/{s1}/{s2}/{typeI
 
 ## Studio — Edit Function dialog
 
-`kanecta-apps/kanecta-app-studio/src/components/views/TreeView/EditFunctionDialog.tsx`
+`kanecta-ui/kanecta-apps/kanecta-app-studio/src/components/views/TreeView/EditFunctionDialog.tsx`
 
 - Opened via the **Edit** (pencil) icon in the function-type action group at the left of TreeNode-actions
 - Loads `function.json` via `getFunctionData(id)` and `function/scaffold` exists check on open
@@ -149,7 +149,7 @@ Kanecta `typeId` params are resolved by reading `.kanecta/types/{s1}/{s2}/{typeI
 
 ## Studio — Run Function dialog
 
-`kanecta-apps/kanecta-app-studio/src/components/views/TreeView/RunFunctionDialog.tsx`
+`kanecta-ui/kanecta-apps/kanecta-app-studio/src/components/views/TreeView/RunFunctionDialog.tsx`
 
 - Opened via the **Run** (green Fab) in the function-type action group, or via `FunctionLinksButton`
 - Loads `function.json`, renders one input field per parameter
@@ -194,7 +194,7 @@ These are stored in the type's `type.json` under `.kanecta/types/`. Update them 
 
 ## FunctionLinksButton
 
-`kanecta-apps/kanecta-app-studio/src/components/views/TreeView/FunctionLinksButton.tsx`
+`kanecta-ui/kanecta-apps/kanecta-app-studio/src/components/views/TreeView/FunctionLinksButton.tsx`
 
 Rendered at the left of TreeNode-actions for any item with a `typeId` (`item.type === 'object'`).
 
@@ -228,8 +228,8 @@ Rendered at the left of TreeNode-actions for any item with a `typeId` (`item.typ
 | Filesystem adapter | `kanecta-filesystem/src/adapter.js` (`readFunctionJson`, `writeFunctionJson`) |
 | Datastore lib | `kanecta-lib/src/datastore.js` (`readFunctionJson`, `writeFunctionJson`) |
 | API endpoints | `kanecta-api/src/app.js` (`/items/:id/function`, `/items/:id/function/scaffold`) |
-| Studio items API | `kanecta-apps/kanecta-app-studio/src/api/items.ts` (`getFunctionData`, `saveFunctionData`, `checkFunctionScaffold`) |
-| Edit Function dialog | `kanecta-apps/kanecta-app-studio/src/components/views/TreeView/EditFunctionDialog.tsx` |
-| Run Function dialog | `kanecta-apps/kanecta-app-studio/src/components/views/TreeView/RunFunctionDialog.tsx` |
-| Body conflict dialog | `kanecta-apps/kanecta-app-studio/src/components/views/TreeView/BodyConflictDialog.tsx` |
-| FunctionLinksButton | `kanecta-apps/kanecta-app-studio/src/components/views/TreeView/FunctionLinksButton.tsx` |
+| Studio items API | `kanecta-ui/kanecta-apps/kanecta-app-studio/src/api/items.ts` (`getFunctionData`, `saveFunctionData`, `checkFunctionScaffold`) |
+| Edit Function dialog | `kanecta-ui/kanecta-apps/kanecta-app-studio/src/components/views/TreeView/EditFunctionDialog.tsx` |
+| Run Function dialog | `kanecta-ui/kanecta-apps/kanecta-app-studio/src/components/views/TreeView/RunFunctionDialog.tsx` |
+| Body conflict dialog | `kanecta-ui/kanecta-apps/kanecta-app-studio/src/components/views/TreeView/BodyConflictDialog.tsx` |
+| FunctionLinksButton | `kanecta-ui/kanecta-apps/kanecta-app-studio/src/components/views/TreeView/FunctionLinksButton.tsx` |

@@ -101,7 +101,7 @@ Call `kanecta_update_item` with the item UUID and updated `objectData`. The API 
 ## Gotchas
 
 - **Stale MCP process:** The MCP server is spawned per-session. After any code change to `kanecta-filesystem` or `kanecta-api`, kill stale processes: `pkill -f 'kanecta-mcp/src/index.js'`
-- **New type icon:** If a type's `type.json` uses an icon name not already in `TYPE_ICON_REGISTRY` (`kanecta-apps/kanecta-app-studio/src/lib/typeIconRegistry.ts`), add it — Vite cannot do runtime dynamic bare-specifier imports from `@mui/icons-material`
+- **New type icon:** If a type's `type.json` uses an icon name not already in `TYPE_ICON_REGISTRY` (`kanecta-ui/kanecta-apps/kanecta-app-studio/src/lib/typeIconRegistry.ts`), add it — Vite cannot do runtime dynamic bare-specifier imports from `@mui/icons-material`
 - **Missing icon on old items:** Items created before `icon` was wired into `create()` have no icon in `meta.json`. Fix manually: read `type.json` for the icon value, then add `"icon": "<value>"` to the item's `meta.json`
 - **TanStack Query cache:** After API data structure changes, hard-refresh the browser (Ctrl+Shift+R) to bust the cache
 - **`node --watch` and symlinks:** The API's watch mode may not detect changes through workspace symlinks. Run `touch kanecta-api/src/server.js` to trigger a restart
@@ -117,5 +117,5 @@ Call `kanecta_update_item` with the item UUID and updated `objectData`. The API 
 | Ticket type | `0e2e5a75-de82-4538-a0db-ec9b4e807b7c` |
 | Example typed item (Ticket) | `4bf485b6-44a6-48c3-8c10-a4074932601b` |
 | Adapter (synthetic tree logic) | `kanecta-filesystem/src/adapter.js` |
-| Type icon registry | `kanecta-apps/kanecta-app-studio/src/lib/typeIconRegistry.ts` |
+| Type icon registry | `kanecta-ui/kanecta-apps/kanecta-app-studio/src/lib/typeIconRegistry.ts` |
 | MCP server (objectData support) | `kanecta-mcp/src/index.js` |

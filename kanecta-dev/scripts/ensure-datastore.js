@@ -690,7 +690,7 @@ async function launch(workspaceName, datastorePath, apiPort, studioPort, systemI
       '-c', 'cyan,magenta',
       '--kill-others-on-fail',
       'npm run dev -w kanecta-api',
-      `npm run dev -w kanecta-apps/kanecta-app-studio -- --port ${studioPort} --strictPort`,
+      `npm run dev -w kanecta-ui/kanecta-apps/kanecta-app-studio -- --port ${studioPort} --strictPort`,
     ],
     {
       cwd: repoRoot,

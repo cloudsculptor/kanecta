@@ -173,5 +173,5 @@ For non-trivial function bodies, open the `function/` directory in VS Code and w
 | Function run endpoint | `kanecta-api/src/app.js` (`POST /items/:id/function/run`) |
 | Claude session API | `kanecta-api/src/claude.js` |
 | Code generator | `kanecta-api/src/generateFunctionCode.js` |
-| Edit Function dialog | `kanecta-apps/kanecta-app-studio/src/components/views/TreeView/EditFunctionDialog.tsx` |
+| Edit Function dialog | `kanecta-ui/kanecta-apps/kanecta-app-studio/src/components/views/TreeView/EditFunctionDialog.tsx` |
 | Related skill | `work-with-function-items.md` |
