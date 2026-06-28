@@ -1258,27 +1258,26 @@ app.get('/tags/:tag', async (req, res) => {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-// GET /types — list all type definitions from <datastore>/.kanecta/types/
+// GET /types — list all type definitions from type_defs table
 app.get('/types', async (req, res) => {
   const ds = await openDatastore(res);
   if (!ds) return;
   try {
-    const items = await ds.query({ type: 'type' });
-    const results = await Promise.all(items.map(async (item) => {
-      const typeDef = await ds.readTypeJson(item.id).catch(() => null);
+    const defs = await ds.listTypeDefs();
+    const results = await Promise.all(defs.map(async (def) => {
+      const typeDef = await ds.readTypeJson(def.id).catch(() => null);
       const meta = typeDef?.meta;
       return {
-        ...item,
+        id:                 def.id,
+        value:              def.value,
         icon:               meta?.icon ?? null,
         description:        meta?.description ?? null,
         details:            meta?.details ?? null,
         keywords:           meta?.keywords ?? null,
-        tags:               meta?.tags ?? null,
         primaryField:       meta?.primaryField ?? null,
         'ai-instructions':  meta?.skills?.claude ?? meta?.['ai-instructions'] ?? null,
       };
     }));
-    results.sort((a, b) => (a.value || '').localeCompare(b.value || ''));
     res.json(results);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1301,30 +1300,24 @@ app.post('/types', async (req, res) => {
   }
 });
 
-const { type: typeFileSpec } = require('@kanecta/specification');
-
 function validateTypeSchema(schema) {
   if (typeof schema !== 'object' || schema === null || Array.isArray(schema))
     return 'Schema must be a JSON object';
-  for (const key of typeFileSpec.required) {
-    if (!schema[key] || typeof schema[key] !== 'object')
-      return `${key} is required`;
-  }
-  const metaRequired = typeFileSpec.properties.meta.required ?? [];
-  for (const key of metaRequired) {
+  if (!schema.meta || typeof schema.meta !== 'object') return 'meta is required';
+  if (!schema.jsonSchema || typeof schema.jsonSchema !== 'object') return 'jsonSchema is required';
+  for (const key of ['icon', 'description']) {
     if (typeof schema.meta[key] !== 'string')
       return `meta.${key} is required and must be a string`;
   }
-  const jsRequired = typeFileSpec.properties.jsonSchema.required ?? [];
   const js = schema.jsonSchema;
-  for (const key of jsRequired) {
+  for (const key of ['$schema', '$id', 'title', 'type', 'properties']) {
     if (js[key] === undefined || js[key] === null)
       return `jsonSchema.${key} is required`;
   }
-  if (js['$schema'] !== typeFileSpec.properties.jsonSchema.properties['$schema'].const)
-    return `jsonSchema.$schema must be "${typeFileSpec.properties.jsonSchema.properties['$schema'].const}"`;
-  if (js.type !== typeFileSpec.properties.jsonSchema.properties.type.const)
-    return `jsonSchema.type must be "${typeFileSpec.properties.jsonSchema.properties.type.const}"`;
+  if (js['$schema'] !== 'http://json-schema.org/draft-07/schema#')
+    return 'jsonSchema.$schema must be "http://json-schema.org/draft-07/schema#"';
+  if (js.type !== 'object')
+    return 'jsonSchema.type must be "object"';
   if (!js.properties || typeof js.properties !== 'object')
     return 'jsonSchema.properties is required';
   return null;
@@ -1338,7 +1331,7 @@ app.put('/types/:id/schema', async (req, res) => {
   if (!ds) return;
 
   const existing = await ds.readTypeJson(id);
-  if (!existing) return res.status(404).json({ error: 'Schema not found' });
+  if (!existing) return res.status(404).json({ error: 'Type not found' });
 
   let schema;
   try {

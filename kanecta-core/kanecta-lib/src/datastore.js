@@ -131,6 +131,7 @@ class Datastore {
   async writeFunctionJson(id, data)          { return this._adapter.writeFunctionJson(id, data); }
   async readTypeJson(id)                     { return this._adapter.readTypeJson(id); }
   async writeTypeJson(id, data)              { return this._adapter.writeTypeJson(id, data); }
+  async listTypeDefs()                       { return this._adapter._listTypeDefs(); }
   async getRoot()                            { return this._adapter.getRoot(); }
   async getDataRoot()                        { return this._adapter.getDataRoot(); }
 

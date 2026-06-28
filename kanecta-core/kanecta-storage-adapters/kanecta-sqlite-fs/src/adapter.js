@@ -1310,11 +1310,22 @@ class SqliteFsAdapter {
     const doc = this._readItemJson(id);
     if (!doc) throw new Error(`Item not found: ${id}`);
     doc.payload = data;
-    this._writeItemJson(id, doc);
-    const db = this._openDb();
-    const row = db.prepare('SELECT item_id FROM items_payload WHERE item_id = ?').get(id);
-    if (row) db.prepare('UPDATE items_payload SET payload = ? WHERE item_id = ?').run(JSON.stringify(data), id);
-    else     db.prepare('INSERT INTO items_payload (item_id, payload) VALUES (?, ?)').run(id, JSON.stringify(data));
+    if (this._branch !== 'main') {
+      this._writeBranchItemJson(this._branch, id, doc);
+      const db = this._openDb();
+      const branchId = this._branchId(this._branch);
+      if (branchId) {
+        const prev = db.prepare("SELECT change_type FROM branch_changes WHERE branch_id = ? AND item_id = ? AND section = 'item'").get(branchId, id);
+        const ct = prev?.change_type === 'create' ? 'create' : 'update';
+        db.transaction(() => { this._recordBranchChange(db, branchId, id, ct, doc); })();
+      }
+    } else {
+      this._writeItemJson(id, doc);
+      const db = this._openDb();
+      const row = db.prepare('SELECT item_id FROM items_payload WHERE item_id = ?').get(id);
+      if (row) db.prepare('UPDATE items_payload SET payload = ? WHERE item_id = ?').run(JSON.stringify(data), id);
+      else     db.prepare('INSERT INTO items_payload (item_id, payload) VALUES (?, ?)').run(id, JSON.stringify(data));
+    }
     this._mem.delete(id);
   }
 
