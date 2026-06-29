@@ -1,10 +1,7 @@
-const path = require('path');
-const os = require('os');
 const app = require('./app');
 
-if (!process.env.KANECTA_DATASTORE) {
-  process.env.KANECTA_DATASTORE = path.join(os.homedir(), 'kanecta');
-}
+// Datastore selection is resolved from config.json (located via KANECTA_CONFIG) —
+// there is no KANECTA_DATASTORE default. See @kanecta/lib appConfig.
 
 const PORT = process.env.PORT || 3001;
 const HOST = process.env.KANECTA_API_HOST || '127.0.0.1';

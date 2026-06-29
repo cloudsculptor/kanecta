@@ -14,7 +14,7 @@ let ds;
 beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'kanecta-api-test-'));
   ds = Datastore.init(tmpRoot, 'test@example.com');
-  process.env.KANECTA_DATASTORE = tmpRoot;
+  require('./helpers').useConfig(tmpRoot);
   process.env.AUTH_DISABLED = 'true';
   // Block workspace mode so the API uses KANECTA_DATASTORE (filesystem fallback).
   process.env.XDG_CONFIG_HOME = tmpRoot;
@@ -22,7 +22,7 @@ beforeEach(() => {
 
 afterEach(() => {
   fs.rmSync(tmpRoot, { recursive: true, force: true });
-  delete process.env.KANECTA_DATASTORE;
+  require('./helpers').clearConfigEnv();
   delete process.env.AUTH_DISABLED;
   delete process.env.XDG_CONFIG_HOME;
 });

@@ -22,7 +22,7 @@ let ds;
 beforeEach(async () => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'kanecta-api-1.4.0-test-'));
   ds = Datastore.init(tmpRoot, 'test@example.com');
-  process.env.KANECTA_DATASTORE = tmpRoot;
+  require('./helpers').useConfig(tmpRoot);
   process.env.AUTH_DISABLED = 'true';
   // Point XDG_CONFIG_HOME at the empty tmpRoot so readAppConfig() returns null
   // and the API falls through to filesystem mode (KANECTA_DATASTORE). Without
@@ -33,7 +33,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   fs.rmSync(tmpRoot, { recursive: true, force: true });
-  delete process.env.KANECTA_DATASTORE;
+  require('./helpers').clearConfigEnv();
   delete process.env.AUTH_DISABLED;
   delete process.env.XDG_CONFIG_HOME;
 });

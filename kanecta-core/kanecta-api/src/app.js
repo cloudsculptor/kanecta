@@ -1,7 +1,11 @@
 'use strict';
 
 const express = require('express');
-const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE } = require('@kanecta/lib');
+const {
+  Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE,
+  readAppConfig, resolveWorkingSet, resolveBranch, workingSetLocalPath,
+  setActiveWorkingSet, setActiveBranch,
+} = require('@kanecta/lib');
 const claude = require('@kanecta/ai');
 const { generateFunctionScaffold, getRuntimeDir, computeBundleHash, toCamelCase, toPythonName, VALID_RUNTIME_RE } = require('@kanecta/lib');
 const { requireAuth } = require('./middleware/auth');
@@ -30,18 +34,8 @@ app.use(requireAuth);
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const _expandHome = (p) => (p && typeof p === 'string' ? p.replace(/^~(?=$|\/)/, os.homedir()) : p);
-const DEFAULT_DATASTORE = path.join(os.homedir(), '.kanecta');
-const KANECTA_DATASTORE = _expandHome(process.env.KANECTA_DATASTORE);
-
-function readAppConfig() {
-  const XDG_CONFIG = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
-  try {
-    return JSON.parse(fs.readFileSync(path.join(XDG_CONFIG, 'kanecta', 'config.json'), 'utf8'));
-  } catch {
-    return null;
-  }
-}
+// readAppConfig / resolveWorkingSet / resolveBranch / workingSetLocalPath come from
+// @kanecta/lib — the single config+state resolver shared by every entry point.
 
 // Cloud workspaces own a Postgres connection pool (and S3 client) — opening one
 // per request exhausts Postgres' connection limit within minutes. Cache the
@@ -49,62 +43,74 @@ function readAppConfig() {
 // re-open only if the resolved workspace/path changes.
 let _datastoreCache = null; // { key, promise }
 
-// Resolve a workspace entry from config (supports 1.4.0 and 1.3.x formats).
-// Returns { localPath, branch } or null for cloud-only workspaces.
-function resolveWorkspaceLocal(workspace) {
-  if (!workspace) return null;
-  // 1.4.0: { local, branch? }
-  if (workspace.local !== undefined) {
-    const localPath = typeof workspace.local === 'string' ? workspace.local : workspace.local?.path;
-    return { localPath: _expandHome(localPath), branch: workspace.branch ?? 'main' };
-  }
-  // 1.3.x: { mode, datastore? }
-  if (workspace.mode === 'FILESYSTEM') {
-    return { localPath: _expandHome(workspace.datastore), branch: 'main' };
-  }
-  return null; // cloud-only
+// Local filesystem path + default branch for a working set, or null for a
+// cloud-only working set. Thin wrapper over the lib resolver for the endpoints
+// that enumerate working sets.
+function workingSetLocal(workingSet) {
+  const localPath = workingSetLocalPath(workingSet);
+  if (!localPath) return null;
+  return { localPath, branch: workingSet?.defaultBranch ?? workingSet?.branch ?? 'main' };
 }
 
-async function openDatastore(res) {
-  const appCfg = readAppConfig();
+// Resolve the active working set + branch for this request. A request may
+// override via ?workingSet= / ?branch= or the X-Kanecta-Working-Set /
+// X-Kanecta-Branch headers; otherwise the active selection (env → state.json →
+// config default) is used. Returns { name, workingSet, localPath, branch }; throws
+// with a clear message if nothing resolves.
+function resolveActive(req) {
+  const wsOverride = req?.query?.workingSet || req?.get?.('x-kanecta-working-set');
+  const { name, workingSet } = resolveWorkingSet(wsOverride);
+  const branchOverride = req?.query?.branch || req?.get?.('x-kanecta-branch');
+  return {
+    name,
+    workingSet,
+    localPath: workingSetLocalPath(workingSet),
+    branch: resolveBranch(name, branchOverride),
+  };
+}
+
+// Sync helper for filesystem-path handlers: the active working set's local path,
+// or null (after sending a 503) if it cannot be resolved.
+function activeRoot(res, req) {
+  try {
+    const { localPath } = resolveActive(req);
+    if (!localPath) {
+      res.status(503).json({ error: 'Active working set has no local filesystem datastore' });
+      return null;
+    }
+    return localPath;
+  } catch (err) {
+    res.status(503).json({ error: err.message });
+    return null;
+  }
+}
+
+async function openDatastore(res, req) {
+  let resolved;
+  try {
+    resolved = resolveActive(req);
+  } catch (err) {
+    res.status(503).json({ error: err.message });
+    return null;
+  }
+  const { name, workingSet, localPath, branch } = resolved;
 
   let key, opener, errorPrefix;
-  if (appCfg?.workspaces) {
-    const name = process.env.KANECTA_WORKSPACE || appCfg.defaultWorkspace || appCfg.default;
-    const workspace = appCfg.workspaces[name];
-    if (!workspace) {
-      res.status(503).json({ error: `Workspace '${name}' not found in ~/.config/kanecta/config.json` });
-      return null;
-    }
-    const local = resolveWorkspaceLocal(workspace);
-    if (!local) {
-      // Cloud-only (old 1.3.x CLOUD mode) — use legacy openWorkspace
-      key = `workspace:${name}`;
-      opener = () => Datastore.openWorkspace(workspace);
-      errorPrefix = `Failed to open workspace '${name}'`;
-    } else {
-      const branch = process.env.KANECTA_BRANCH || local.branch;
-      key = `fs:${local.localPath}:${branch}`;
-      opener = async () => {
-        const ds = Datastore.open(local.localPath);
-        if (branch && branch !== 'main') {
-          try { ds.switchBranch(branch); } catch { /* branch may not exist yet */ }
-        }
-        return ds;
-      };
-      errorPrefix = `Failed to open datastore at ${local.localPath}`;
-    }
+  if (localPath) {
+    key = `fs:${localPath}:${branch}`;
+    opener = async () => {
+      const ds = Datastore.open(localPath);
+      if (branch && branch !== 'main') {
+        try { ds.useBranch(branch); } catch { /* branch may not exist yet */ }
+      }
+      return ds;
+    };
+    errorPrefix = `Failed to open datastore at ${localPath}`;
   } else {
-    const root = _expandHome(process.env.KANECTA_DATASTORE) || KANECTA_DATASTORE || DEFAULT_DATASTORE;
-    if (!Datastore.isDatastore(root)) {
-      res.status(503).json({
-        error: `No Kanecta datastore found at ${root}. Run: cd kanecta-cli && npm run cli init --owner you@example.com`,
-      });
-      return null;
-    }
-    key = `fs:${root}`;
-    opener = () => Datastore.open(root);
-    errorPrefix = `Failed to open datastore at ${root}`;
+    // Cloud-only working set.
+    key = `ws:${name}:${branch}`;
+    opener = () => Datastore.openWorkingSet(workingSet, { branch });
+    errorPrefix = `Failed to open working set '${name}'`;
   }
 
   if (!_datastoreCache || _datastoreCache.key !== key) {
@@ -241,27 +247,29 @@ function matchObjectData(objectData, q, fields) {
 
 // GET /config — datastore configuration visible to the studio
 app.get('/config', async (req, res) => {
-  const appCfg = readAppConfig();
-  const name = process.env.KANECTA_WORKSPACE || appCfg?.defaultWorkspace || appCfg?.default;
-  const workspace = appCfg?.workspaces?.[name];
-  const local = resolveWorkspaceLocal(workspace);
-  const datastorePath = local?.localPath || _expandHome(process.env.KANECTA_DATASTORE) || KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  let name = null, datastorePath = null;
+  try {
+    const active = resolveActive(req);
+    name = active.name;
+    datastorePath = active.localPath;
+  } catch { /* no working set configured */ }
   const whichCmd = process.platform === 'win32' ? 'where' : 'which';
   const vscodeCheck = spawnSync(whichCmd, ['code'], { encoding: 'utf8' });
-  res.json({ datastorePath, workspaceName: name, vscodeAvailable: vscodeCheck.status === 0 });
+  res.json({ datastorePath, workingSetName: name, vscodeAvailable: vscodeCheck.status === 0 });
 });
 
-// GET /working-sets — all configured workspaces with branch info
+// GET /working-sets — all configured working sets with branch info
 app.get('/working-sets', async (req, res) => {
   const appCfg = readAppConfig();
-  if (!appCfg?.workspaces) return res.json({ workingSets: [], activeWorkspace: null });
+  if (!appCfg?.workingSets) return res.json({ workingSets: [], activeWorkingSet: null });
 
-  const activeWorkspace = process.env.KANECTA_WORKSPACE || appCfg.defaultWorkspace || appCfg.default;
+  let activeWorkingSet = null;
+  try { activeWorkingSet = resolveWorkingSet().name; } catch { /* none active */ }
 
   const workingSets = await Promise.all(
-    Object.entries(appCfg.workspaces).map(async ([name, ws]) => {
-      const local = resolveWorkspaceLocal(ws);
-      const configBranch = process.env.KANECTA_BRANCH || local?.branch || 'main';
+    Object.entries(appCfg.workingSets).map(async ([name, ws]) => {
+      const local = workingSetLocal(ws);
+      const configBranch = resolveBranch(name);
       let branches = [{ name: 'main', active: configBranch === 'main', baseBranch: null }];
       let currentBranch = configBranch;
 
@@ -285,12 +293,24 @@ app.get('/working-sets', async (req, res) => {
         remotes,
         branch: currentBranch,
         branches,
-        isActive: name === activeWorkspace,
+        isActive: name === activeWorkingSet,
       };
     })
   );
 
-  res.json({ workingSets, activeWorkspace });
+  res.json({ workingSets, activeWorkingSet });
+});
+
+// POST /working-sets/:name/activate — make a working set the active one (writes state.json)
+app.post('/working-sets/:name/activate', async (req, res) => {
+  const { name } = req.params;
+  const appCfg = readAppConfig();
+  if (!appCfg?.workingSets?.[name]) {
+    return res.status(404).json({ error: `Working set '${name}' not found` });
+  }
+  setActiveWorkingSet(name);
+  _datastoreCache = null;
+  res.json({ ok: true, activeWorkingSet: name });
 });
 
 // POST /working-sets/:name/branches — create a branch
@@ -299,9 +319,9 @@ app.post('/working-sets/:name/branches', async (req, res) => {
   const { branchName } = req.body;
   if (!branchName) return res.status(400).json({ error: 'branchName is required' });
   const appCfg = readAppConfig();
-  const ws = appCfg?.workspaces?.[name];
-  const local = resolveWorkspaceLocal(ws);
-  if (!local) return res.status(404).json({ error: `Workspace '${name}' not found or has no local datastore` });
+  const ws = appCfg?.workingSets?.[name];
+  const local = workingSetLocal(ws);
+  if (!local) return res.status(404).json({ error: `Working set '${name}' not found or has no local datastore` });
   try {
     const ds = Datastore.open(local.localPath);
     const branch = ds.createBranch(branchName);
@@ -311,17 +331,18 @@ app.post('/working-sets/:name/branches', async (req, res) => {
   }
 });
 
-// POST /working-sets/:name/branches/:branch/switch — switch active branch
+// POST /working-sets/:name/branches/:branch/switch — set the active branch.
+// The active branch is HEAD-like state, so this writes state.json (it does NOT
+// mutate a shared default inside the datastore).
 app.post('/working-sets/:name/branches/:branch/switch', async (req, res) => {
   const { name, branch } = req.params;
   const appCfg = readAppConfig();
-  const ws = appCfg?.workspaces?.[name];
-  const local = resolveWorkspaceLocal(ws);
-  if (!local) return res.status(404).json({ error: `Workspace '${name}' not found or has no local datastore` });
+  const ws = appCfg?.workingSets?.[name];
+  const local = workingSetLocal(ws);
+  if (!local) return res.status(404).json({ error: `Working set '${name}' not found or has no local datastore` });
   try {
-    const ds = Datastore.open(local.localPath);
-    ds.switchBranch(branch);
-    // Invalidate the datastore cache so next request picks up the new branch
+    setActiveBranch(name, branch);
+    // Invalidate the datastore cache so the next request re-resolves the branch.
     _datastoreCache = null;
     res.json({ ok: true, branch });
   } catch (err) {
@@ -794,7 +815,7 @@ app.post('/items/:id/uncomplete', async (req, res) => {
 app.get('/items/:id/function/package-json', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
-  const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const root = activeRoot(res, req); if (!root) return;
   const s = id.replace(/-/g, '');
   const runtime = runtimeFromQuery(req);
   const itemDir = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id);
@@ -815,7 +836,7 @@ app.get('/items/:id/function/package-json', async (req, res) => {
 app.get('/items/:id/function/scaffold', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
-  const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const root = activeRoot(res, req); if (!root) return;
   const s = id.replace(/-/g, '');
   const runtime = runtimeFromQuery(req);
   const itemDir = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id);
@@ -859,7 +880,7 @@ app.put('/items/:id/function', async (req, res) => {
   await ds.writeFunctionJson(id, req.body);
   let runtimeDir;
   try {
-    const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
+    const root = activeRoot(res, req); if (!root) return;
     const s = id.replace(/-/g, '');
     const itemDir = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id);
     runtimeDir = generateFunctionScaffold(itemDir, item.value ?? id, req.body, root);
@@ -875,7 +896,7 @@ app.put('/items/:id/function', async (req, res) => {
 app.post('/items/:id/function/compile', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
-  const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const root = activeRoot(res, req); if (!root) return;
   const s = id.replace(/-/g, '');
   const runtime = runtimeFromQuery(req);
   const itemDir = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id);
@@ -935,7 +956,7 @@ app.post('/items/:id/function/run', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
 
-  const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const root = activeRoot(res, req); if (!root) return;
   const s = id.replace(/-/g, '');
   const itemDir = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id);
 
@@ -1404,7 +1425,7 @@ const BREADCRUMB_MAX = 100;
 const HISTORY_NAMES = ['clipboard', 'viewed'];
 
 function historyDir() {
-  const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const root = activeRoot(res, req); if (!root) return;
   return path.join(root, '.kanecta', 'app', 'studio', 'history');
 }
 
@@ -1496,7 +1517,7 @@ app.post('/breadcrumb/viewed', async (req, res) => {
 // ─── Starred ─────────────────────────────────────────────────────────────────
 
 function starredFilePath() {
-  const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const root = activeRoot(res, req); if (!root) return;
   const studioDir = path.join(root, '.kanecta', 'app', 'studio');
   const dir = path.join(studioDir, 'starred');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -1564,7 +1585,7 @@ function viewDir(root, id) {
 app.get('/app/studio/view/:id', async (req, res) => {
   const { id } = req.params;
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID' });
-  const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const root = activeRoot(res, req); if (!root) return;
   const file = path.join(viewDir(root, id), 'view.json');
   if (!fs.existsSync(file)) return res.json(null);
   try {
@@ -1580,7 +1601,7 @@ app.put('/app/studio/view/:id', async (req, res) => {
   if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID' });
   const { levels } = req.body;
   if (levels == null) return res.status(400).json({ error: 'levels required' });
-  const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const root = activeRoot(res, req); if (!root) return;
   const dir = viewDir(root, id);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'view.json'), JSON.stringify({ levels }, null, 2));
@@ -1667,7 +1688,7 @@ app.post('/app/studio/sync-system-items/export', async (req, res) => {
   if (!commonDir) return res.status(400).json({ error: 'KANECTA_SYSTEM_ITEMS_DIR not configured' });
   const { typeIds } = req.body;
   if (!Array.isArray(typeIds) || typeIds.length === 0) return res.status(400).json({ error: 'typeIds required' });
-  const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const root = activeRoot(res, req); if (!root) return;
   const exported = [];
   const errors = [];
   for (const id of typeIds) {
@@ -1692,7 +1713,7 @@ app.post('/app/studio/sync-system-items/export', async (req, res) => {
 const DEFAULT_SETTINGS = { themeName: 'Green', sidebarBg: '#20a138', sidebarFg: '#ffffff', sidebarFgSelected: '#5a6a60', contentBg: '#ffffff', contentBorder: '#20a138', showContentBorder: false, locationBorder: '#15712a' };
 
 function settingsFilePath() {
-  const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const root = activeRoot(res, req); if (!root) return;
   const dir = path.join(root, '.kanecta', 'app', 'studio', 'settings');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   return path.join(dir, 'settings.json');
@@ -1731,7 +1752,7 @@ app.post('/app/studio/settings', async (req, res) => {
 // ─── Layouts ─────────────────────────────────────────────────────────────────
 
 function layoutsFilePath() {
-  const root = KANECTA_DATASTORE || DEFAULT_DATASTORE;
+  const root = activeRoot(res, req); if (!root) return;
   const dir = path.join(root, '.kanecta', 'app', 'studio', 'layouts');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   return path.join(dir, 'layouts.json');

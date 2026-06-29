@@ -85,12 +85,12 @@ describeOrSkip('requireAuth / requireRole (real Keycloak)', () => {
   beforeEach(() => {
     tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'kanecta-api-auth-test-'));
     Datastore.init(tmpRoot, 'test@example.com');
-    process.env.KANECTA_DATASTORE = tmpRoot;
+    require('./helpers').useConfig(tmpRoot);
   });
 
   afterEach(() => {
     fs.rmSync(tmpRoot, { recursive: true, force: true });
-    delete process.env.KANECTA_DATASTORE;
+    require('./helpers').clearConfigEnv();
   });
 
   afterAll(() => {
