@@ -148,3 +148,47 @@ describe('workingSetLocalPath', () => {
     expect(appConfig.workingSetLocalPath({})).toBeNull();
   });
 });
+
+describe('migrateConfigShape', () => {
+  test('renames legacy keys and branch→defaultBranch', () => {
+    const out = appConfig.migrateConfigShape({
+      specVersion: '1.4.0',
+      defaultWorkspace: 'main',
+      workspaces: {
+        main: { local: '/tmp/a', branch: 'develop' },
+        other: { local: '/tmp/b' },
+      },
+    });
+    expect(out.workspaces).toBeUndefined();
+    expect(out.defaultWorkspace).toBeUndefined();
+    expect(out.defaultWorkingSet).toBe('main');
+    expect(Object.keys(out.workingSets)).toEqual(['main', 'other']);
+    expect(out.workingSets.main.defaultBranch).toBe('develop');
+    expect(out.workingSets.main.branch).toBeUndefined();
+  });
+
+  test('maps legacy "default" key and supplies specVersion', () => {
+    const out = appConfig.migrateConfigShape({
+      default: 'only',
+      workspaces: { only: { local: '/tmp/o' } },
+    });
+    expect(out.defaultWorkingSet).toBe('only');
+    expect(out.specVersion).toBe('1.4.0');
+  });
+
+  test('is idempotent on an already-migrated config', () => {
+    const current = {
+      specVersion: '1.4.0',
+      defaultWorkingSet: 'main',
+      workingSets: { main: { local: '/tmp/a', defaultBranch: 'main' } },
+    };
+    expect(appConfig.migrateConfigShape(current)).toEqual(current);
+  });
+
+  test('does not clobber an existing defaultBranch', () => {
+    const out = appConfig.migrateConfigShape({
+      workspaces: { main: { local: '/tmp/a', branch: 'x', defaultBranch: 'y' } },
+    });
+    expect(out.workingSets.main.defaultBranch).toBe('y');
+  });
+});

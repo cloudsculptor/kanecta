@@ -241,10 +241,44 @@ function workingSetLocalPath(workingSet) {
   return null;
 }
 
+// Migrate a parsed config object from the legacy shape to the current one:
+//   workspaces            -> workingSets
+//   defaultWorkspace/default -> defaultWorkingSet
+//   workingSets[*].branch -> workingSets[*].defaultBranch
+// Idempotent. Unlike normalizeLegacyKeys (read-time, in-memory), this produces the
+// canonical on-disk shape for writing back via a migration. Leaves any 1.3.x
+// mode/datastore/cloud fields untouched (openWorkingSet still understands them).
+function migrateConfigShape(config) {
+  if (!config || typeof config !== 'object') return config;
+  const out = { ...config };
+  if (!out.workingSets && out.workspaces) out.workingSets = out.workspaces;
+  delete out.workspaces;
+  if (!out.defaultWorkingSet && (out.defaultWorkspace || out.default)) {
+    out.defaultWorkingSet = out.defaultWorkspace || out.default;
+  }
+  delete out.defaultWorkspace;
+  delete out.default;
+  if (out.workingSets && typeof out.workingSets === 'object') {
+    const migrated = {};
+    for (const [name, ws] of Object.entries(out.workingSets)) {
+      const nw = ws && typeof ws === 'object' ? { ...ws } : ws;
+      if (nw && typeof nw === 'object' && nw.branch && !nw.defaultBranch) {
+        nw.defaultBranch = nw.branch;
+        delete nw.branch;
+      }
+      migrated[name] = nw;
+    }
+    out.workingSets = migrated;
+  }
+  if (!out.specVersion) out.specVersion = '1.4.0';
+  return out;
+}
+
 module.exports = {
   expandHome,
   getConfigPath,
   readAppConfig,
+  migrateConfigShape,
   getStatePath,
   readState,
   writeState,
