@@ -13,25 +13,17 @@ const {
   VALID_REL_TYPES,
   generateFunctionScaffold,
   toCamelCase,
+  readAppConfig,
+  resolveWorkingSet,
+  resolveBranch,
+  workingSetLocalPath,
 } = require('@kanecta/lib');
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const APP_CONFIG_PATH = path.join(
-  os.homedir(),
-  '.config',
-  'kanecta',
-  'config.json',
-);
+// Capture-bookkeeping config (date buckets, etc.) — distinct from the platform
+// config.json. Lives at ~/.kanecta-config.json.
 const MCP_CONFIG_PATH = path.join(os.homedir(), '.kanecta-config.json');
-
-function readAppConfig() {
-  try {
-    return JSON.parse(fs.readFileSync(APP_CONFIG_PATH, 'utf8'));
-  } catch {
-    return null;
-  }
-}
 
 function readConfig() {
   try {
@@ -45,83 +37,21 @@ function writeConfig(cfg) {
   fs.writeFileSync(MCP_CONFIG_PATH, JSON.stringify(cfg, null, 2) + '\n');
 }
 
-// Optional registry of named datastores, supplied as a JSON map of name→path via the
-// KANECTA_DATASTORES env var, e.g. {"store-a":"/data/a","store-b":"~/data/b"}. This lets a
-// single server instance serve several datastores, selected per call (see the `datastore`
-// tool argument). When unset, the server behaves exactly as a single-datastore server.
-function readDatastoreRegistry() {
-  const raw = process.env.KANECTA_DATASTORES;
-  if (!raw) return null;
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new Error('KANECTA_DATASTORES must be valid JSON — a map of name→path, e.g. {"store-a":"/data/a"}');
-  }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('KANECTA_DATASTORES must be a JSON object mapping datastore names to paths');
-  }
-  return parsed;
-}
-
-function resolveWorkspace() {
-  const appCfg = readAppConfig();
-  const workspaces = appCfg?.workspaces ?? {};
-  const names = Object.keys(workspaces);
-  const requested = process.env.KANECTA_WORKSPACE || appCfg?.defaultWorkspace || appCfg?.default;
-  if (requested) {
-    if (!workspaces[requested]) {
-      throw new Error(
-        `Workspace '${requested}' not found in ${APP_CONFIG_PATH} — known workspaces:\n${names.join('\n')}`,
-      );
-    }
-    return workspaces[requested];
-  }
-  if (names.length === 1) return workspaces[names[0]];
-  if (names.length > 1) {
-    throw new Error(
-      `Multiple Kanecta workspaces configured in ${APP_CONFIG_PATH} — set KANECTA_WORKSPACE to one of:\n${names.join('\n')}`,
-    );
-  }
-  throw new Error(`No Kanecta workspaces found in ${APP_CONFIG_PATH}`);
-}
-
-async function openDs(selector) {
-  // Per-call datastore selection (multi-datastore support). When a selector is supplied it must
-  // name an entry in the KANECTA_DATASTORES registry; that store is opened in filesystem mode.
-  // When the selector is omitted the resolution below is byte-for-byte the original behavior, so
-  // single-datastore deployments are completely unaffected.
-  if (selector !== undefined && selector !== null && selector !== '') {
-    const registry = readDatastoreRegistry();
-    if (!registry || !Object.prototype.hasOwnProperty.call(registry, selector)) {
-      const known = registry ? Object.keys(registry).join(', ') || '(empty)' : '(none configured)';
-      throw new Error(
-        `Unknown datastore '${selector}'. Configure KANECTA_DATASTORES as a JSON map of name→path. Known datastores: ${known}`
-      );
-    }
-    const datastorePath = String(registry[selector]).replace(/^~/, os.homedir());
-    const cfg = readConfig();
-    return { ds: Datastore.open(datastorePath), cfg, datastorePath };
-  }
-  // KANECTA_WORKSPACE takes priority over KANECTA_DATASTORE when explicitly set.
-  // KANECTA_DATASTORE is a lower-priority override for tests and CLI single-store use.
-  if (!process.env.KANECTA_WORKSPACE && process.env.KANECTA_DATASTORE) {
-    const datastorePath = process.env.KANECTA_DATASTORE.replace(
-      /^~/,
-      os.homedir(),
-    );
-    const cfg = readConfig();
-    return { ds: Datastore.open(datastorePath), cfg, datastorePath };
-  }
-  const workspace = resolveWorkspace();
-  const ds = await Datastore.openWorkspace(workspace);
-  const cfg = readConfig();
+// Open the datastore for a single tool call. The active working set and branch
+// are resolved per call: explicit args (workingSet/branch) → env
+// (KANECTA_WORKING_SET / KANECTA_BRANCH) → state.json → config defaults. The
+// branch is applied via useBranch so this call never clobbers a shared default,
+// keeping concurrent consumers (e.g. a parallel API) independent.
+async function openDs({ workingSet, branch } = {}) {
+  const { name, workingSet: ws } = resolveWorkingSet(workingSet);
+  const resolvedBranch = resolveBranch(name, branch);
+  const ds = await Datastore.openWorkingSet(ws, { branch: resolvedBranch });
   return {
     ds,
-    cfg,
-    datastorePath: workspace.datastore
-      ? workspace.datastore.replace(/^~/, os.homedir())
-      : null,
+    cfg: readConfig(),
+    datastorePath: workingSetLocalPath(ws),
+    workingSetName: name,
+    branch: resolvedBranch,
   };
 }
 
@@ -1056,18 +986,25 @@ const TOOLS = [
   },
 ];
 
-// Every tool accepts an optional `datastore` selector, injected here so the single source of
-// truth is one description rather than 30+ duplicated schema fragments. Omitting it targets the
-// default datastore, preserving the original single-datastore behavior.
-const DATASTORE_ARG = {
+// Every tool accepts optional `workingSet` and `branch` selectors, injected here so
+// the single source of truth is one description rather than 30+ duplicated schema
+// fragments. Omitting them targets the active working set + branch resolved from
+// config.json / state.json.
+const WORKING_SET_ARG = {
   type: 'string',
   description:
-    'Optional: name of a datastore in the KANECTA_DATASTORES registry to target for this call. Omit to use the default datastore (KANECTA_DATASTORE env or configured workspace).',
+    'Optional: name of a working set defined in config.json to target for this call. Omit to use the active working set (KANECTA_WORKING_SET / state.json / defaultWorkingSet).',
+};
+const BRANCH_ARG = {
+  type: 'string',
+  description:
+    'Optional: branch to target for this call within the selected working set. Omit to use the active branch (KANECTA_BRANCH / state.json / the working set\'s defaultBranch / "main").',
 };
 for (const tool of TOOLS) {
   if (tool.inputSchema && tool.inputSchema.type === 'object') {
     tool.inputSchema.properties = tool.inputSchema.properties || {};
-    tool.inputSchema.properties.datastore = DATASTORE_ARG;
+    tool.inputSchema.properties.workingSet = WORKING_SET_ARG;
+    tool.inputSchema.properties.branch = BRANCH_ARG;
   }
 }
 
@@ -1451,13 +1388,14 @@ function sendError(id, code, message) {
 }
 
 async function dispatch(name, args) {
-  // Pull the optional per-call datastore selector out of the arguments before they reach any
-  // handler, so it can never be mistaken for a tool parameter (e.g. a kanecta_query where-clause).
-  let datastore;
+  // Pull the optional per-call working-set/branch selectors out of the arguments before they
+  // reach any handler, so they can never be mistaken for a tool parameter (e.g. a kanecta_query
+  // where-clause).
+  let workingSet, branch;
   if (args && typeof args === 'object' && !Array.isArray(args)) {
-    ({ datastore, ...args } = args);
+    ({ workingSet, branch, ...args } = args);
   }
-  const { ds, cfg, datastorePath } = await openDs(datastore);
+  const { ds, cfg, datastorePath, workingSetName, branch: resolvedBranch } = await openDs({ workingSet, branch });
   switch (name) {
     case 'kanecta_capture':
       return handleCapture(args, ds, cfg);
@@ -1909,7 +1847,10 @@ Promise.resolve(mod[${JSON.stringify(fnName)}](...values))
         timeout: 300_000,
         env: {
           ...process.env,
-          KANECTA_DATASTORE: datastorePath,
+          // The child resolves the datastore the same way every entry point does:
+          // KANECTA_CONFIG + the working set/branch this call resolved.
+          KANECTA_WORKING_SET: workingSetName,
+          KANECTA_BRANCH: resolvedBranch,
         },
       });
       const stdout = run.stdout ?? '';
@@ -2017,7 +1958,7 @@ function runMcpServer() {
   process.stdin.on('end', () => process.exit(0));
 }
 
-module.exports = { runMcpServer, TOOLS, resolveWorkspace, readDatastoreRegistry, openDs, dispatch };
+module.exports = { runMcpServer, TOOLS, openDs, dispatch };
 
 if (require.main === module) {
   runMcpServer();

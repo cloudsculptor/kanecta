@@ -170,10 +170,14 @@ function buildIndexTs(fnName, fnData, typeIdMap) {
   }
 
   if (usesKanecta) {
-    lines.push("import { Datastore } from '@kanecta/lib';");
+    lines.push("import { Datastore, resolveWorkingSet, resolveBranch, workingSetLocalPath } from '@kanecta/lib';");
     lines.push("import { openFilesystemAdapter } from '@kanecta/datastore-utils';");
     lines.push('');
-    lines.push('const kanecta = new Datastore(openFilesystemAdapter(process.env.KANECTA_DATASTORE!));');
+    lines.push('// Resolve the active working set + branch the same way every entry point does');
+    lines.push('// (KANECTA_CONFIG / KANECTA_WORKING_SET / KANECTA_BRANCH supplied by the runner).');
+    lines.push('const __ws = resolveWorkingSet();');
+    lines.push('const kanecta = new Datastore(openFilesystemAdapter(workingSetLocalPath(__ws.workingSet)!));');
+    lines.push('kanecta.useBranch(resolveBranch(__ws.name));');
     lines.push('');
   }
 

@@ -228,8 +228,8 @@ describe('generateFunctionScaffold — typescript', () => {
   test('includes Kanecta SDK imports by default', () => {
     scaffold({});
     const ts = fs.readFileSync(path.join(itemDir, '.function', 'typescript', 'index.ts'), 'utf8');
-    expect(ts).toContain("import { Datastore }");
-    expect(ts).toContain("KANECTA_DATASTORE");
+    expect(ts).toContain("import { Datastore");
+    expect(ts).toContain("resolveWorkingSet()");
   });
 
   test('omits Kanecta SDK when includeKanectaSdk=false', () => {

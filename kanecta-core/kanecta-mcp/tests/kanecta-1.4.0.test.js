@@ -24,13 +24,13 @@ beforeEach(() => {
   jest.resetModules();
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'kanecta-1.4.0-test-'));
   ds = Datastore.init(tmpRoot, 'test@example.com');
-  process.env.KANECTA_DATASTORE = tmpRoot;
+  require('./helpers').singleConfig(tmpRoot);
   ({ dispatch, TOOLS } = require('../src/index'));
 });
 
 afterEach(() => {
   fs.rmSync(tmpRoot, { recursive: true, force: true });
-  delete process.env.KANECTA_DATASTORE;
+  require('./helpers').clearConfigEnv();
   jest.restoreAllMocks();
 });
 
