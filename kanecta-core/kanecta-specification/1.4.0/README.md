@@ -11,6 +11,7 @@
 | [specification.adoc](specification.adoc) | Full specification. Start here. Covers the four-section item format, all item types, payload shapes, search (FTS + semantic), inline links, external type systems, multiple trees, provenance, type lifecycle, aspects, templates, well-known roots, DB table mapping, business rules, and constraints. Includes adapter hints for Postgres and SQLite throughout. |
 | [core-file-specs/item.json](core-file-specs/item.json) | JSON Schema for `item.json`. Source of truth for all item fields and payload shapes. |
 | [core-file-specs/config.json](core-file-specs/config.json) | JSON Schema for `config.json` — the bootstrap config that tells the platform where datastores live and how to connect to remotes. |
+| [working-sets-and-branches.adoc](working-sets-and-branches.adoc) | Teaching chapter on working sets, branches (canonical / mirror / sparse), the three deployment shapes, storage layout, reading/querying, push/PR/merge, and why Kanecta branching is not Git. Read after the core spec. |
 | [built-in-types/built-in-types.json](built-in-types/built-in-types.json) | Canonical list of all valid `item.type` values, grouped into `primitive`, `structured`, and `wellKnown` categories. |
 
 ## Key changes in 1.4.0
