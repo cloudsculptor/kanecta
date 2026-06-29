@@ -26,7 +26,7 @@ function tmpDs() {
 function cli(ds, ...args) {
   return execFileSync('node', [CLI, '--datastore', ds.root, ...args], {
     encoding: 'utf8',
-    env: { ...process.env, KANECTA_DATASTORE: undefined },
+    env: { ...process.env, KANECTA_CONFIG: undefined, KANECTA_WORKING_SET: undefined, KANECTA_BRANCH: undefined },
   });
 }
 
@@ -34,7 +34,7 @@ function cliErr(ds, ...args) {
   try {
     execFileSync('node', [CLI, '--datastore', ds.root, ...args], {
       encoding: 'utf8',
-      env: { ...process.env, KANECTA_DATASTORE: undefined },
+      env: { ...process.env, KANECTA_CONFIG: undefined, KANECTA_WORKING_SET: undefined, KANECTA_BRANCH: undefined },
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     throw new Error('Expected CLI to exit non-zero');

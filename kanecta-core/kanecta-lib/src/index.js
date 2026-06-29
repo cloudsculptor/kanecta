@@ -4,6 +4,7 @@
 
 module.exports = {
   ...require('./datastore'),
+  ...require('./appConfig'),
   ...require('./generateFunctionCode'),
   ...require('./connectorEngine'),
   ...require('./scheduleRunner'),

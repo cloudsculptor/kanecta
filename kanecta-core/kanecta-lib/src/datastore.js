@@ -53,28 +53,33 @@ class Datastore {
     return new Datastore(datastoreUtils.openFilesystemAdapter(location));
   }
 
-  // Open a datastore from a workspace config: { mode, datastore?, cloud? }.
-  // `mode` selects which backend(s) to open — see ~/.config/kanecta/config.json
-  // `workspaces.<name>` shape. This is the single dispatch point so consumers
-  // don't need to branch on mode themselves.
-  static async openWorkspace(workspace) {
-    // 1.4.0 format: { local, branch, remotes }
-    if (workspace.local) {
-      const ds = Datastore.open(workspace.local);
-      if (workspace.branch) await ds.switchBranch(workspace.branch);
+  // Open a datastore from a working-set config — see ~/.config/kanecta/config.json
+  // `workingSets.<name>` shape. This is the single dispatch point so consumers
+  // don't need to branch on the backend themselves.
+  static async openWorkingSet(workingSet, { branch } = {}) {
+    // 1.4.0 format: { local, remotes, defaultBranch }. `local` is a path string
+    // or { type: 'filesystem', path }. `branch` (caller-resolved) selects the
+    // active branch for THIS instance via useBranch — it is never persisted as a
+    // shared default, so concurrent consumers stay independent.
+    if (workingSet.local) {
+      const localPath =
+        typeof workingSet.local === 'string' ? workingSet.local : workingSet.local.path;
+      const ds = Datastore.open(localPath);
+      const target = branch || workingSet.defaultBranch || workingSet.branch;
+      if (target) ds.useBranch(target);
       return ds;
     }
     // 1.3.x format: { mode, datastore, cloud }
-    switch (workspace.mode) {
+    switch (workingSet.mode) {
       case 'FILESYSTEM':
-        return Datastore.open(workspace.datastore);
+        return Datastore.open(workingSet.datastore);
       case 'CLOUD':
-        return Datastore.openCloud(workspace.cloud);
+        return Datastore.openCloud(workingSet.cloud);
       case 'DUAL_FILESYSTEM_PRIMARY':
       case 'DUAL_CLOUD_PRIMARY':
-        throw new Error(`Workspace mode '${workspace.mode}' is not yet implemented.`);
+        throw new Error(`Working-set mode '${workingSet.mode}' is not yet implemented.`);
       default:
-        throw new Error(`Unknown workspace mode: '${workspace.mode}'`);
+        throw new Error(`Unknown working-set mode: '${workingSet.mode}'`);
     }
   }
 
@@ -166,6 +171,7 @@ class Datastore {
   currentBranch()        { return this._adapter.currentBranch(); }
   createBranch(name)     { return this._adapter.createBranch(name); }
   switchBranch(name)     { return this._adapter.switchBranch(name); }
+  useBranch(name)        { return this._adapter.useBranch(name); }
   listBranches()         { return this._adapter.listBranches(); }
   deleteBranch(name)     { return this._adapter.deleteBranch(name); }
   branchDiff(name)       { return this._adapter.branchDiff(name); }

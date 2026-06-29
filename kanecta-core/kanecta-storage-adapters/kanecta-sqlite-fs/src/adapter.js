@@ -2089,6 +2089,20 @@ class SqliteFsAdapter {
     this._openDb().prepare("INSERT OR REPLACE INTO workspace_meta (key, value) VALUES ('current_branch', ?)").run(name);
   }
 
+  // Select the active branch for THIS instance only, without persisting it as the
+  // datastore-wide default. This is how a single consumer (an MCP call, an API
+  // request) operates on a branch in isolation: switching here never affects any
+  // other process. `switchBranch` (above) is reserved for explicit default changes.
+  useBranch(name) {
+    name = (name || 'main').trim();
+    if (name !== 'main') {
+      const row = this._openDb().prepare('SELECT id FROM branches WHERE name = ? AND deleted_at IS NULL AND merged_at IS NULL').get(name);
+      if (!row) throw new Error(`Branch "${name}" not found or already merged`);
+    }
+    this._branch = name;
+    this._mem.clear();
+  }
+
   listBranches() {
     return this._openDb().prepare('SELECT id, name, base_branch, created_at, merged_at, deleted_at FROM branches WHERE deleted_at IS NULL ORDER BY created_at').all()
       .map(r => ({ id: r.id, name: r.name, baseBranch: r.base_branch, createdAt: r.created_at, mergedAt: r.merged_at ?? null, deletedAt: r.deleted_at ?? null }));
