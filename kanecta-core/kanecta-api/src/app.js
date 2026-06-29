@@ -85,6 +85,12 @@ function activeRoot(res, req) {
   }
 }
 
+// Non-handler accessor: the active working set's local path, or null if it cannot
+// be resolved (e.g. no config yet at module load). Does not send an HTTP response.
+function activeLocalPath() {
+  try { return resolveActive().localPath || null; } catch { return null; }
+}
+
 async function openDatastore(res, req) {
   let resolved;
   try {
@@ -1425,12 +1431,13 @@ const BREADCRUMB_MAX = 100;
 const HISTORY_NAMES = ['clipboard', 'viewed'];
 
 function historyDir() {
-  const root = activeRoot(res, req); if (!root) return;
+  const root = activeLocalPath(); if (!root) return null;
   return path.join(root, '.kanecta', 'app', 'studio', 'history');
 }
 
 function ensureHistoryDir() {
   const dir = historyDir();
+  if (!dir) return; // no active working set resolvable (e.g. at module load with no config)
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   for (const name of HISTORY_NAMES) {
     const p = path.join(dir, `${name}.csv`);
@@ -1517,7 +1524,7 @@ app.post('/breadcrumb/viewed', async (req, res) => {
 // ─── Starred ─────────────────────────────────────────────────────────────────
 
 function starredFilePath() {
-  const root = activeRoot(res, req); if (!root) return;
+  const root = activeLocalPath(); if (!root) return null;
   const studioDir = path.join(root, '.kanecta', 'app', 'studio');
   const dir = path.join(studioDir, 'starred');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -1713,7 +1720,7 @@ app.post('/app/studio/sync-system-items/export', async (req, res) => {
 const DEFAULT_SETTINGS = { themeName: 'Green', sidebarBg: '#20a138', sidebarFg: '#ffffff', sidebarFgSelected: '#5a6a60', contentBg: '#ffffff', contentBorder: '#20a138', showContentBorder: false, locationBorder: '#15712a' };
 
 function settingsFilePath() {
-  const root = activeRoot(res, req); if (!root) return;
+  const root = activeLocalPath(); if (!root) return null;
   const dir = path.join(root, '.kanecta', 'app', 'studio', 'settings');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   return path.join(dir, 'settings.json');
@@ -1752,7 +1759,7 @@ app.post('/app/studio/settings', async (req, res) => {
 // ─── Layouts ─────────────────────────────────────────────────────────────────
 
 function layoutsFilePath() {
-  const root = activeRoot(res, req); if (!root) return;
+  const root = activeLocalPath(); if (!root) return null;
   const dir = path.join(root, '.kanecta', 'app', 'studio', 'layouts');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   return path.join(dir, 'layouts.json');

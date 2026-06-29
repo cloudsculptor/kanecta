@@ -21,6 +21,11 @@
     "jest": "^30.4.2",
     "supertest": "^7.0.0"
   },
+  "jest": {
+    "moduleNameMapper": {
+      "^jose$": "<rootDir>/tests/__mocks__/jose.js"
+    }
+  },
   "engines": {
     "node": ">=18.0.0"
   },
