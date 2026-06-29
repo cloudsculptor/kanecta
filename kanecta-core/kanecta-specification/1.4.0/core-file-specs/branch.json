@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://kanecta.com/spec/1.4.0/branch",
+  "title": "Kanecta Branch",
+  "description": "Per-branch metadata stored at .kanecta/branches/<encoded-name>/branch.json inside a datastore. Declares the branch's fill (full vs sparse) and what it tracks (upstream). It travels with the branch when copied or synced. See working-sets-and-branches.adoc.\n\nThe three branch classes are the valid combinations of (fill, upstream):\n  - canonical main: fill=full, upstream=null  (the source of truth; at most one per lineage)\n  - mirror:        fill=full, upstream set    (a complete local cache tracking canonical)\n  - sparse branch: fill=sparse, upstream set  (local changes only; the rest synthesized)\nKanecta branching is independent of Git.",
+  "type": "object",
+  "required": ["name", "fill"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Branch name (e.g. 'main', 'feature/x'). The on-disk directory encodes '/' as '__'."
+    },
+    "fill": {
+      "enum": ["full", "sparse"],
+      "description": "full = a complete item tree (canonical or mirror); sparse = local changes only, the rest synthesized from upstream on demand."
+    },
+    "upstream": {
+      "description": "What this branch tracks. null means this branch IS canonical (the source of truth). Otherwise the remote + branch it follows.",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["remote", "branch"],
+          "additionalProperties": false,
+          "properties": {
+            "remote": { "type": "string", "description": "A remote name defined in the working set's config (e.g. 'origin')." },
+            "branch": { "type": "string", "description": "The branch name on that remote." }
+          }
+        }
+      ]
+    },
+    "branchPoint": {
+      "type": "object",
+      "description": "Merge watermark: the per-item versions this branch forked from, keyed by item UUID. Used at merge to classify each changed item as EDIT vs CONFLICT (changed on canonical since fork).",
+      "additionalProperties": { "type": ["string", "number"] }
+    },
+    "createdAt": { "type": "string", "format": "date-time" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "fill": { "const": "sparse" } } },
+      "then": {
+        "required": ["upstream"],
+        "properties": { "upstream": { "type": "object" } }
+      }
+    }
+  ]
+}

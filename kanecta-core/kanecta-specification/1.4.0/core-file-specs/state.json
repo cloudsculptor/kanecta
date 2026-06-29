@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://kanecta.com/spec/1.4.0/state",
+  "title": "Kanecta State",
+  "description": "Machine-local active selection (the HEAD analog), stored beside config.json as state.json. Mutable, machine-local, and gitignored — never config and never a source of truth. Records which working set and branch are active for the interactive/default context (Studio, a bare CLI). Per-consumer overrides — KANECTA_WORKING_SET / KANECTA_BRANCH and per-call arguments — sit above it, so concurrent consumers (e.g. MCP and the API) stay independent. Discovered at the same location as config.json (KANECTA_CONFIG, else the platform default), as a sibling state.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "activeWorkingSet": {
+      "type": "string",
+      "description": "Name of the active working set — a key in config.json 'workingSets'."
+    },
+    "activeBranch": {
+      "type": "object",
+      "description": "Active branch per working set, keyed by working-set name. Absent entries fall back to the working set's defaultBranch, then 'main'.",
+      "additionalProperties": { "type": "string" }
+    }
+  }
+}
