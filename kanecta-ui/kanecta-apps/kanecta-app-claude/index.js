@@ -47,7 +47,6 @@ COMMANDS
 
 DATASTORE DISCOVERY
   --datastore <path>  explicit path
-  KANECTA_DATASTORE   environment variable
   ~/.kanecta-config.json  configured path from wizard
   walk up from cwd looking for .kanecta/
 

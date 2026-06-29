@@ -21,8 +21,11 @@ const NAME_RE = /^[a-zA-Z0-9-]+$/;
 
 function checkPointerFileFormat(data, sourceFile) {
   const errors = [];
+  // Accept current (workingSets/defaultWorkingSet) and legacy (workspaces/defaultWorkspace) keys.
+  if (!data.workspaces && data.workingSets) data.workspaces = data.workingSets;
+  if (!data.defaultWorkspace && data.defaultWorkingSet) data.defaultWorkspace = data.defaultWorkingSet;
   if (!data.specVersion) errors.push('missing required field "specVersion"');
-  if (!data.defaultWorkspace) errors.push('missing required field "defaultWorkspace"');
+  if (!data.defaultWorkspace) errors.push('missing required field "defaultWorkingSet"');
   if (typeof data.workspaces !== 'object' || data.workspaces === null || Array.isArray(data.workspaces))
     errors.push('"workspaces" must be an object');
   else if (Object.keys(data.workspaces).length === 0)
@@ -163,7 +166,10 @@ function normaliseWorkspace(ws) {
 function readPointer(file) {
   try {
     const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-    // 1.4.0 format: specVersion + defaultWorkspace
+    // Accept current (workingSets/defaultWorkingSet) and legacy (workspaces/defaultWorkspace) keys.
+    if (!data.workspaces && data.workingSets) data.workspaces = data.workingSets;
+    if (!data.defaultWorkspace && data.defaultWorkingSet) data.defaultWorkspace = data.defaultWorkingSet;
+    // 1.4.0 format: specVersion + defaultWorkingSet
     if (data.specVersion && data.defaultWorkspace && typeof data.workspaces === 'object') {
       return { format: '1.4.0', specVersion: data.specVersion, defaultWorkspace: data.defaultWorkspace, default: data.defaultWorkspace, workspaces: data.workspaces, studioPort: data.studioPort ?? 9743, apiPort: data.apiPort ?? 9744 };
     }
