@@ -308,6 +308,88 @@ describe('index.db is 100% derived from the filesystem', () => {
   });
 });
 
+// ─── write integrity: crash recovery (journal + lock) ───────────────────────────
+
+describe('write integrity — crash recovery', () => {
+  const branchRoot = () => path.join(tmp, '.kanecta', 'branches', 'main');
+  const journalPath = () => path.join(branchRoot(), 'write.journal');
+  const lockPath    = () => path.join(branchRoot(), 'write.lock');
+  const itemPath    = (id) => {
+    const hex = id.replace(/-/g, '');
+    return path.join(branchRoot(), 'items', hex.slice(0, 2), hex.slice(2, 4), id, 'item.json');
+  };
+  const reopen = () => { ds._db?.close(); ds._db = null; return SqliteFsAdapter.open(tmp); };
+
+  it('rolls back a half-applied write (phase "started") to the pre-image on reopen', () => {
+    const a = ds.create({ value: 'original' });
+    const preImage = JSON.parse(fs.readFileSync(itemPath(a.id), 'utf8'));
+
+    // Simulate a crash mid-update: the file already holds the new value, but the
+    // journal is still 'started' (never reached l0-done) — so the write is not
+    // durable and must be undone.
+    const corrupt = JSON.parse(JSON.stringify(preImage));
+    corrupt.item.value = 'half-written';
+    fs.writeFileSync(itemPath(a.id), JSON.stringify(corrupt));
+    fs.writeFileSync(journalPath(), JSON.stringify({
+      phase: 'started', branch: 'main',
+      ops: [{ id: a.id, store: 'items', preImage }],
+    }));
+
+    const ds2 = reopen();
+    expect(ds2.get(a.id).value).toBe('original');     // rolled back
+    expect(fs.existsSync(journalPath())).toBe(false); // journal cleared
+  });
+
+  it('rolls back a half-applied create (pre-image null → item removed) on reopen', () => {
+    const ghostId = '9a9a9a9a-9a9a-4a9a-8a9a-9a9a9a9a9a9a';
+    const doc = {
+      item: { id: ghostId, parentId: ROOT_ID, type: 'text', typeId: null, value: 'ghost', sortOrder: 0, aspect: null },
+      meta: { specVersion: '1.4.0', owner: 'x', createdAt: 't', modifiedAt: 't', tags: [], visibility: 'private' },
+      search: null, payload: null, time: null,
+    };
+    fs.mkdirSync(path.dirname(itemPath(ghostId)), { recursive: true });
+    fs.writeFileSync(itemPath(ghostId), JSON.stringify(doc));
+    fs.writeFileSync(journalPath(), JSON.stringify({
+      phase: 'started', branch: 'main',
+      ops: [{ id: ghostId, store: 'items', preImage: null }],
+    }));
+
+    const ds2 = reopen();
+    expect(ds2.get(ghostId)).toBeNull();              // creation undone
+    expect(fs.existsSync(itemPath(ghostId))).toBe(false);
+  });
+
+  it('rolls forward a completed write (phase "l0-done") by rebuilding the index', () => {
+    const a = ds.create({ value: 'original' });
+    // Authoritative file holds the new value; the journal reached l0-done but the
+    // crash happened before commit — so the index may be stale. Roll forward.
+    const doc = JSON.parse(fs.readFileSync(itemPath(a.id), 'utf8'));
+    doc.item.value = 'durable-new';
+    fs.writeFileSync(itemPath(a.id), JSON.stringify(doc));
+    fs.writeFileSync(journalPath(), JSON.stringify({
+      phase: 'l0-done', branch: 'main',
+      ops: [{ id: a.id, store: 'items', preImage: null }],
+    }));
+
+    const ds2 = reopen();
+    expect(ds2.get(a.id).value).toBe('durable-new');  // kept + reindexed
+    expect(fs.existsSync(journalPath())).toBe(false);
+  });
+
+  it('clears a stale lock left by a dead process on open', () => {
+    fs.writeFileSync(lockPath(), JSON.stringify({ pid: 2 ** 30, host: require('os').hostname(), heartbeatAt: Date.now() }));
+    const ds2 = reopen();
+    expect(fs.existsSync(lockPath())).toBe(false);
+    expect(() => ds2.create({ value: 'after-recovery' })).not.toThrow();
+  });
+
+  it('normal writes leave no journal or lock behind', () => {
+    ds.create({ value: 'clean' });
+    expect(fs.existsSync(journalPath())).toBe(false);
+    expect(fs.existsSync(lockPath())).toBe(false);
+  });
+});
+
 // ─── create ────────────────────────────────────────────────────────────────────
 
 describe('create', () => {

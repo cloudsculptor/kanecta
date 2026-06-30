@@ -5,6 +5,7 @@ const path   = require('path');
 const crypto = require('crypto');
 const Database = require('better-sqlite3');
 const { version: specVersion } = require('@kanecta/specification');
+const { WriteGuard } = require('./write-integrity');
 
 const ROOT_ID    = '00000000-0000-0000-0000-000000000000';
 const TYPES_NODE = '11111111-1111-1111-1111-111111111111';
@@ -307,6 +308,65 @@ class SqliteFsAdapter {
     }
   }
 
+  // ─── Write integrity (lock + write-ahead journal) ───────────────────────────
+  //
+  // Every mutation runs inside _withWrite: it takes the branch's cross-process
+  // lock, journals the write-ahead intent (with pre-images for rollback), runs
+  // the mutation, marks the authoritative data done, then commits and releases.
+  // A crash leaves the journal behind; _recover (run on open and on branch
+  // switch) rolls forward (rebuild the derived index) if the data landed, or
+  // rolls back to the pre-images if it did not. index.db being 100% derived is
+  // what makes roll-forward a simple rebuild.
+
+  _guard(branch) { return new WriteGuard(this._branchRoot(branch)); }
+
+  _withWrite(ops, fn) {
+    const guard = this._guard();
+    guard.acquire();
+    try {
+      const recs = ops.map(o => ({
+        id: o.id, store: o.store || 'items',
+        preImage: this._readItemJson(o.id, o.store || 'items'),
+      }));
+      guard.begin({ branch: this._branch, ops: recs });
+      let result;
+      try {
+        result = fn();
+      } catch (e) {
+        this._rollback(recs);          // undo any partial L0 writes
+        guard.commit();
+        throw e;
+      }
+      guard.markL0Done();              // data fully on disk → recovery rolls forward
+      guard.commit();
+      return result;
+    } finally {
+      guard.release();
+    }
+  }
+
+  // Restore each op's item.json to its pre-image (or delete it if it was created).
+  _rollback(opRecs) {
+    for (const op of opRecs) {
+      if (op.preImage == null) this._deleteItemDir(op.id, op.store);
+      else                     this._writeItemJson(op.id, op.preImage, op.store);
+    }
+  }
+
+  // Resolve a leftover journal/lock for the active branch. Safe to call repeatedly.
+  _recover() {
+    const guard = this._guard();
+    const j = guard.read();
+    if (j) {
+      // Roll forward if the data fully landed; otherwise roll back to pre-images.
+      if (j.phase !== 'l0-done') this._rollback(j.ops || []);
+      this._mem.clear();
+      this.rebuildIndexes();           // derived index ⇐ filesystem (items/ + item-history/)
+      guard.commit();
+    }
+    guard.clearStaleLock();
+  }
+
   // ─── DB lifecycle ──────────────────────────────────────────────────────────
 
   // Open (lazily) the index.db for the ACTIVE branch. The DB is cached per
@@ -377,6 +437,9 @@ class SqliteFsAdapter {
     const adapter = new SqliteFsAdapter(root);
     // _openDb rebuilds the active branch's index from its items/ if empty.
     adapter._openDb();
+    // Resolve any write-ahead journal/lock left by a crashed writer before
+    // serving anything (roll forward if the data landed, else roll back).
+    adapter._recover();
     adapter._loadRoots();
     return adapter;
   }
@@ -647,10 +710,12 @@ class SqliteFsAdapter {
   }
 
   _writeMetadataItem(doc) {
-    this._writeItemJson(doc.item.id, doc);
     const db = this._openDb();
-    db.transaction(() => this._insertIndexTx(db, doc.item.id, doc, doc.item.id))();
-    this._mem.delete(doc.item.id);
+    this._withWrite([{ id: doc.item.id, store: 'items' }], () => {
+      this._writeItemJson(doc.item.id, doc);
+      db.transaction(() => this._insertIndexTx(db, doc.item.id, doc, doc.item.id))();
+      this._mem.delete(doc.item.id);
+    });
     return doc;
   }
 
@@ -1070,13 +1135,16 @@ class SqliteFsAdapter {
     const doc = this._itemToDoc(item);
     doc.payload = resolvedPayload;
 
-    // Write file FIRST, then update the active branch's index.
-    this._writeItemJson(id, doc);
-    const db = this._openDb();
-    db.transaction(() => {
-      this._insertIndexTx(db, id, doc, itemPath);
-      this._snapshot(db, item, 'create', actor, now);
-    })();
+    // Write file FIRST, then update the active branch's index — under the write
+    // lock and journal so a crash can't leave a half-applied create.
+    this._withWrite([{ id, store: 'items' }], () => {
+      this._writeItemJson(id, doc);
+      const db = this._openDb();
+      db.transaction(() => {
+        this._insertIndexTx(db, id, doc, itemPath);
+        this._snapshot(db, item, 'create', actor, now);
+      })();
+    });
 
     this._mem.set(id, item);
 
@@ -1193,12 +1261,12 @@ class SqliteFsAdapter {
     const existingDoc = this._readItemJson(id);
     const newDoc      = this._itemToDoc(updated, existingDoc);
 
-    // Write file FIRST.
-    this._writeItemJson(id, newDoc);
-    this._mem.delete(id);
-
+    // Write file FIRST — under the write lock + journal.
     const db = this._openDb();
-    db.transaction(() => {
+    this._withWrite([{ id, store: 'items' }], () => {
+      this._writeItemJson(id, newDoc);
+      this._mem.delete(id);
+      db.transaction(() => {
       this._snapshot(db, current, 'update', actor, now);
 
       // Icon update
@@ -1239,7 +1307,8 @@ class SqliteFsAdapter {
         const newPath    = parentPath != null ? `${parentPath}/${id}` : id;
         this._cascadePathUpdate(db, id, newPath);
       }
-    })();
+      })();
+    });
 
     this._mem.set(id, updated);
     if (this._roots && WELL_KNOWN_TYPES.has(updated.type)) this._roots[updated.type] = updated;
@@ -1267,26 +1336,41 @@ class SqliteFsAdapter {
     const now      = new Date();
     const warnings = this.deleteWarnings(id);
 
-    // Delete file from the active branch.
-    this._deleteItemDir(id);
-    this._mem.delete(id);
-
     const db = this._openDb();
-    db.transaction(() => {
-      this._snapshot(db, item, 'delete', actor, now);
-      // Cascade-delete the metadata items hanging off this item (relationships,
-      // annotations, aliases) — their item.json files and derived rows together.
-      this._cascadeDeleteMetadata(db, id);
-      db.prepare('DELETE FROM item_tags    WHERE item_id = ?').run(id);
-      db.prepare('DELETE FROM backlinks    WHERE source_id = ? OR target_id = ?').run(id, id);
-      db.prepare('DELETE FROM items_meta   WHERE item_id = ?').run(id);
-      db.prepare('DELETE FROM items_payload WHERE item_id = ?').run(id);
-      db.prepare('DELETE FROM items_search WHERE item_id = ?').run(id);
-      db.prepare('DELETE FROM items_time   WHERE item_id = ?').run(id);
-      db.prepare('DELETE FROM items        WHERE id = ?').run(id);
-    })();
+
+    // The cascade also removes metadata item.json files; include them in the
+    // journal's ops so a crash mid-delete can roll every one of them back.
+    const cascadeOps = this._cascadeMetadataOps(db, id);
+
+    this._withWrite([{ id, store: 'items' }, ...cascadeOps], () => {
+      this._deleteItemDir(id);
+      this._mem.delete(id);
+      db.transaction(() => {
+        this._snapshot(db, item, 'delete', actor, now);
+        // Cascade-delete the metadata items hanging off this item (relationships,
+        // annotations, aliases) — their item.json files and derived rows together.
+        this._cascadeDeleteMetadata(db, id);
+        db.prepare('DELETE FROM item_tags    WHERE item_id = ?').run(id);
+        db.prepare('DELETE FROM backlinks    WHERE source_id = ? OR target_id = ?').run(id, id);
+        db.prepare('DELETE FROM items_meta   WHERE item_id = ?').run(id);
+        db.prepare('DELETE FROM items_payload WHERE item_id = ?').run(id);
+        db.prepare('DELETE FROM items_search WHERE item_id = ?').run(id);
+        db.prepare('DELETE FROM items_time   WHERE item_id = ?').run(id);
+        db.prepare('DELETE FROM items        WHERE id = ?').run(id);
+      })();
+    });
 
     return { warnings };
+  }
+
+  // The item ids the delete cascade will remove (relationships either direction,
+  // annotations on the item, aliases to it) — so _withWrite can journal them.
+  _cascadeMetadataOps(db, id) {
+    const ids = new Set();
+    for (const r of db.prepare('SELECT id FROM relationships WHERE source_id = ? OR target_id = ?').all(id, id)) ids.add(r.id);
+    for (const a of db.prepare('SELECT id FROM annotations WHERE target_id = ?').all(id)) ids.add(a.id);
+    for (const a of db.prepare('SELECT item_id FROM aliases WHERE target_id = ?').all(id)) if (a.item_id) ids.add(a.item_id);
+    return [...ids].map(x => ({ id: x, store: 'items' }));
   }
 
   softDelete(id, actor) {
@@ -1299,15 +1383,16 @@ class SqliteFsAdapter {
     const existingDoc = this._readItemJson(id);
     const newDoc      = this._itemToDoc(updated, existingDoc);
 
-    this._writeItemJson(id, newDoc);
-    this._mem.delete(id);
-
     const db = this._openDb();
-    db.transaction(() => {
-      this._snapshot(db, item, 'soft-delete', actor, now);
-      db.prepare('UPDATE items_meta SET deleted_at = ?, modified_at = ?, modified_by = ? WHERE item_id = ?')
-        .run(now.toISOString(), now.toISOString(), actor, id);
-    })();
+    this._withWrite([{ id, store: 'items' }], () => {
+      this._writeItemJson(id, newDoc);
+      this._mem.delete(id);
+      db.transaction(() => {
+        this._snapshot(db, item, 'soft-delete', actor, now);
+        db.prepare('UPDATE items_meta SET deleted_at = ?, modified_at = ?, modified_by = ? WHERE item_id = ?')
+          .run(now.toISOString(), now.toISOString(), actor, id);
+      })();
+    });
 
     return updated;
   }
@@ -1322,15 +1407,16 @@ class SqliteFsAdapter {
     const existingDoc = this._readItemJson(id);
     const newDoc      = this._itemToDoc(updated, existingDoc);
 
-    this._writeItemJson(id, newDoc);
-    this._mem.delete(id);
-
     const db = this._openDb();
-    db.transaction(() => {
-      this._snapshot(db, item, 'restore', actor, now);
-      db.prepare('UPDATE items_meta SET deleted_at = NULL, modified_at = ?, modified_by = ? WHERE item_id = ?')
-        .run(now.toISOString(), actor, id);
-    })();
+    this._withWrite([{ id, store: 'items' }], () => {
+      this._writeItemJson(id, newDoc);
+      this._mem.delete(id);
+      db.transaction(() => {
+        this._snapshot(db, item, 'restore', actor, now);
+        db.prepare('UPDATE items_meta SET deleted_at = NULL, modified_at = ?, modified_by = ? WHERE item_id = ?')
+          .run(now.toISOString(), actor, id);
+      })();
+    });
 
     return updated;
   }
@@ -1348,12 +1434,14 @@ class SqliteFsAdapter {
     const doc = this._readItemJson(id);
     if (!doc) throw new Error(`Item not found: ${id}`);
     doc.payload = data;
-    this._writeItemJson(id, doc);
     const db = this._openDb();
-    const row = db.prepare('SELECT item_id FROM items_payload WHERE item_id = ?').get(id);
-    if (row) db.prepare('UPDATE items_payload SET payload = ? WHERE item_id = ?').run(JSON.stringify(data), id);
-    else     db.prepare('INSERT INTO items_payload (item_id, payload) VALUES (?, ?)').run(id, JSON.stringify(data));
-    this._mem.delete(id);
+    this._withWrite([{ id, store: 'items' }], () => {
+      this._writeItemJson(id, doc);
+      const row = db.prepare('SELECT item_id FROM items_payload WHERE item_id = ?').get(id);
+      if (row) db.prepare('UPDATE items_payload SET payload = ? WHERE item_id = ?').run(JSON.stringify(data), id);
+      else     db.prepare('INSERT INTO items_payload (item_id, payload) VALUES (?, ?)').run(id, JSON.stringify(data));
+      this._mem.delete(id);
+    });
   }
 
   readFunctionJson(id) {
@@ -2162,6 +2250,8 @@ class SqliteFsAdapter {
     this._branch = name;
     this._mem.clear();
     this._roots  = null;
+    // A crashed writer may have left a journal on the branch we're switching to.
+    this._recover();
   }
 
   // The branch registry is the branches/ directory: one branch.json per branch.
