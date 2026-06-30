@@ -1,7 +1,7 @@
 import type { ViewMeta } from '../../../lib/viewMeta';
 import { useViewLocation } from '../../../context/LocationContext';
 import { StarredView as StarredViewPkg } from '@kanecta/component-starred-view';
-import { useWorkspaceStore } from '../../../store/workspace';
+import { useWorkingSetStore } from '../../../store/workingSet';
 import { useUiStore } from '../../../store/ui';
 import { TYPE_ICONS, FallbackIcon } from '../../../lib/typeIcons';
 import type { ItemType } from '../../../types/kanecta';
@@ -15,7 +15,7 @@ export const StarredViewMeta: ViewMeta = {
 
 export function StarredView() {
   useViewLocation(StarredViewMeta.uuid);
-  const { getApi } = useWorkspaceStore();
+  const { getApi } = useWorkingSetStore();
   const { layout, updatePanel } = useUiStore();
   const api = getApi();
 

@@ -3,9 +3,9 @@ import type { KanectaItem } from '../types/kanecta';
 export interface ConflictPair {
   id: string;
   itemA: KanectaItem;
-  workspaceIdA: string;
+  workingSetIdA: string;
   itemB: KanectaItem;
-  workspaceIdB: string;
+  workingSetIdB: string;
   similarity: number;
   reason: 'value-similarity' | 'shared-parent';
 }
@@ -26,21 +26,21 @@ function jaccardSimilarity(a: string[], b: string[]): number {
   return union === 0 ? 0 : intersection / union;
 }
 
-interface WorkspaceItems {
-  workspaceId: string;
+interface WorkingSetItems {
+  workingSetId: string;
   items: KanectaItem[];
 }
 
 export function detectConflicts(
-  workspaces: WorkspaceItems[],
+  workingSets: WorkingSetItems[],
   similarityThreshold = 0.6,
 ): ConflictPair[] {
   const conflicts: ConflictPair[] = [];
 
-  for (let i = 0; i < workspaces.length; i++) {
-    for (let j = i + 1; j < workspaces.length; j++) {
-      const wsA = workspaces[i];
-      const wsB = workspaces[j];
+  for (let i = 0; i < workingSets.length; i++) {
+    for (let j = i + 1; j < workingSets.length; j++) {
+      const wsA = workingSets[i];
+      const wsB = workingSets[j];
 
       for (const itemA of wsA.items) {
         const tokensA = tokenise(itemA.value);
@@ -49,11 +49,11 @@ export function detectConflicts(
           if (itemA.id === itemB.id) {
             if (itemA.modifiedAt !== itemB.modifiedAt) {
               conflicts.push({
-                id: `${itemA.id}:${wsA.workspaceId}:${wsB.workspaceId}`,
+                id: `${itemA.id}:${wsA.workingSetId}:${wsB.workingSetId}`,
                 itemA,
-                workspaceIdA: wsA.workspaceId,
+                workingSetIdA: wsA.workingSetId,
                 itemB,
-                workspaceIdB: wsB.workspaceId,
+                workingSetIdB: wsB.workingSetId,
                 similarity: 1,
                 reason: 'shared-parent',
               });
@@ -67,9 +67,9 @@ export function detectConflicts(
               conflicts.push({
                 id: `${itemA.id}:${itemB.id}`,
                 itemA,
-                workspaceIdA: wsA.workspaceId,
+                workingSetIdA: wsA.workingSetId,
                 itemB,
-                workspaceIdB: wsB.workspaceId,
+                workingSetIdB: wsB.workingSetId,
                 similarity: sim,
                 reason: 'value-similarity',
               });
@@ -82,9 +82,9 @@ export function detectConflicts(
             conflicts.push({
               id: `${itemA.id}:${itemB.id}`,
               itemA,
-              workspaceIdA: wsA.workspaceId,
+              workingSetIdA: wsA.workingSetId,
               itemB,
-              workspaceIdB: wsB.workspaceId,
+              workingSetIdB: wsB.workingSetId,
               similarity: sim,
               reason: 'value-similarity',
             });

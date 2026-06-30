@@ -5,7 +5,10 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const readline = require('readline');
-const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE } = require('@kanecta/lib');
+const {
+  Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE,
+  readAppConfig, resolveWorkingSet, resolveBranch,
+} = require('@kanecta/lib');
 
 // ─── Help text ────────────────────────────────────────────────────────────────
 
@@ -13,11 +16,16 @@ const HELP = `
 kanecta — Kanecta filesystem datastore CLI  (spec v1.1.0)
 
 USAGE
-  kanecta [--datastore <path>] <command> [options]
+  kanecta [--datastore <path>] [--working-set <name>] <command> [options]
 
 DATASTORE DISCOVERY
-  1. --datastore <path> flag
-  2. KANECTA_DATASTORE environment variable
+  1. --datastore <path> flag (open that filesystem datastore directly)
+  2. The active working set from config.json:
+       --working-set <name> flag, else KANECTA_WORKING_SET, else defaultWorkingSet.
+     The active branch resolves likewise: --branch <name>, else KANECTA_BRANCH,
+     else state.json, else the working set's defaultBranch, else "main".
+     config.json is located via KANECTA_CONFIG (a directory or a .json path),
+     else the platform default (~/.config/kanecta/config.json on Linux).
   3. Walk up from the current directory looking for a .kanecta/ folder
 
 COMMANDS
@@ -210,9 +218,7 @@ function parseArgs(argv) {
 
 // ─── Datastore discovery ──────────────────────────────────────────────────────
 
-function findDatastore(explicit) {
-  if (explicit) return explicit;
-  if (process.env.KANECTA_DATASTORE) return process.env.KANECTA_DATASTORE;
+function findDatastore() {
   let dir = process.cwd();
   while (true) {
     if (Datastore.isDatastore(dir)) return dir;
@@ -223,29 +229,27 @@ function findDatastore(explicit) {
   return null;
 }
 
-function readAppConfig() {
-  const XDG_CONFIG = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
-  try {
-    return JSON.parse(fs.readFileSync(path.join(XDG_CONFIG, 'kanecta', 'config.json'), 'utf8'));
-  } catch {
-    return null;
-  }
-}
-
 async function openDatastore(flags) {
-  // Workspace mode: no explicit --datastore/KANECTA_DATASTORE override → use the
-  // default workspace from ~/.config/kanecta/config.json (filesystem or cloud).
-  if (!flags['datastore'] && !process.env.KANECTA_DATASTORE) {
-    const appCfg = readAppConfig();
-    const workspace = appCfg?.workspaces?.[appCfg.default];
-    if (workspace) return Datastore.openWorkspace(workspace);
-  }
-
-  const root = findDatastore(flags['datastore']);
-  if (!root) {
-    if (flags['datastore']) {
+  // Explicit --datastore path always wins.
+  if (flags['datastore']) {
+    if (!Datastore.isDatastore(flags['datastore'])) {
       die(`Datastore not found at: ${flags['datastore']}`);
     }
+    return Datastore.open(flags['datastore']);
+  }
+
+  // Working-set mode: resolve the active working set + branch from config.json
+  // (flags → env → state.json → defaults).
+  const appCfg = readAppConfig();
+  if (appCfg?.workingSets && Object.keys(appCfg.workingSets).length) {
+    const { name, workingSet } = resolveWorkingSet(flags['working-set']);
+    const branch = resolveBranch(name, flags['branch']);
+    return Datastore.openWorkingSet(workingSet, { branch });
+  }
+
+  // Otherwise walk up from the current directory.
+  const root = findDatastore();
+  if (!root) {
     const defaultPath = path.join(process.env.HOME || process.env.USERPROFILE || '~', '.kanecta');
     console.log('No Kanecta datastore found.');
     const ok = await confirm(`Create a new datastore at ${defaultPath}?`);

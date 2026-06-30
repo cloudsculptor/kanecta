@@ -14,10 +14,10 @@ function makeItem(id: string, value: string): KanectaItem {
 const mockUpdate = vi.fn().mockResolvedValue({ id: 'x' });
 const mockDelete = vi.fn().mockResolvedValue({ deleted: 'x' });
 
-vi.mock('../../../../store/workspace', () => ({
-  useWorkspaceStore: () => ({
+vi.mock('../../../../store/workingSet', () => ({
+  useWorkingSetStore: () => ({
     getApi: () => ({ items: { update: mockUpdate, delete: mockDelete } }),
-    workspaces: [{ id: 'ws-1', name: 'Primary', colour: '#1976d2', apiUrl: '/api', pollIntervalMs: 5000 }],
+    workingSets: [{ id: 'ws-1', name: 'Primary', colour: '#1976d2', apiUrl: '/api', pollIntervalMs: 5000 }],
   }),
 }));
 

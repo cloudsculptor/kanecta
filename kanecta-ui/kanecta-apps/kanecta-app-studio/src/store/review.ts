@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { KanectaItem } from '../types/kanecta';
-import type { ActivityEvent } from '../types/workspace';
+import type { ActivityEvent } from '../types/workingSet';
 
 interface ReviewState {
   unreviewedThreshold: number;

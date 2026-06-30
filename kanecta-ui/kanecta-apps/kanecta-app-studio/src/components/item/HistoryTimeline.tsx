@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useWorkspaceStore } from '../../store/workspace';
+import { useWorkingSetStore } from '../../store/workingSet';
 import type { HistoryEntry } from '../../types/kanecta';
 import './HistoryTimeline.scss';
 
@@ -14,7 +14,7 @@ const OP_LABELS: Record<HistoryEntry['operation'], string> = {
 };
 
 export function HistoryTimeline({ itemId }: HistoryTimelineProps) {
-  const { getApi } = useWorkspaceStore();
+  const { getApi } = useWorkingSetStore();
   const { data: history = [], isLoading } = useQuery({
     queryKey: ['history', itemId],
     queryFn: () => getApi().items.history(itemId),

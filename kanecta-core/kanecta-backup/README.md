@@ -7,16 +7,18 @@ backup directory.
 
 Set the following environment variables:
 
-- `KANECTA_DATASTORE` — path to the datastore directory to back up
 - `KANECTA_BACKUP_DIRECTORY` — path to the directory where backups are stored
+- `KANECTA_CONFIG` (optional) — locates `config.json`; the active working set's
+  local datastore is backed up. Or pass a datastore path as the first argument.
 
 Then run:
 
 ```sh
-./backup.sh
+./backup.sh               # back up the active working set's datastore
+./backup.sh /path/to/ds   # or back up an explicit datastore directory
 ```
 
-The script copies the entire contents of `KANECTA_DATASTORE` into a new
+The script copies the entire contents of the resolved datastore into a new
 timestamped folder under `KANECTA_BACKUP_DIRECTORY`, named:
 
 ```

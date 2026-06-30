@@ -1,5 +1,5 @@
 import { useReviewStore } from '../../../store/review';
-import { useWorkspaceStore } from '../../../store/workspace';
+import { useWorkingSetStore } from '../../../store/workingSet';
 import { WorkspaceIndicator } from '@kanecta/component-workspace-indicator';
 import { useUiStore } from '../../../store/ui';
 import './ActivityFeed.scss';
@@ -17,10 +17,10 @@ function formatRelative(isoString: string): string {
 
 export function ActivityFeed() {
   const { activityLog } = useReviewStore();
-  const { workspaces } = useWorkspaceStore();
+  const { workingSets } = useWorkingSetStore();
   const { setFocusedItem } = useUiStore();
 
-  const wsMap = new Map(workspaces.map((w) => [w.id, w]));
+  const wsMap = new Map(workingSets.map((w) => [w.id, w]));
 
   if (activityLog.length === 0) {
     return <div className="ActivityFeed-empty">No activity yet</div>;
@@ -29,7 +29,7 @@ export function ActivityFeed() {
   return (
     <div className="ActivityFeed" role="feed" aria-label="Activity feed">
       {activityLog.map((event) => {
-        const ws = wsMap.get(event.workspaceId);
+        const ws = wsMap.get(event.workingSetId);
         return (
           <button
             key={event.id}

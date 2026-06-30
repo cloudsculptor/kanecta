@@ -5,6 +5,7 @@ const path   = require('path');
 const crypto = require('crypto');
 const Database = require('better-sqlite3');
 const { version: specVersion } = require('@kanecta/specification');
+const { WriteGuard } = require('./write-integrity');
 
 const ROOT_ID    = '00000000-0000-0000-0000-000000000000';
 const TYPES_NODE = '11111111-1111-1111-1111-111111111111';
@@ -25,6 +26,24 @@ const VALID_REL_TYPES = [
 const UUID_RE      = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DEFAULT_LICENSE = 'bb3bf137-d8a9-4264-9fb7-ac373b1d4739';
 const LINK_SOURCE  = '\\[\\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\\]\\]';
+
+// Fixed built-in type-item UUIDs (per specification.adoc §built-in type item UUIDs).
+// Metadata items (item_history, activity, alias, relationship, annotation) reference
+// these as parentId/typeId so they slot under well-known type buckets in every tree.
+const TYPE_ITEM_UUIDS = {
+  item_history:        'b81923c7-ecf5-4fef-8588-2d91c3985aea',
+  activity:            '2033f23f-f1d6-43bb-b74e-f62e96251df7',
+  alias:               '80f95b21-6c51-43b5-bdfb-35aad8991c7a',
+  relationship:        '334ea5f6-6bfa-43e5-b77f-5d811642d897',
+  'relationship-type': '15861dd7-e54c-4209-bceb-bdd65de4f472',
+  annotation:          '8797b002-091a-4289-abf0-850d4b05a743',
+};
+
+// Metadata item types: real items (source of truth on disk) that back the derived
+// lookup tables (history/aliases/relationships/annotations). They are NEVER stored
+// only in index.db. They are excluded from ordinary content traversal — the spec
+// calls them "metadata and tree structure, not graph edges".
+const METADATA_TYPES = new Set(['item_history', 'activity', 'alias', 'relationship']);
 
 class UnknownTypeError extends Error {
   constructor(typeName) {
@@ -175,7 +194,8 @@ CREATE INDEX IF NOT EXISTS idx_hist_changed ON history(changed_at);
 
 CREATE TABLE IF NOT EXISTS aliases (
   alias     TEXT PRIMARY KEY,
-  target_id TEXT NOT NULL
+  target_id TEXT NOT NULL,
+  item_id   TEXT
 );
 
 CREATE TABLE IF NOT EXISTS type_defs (
@@ -184,45 +204,34 @@ CREATE TABLE IF NOT EXISTS type_defs (
   schema_json   TEXT NOT NULL DEFAULT '{}',
   metadata_json TEXT NOT NULL DEFAULT '{}'
 );
-
--- ─── Branching (directory overlay model) ──────────────────────────────────────
-
-CREATE TABLE IF NOT EXISTS workspace_meta (
-  key   TEXT PRIMARY KEY,
-  value TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS branches (
-  id          TEXT PRIMARY KEY,
-  name        TEXT NOT NULL UNIQUE,
-  base_branch TEXT NOT NULL DEFAULT 'main',
-  created_at  TEXT NOT NULL,
-  merged_at   TEXT,
-  deleted_at  TEXT
-);
-
-CREATE TABLE IF NOT EXISTS branch_changes (
-  branch_id   TEXT NOT NULL REFERENCES branches(id),
-  item_id     TEXT NOT NULL,
-  change_type TEXT NOT NULL CHECK (change_type IN ('create', 'update', 'delete')),
-  section     TEXT NOT NULL CHECK (section IN ('item', 'meta', 'search', 'payload', 'time')),
-  data        TEXT,
-  changed_at  TEXT NOT NULL,
-  PRIMARY KEY (branch_id, item_id, section)
-);
-CREATE INDEX IF NOT EXISTS idx_bc_branch ON branch_changes(branch_id);
-CREATE INDEX IF NOT EXISTS idx_bc_item   ON branch_changes(branch_id, item_id);
 `;
+
+// ─── Branch layout ─────────────────────────────────────────────────────────────
+// Every branch is a complete, self-contained datastore folder:
+//
+//   .kanecta/
+//     config/config.json                  datastore-level config (unchanged)
+//     branches/<encoded-name>/
+//       items/<2>/<2>/<uuid>/item.json     full item tree for THIS branch
+//       index.db                           per-branch derived index (gitignored)
+//       branch.json                        { name, fill, upstream, createdAt }
+//
+// There is no top-level .kanecta/items or .kanecta/index.db; `main` is simply
+// branches/main and is no longer special. Creating a branch is a full recursive
+// copy of the base branch folder — there are no overlays and no branch_changes.
+// The read path reads only the active branch's own folder (it could later become
+// an ordered layer-stack for sparse branches, but every branch here is fill:full).
 
 class SqliteFsAdapter {
   constructor(root) {
-    this.root    = path.resolve(root);
-    this.k       = path.join(this.root, '.kanecta');
-    this._db     = null;
-    this._config = null;
-    this._mem    = new Map();
-    this._roots  = null;
-    this._branch = 'main';
+    this.root      = path.resolve(root);
+    this.k         = path.join(this.root, '.kanecta');
+    this._db       = null;
+    this._dbBranch = null;   // which branch the currently-open _db belongs to
+    this._config   = null;
+    this._mem      = new Map();
+    this._roots    = null;
+    this._branch   = 'main';
   }
 
   // ─── Filesystem helpers ────────────────────────────────────────────────────
@@ -233,125 +242,54 @@ class SqliteFsAdapter {
     return [hex.slice(0, 2), hex.slice(2, 4)];
   }
 
-  _itemDir(id) {
+  // Root folder of the active branch: .kanecta/branches/<encoded-name>
+  _branchRoot(name) {
+    return path.join(this.k, 'branches', this._encodeBranchName(name ?? this._branch));
+  }
+
+  // The `store` selects which sibling tree under the branch root holds the file:
+  //   'items'        — content items (the source of truth, default)
+  //   'item-history' — item_history events (write-heavy; kept out of items/)
+  //   'activity'     — activity events
+  // Keeping history/activity in sibling trees keeps items/ pure, so branchDiff and
+  // content traversal (which scan items/) never see them.
+  _itemDir(id, store = 'items') {
     const [s1, s2] = this._shard(id);
-    return path.join(this.k, 'items', s1, s2, id);
+    return path.join(this._branchRoot(), store, s1, s2, id);
   }
 
-  _itemPath(id) {
-    return path.join(this._itemDir(id), 'item.json');
+  _itemPath(id, store = 'items') {
+    return path.join(this._itemDir(id, store), 'item.json');
   }
 
-  _readItemJson(id) {
-    // On a non-main branch: check overlay first, respect delete markers.
-    if (this._branch !== 'main') {
-      const branchId = this._branchId(this._branch);
-      if (branchId) {
-        const row = this._openDb().prepare(
-          "SELECT change_type FROM branch_changes WHERE branch_id = ? AND item_id = ? AND section = 'item'"
-        ).get(branchId, id);
-        if (row?.change_type === 'delete') return null;
-        if (row) {
-          const doc = this._readBranchItemJsonRaw(id);
-          if (doc) return doc;
-        }
-      }
-    }
-    const p = this._itemPath(id);
+  // Read an item.json from the active branch's own items/ tree. Each branch is a
+  // complete folder, so there is no overlay/fall-through — the branch's files are
+  // the whole truth for that branch.
+  _readItemJson(id, store = 'items') {
+    const p = this._itemPath(id, store);
     try { return JSON.parse(fs.readFileSync(p, 'utf8')); }
     catch { return null; }
   }
 
   // Atomic write: temp file + rename so item.json is never partially written.
-  _writeItemJson(id, doc) {
-    const dir = this._itemDir(id);
+  _writeItemJson(id, doc, store = 'items') {
+    const dir = this._itemDir(id, store);
     fs.mkdirSync(dir, { recursive: true });
-    const p   = this._itemPath(id);
+    const p   = this._itemPath(id, store);
     const tmp = p + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify(doc, null, 2), 'utf8');
     fs.renameSync(tmp, p);
   }
 
-  _deleteItemDir(id) {
-    const dir = this._itemDir(id);
+  _deleteItemDir(id, store = 'items') {
+    const dir = this._itemDir(id, store);
     if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
   }
 
   // ─── Branch filesystem helpers ─────────────────────────────────────────────
 
+  // Branch names encode `/` as `__` for the on-disk directory.
   _encodeBranchName(name) { return name.replace(/\//g, '__'); }
-
-  _branchDir(name) {
-    return path.join(this.k, 'branches', this._encodeBranchName(name));
-  }
-
-  _branchItemDir(name, id) {
-    const [s1, s2] = this._shard(id);
-    return path.join(this._branchDir(name), 'items', s1, s2, id);
-  }
-
-  _branchItemPath(name, id) {
-    return path.join(this._branchItemDir(name, id), 'item.json');
-  }
-
-  _readBranchItemJsonRaw(id) {
-    const p = this._branchItemPath(this._branch, id);
-    try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; }
-  }
-
-  _writeBranchItemJson(name, id, doc) {
-    const dir = this._branchItemDir(name, id);
-    fs.mkdirSync(dir, { recursive: true });
-    const p   = this._branchItemPath(name, id);
-    const tmp = p + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(doc, null, 2), 'utf8');
-    fs.renameSync(tmp, p);
-  }
-
-  _deleteBranchItemFile(name, id) {
-    const dir = this._branchItemDir(name, id);
-    if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
-  }
-
-  _branchId(name) {
-    const n = name ?? this._branch;
-    if (!n || n === 'main') return null;
-    const row = this._openDb().prepare('SELECT id FROM branches WHERE name = ? AND deleted_at IS NULL').get(n);
-    return row?.id ?? null;
-  }
-
-  // Record an item change in branch_changes. For delete: single marker row.
-  // For create/update: one row per section.
-  _recordBranchChange(db, branchId, itemId, changeType, doc) {
-    const now = new Date().toISOString();
-    if (changeType === 'delete') {
-      db.prepare('DELETE FROM branch_changes WHERE branch_id = ? AND item_id = ?').run(branchId, itemId);
-      db.prepare('INSERT OR REPLACE INTO branch_changes (branch_id, item_id, change_type, section, data, changed_at) VALUES (?, ?, ?, ?, ?, ?)')
-        .run(branchId, itemId, 'delete', 'item', null, now);
-      return;
-    }
-    const stmt = db.prepare('INSERT OR REPLACE INTO branch_changes (branch_id, item_id, change_type, section, data, changed_at) VALUES (?, ?, ?, ?, ?, ?)');
-    for (const sec of ['item', 'meta', 'search', 'payload', 'time']) {
-      const data = doc?.[sec];
-      stmt.run(branchId, itemId, changeType, sec, data != null ? JSON.stringify(data) : null, now);
-    }
-  }
-
-  // Returns sets of deleted/changed/created item IDs for the current branch.
-  _getBranchOverlay(branchName) {
-    const branchId = this._branchId(branchName);
-    if (!branchId) return { deletedIds: new Set(), changedIds: new Set(), createdIds: new Set() };
-    const rows = this._openDb().prepare(
-      "SELECT DISTINCT item_id, change_type FROM branch_changes WHERE branch_id = ? AND section = 'item'"
-    ).all(branchId);
-    const deletedIds = new Set(), changedIds = new Set(), createdIds = new Set();
-    for (const r of rows) {
-      if (r.change_type === 'delete')      deletedIds.add(r.item_id);
-      else if (r.change_type === 'update') changedIds.add(r.item_id);
-      else if (r.change_type === 'create') createdIds.add(r.item_id);
-    }
-    return { deletedIds, changedIds, createdIds };
-  }
 
   // Walk every item.json under items/ (or a custom dir).
   * _scanItemFiles(baseDir) {
@@ -370,33 +308,112 @@ class SqliteFsAdapter {
     }
   }
 
+  // ─── Write integrity (lock + write-ahead journal) ───────────────────────────
+  //
+  // Every mutation runs inside _withWrite: it takes the branch's cross-process
+  // lock, journals the write-ahead intent (with pre-images for rollback), runs
+  // the mutation, marks the authoritative data done, then commits and releases.
+  // A crash leaves the journal behind; _recover (run on open and on branch
+  // switch) rolls forward (rebuild the derived index) if the data landed, or
+  // rolls back to the pre-images if it did not. index.db being 100% derived is
+  // what makes roll-forward a simple rebuild.
+
+  _guard(branch) { return new WriteGuard(this._branchRoot(branch)); }
+
+  _withWrite(ops, fn) {
+    const guard = this._guard();
+    guard.acquire();
+    try {
+      const recs = ops.map(o => ({
+        id: o.id, store: o.store || 'items',
+        preImage: this._readItemJson(o.id, o.store || 'items'),
+      }));
+      guard.begin({ branch: this._branch, ops: recs });
+      let result;
+      try {
+        result = fn();
+      } catch (e) {
+        this._rollback(recs);          // undo any partial L0 writes
+        guard.commit();
+        throw e;
+      }
+      guard.markL0Done();              // data fully on disk → recovery rolls forward
+      guard.commit();
+      return result;
+    } finally {
+      guard.release();
+    }
+  }
+
+  // Restore each op's item.json to its pre-image (or delete it if it was created).
+  _rollback(opRecs) {
+    for (const op of opRecs) {
+      if (op.preImage == null) this._deleteItemDir(op.id, op.store);
+      else                     this._writeItemJson(op.id, op.preImage, op.store);
+    }
+  }
+
+  // Resolve a leftover journal/lock for the active branch. Safe to call repeatedly.
+  _recover() {
+    const guard = this._guard();
+    const j = guard.read();
+    if (j) {
+      // Roll forward if the data fully landed; otherwise roll back to pre-images.
+      if (j.phase !== 'l0-done') this._rollback(j.ops || []);
+      this._mem.clear();
+      this.rebuildIndexes();           // derived index ⇐ filesystem (items/ + item-history/)
+      guard.commit();
+    }
+    guard.clearStaleLock();
+  }
+
   // ─── DB lifecycle ──────────────────────────────────────────────────────────
 
+  // Open (lazily) the index.db for the ACTIVE branch. The DB is cached per
+  // branch: when the active branch changes, the previously-open DB is closed and
+  // the new branch's index.db is opened. index.db is 100% derived — if it is
+  // empty or missing it is rebuilt by scanning the branch's items/ tree.
   _openDb() {
-    if (this._db) return this._db;
-    const dbPath = path.join(this.k, 'index.db');
+    if (this._db && this._dbBranch === this._branch) return this._db;
+    if (this._db) { try { this._db.close(); } catch {} this._db = null; }
+
+    const branchRoot = this._branchRoot();
+    fs.mkdirSync(branchRoot, { recursive: true });
+    const dbPath = path.join(branchRoot, 'index.db');
+
     this._db = new Database(dbPath);
     this._db.exec(SCHEMA_SQL);
-    // Seed default branch tracking and restore active branch
-    this._db.prepare("INSERT OR IGNORE INTO workspace_meta (key, value) VALUES ('current_branch', 'main')").run();
-    const brow = this._db.prepare("SELECT value FROM workspace_meta WHERE key = 'current_branch'").get();
-    if (brow?.value) this._branch = brow.value;
+    this._dbBranch = this._branch;
+
+    // Rebuild if the index is empty (fresh clone, deleted index.db, new copy).
+    const cnt = this._db.prepare('SELECT COUNT(*) AS n FROM items').get();
+    if (!cnt || cnt.n === 0) {
+      if (fs.existsSync(path.join(branchRoot, 'items'))) this._rebuildFromFs(this._db);
+    }
     return this._db;
   }
 
   static isDatastore(root) {
-    return fs.existsSync(path.join(root, '.kanecta', 'items'));
+    return fs.existsSync(path.join(root, '.kanecta', 'branches', 'main', 'items'));
   }
 
   static init(root, owner) {
-    const k = path.join(root, '.kanecta');
-    fs.mkdirSync(path.join(k, 'items'), { recursive: true });
+    const k        = path.join(root, '.kanecta');
+    const mainRoot = path.join(k, 'branches', 'main');
+    fs.mkdirSync(path.join(mainRoot, 'items'), { recursive: true });
+    // Ignore the derived index at any depth (one per branch).
     fs.writeFileSync(path.join(k, '.gitignore'), 'index.db\n', 'utf8');
 
-    const adapter   = new SqliteFsAdapter(root);
-    const now       = new Date().toISOString();
+    const now = new Date().toISOString();
+    fs.writeFileSync(
+      path.join(mainRoot, 'branch.json'),
+      JSON.stringify({ name: 'main', fill: 'full', upstream: null, createdAt: now }, null, 2),
+      'utf8',
+    );
+
+    const adapter     = new SqliteFsAdapter(root);
     const rootPayload = {
-      owner, specVersion: '1.4.0', itemHistory: 'NONE', activity: 'NONE',
+      owner, specVersion: '1.4.0', itemHistory: 'EXTERNAL', activity: 'NONE',
     };
 
     const rootDoc = adapter._buildDoc(
@@ -418,10 +435,11 @@ class SqliteFsAdapter {
   static open(root) {
     if (!SqliteFsAdapter.isDatastore(root)) throw new Error(`Not a Kanecta datastore: ${root}`);
     const adapter = new SqliteFsAdapter(root);
-    const db      = adapter._openDb();
-    // If index is empty (e.g. after git clone / index.db deleted), rebuild.
-    const cnt = db.prepare('SELECT COUNT(*) AS n FROM items').get();
-    if (!cnt || cnt.n === 0) adapter._rebuildFromFs(db);
+    // _openDb rebuilds the active branch's index from its items/ if empty.
+    adapter._openDb();
+    // Resolve any write-ahead journal/lock left by a crashed writer before
+    // serving anything (roll forward if the data landed, else roll back).
+    adapter._recover();
     adapter._loadRoots();
     return adapter;
   }
@@ -644,6 +662,89 @@ class SqliteFsAdapter {
 
     for (const link of this._parseLinks(item.value))
       db.prepare('INSERT OR IGNORE INTO backlinks (source_id, target_id) VALUES (?, ?)').run(id, link);
+
+    // Derived lookup projections for metadata item types. The item.json in items/
+    // is the source of truth; these rows are pure projections rebuilt by scanning
+    // items/ (so _rebuildFromFs repopulates them for free).
+    this._indexMetadataDoc(db, doc);
+  }
+
+  // Project an alias/relationship/annotation item.json into its derived lookup
+  // table. No-op for ordinary content items.
+  _indexMetadataDoc(db, doc) {
+    const { item, meta, payload } = doc;
+    const p = payload || {};
+    if (item.type === 'alias') {
+      db.prepare('INSERT OR REPLACE INTO aliases (alias, target_id, item_id) VALUES (?, ?, ?)')
+        .run(item.value, p.targetId ?? null, item.id);
+    } else if (item.type === 'relationship') {
+      db.prepare(
+        'INSERT OR REPLACE INTO relationships (id, source_id, type, target_id, note, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).run(item.id, p.sourceId ?? null, item.value, p.targetId ?? null,
+            p.note ?? null, meta?.createdAt ?? null, meta?.createdBy ?? null);
+    } else if (item.type === 'annotation') {
+      db.prepare(
+        'INSERT OR REPLACE INTO annotations (id, target_id, author, content, created_at, parent_annotation_id) VALUES (?, ?, ?, ?, ?, ?)'
+      ).run(item.id, item.parentId, p.author ?? meta?.createdBy ?? null,
+            p.content ?? item.value, meta?.createdAt ?? null, p.parentAnnotationId ?? null);
+    } else if (item.type === 'item_history') {
+      // 'ITEM' mode: history events live in items/ and are picked up here.
+      this._indexHistoryDoc(db, doc);
+    }
+  }
+
+  // Write a metadata item (alias/relationship/annotation) as a real item.json in
+  // items/ — the source of truth — and project it into its derived lookup table.
+  // No history snapshot is taken for metadata items.
+  _metaItem(fields) {
+    const now = new Date().toISOString();
+    return this._itemToDoc({
+      typeId: null, sortOrder: 0, aspect: null,
+      owner: this.config.owner, license: null, visibility: 'private',
+      confidence: null, status: null, tags: [],
+      createdAt: now, modifiedAt: now,
+      createdBy: this.config.owner, modifiedBy: this.config.owner,
+      layer: 'system',
+      ...fields,
+    });
+  }
+
+  _writeMetadataItem(doc) {
+    const db = this._openDb();
+    this._withWrite([{ id: doc.item.id, store: 'items' }], () => {
+      this._writeItemJson(doc.item.id, doc);
+      db.transaction(() => this._insertIndexTx(db, doc.item.id, doc, doc.item.id))();
+      this._mem.delete(doc.item.id);
+    });
+    return doc;
+  }
+
+  // Delete a metadata item: its item.json, its index rows, and its derived-lookup
+  // row. Must be called inside a db transaction (or standalone).
+  _deleteMetadataItem(db, itemId, type) {
+    this._deleteItemDir(itemId);
+    db.prepare('DELETE FROM items_meta    WHERE item_id = ?').run(itemId);
+    db.prepare('DELETE FROM items_payload WHERE item_id = ?').run(itemId);
+    db.prepare('DELETE FROM items_search  WHERE item_id = ?').run(itemId);
+    db.prepare('DELETE FROM items_time    WHERE item_id = ?').run(itemId);
+    db.prepare('DELETE FROM item_tags     WHERE item_id = ?').run(itemId);
+    db.prepare('DELETE FROM backlinks     WHERE source_id = ?').run(itemId);
+    db.prepare('DELETE FROM items         WHERE id = ?').run(itemId);
+    if      (type === 'alias')        db.prepare('DELETE FROM aliases       WHERE item_id = ?').run(itemId);
+    else if (type === 'relationship') db.prepare('DELETE FROM relationships WHERE id = ?').run(itemId);
+    else if (type === 'annotation')   db.prepare('DELETE FROM annotations   WHERE id = ?').run(itemId);
+  }
+
+  // When a content item is deleted, cascade-delete the metadata items that hang
+  // off it: relationships in either direction, annotations on it, aliases to it.
+  // Keeps the derived tables consistent with items/ after a rebuild.
+  _cascadeDeleteMetadata(db, id) {
+    for (const r of db.prepare('SELECT id FROM relationships WHERE source_id = ? OR target_id = ?').all(id, id))
+      this._deleteMetadataItem(db, r.id, 'relationship');
+    for (const a of db.prepare('SELECT id FROM annotations WHERE target_id = ?').all(id))
+      this._deleteMetadataItem(db, a.id, 'annotation');
+    for (const a of db.prepare('SELECT item_id FROM aliases WHERE target_id = ?').all(id))
+      if (a.item_id) this._deleteMetadataItem(db, a.item_id, 'alias');
   }
 
   _updateIndexMeta(db, id, meta, tags) {
@@ -683,7 +784,7 @@ class SqliteFsAdapter {
   // ─── Index rebuild from filesystem ────────────────────────────────────────
 
   _rebuildFromFs(db) {
-    const itemsDir = path.join(this.k, 'items');
+    const itemsDir = path.join(this._branchRoot(), 'items');
     // First pass: read all item.json files and collect items
     const docs = [];
     for (const jsonPath of this._scanItemFiles(itemsDir)) {
@@ -722,19 +823,103 @@ class SqliteFsAdapter {
         const id = doc.item.id;
         this._insertIndexTx(db, id, doc, paths.get(id) ?? id);
       }
+      // Derived lookups whose source of truth lives outside items/.
+      this._rebuildHistoryFromFs(db);
     })();
   }
 
   // ─── History ───────────────────────────────────────────────────────────────
 
+  // History placement is controlled by rootPayload.itemHistory:
+  //   'NONE'     → no history is recorded.
+  //   'ITEM'     → item_history events are ordinary items in items/.
+  //   'EXTERNAL' → item_history events live in the sibling item-history/ tree
+  //                (default; keeps items/ and branchDiff lean).
+  // Either way the item.json is the source of truth; the SQLite `history` table
+  // is a derived projection rebuilt by scanning whichever tree holds them.
+  // Returns the store name to write into, or null when history is disabled.
+  _historyStore() {
+    const mode = this.config?.itemHistory ?? 'EXTERNAL';
+    if (mode === 'NONE') return null;
+    if (mode === 'ITEM') return 'items';
+    return 'item-history';
+  }
+
+  // created | updated | deleted — the spec's coarse eventType. The adapter's finer
+  // changeType (soft-delete/restore/…) is preserved inside the snapshot.
+  _eventType(changeType) {
+    if (changeType === 'create')  return 'created';
+    if (changeType === 'delete')  return 'deleted';
+    return 'updated';
+  }
+
+  _nextHistorySeq(db, targetId) {
+    const row = db.prepare('SELECT COUNT(*) AS n FROM history WHERE item_id = ?').get(targetId);
+    return (row?.n ?? 0) + 1;
+  }
+
   _snapshot(db, item, changeType, changedBy, now) {
+    const store = this._historyStore();
+    if (!store) return;
+
+    const snapshot = { ...item, snapshotAt: now.toISOString(), changedBy, changeType };
+    const histId   = crypto.randomUUID();
+    const seq      = this._nextHistorySeq(db, item.id);
+
+    // 1) Source of truth: an item_history item.json in items/ ('ITEM') or the
+    //    sibling item-history/ tree ('EXTERNAL').
+    const histDoc = this._itemToDoc({
+      id: histId, parentId: TYPE_ITEM_UUIDS.item_history, type: 'item_history', typeId: null,
+      value: `${changeType} ${item.id}`, sortOrder: seq, aspect: null,
+      owner: changedBy ?? null, license: null, visibility: 'private',
+      confidence: null, status: null, tags: [],
+      createdAt: now.toISOString(), modifiedAt: now.toISOString(),
+      createdBy: changedBy ?? null, modifiedBy: changedBy ?? null,
+      layer: 'system',
+    });
+    histDoc.payload = {
+      targetId: item.id, eventType: this._eventType(changeType), sequence: seq,
+      by: changedBy ?? null, delta: {}, snapshot, changeType,
+    };
+    this._writeItemJson(histId, histDoc, store);
+
+    // 2) Index so history() works without a rebuild. In 'ITEM' mode the event is
+    //    a real item in items/, so index it fully (items table + derived history,
+    //    matching how a rebuild scans it); in 'EXTERNAL' mode only the derived
+    //    history projection is touched.
+    if (store === 'items') this._insertIndexTx(db, histId, histDoc, histId);
+    else                   this._indexHistoryDoc(db, histDoc);
+  }
+
+  // Upsert the derived `history` row from an item_history item.json. Used both by
+  // _snapshot (live) and _rebuildHistoryFromFs (rebuild) so the table is always a
+  // pure projection of item-history/.
+  _indexHistoryDoc(db, histDoc) {
+    const p = histDoc.payload || {};
+    const snap = p.snapshot || {};
     db.prepare(
       'INSERT INTO history (item_id, change_type, snapshot, changed_at, changed_by) VALUES (?, ?, ?, ?, ?)'
     ).run(
-      item.id, changeType,
-      JSON.stringify({ ...item, snapshotAt: now.toISOString(), changedBy, changeType }),
-      now.toISOString(), changedBy,
+      p.targetId, p.changeType ?? p.eventType ?? 'updated',
+      JSON.stringify(snap),
+      snap.snapshotAt ?? histDoc.meta?.createdAt ?? null, p.by ?? null,
     );
+  }
+
+  // Rebuild the derived history table by scanning the branch's item-history/ tree.
+  _rebuildHistoryFromFs(db) {
+    const dir = path.join(this._branchRoot(), 'item-history');
+    const docs = [];
+    for (const jsonPath of this._scanItemFiles(dir)) {
+      try {
+        const doc = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+        if (doc?.payload?.targetId) docs.push(doc);
+      } catch { /* skip corrupt */ }
+    }
+    // Insert in chronological order so the AUTOINCREMENT seq preserves order.
+    docs.sort((a, b) => String(a.payload.snapshot?.snapshotAt ?? a.meta?.createdAt ?? '')
+      .localeCompare(String(b.payload.snapshot?.snapshotAt ?? b.meta?.createdAt ?? '')));
+    for (const doc of docs) this._indexHistoryDoc(db, doc);
   }
 
   // ─── Materialized path helpers ─────────────────────────────────────────────
@@ -950,21 +1135,16 @@ class SqliteFsAdapter {
     const doc = this._itemToDoc(item);
     doc.payload = resolvedPayload;
 
-    // Write file FIRST, then update index.
-    if (this._branch !== 'main') {
-      // Branch: write to overlay, record in branch_changes (main index untouched).
-      this._writeBranchItemJson(this._branch, id, doc);
-      const db       = this._openDb();
-      const branchId = this._branchId(this._branch);
-      if (branchId) db.transaction(() => { this._recordBranchChange(db, branchId, id, 'create', doc); })();
-    } else {
+    // Write file FIRST, then update the active branch's index — under the write
+    // lock and journal so a crash can't leave a half-applied create.
+    this._withWrite([{ id, store: 'items' }], () => {
       this._writeItemJson(id, doc);
       const db = this._openDb();
       db.transaction(() => {
         this._insertIndexTx(db, id, doc, itemPath);
         this._snapshot(db, item, 'create', actor, now);
       })();
-    }
+    });
 
     this._mem.set(id, item);
 
@@ -1004,25 +1184,6 @@ class SqliteFsAdapter {
       const parentFieldPath = parts.slice(0, -1).join('.');
       const parentId = parentFieldPath ? `${realId}__${parentFieldPath}` : realId;
       return this._buildSyntheticNode(realId, parentId, key, val, fieldPath, 0);
-    }
-
-    // On a non-main branch: check overlay first (delete markers + branch items).
-    if (this._branch !== 'main') {
-      const branchId = this._branchId(this._branch);
-      if (branchId) {
-        const row = this._openDb().prepare(
-          "SELECT change_type FROM branch_changes WHERE branch_id = ? AND item_id = ? AND section = 'item'"
-        ).get(branchId, id);
-        if (row?.change_type === 'delete') return null;
-        if (row) {
-          const doc = this._readBranchItemJsonRaw(id);
-          if (doc) {
-            const item = this._docToItem(doc);
-            if (item) this._mem.set(id, item);
-            return item;
-          }
-        }
-      }
     }
 
     // 1. Memory cache
@@ -1100,29 +1261,12 @@ class SqliteFsAdapter {
     const existingDoc = this._readItemJson(id);
     const newDoc      = this._itemToDoc(updated, existingDoc);
 
-    if (this._branch !== 'main') {
-      // Branch: write to overlay. Keep change_type='create' if item was created on this branch.
-      this._writeBranchItemJson(this._branch, id, newDoc);
-      this._mem.delete(id);
-      const db       = this._openDb();
-      const branchId = this._branchId(this._branch);
-      if (branchId) {
-        const prev = db.prepare("SELECT change_type FROM branch_changes WHERE branch_id = ? AND item_id = ? AND section = 'item'").get(branchId, id);
-        const ct   = prev?.change_type === 'create' ? 'create' : 'update';
-        db.transaction(() => { this._recordBranchChange(db, branchId, id, ct, newDoc); })();
-      }
-      this._mem.set(id, updated);
-      if (this._roots && WELL_KNOWN_TYPES.has(updated.type)) this._roots[updated.type] = updated;
-      if (typeWarning) Object.defineProperty(updated, 'warning', { value: typeWarning, enumerable: false, configurable: true });
-      return updated;
-    }
-
-    // Write file FIRST.
-    this._writeItemJson(id, newDoc);
-    this._mem.delete(id);
-
+    // Write file FIRST — under the write lock + journal.
     const db = this._openDb();
-    db.transaction(() => {
+    this._withWrite([{ id, store: 'items' }], () => {
+      this._writeItemJson(id, newDoc);
+      this._mem.delete(id);
+      db.transaction(() => {
       this._snapshot(db, current, 'update', actor, now);
 
       // Icon update
@@ -1163,7 +1307,8 @@ class SqliteFsAdapter {
         const newPath    = parentPath != null ? `${parentPath}/${id}` : id;
         this._cascadePathUpdate(db, id, newPath);
       }
-    })();
+      })();
+    });
 
     this._mem.set(id, updated);
     if (this._roots && WELL_KNOWN_TYPES.has(updated.type)) this._roots[updated.type] = updated;
@@ -1191,42 +1336,41 @@ class SqliteFsAdapter {
     const now      = new Date();
     const warnings = this.deleteWarnings(id);
 
-    if (this._branch !== 'main') {
-      const db       = this._openDb();
-      const branchId = this._branchId(this._branch);
-      if (branchId) {
-        const prev = db.prepare("SELECT change_type FROM branch_changes WHERE branch_id = ? AND item_id = ? AND section = 'item'").get(branchId, id);
-        if (prev?.change_type === 'create') {
-          // Item was created on this branch — undo it entirely
-          db.prepare('DELETE FROM branch_changes WHERE branch_id = ? AND item_id = ?').run(branchId, id);
-        } else {
-          // Item lives in main — record a delete marker
-          this._recordBranchChange(db, branchId, id, 'delete', null);
-        }
-      }
-      this._deleteBranchItemFile(this._branch, id);
-      this._mem.delete(id);
-      return { warnings };
-    }
-
-    // Delete file.
-    this._deleteItemDir(id);
-    this._mem.delete(id);
-
     const db = this._openDb();
-    db.transaction(() => {
-      this._snapshot(db, item, 'delete', actor, now);
-      db.prepare('DELETE FROM item_tags    WHERE item_id = ?').run(id);
-      db.prepare('DELETE FROM backlinks    WHERE source_id = ? OR target_id = ?').run(id, id);
-      db.prepare('DELETE FROM relationships WHERE source_id = ? OR target_id = ?').run(id, id);
-      db.prepare('DELETE FROM items_meta   WHERE item_id = ?').run(id);
-      db.prepare('DELETE FROM items_payload WHERE item_id = ?').run(id);
-      db.prepare('DELETE FROM items_search WHERE item_id = ?').run(id);
-      db.prepare('DELETE FROM items_time   WHERE item_id = ?').run(id);
-      db.prepare('DELETE FROM items        WHERE id = ?').run(id);
-    })();
+
+    // The cascade also removes metadata item.json files; include them in the
+    // journal's ops so a crash mid-delete can roll every one of them back.
+    const cascadeOps = this._cascadeMetadataOps(db, id);
+
+    this._withWrite([{ id, store: 'items' }, ...cascadeOps], () => {
+      this._deleteItemDir(id);
+      this._mem.delete(id);
+      db.transaction(() => {
+        this._snapshot(db, item, 'delete', actor, now);
+        // Cascade-delete the metadata items hanging off this item (relationships,
+        // annotations, aliases) — their item.json files and derived rows together.
+        this._cascadeDeleteMetadata(db, id);
+        db.prepare('DELETE FROM item_tags    WHERE item_id = ?').run(id);
+        db.prepare('DELETE FROM backlinks    WHERE source_id = ? OR target_id = ?').run(id, id);
+        db.prepare('DELETE FROM items_meta   WHERE item_id = ?').run(id);
+        db.prepare('DELETE FROM items_payload WHERE item_id = ?').run(id);
+        db.prepare('DELETE FROM items_search WHERE item_id = ?').run(id);
+        db.prepare('DELETE FROM items_time   WHERE item_id = ?').run(id);
+        db.prepare('DELETE FROM items        WHERE id = ?').run(id);
+      })();
+    });
 
     return { warnings };
+  }
+
+  // The item ids the delete cascade will remove (relationships either direction,
+  // annotations on the item, aliases to it) — so _withWrite can journal them.
+  _cascadeMetadataOps(db, id) {
+    const ids = new Set();
+    for (const r of db.prepare('SELECT id FROM relationships WHERE source_id = ? OR target_id = ?').all(id, id)) ids.add(r.id);
+    for (const a of db.prepare('SELECT id FROM annotations WHERE target_id = ?').all(id)) ids.add(a.id);
+    for (const a of db.prepare('SELECT item_id FROM aliases WHERE target_id = ?').all(id)) if (a.item_id) ids.add(a.item_id);
+    return [...ids].map(x => ({ id: x, store: 'items' }));
   }
 
   softDelete(id, actor) {
@@ -1239,23 +1383,16 @@ class SqliteFsAdapter {
     const existingDoc = this._readItemJson(id);
     const newDoc      = this._itemToDoc(updated, existingDoc);
 
-    if (this._branch !== 'main') {
-      this._writeBranchItemJson(this._branch, id, newDoc);
-      this._mem.delete(id);
-      const db = this._openDb(); const branchId = this._branchId(this._branch);
-      if (branchId) { const prev = db.prepare("SELECT change_type FROM branch_changes WHERE branch_id = ? AND item_id = ? AND section = 'item'").get(branchId, id); const ct = prev?.change_type === 'create' ? 'create' : 'update'; db.transaction(() => { this._recordBranchChange(db, branchId, id, ct, newDoc); })(); }
-      return updated;
-    }
-
-    this._writeItemJson(id, newDoc);
-    this._mem.delete(id);
-
     const db = this._openDb();
-    db.transaction(() => {
-      this._snapshot(db, item, 'soft-delete', actor, now);
-      db.prepare('UPDATE items_meta SET deleted_at = ?, modified_at = ?, modified_by = ? WHERE item_id = ?')
-        .run(now.toISOString(), now.toISOString(), actor, id);
-    })();
+    this._withWrite([{ id, store: 'items' }], () => {
+      this._writeItemJson(id, newDoc);
+      this._mem.delete(id);
+      db.transaction(() => {
+        this._snapshot(db, item, 'soft-delete', actor, now);
+        db.prepare('UPDATE items_meta SET deleted_at = ?, modified_at = ?, modified_by = ? WHERE item_id = ?')
+          .run(now.toISOString(), now.toISOString(), actor, id);
+      })();
+    });
 
     return updated;
   }
@@ -1270,23 +1407,16 @@ class SqliteFsAdapter {
     const existingDoc = this._readItemJson(id);
     const newDoc      = this._itemToDoc(updated, existingDoc);
 
-    if (this._branch !== 'main') {
-      this._writeBranchItemJson(this._branch, id, newDoc);
-      this._mem.delete(id);
-      const db = this._openDb(); const branchId = this._branchId(this._branch);
-      if (branchId) { const prev = db.prepare("SELECT change_type FROM branch_changes WHERE branch_id = ? AND item_id = ? AND section = 'item'").get(branchId, id); const ct = prev?.change_type === 'create' ? 'create' : 'update'; db.transaction(() => { this._recordBranchChange(db, branchId, id, ct, newDoc); })(); }
-      return updated;
-    }
-
-    this._writeItemJson(id, newDoc);
-    this._mem.delete(id);
-
     const db = this._openDb();
-    db.transaction(() => {
-      this._snapshot(db, item, 'restore', actor, now);
-      db.prepare('UPDATE items_meta SET deleted_at = NULL, modified_at = ?, modified_by = ? WHERE item_id = ?')
-        .run(now.toISOString(), actor, id);
-    })();
+    this._withWrite([{ id, store: 'items' }], () => {
+      this._writeItemJson(id, newDoc);
+      this._mem.delete(id);
+      db.transaction(() => {
+        this._snapshot(db, item, 'restore', actor, now);
+        db.prepare('UPDATE items_meta SET deleted_at = NULL, modified_at = ?, modified_by = ? WHERE item_id = ?')
+          .run(now.toISOString(), actor, id);
+      })();
+    });
 
     return updated;
   }
@@ -1304,23 +1434,14 @@ class SqliteFsAdapter {
     const doc = this._readItemJson(id);
     if (!doc) throw new Error(`Item not found: ${id}`);
     doc.payload = data;
-    if (this._branch !== 'main') {
-      this._writeBranchItemJson(this._branch, id, doc);
-      const db = this._openDb();
-      const branchId = this._branchId(this._branch);
-      if (branchId) {
-        const prev = db.prepare("SELECT change_type FROM branch_changes WHERE branch_id = ? AND item_id = ? AND section = 'item'").get(branchId, id);
-        const ct = prev?.change_type === 'create' ? 'create' : 'update';
-        db.transaction(() => { this._recordBranchChange(db, branchId, id, ct, doc); })();
-      }
-    } else {
+    const db = this._openDb();
+    this._withWrite([{ id, store: 'items' }], () => {
       this._writeItemJson(id, doc);
-      const db = this._openDb();
       const row = db.prepare('SELECT item_id FROM items_payload WHERE item_id = ?').get(id);
       if (row) db.prepare('UPDATE items_payload SET payload = ? WHERE item_id = ?').run(JSON.stringify(data), id);
       else     db.prepare('INSERT INTO items_payload (item_id, payload) VALUES (?, ?)').run(id, JSON.stringify(data));
-    }
-    this._mem.delete(id);
+      this._mem.delete(id);
+    });
   }
 
   readFunctionJson(id) {
@@ -1602,11 +1723,24 @@ class SqliteFsAdapter {
   // ─── Aliases ───────────────────────────────────────────────────────────────
 
   setAlias(alias, id) {
-    this._openDb().prepare('INSERT OR REPLACE INTO aliases (alias, target_id) VALUES (?, ?)').run(alias, id);
+    const db = this._openDb();
+    // Overwrite: drop any existing alias item carrying this string first.
+    const existing = db.prepare('SELECT item_id FROM aliases WHERE alias = ?').get(alias);
+    if (existing?.item_id) db.transaction(() => this._deleteMetadataItem(db, existing.item_id, 'alias'))();
+
+    const now = new Date().toISOString();
+    const doc = this._metaItem({
+      id: crypto.randomUUID(), parentId: TYPE_ITEM_UUIDS.alias, type: 'alias', value: alias,
+    });
+    doc.payload = { targetId: id, scope: 'personal', provisional: false, confirmedAt: now, computedFrom: null };
+    this._writeMetadataItem(doc);
   }
 
   removeAlias(alias) {
-    this._openDb().prepare('DELETE FROM aliases WHERE alias = ?').run(alias);
+    const db = this._openDb();
+    const existing = db.prepare('SELECT item_id FROM aliases WHERE alias = ?').get(alias);
+    if (existing?.item_id) db.transaction(() => this._deleteMetadataItem(db, existing.item_id, 'alias'))();
+    else db.prepare('DELETE FROM aliases WHERE alias = ?').run(alias);
   }
 
   listAliases() {
@@ -1617,16 +1751,22 @@ class SqliteFsAdapter {
   // ─── Annotations ───────────────────────────────────────────────────────────
 
   annotate(targetId, { author, content, parentAnnotationId = null } = {}) {
-    const id  = crypto.randomUUID();
-    const now = new Date();
-    const ann = {
-      id, targetId,
-      author: author || this.config.owner,
-      content, createdAt: now.toISOString(), parentAnnotationId,
-    };
-    this._openDb().prepare(
-      'INSERT INTO annotations (id, target_id, author, content, created_at, parent_annotation_id) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(id, targetId, ann.author, content, ann.createdAt, parentAnnotationId);
+    const id     = crypto.randomUUID();
+    const now    = new Date();
+    const actor  = author || this.config.owner;
+    const ann    = { id, targetId, author: actor, content, createdAt: now.toISOString(), parentAnnotationId };
+
+    // Annotation is a real `annotation` item.json parented under its target, in
+    // the "comments" aspect so it stays out of default content traversal. The
+    // item.json is the source of truth; the annotations table is derived.
+    const doc = this._metaItem({
+      id, parentId: targetId, type: 'annotation',
+      value: typeof content === 'string' ? content.slice(0, 255) : null,
+      aspect: 'comments', layer: 'user',
+      owner: actor, createdBy: actor, modifiedBy: actor, createdAt: now.toISOString(), modifiedAt: now.toISOString(),
+    });
+    doc.payload = { content, author: actor, parentAnnotationId };
+    this._writeMetadataItem(doc);
     return ann;
   }
 
@@ -1669,9 +1809,17 @@ class SqliteFsAdapter {
     const now   = new Date();
     const actor = createdBy || this.config.owner;
     const relId = crypto.randomUUID();
-    this._openDb().prepare(
-      'INSERT INTO relationships (id, source_id, type, target_id, note, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).run(relId, sourceId, type, targetId, note, now.toISOString(), actor);
+
+    // A relationship is a real `relationship` item.json (the source of truth); the
+    // relationships table is a derived projection. The relationship-type slug lives
+    // in item.value; source/target live in the payload.
+    const doc = this._metaItem({
+      id: relId, parentId: TYPE_ITEM_UUIDS.relationship, type: 'relationship', value: type,
+      layer: 'user', owner: actor, createdBy: actor, modifiedBy: actor,
+      createdAt: now.toISOString(), modifiedAt: now.toISOString(),
+    });
+    doc.payload = { typeId: null, sourceId, targetId, data: null, confidence: null, note };
+    this._writeMetadataItem(doc);
     return { id: relId, sourceId, targetId, type, createdAt: now.toISOString(), createdBy: actor, note };
   }
 
@@ -1716,32 +1864,15 @@ class SqliteFsAdapter {
   }
 
   loadAll() {
-    const mainItems = this._openDb().prepare(`
+    return this._openDb().prepare(`
       SELECT i.*, m.owner, m.license, m.visibility, m.confidence, m.status, m.tags,
              m.created_at, m.modified_at, m.created_by, m.modified_by,
              m.completed_at, m.due_at, m.expires_at, m.deleted_at, m.cached_at,
              m.connector_id, m.materialized, m.files, m.layer,
              m.source_system, m.source_external_id, m.icon
       FROM items i LEFT JOIN items_meta m ON m.item_id = i.id
+      WHERE i.type NOT IN ('alias', 'relationship', 'annotation', 'item_history')
     `).all().map(r => this._rowToItem(r));
-
-    if (this._branch === 'main') return mainItems;
-
-    const { deletedIds, changedIds, createdIds } = this._getBranchOverlay(this._branch);
-
-    // Start from main items, filter out deleted and changed (changed re-added from overlay).
-    let result = mainItems.filter(i => !deletedIds.has(i.id) && !changedIds.has(i.id));
-
-    for (const id of changedIds) {
-      const doc = this._readBranchItemJsonRaw(id);
-      if (doc) { const item = this._docToItem(doc); if (item) result.push(item); }
-    }
-    for (const id of createdIds) {
-      const doc = this._readBranchItemJsonRaw(id);
-      if (doc) { const item = this._docToItem(doc); if (item) result.push(item); }
-    }
-
-    return result;
   }
 
   // ─── Tree ──────────────────────────────────────────────────────────────────
@@ -1778,26 +1909,7 @@ class SqliteFsAdapter {
     const rows = (aspect === null || aspect === undefined)
       ? db.prepare(sql).all(parentId)
       : db.prepare(sql).all(parentId, aspect);
-    let realChildren = rows.map(r => this._rowToItem(r));
-
-    if (this._branch !== 'main') {
-      const { deletedIds, changedIds, createdIds } = this._getBranchOverlay(this._branch);
-      // Remove deleted and changed items (changed re-added from overlay below)
-      realChildren = realChildren.filter(i => !deletedIds.has(i.id) && !changedIds.has(i.id));
-      // Overlay updated items
-      for (const id of changedIds) {
-        const doc = this._readBranchItemJsonRaw(id);
-        if (doc && doc.item.parentId === parentId && (aspect === null ? doc.item.aspect == null : doc.item.aspect === aspect))
-          realChildren.push(this._docToItem(doc));
-      }
-      // Add branch-created children with this parentId
-      for (const id of createdIds) {
-        const doc = this._readBranchItemJsonRaw(id);
-        if (doc && doc.item.parentId === parentId && (aspect === null ? doc.item.aspect == null : doc.item.aspect === aspect))
-          realChildren.push(this._docToItem(doc));
-      }
-      realChildren.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-    }
+    const realChildren = rows.map(r => this._rowToItem(r));
 
     const obj = this.readObjectJson(parentId);
     if (!obj) return realChildren;
@@ -1828,12 +1940,15 @@ class SqliteFsAdapter {
       FROM items i LEFT JOIN items_meta m ON m.item_id = i.id
     `;
 
+    // Metadata items (annotations live under their target via the "comments"
+    // aspect) are not part of the content tree.
+    const exclude = " AND i.type NOT IN ('alias', 'relationship', 'annotation', 'item_history')";
     let rows;
     if (maxDepth === Infinity) {
-      rows = db.prepare(joinSql + ' WHERE i.path = ? OR i.path LIKE ?').all(rootPath, rootPath + '/%');
+      rows = db.prepare(joinSql + ' WHERE (i.path = ? OR i.path LIKE ?)' + exclude).all(rootPath, rootPath + '/%');
     } else {
       rows = db.prepare(joinSql + ` WHERE (i.path = ? OR i.path LIKE ?)
-        AND (length(i.path) - length(replace(i.path, '/', ''))) <= ?`
+        AND (length(i.path) - length(replace(i.path, '/', ''))) <= ?` + exclude
       ).all(rootPath, rootPath + '/%', rootDepth + maxDepth);
     }
 
@@ -1924,7 +2039,8 @@ class SqliteFsAdapter {
     const row = this._openDb().prepare('SELECT path FROM items WHERE id = ?').get(rootId);
     if (!row?.path) return 0;
     const r = this._openDb().prepare(
-      'SELECT COUNT(*) AS cnt FROM items WHERE path = ? OR path LIKE ?'
+      `SELECT COUNT(*) AS cnt FROM items WHERE (path = ? OR path LIKE ?)
+       AND type NOT IN ('alias', 'relationship', 'annotation', 'item_history')`
     ).get(row.path, row.path + '/%');
     return r?.cnt ?? 0;
   }
@@ -2047,6 +2163,10 @@ class SqliteFsAdapter {
       db.prepare('DELETE FROM items_meta').run();
       db.prepare('DELETE FROM item_tags').run();
       db.prepare('DELETE FROM backlinks').run();
+      db.prepare('DELETE FROM history').run();
+      db.prepare('DELETE FROM aliases').run();
+      db.prepare('DELETE FROM relationships').run();
+      db.prepare('DELETE FROM annotations').run();
       db.prepare('DELETE FROM items').run();
       this._rebuildFromFs(db);
     })();
@@ -2056,144 +2176,195 @@ class SqliteFsAdapter {
   }
 
   // ─── Branching ────────────────────────────────────────────────────────────
+  //
+  // Every branch is a complete, self-contained folder under branches/<name>/
+  // (items/ + index.db + branch.json). The branch registry IS the branches/
+  // directory — there is no branches table and no shared current_branch. A
+  // branch is created by recursively copying the base branch's folder; switching
+  // a branch just reopens that folder's index.db.
 
   currentBranch() { return this._branch; }
+
+  _branchExists(name) {
+    return fs.existsSync(path.join(this._branchRoot(name), 'items'));
+  }
 
   createBranch(name) {
     if (!name || typeof name !== 'string' || !name.trim()) throw new Error('branch name is required');
     name = name.trim();
     if (name === 'main') throw new Error('Cannot create a branch named "main"');
-    const db  = this._openDb();
-    const existing = db.prepare('SELECT id FROM branches WHERE name = ? AND deleted_at IS NULL').get(name);
-    if (existing) throw new Error(`Branch "${name}" already exists`);
-    const id  = crypto.randomUUID();
-    const now = new Date().toISOString();
-    fs.mkdirSync(path.join(this._branchDir(name), 'items'), { recursive: true });
+    if (this._branchExists(name)) throw new Error(`Branch "${name}" already exists`);
+
+    const base = this._branch;
+    const now  = new Date().toISOString();
+
+    // Flush the base branch's index so the copy includes an up-to-date index.db.
+    if (this._db && this._dbBranch === base) { try { this._db.pragma('wal_checkpoint(TRUNCATE)'); } catch {} }
+
+    const srcDir  = this._branchRoot(base);
+    const destDir = this._branchRoot(name);
+
+    // Full recursive copy of the base branch folder (items + index.db). This is a
+    // complete copy, NOT a delta.
+    fs.mkdirSync(path.dirname(destDir), { recursive: true });
+    fs.cpSync(srcDir, destDir, { recursive: true });
+
+    // Overwrite branch.json with this branch's own identity + base/createdAt.
+    const manifest = { name, fill: 'full', upstream: null, base, createdAt: now };
     fs.writeFileSync(
-      path.join(this._branchDir(name), 'branch.json'),
-      JSON.stringify({ id, name, baseBranch: this._branch, createdAt: now }, null, 2),
+      path.join(destDir, 'branch.json'),
+      JSON.stringify(manifest, null, 2),
       'utf8',
     );
-    db.prepare('INSERT INTO branches (id, name, base_branch, created_at) VALUES (?, ?, ?, ?)').run(id, name, this._branch, now);
-    return { id, name, baseBranch: this._branch, createdAt: now };
+    // Drop any copied WAL sidecars so the new branch's index opens cleanly.
+    for (const sfx of ['-wal', '-shm']) {
+      const f = path.join(destDir, 'index.db' + sfx);
+      if (fs.existsSync(f)) { try { fs.rmSync(f); } catch {} }
+    }
+
+    return { name, base, baseBranch: base, fill: 'full', upstream: null, createdAt: now };
   }
 
+  // Set the active branch and persist it as the process default. With per-branch
+  // folders there is no shared default to write — this simply reopens the branch.
   switchBranch(name) {
     name = (name || 'main').trim();
-    if (name !== 'main') {
-      const row = this._openDb().prepare('SELECT id FROM branches WHERE name = ? AND deleted_at IS NULL AND merged_at IS NULL').get(name);
-      if (!row) throw new Error(`Branch "${name}" not found or already merged`);
-    }
-    this._branch = name;
-    this._mem.clear(); // cache is stale after branch switch
-    this._openDb().prepare("INSERT OR REPLACE INTO workspace_meta (key, value) VALUES ('current_branch', ?)").run(name);
+    if (name !== 'main' && !this._branchExists(name)) throw new Error(`Branch "${name}" not found`);
+    this._setActiveBranch(name);
   }
 
+  // Select the active branch for THIS instance only. Identical to switchBranch in
+  // the per-branch-folder model (there is no shared default to persist), but kept
+  // separate so a consumer can express intent. Switching closes the current
+  // index.db so the next _openDb() opens the new branch's folder, and clears the
+  // memory cache (stale after a branch change).
+  useBranch(name) {
+    name = (name || 'main').trim();
+    if (name !== 'main' && !this._branchExists(name)) throw new Error(`Branch "${name}" not found`);
+    this._setActiveBranch(name);
+  }
+
+  _setActiveBranch(name) {
+    if (name === this._branch) return;
+    if (this._db) { try { this._db.close(); } catch {} this._db = null; this._dbBranch = null; }
+    this._branch = name;
+    this._mem.clear();
+    this._roots  = null;
+    // A crashed writer may have left a journal on the branch we're switching to.
+    this._recover();
+  }
+
+  // The branch registry is the branches/ directory: one branch.json per branch.
   listBranches() {
-    return this._openDb().prepare('SELECT id, name, base_branch, created_at, merged_at, deleted_at FROM branches WHERE deleted_at IS NULL ORDER BY created_at').all()
-      .map(r => ({ id: r.id, name: r.name, baseBranch: r.base_branch, createdAt: r.created_at, mergedAt: r.merged_at ?? null, deletedAt: r.deleted_at ?? null }));
+    const branchesDir = path.join(this.k, 'branches');
+    if (!fs.existsSync(branchesDir)) return [];
+    const out = [];
+    for (const entry of fs.readdirSync(branchesDir).sort()) {
+      if (entry === 'main') continue; // listBranches reports non-main branches
+      const full = path.join(branchesDir, entry);
+      if (!fs.statSync(full).isDirectory()) continue;
+      let manifest = null;
+      try { manifest = JSON.parse(fs.readFileSync(path.join(full, 'branch.json'), 'utf8')); } catch {}
+      const decodedName = manifest?.name ?? entry.replace(/__/g, '/');
+      out.push({
+        name: decodedName,
+        base: manifest?.base ?? 'main',
+        baseBranch: manifest?.base ?? 'main',
+        fill: manifest?.fill ?? 'full',
+        upstream: manifest?.upstream ?? null,
+        createdAt: manifest?.createdAt ?? null,
+      });
+    }
+    out.sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? ''));
+    return out;
   }
 
   deleteBranch(name) {
     if (!name || name === 'main') throw new Error('Cannot delete the main branch');
     if (this._branch === name) throw new Error(`Cannot delete the currently active branch "${name}" — switch to main first`);
-    const db  = this._openDb();
-    const row = db.prepare('SELECT id FROM branches WHERE name = ? AND deleted_at IS NULL').get(name);
-    if (!row) throw new Error(`Branch "${name}" not found`);
-    db.prepare('UPDATE branches SET deleted_at = ? WHERE id = ?').run(new Date().toISOString(), row.id);
-    const dir = this._branchDir(name);
+    if (!this._branchExists(name)) throw new Error(`Branch "${name}" not found`);
+    const dir = this._branchRoot(name);
     if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
   }
 
-  // Returns the full ADD/EDIT/DELETE diff for a branch vs main.
+  // Returns the full ADD/EDIT/DELETE diff of a branch vs main, computed by
+  // scanning both branches' items/ trees (each branch is a full folder).
   branchDiff(name) {
     name = (name ?? this._branch).trim();
-    const branchId = this._branchId(name);
-    if (!branchId) return { adds: [], edits: [], deletes: [] };
-    const db   = this._openDb();
-    const rows = db.prepare("SELECT item_id, change_type FROM branch_changes WHERE branch_id = ? AND section = 'item'").all(branchId);
-    const adds = [], edits = [], deletes = [];
-    for (const r of rows) {
-      if (r.change_type === 'delete') {
-        const mainDoc = this._readItemJson(r.item_id);
-        deletes.push({ id: r.item_id, before: mainDoc ? this._docToItem(mainDoc) : null });
-      } else if (r.change_type === 'create') {
-        const doc  = this._readBranchItemJsonRaw_forBranch(name, r.item_id);
-        adds.push({ id: r.item_id, after: doc ? this._docToItem(doc) : null, doc });
-      } else {
-        const branchDoc = this._readBranchItemJsonRaw_forBranch(name, r.item_id);
-        const mainDoc   = (() => { const p = this._itemPath(r.item_id); try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } })();
-        edits.push({ id: r.item_id, before: mainDoc ? this._docToItem(mainDoc) : null, after: branchDoc ? this._docToItem(branchDoc) : null, doc: branchDoc });
+    if (name === 'main') return { adds: [], edits: [], deletes: [] };
+    if (!this._branchExists(name)) return { adds: [], edits: [], deletes: [] };
+
+    const readTree = (branchName) => {
+      const dir = path.join(this._branchRoot(branchName), 'items');
+      const map = new Map();
+      for (const jsonPath of this._scanItemFiles(dir)) {
+        try {
+          const doc = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+          if (doc?.item?.id) map.set(doc.item.id, doc);
+        } catch {}
       }
+      return map;
+    };
+
+    const branchDocs = readTree(name);
+    const mainDocs   = readTree('main');
+
+    const adds = [], edits = [], deletes = [];
+    for (const [id, doc] of branchDocs) {
+      const mainDoc = mainDocs.get(id);
+      if (!mainDoc) {
+        adds.push({ id, after: this._docToItem(doc), doc });
+      } else if (JSON.stringify(mainDoc) !== JSON.stringify(doc)) {
+        edits.push({ id, before: this._docToItem(mainDoc), after: this._docToItem(doc), doc });
+      }
+    }
+    for (const [id, mainDoc] of mainDocs) {
+      if (!branchDocs.has(id)) deletes.push({ id, before: this._docToItem(mainDoc) });
     }
     return { adds, edits, deletes };
   }
 
-  // Read branch item.json for a specific named branch (not necessarily current branch).
-  _readBranchItemJsonRaw_forBranch(branchName, id) {
-    const p = this._branchItemPath(branchName, id);
-    try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; }
-  }
-
-  // Merge a local branch into main. Must be on a different branch (switch to main first).
+  // Merge a local branch into main by applying its full-folder diff to main's
+  // items/ and rebuilding main's index. Must be run from a different branch
+  // (switch to main first). The branch folder is removed after a successful merge.
   mergeBranchLocally(name) {
     if (!name || name === 'main') throw new Error('Cannot merge the main branch into itself');
     if (this._branch === name) throw new Error(`Switch to main before merging branch "${name}"`);
-    const branchId = this._branchId(name);
-    if (!branchId) throw new Error(`Branch "${name}" not found`);
-    const db = this._openDb();
-    const changeRows = db.prepare('SELECT item_id, change_type, section, data FROM branch_changes WHERE branch_id = ? ORDER BY item_id, section').all(branchId);
+    if (!this._branchExists(name)) throw new Error(`Branch "${name}" not found`);
 
-    // Group by item
-    const byItem = new Map();
-    for (const r of changeRows) {
-      if (!byItem.has(r.item_id)) byItem.set(r.item_id, { changeType: r.change_type, sections: {} });
-      const entry = byItem.get(r.item_id);
-      if (r.change_type === 'delete') entry.changeType = 'delete';
-      if (r.data) entry.sections[r.section] = JSON.parse(r.data);
-    }
+    const diff = this.branchDiff(name);
+    const mainItemsDir = path.join(this._branchRoot('main'), 'items');
 
-    db.transaction(() => {
-      for (const [itemId, entry] of byItem) {
-        if (entry.changeType === 'delete') {
-          this._deleteItemDir(itemId);
-          this._mem.delete(itemId);
-          db.prepare('DELETE FROM item_tags     WHERE item_id = ?').run(itemId);
-          db.prepare('DELETE FROM backlinks     WHERE source_id = ? OR target_id = ?').run(itemId, itemId);
-          db.prepare('DELETE FROM relationships WHERE source_id = ? OR target_id = ?').run(itemId, itemId);
-          db.prepare('DELETE FROM items_meta    WHERE item_id = ?').run(itemId);
-          db.prepare('DELETE FROM items_payload WHERE item_id = ?').run(itemId);
-          db.prepare('DELETE FROM items_search  WHERE item_id = ?').run(itemId);
-          db.prepare('DELETE FROM items_time    WHERE item_id = ?').run(itemId);
-          db.prepare('DELETE FROM items         WHERE id = ?').run(itemId);
-        } else {
-          // Reconstruct doc from stored sections
-          const doc = { item: entry.sections.item ?? null, meta: entry.sections.meta ?? null,
-                        search: entry.sections.search ?? null, payload: entry.sections.payload ?? null,
-                        time: entry.sections.time ?? null };
-          if (!doc.item) {
-            // Fallback: read from branch overlay file
-            const branchDoc = this._readBranchItemJsonRaw_forBranch(name, itemId);
-            if (branchDoc) {
-              this._writeItemJson(itemId, branchDoc);
-              this._insertIndexTx(db, itemId, branchDoc, null);
-            }
-          } else {
-            this._writeItemJson(itemId, doc);
-            this._insertIndexTx(db, itemId, doc, null);
-          }
-          this._mem.delete(itemId);
-        }
-      }
-      db.prepare('UPDATE branches SET merged_at = ? WHERE id = ?').run(new Date().toISOString(), branchId);
-      db.prepare('DELETE FROM branch_changes WHERE branch_id = ?').run(branchId);
-    })();
+    // Apply onto main's items/ tree (note: _itemPath/_itemDir target the ACTIVE
+    // branch, which must be main here — enforced by the guard above + the usual
+    // "switch to main first" workflow).
+    const writeMainDoc = (id, doc) => {
+      const [s1, s2] = this._shard(id);
+      const dir = path.join(mainItemsDir, s1, s2, id);
+      fs.mkdirSync(dir, { recursive: true });
+      const p   = path.join(dir, 'item.json');
+      const tmp = p + '.tmp';
+      fs.writeFileSync(tmp, JSON.stringify(doc, null, 2), 'utf8');
+      fs.renameSync(tmp, p);
+    };
+    const deleteMainDoc = (id) => {
+      const [s1, s2] = this._shard(id);
+      const dir = path.join(mainItemsDir, s1, s2, id);
+      if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
+    };
 
-    // Remove branch overlay directory
-    const dir = this._branchDir(name);
+    for (const a of diff.adds)    writeMainDoc(a.id, a.doc);
+    for (const e of diff.edits)   writeMainDoc(e.id, e.doc);
+    for (const d of diff.deletes) deleteMainDoc(d.id);
+
+    // index.db is fully derived — rebuild main's index from its files.
+    this.rebuildIndexes();
+
+    // Remove the merged branch folder.
+    const dir = this._branchRoot(name);
     if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
 
-    return { merged: byItem.size };
+    return { merged: diff.adds.length + diff.edits.length + diff.deletes.length };
   }
 
   // ─── Integrity checks ─────────────────────────────────────────────────────

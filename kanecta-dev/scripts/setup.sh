@@ -4,7 +4,8 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DATASTORE_PATH="${KANECTA_DATASTORE:-$HOME/.kanecta}"
+DATASTORE_PATH="${1:-$HOME/.kanecta}"
+CONFIG_DIR="${KANECTA_CONFIG:-$HOME/.config/kanecta}"
 CLAUDE_JSON="$HOME/.claude.json"
 NODE="$(which node 2>/dev/null || true)"
 
@@ -53,6 +54,29 @@ else
   ok "Datastore initialised at $DATASTORE_PATH"
 fi
 
+# ─── Ensure config.json points a working set at the datastore ──────────────────
+
+"$NODE" - "$CONFIG_DIR" "$DATASTORE_PATH" <<'CFG'
+const fs = require('fs');
+const path = require('path');
+const [,, dir, ds] = process.argv;
+fs.mkdirSync(dir, { recursive: true });
+const p = path.join(dir, 'config.json');
+let cfg = {};
+try { cfg = JSON.parse(fs.readFileSync(p, 'utf8')); } catch {}
+cfg.specVersion = cfg.specVersion || '1.4.0';
+cfg.workingSets = cfg.workingSets || cfg.workspaces || {};
+delete cfg.workspaces;
+if (!Object.keys(cfg.workingSets).length) {
+  cfg.workingSets.default = { local: ds, defaultBranch: 'main' };
+}
+cfg.defaultWorkingSet = cfg.defaultWorkingSet || cfg.defaultWorkspace || Object.keys(cfg.workingSets)[0];
+delete cfg.defaultWorkspace;
+fs.writeFileSync(p, JSON.stringify(cfg, null, 2) + '\n');
+console.log('config at ' + p);
+CFG
+ok "Config ensured at $CONFIG_DIR/config.json"
+
 # ─── Patch ~/.claude.json ─────────────────────────────────────────────────────
 
 MCP_ENTRY=$(cat <<ENTRY
@@ -60,7 +84,7 @@ MCP_ENTRY=$(cat <<ENTRY
   "type": "stdio",
   "command": "$NODE",
   "args": ["$REPO_ROOT/kanecta-mcp/src/index.js"],
-  "env": { "KANECTA_DATASTORE": "$DATASTORE_PATH" }
+  "env": { "KANECTA_CONFIG": "$CONFIG_DIR" }
 }
 ENTRY
 )

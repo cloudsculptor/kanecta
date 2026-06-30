@@ -4,7 +4,7 @@ import { IconButton, Tooltip } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { TagChip } from '@kanecta/component-tag-chip';
 import { ItemValue } from '@kanecta/component-item-value';
-import { useWorkspaceStore } from '../../store/workspace';
+import { useWorkingSetStore } from '../../store/workingSet';
 import { useItemLookup } from '../../hooks/useItemLookup';
 import { ITEM_TYPES, CONFIDENCE_LEVELS } from '../../lib/constants';
 import type { KanectaItem } from '../../types/kanecta';
@@ -39,7 +39,7 @@ function CopyButton({ text, onAfterCopy }: { text: string; onAfterCopy?: () => v
 }
 
 export function ItemMetadata({ item }: ItemMetadataProps) {
-  const { getApi, activeWorkspaceId } = useWorkspaceStore();
+  const { getApi, activeWorkingSetId } = useWorkingSetStore();
   const qc = useQueryClient();
   const resolveId = useItemLookup();
   const [editingField, setEditingField] = useState<EditableField>(null);
@@ -194,7 +194,7 @@ export function ItemMetadata({ item }: ItemMetadataProps) {
         <div className="ItemMetadata-value" style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
           {item.id}
         </div>
-        <CopyButton text={item.id} onAfterCopy={() => void getApi(activeWorkspaceId).breadcrumb.addClipboard(item.id, item.value, item.type, item.typeId ?? '')} />
+        <CopyButton text={item.id} onAfterCopy={() => void getApi(activeWorkingSetId).breadcrumb.addClipboard(item.id, item.value, item.type, item.typeId ?? '')} />
       </div>
     </div>
   );

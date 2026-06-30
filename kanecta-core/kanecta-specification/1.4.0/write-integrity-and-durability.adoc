@@ -1,0 +1,290 @@
+= Write Integrity & Durability
+:toc: macro
+:toclevels: 3
+
+[abstract]
+A single logical change in Kanecta touches several places at once — the
+authoritative record, a structured index, read projections, and (for files) a
+blob store. This chapter explains how Kanecta guarantees that a change either
+lands *everywhere* or *nowhere*, that a crash never leaves a half-applied write,
+and that readers never observe a partial change. Like the branching model, this
+is core machinery; read it top to bottom the first time.
+
+toc::[]
+
+== Why this needs a design at all
+
+Writing one item is not one operation. Depending on the adapter it is several:
+
+* write the authoritative record,
+* update the complete structured store you query against,
+* refresh read-optimized projections,
+* save file payloads (sidecars on disk, or objects in S3).
+
+These span media that have *no shared transaction*. A filesystem write and a
+SQLite update are not one atomic OS operation; a Postgres transaction cannot
+enroll an S3 upload. So "just use a database transaction" is not enough — Kanecta
+needs its own mechanism to make a multi-store change atomic, durable, and
+recoverable. That mechanism is a **journal + lock + serialized writer**, defined
+below.
+
+[#storage-levels]
+== The storage levels (L0 / L1 / L2)
+
+Every adapter has the same three *roles*, numbered from the source of truth (0)
+outward to the most derived and disposable (2). The number tracks the **role**,
+not the medium, so "L1" means the same thing on every adapter.
+
+[cols="1,2,3,3", options="header"]
+|===
+| Level | Role | Filesystem adapter | Postgres adapter
+
+| *L0*
+| *Authority* — the only thing that must be durable and atomic; the source of
+  truth.
+| `item.json` + file sidecars on disk.
+| The item tables + S3 objects.
+
+| *L1*
+| *Structured store* — a complete, queryable representation of every item.
+| A SQLite store holding an exact, complete copy of every `item.json` (derived
+  from L0).
+| *The same tables as L0* — the database already is the structured store.
+
+| *L2*
+| *Projections* — read-optimized tables tuned to specific query patterns;
+  derived and disposable.
+| CQRS projection tables in SQLite.
+| CQRS projection tables.
+|===
+
+Two rules make the whole model fall out:
+
+. *Lower number = closer to the truth.* L0 is authority; **everything above it is
+  derived and 100% rebuildable** from L0. (This is the same hard rule stated for
+  `index.db` in the branching chapter — the structured store and projections are
+  never a source of truth.)
+. *Adapters may collapse adjacent levels.* On Postgres, **L0 and L1 are the same
+  physical tables** — there is no separate derived copy, because the database *is*
+  the structured store. On the filesystem they are distinct: files are L0, the
+  SQLite mirror is L1.
+
+[listing]
+----
+Filesystem adapter            Postgres adapter
+  L0  item.json + sidecars      L0  item tables + S3   ┐ same
+  L1  SQLite (full copy)        L1  (= L0)             ┘ physical store
+  L2  projection tables         L2  projection tables
+   ▲ derived from L0             ▲ derived from L0
+----
+
+== Write order
+
+A write always flows from the source of truth outward — **L0 first, then the
+derived levels**:
+
+* *Filesystem + SQLite:* write `item.json` + sidecars (L0) → update the SQLite
+  complete copy (L1) → update projections (L2).
+* *Postgres + S3:* write the S3 objects, then the item tables in one transaction
+  (L0) → update projections (L2).
+
+Because L1/L2 are rebuildable from L0, the *only* step that must be made truly
+atomic and durable is the **L0** write. The derived steps can always be redone by
+rebuilding from L0 — a fact the recovery rules below rely on.
+
+== Serialized writes
+
+Writes to a branch are **serialized**: at most one write transaction is in flight
+per branch at any moment. A new write **queues** behind the current one (it waits
+its turn and then proceeds in arrival order — nothing is dropped) and does not
+begin until the previous write has *fully landed* and released its lock.
+
+* *Scope is per branch.* Branches are independent storage (own folder + own
+  `index.db`, or own Postgres schema), so a write to branch `A` never waits on a
+  write to branch `B`. The one naturally-serialized shared point is **merge into
+  canonical**, which queues on canonical.
+* *Consequence — recovery is trivial.* With a single writer per branch, there is
+  at most **one** in-flight transaction, so at most **one** journal entry can ever
+  be incomplete after a crash. There are no write-write races to untangle.
+* *Trade-off, deliberately accepted.* One write at a time caps write concurrency.
+  For a knowledge graph (human- and agent-paced edits, with bulk operations
+  already atomic as a single transaction) this is a fine price for dead-simple
+  integrity.
+
+[#journal]
+== The journal and lock
+
+Before touching any storage level, a write records its intent in a durable
+**journal** and takes a **lock**. The journal is a write-ahead record of the whole
+transaction; the lock enforces the single-writer rule across processes.
+
+. *Take the lock.* The lock is **cross-process**, not just in-process — the MCP
+  server, the API, and the CLI may all open the same datastore at once, so the
+  filesystem adapter uses an OS-level lock file and the Postgres adapter uses
+  advisory/row locks. The lock record carries the holder's **PID and a
+  heartbeat/timestamp** so a crashed holder's lock can be detected.
+. *Plan the steps.* Each adapter declares the full list of steps required to land
+  this write (`write item.json`, `update L1`, `update projection P`, `put S3
+  object O`, …). The journal stores this plan up front.
+. *Execute and record progress.* The write works through the steps, marking each
+  done in the journal as it completes.
+. *Release.* When every step is complete, the journal entry is marked committed
+  and the lock is released. *Only now is the write reported successful to the
+  caller.*
+
+On the filesystem the journal and lock live durably at the **branch root**
+(`branches/<branch>/write.journal`, `branches/<branch>/write.lock`) — **never in
+`index.db`**, which is derived and disposable. On Postgres the journal is a table
+(durable by definition).
+
+[#atomicity]
+== Atomicity, rollback, and recovery
+
+A write is a **transaction**: it lands completely or not at all, and the caller is
+told it succeeded only after it has fully landed.
+
+Recovery turns on one question — *did L0 (authority) complete?* — because L1/L2
+are always rebuildable:
+
+[cols="1,3", options="header"]
+|===
+| Situation at crash | Recovery on next open
+
+| Journal entry **committed** (lock released cleanly)
+| Nothing to do — the write fully landed.
+
+| L0 **completed**, but a derived step (L1/L2) did not
+| *Roll forward*: rebuild the derived levels from L0. The write stands.
+
+| L0 **did not complete**
+| *Roll back* to the pre-image: the write never happened as far as any caller
+  knows (the caller was never told it succeeded).
+|===
+
+Recovery runs **on open, before the datastore serves anything**. A leftover lock
+whose holder PID is dead (or whose heartbeat has expired) is treated as a crashed
+write and resolved by the rules above — so queued writers and readers never wait
+forever on a dead lock.
+
+=== Cross-store atomicity (the reason the journal exists)
+
+Postgres can wrap its own table writes in an ACID transaction, but an **S3 upload
+cannot join that transaction**; likewise a filesystem write and a SQLite update
+are not one OS operation. The journal is what spans the gap:
+
+* *Order:* write the **S3 object(s) first**, then commit the Postgres transaction
+  that references them. An S3 object with no committed reference is a harmless
+  orphan that is garbage-collected; a committed reference to a missing object is
+  not allowed to happen.
+* On the filesystem, `item.json` is written via a temp file + atomic rename, so an
+  individual file is never seen half-written; the journal sequences the file,
+  SQLite, and projection steps into one recoverable transaction.
+
+[#reads]
+== Reads — snapshot semantics (non-blocking)
+
+Reads **never block** on an in-flight write, and they **never observe a partial
+change**. A read always returns the *last fully-committed* state — what databases
+call a snapshot read.
+
+Worked example. Item `X` is committed as `status: open`. A write begins changing
+it to `status: closed` (lock held, steps in progress). A read for `X` arrives
+during that window:
+
+* It returns **`open`** immediately — the last fully-committed value. It does not
+  wait.
+* Once the write lands, the next read returns **`closed`**.
+
+Key properties:
+
+* *Never partial.* A snapshot is always a real, previously-committed state — never
+  half-written data.
+* *At most one version stale, only during the write window.* Outside an in-flight
+  write there is no staleness at all.
+* *Read-your-writes still holds.* Because writes are synchronous (a write call
+  returns only after the change has fully landed), the writer's own subsequent
+  reads always see the new value. Snapshot vs blocking only ever affected *other*
+  readers during the brief in-flight window — and we choose not to stall them.
+* *Why this matters:* a single `add_item` lands in milliseconds, but a
+  `bulk_create` or a **merge** can take seconds. Snapshot reads keep the UI and
+  agents responsive against the prior consistent state for the whole duration,
+  instead of freezing every reader of the affected items.
+
+Implementation requirement: the new version must become visible **atomically
+across the levels a reader touches** — a single SQLite transaction covering L1+L2
+on the filesystem adapter, and MVCC on Postgres. Until that flip, readers
+consistently see the prior committed state.
+
+== Putting it together — the life of a write
+
+[listing]
+----
+1. queue   ── wait for the branch's write slot (serialized)
+2. lock    ── take cross-process lock (PID + heartbeat)
+3. journal ── record intent + the adapter's full step plan
+4. L0      ── write authority (item.json+sidecars / S3+pg txn)   ◄ must be atomic
+5. L1      ── update the structured store (SQLite copy; = L0 on pg)
+6. L2      ── update projections
+7. commit  ── mark journal committed, release lock
+8. return  ── only now is success reported to the caller
+
+crash before 7?  on next open:  L0 done → rebuild L1/L2 ;  L0 not done → roll back
+read during 2–6?  returns the last fully-committed value, never blocks, never partial
+----
+
+== Design rationale
+
+* *Why a journal rather than just DB transactions?* Because no single transaction
+  spans the filesystem + SQLite, or Postgres + S3. The journal is the only thing
+  that can make a multi-store write atomic and recoverable.
+* *Why serialize writes?* It removes write-write races entirely and guarantees at
+  most one incomplete transaction after a crash, which makes recovery simple and
+  provably correct. The throughput cost is acceptable for this workload.
+* *Why is recovery just "rebuild if L0 landed"?* Because L1/L2 are 100% derived
+  from L0. The hard part of durability collapses to making the single L0 step
+  atomic; everything else is roll-forward-by-rebuild.
+* *Why snapshot reads instead of blocking?* They never stall readers (critical
+  during multi-second merges/bulk writes), always return consistent data, and
+  match how Postgres already behaves — while read-your-writes is preserved because
+  writes are synchronous.
+* *Why cross-process locking?* The MCP server, API, and CLI routinely share one
+  datastore; integrity has to hold across processes, not just threads.
+
+== Visual
+
+A rendered HTML diagram of the L0/L1/L2 stack, the write/recovery flow, snapshot
+reads, and the per-branch folder layout lives at
+`kanecta-docs/kanecta-docs/storage-and-write-integrity.html`. The `listing` blocks
+above are the authoritative text source for that diagram.
+
+== Implementation status (filesystem adapter)
+
+The lock + journal + recovery are implemented in `@kanecta/sqlite-fs`
+(`src/write-integrity.js` + the adapter's `_withWrite`/`_recover`):
+
+* Cross-process lock at `branches/<branch>/write.lock` (PID + host + heartbeat),
+  acquired by an atomic `O_EXCL` create, stealing a stale lock (dead PID / expired
+  heartbeat) and otherwise waiting.
+* Write-ahead journal at `branches/<branch>/write.journal` with per-item
+  pre-images; phase advances `started → l0-done` so recovery distinguishes
+  roll-back from roll-forward.
+* `_recover()` runs on open and on branch switch. Roll-forward is a rebuild of the
+  derived index (sound because `index.db` is 100% derived).
+* Wrapped mutations: create, update, delete (with its metadata cascade), soft
+  delete, restore, alias/relationship/annotation writes, and object-payload writes.
+* Reads never take the lock, so they are non-blocking and return the last
+  committed value (atomic `item.json` rename + SQLite WAL provide the snapshot).
+
+== Deferred / open
+
+* *Group-atomic bulk* — bulk operations are currently loops over the wrapped
+  single-item mutations: each item is individually atomic, but the batch is not
+  yet one transaction.
+* `createType` / `writeTypeJson` / root-config (`_saveConfig`) writes are not yet
+  journaled.
+* A history event written inside a transaction that later rolls back can remain as
+  a harmless orphan in `item-history/` (it records an attempt that was undone).
+* An optional "strong read" mode (block until the very latest) for the rare caller
+  that needs it — not implemented; snapshot is the only mode for now.
+* Tunable durability (e.g. `fsync` cadence) per deployment; the default relies on
+  the OS for the journal and L0 writes.

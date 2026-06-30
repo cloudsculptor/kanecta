@@ -7,22 +7,29 @@ const os = require('os');
 const net = require('net');
 const readline = require('readline');
 const { execSync, spawn } = require('child_process');
-const { Datastore } = require('@kanecta/lib');
+const { Datastore, getConfigPath } = require('@kanecta/lib');
 
 const HOME = os.homedir();
 const XDG_CONFIG = process.env.XDG_CONFIG_HOME || path.join(HOME, '.config');
 
+// Discovery honours KANECTA_CONFIG first (a dir or a .json path, resolved by the
+// shared lib resolver), then the platform defaults — the same order every other
+// entry point uses.
 const POINTER_LOCATIONS = [
+  ...(() => { try { return [getConfigPath()]; } catch { return []; } })(),
   path.join(XDG_CONFIG, 'kanecta', 'config.json'),
   path.join(HOME, '.kanecta', 'config.json'),
-];
+].filter((p, i, a) => a.indexOf(p) === i);
 
 const NAME_RE = /^[a-zA-Z0-9-]+$/;
 
 function checkPointerFileFormat(data, sourceFile) {
   const errors = [];
+  // Accept current (workingSets/defaultWorkingSet) and legacy (workspaces/defaultWorkspace) keys.
+  if (!data.workspaces && data.workingSets) data.workspaces = data.workingSets;
+  if (!data.defaultWorkspace && data.defaultWorkingSet) data.defaultWorkspace = data.defaultWorkingSet;
   if (!data.specVersion) errors.push('missing required field "specVersion"');
-  if (!data.defaultWorkspace) errors.push('missing required field "defaultWorkspace"');
+  if (!data.defaultWorkspace) errors.push('missing required field "defaultWorkingSet"');
   if (typeof data.workspaces !== 'object' || data.workspaces === null || Array.isArray(data.workspaces))
     errors.push('"workspaces" must be an object');
   else if (Object.keys(data.workspaces).length === 0)
@@ -163,7 +170,10 @@ function normaliseWorkspace(ws) {
 function readPointer(file) {
   try {
     const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-    // 1.4.0 format: specVersion + defaultWorkspace
+    // Accept current (workingSets/defaultWorkingSet) and legacy (workspaces/defaultWorkspace) keys.
+    if (!data.workspaces && data.workingSets) data.workspaces = data.workingSets;
+    if (!data.defaultWorkspace && data.defaultWorkingSet) data.defaultWorkspace = data.defaultWorkingSet;
+    // 1.4.0 format: specVersion + defaultWorkingSet
     if (data.specVersion && data.defaultWorkspace && typeof data.workspaces === 'object') {
       return { format: '1.4.0', specVersion: data.specVersion, defaultWorkspace: data.defaultWorkspace, default: data.defaultWorkspace, workspaces: data.workspaces, studioPort: data.studioPort ?? 9743, apiPort: data.apiPort ?? 9744 };
     }
@@ -176,33 +186,42 @@ function readPointer(file) {
   return null;
 }
 
+// Convert the wizard's internal `workspace` shape into a 1.4.0 working-set entry.
+// Filesystem → { local, defaultBranch } (schema-valid). Cloud keeps the legacy
+// { mode:'CLOUD', cloud } shape, which Datastore.openWorkingSet still accepts.
+function toWorkingSet(workspace) {
+  if (workspace.mode === 'FILESYSTEM') return { local: workspace.datastore, defaultBranch: 'main' };
+  if (workspace.mode === 'CLOUD')      return { mode: 'CLOUD', cloud: workspace.cloud, defaultBranch: 'main' };
+  return { ...workspace, defaultBranch: workspace.defaultBranch || workspace.branch || 'main' };
+}
+
 function writePointer(name, workspace, apiPort, studioPort, systemItemsDir) {
   const file = POINTER_LOCATIONS[0];
   const isNew = !fs.existsSync(file);
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  let data = readPointer(file) || { default: null, workspaces: {}, studioPort: 9743, apiPort: 9744 };
-  data.workspaces[name] = workspace;
-  data.default = name;
-  data.apiPort = apiPort;
-  data.studioPort = studioPort;
-  if (systemItemsDir) data.systemItemsDir = systemItemsDir;
+
+  // Load existing config in the canonical 1.4.0 shape (tolerating legacy keys).
+  let raw = {};
+  try { raw = JSON.parse(fs.readFileSync(file, 'utf8')); } catch {}
+  const workingSets = raw.workingSets || raw.workspaces || {};
+
+  const data = {
+    specVersion: raw.specVersion || '1.4.0',
+    defaultWorkingSet: name,
+    workingSets,
+    studioPort,
+    apiPort,
+  };
+  data.workingSets[name] = toWorkingSet(workspace);
+  if (systemItemsDir || raw.systemItemsDir) data.systemItemsDir = systemItemsDir || raw.systemItemsDir;
+
   fs.writeFileSync(file, JSON.stringify(data, null, 2) + '\n', 'utf8');
   if (isNew) {
     console.log(`  → Writing ${file}`);
-    console.log(`    (XDG pointer file — records where your datastore lives so npm start can find it next time)`);
+    console.log(`    (config — records your working sets so npm start can find them next time)`);
   } else {
     console.log(`  → Updated ${file}`);
   }
-}
-
-function resolveFromEnv() {
-  const raw = process.env.KANECTA_DATASTORE;
-  console.log(`  checking KANECTA_DATASTORE env → ${raw || '(not set)'}`);
-  if (!raw) return null;
-  const p = expandHome(raw);
-  if (Datastore.isDatastore(p)) return p;
-  console.log(`  ✗ not a valid datastore`);
-  return null;
 }
 
 function resolveFromPointers() {
@@ -220,27 +239,37 @@ function resolveFromPointers() {
   return null;
 }
 
-function checkSpecVersion(datastorePath) {
+function checkSpecVersion(datastorePath, branch = 'main') {
   const rootPkg = JSON.parse(
     fs.readFileSync(path.join(__dirname, '../../package.json'), 'utf8'),
   );
   const expectedVersion = rootPkg.version;
 
-  const configPath = path.join(datastorePath, '.kanecta', 'config', 'config.json');
-  if (!fs.existsSync(configPath)) {
-    console.log(`  spec version check: skipped (no config.json found at ${configPath})`);
+  // 1.4.0: datastore config lives in the root item's payload, in the active
+  // branch's items tree (branches/<branch>/items/00/00/<root>/item.json).
+  const ROOT = '00000000-0000-0000-0000-000000000000';
+  const enc = branch.replace(/\//g, '__');
+  const rootItem = path.join(datastorePath, '.kanecta', 'branches', enc, 'items', '00', '00', ROOT, 'item.json');
+  if (!fs.existsSync(rootItem)) {
+    console.log(`  spec version check: skipped (root item not found at ${rootItem})`);
     return;
   }
 
-  const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-  const datastoreVersion = config.specVersion ?? '(not set)';
+  let datastoreVersion = '(not set)';
+  try {
+    const doc = JSON.parse(fs.readFileSync(rootItem, 'utf8'));
+    datastoreVersion = doc.payload?.specVersion ?? doc.meta?.specVersion ?? '(not set)';
+  } catch {
+    console.log('  spec version check: skipped (could not read root item)');
+    return;
+  }
 
   if (datastoreVersion === expectedVersion) {
     console.log(`  spec version check: ✓ ${datastoreVersion}`);
   } else {
     console.error(
       `\n  spec version check: ✗ datastore specVersion (${datastoreVersion}) does not match expected (${expectedVersion})\n` +
-      `  Update config.json specVersion or check kanecta-specification for migration notes.\n`,
+      `  Check kanecta-specification/kanecta-migrations for migration notes.\n`,
     );
     process.exit(1);
   }
@@ -522,6 +551,15 @@ async function syncSystemItems(datastorePath, systemItemsDir) {
     return;
   }
 
+  // The legacy sync wrote metadata.json files into .kanecta/data and .kanecta/types.
+  // The 1.4.0 per-branch engine stores item.json under branches/<branch>/items, so
+  // this sync no longer applies — skip rather than pollute a new-format datastore.
+  // (Seeding built-in/system items for 1.4.0 is a separate, pending mechanism.)
+  if (fs.existsSync(path.join(datastorePath, '.kanecta', 'branches'))) {
+    console.log('\n  system items check: skipped (1.4.0 per-branch datastore — legacy metadata.json sync does not apply)');
+    return;
+  }
+
   console.log('\n  system items check...');
 
   // Scan systemItemsDir — 2+2+UUID sharding
@@ -614,10 +652,10 @@ async function syncSystemItems(datastorePath, systemItemsDir) {
   }
 }
 
-// `workspaceName` is null when launched via an explicit KANECTA_DATASTORE env
-// override (no named workspace involved); `datastorePath` is null for pure-cloud
-// workspaces (no filesystem path to expose).
-async function launch(workspaceName, datastorePath, apiPort, studioPort, systemItemsDir, branch) {
+// `workspaceName` is null when launched via an explicit env override (no named
+// working set involved); `datastorePath` is null for pure-cloud working sets.
+// `configFile` is the config.json the API/Studio should resolve from.
+async function launch(workspaceName, datastorePath, apiPort, studioPort, systemItemsDir, branch, configFile) {
   const [apiFree, studioFree] = await Promise.all([
     checkPortFree(apiPort),
     checkPortFree(studioPort),
@@ -660,14 +698,19 @@ async function launch(workspaceName, datastorePath, apiPort, studioPort, systemI
     {
       cwd: repoRoot,
       env: (() => {
-        // Build child env from scratch so a stale or mis-quoted KANECTA_DATASTORE
-        // in the parent shell (e.g. unexpanded tilde) can't leak into the server.
+        // Build the child env on the new contract: the API/Studio resolve the
+        // datastore from config.json via KANECTA_CONFIG, select the working set
+        // with KANECTA_WORKING_SET, and the branch with KANECTA_BRANCH. The
+        // legacy KANECTA_DATASTORE/KANECTA_WORKSPACE vars are removed so a stale
+        // value in the parent shell can't leak in (the API ignores them anyway).
         const e = { ...process.env };
         delete e.KANECTA_DATASTORE;
+        delete e.KANECTA_WORKSPACE;
         delete e.KANECTA_BRANCH;
-        if (workspaceName) e.KANECTA_WORKSPACE = workspaceName;
-        if (datastorePath) e.KANECTA_DATASTORE = datastorePath;
-        if (branch) e.KANECTA_BRANCH = branch;
+        delete e.KANECTA_WORKING_SET;
+        if (configFile)    e.KANECTA_CONFIG = configFile;
+        if (workspaceName) e.KANECTA_WORKING_SET = workspaceName;
+        if (branch)        e.KANECTA_BRANCH = branch;
         e.PORT = String(apiPort);
         e.KANECTA_API_URL = `http://localhost:${apiPort}`;
         if (systemItemsDir) e.KANECTA_SYSTEM_ITEMS_DIR = systemItemsDir;
@@ -689,16 +732,10 @@ async function launch(workspaceName, datastorePath, apiPort, studioPort, systemI
 async function main() {
   console.log('\nKanecta — locating datastore...');
 
-  // 1. Explicit env override — forces filesystem mode at this path
-  let datastorePath = resolveFromEnv();
-  if (datastorePath) {
-    console.log(`✓ Datastore: ${datastorePath}`);
-    checkSpecVersion(datastorePath);
-    await syncSystemItems(datastorePath, process.env.KANECTA_SYSTEM_ITEMS_DIR);
-    return launch(null, datastorePath, 9744, 9743);
-  }
-
-  // 2. Pointer files
+  // Datastore selection comes from config.json (the new single source of truth,
+  // located via KANECTA_CONFIG or the platform default). The legacy
+  // KANECTA_DATASTORE env override has been removed — point KANECTA_CONFIG at a
+  // different config.json to switch datastores.
   const pointer = resolveFromPointers();
   if (pointer) {
     const { file: pointerFile, data } = pointer;
@@ -729,18 +766,18 @@ async function main() {
     const norm = normaliseWorkspace(workspace);
     if (!norm) {
       // CLOUD-only workspace (old format mode: CLOUD) — no local path
-      console.log(`✓ Workspace: ${name} (${selectionReason}; cloud)`);
-      return launch(name, null, data.apiPort ?? 9744, data.studioPort ?? 9743, data.systemItemsDir, null);
+      console.log(`✓ Working set: ${name} (${selectionReason}; cloud)`);
+      return launch(name, null, data.apiPort ?? 9744, data.studioPort ?? 9743, data.systemItemsDir, null, pointerFile);
     }
     if (!Datastore.isDatastore(norm.localPath)) {
       console.error(`Datastore not found at configured path: ${norm.localPath}`);
       process.exit(1);
     }
-    console.log(`✓ Workspace: ${name} (${selectionReason}; ${norm.localPath}; branch: ${norm.branch})`);
-    checkSpecVersion(norm.localPath);
+    console.log(`✓ Working set: ${name} (${selectionReason}; ${norm.localPath}; branch: ${norm.branch})`);
+    checkSpecVersion(norm.localPath, norm.branch);
     await syncSystemItems(norm.localPath, data.systemItemsDir);
 
-    return launch(name, norm.localPath, data.apiPort ?? 9744, data.studioPort ?? 9743, data.systemItemsDir, norm.branch);
+    return launch(name, norm.localPath, data.apiPort ?? 9744, data.studioPort ?? 9743, data.systemItemsDir, norm.branch, pointerFile);
   }
 
   // 3. First-run wizard
@@ -754,7 +791,7 @@ async function main() {
     checkSpecVersion(workspace.datastore);
     await syncSystemItems(workspace.datastore, wizardResult.systemItemsDir);
   }
-  launch(wizardResult.name, workspace.datastore ?? null, wizardResult.apiPort, wizardResult.studioPort, wizardResult.systemItemsDir);
+  launch(wizardResult.name, workspace.datastore ?? null, wizardResult.apiPort, wizardResult.studioPort, wizardResult.systemItemsDir, 'main', POINTER_LOCATIONS[0]);
 }
 
 main().catch((err) => {

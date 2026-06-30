@@ -8,13 +8,23 @@ const os = require('node:os');
 const { execFileSync } = require('node:child_process');
 
 const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, DEFAULT_LICENSE } = require('@kanecta/lib');
+const { makeSampleDatastore } = require('../kanecta-storage-adapters/kanecta-sqlite-fs/test-helpers/makeSampleDatastore');
 
-const SAMPLE = path.resolve(__dirname, '../kanecta-datastore-sample');
 const CLI = path.resolve(__dirname, 'index.js');
-
-const ROOT_ID = 'f1a00001-b45e-4c3d-9e7f-000000000001';
-const CLARIFY_ID = 'f1a00002-b45e-4c3d-9e7f-000000000001';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+// The sample datastore is GENERATED fresh from the current adapter (never a
+// committed fixture, which would rot on format changes). ROOT_ID/CLARIFY_ID are
+// the generated UUIDs of the "Base Work Process" and "Clarify" fixture nodes.
+let SAMPLE, ROOT_ID, CLARIFY_ID, SAMPLE_COUNTS;
+before(() => {
+  SAMPLE = fs.mkdtempSync(path.join(os.tmpdir(), 'kanecta-sample-'));
+  const built = makeSampleDatastore(SAMPLE);
+  ROOT_ID = built.ids.baseWorkProcess;
+  CLARIFY_ID = built.ids.clarify;
+  SAMPLE_COUNTS = built.counts;
+});
+after(() => { try { fs.rmSync(SAMPLE, { recursive: true, force: true }); } catch {} });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -26,7 +36,7 @@ function tmpDs() {
 function cli(ds, ...args) {
   return execFileSync('node', [CLI, '--datastore', ds.root, ...args], {
     encoding: 'utf8',
-    env: { ...process.env, KANECTA_DATASTORE: undefined },
+    env: { ...process.env, KANECTA_CONFIG: undefined, KANECTA_WORKING_SET: undefined, KANECTA_BRANCH: undefined },
   });
 }
 
@@ -34,7 +44,7 @@ function cliErr(ds, ...args) {
   try {
     execFileSync('node', [CLI, '--datastore', ds.root, ...args], {
       encoding: 'utf8',
-      env: { ...process.env, KANECTA_DATASTORE: undefined },
+      env: { ...process.env, KANECTA_CONFIG: undefined, KANECTA_WORKING_SET: undefined, KANECTA_BRANCH: undefined },
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     throw new Error('Expected CLI to exit non-zero');
@@ -568,7 +578,7 @@ test('tree: roots at specific ID when given', async () => {
 test('loadAll: returns all items from sample datastore', async () => {
   const ds = Datastore.open(SAMPLE);
   const items = await ds.loadAll();
-  assert.equal(items.length, 40);
+  assert.equal(items.length, SAMPLE_COUNTS.loadAll);
 });
 
 // ─── rebuildIndexes ───────────────────────────────────────────────────────────
@@ -598,7 +608,7 @@ test('rebuildIndexes: repopulates backlinks index', async () => {
 test('rebuildIndexes: returns item count', async () => {
   const ds = Datastore.open(SAMPLE);
   const count = await ds.rebuildIndexes();
-  assert.equal(count, 40);
+  assert.equal(count, SAMPLE_COUNTS.rebuild);
 });
 
 // ─── Sample datastore (read-only integration) ─────────────────────────────────
@@ -607,7 +617,7 @@ test('sample: root item readable by UUID', async () => {
   const ds = Datastore.open(SAMPLE);
   const item = await ds.get(ROOT_ID);
   assert.equal(item.value, 'Base Work Process');
-  assert.equal(item.parentId, (await ds.getDataRoot()).id);
+  assert.equal(item.parentId, '00000000-0000-0000-0000-000000000000'); // lives under root (no data_root in 1.4.0)
   assert.equal(item.type, 'text');
 });
 
@@ -617,10 +627,10 @@ test('sample: alias base-work-process resolves to root UUID', async () => {
   assert.equal(id, ROOT_ID);
 });
 
-test('sample: tree produces 35 nodes from root', async () => {
+test('sample: tree produces the full Base Work Process subtree', async () => {
   const ds = Datastore.open(SAMPLE);
   const nodes = await ds.tree(ROOT_ID);
-  assert.equal(nodes.length, 35);
+  assert.equal(nodes.length, SAMPLE_COUNTS.treeFromBaseWorkProcess);
 });
 
 test('sample: children of root are sorted correctly (Clarify first, Principles last)', async () => {
@@ -861,7 +871,7 @@ test('cli: export --output writes to file', () => {
 test('cli: rebuild-indexes reports item count', () => {
   const ds = Datastore.open(SAMPLE);
   const out = cli(ds, 'rebuild-indexes');
-  assert.ok(out.includes('40'));
+  assert.ok(out.includes(String(SAMPLE_COUNTS.rebuild)));
 });
 
 // ─── doctor (integrity checks) ────────────────────────────────────────────────

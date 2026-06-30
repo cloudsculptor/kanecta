@@ -56,12 +56,20 @@ describe('isDatastore', () => {
 });
 
 describe('init', () => {
-  it('creates items/ directory in .kanecta/', () => {
-    expect(fs.existsSync(path.join(tmp, '.kanecta', 'items'))).toBe(true);
+  it('creates branches/main/items/ directory in .kanecta/', () => {
+    expect(fs.existsSync(path.join(tmp, '.kanecta', 'branches', 'main', 'items'))).toBe(true);
   });
 
-  it('creates index.db (derived SQLite index) in .kanecta/', () => {
-    expect(fs.existsSync(path.join(tmp, '.kanecta', 'index.db'))).toBe(true);
+  it('creates per-branch index.db (derived SQLite index) for main', () => {
+    expect(fs.existsSync(path.join(tmp, '.kanecta', 'branches', 'main', 'index.db'))).toBe(true);
+  });
+
+  it('writes branches/main/branch.json describing the canonical branch', () => {
+    const manifest = JSON.parse(fs.readFileSync(path.join(tmp, '.kanecta', 'branches', 'main', 'branch.json'), 'utf8'));
+    expect(manifest.name).toBe('main');
+    expect(manifest.fill).toBe('full');
+    expect(manifest.upstream).toBeNull();
+    expect(manifest.createdAt).toBeTruthy();
   });
 
   it('creates .gitignore excluding index.db', () => {
@@ -69,17 +77,18 @@ describe('init', () => {
     expect(gi).toContain('index.db');
   });
 
-  it('seeds well-known root nodes (root, system_root, app_root, component_root, data_root)', () => {
+  it('seeds the two reserved nodes (root and types) and no obsolete roots', () => {
     const root = ds.getRoot();
     expect(root.id).toBe(ROOT_ID);
     expect(root.type).toBe('root');
-    const dr = ds.getDataRoot();
-    expect(dr).not.toBeNull();
-    expect(dr.type).toBe('data_root');
+    const kids = ds.children(ROOT_ID);
+    expect(kids.some(k => k.type === 'types')).toBe(true);
+    // 1.4.0 has only root + types — no system_root/app_root/component_root/data_root.
+    expect(kids.some(k => ['system_root', 'app_root', 'component_root', 'data_root'].includes(k.type))).toBe(false);
   });
 
-  it('seeds a Welcome item under data_root', () => {
-    const kids = ds.children(ds.getDataRoot().id);
+  it('seeds a Welcome item under root', () => {
+    const kids = ds.children(ROOT_ID);
     expect(kids.some(k => k.value === 'Welcome to Kanecta!')).toBe(true);
   });
 
@@ -112,20 +121,20 @@ describe('open', () => {
 // ─── filesystem / file-first model ────────────────────────────────────────────
 
 describe('filesystem: file-first model', () => {
+  // Resolve an item.json path on the main branch's own items/ tree.
+  const mainItemPath = (id) => {
+    const hex = id.replace(/-/g, '');
+    return path.join(tmp, '.kanecta', 'branches', 'main', 'items', hex.slice(0, 2), hex.slice(2, 4), id, 'item.json');
+  };
+
   it('writes item.json to sharded items/ directory on create', () => {
     const item = ds.create({ value: 'file-first test' });
-    const hex  = item.id.replace(/-/g, '');
-    const s1   = hex.slice(0, 2);
-    const s2   = hex.slice(2, 4);
-    const p    = path.join(tmp, '.kanecta', 'items', s1, s2, item.id, 'item.json');
-    expect(fs.existsSync(p)).toBe(true);
+    expect(fs.existsSync(mainItemPath(item.id))).toBe(true);
   });
 
   it('item.json contains five sections: item, meta, search, payload, time', () => {
     const item = ds.create({ value: 'sections test' });
-    const hex  = item.id.replace(/-/g, '');
-    const p    = path.join(tmp, '.kanecta', 'items', hex.slice(0, 2), hex.slice(2, 4), item.id, 'item.json');
-    const doc  = JSON.parse(fs.readFileSync(p, 'utf8'));
+    const doc  = JSON.parse(fs.readFileSync(mainItemPath(item.id), 'utf8'));
     expect(doc).toHaveProperty('item');
     expect(doc).toHaveProperty('meta');
     expect(doc).toHaveProperty('search');
@@ -135,9 +144,7 @@ describe('filesystem: file-first model', () => {
 
   it('item section contains id, parentId, type, value, sortOrder, aspect, typeId', () => {
     const item = ds.create({ value: 'item section' });
-    const hex  = item.id.replace(/-/g, '');
-    const p    = path.join(tmp, '.kanecta', 'items', hex.slice(0, 2), hex.slice(2, 4), item.id, 'item.json');
-    const doc  = JSON.parse(fs.readFileSync(p, 'utf8'));
+    const doc  = JSON.parse(fs.readFileSync(mainItemPath(item.id), 'utf8'));
     expect(doc.item.id).toBe(item.id);
     expect(doc.item.parentId).toBe(item.parentId);
     expect(doc.item.type).toBe('string');
@@ -146,9 +153,7 @@ describe('filesystem: file-first model', () => {
 
   it('meta section contains owner, visibility, tags, createdAt', () => {
     const item = ds.create({ value: 'meta section', tags: ['a', 'b'] });
-    const hex  = item.id.replace(/-/g, '');
-    const p    = path.join(tmp, '.kanecta', 'items', hex.slice(0, 2), hex.slice(2, 4), item.id, 'item.json');
-    const doc  = JSON.parse(fs.readFileSync(p, 'utf8'));
+    const doc  = JSON.parse(fs.readFileSync(mainItemPath(item.id), 'utf8'));
     expect(doc.meta.owner).toBe('test@example.com');
     expect(doc.meta.visibility).toBe('private');
     expect(doc.meta.tags).toEqual(['a', 'b']);
@@ -158,9 +163,7 @@ describe('filesystem: file-first model', () => {
   it('payload stored in item.json via writeObjectJson', () => {
     const item = ds.create({ value: 'payload test' });
     ds.writeObjectJson(item.id, { foo: 'bar' });
-    const hex = item.id.replace(/-/g, '');
-    const p   = path.join(tmp, '.kanecta', 'items', hex.slice(0, 2), hex.slice(2, 4), item.id, 'item.json');
-    const doc = JSON.parse(fs.readFileSync(p, 'utf8'));
+    const doc = JSON.parse(fs.readFileSync(mainItemPath(item.id), 'utf8'));
     expect(doc.payload).toEqual({ foo: 'bar' });
   });
 
@@ -173,16 +176,13 @@ describe('filesystem: file-first model', () => {
   it('update writes updated item.json to disk', () => {
     const item    = ds.create({ value: 'before' });
     ds.update(item.id, { value: 'after' });
-    const hex = item.id.replace(/-/g, '');
-    const p   = path.join(tmp, '.kanecta', 'items', hex.slice(0, 2), hex.slice(2, 4), item.id, 'item.json');
-    const doc = JSON.parse(fs.readFileSync(p, 'utf8'));
+    const doc = JSON.parse(fs.readFileSync(mainItemPath(item.id), 'utf8'));
     expect(doc.item.value).toBe('after');
   });
 
   it('delete removes item.json from disk', () => {
     const item = ds.create({ value: 'to delete' });
-    const hex  = item.id.replace(/-/g, '');
-    const p    = path.join(tmp, '.kanecta', 'items', hex.slice(0, 2), hex.slice(2, 4), item.id, 'item.json');
+    const p    = mainItemPath(item.id);
     expect(fs.existsSync(p)).toBe(true);
     ds.delete(item.id);
     expect(fs.existsSync(p)).toBe(false);
@@ -206,8 +206,8 @@ describe('filesystem: file-first model', () => {
 
   it('open() rebuilds index from filesystem when index.db is empty', () => {
     const item = ds.create({ value: 'persist check' });
-    // Delete index.db to force rebuild on next open
-    const dbPath = path.join(tmp, '.kanecta', 'index.db');
+    // Delete the main branch's index.db to force rebuild on next open
+    const dbPath = path.join(tmp, '.kanecta', 'branches', 'main', 'index.db');
     ds._db.close();
     ds._db = null;
     fs.unlinkSync(dbPath);
@@ -222,13 +222,195 @@ describe('filesystem: file-first model', () => {
   });
 });
 
+// ─── source of truth lives on the filesystem (index.db is 100% derived) ─────────
+
+describe('index.db is 100% derived from the filesystem', () => {
+  it('history, aliases, relationships and annotations all survive deleting index.db', () => {
+    const a = ds.create({ value: 'alpha' });
+    const b = ds.create({ value: 'beta' });
+    ds.update(a.id, { value: 'alpha-2' });                  // → item_history event
+    ds.setAlias('the-alpha', a.id);                          // → alias item
+    ds.relate(a.id, 'depends-on', b.id, { note: 'critical' }); // → relationship item
+    ds.annotate(a.id, { content: 'a note', author: 'x@y.z' }); // → annotation item
+
+    // Nuke the entire derived index — the filesystem must still hold everything.
+    const dbPath = path.join(tmp, '.kanecta', 'branches', 'main', 'index.db');
+    ds._db.close();
+    ds._db = null;
+    fs.unlinkSync(dbPath);
+
+    const ds2 = SqliteFsAdapter.open(tmp); // rebuilds index.db by scanning the FS
+
+    expect(ds2.history(a.id).length).toBeGreaterThan(0);
+    expect(ds2.history(a.id).some(e => e.changeType === 'update')).toBe(true);
+    expect(ds2.resolveAlias('the-alpha')).toBe(a.id);
+    expect(ds2.relationships(a.id).outbound).toHaveLength(1);
+    expect(ds2.relationships(a.id).outbound[0].targetId).toBe(b.id);
+    expect(ds2.relationships(b.id).inbound).toHaveLength(1);
+    expect(ds2.annotations(a.id)).toHaveLength(1);
+    expect(ds2.annotations(a.id)[0].content).toBe('a note');
+  });
+
+  it('itemHistory EXTERNAL (default) writes events to item-history/, not items/', () => {
+    const a = ds.create({ value: 'x' });
+    ds.update(a.id, { value: 'y' });
+    const histDir = path.join(tmp, '.kanecta', 'branches', 'main', 'item-history');
+    expect(fs.existsSync(histDir)).toBe(true);
+    expect(ds.history(a.id).length).toBeGreaterThan(0);
+  });
+
+  it('itemHistory ITEM mode places events in items/ and still rebuilds', () => {
+    ds._config.itemHistory = 'ITEM';
+    ds._saveConfig();
+    const a = ds.create({ value: 'x' });
+    ds.update(a.id, { value: 'y' });
+    expect(ds.history(a.id).length).toBeGreaterThan(0);
+    // History items live in items/, but are excluded from content traversal.
+    expect(ds.loadAll().some(i => i.type === 'item_history')).toBe(false);
+    // Survives an index rebuild from items/.
+    ds.rebuildIndexes();
+    expect(ds.history(a.id).length).toBeGreaterThan(0);
+  });
+
+  it('rebuildIndexes() reprojects metadata tables from item.json files', () => {
+    const a = ds.create({ value: 'x' });
+    ds.setAlias('xx', a.id);
+    ds.annotate(a.id, { content: 'note' });
+    ds.rebuildIndexes();
+    expect(ds.resolveAlias('xx')).toBe(a.id);
+    expect(ds.annotations(a.id)).toHaveLength(1);
+  });
+
+  it('the metadata derived tables are never the only home for the data', () => {
+    // Sanity: an alias/relationship/annotation must exist as an item.json on disk.
+    const a = ds.create({ value: 'x' });
+    const b = ds.create({ value: 'y' });
+    ds.setAlias('zz', a.id);
+    ds.relate(a.id, 'relates-to', b.id);
+    ds.annotate(a.id, { content: 'c' });
+    const itemsDir = path.join(tmp, '.kanecta', 'branches', 'main', 'items');
+    const histDir  = path.join(tmp, '.kanecta', 'branches', 'main', 'item-history');
+    const countJson = (dir) => {
+      let n = 0;
+      const walk = (d) => {
+        if (!fs.existsSync(d)) return;
+        for (const e of fs.readdirSync(d)) {
+          const full = path.join(d, e);
+          if (fs.statSync(full).isDirectory()) walk(full);
+          else if (e === 'item.json') n++;
+        }
+      };
+      walk(dir);
+      return n;
+    };
+    // alias + relationship + annotation + the two content items + roots all on disk.
+    expect(countJson(itemsDir)).toBeGreaterThanOrEqual(5);
+    expect(countJson(histDir)).toBeGreaterThan(0); // history events written to disk
+  });
+});
+
+// ─── write integrity: crash recovery (journal + lock) ───────────────────────────
+
+describe('write integrity — crash recovery', () => {
+  const branchRoot = () => path.join(tmp, '.kanecta', 'branches', 'main');
+  const journalPath = () => path.join(branchRoot(), 'write.journal');
+  const lockPath    = () => path.join(branchRoot(), 'write.lock');
+  const itemPath    = (id) => {
+    const hex = id.replace(/-/g, '');
+    return path.join(branchRoot(), 'items', hex.slice(0, 2), hex.slice(2, 4), id, 'item.json');
+  };
+  const reopen = () => { ds._db?.close(); ds._db = null; return SqliteFsAdapter.open(tmp); };
+
+  it('rolls back a half-applied write (phase "started") to the pre-image on reopen', () => {
+    const a = ds.create({ value: 'original' });
+    const preImage = JSON.parse(fs.readFileSync(itemPath(a.id), 'utf8'));
+
+    // Simulate a crash mid-update: the file already holds the new value, but the
+    // journal is still 'started' (never reached l0-done) — so the write is not
+    // durable and must be undone.
+    const corrupt = JSON.parse(JSON.stringify(preImage));
+    corrupt.item.value = 'half-written';
+    fs.writeFileSync(itemPath(a.id), JSON.stringify(corrupt));
+    fs.writeFileSync(journalPath(), JSON.stringify({
+      phase: 'started', branch: 'main',
+      ops: [{ id: a.id, store: 'items', preImage }],
+    }));
+
+    const ds2 = reopen();
+    expect(ds2.get(a.id).value).toBe('original');     // rolled back
+    expect(fs.existsSync(journalPath())).toBe(false); // journal cleared
+  });
+
+  it('rolls back a half-applied create (pre-image null → item removed) on reopen', () => {
+    const ghostId = '9a9a9a9a-9a9a-4a9a-8a9a-9a9a9a9a9a9a';
+    const doc = {
+      item: { id: ghostId, parentId: ROOT_ID, type: 'text', typeId: null, value: 'ghost', sortOrder: 0, aspect: null },
+      meta: { specVersion: '1.4.0', owner: 'x', createdAt: 't', modifiedAt: 't', tags: [], visibility: 'private' },
+      search: null, payload: null, time: null,
+    };
+    fs.mkdirSync(path.dirname(itemPath(ghostId)), { recursive: true });
+    fs.writeFileSync(itemPath(ghostId), JSON.stringify(doc));
+    fs.writeFileSync(journalPath(), JSON.stringify({
+      phase: 'started', branch: 'main',
+      ops: [{ id: ghostId, store: 'items', preImage: null }],
+    }));
+
+    const ds2 = reopen();
+    expect(ds2.get(ghostId)).toBeNull();              // creation undone
+    expect(fs.existsSync(itemPath(ghostId))).toBe(false);
+  });
+
+  it('rolls forward a completed write (phase "l0-done") by rebuilding the index', () => {
+    const a = ds.create({ value: 'original' });
+    // Authoritative file holds the new value; the journal reached l0-done but the
+    // crash happened before commit — so the index may be stale. Roll forward.
+    const doc = JSON.parse(fs.readFileSync(itemPath(a.id), 'utf8'));
+    doc.item.value = 'durable-new';
+    fs.writeFileSync(itemPath(a.id), JSON.stringify(doc));
+    fs.writeFileSync(journalPath(), JSON.stringify({
+      phase: 'l0-done', branch: 'main',
+      ops: [{ id: a.id, store: 'items', preImage: null }],
+    }));
+
+    const ds2 = reopen();
+    expect(ds2.get(a.id).value).toBe('durable-new');  // kept + reindexed
+    expect(fs.existsSync(journalPath())).toBe(false);
+  });
+
+  it('clears a stale lock left by a dead process on open', () => {
+    fs.writeFileSync(lockPath(), JSON.stringify({ pid: 2 ** 30, host: require('os').hostname(), heartbeatAt: Date.now() }));
+    const ds2 = reopen();
+    expect(fs.existsSync(lockPath())).toBe(false);
+    expect(() => ds2.create({ value: 'after-recovery' })).not.toThrow();
+  });
+
+  it('normal writes leave no journal or lock behind', () => {
+    ds.create({ value: 'clean' });
+    expect(fs.existsSync(journalPath())).toBe(false);
+    expect(fs.existsSync(lockPath())).toBe(false);
+  });
+
+  it('reads never block on an in-flight write — they return the last committed value', () => {
+    const a = ds.create({ value: 'committed' });
+    // Simulate another process holding the write lock with an in-flight journal.
+    fs.writeFileSync(lockPath(), JSON.stringify({ pid: process.pid, host: require('os').hostname(), heartbeatAt: Date.now() }));
+    fs.writeFileSync(journalPath(), JSON.stringify({ phase: 'started', branch: 'main', ops: [{ id: a.id, store: 'items', preImage: null }] }));
+    // Reads do not acquire the lock, so this returns immediately with the
+    // last-committed value rather than waiting for the writer.
+    expect(ds.get(a.id).value).toBe('committed');
+    expect(ds.children(ROOT_ID).some(c => c.id === a.id)).toBe(true);
+    fs.rmSync(lockPath(), { force: true });
+    fs.rmSync(journalPath(), { force: true });
+  });
+});
+
 // ─── create ────────────────────────────────────────────────────────────────────
 
 describe('create', () => {
-  it('creates an item under data_root by default', () => {
+  it('creates an item under root by default', () => {
     const item = ds.create({ value: 'hello' });
     expect(item.id).toMatch(/^[0-9a-f-]{36}$/);
-    expect(item.parentId).toBe(ds.getDataRoot().id);
+    expect(item.parentId).toBe(ds.getRoot().id);
     expect(item.value).toBe('hello');
   });
 
@@ -268,7 +450,7 @@ describe('create', () => {
 
   it('throws for well-known type names', () => {
     expect(() => ds.create({ type: 'root' })).toThrow(/well-known root type/);
-    expect(() => ds.create({ type: 'data_root' })).toThrow(/well-known root type/);
+    expect(() => ds.create({ type: 'types' })).toThrow(/well-known root type/);
   });
 
   it('writes backlinks for [[uuid]] references in value', () => {
@@ -406,15 +588,9 @@ describe('update', () => {
     expect(h.some(e => e.changeType === 'update')).toBe(true);
   });
 
-  it('throws when editing a reserved root node', () => {
-    const sysRoot = ds.children(ROOT_ID).find(c => c.type === 'system_root');
-    expect(() => ds.update(sysRoot.id, { value: 'x' })).toThrow(/reserved root node/);
-  });
-
-  it('allows editing data_root (special case)', () => {
-    const dr = ds.getDataRoot();
-    expect(() => ds.update(dr.id, { value: 'Mine' })).not.toThrow();
-    expect(ds.get(dr.id).value).toBe('Mine');
+  it('throws when editing a reserved node (types)', () => {
+    const types = ds.children(ROOT_ID).find(c => c.type === 'types');
+    expect(() => ds.update(types.id, { value: 'x' })).toThrow(/reserved root node/);
   });
 
   // ── parentId change cascades materialized path ─────────────────────────────
@@ -488,7 +664,7 @@ describe('delete', () => {
 
   it('throws for well-known nodes', () => {
     expect(() => ds.delete(ROOT_ID)).toThrow(/reserved root node/);
-    const dr = ds.getDataRoot();
+    const dr = ds.getRoot();
     expect(() => ds.delete(dr.id)).toThrow(/reserved root node/);
   });
 
@@ -651,13 +827,11 @@ describe('tree', () => {
     expect(ds.tree('ffffffff-ffff-4fff-bfff-ffffffffffff')).toEqual([]);
   });
 
-  it('uses implicit data_root when no rootId given', () => {
-    const dr = ds.getDataRoot();
+  it('uses implicit root when no rootId given', () => {
     const item = ds.create({ value: 'x' });
     const t = ds.tree(null);
     const ids = t.map(n => n.item.id);
     expect(ids).toContain(item.id);
-    expect(ids).not.toContain(dr.id);
   });
 
   it('children within same level are sorted by sortOrder', () => {
@@ -670,7 +844,7 @@ describe('tree', () => {
   });
 
   it('only loads subtree rows from SQL (path index used)', () => {
-    // Create 100 items at data_root, then a separate subtree to query
+    // Create 100 items at root, then a separate subtree to query
     const parent = ds.create({ value: 'subtree-root' });
     for (let i = 0; i < 50; i++) ds.create({ value: `noise-${i}` });
     const child = ds.create({ value: 'child', parentId: parent.id });
@@ -691,7 +865,7 @@ describe('materialized path', () => {
   });
 
   it('child of root has path = ROOT_ID/childId', () => {
-    const dr = ds.getDataRoot();
+    const dr = ds.getRoot();
     const p  = ds._getPath(dr.id);
     expect(p).toBe(`${ROOT_ID}/${dr.id}`);
   });
@@ -699,7 +873,7 @@ describe('materialized path', () => {
   it('grandchild path encodes full ancestry', () => {
     const parent = ds.create({ value: 'p' });
     const child  = ds.create({ value: 'c', parentId: parent.id });
-    const dr     = ds.getDataRoot();
+    const dr     = ds.getRoot();
     const expected = `${ROOT_ID}/${dr.id}/${parent.id}/${child.id}`;
     expect(ds._getPath(child.id)).toBe(expected);
   });
@@ -738,7 +912,7 @@ describe('ancestors', () => {
   });
 
   it('returns [root] for a direct child of root', () => {
-    const dr  = ds.getDataRoot();
+    const dr  = ds.getRoot();
     const anc = ds.ancestors(dr.id);
     expect(anc.map(a => a.id)).toContain(ROOT_ID);
   });
@@ -749,7 +923,7 @@ describe('ancestors', () => {
     const anc = ds.ancestors(c.id);
     const ids = anc.map(a => a.id);
     expect(ids).toContain(ROOT_ID);
-    expect(ids).toContain(ds.getDataRoot().id);
+    expect(ids).toContain(ds.getRoot().id);
     expect(ids).toContain(p.id);
     expect(ids).not.toContain(c.id);
   });
@@ -1369,32 +1543,14 @@ describe('well-known node protection', () => {
     expect(() => ds.delete(ROOT_ID)).toThrow(/reserved root node/);
   });
 
-  it('cannot delete system_root, app_root, component_root', () => {
-    const kids = ds.children(ROOT_ID);
-    for (const k of kids) {
-      if (['system_root', 'app_root', 'component_root'].includes(k.type)) {
-        expect(() => ds.delete(k.id)).toThrow(/reserved root node/);
-      }
-    }
+  it('cannot delete the reserved types node', () => {
+    const types = ds.children(ROOT_ID).find(c => c.type === 'types');
+    expect(() => ds.delete(types.id)).toThrow(/reserved root node/);
   });
 
-  it('cannot update system_root, app_root, component_root', () => {
-    const kids = ds.children(ROOT_ID);
-    for (const k of kids) {
-      if (['system_root', 'app_root', 'component_root'].includes(k.type)) {
-        expect(() => ds.update(k.id, { value: 'x' })).toThrow(/reserved root node/);
-      }
-    }
-  });
-
-  it('data_root can be updated', () => {
-    const dr = ds.getDataRoot();
-    expect(() => ds.update(dr.id, { value: 'My Space' })).not.toThrow();
-  });
-
-  it('data_root cannot be deleted', () => {
-    const dr = ds.getDataRoot();
-    expect(() => ds.delete(dr.id)).toThrow(/reserved root node/);
+  it('cannot update the reserved types node', () => {
+    const types = ds.children(ROOT_ID).find(c => c.type === 'types');
+    expect(() => ds.update(types.id, { value: 'x' })).toThrow(/reserved root node/);
   });
 });
 

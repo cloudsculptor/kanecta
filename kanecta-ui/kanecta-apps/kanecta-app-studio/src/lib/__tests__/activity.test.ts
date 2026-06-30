@@ -32,7 +32,7 @@ describe('diffItems', () => {
     const events = diffItems('ws-1', new Map(), current);
     expect(events).toHaveLength(2);
     expect(events.every((e) => e.operation === 'created')).toBe(true);
-    expect(events.every((e) => e.workspaceId === 'ws-1')).toBe(true);
+    expect(events.every((e) => e.workingSetId === 'ws-1')).toBe(true);
   });
 
   it('marks items with changed modifiedAt as modified', () => {
@@ -63,8 +63,8 @@ describe('diffItems', () => {
     expect(ops).toContain('modified');
   });
 
-  it('includes workspaceId in every event', () => {
+  it('includes workingSetId in every event', () => {
     const events = diffItems('ws-42', new Map(), [makeItem('x')]);
-    expect(events.every((e) => e.workspaceId === 'ws-42')).toBe(true);
+    expect(events.every((e) => e.workingSetId === 'ws-42')).toBe(true);
   });
 });

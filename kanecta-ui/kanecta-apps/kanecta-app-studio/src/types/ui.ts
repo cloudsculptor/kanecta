@@ -31,7 +31,7 @@ export type ViewType =
 export interface PanelConfig {
   id: string;
   viewType: ViewType;
-  workspaceId?: string;
+  workingSetId?: string;
   filterType?: string;
   zoomedItemId?: string;
 }

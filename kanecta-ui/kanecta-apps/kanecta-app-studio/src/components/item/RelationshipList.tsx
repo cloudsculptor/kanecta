@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useWorkspaceStore } from '../../store/workspace';
+import { useWorkingSetStore } from '../../store/workingSet';
 import { useUiStore } from '../../store/ui';
 import type { Relationship } from '../../types/kanecta';
 import './RelationshipList.scss';
@@ -22,7 +22,7 @@ function RelRow({ rel, currentId }: { rel: Relationship; currentId: string }) {
 }
 
 export function RelationshipList({ itemId }: RelationshipListProps) {
-  const { getApi } = useWorkspaceStore();
+  const { getApi } = useWorkingSetStore();
   const { data: rels = [], isLoading } = useQuery({
     queryKey: ['relationships', itemId],
     queryFn: () => getApi().items.relationships(itemId),

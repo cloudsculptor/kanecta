@@ -1,0 +1,539 @@
+= Working Sets, Branches & Sync
+:toc: macro
+:toclevels: 3
+
+[abstract]
+This chapter explains how a Kanecta deployment is configured (working sets),
+how data is versioned (branches), and how local and remote datastores are kept
+in step (sync, push, merge). It is written to *teach* the model, not just state
+the rules — because, like Git, the conceptual surface is large and easy to
+misremember. Read it top to bottom the first time.
+
+toc::[]
+
+== The one-paragraph mental model
+
+A Kanecta datastore is a UUID-addressed knowledge graph that may be far too large
+to hold on one machine. So there is always exactly one *canonical* copy of the
+data — the source of truth — and it lives wherever it must: on a big shared
+remote, or entirely on your laptop. Everything else is a *branch* that either
+mirrors the canonical copy or holds a small set of local changes layered on top
+of it. You work on a branch, then *push* your changes back to canonical through a
+reviewed merge (a PR). There is no "download the whole thing" step — Kanecta
+reads the canonical copy on demand and serves you a combined view of "canonical +
+your local changes."
+
+[#why-not-git]
+== Why this is not Git
+
+[IMPORTANT]
+====
+Kanecta branching is *not* Git and is *not Git-aware*. Git is excellent for
+line-based text in a repository small enough to clone in full. A Kanecta
+datastore breaks every one of those assumptions. Do not reason about Kanecta
+branches using Git mechanics — the words look similar on purpose, but the
+machinery is different.
+
+A user *may* still keep a filesystem datastore under Git for their own external
+backup or history. That is fine and entirely outside Kanecta; Kanecta neither
+requires nor is aware of it.
+====
+
+Why Git's model does not fit:
+
+[cols="1,3", options="header"]
+|===
+| Git assumption | Why it breaks for Kanecta
+
+| You can clone the whole repo
+| The canonical datastore may be far too large to ever hold locally. Even Git's
+  partial/shallow clone keeps the *entire commit DAG*; Kanecta's *item graph
+  itself* can be too big to enumerate. The canonical copy can live only on a
+  remote, and clients work against a synthesized slice fetched on demand.
+
+| Merges are line/content diffs
+| A Kanecta PR must understand the *graph*: it scans the blast radius of every
+  changed UUID — structural `parentId` links, declared `reference` items, inline
+  `[[uuid]]` links, alias uniqueness, `blockDeletion` guards, and active
+  subscriptions. Git cannot tell you that a delete orphans thirty references, or
+  that an alias now collides across branches.
+
+| Three-way text merge is good enough
+| Items are structured (four sections, typed payloads). Conflicts are detected
+  *per field*, and clean edits apply a field-level diff automatically. Line-based
+  3-way merge on JSON produces false conflicts and can yield *invalid* documents.
+  A merge is an atomic, schema-aware database transaction, not a working-tree
+  edit.
+
+| A branch is a filesystem/object trick
+| A Kanecta branch is a folder on the filesystem adapter, a *schema* on Postgres,
+  and a *key prefix* on S3. Depending on Git would cover only the filesystem case
+  and could not express schema-per-branch on a remote Postgres canonical.
+
+| The index can ride along with checkouts
+| The per-branch `index.db` (and CQRS projections for million-instance types) are
+  *derived and gitignored*. A `git checkout` would swap files underneath them and
+  leave them instantly stale. Kanecta switches branches without an index rebuild.
+
+| Fetch, then work offline
+| Kanecta treats the remote as a live, queryable store and serves a *combined*
+  local+remote graph — there is nothing to "pull." Materialization is *by query*
+  (an item and its neighborhood), not by path globs as in sparse-checkout. This
+  is closer to a federated database with a local write-overlay than to a DVCS.
+
+| Identity is a path
+| Identity is a stable *UUID*. Moves and renames are first-class (a `parentId`
+  change) and references survive them. Git's path-centric model would lose graph
+  identity.
+
+| Access is all-or-nothing per repo
+| Kanecta has per-item `grant`/visibility. A lightweight client must only ever
+  synthesize the canonical items it is authorized to see — the remote fall-through
+  is filtered by grants.
+
+| Large binaries need a bolt-on (LFS)
+| Items carry file payloads, stored via S3 on cloud deployments. This is native,
+  not an add-on.
+|===
+
+== Glossary
+
+[cols="1,3", options="header"]
+|===
+| Term | Meaning
+
+| *remote* (conventionally `origin`)
+| A reachable Kanecta datastore, configured in a working set. A working set may
+  have several remotes.
+
+| *canonical* `main`
+| The source of truth: the `main` branch wherever it lives — on a remote, or
+  local. There is at most one canonical copy per datastore lineage. (There is no
+  "trunk" or "primary" — the canonical branch is simply named `main`, and
+  "canonical" is the adjective used when distinguishing it from mirrors and
+  sparse branches.)
+
+| *working set*
+| A configured local datastore plus its remotes — the unit a tool operates
+  against. Defined in `config.json`. (Earlier drafts called this a "workspace.")
+
+| *branch*
+| A line of work, stored as a folder under `branches/`. Has a *fill* and an
+  *upstream*.
+
+| *fill* — `full` \| `sparse`
+| Whether a branch holds the entire tree (`full`) or only local changes
+  (`sparse`).
+
+| *upstream*
+| The branch this one tracks. `null` means this branch *is* canonical.
+
+| *mirror*
+| A `full` branch whose `upstream` is canonical — a complete local cache used for
+  offline/performance. Read-only; refreshed by *sync*. You never edit a mirror
+  directly; you branch off it.
+
+| *sparse branch*
+| A `sparse` working branch: local changes only, with the rest synthesized from
+  its upstream on demand.
+
+| *active* (HEAD)
+| The working set and branch a tool uses when none is specified.
+
+| *sync*
+| Refresh a mirror (or re-base a sparse branch's view) from canonical. The
+  read-only analog of Git's `fetch`.
+
+| *push* / *PR*
+| Send a branch's local changes upstream for a reviewed merge.
+|===
+
+== Branch classes: two axes, three valid combinations
+
+Every branch is described by two independent facts, both recorded in its
+`branch.json`:
+
+* *fill*: does `items/` hold the whole tree (`full`) or only changes (`sparse`)?
+* *upstream*: what does it track? `null` means it is itself the source of truth.
+
+[cols="1,1,1,2", options="header"]
+|===
+| Class | `fill` | `upstream` | Role
+
+| *canonical* `main`
+| `full`
+| `null`
+| The source of truth. At most one per lineage. Lives local (small deployments)
+  or on a remote (large deployments).
+
+| *mirror*
+| `full`
+| canonical
+| A complete local cache that tracks canonical. Enables offline work; refreshed
+  by sync. Read-only.
+
+| *sparse branch*
+| `sparse`
+| canonical or a mirror
+| A working branch holding only local changes; the rest is synthesized from
+  upstream on demand. Where day-to-day editing happens.
+|===
+
+NOTE: `(fill: sparse, upstream: null)` is the one invalid combination — a sparse
+branch is, by definition, a diff against *something*, so it must have an
+upstream.
+
+A *sparse branch tracks a `full` branch only* (canonical or a mirror) — sparse
+branches do not chain off other sparse branches. *PR/merge always targets
+canonical*; a mirror is read-only and is never a merge target.
+
+== The three deployment shapes (and how they map to branches)
+
+Kanecta must handle both extremes — a giant shared remote and a fully local
+datastore — from first use. All three shapes use the *same on-disk folder
+structure*; they differ only in *which branches exist locally* and how each is
+filled.
+
+=== Shape A — Huge remote, cannot be localized
+
+A large company datastore on Postgres, too big to download. You hold only sparse
+branches locally; canonical `main` lives on `origin` and is queried on demand.
+
+[listing]
+----
+local .kanecta/
+  branches/
+    work/                      fill: sparse, upstream: origin/main
+      items/<shard>/item.json  ← only the handful of items you changed
+      branch.json
+      index.db                 ← derived index of your local layer
+config.json → workingSets.<name>.remotes.origin = <postgres canonical>
+----
+
+Offline is not possible in this shape — there is nothing small enough to cache.
+
+=== Shape B — Small, wants to work offline
+
+A single person's private organiser. You keep a *mirror* (a full local cache of
+canonical) so you can read offline, and you make edits on a sparse branch off the
+mirror; you `sync` when back online.
+
+[listing]
+----
+local .kanecta/
+  branches/
+    main/                      fill: full, upstream: origin/main   (mirror)
+      items/<shard>/item.json  ← a complete copy of canonical
+      branch.json
+      index.db
+    work/                      fill: sparse, upstream: main        (edits)
+      items/<shard>/item.json
+      branch.json
+      index.db
+----
+
+=== Shape C — Local only
+
+No remote at all. Canonical `main` simply lives on this machine.
+
+[listing]
+----
+local .kanecta/
+  branches/
+    main/                            fill: full, upstream: null    (canonical)
+      items/<shard>/item.json        ← the whole datastore (incl. alias/
+                                       relationship/annotation items)
+      item-history/<shard>/item.json ← item_history events (when enabled)
+      branch.json
+      index.db                       ← derived from items/ + item-history/
+----
+
+TIP: "Going offline" and "scaling up" are just *class transitions* over the same
+folder shape — fill a sparse branch into a mirror, or thin a mirror back to a
+sparse branch. Nothing about the layout changes.
+
+[#storage-layout]
+== Storage layout — where every fact lives
+
+Each fact has exactly one home. This separation is deliberate: definitions are
+shareable, active state is machine-local, and the index is disposable.
+
+=== `config.json` — definitions (shareable)
+
+The bootstrap config (see <<bootstrap-configuration>> for discovery). Holds the
+working sets: where each datastore is and how to reach its remotes.
+
+[source,json]
+----
+{
+  "specVersion": "1.4.0",
+  "defaultWorkingSet": "kanecta-internal",
+  "workingSets": {
+    "kanecta-internal": {
+      "local": "/home/alice/wiki/kanecta-internal",
+      "remotes": {
+        "origin": {
+          "type": "postgres",
+          "host": "$KANECTA_DB_HOST",
+          "database": "$KANECTA_DB_NAME",
+          "user": "$KANECTA_DB_USER",
+          "password": "$KANECTA_DB_PASSWORD",
+          "ssl": true
+        }
+      },
+      "defaultBranch": "work"
+    }
+  }
+}
+----
+
+Secrets are never inline: values beginning with `$` are resolved from the
+environment at read time, and live in a `.env` file beside `config.json`.
+
+=== `branch.json` — what kind of branch this is (travels with the branch)
+
+Lives at `branches/<encoded-name>/branch.json`, inside the datastore, so it moves
+with the branch when copied or synced.
+
+[source,json]
+----
+// sparse working branch off a huge remote
+{ "name": "work", "fill": "sparse",
+  "upstream": { "remote": "origin", "branch": "main" },
+  "branchPoint": { "<uuid>": "<item-version>", ... },
+  "createdAt": "2026-06-30T02:00:00Z" }
+
+// mirror (offline cache of canonical)
+{ "name": "main", "fill": "full",
+  "upstream": { "remote": "origin", "branch": "main" },
+  "createdAt": "2026-06-30T02:00:00Z" }
+
+// canonical, local-only
+{ "name": "main", "fill": "full", "upstream": null,
+  "createdAt": "2026-06-30T02:00:00Z" }
+----
+
+`branchPoint` is the *watermark* (see <<merge>>): the per-item versions this
+branch forked from, used to classify edits versus conflicts at merge time.
+
+=== `state.json` — active selection (machine-local HEAD)
+
+Lives beside `config.json`. Mutable, machine-local, gitignored — it is the HEAD
+analog. Studio's "switch working set/branch" writes here; nothing else does.
+
+[source,json]
+----
+{ "activeWorkingSet": "kanecta-internal",
+  "activeBranch": { "kanecta-internal": "work" } }
+----
+
+=== `index.db` — the derived index (per branch)
+
+[IMPORTANT]
+====
+*Hard rule: `index.db` is 100% derived/projected. It is never a source of truth,
+in any situation.* It must always be rebuildable by scanning the branch's
+authoritative item files — `items/` and the sibling `item-history/` (and
+`activity/` when enabled) — plus, for a sparse branch, the federated upstream at
+query time. If it is ever deleted or diverges, it is rebuilt — no information is
+lost.
+
+Concretely, the SQLite tables that look like their own stores —
+`aliases`, `relationships`, `annotations`, `history` — are *derived projections*,
+not authority. Aliases, relationships and annotations are ordinary items
+(`type: "alias" | "relationship" | "annotation"`) living in `items/`; history
+events are `item_history` items living in `item-history/`. Each projection is
+repopulated by scanning those item files, so deleting `index.db` loses nothing.
+====
+
+=== `items/<shard>/item.json` — the data (pure)
+
+The `items/` tree contains *only* `item.json` files — no branch-aware files of any
+kind. A sparse branch's `items/` holds exactly three kinds of normal `item.json`:
+
+* *added* — an item created on this branch.
+* *edited* — a full replacement of an item that also exists upstream.
+* *deleted* — a *tombstone*: an ordinary `item.json` with `deleted_at` set. It
+  masks the upstream item on read and applies the delete on merge.
+
+Using `deleted_at` for tombstones is what lets `items/` stay pure *and* keeps
+`index.db` fully derivable: a local deletion is simply discovered as
+`deleted_at != null` while scanning `items/`. (It reuses the existing soft-delete
+field rather than inventing a new marker.)
+
+[#reading]
+== Reading and querying a branch
+
+For a `full` branch (canonical or mirror) reads are trivial: everything is local.
+The interesting case is a *sparse* branch, where only your changes are local and
+the rest is synthesized from upstream. The following worked example uses a sparse
+branch `work` over a canonical with millions of `task` items. Locally you have:
+
+[cols="1,2", options="header"]
+|===
+| Local item | What it is
+| `T-new` (status: open) | *added* — a task you created
+| `T-7` (status: open)   | *edited* — canonical has it `closed`; you reopened it
+| `T-3`                  | *deleted* — a tombstone (`deleted_at` set)
+|===
+
+Everything else (`T-1, T-2, T-4 … T-millions`) exists only on canonical.
+
+=== Point reads — always correct
+
+* `get T-7` → present locally → return *your* version (open).
+* `get T-100` → not local → fetch from upstream → return canonical's version.
+* `get T-3` → local tombstone → return *not found* (deleted on this branch).
+
+Rule: look local first; on a miss, fall through to upstream. Grants filter what
+the upstream fall-through may return.
+
+=== Navigation (children of a node) — always correct
+
+`children of Project P`: ask upstream (`[T-1, T-3, T-7, T-100]`), then overlay the
+local layer *for that slice* — drop `T-3` (tombstoned), substitute your `T-7`, add
+`T-new` (its `parentId` is P) → `[T-1, T-7(yours), T-100, T-new]`. Bounded by one
+node's child count.
+
+=== Filtered queries — *membership* is correct
+
+`tasks where status = open`:
+
+. Ask upstream for its matches, e.g. `{T-1, T-3, T-100}`.
+. Apply your (small, fully scannable) local layer:
+.. remove `T-3` (tombstoned);
+.. add `T-7` (upstream had it closed, your edit makes it open);
+.. add `T-new` (open);
+.. (had you closed something locally, you would remove it).
+. Result `{T-1, T-100, T-7, T-new}`.
+
+*Which items match is always correct*, because the local delta is small enough to
+scan in full and reconcile against the upstream result set.
+
+=== Sort, pagination, and search ranking — best-effort
+
+This is the one place where a sparse branch over a *huge* upstream is approximate.
+Upstream can sort and paginate its millions, but your local additions cannot be
+placed in perfect global order without streaming the entire sorted upstream
+(impossible at scale).
+
+[NOTE]
+====
+*Day-one behaviour (best-effort):* upstream sorts and paginates; the local delta
+is overlaid onto the returned pages (edits applied, tombstones removed), and local
+*additions* are surfaced flagged as local/unsynced. The visible compromise: a
+locally added item may appear at the top rather than its true sorted position, and
+page boundaries may wobble by a few items. Fully correct cross-source ordering (a
+merge-sort cursor spanning upstream + local delta) is a later enhancement. It does
+not affect correctness of *membership*, point reads, navigation, or merge.
+====
+
+[#branching-sync]
+== Branching, tracking, and sync
+
+* *Create a branch* with a chosen `fill` and `upstream`. A new heavyweight branch
+  is a recursive copy of the branch it is cut from (items + index); a new sparse
+  branch starts empty with an `upstream` pointer and a `branchPoint` watermark.
+* *Switch branch* (`useBranch`) selects the active branch for the current process
+  only — it does not persist a shared default, so concurrent consumers (e.g. an
+  MCP call and the API) stay independent and never clobber each other. Persisting
+  a new default is a separate, explicit act that writes `state.json`.
+* *Sync* refreshes a mirror from canonical (the read-only, fetch-like operation).
+  A mirror is never edited directly.
+
+NOTE: Branch names encode `/` as `__` for the on-disk directory (and for Postgres
+schemas / S3 prefixes), e.g. `feature/x` → `feature__x`.
+
+[#merge]
+== Push, PR, and merge
+
+Push sends a branch's local changes upstream for a *reviewed* merge — Kanecta
+never merges silently. Crucially, *merge does not require federated query*: a
+branch's changes are entirely local, so merge enumerates them directly.
+
+The merge algorithm:
+
+. *Enumerate* the branch's changes by scanning its local `items/` (adds, edits,
+  and `deleted_at` tombstones).
+. *Classify* each changed UUID by point-reading canonical's current version and
+  comparing against this branch's `branchPoint` watermark:
++
+[cols="1,3", options="header"]
+|===
+| Class | Condition and action
+| *ADD* | Exists here, not on canonical. Apply.
+| *EDIT* | Changed here; unchanged on canonical since `branchPoint`. Apply the
+  field-level diff.
+| *DELETE* | Tombstoned here; present and unchanged on canonical. Apply after the
+  blast-radius check.
+| *CONFLICT* | The same field changed differently here and on canonical since
+  `branchPoint`. Requires human resolution before the transaction commits.
+|===
+. *Blast-radius check*: for each changed UUID, ask canonical *"who references
+  this?"* — structural `parentId` links, declared `reference` items, `[[uuid]]`
+  links, alias collisions, `blockDeletion` guards, and active subscriptions. A
+  delete or rename that would orphan a live reference is surfaced for resolution.
+. *Commit* atomically. After a successful merge, a sparse branch is reset to
+  empty — it becomes a clean diff against the new canonical state.
+
+[IMPORTANT]
+====
+A canonical backend MUST support a *reverse-reference lookup* ("which items
+reference UUID X"). The blast-radius check depends on it. This is an indexed
+query on the canonical store, not a full scan.
+====
+
+== Resolving the active working set and branch
+
+Every entry point (CLI, MCP, API, Studio) resolves the working set and branch the
+same way, each consumer independently, so overrides never leak between processes:
+
+[cols="1,2", options="header"]
+|===
+| | Precedence (first match wins)
+| *working set*
+| explicit argument (e.g. CLI `--working-set`, MCP `workingSet`) → `KANECTA_WORKING_SET`
+  → `state.json` `activeWorkingSet` → `config.json` `defaultWorkingSet` → the sole
+  working set if exactly one → error.
+| *branch*
+| explicit argument (CLI `--branch`, MCP `branch`) → `KANECTA_BRANCH` →
+  `state.json` `activeBranch[workingSet]` → the working set's `defaultBranch` →
+  `"main"`.
+|===
+
+The single global environment variable is `KANECTA_CONFIG` (it locates
+`config.json`; see <<bootstrap-configuration>>). `KANECTA_WORKING_SET` and
+`KANECTA_BRANCH` are optional per-process overrides — they select *within* the
+config, never a raw path. There is deliberately no environment variable that
+points at a raw datastore path.
+
+== Design rationale (why these choices)
+
+* *Why a single canonical, not a peer-to-peer DAG?* Because at scale the data
+  cannot live everywhere. A single source of truth with cheap tracking branches
+  is the only model that serves both a multi-million-item remote and a laptop.
+* *Why `deleted_at` tombstones instead of a deletions table or marker files?*
+  Because `items/` must stay pure and `index.db` must stay 100% derivable. A
+  tombstone that is itself an ordinary `item.json` satisfies both, and reuses the
+  existing soft-delete semantics.
+* *Why is `index.db` never a source of truth?* So a branch is always defined by
+  its files alone. The index can be deleted and rebuilt at any time; it can never
+  hold information that the filesystem does not.
+* *Why a per-item watermark for merge, not a global revision?* Only the items a
+  branch actually touched matter at merge, and items already carry a version. A
+  per-item bookmark avoids maintaining a global counter and keeps conflict
+  detection scoped to the change set.
+* *Why best-effort cross-seam ordering?* Because perfect global ordering over a
+  huge upstream plus a local delta requires streaming the whole upstream, which
+  defeats the purpose of a sparse branch. Membership, navigation, point reads, and
+  merge are all exact; only the *order across the seam* is approximate, and that
+  is the cheapest thing to make exact later.
+
+== Deferred / open
+
+* Fully-correct cross-source sort, pagination, and search ranking (currently
+  best-effort).
+* Sparse-off-sparse branch chains (currently a sparse branch must track a `full`
+  branch).
+* An explicit, opt-in coherence policy for a mirror that has drifted from a
+  canonical that moved underneath it.

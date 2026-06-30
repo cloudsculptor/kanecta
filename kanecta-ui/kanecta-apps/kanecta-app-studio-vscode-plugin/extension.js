@@ -5,11 +5,18 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 
-const CONFIG_PATH = path.join(
-  process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'),
-  'kanecta',
-  'config.json',
-);
+// Mirror @kanecta/lib's config discovery: KANECTA_CONFIG (a directory, or a direct
+// .json path) wins, else the platform default. (Inlined — the extension is
+// standalone and doesn't bundle @kanecta/lib.)
+function getConfigPath() {
+  const override = process.env.KANECTA_CONFIG;
+  if (override) {
+    return override.toLowerCase().endsWith('.json') ? override : path.join(override, 'config.json');
+  }
+  const xdg = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
+  return path.join(xdg, 'kanecta', 'config.json');
+}
+const CONFIG_PATH = getConfigPath();
 
 function readConfig() {
   return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
@@ -49,7 +56,7 @@ function openStudio() {
   } catch (err) {
     vscode.window.showErrorMessage(
       `Kanecta Studio: could not read ${CONFIG_PATH} (${err.message}). `
-      + 'Run "npm start" in the kanecta repo to set up a workspace, then try again.',
+      + 'Run "npm start" in the kanecta repo to set up a working set, then try again.',
     );
     return;
   }

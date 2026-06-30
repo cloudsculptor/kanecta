@@ -14,7 +14,7 @@ let ds;
 beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'kanecta-api-test-'));
   ds = Datastore.init(tmpRoot, 'test@example.com');
-  process.env.KANECTA_DATASTORE = tmpRoot;
+  require('./helpers').useConfig(tmpRoot);
   process.env.AUTH_DISABLED = 'true';
   // Block workspace mode so the API uses KANECTA_DATASTORE (filesystem fallback).
   process.env.XDG_CONFIG_HOME = tmpRoot;
@@ -22,7 +22,7 @@ beforeEach(() => {
 
 afterEach(() => {
   fs.rmSync(tmpRoot, { recursive: true, force: true });
-  delete process.env.KANECTA_DATASTORE;
+  require('./helpers').clearConfigEnv();
   delete process.env.AUTH_DISABLED;
   delete process.env.XDG_CONFIG_HOME;
 });
@@ -30,14 +30,14 @@ afterEach(() => {
 // ─── Items ────────────────────────────────────────────────────────────────────
 
 describe('GET /items', () => {
-  it('returns data_root children', async () => {
+  it('returns root children', async () => {
     await ds.create({ value: 'root1' });
     await ds.create({ value: 'root2' });
     const child = await ds.create({ value: 'child-parent' });
     await ds.create({ value: 'child', parentId: child.id });
     const res = await request(app).get('/items');
     expect(res.status).toBe(200);
-    expect(res.body).toHaveLength(4); // 3 at data_root + seeded "Welcome to Kanecta!" item
+    expect(res.body).toHaveLength(4); // 3 at root + seeded "Welcome to Kanecta!" item
     expect(res.body.every(i => i.parentId != null)).toBe(true);
   });
 
@@ -55,7 +55,7 @@ describe('POST /items', () => {
     expect(res.status).toBe(201);
     expect(res.body.value).toBe('hello');
     expect(res.body.type).toBe('string');
-    expect(res.body.parentId).toMatch(/^[0-9a-f-]{36}$/); // defaults to data_root
+    expect(res.body.parentId).toMatch(/^[0-9a-f-]{36}$/); // defaults to root
     expect(res.body.id).toMatch(/^[0-9a-f-]{36}$/);
   });
 
@@ -466,10 +466,10 @@ describe('multi-level tree integration', () => {
     await ds.create({ value: 'Task C', parentId: c2.id, sortOrder: 0 });
   });
 
-  it('GET /items returns data_root children', async () => {
+  it('GET /items returns root children', async () => {
     const res = await request(app).get('/items');
     expect(res.status).toBe(200);
-    // data_root children: Welcome item + Project Alpha
+    // root children: Welcome item + Project Alpha
     expect(res.body.some(i => i.value === 'Project Alpha')).toBe(true);
     expect(res.body.every(i => i.parentId != null)).toBe(true);
   });

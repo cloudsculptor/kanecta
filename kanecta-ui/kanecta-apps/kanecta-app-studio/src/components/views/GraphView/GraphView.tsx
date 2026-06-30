@@ -1,7 +1,7 @@
 import type { ViewMeta } from '../../../lib/viewMeta';
 import { useViewLocation } from '../../../context/LocationContext';
 import { GraphView as GraphViewPkg } from '@kanecta/component-graph-view';
-import { useWorkspaceStore } from '../../../store/workspace';
+import { useWorkingSetStore } from '../../../store/workingSet';
 import { useUiStore } from '../../../store/ui';
 import { flattenTree } from '../../../lib/items';
 
@@ -14,9 +14,9 @@ export const GraphViewMeta: ViewMeta = {
 
 export function GraphView() {
   useViewLocation(GraphViewMeta.uuid);
-  const { getApi, getActiveWorkspace } = useWorkspaceStore();
+  const { getApi, getActiveWorkingSet } = useWorkingSetStore();
   const { focusedItemId, setFocusedItem } = useUiStore();
-  const wsId = getActiveWorkspace()?.id ?? '';
+  const wsId = getActiveWorkingSet()?.id ?? '';
   const api = getApi();
 
   return (

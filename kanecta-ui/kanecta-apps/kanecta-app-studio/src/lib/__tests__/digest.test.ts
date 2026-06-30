@@ -1,14 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { buildDigest } from '../digest';
 import type { KanectaItem } from '../../types/kanecta';
-import type { ActivityEvent } from '../../types/workspace';
+import type { ActivityEvent } from '../../types/workingSet';
 
 function makeItem(id: string, parentId?: string): KanectaItem {
   return { id, value: `Item ${id}`, type: 'note', confidence: 'medium', sortOrder: 0, tags: [], parentId, createdAt: '', modifiedAt: '' };
 }
 
 function makeEvent(id: string, item: KanectaItem, operation: ActivityEvent['operation'], seenAt: string): ActivityEvent {
-  return { id, workspaceId: 'ws-1', item, operation, seenAt };
+  return { id, workingSetId: 'ws-1', item, operation, seenAt };
 }
 
 const parent = makeItem('parent');

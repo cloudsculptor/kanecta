@@ -2,7 +2,7 @@ import type { ViewMeta } from '../../../lib/viewMeta';
 import { useViewLocation } from '../../../context/LocationContext';
 import { useQuery } from '@tanstack/react-query';
 import { QualityControlView as QualityControlViewPkg } from '@kanecta/component-quality-control-view';
-import { useWorkspaceStore } from '../../../store/workspace';
+import { useWorkingSetStore } from '../../../store/workingSet';
 import { TYPE_ICONS } from '../../../lib/typeIcons';
 
 export const QualityControlViewMeta: ViewMeta = {
@@ -14,11 +14,11 @@ export const QualityControlViewMeta: ViewMeta = {
 
 export function QualityControlView() {
   useViewLocation(QualityControlViewMeta.uuid);
-  const { getApi, activeWorkspaceId } = useWorkspaceStore();
+  const { getApi, activeWorkingSetId } = useWorkingSetStore();
   const api = getApi();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['items-stats', activeWorkspaceId],
+    queryKey: ['items-stats', activeWorkingSetId],
     queryFn: () => api.items.stats(),
   });
 

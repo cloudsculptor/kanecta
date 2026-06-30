@@ -1,7 +1,7 @@
 import { useEffect, useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useReviewStore } from '../../../store/review';
-import { useWorkspaceStore } from '../../../store/workspace';
+import { useWorkingSetStore } from '../../../store/workingSet';
 import { ConfidenceBadge } from '@kanecta/component-confidence-badge';
 import { TypeBadge } from '@kanecta/component-type-badge';
 import { TagChip } from '@kanecta/component-tag-chip';
@@ -13,7 +13,7 @@ interface ReviewConveyorProps {
 
 export function ReviewConveyor({ onClose }: ReviewConveyorProps) {
   const { reviewQueue, conveyorIndex, advanceConveyor, markSeen } = useReviewStore();
-  const { getApi } = useWorkspaceStore();
+  const { getApi } = useWorkingSetStore();
   const qc = useQueryClient();
 
   const current = reviewQueue[conveyorIndex];

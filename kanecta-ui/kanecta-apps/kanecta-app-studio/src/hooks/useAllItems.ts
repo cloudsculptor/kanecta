@@ -1,15 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
-import { useWorkspaceStore } from '../store/workspace';
+import { useWorkingSetStore } from '../store/workingSet';
 import { useUiStore } from '../store/ui';
 import { flattenTree, filterItems, sortItems } from '../lib/items';
 import type { FilterState, SortState } from '../types/ui';
 
 const DEFAULT_SORT: SortState = { field: 'sortOrder', direction: 'asc' };
 
-export function useAllItems(panelId: string, workspaceId?: string) {
-  const { getApi, activeWorkspaceId } = useWorkspaceStore();
+export function useAllItems(panelId: string, workingSetId?: string) {
+  const { getApi, activeWorkingSetId } = useWorkingSetStore();
   const { filtersByPanel, sortsByPanel } = useUiStore();
-  const wsId = workspaceId ?? activeWorkspaceId;
+  const wsId = workingSetId ?? activeWorkingSetId;
   const api = getApi(wsId);
 
   const filter: FilterState = filtersByPanel[panelId] ?? {};

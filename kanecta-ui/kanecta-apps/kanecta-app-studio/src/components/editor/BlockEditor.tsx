@@ -8,7 +8,7 @@ import Suggestion from '@tiptap/suggestion';
 import type { SuggestionProps, SuggestionKeyDownProps } from '@tiptap/suggestion';
 import tippy, { type Instance as TippyInstance } from 'tippy.js';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useWorkspaceStore } from '../../store/workspace';
+import { useWorkingSetStore } from '../../store/workingSet';
 import { useQuery } from '@tanstack/react-query';
 import type { KanectaItem } from '../../types/kanecta';
 import { SlashMenu, SLASH_ITEMS, type SlashMenuHandle, type SlashMenuItem } from './SlashMenu';
@@ -171,7 +171,7 @@ function buildMentionExtension(allItems: KanectaItem[]) {
 }
 
 export function BlockEditor({ itemId, initialContent }: BlockEditorProps) {
-  const { getApi } = useWorkspaceStore();
+  const { getApi } = useWorkingSetStore();
   const qc = useQueryClient();
   const savedRef = useRef(initialContent);
 

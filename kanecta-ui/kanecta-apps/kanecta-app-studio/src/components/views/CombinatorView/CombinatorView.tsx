@@ -3,7 +3,7 @@ import { useViewLocation } from '../../../context/LocationContext';
 import { CombinatorView as CombinatorViewPkg } from '@kanecta/component-combinator-view';
 import { HistoryList } from '@kanecta/component-history-view';
 import { StarredView } from '../StarredView/StarredView';
-import { useWorkspaceStore } from '../../../store/workspace';
+import { useWorkingSetStore } from '../../../store/workingSet';
 import { useUiStore } from '../../../store/ui';
 import { TYPE_ICONS, FallbackIcon } from '../../../lib/typeIcons';
 import type { ItemType } from '../../../types/kanecta';
@@ -17,9 +17,9 @@ export const CombinatorViewMeta: ViewMeta = {
 
 export function CombinatorView() {
   useViewLocation(CombinatorViewMeta.uuid);
-  const { getApi, activeWorkspaceId } = useWorkspaceStore();
+  const { getApi, activeWorkingSetId } = useWorkingSetStore();
   const { layout, updatePanel } = useUiStore();
-  const api = getApi(activeWorkspaceId);
+  const api = getApi(activeWorkingSetId);
 
   const handleNavigate = (e: React.MouseEvent, id: string) => {
     e.preventDefault();

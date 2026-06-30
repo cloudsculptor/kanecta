@@ -22,7 +22,7 @@ let ds;
 beforeEach(async () => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'kanecta-api-1.4.0-test-'));
   ds = Datastore.init(tmpRoot, 'test@example.com');
-  process.env.KANECTA_DATASTORE = tmpRoot;
+  require('./helpers').useConfig(tmpRoot);
   process.env.AUTH_DISABLED = 'true';
   // Point XDG_CONFIG_HOME at the empty tmpRoot so readAppConfig() returns null
   // and the API falls through to filesystem mode (KANECTA_DATASTORE). Without
@@ -33,7 +33,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   fs.rmSync(tmpRoot, { recursive: true, force: true });
-  delete process.env.KANECTA_DATASTORE;
+  require('./helpers').clearConfigEnv();
   delete process.env.AUTH_DISABLED;
   delete process.env.XDG_CONFIG_HOME;
 });
@@ -448,13 +448,12 @@ describe('GET /items/stats', () => {
     expect(row.name).toBe(orphanTypeId);
   });
 
-  it('excludes root-type items from total and unstructured', async () => {
+  it('excludes the reserved root node from total and unstructured', async () => {
     const res = await request(app).get('/items/stats');
-    // root, data_root, app_root, component_root, system_root are created by
-    // Datastore.init() and must never appear in the stats output
-    const rootRow = res.body.unstructured.find(r =>
-      ['root', 'data_root', 'app_root', 'component_root', 'system_root'].includes(r.type)
-    );
+    // The reserved root node is created by Datastore.init() and must never appear
+    // in the stats output. (1.4.0 has no system_root/app_root/component_root/
+    // data_root — those obsolete roots no longer exist.)
+    const rootRow = res.body.unstructured.find(r => r.type === 'root');
     expect(rootRow).toBeUndefined();
   });
 });

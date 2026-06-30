@@ -25,7 +25,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
       "command": "npx",
       "args": ["-y", "@kanecta/mcp"],
       "env": {
-        "KANECTA_DATASTORE": "/path/to/your/kanecta/datastore"
+        "KANECTA_CONFIG": "~/.config/kanecta"
       }
     }
   }
@@ -57,7 +57,7 @@ You need entries in **both** the global `mcpServers` key and the project-level k
       "command": "/home/<user>/.nvm/versions/node/<version>/bin/node",
       "args": ["/path/to/kanecta/kanecta-mcp/src/index.js"],
       "env": {
-        "KANECTA_DATASTORE": "/home/<user>/.kanecta"
+        "KANECTA_CONFIG": "/home/<user>/.config/kanecta"
       }
     }
   },
@@ -69,7 +69,7 @@ You need entries in **both** the global `mcpServers` key and the project-level k
           "command": "/home/<user>/.nvm/versions/node/<version>/bin/node",
           "args": ["/path/to/kanecta/kanecta-mcp/src/index.js"],
           "env": {
-            "KANECTA_DATASTORE": "/home/<user>/.kanecta"
+            "KANECTA_CONFIG": "/home/<user>/.config/kanecta"
           }
         }
       }
@@ -88,12 +88,14 @@ You need entries in **both** the global `mcpServers` key and the project-level k
 
 ## Datastore discovery
 
-The server resolves the datastore path in this order:
+The server resolves the active working set from `config.json` (located via
+`KANECTA_CONFIG`, else the platform default — `~/.config/kanecta/config.json` on
+Linux). Selection order:
 
-1. A per-call `datastore` argument, resolved against the `KANECTA_DATASTORES` registry (see [Multiple datastores](#multiple-datastores-one-server-many-stores))
-2. `KANECTA_DATASTORE` environment variable
-3. `~/.kanecta-config.json` → `datastorePath`
-4. Default: `~/.kanecta/`
+1. A per-call `workingSet` argument (and optional `branch`) — a working-set name from `config.json`
+2. `KANECTA_WORKING_SET` / `KANECTA_BRANCH` environment variables
+3. `state.json` (the machine-local active selection)
+4. `config.json` `defaultWorkingSet` / the working set's `defaultBranch` / `main`
 
 Initialise a datastore with:
 
@@ -103,45 +105,27 @@ node kanecta-cli/index.js init ~/.kanecta --owner you@example.com
 
 ---
 
-## Multiple datastores (one server, many stores)
+## Multiple working sets (one server, many stores)
 
-A single server instance can serve several datastores. Register them as a JSON map of
-name → path via the `KANECTA_DATASTORES` environment variable, then pass an optional
-`datastore` argument to any tool to target one of them:
-
-```json
-{
-  "mcpServers": {
-    "kanecta": {
-      "command": "npx",
-      "args": ["-y", "@kanecta/mcp"],
-      "env": {
-        "KANECTA_DATASTORE": "/path/to/default/store",
-        "KANECTA_DATASTORES": "{\"store-a\":\"/path/to/a\",\"store-b\":\"~/data/b\"}"
-      }
-    }
-  }
-}
-```
+A single server serves every working set defined in `config.json`. Pass an
+optional `workingSet` argument (and optional `branch`) to any tool to target one —
+there is no separate env registry:
 
 ```jsonc
-// Target a named store for a single call:
-kanecta_query({ type: "decision", datastore: "store-a" })
+// Target a named working set for a single call:
+kanecta_query({ type: "decision", workingSet: "store-a" })
 
-// Omit `datastore` and the call uses the default store exactly as before:
+// Optionally target a branch within it:
+kanecta_query({ type: "decision", workingSet: "store-a", branch: "review" })
+
+// Omit them and the call uses the active working set (state.json / defaultWorkingSet):
 kanecta_query({ type: "decision" })
 ```
 
-- `datastore` is optional on **every** tool.
-- **Omitting it is fully back-compatible** — resolution falls through to `KANECTA_DATASTORE`
-  / the configured workspace, identical to a single-datastore server. Configuring
-  `KANECTA_DATASTORES` never changes the behavior of calls that omit `datastore`.
-- A `~` prefix in a registry path is expanded to the user's home directory.
-- An unknown `datastore` name returns an error listing the configured names.
-
-Alternatively, run a second server instance with its own `KANECTA_DATASTORE` and a distinct
-server name — but that doubles the tool surface if both load in one session. The registry keeps
-everything under a single tool namespace.
+- `workingSet` and `branch` are optional on **every** tool and are stripped before
+  the handler sees the arguments.
+- They select a working set / branch from `config.json` — define your stores there.
+- An unknown `workingSet` name returns an error listing the configured names.
 
 ---
 

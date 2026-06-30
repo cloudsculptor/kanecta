@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AnnotationComposer } from './AnnotationComposer';
-import { useWorkspaceStore } from '../../store/workspace';
+import { useWorkingSetStore } from '../../store/workingSet';
 import type { Annotation } from '../../types/kanecta';
 import './AnnotationThread.scss';
 
@@ -30,7 +30,7 @@ interface AnnotationNodeProps {
 }
 
 function AnnotationNode({ annotation, itemId, depth }: AnnotationNodeProps) {
-  const { getApi } = useWorkspaceStore();
+  const { getApi } = useWorkingSetStore();
   const qc = useQueryClient();
   const [replying, setReplying] = useState(false);
 
@@ -72,7 +72,7 @@ function AnnotationNode({ annotation, itemId, depth }: AnnotationNodeProps) {
 }
 
 export function AnnotationThread({ itemId }: AnnotationThreadProps) {
-  const { getApi } = useWorkspaceStore();
+  const { getApi } = useWorkingSetStore();
   const qc = useQueryClient();
 
   const { data: annotations = [], isLoading } = useQuery({

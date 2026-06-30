@@ -5,8 +5,6 @@ const path = require('path');
 const fs = require('fs');
 const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, TYPES_NODE } = require('../src/index');
 
-const SAMPLE = path.resolve(__dirname, '../../kanecta-datastore-sample');
-const ROOT_ID = 'f1a00001-b45e-4c3d-9e7f-000000000001';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function tmpDs() {
@@ -35,9 +33,9 @@ test('init creates a valid datastore', () => {
   // Config lives in the root node's payload (not a separate config file in 1.4.0)
   expect(ds.config.owner).toBe('test@example.com');
   expect(ds.config.specVersion).toBe('1.4.0');
-  // items/ directory and index.db must exist
-  expect(fs.existsSync(path.join(ds.k, 'items'))).toBe(true);
-  expect(fs.existsSync(path.join(ds.k, 'index.db'))).toBe(true);
+  // Each branch is a self-contained folder: main's items/ and index.db must exist
+  expect(fs.existsSync(path.join(ds.k, 'branches', 'main', 'items'))).toBe(true);
+  expect(fs.existsSync(path.join(ds.k, 'branches', 'main', 'index.db'))).toBe(true);
   fs.rmSync(ds.root, { recursive: true });
 });
 
@@ -57,7 +55,7 @@ test('create returns item with valid UUID and correct fields', async () => {
   expect(item.type).toBe('string');
   expect(item.tags).toEqual(['x']);
   expect(item.owner).toBe('test@example.com');
-  expect(item.parentId).toMatch(UUID_RE); // defaults to data_root
+  expect(item.parentId).toMatch(UUID_RE); // defaults to root
   expect(item.sortOrder).toBe(1);
   fs.rmSync(ds.root, { recursive: true });
 });
@@ -297,9 +295,11 @@ test('rebuildIndexes repopulates indexes from filesystem', async () => {
   fs.rmSync(ds.root, { recursive: true });
 });
 
-// ─── Sample datastore tests removed in 1.4.0 ────────────────────────────────
-// The kanecta-datastore-sample is in 1.3.0 format (sharded JSON files, not items/).
-// A 1.4.0-format sample needs to be created separately. Tests skipped for now.
+// ─── Fixtures are generated, not committed ──────────────────────────────────
+// These suites build datastores on the fly with the current adapter (tmpDs
+// above), so fixtures can never go stale. A richer shared fixture is available
+// via kanecta-sqlite-fs/test-helpers/makeSampleDatastore for suites that need a
+// populated read-only store (see kanecta-cli/index.test.js).
 
 // ─── Query ───────────────────────────────────────────────────────────────────
 

@@ -13,8 +13,13 @@ npm install
 ## Running
 
 ```bash
-KANECTA_DATASTORE=~/.kanecta npm start
+KANECTA_CONFIG=~/.config/kanecta npm start
 ```
+
+The API resolves the active working set from `config.json` (located via
+`KANECTA_CONFIG`, else the platform default). A request may override per call with
+`?workingSet=<name>` / `?branch=<name>` (or the `X-Kanecta-Working-Set` /
+`X-Kanecta-Branch` headers).
 
 The server listens on **port 3001** by default. Override with `PORT`:
 
@@ -63,7 +68,7 @@ npm run docker:up -w kanecta-keycloak
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/items` | List top-level items (children of `data_root`) |
+| `GET` | `/items` | List top-level items (children of `root`) |
 | `POST` | `/items` | Create item. Accepts `alias` to set a shortcut in the same call. |
 | `POST` | `/items/bulk` | Create multiple items. Returns `{ created, errors }`. |
 | `PATCH` | `/items/bulk` | Update multiple items. Body: `{ updates: [{id, ...changes}] }`. |
