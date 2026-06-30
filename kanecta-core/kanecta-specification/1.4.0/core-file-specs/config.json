@@ -210,7 +210,7 @@
       "workingSets": {
         "personal": {
           "local": "/home/alice/wiki/personal",
-          "branch": "main"
+          "defaultBranch": "main"
         }
       },
       "studioPort": 9743,
@@ -241,7 +241,7 @@
               "apiKey": "$KANECTA_BACKUP_API_KEY"
             }
           },
-          "branch": "main"
+          "defaultBranch": "main"
         }
       },
       "studioPort": 9743,

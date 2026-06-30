@@ -185,6 +185,14 @@ describe('migrate datastore overlay → per-branch full folders', () => {
     expect(a.history(ids.keep).length).toBeGreaterThan(0);
   });
 
+  test('keeps history recording on when the old datastore had history', () => {
+    migrateDatastoreToPerBranch(root);
+    const a = SqliteFsAdapter.open(root);
+    // Old layout had history rows → migrated root opts into history (EXTERNAL),
+    // so recording continues rather than silently switching off.
+    expect(a.config.itemHistory).toBe('EXTERNAL');
+  });
+
   test('is idempotent — second run is a no-op', () => {
     const first = migrateDatastoreToPerBranch(root);
     expect(first.migrated).toBe(true);

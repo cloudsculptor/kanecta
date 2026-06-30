@@ -100,7 +100,23 @@ const TYPE_ITEM_UUIDS = {
   annotation:   '8797b002-091a-4289-abf0-850d4b05a743',
 };
 
+const ROOT_ID = '00000000-0000-0000-0000-000000000000';
+
 function uuid() { return require('crypto').randomUUID(); }
+
+// If the old datastore was recording history, keep it recording after migration —
+// don't silently disable it. Sets rootPayload.itemHistory unless already specified.
+function setRootItemHistory(mainItemsDir, mode, log) {
+  const p = path.join(shardDir(mainItemsDir, ROOT_ID), 'item.json');
+  let doc;
+  try { doc = JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return; }
+  doc.payload = doc.payload || {};
+  if (doc.payload.itemHistory && doc.payload.itemHistory !== 'NONE') return; // already set
+  doc.payload.itemHistory = mode;
+  if (log) log.push(`  set rootPayload.itemHistory = ${mode} (history was active pre-migration)`);
+  if (DRY_RUN) return;
+  fs.writeFileSync(p, JSON.stringify(doc, null, 2), 'utf8');
+}
 
 // Build a five-section item.json doc for a metadata item.
 function metaDoc({ id, parentId, type, value, aspect = null, createdAt, createdBy, layer, payload }) {
@@ -163,6 +179,7 @@ function materialiseOldMetadata(oldSharedDbPath, mainItemsDir, mainHistoryDir, l
         n++;
       }
     }
+    let historyCount = 0;
     if (has('history')) {
       const seqByTarget = new Map();
       const eventType = (ct) => ct === 'create' ? 'created' : ct === 'delete' ? 'deleted' : 'updated';
@@ -180,10 +197,11 @@ function materialiseOldMetadata(oldSharedDbPath, mainItemsDir, mainHistoryDir, l
             by: r.changed_by ?? null, delta: {}, snapshot, changeType: r.change_type,
           },
         }));
-        n++;
+        n++; historyCount++;
       }
     }
     if (n) log.push(`  materialised ${n} metadata item(s) (aliases/relationships/annotations/history) from old index.db`);
+    if (historyCount > 0) setRootItemHistory(mainItemsDir, 'EXTERNAL', log);
   } catch (e) {
     log.push(`  WARNING: could not materialise old metadata: ${e.message}`);
   } finally {
