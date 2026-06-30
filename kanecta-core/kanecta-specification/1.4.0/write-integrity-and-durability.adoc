@@ -257,9 +257,34 @@ reads, and the per-branch folder layout lives at
 `kanecta-docs/kanecta-docs/storage-and-write-integrity.html`. The `listing` blocks
 above are the authoritative text source for that diagram.
 
+== Implementation status (filesystem adapter)
+
+The lock + journal + recovery are implemented in `@kanecta/sqlite-fs`
+(`src/write-integrity.js` + the adapter's `_withWrite`/`_recover`):
+
+* Cross-process lock at `branches/<branch>/write.lock` (PID + host + heartbeat),
+  acquired by an atomic `O_EXCL` create, stealing a stale lock (dead PID / expired
+  heartbeat) and otherwise waiting.
+* Write-ahead journal at `branches/<branch>/write.journal` with per-item
+  pre-images; phase advances `started → l0-done` so recovery distinguishes
+  roll-back from roll-forward.
+* `_recover()` runs on open and on branch switch. Roll-forward is a rebuild of the
+  derived index (sound because `index.db` is 100% derived).
+* Wrapped mutations: create, update, delete (with its metadata cascade), soft
+  delete, restore, alias/relationship/annotation writes, and object-payload writes.
+* Reads never take the lock, so they are non-blocking and return the last
+  committed value (atomic `item.json` rename + SQLite WAL provide the snapshot).
+
 == Deferred / open
 
+* *Group-atomic bulk* — bulk operations are currently loops over the wrapped
+  single-item mutations: each item is individually atomic, but the batch is not
+  yet one transaction.
+* `createType` / `writeTypeJson` / root-config (`_saveConfig`) writes are not yet
+  journaled.
+* A history event written inside a transaction that later rolls back can remain as
+  a harmless orphan in `item-history/` (it records an attempt that was undone).
 * An optional "strong read" mode (block until the very latest) for the rare caller
   that needs it — not implemented; snapshot is the only mode for now.
-* Tunable durability (e.g. `fsync` cadence) per deployment; the default is to
-  `fsync` the journal and L0 before reporting success.
+* Tunable durability (e.g. `fsync` cadence) per deployment; the default relies on
+  the OS for the journal and L0 writes.

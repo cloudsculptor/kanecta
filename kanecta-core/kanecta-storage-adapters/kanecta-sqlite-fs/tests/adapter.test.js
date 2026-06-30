@@ -388,6 +388,19 @@ describe('write integrity — crash recovery', () => {
     expect(fs.existsSync(journalPath())).toBe(false);
     expect(fs.existsSync(lockPath())).toBe(false);
   });
+
+  it('reads never block on an in-flight write — they return the last committed value', () => {
+    const a = ds.create({ value: 'committed' });
+    // Simulate another process holding the write lock with an in-flight journal.
+    fs.writeFileSync(lockPath(), JSON.stringify({ pid: process.pid, host: require('os').hostname(), heartbeatAt: Date.now() }));
+    fs.writeFileSync(journalPath(), JSON.stringify({ phase: 'started', branch: 'main', ops: [{ id: a.id, store: 'items', preImage: null }] }));
+    // Reads do not acquire the lock, so this returns immediately with the
+    // last-committed value rather than waiting for the writer.
+    expect(ds.get(a.id).value).toBe('committed');
+    expect(ds.children(ROOT_ID).some(c => c.id === a.id)).toBe(true);
+    fs.rmSync(lockPath(), { force: true });
+    fs.rmSync(journalPath(), { force: true });
+  });
 });
 
 // ─── create ────────────────────────────────────────────────────────────────────
