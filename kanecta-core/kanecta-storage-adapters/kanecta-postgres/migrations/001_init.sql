@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS items (
         'object', 'decision', 'annotation',
         'note', 'fact', 'claim', 'question', 'task',
         'concept', 'entity', 'event', 'code', 'url', 'image',
-        'root', 'system_root', 'app_root', 'component_root', 'data_root'
+        'root'
     )),
     CONSTRAINT chk_items_confidence CHECK (
         confidence IS NULL OR confidence IN (

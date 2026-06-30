@@ -58,7 +58,6 @@ Use exact monorepo package names:
 - `kanecta-api`
 - `kanecta-app-studio`
 - `kanecta-cli`
-- `kanecta-datastore-sample`
 - `kanecta-filesystem`
 - `kanecta-lib`
 - `kanecta-mcp`

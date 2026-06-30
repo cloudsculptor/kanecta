@@ -68,7 +68,7 @@ npm run docker:up -w kanecta-keycloak
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/items` | List top-level items (children of `data_root`) |
+| `GET` | `/items` | List top-level items (children of `root`) |
 | `POST` | `/items` | Create item. Accepts `alias` to set a shortcut in the same call. |
 | `POST` | `/items/bulk` | Create multiple items. Returns `{ created, errors }`. |
 | `PATCH` | `/items/bulk` | Update multiple items. Body: `{ updates: [{id, ...changes}] }`. |

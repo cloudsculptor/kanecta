@@ -3,7 +3,6 @@
 ----
 kanecta/
 ├── kanecta-specification/         — Canonical data model spec (v1.0)
-├── kanecta-datastore-sample/      — Sample datastore for development and testing
 ├── kanecta-api/                   — Node.js/Express HTTP API
 ├── kanecta-cli/                   — Node.js CLI for text export
 ├── kanecta-client-web/            — React/TypeScript web UI

@@ -22,7 +22,7 @@ ALTER TABLE items ADD CONSTRAINT chk_items_type CHECK (type IN (
     'function', 'markdown', 'runner',
     'object', 'decision', 'annotation', 'claim', 'question', 'task',
     'note', 'concept', 'entity', 'event',
-    'root', 'system_root', 'app_root', 'component_root', 'data_root',
+    'root',
     'type'
 ));
 

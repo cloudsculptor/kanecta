@@ -77,17 +77,18 @@ describe('init', () => {
     expect(gi).toContain('index.db');
   });
 
-  it('seeds well-known root nodes (root, system_root, app_root, component_root, data_root)', () => {
+  it('seeds the two reserved nodes (root and types) and no obsolete roots', () => {
     const root = ds.getRoot();
     expect(root.id).toBe(ROOT_ID);
     expect(root.type).toBe('root');
-    const dr = ds.getDataRoot();
-    expect(dr).not.toBeNull();
-    expect(dr.type).toBe('data_root');
+    const kids = ds.children(ROOT_ID);
+    expect(kids.some(k => k.type === 'types')).toBe(true);
+    // 1.4.0 has only root + types — no system_root/app_root/component_root/data_root.
+    expect(kids.some(k => ['system_root', 'app_root', 'component_root', 'data_root'].includes(k.type))).toBe(false);
   });
 
-  it('seeds a Welcome item under data_root', () => {
-    const kids = ds.children(ds.getDataRoot().id);
+  it('seeds a Welcome item under root', () => {
+    const kids = ds.children(ROOT_ID);
     expect(kids.some(k => k.value === 'Welcome to Kanecta!')).toBe(true);
   });
 
@@ -406,10 +407,10 @@ describe('write integrity — crash recovery', () => {
 // ─── create ────────────────────────────────────────────────────────────────────
 
 describe('create', () => {
-  it('creates an item under data_root by default', () => {
+  it('creates an item under root by default', () => {
     const item = ds.create({ value: 'hello' });
     expect(item.id).toMatch(/^[0-9a-f-]{36}$/);
-    expect(item.parentId).toBe(ds.getDataRoot().id);
+    expect(item.parentId).toBe(ds.getRoot().id);
     expect(item.value).toBe('hello');
   });
 
@@ -449,7 +450,7 @@ describe('create', () => {
 
   it('throws for well-known type names', () => {
     expect(() => ds.create({ type: 'root' })).toThrow(/well-known root type/);
-    expect(() => ds.create({ type: 'data_root' })).toThrow(/well-known root type/);
+    expect(() => ds.create({ type: 'types' })).toThrow(/well-known root type/);
   });
 
   it('writes backlinks for [[uuid]] references in value', () => {
@@ -587,15 +588,9 @@ describe('update', () => {
     expect(h.some(e => e.changeType === 'update')).toBe(true);
   });
 
-  it('throws when editing a reserved root node', () => {
-    const sysRoot = ds.children(ROOT_ID).find(c => c.type === 'system_root');
-    expect(() => ds.update(sysRoot.id, { value: 'x' })).toThrow(/reserved root node/);
-  });
-
-  it('allows editing data_root (special case)', () => {
-    const dr = ds.getDataRoot();
-    expect(() => ds.update(dr.id, { value: 'Mine' })).not.toThrow();
-    expect(ds.get(dr.id).value).toBe('Mine');
+  it('throws when editing a reserved node (types)', () => {
+    const types = ds.children(ROOT_ID).find(c => c.type === 'types');
+    expect(() => ds.update(types.id, { value: 'x' })).toThrow(/reserved root node/);
   });
 
   // ── parentId change cascades materialized path ─────────────────────────────
@@ -669,7 +664,7 @@ describe('delete', () => {
 
   it('throws for well-known nodes', () => {
     expect(() => ds.delete(ROOT_ID)).toThrow(/reserved root node/);
-    const dr = ds.getDataRoot();
+    const dr = ds.getRoot();
     expect(() => ds.delete(dr.id)).toThrow(/reserved root node/);
   });
 
@@ -832,13 +827,11 @@ describe('tree', () => {
     expect(ds.tree('ffffffff-ffff-4fff-bfff-ffffffffffff')).toEqual([]);
   });
 
-  it('uses implicit data_root when no rootId given', () => {
-    const dr = ds.getDataRoot();
+  it('uses implicit root when no rootId given', () => {
     const item = ds.create({ value: 'x' });
     const t = ds.tree(null);
     const ids = t.map(n => n.item.id);
     expect(ids).toContain(item.id);
-    expect(ids).not.toContain(dr.id);
   });
 
   it('children within same level are sorted by sortOrder', () => {
@@ -851,7 +844,7 @@ describe('tree', () => {
   });
 
   it('only loads subtree rows from SQL (path index used)', () => {
-    // Create 100 items at data_root, then a separate subtree to query
+    // Create 100 items at root, then a separate subtree to query
     const parent = ds.create({ value: 'subtree-root' });
     for (let i = 0; i < 50; i++) ds.create({ value: `noise-${i}` });
     const child = ds.create({ value: 'child', parentId: parent.id });
@@ -872,7 +865,7 @@ describe('materialized path', () => {
   });
 
   it('child of root has path = ROOT_ID/childId', () => {
-    const dr = ds.getDataRoot();
+    const dr = ds.getRoot();
     const p  = ds._getPath(dr.id);
     expect(p).toBe(`${ROOT_ID}/${dr.id}`);
   });
@@ -880,7 +873,7 @@ describe('materialized path', () => {
   it('grandchild path encodes full ancestry', () => {
     const parent = ds.create({ value: 'p' });
     const child  = ds.create({ value: 'c', parentId: parent.id });
-    const dr     = ds.getDataRoot();
+    const dr     = ds.getRoot();
     const expected = `${ROOT_ID}/${dr.id}/${parent.id}/${child.id}`;
     expect(ds._getPath(child.id)).toBe(expected);
   });
@@ -919,7 +912,7 @@ describe('ancestors', () => {
   });
 
   it('returns [root] for a direct child of root', () => {
-    const dr  = ds.getDataRoot();
+    const dr  = ds.getRoot();
     const anc = ds.ancestors(dr.id);
     expect(anc.map(a => a.id)).toContain(ROOT_ID);
   });
@@ -930,7 +923,7 @@ describe('ancestors', () => {
     const anc = ds.ancestors(c.id);
     const ids = anc.map(a => a.id);
     expect(ids).toContain(ROOT_ID);
-    expect(ids).toContain(ds.getDataRoot().id);
+    expect(ids).toContain(ds.getRoot().id);
     expect(ids).toContain(p.id);
     expect(ids).not.toContain(c.id);
   });
@@ -1550,32 +1543,14 @@ describe('well-known node protection', () => {
     expect(() => ds.delete(ROOT_ID)).toThrow(/reserved root node/);
   });
 
-  it('cannot delete system_root, app_root, component_root', () => {
-    const kids = ds.children(ROOT_ID);
-    for (const k of kids) {
-      if (['system_root', 'app_root', 'component_root'].includes(k.type)) {
-        expect(() => ds.delete(k.id)).toThrow(/reserved root node/);
-      }
-    }
+  it('cannot delete the reserved types node', () => {
+    const types = ds.children(ROOT_ID).find(c => c.type === 'types');
+    expect(() => ds.delete(types.id)).toThrow(/reserved root node/);
   });
 
-  it('cannot update system_root, app_root, component_root', () => {
-    const kids = ds.children(ROOT_ID);
-    for (const k of kids) {
-      if (['system_root', 'app_root', 'component_root'].includes(k.type)) {
-        expect(() => ds.update(k.id, { value: 'x' })).toThrow(/reserved root node/);
-      }
-    }
-  });
-
-  it('data_root can be updated', () => {
-    const dr = ds.getDataRoot();
-    expect(() => ds.update(dr.id, { value: 'My Space' })).not.toThrow();
-  });
-
-  it('data_root cannot be deleted', () => {
-    const dr = ds.getDataRoot();
-    expect(() => ds.delete(dr.id)).toThrow(/reserved root node/);
+  it('cannot update the reserved types node', () => {
+    const types = ds.children(ROOT_ID).find(c => c.type === 'types');
+    expect(() => ds.update(types.id, { value: 'x' })).toThrow(/reserved root node/);
   });
 });
 

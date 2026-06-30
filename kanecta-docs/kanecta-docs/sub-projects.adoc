@@ -34,7 +34,7 @@ npm start          # listens on port 3000
 | Variable | Default | Description
 
 | `PORT` | `3000` | Port the server listens on
-| `KANECTA_DATASTORE` | `../kanecta-datastore-sample` | Path to the datastore root
+| `KANECTA_CONFIG` | platform default (`~/.config/kanecta/config.json`) | Path to the config that selects the datastore / working set
 |===
 
 === Tests
@@ -105,21 +105,18 @@ The Vite dev server proxies `/api/*` to `http://localhost:3000`, so no CORS setu
 
 ---
 
-== kanecta-datastore-sample
+== Test fixtures (generated, not committed)
 
-A pre-populated sample datastore used by the API, CLI, and their tests. Contains the "Base Work Process" workflow as a small item tree.
+There is no committed sample datastore. A committed fixture freezes one on-disk
+format and rots whenever the format changes, so test datastores are *generated*
+from the current adapter instead — they always match the live format.
 
-=== Structure
+* *Per suite, on the fly.* Most suites seed a fresh datastore in a temp directory
+  in their setup (e.g. a `tmpDs()` helper calling `Datastore.init` + `create`).
+* *Shared helper where reused.* Suites that need the same populated read-only
+  store use `kanecta-storage-adapters/kanecta-sqlite-fs/test-helpers/makeSampleDatastore.js`,
+  which builds a known "Base Work Process" tree and returns the generated UUIDs
+  (reference them via the returned `ids`, never by literal). The CLI tests use it.
 
-----
-kanecta-datastore-sample/
-└── .kanecta/
-    ├── config/        — config.json (owner, defaultView)
-    ├── data/          — item folders (metadata.json)
-    ├── aliases/
-    ├── types/
-    ├── remotes/
-    ├── remotes-index/
-    ├── links/
-    └── search/
-----
+The fixtures track the spec automatically because they run `init`/`create`, which
+implement it — the spec stays the contract, not a stored datastore.

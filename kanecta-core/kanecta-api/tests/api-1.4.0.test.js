@@ -448,13 +448,12 @@ describe('GET /items/stats', () => {
     expect(row.name).toBe(orphanTypeId);
   });
 
-  it('excludes root-type items from total and unstructured', async () => {
+  it('excludes the reserved root node from total and unstructured', async () => {
     const res = await request(app).get('/items/stats');
-    // root, data_root, app_root, component_root, system_root are created by
-    // Datastore.init() and must never appear in the stats output
-    const rootRow = res.body.unstructured.find(r =>
-      ['root', 'data_root', 'app_root', 'component_root', 'system_root'].includes(r.type)
-    );
+    // The reserved root node is created by Datastore.init() and must never appear
+    // in the stats output. (1.4.0 has no system_root/app_root/component_root/
+    // data_root — those obsolete roots no longer exist.)
+    const rootRow = res.body.unstructured.find(r => r.type === 'root');
     expect(rootRow).toBeUndefined();
   });
 });
