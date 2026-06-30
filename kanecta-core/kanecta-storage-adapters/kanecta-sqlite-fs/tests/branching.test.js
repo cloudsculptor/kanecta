@@ -14,6 +14,12 @@ function tmpAdapter() {
 
 function cleanup(a) { fs.rmSync(a.root, { recursive: true, force: true }); }
 
+// Resolve the on-disk item.json path for an item on a given branch.
+function itemPathOn(a, branch, id) {
+  const hex = id.replace(/-/g, '');
+  return path.join(a.k, 'branches', branch, 'items', hex.slice(0, 2), hex.slice(2, 4), id, 'item.json');
+}
+
 // ─── Branch lifecycle ─────────────────────────────────────────────────────────
 
 describe('branch lifecycle', () => {
@@ -23,25 +29,40 @@ describe('branch lifecycle', () => {
     cleanup(a);
   });
 
-  test('createBranch returns manifest with id, name, baseBranch, createdAt', () => {
+  test('createBranch returns manifest with name, base, fill, createdAt', () => {
     const a = tmpAdapter();
     const b = a.createBranch('feature/foo');
     expect(b.name).toBe('feature/foo');
-    expect(b.baseBranch).toBe('main');
-    expect(b.id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(b.base).toBe('main');
+    expect(b.fill).toBe('full');
     expect(b.createdAt).toBeTruthy();
     cleanup(a);
   });
 
-  test('createBranch creates branch directory and branch.json manifest', () => {
+  test('createBranch creates a full self-contained branch folder', () => {
     const a   = tmpAdapter();
     a.createBranch('feature/foo');
     const dir = path.join(a.k, 'branches', 'feature__foo');
     expect(fs.existsSync(dir)).toBe(true);
     expect(fs.existsSync(path.join(dir, 'branch.json'))).toBe(true);
     expect(fs.existsSync(path.join(dir, 'items'))).toBe(true);
+    // index.db is copied from the base branch (full copy, not a delta).
+    expect(fs.existsSync(path.join(dir, 'index.db'))).toBe(true);
     const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'branch.json'), 'utf8'));
     expect(manifest.name).toBe('feature/foo');
+    expect(manifest.fill).toBe('full');
+    expect(manifest.upstream).toBeNull();
+    cleanup(a);
+  });
+
+  test('createBranch is a full copy — base items appear in the new branch', () => {
+    const a    = tmpAdapter();
+    const item = a.create({ value: 'on main', type: 'text' });
+    a.createBranch('feature/foo');
+    // Item file copied into the branch's own items/ tree.
+    expect(fs.existsSync(itemPathOn(a, 'feature__foo', item.id))).toBe(true);
+    a.switchBranch('feature/foo');
+    expect(a.get(item.id)?.value).toBe('on main');
     cleanup(a);
   });
 
@@ -65,13 +86,13 @@ describe('branch lifecycle', () => {
     cleanup(a);
   });
 
-  test('listBranches returns empty array when no branches created', () => {
+  test('listBranches returns empty array when only main exists', () => {
     const a = tmpAdapter();
     expect(a.listBranches()).toEqual([]);
     cleanup(a);
   });
 
-  test('listBranches returns created branches', () => {
+  test('listBranches reads branch.json from the branches/ directory', () => {
     const a = tmpAdapter();
     a.createBranch('feature/a');
     a.createBranch('feature/b');
@@ -89,13 +110,15 @@ describe('branch lifecycle', () => {
     cleanup(a);
   });
 
-  test('switchBranch persists to workspace_meta', () => {
+  test('switchBranch opens the branch folder on reopen', () => {
     const a = tmpAdapter();
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
-    // Re-open the adapter (new instance, same root) — branch should be restored
+    const item = a.create({ value: 'branch item', type: 'text' });
+    // A fresh adapter on the same root + useBranch sees the branch's items.
     const b = SqliteFsAdapter.open(a.root);
-    expect(b.currentBranch()).toBe('feature/foo');
+    b.useBranch('feature/foo');
+    expect(b.get(item.id)?.value).toBe('branch item');
     cleanup(a);
   });
 
@@ -138,102 +161,53 @@ describe('branch lifecycle', () => {
   });
 });
 
-// ─── Branch write path ────────────────────────────────────────────────────────
+// ─── Branch write path (per-branch full folder — no overlays) ───────────────────
 
 describe('branch write path', () => {
-  test('create on branch writes item.json to branch overlay, not main items/', () => {
+  test('create on branch writes item.json to the branch folder, not main', () => {
     const a = tmpAdapter();
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
     const item = a.create({ value: 'branch item', type: 'text' });
-    // Should NOT be in main items/
-    const [s1, s2] = [item.id.replace(/-/g, '').slice(0, 2), item.id.replace(/-/g, '').slice(2, 4)];
-    const mainPath   = path.join(a.k, 'items', s1, s2, item.id, 'item.json');
-    const branchPath = path.join(a.k, 'branches', 'feature__foo', 'items', s1, s2, item.id, 'item.json');
-    expect(fs.existsSync(mainPath)).toBe(false);
-    expect(fs.existsSync(branchPath)).toBe(true);
+    expect(fs.existsSync(itemPathOn(a, 'main', item.id))).toBe(false);
+    expect(fs.existsSync(itemPathOn(a, 'feature__foo', item.id))).toBe(true);
     cleanup(a);
   });
 
-  test('create on branch records entry in branch_changes with change_type=create', () => {
+  test('create on branch does not appear in the main index', () => {
     const a = tmpAdapter();
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
-    const item  = a.create({ value: 'branch item', type: 'text' });
-    const db    = a._openDb();
-    const branchId = db.prepare("SELECT id FROM branches WHERE name = 'feature/foo'").get()?.id;
-    const rows  = db.prepare("SELECT * FROM branch_changes WHERE branch_id = ? AND item_id = ?").all(branchId, item.id);
-    expect(rows.some(r => r.change_type === 'create')).toBe(true);
-    expect(rows.some(r => r.section === 'item')).toBe(true);
+    const item = a.create({ value: 'branch item', type: 'text' });
+    a.switchBranch('main');
+    expect(a.get(item.id)).toBeNull();
     cleanup(a);
   });
 
-  test('create on branch does not touch main index tables', () => {
-    const a = tmpAdapter();
-    const countBefore = a._openDb().prepare('SELECT COUNT(*) AS n FROM items').get().n;
-    a.createBranch('feature/foo');
-    a.switchBranch('feature/foo');
-    a.create({ value: 'branch item', type: 'text' });
-    const countAfter = a._openDb().prepare('SELECT COUNT(*) AS n FROM items').get().n;
-    expect(countAfter).toBe(countBefore); // main index unchanged
-    cleanup(a);
-  });
-
-  test('update on branch writes to overlay and records update in branch_changes', () => {
+  test('update on branch is isolated — main keeps the original value on disk', () => {
     const a    = tmpAdapter();
     const main = a.create({ value: 'original', type: 'text' });
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
     a.update(main.id, { value: 'modified on branch' });
-    const db = a._openDb();
-    const branchId = db.prepare("SELECT id FROM branches WHERE name = 'feature/foo'").get()?.id;
-    const row = db.prepare("SELECT change_type FROM branch_changes WHERE branch_id = ? AND item_id = ? AND section = 'item'").get(branchId, main.id);
-    expect(row?.change_type).toBe('update');
-    // Main item.json should still have original value
-    const mainDoc = JSON.parse(fs.readFileSync(path.join(a.k, 'items', main.id.replace(/-/g,'').slice(0,2), main.id.replace(/-/g,'').slice(2,4), main.id, 'item.json'), 'utf8'));
+    // Main item.json still has the original value.
+    const mainDoc = JSON.parse(fs.readFileSync(itemPathOn(a, 'main', main.id), 'utf8'));
     expect(mainDoc.item.value).toBe('original');
+    // Branch item.json has the new value.
+    const branchDoc = JSON.parse(fs.readFileSync(itemPathOn(a, 'feature__foo', main.id), 'utf8'));
+    expect(branchDoc.item.value).toBe('modified on branch');
     cleanup(a);
   });
 
-  test('update on a branch-created item keeps change_type as create', () => {
-    const a = tmpAdapter();
-    a.createBranch('feature/foo');
-    a.switchBranch('feature/foo');
-    const item = a.create({ value: 'new', type: 'text' });
-    a.update(item.id, { value: 'updated' });
-    const db = a._openDb();
-    const branchId = db.prepare("SELECT id FROM branches WHERE name = 'feature/foo'").get()?.id;
-    const row = db.prepare("SELECT change_type FROM branch_changes WHERE branch_id = ? AND item_id = ? AND section = 'item'").get(branchId, item.id);
-    expect(row?.change_type).toBe('create');
-    cleanup(a);
-  });
-
-  test('delete on branch of main item records delete marker, does not remove main file', () => {
+  test('delete on branch of a copied item leaves main file intact', () => {
     const a    = tmpAdapter();
     const item = a.create({ value: 'to delete', type: 'text' });
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
     a.delete(item.id);
-    const db       = a._openDb();
-    const branchId = db.prepare("SELECT id FROM branches WHERE name = 'feature/foo'").get()?.id;
-    const row = db.prepare("SELECT change_type FROM branch_changes WHERE branch_id = ? AND item_id = ? AND section = 'item'").get(branchId, item.id);
-    expect(row?.change_type).toBe('delete');
-    // Main file still exists
-    const [s1, s2] = [item.id.replace(/-/g,'').slice(0,2), item.id.replace(/-/g,'').slice(2,4)];
-    expect(fs.existsSync(path.join(a.k, 'items', s1, s2, item.id, 'item.json'))).toBe(true);
-    cleanup(a);
-  });
-
-  test('delete on branch of branch-created item removes from branch_changes entirely', () => {
-    const a = tmpAdapter();
-    a.createBranch('feature/foo');
-    a.switchBranch('feature/foo');
-    const item = a.create({ value: 'branch only', type: 'text' });
-    a.delete(item.id);
-    const db       = a._openDb();
-    const branchId = db.prepare("SELECT id FROM branches WHERE name = 'feature/foo'").get()?.id;
-    const rows     = db.prepare('SELECT * FROM branch_changes WHERE branch_id = ? AND item_id = ?').all(branchId, item.id);
-    expect(rows).toHaveLength(0);
+    // Removed from the branch folder, still present on main.
+    expect(fs.existsSync(itemPathOn(a, 'feature__foo', item.id))).toBe(false);
+    expect(fs.existsSync(itemPathOn(a, 'main', item.id))).toBe(true);
     cleanup(a);
   });
 });
@@ -251,7 +225,7 @@ describe('branch read path', () => {
     cleanup(a);
   });
 
-  test('get() on branch returns updated value for modified main item', () => {
+  test('get() on branch returns updated value for modified item', () => {
     const a    = tmpAdapter();
     const item = a.create({ value: 'original', type: 'text' });
     a.createBranch('feature/foo');
@@ -399,7 +373,7 @@ describe('branchDiff()', () => {
     cleanup(a);
   });
 
-  test('EDIT appears in diff for modified main items', () => {
+  test('EDIT appears in diff for modified items', () => {
     const a    = tmpAdapter();
     const item = a.create({ value: 'original', type: 'text' });
     a.createBranch('feature/foo');
@@ -412,7 +386,7 @@ describe('branchDiff()', () => {
     cleanup(a);
   });
 
-  test('DELETE appears in diff for deleted main items', () => {
+  test('DELETE appears in diff for deleted items', () => {
     const a    = tmpAdapter();
     const item = a.create({ value: 'to delete', type: 'text' });
     a.createBranch('feature/foo');
@@ -501,33 +475,7 @@ describe('mergeBranchLocally()', () => {
     cleanup(a);
   });
 
-  test('merge marks branch as merged in branches table', () => {
-    const a = tmpAdapter();
-    a.createBranch('feature/foo');
-    a.switchBranch('feature/foo');
-    a.create({ value: 'x', type: 'text' });
-    a.switchBranch('main');
-    a.mergeBranchLocally('feature/foo');
-    const row = a._openDb().prepare("SELECT merged_at FROM branches WHERE name = 'feature/foo'").get();
-    expect(row?.merged_at).toBeTruthy();
-    cleanup(a);
-  });
-
-  test('merge clears branch_changes rows', () => {
-    const a = tmpAdapter();
-    a.createBranch('feature/foo');
-    a.switchBranch('feature/foo');
-    a.create({ value: 'x', type: 'text' });
-    const db = a._openDb();
-    const branchId = db.prepare("SELECT id FROM branches WHERE name = 'feature/foo'").get()?.id;
-    a.switchBranch('main');
-    a.mergeBranchLocally('feature/foo');
-    const remaining = db.prepare('SELECT COUNT(*) AS n FROM branch_changes WHERE branch_id = ?').get(branchId)?.n;
-    expect(remaining).toBe(0);
-    cleanup(a);
-  });
-
-  test('merge removes branch overlay directory', () => {
+  test('merge removes the branch folder', () => {
     const a = tmpAdapter();
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
@@ -546,21 +494,18 @@ describe('mergeBranchLocally()', () => {
     cleanup(a);
   });
 
-  test('after merge branchDiff returns empty', () => {
+  test('after merge the branch no longer exists', () => {
     const a = tmpAdapter();
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
     a.create({ value: 'x', type: 'text' });
     a.switchBranch('main');
     a.mergeBranchLocally('feature/foo');
-    const diff = a.branchDiff('feature/foo');
-    expect(diff.adds).toHaveLength(0);
-    expect(diff.edits).toHaveLength(0);
-    expect(diff.deletes).toHaveLength(0);
+    expect(a.listBranches().map(b => b.name)).not.toContain('feature/foo');
     cleanup(a);
   });
 
-  test('mergeBranchLocally returns count of merged items', () => {
+  test('mergeBranchLocally returns count of merged changes', () => {
     const a = tmpAdapter();
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
@@ -573,7 +518,7 @@ describe('mergeBranchLocally()', () => {
   });
 });
 
-// ─── Multiple branches ────────────────────────────────────────────────────────
+// ─── Multiple branches (true copies — fully independent) ────────────────────────
 
 describe('multiple branches', () => {
   test('two branches are independent — changes on one do not affect the other', () => {
@@ -595,6 +540,23 @@ describe('multiple branches', () => {
     // On branch a: can see branch a's item, not branch b's
     expect(a.get(itemA.id)).not.toBeNull();
     expect(a.get(itemB.id)).toBeNull(); // not visible on branch a
+    cleanup(a);
+  });
+
+  test('a write on a branch does not appear on main and vice versa', () => {
+    const a = tmpAdapter();
+    a.createBranch('feature/foo');
+
+    a.switchBranch('feature/foo');
+    const onBranch = a.create({ value: 'branch only', type: 'text' });
+
+    a.switchBranch('main');
+    const onMain = a.create({ value: 'main only', type: 'text' });
+    expect(a.get(onBranch.id)).toBeNull();
+
+    a.switchBranch('feature/foo');
+    expect(a.get(onMain.id)).toBeNull();
+    expect(a.get(onBranch.id)).not.toBeNull();
     cleanup(a);
   });
 

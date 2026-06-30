@@ -56,12 +56,20 @@ describe('isDatastore', () => {
 });
 
 describe('init', () => {
-  it('creates items/ directory in .kanecta/', () => {
-    expect(fs.existsSync(path.join(tmp, '.kanecta', 'items'))).toBe(true);
+  it('creates branches/main/items/ directory in .kanecta/', () => {
+    expect(fs.existsSync(path.join(tmp, '.kanecta', 'branches', 'main', 'items'))).toBe(true);
   });
 
-  it('creates index.db (derived SQLite index) in .kanecta/', () => {
-    expect(fs.existsSync(path.join(tmp, '.kanecta', 'index.db'))).toBe(true);
+  it('creates per-branch index.db (derived SQLite index) for main', () => {
+    expect(fs.existsSync(path.join(tmp, '.kanecta', 'branches', 'main', 'index.db'))).toBe(true);
+  });
+
+  it('writes branches/main/branch.json describing the canonical branch', () => {
+    const manifest = JSON.parse(fs.readFileSync(path.join(tmp, '.kanecta', 'branches', 'main', 'branch.json'), 'utf8'));
+    expect(manifest.name).toBe('main');
+    expect(manifest.fill).toBe('full');
+    expect(manifest.upstream).toBeNull();
+    expect(manifest.createdAt).toBeTruthy();
   });
 
   it('creates .gitignore excluding index.db', () => {
@@ -112,20 +120,20 @@ describe('open', () => {
 // ─── filesystem / file-first model ────────────────────────────────────────────
 
 describe('filesystem: file-first model', () => {
+  // Resolve an item.json path on the main branch's own items/ tree.
+  const mainItemPath = (id) => {
+    const hex = id.replace(/-/g, '');
+    return path.join(tmp, '.kanecta', 'branches', 'main', 'items', hex.slice(0, 2), hex.slice(2, 4), id, 'item.json');
+  };
+
   it('writes item.json to sharded items/ directory on create', () => {
     const item = ds.create({ value: 'file-first test' });
-    const hex  = item.id.replace(/-/g, '');
-    const s1   = hex.slice(0, 2);
-    const s2   = hex.slice(2, 4);
-    const p    = path.join(tmp, '.kanecta', 'items', s1, s2, item.id, 'item.json');
-    expect(fs.existsSync(p)).toBe(true);
+    expect(fs.existsSync(mainItemPath(item.id))).toBe(true);
   });
 
   it('item.json contains five sections: item, meta, search, payload, time', () => {
     const item = ds.create({ value: 'sections test' });
-    const hex  = item.id.replace(/-/g, '');
-    const p    = path.join(tmp, '.kanecta', 'items', hex.slice(0, 2), hex.slice(2, 4), item.id, 'item.json');
-    const doc  = JSON.parse(fs.readFileSync(p, 'utf8'));
+    const doc  = JSON.parse(fs.readFileSync(mainItemPath(item.id), 'utf8'));
     expect(doc).toHaveProperty('item');
     expect(doc).toHaveProperty('meta');
     expect(doc).toHaveProperty('search');
@@ -135,9 +143,7 @@ describe('filesystem: file-first model', () => {
 
   it('item section contains id, parentId, type, value, sortOrder, aspect, typeId', () => {
     const item = ds.create({ value: 'item section' });
-    const hex  = item.id.replace(/-/g, '');
-    const p    = path.join(tmp, '.kanecta', 'items', hex.slice(0, 2), hex.slice(2, 4), item.id, 'item.json');
-    const doc  = JSON.parse(fs.readFileSync(p, 'utf8'));
+    const doc  = JSON.parse(fs.readFileSync(mainItemPath(item.id), 'utf8'));
     expect(doc.item.id).toBe(item.id);
     expect(doc.item.parentId).toBe(item.parentId);
     expect(doc.item.type).toBe('string');
@@ -146,9 +152,7 @@ describe('filesystem: file-first model', () => {
 
   it('meta section contains owner, visibility, tags, createdAt', () => {
     const item = ds.create({ value: 'meta section', tags: ['a', 'b'] });
-    const hex  = item.id.replace(/-/g, '');
-    const p    = path.join(tmp, '.kanecta', 'items', hex.slice(0, 2), hex.slice(2, 4), item.id, 'item.json');
-    const doc  = JSON.parse(fs.readFileSync(p, 'utf8'));
+    const doc  = JSON.parse(fs.readFileSync(mainItemPath(item.id), 'utf8'));
     expect(doc.meta.owner).toBe('test@example.com');
     expect(doc.meta.visibility).toBe('private');
     expect(doc.meta.tags).toEqual(['a', 'b']);
@@ -158,9 +162,7 @@ describe('filesystem: file-first model', () => {
   it('payload stored in item.json via writeObjectJson', () => {
     const item = ds.create({ value: 'payload test' });
     ds.writeObjectJson(item.id, { foo: 'bar' });
-    const hex = item.id.replace(/-/g, '');
-    const p   = path.join(tmp, '.kanecta', 'items', hex.slice(0, 2), hex.slice(2, 4), item.id, 'item.json');
-    const doc = JSON.parse(fs.readFileSync(p, 'utf8'));
+    const doc = JSON.parse(fs.readFileSync(mainItemPath(item.id), 'utf8'));
     expect(doc.payload).toEqual({ foo: 'bar' });
   });
 
@@ -173,16 +175,13 @@ describe('filesystem: file-first model', () => {
   it('update writes updated item.json to disk', () => {
     const item    = ds.create({ value: 'before' });
     ds.update(item.id, { value: 'after' });
-    const hex = item.id.replace(/-/g, '');
-    const p   = path.join(tmp, '.kanecta', 'items', hex.slice(0, 2), hex.slice(2, 4), item.id, 'item.json');
-    const doc = JSON.parse(fs.readFileSync(p, 'utf8'));
+    const doc = JSON.parse(fs.readFileSync(mainItemPath(item.id), 'utf8'));
     expect(doc.item.value).toBe('after');
   });
 
   it('delete removes item.json from disk', () => {
     const item = ds.create({ value: 'to delete' });
-    const hex  = item.id.replace(/-/g, '');
-    const p    = path.join(tmp, '.kanecta', 'items', hex.slice(0, 2), hex.slice(2, 4), item.id, 'item.json');
+    const p    = mainItemPath(item.id);
     expect(fs.existsSync(p)).toBe(true);
     ds.delete(item.id);
     expect(fs.existsSync(p)).toBe(false);
@@ -206,8 +205,8 @@ describe('filesystem: file-first model', () => {
 
   it('open() rebuilds index from filesystem when index.db is empty', () => {
     const item = ds.create({ value: 'persist check' });
-    // Delete index.db to force rebuild on next open
-    const dbPath = path.join(tmp, '.kanecta', 'index.db');
+    // Delete the main branch's index.db to force rebuild on next open
+    const dbPath = path.join(tmp, '.kanecta', 'branches', 'main', 'index.db');
     ds._db.close();
     ds._db = null;
     fs.unlinkSync(dbPath);

@@ -35,9 +35,9 @@ test('init creates a valid datastore', () => {
   // Config lives in the root node's payload (not a separate config file in 1.4.0)
   expect(ds.config.owner).toBe('test@example.com');
   expect(ds.config.specVersion).toBe('1.4.0');
-  // items/ directory and index.db must exist
-  expect(fs.existsSync(path.join(ds.k, 'items'))).toBe(true);
-  expect(fs.existsSync(path.join(ds.k, 'index.db'))).toBe(true);
+  // Each branch is a self-contained folder: main's items/ and index.db must exist
+  expect(fs.existsSync(path.join(ds.k, 'branches', 'main', 'items'))).toBe(true);
+  expect(fs.existsSync(path.join(ds.k, 'branches', 'main', 'index.db'))).toBe(true);
   fs.rmSync(ds.root, { recursive: true });
 });
 
