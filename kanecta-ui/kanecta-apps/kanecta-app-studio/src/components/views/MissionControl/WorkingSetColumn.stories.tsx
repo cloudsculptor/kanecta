@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { WorkspaceColumn } from './WorkspaceColumn';
+import { WorkingSetColumn } from './WorkingSetColumn';
 import type { WorkingSetConfig } from '../../../types/workingSet';
 
 const ws: WorkingSetConfig = {
@@ -22,23 +22,23 @@ const decorator = (Story: React.ComponentType) => (
   </QueryClientProvider>
 );
 
-const meta: Meta<typeof WorkspaceColumn> = {
-  component: WorkspaceColumn,
-  title: 'Views/WorkspaceColumn',
+const meta: Meta<typeof WorkingSetColumn> = {
+  component: WorkingSetColumn,
+  title: 'Views/WorkingSetColumn',
   decorators: [decorator],
 };
 export default meta;
 
-type Story = StoryObj<typeof WorkspaceColumn>;
+type Story = StoryObj<typeof WorkingSetColumn>;
 
 export const Green: Story = {
-  args: { workspace: ws, onOpenReview: () => alert('open review') },
+  args: { workingSet: ws, onOpenReview: () => alert('open review') },
 };
 
 export const Yellow: Story = {
-  args: { workspace: { ...ws, name: 'Secondary', colour: '#f57c00' }, onOpenReview: () => alert('open review') },
+  args: { workingSet: { ...ws, name: 'Secondary', colour: '#f57c00' }, onOpenReview: () => alert('open review') },
 };
 
 export const Unreachable: Story = {
-  args: { workspace: { ...ws, name: 'Remote', colour: '#c62828', apiUrl: 'http://unreachable:9999' }, onOpenReview: () => alert('open review') },
+  args: { workingSet: { ...ws, name: 'Remote', colour: '#c62828', apiUrl: 'http://unreachable:9999' }, onOpenReview: () => alert('open review') },
 };

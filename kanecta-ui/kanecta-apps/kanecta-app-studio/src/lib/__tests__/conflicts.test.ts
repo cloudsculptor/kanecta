@@ -7,7 +7,7 @@ function makeItem(id: string, value: string, parentId?: string): KanectaItem {
 }
 
 describe('detectConflicts', () => {
-  it('returns empty for single workspace', () => {
+  it('returns empty for single working set', () => {
     const conflicts = detectConflicts([{ workingSetId: 'ws-1', items: [makeItem('a', 'hello world')] }]);
     expect(conflicts).toHaveLength(0);
   });
@@ -20,7 +20,7 @@ describe('detectConflicts', () => {
     expect(conflicts).toHaveLength(0);
   });
 
-  it('detects high-similarity value pairs across workspaces', () => {
+  it('detects high-similarity value pairs across working sets', () => {
     const conflicts = detectConflicts([
       { workingSetId: 'ws-1', items: [makeItem('a', 'machine learning neural network deep model')] },
       { workingSetId: 'ws-2', items: [makeItem('b', 'machine learning neural network deep training')] },
@@ -29,7 +29,7 @@ describe('detectConflicts', () => {
     expect(conflicts[0].reason).toBe('value-similarity');
   });
 
-  it('does not flag items from the same workspace', () => {
+  it('does not flag items from the same working set', () => {
     const conflicts = detectConflicts([
       {
         workingSetId: 'ws-1',

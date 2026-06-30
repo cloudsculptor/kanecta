@@ -1,0 +1,144 @@
+.WorkingSetColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 240px;
+  padding: 16px;
+  border: 1px solid var(--color-border, #e0e0e0);
+  border-radius: 8px;
+  background: var(--color-surface, #fff);
+  border-top: 3px solid var(--color-border, #e0e0e0);
+
+  &--green {
+    border-top-color: #2e7d32;
+  }
+
+  &--yellow {
+    border-top-color: #f57c00;
+  }
+
+  &--red {
+    border-top-color: #c62828;
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__name {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__status {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #fff;
+
+    &--green {
+      background: #2e7d32;
+    }
+
+    &--yellow {
+      background: #f57c00;
+    }
+
+    &--red {
+      background: #c62828;
+    }
+
+    &--unknown {
+      background: #888;
+    }
+  }
+
+  &__stats {
+    display: flex;
+    gap: 8px;
+  }
+
+  &__stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    padding: 8px 0;
+    border-radius: 6px;
+    background: var(--color-surface-muted, #f5f5f5);
+  }
+
+  &__stat-value {
+    font-size: 1.25rem;
+    font-weight: 600;
+    line-height: 1;
+
+    &--warn {
+      color: #f57c00;
+    }
+  }
+
+  &__stat-label {
+    font-size: 0.6875rem;
+    color: var(--color-text-muted, #888);
+    margin-top: 4px;
+  }
+
+  &__recent {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 60px;
+  }
+
+  &__recent-empty {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted, #888);
+    margin: 0;
+    font-style: italic;
+  }
+
+  &__recent-item {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 0.8125rem;
+    overflow: hidden;
+  }
+
+  &__recent-op {
+    font-weight: 600;
+    color: var(--color-text-muted, #888);
+    flex-shrink: 0;
+  }
+
+  &__recent-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__review-btn {
+    margin-top: auto;
+    padding: 8px 12px;
+    border: 1px solid var(--color-border, #e0e0e0);
+    border-radius: 6px;
+    background: var(--color-surface, #fff);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--color-surface-muted, #f5f5f5);
+    }
+  }
+}

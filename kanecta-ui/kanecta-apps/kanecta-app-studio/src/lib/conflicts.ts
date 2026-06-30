@@ -32,15 +32,15 @@ interface WorkingSetItems {
 }
 
 export function detectConflicts(
-  workspaces: WorkingSetItems[],
+  workingSets: WorkingSetItems[],
   similarityThreshold = 0.6,
 ): ConflictPair[] {
   const conflicts: ConflictPair[] = [];
 
-  for (let i = 0; i < workspaces.length; i++) {
-    for (let j = i + 1; j < workspaces.length; j++) {
-      const wsA = workspaces[i];
-      const wsB = workspaces[j];
+  for (let i = 0; i < workingSets.length; i++) {
+    for (let j = i + 1; j < workingSets.length; j++) {
+      const wsA = workingSets[i];
+      const wsB = workingSets[j];
 
       for (const itemA of wsA.items) {
         const tokensA = tokenise(itemA.value);

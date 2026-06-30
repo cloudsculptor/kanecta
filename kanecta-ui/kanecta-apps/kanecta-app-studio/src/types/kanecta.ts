@@ -26,7 +26,7 @@ export interface KanectaItem {
   tags: string[];
   license?: string;
   status?: string | null;
-  workspaceId?: string;
+  workingSetId?: string;
   createdAt: string | null;
   modifiedAt: string | null;
   completedAt?: string | null;
