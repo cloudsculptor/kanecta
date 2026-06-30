@@ -4,8 +4,20 @@ const fs     = require('fs');
 const path   = require('path');
 const crypto = require('crypto');
 const Database = require('better-sqlite3');
-const { version: specVersion } = require('@kanecta/specification');
+const { version: specVersion, primitiveTypes, builtInTypeItems } = require('@kanecta/specification');
 const { WriteGuard } = require('./write-integrity');
+
+// ─── Icons (resolved on read, never stored on the item) ─────────────────────────
+// Every item gets a MUI icon slug on read. It is resolved from the item's type:
+//   typed object        → its type definition's payload.meta.icon
+//   built-in/custom type → that type item's payload.meta.icon (by name)
+//   primitive            → a single placeholder slug (refine per-primitive later)
+//   reserved root/types  → fixed defaults
+// The item.json never carries meta.icon.
+const PRIMITIVE_TYPE_SET = new Set(primitiveTypes);
+const PRIMITIVE_ICON = 'Stop';
+const RESERVED_ICONS = { root: 'Home', types: 'Category' };
+const FALLBACK_ICON  = 'Category';
 
 const ROOT_ID    = '00000000-0000-0000-0000-000000000000';
 const TYPES_NODE = '11111111-1111-1111-1111-111111111111';
@@ -440,6 +452,9 @@ class SqliteFsAdapter {
     // Resolve any write-ahead journal/lock left by a crashed writer before
     // serving anything (roll forward if the data landed, else roll back).
     adapter._recover();
+    // Backfill the built-in type items on datastores created before they existed
+    // (idempotent — a no-op once present), so icon resolution always has them.
+    adapter._ensureBuiltInTypes();
     adapter._loadRoots();
     return adapter;
   }
@@ -487,8 +502,7 @@ class SqliteFsAdapter {
   _docToItem(doc) {
     if (!doc?.item || !doc?.meta) return null;
     const { item, meta } = doc;
-    let icon = meta.icon ?? null;
-    return {
+    const out = {
       id:               item.id,
       specVersion:      meta.specVersion || specVersion,
       parentId:         item.parentId,
@@ -518,8 +532,9 @@ class SqliteFsAdapter {
       sourceSystem:     meta.sourceSystem ?? null,
       sourceExternalId: meta.sourceExternalId ?? null,
       files:            meta.files ?? {},
-      icon,
     };
+    out.icon = this._resolveIcon(out);   // read model: derived icon slug (never stored)
+    return out;
   }
 
   // Flat item object → five-section doc, preserving existing payload/time/search.
@@ -557,7 +572,6 @@ class SqliteFsAdapter {
         layer:            item.layer ?? null,
         sourceSystem:     item.sourceSystem ?? null,
         sourceExternalId: item.sourceExternalId ?? null,
-        icon:             item.icon ?? null,
       },
       search:  existingDoc?.search  ?? null,
       payload: existingDoc?.payload ?? null,
@@ -565,10 +579,10 @@ class SqliteFsAdapter {
     };
   }
 
-  // DB row (items JOIN items_meta) → flat item object.
+  // DB row (items JOIN items_meta) → flat item object (the read model).
   _rowToItem(row) {
     if (!row) return null;
-    return {
+    const out = {
       id:               row.id,
       specVersion:      row.spec_version || specVersion,
       parentId:         row.parent_id,
@@ -598,8 +612,9 @@ class SqliteFsAdapter {
       sourceSystem:     row.source_system ?? null,
       sourceExternalId: row.source_external_id ?? null,
       files:            row.files ? JSON.parse(row.files) : {},
-      icon:             row.icon ?? null,
     };
+    out.icon = this._resolveIcon(out);   // read model: derived icon slug (never stored)
+    return out;
   }
 
   // ─── Index helpers ─────────────────────────────────────────────────────────
@@ -1044,7 +1059,61 @@ class SqliteFsAdapter {
   _initRoots() {
     if (!this.get(ROOT_ID))       this._createWellKnownNode(ROOT_ID,    ROOT_ID,    'root',  0);
     if (!this.get(TYPES_NODE))    this._createWellKnownNode(TYPES_NODE, ROOT_ID,    'types', 1);
+    this._ensureBuiltInTypes();
     this._loadRoots();
+  }
+
+  // Seed the core manifest of built-in type items (relationship, file, alias, …)
+  // under the types node, with their fixed UUIDs, from @kanecta/specification.
+  // Idempotent: only writes the ones not already present, so it safely backfills
+  // existing datastores on open as well as seeding fresh ones at init.
+  _ensureBuiltInTypes() {
+    const db = this._openDb();
+    const typesPath = this._getPath(TYPES_NODE) ?? TYPES_NODE;
+    let wrote = false;
+    db.transaction(() => {
+      for (const src of builtInTypeItems) {
+        const id = src.item.id;
+        if (this._getRow(db, id)) continue;            // already seeded
+        // The spec file is already a 5-section item.json; write it verbatim as the
+        // source of truth, then index it under the types node.
+        const doc = { item: src.item, meta: src.meta, search: src.search ?? null, payload: src.payload ?? null, time: src.time ?? null };
+        this._writeItemJson(id, doc);
+        this._insertIndexTx(db, id, doc, `${typesPath}/${id}`);
+        wrote = true;
+      }
+    })();
+    if (wrote) { this._iconCache = null; this._mem.clear(); }
+  }
+
+  // ─── Icon resolution (derived on read; never stored on the item) ─────────────
+
+  // type-name → icon and typeId → icon, built once from the seeded type items.
+  _iconMaps() {
+    if (this._iconCache) return this._iconCache;
+    const byName = {}, byId = {};
+    try {
+      const rows = this._openDb().prepare(
+        "SELECT i.id, i.value, p.payload FROM items i JOIN items_payload p ON p.item_id = i.id WHERE i.type = 'type'"
+      ).all();
+      for (const r of rows) {
+        let icon; try { icon = JSON.parse(r.payload)?.meta?.icon; } catch {}
+        if (typeof icon === 'string' && icon) { byName[r.value] = icon; byId[r.id] = icon; }
+      }
+    } catch { /* db not ready */ }
+    this._iconCache = { byName, byId };
+    return this._iconCache;
+  }
+
+  // Resolve the MUI icon slug for an item (read model only).
+  _resolveIcon(item) {
+    if (!item) return FALLBACK_ICON;
+    const { byName, byId } = this._iconMaps();
+    if (item.typeId && byId[item.typeId]) return byId[item.typeId];       // typed object → its type's icon
+    if (byName[item.type]) return byName[item.type];                       // built-in/custom type → its type icon
+    if (PRIMITIVE_TYPE_SET.has(item.type)) return PRIMITIVE_ICON;          // primitive → placeholder
+    if (RESERVED_ICONS[item.type]) return RESERVED_ICONS[item.type];       // root / types
+    return FALLBACK_ICON;
   }
 
   _loadRoots() {
@@ -1106,14 +1175,6 @@ class SqliteFsAdapter {
     if (type === 'object' && typeId && this._getTypeName(typeId) === null)
       typeWarning = this._guardTypeIdRef(typeId, strict);
 
-    let resolvedIcon = null;
-    if (type === 'object' && typeId) {
-      const tr = this._openDb().prepare('SELECT payload FROM items_payload WHERE item_id = ?').get(typeId);
-      if (tr) {
-        try { resolvedIcon = JSON.parse(tr.payload)?.meta?.icon || null; } catch {}
-      }
-    }
-
     const resolvedPayload = (type === 'object' && typeId) ? (objectData ?? {}) : null;
 
     const item = {
@@ -1126,7 +1187,7 @@ class SqliteFsAdapter {
       createdBy: actor, modifiedBy: actor,
       cachedAt: null, expiresAt: null, deletedAt: null,
       connectorId: null, materialized: null, completedAt: null, dueAt,
-      layer: null, sourceSystem: null, sourceExternalId: null, files: {}, icon: resolvedIcon,
+      layer: null, sourceSystem: null, sourceExternalId: null, files: {},
     };
 
     const parentPath = this._getPath(parentId);
@@ -1146,6 +1207,7 @@ class SqliteFsAdapter {
       })();
     });
 
+    item.icon = this._resolveIcon(item);   // read model carries the derived icon
     this._mem.set(id, item);
 
     if (typeWarning)
@@ -1269,16 +1331,6 @@ class SqliteFsAdapter {
       db.transaction(() => {
       this._snapshot(db, current, 'update', actor, now);
 
-      // Icon update
-      let newIcon = current.icon || null;
-      if (updated.typeId && updated.typeId !== current.typeId) {
-        const tr = db.prepare('SELECT payload FROM items_payload WHERE item_id = ?').get(updated.typeId);
-        if (tr) {
-          try { newIcon = JSON.parse(tr.payload)?.meta?.icon || null; } catch {}
-        }
-      }
-      updated.icon = newIcon;
-
       // Update items table
       db.prepare(`
         UPDATE items SET parent_id = ?, type = ?, type_id = ?, value = ?, sort_order = ?, aspect = ?
@@ -1310,6 +1362,7 @@ class SqliteFsAdapter {
       })();
     });
 
+    updated.icon = this._resolveIcon(updated);   // read model carries the derived icon
     this._mem.set(id, updated);
     if (this._roots && WELL_KNOWN_TYPES.has(updated.type)) this._roots[updated.type] = updated;
 
@@ -1667,6 +1720,7 @@ class SqliteFsAdapter {
     })();
 
     this._mem.set(id, item);
+    this._iconCache = null;   // a new type changes icon resolution
     return { metadata: this.get(id), schema: resolvedSchema };
   }
 
@@ -1685,6 +1739,8 @@ class SqliteFsAdapter {
     const updated = { ...doc, payload: data };
     this._writeItemJson(id, updated);
     this._openDb().prepare('INSERT OR REPLACE INTO items_payload (item_id, payload) VALUES (?,?)').run(id, JSON.stringify(data));
+    this._iconCache = null;   // a type's icon may have changed
+    this._mem.clear();
   }
 
   _getTypeName(typeId) {
@@ -1871,7 +1927,7 @@ class SqliteFsAdapter {
              m.connector_id, m.materialized, m.files, m.layer,
              m.source_system, m.source_external_id, m.icon
       FROM items i LEFT JOIN items_meta m ON m.item_id = i.id
-      WHERE i.type NOT IN ('alias', 'relationship', 'annotation', 'item_history')
+      WHERE i.type NOT IN ('alias', 'relationship', 'annotation', 'item_history', 'type')
     `).all().map(r => this._rowToItem(r));
   }
 
@@ -1942,7 +1998,7 @@ class SqliteFsAdapter {
 
     // Metadata items (annotations live under their target via the "comments"
     // aspect) are not part of the content tree.
-    const exclude = " AND i.type NOT IN ('alias', 'relationship', 'annotation', 'item_history')";
+    const exclude = " AND i.type NOT IN ('alias', 'relationship', 'annotation', 'item_history', 'type')";
     let rows;
     if (maxDepth === Infinity) {
       rows = db.prepare(joinSql + ' WHERE (i.path = ? OR i.path LIKE ?)' + exclude).all(rootPath, rootPath + '/%');
@@ -2040,7 +2096,7 @@ class SqliteFsAdapter {
     if (!row?.path) return 0;
     const r = this._openDb().prepare(
       `SELECT COUNT(*) AS cnt FROM items WHERE (path = ? OR path LIKE ?)
-       AND type NOT IN ('alias', 'relationship', 'annotation', 'item_history')`
+       AND type NOT IN ('alias', 'relationship', 'annotation', 'item_history', 'type')`
     ).get(row.path, row.path + '/%');
     return r?.cnt ?? 0;
   }
@@ -2171,6 +2227,7 @@ class SqliteFsAdapter {
       this._rebuildFromFs(db);
     })();
     this._mem.clear();
+    this._iconCache = null;
     const cnt = db.prepare('SELECT COUNT(*) AS n FROM items').get();
     return cnt?.n ?? 0;
   }
@@ -2250,6 +2307,7 @@ class SqliteFsAdapter {
     this._branch = name;
     this._mem.clear();
     this._roots  = null;
+    this._iconCache = null;   // type items are per-branch
     // A crashed writer may have left a journal on the branch we're switching to.
     this._recover();
   }

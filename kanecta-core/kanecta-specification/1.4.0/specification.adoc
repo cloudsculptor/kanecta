@@ -202,6 +202,20 @@ These map directly to five database tables in SQLite and Postgres adapters:
 
 NOTE: Tree traversal hits only `items`. List rendering hits only `items`. Item open hits `items` + `items_meta` + `items_payload`. Search hits `items_search` plus FTS/vector indexes. Scheduling queries hit only `items_time`.
 
+[#read-model]
+.Stored item vs. returned item (the read model)
+****
+The `item.json` above is the *storage* format. What the lib, API and MCP *return*
+is a **read model**: the stored data flattened, **plus derived fields computed at
+read time** that are never persisted. The first such field is **`icon`** — every
+returned item carries a MUI icon slug, resolved from its type (a typed object →
+its type definition's `payload.meta.icon`; a built-in/custom type → that type
+item's icon; a primitive → a placeholder slug; the reserved `root`/`types` →
+fixed defaults). The stored `item.json` therefore has **no `meta.icon`** — icon
+lives only on the read model. On write, derived fields like `icon` are ignored:
+an item's icon can only be changed by changing its type's `payload.meta.icon`.
+****
+
 === The `item` Section
 
 Seven fields. Always a short string for `value` (≤255 chars, stored `VARCHAR(255)` in databases).

@@ -878,7 +878,7 @@ test('cli: rebuild-indexes reports item count', () => {
 
 test('cli: doctor reports clean store and exits zero', async () => {
   const ds = tmpDs();
-  const { metadata } = await ds.createType('widget');
+  const { metadata } = await ds.createType('widget', { icon: 'Category' });
   await ds.create({ type: 'object', typeId: metadata.id, objectData: { a: 1 } });
   const out = cli(ds, 'doctor');
   assert.match(out, /No integrity problems/);

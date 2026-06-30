@@ -341,7 +341,7 @@ describe('strictTypes / unknown type handling', () => {
   });
 
   test('a registered custom type does NOT warn (registered-but-empty stays silent)', async () => {
-    const { metadata } = await ds.createType('gadget');
+    const { metadata } = await ds.createType('gadget', { icon: 'Category' });
     const obj = await ds.create({ type: 'object', typeId: metadata.id });
     await ds.writeObjectJson(obj.id, { label: 'g1' });
 
@@ -350,7 +350,7 @@ describe('strictTypes / unknown type handling', () => {
     expect(res.items.map(i => i.id)).toContain(obj.id);
 
     // ...and an empty-but-registered type also stays silent (no false positive).
-    await ds.createType('emptytype');
+    await ds.createType('emptytype', { icon: 'Category' });
     const empty = await dispatch('kanecta_query', { type: 'emptytype' });
     expect(empty.warning).toBeUndefined();
     expect(empty.items).toHaveLength(0);

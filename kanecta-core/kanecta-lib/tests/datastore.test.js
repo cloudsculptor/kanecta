@@ -310,7 +310,7 @@ test('query filters by type and matches primitive/custom type names', async () =
   await ds.create({ value: 'world', type: 'string', parentId: root.id });
 
   // Register custom type via createType (1.4.0 approach)
-  const { metadata: typeMeta } = await ds.createType('mycustomtype');
+  const { metadata: typeMeta } = await ds.createType('mycustomtype', { icon: 'Category' });
   const customItem = await ds.create({
     type: 'object', typeId: typeMeta.id, parentId: root.id, objectData: { title: 'Custom Item' },
   });
@@ -348,7 +348,7 @@ test('query filters by rootId scoping', async () => {
 test('query filters by where predicates (operators: =, !=, in, contains, >, <)', async () => {
   const ds   = tmpDs();
   const root = await ds.create({ value: 'root' });
-  const { metadata: typeMeta } = await ds.createType('item');
+  const { metadata: typeMeta } = await ds.createType('item', { icon: 'Category' });
 
   const item1 = await ds.create({
     type: 'object', typeId: typeMeta.id, parentId: root.id,
@@ -400,7 +400,7 @@ test('query filters by where predicates (operators: =, !=, in, contains, >, <)',
 test('query supports sorting and limits', async () => {
   const ds   = tmpDs();
   const root = await ds.create({ value: 'root' });
-  const { metadata: typeMeta } = await ds.createType('item');
+  const { metadata: typeMeta } = await ds.createType('item', { icon: 'Category' });
 
   await ds.create({ type: 'object', typeId: typeMeta.id, parentId: root.id, objectData: { score: 10 } });
   await ds.create({ type: 'object', typeId: typeMeta.id, parentId: root.id, objectData: { score: 30 } });

@@ -52,7 +52,7 @@ describe('add_item typeId referential integrity', () => {
   });
 
   test('a registered typeId does not warn', async () => {
-    const { metadata } = await ds.createType('widget');
+    const { metadata } = await ds.createType('widget', { icon: 'Category' });
     const res = await dispatch('kanecta_add_item', { type: 'object', typeId: metadata.id });
     expect(res.warning).toBeUndefined();
   });
