@@ -13,8 +13,13 @@ npm install
 ## Running
 
 ```bash
-KANECTA_DATASTORE=~/.kanecta npm start
+KANECTA_CONFIG=~/.config/kanecta npm start
 ```
+
+The API resolves the active working set from `config.json` (located via
+`KANECTA_CONFIG`, else the platform default). A request may override per call with
+`?workingSet=<name>` / `?branch=<name>` (or the `X-Kanecta-Working-Set` /
+`X-Kanecta-Branch` headers).
 
 The server listens on **port 3001** by default. Override with `PORT`:
 

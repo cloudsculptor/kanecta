@@ -25,8 +25,13 @@ node index.js --datastore <path> <command>
 
 The CLI finds the datastore in this order:
 
-1. `--datastore <path>` flag
-2. `KANECTA_DATASTORE` environment variable
+1. `--datastore <path>` flag (open a filesystem datastore directly)
+2. The active working set from `config.json` — `--working-set <name>`, else
+   `KANECTA_WORKING_SET`, else `defaultWorkingSet`. `config.json` is located via
+   `KANECTA_CONFIG` (a directory or a `.json` path), else the platform default
+   (`~/.config/kanecta/config.json` on Linux). The active branch resolves likewise
+   (`--branch` / `KANECTA_BRANCH` / `state.json` / the working set's
+   `defaultBranch` / `main`).
 3. Walk up from the current directory looking for a `.kanecta/` folder
 
 ## Quick start
