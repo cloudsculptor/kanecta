@@ -250,6 +250,27 @@ describe('index.db is 100% derived from the filesystem', () => {
     expect(ds2.annotations(a.id)[0].content).toBe('a note');
   });
 
+  it('itemHistory EXTERNAL (default) writes events to item-history/, not items/', () => {
+    const a = ds.create({ value: 'x' });
+    ds.update(a.id, { value: 'y' });
+    const histDir = path.join(tmp, '.kanecta', 'branches', 'main', 'item-history');
+    expect(fs.existsSync(histDir)).toBe(true);
+    expect(ds.history(a.id).length).toBeGreaterThan(0);
+  });
+
+  it('itemHistory ITEM mode places events in items/ and still rebuilds', () => {
+    ds._config.itemHistory = 'ITEM';
+    ds._saveConfig();
+    const a = ds.create({ value: 'x' });
+    ds.update(a.id, { value: 'y' });
+    expect(ds.history(a.id).length).toBeGreaterThan(0);
+    // History items live in items/, but are excluded from content traversal.
+    expect(ds.loadAll().some(i => i.type === 'item_history')).toBe(false);
+    // Survives an index rebuild from items/.
+    ds.rebuildIndexes();
+    expect(ds.history(a.id).length).toBeGreaterThan(0);
+  });
+
   it('rebuildIndexes() reprojects metadata tables from item.json files', () => {
     const a = ds.create({ value: 'x' });
     ds.setAlias('xx', a.id);

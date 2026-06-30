@@ -353,7 +353,7 @@ class SqliteFsAdapter {
 
     const adapter     = new SqliteFsAdapter(root);
     const rootPayload = {
-      owner, specVersion: '1.4.0', itemHistory: 'ITEM', activity: 'NONE',
+      owner, specVersion: '1.4.0', itemHistory: 'EXTERNAL', activity: 'NONE',
     };
 
     const rootDoc = adapter._buildDoc(
@@ -624,6 +624,9 @@ class SqliteFsAdapter {
         'INSERT OR REPLACE INTO annotations (id, target_id, author, content, created_at, parent_annotation_id) VALUES (?, ?, ?, ?, ?, ?)'
       ).run(item.id, item.parentId, p.author ?? meta?.createdBy ?? null,
             p.content ?? item.value, meta?.createdAt ?? null, p.parentAnnotationId ?? null);
+    } else if (item.type === 'item_history') {
+      // 'ITEM' mode: history events live in items/ and are picked up here.
+      this._indexHistoryDoc(db, doc);
     }
   }
 
@@ -762,19 +765,19 @@ class SqliteFsAdapter {
 
   // ─── History ───────────────────────────────────────────────────────────────
 
-  // History placement: the canonical `item_history` event is written as a real
-  // item.json under the branch's sibling `item-history/` tree — that file is the
-  // source of truth, never the SQLite `history` table (which is a derived index,
-  // rebuilt from item-history/ on demand). Keeping events in item-history/ rather
-  // than items/ keeps the content tree and branchDiff lean.
-  //
-  // Recording is controlled by rootPayload.itemHistory: 'NONE' disables it;
-  // anything else records. (The spec's enum overloads ITEM/EXTERNAL with both a
-  // placement and a Git-delegation meaning — see the divergence note; we always
-  // place locally-written events in item-history/.)
-  _historyEnabled() {
-    const mode = this.config?.itemHistory;
-    return mode !== 'NONE';
+  // History placement is controlled by rootPayload.itemHistory:
+  //   'NONE'     → no history is recorded.
+  //   'ITEM'     → item_history events are ordinary items in items/.
+  //   'EXTERNAL' → item_history events live in the sibling item-history/ tree
+  //                (default; keeps items/ and branchDiff lean).
+  // Either way the item.json is the source of truth; the SQLite `history` table
+  // is a derived projection rebuilt by scanning whichever tree holds them.
+  // Returns the store name to write into, or null when history is disabled.
+  _historyStore() {
+    const mode = this.config?.itemHistory ?? 'EXTERNAL';
+    if (mode === 'NONE') return null;
+    if (mode === 'ITEM') return 'items';
+    return 'item-history';
   }
 
   // created | updated | deleted — the spec's coarse eventType. The adapter's finer
@@ -791,13 +794,15 @@ class SqliteFsAdapter {
   }
 
   _snapshot(db, item, changeType, changedBy, now) {
-    if (!this._historyEnabled()) return;
+    const store = this._historyStore();
+    if (!store) return;
 
     const snapshot = { ...item, snapshotAt: now.toISOString(), changedBy, changeType };
     const histId   = crypto.randomUUID();
     const seq      = this._nextHistorySeq(db, item.id);
 
-    // 1) Source of truth: an item_history item.json under item-history/.
+    // 1) Source of truth: an item_history item.json in items/ ('ITEM') or the
+    //    sibling item-history/ tree ('EXTERNAL').
     const histDoc = this._itemToDoc({
       id: histId, parentId: TYPE_ITEM_UUIDS.item_history, type: 'item_history', typeId: null,
       value: `${changeType} ${item.id}`, sortOrder: seq, aspect: null,
@@ -811,10 +816,14 @@ class SqliteFsAdapter {
       targetId: item.id, eventType: this._eventType(changeType), sequence: seq,
       by: changedBy ?? null, delta: {}, snapshot, changeType,
     };
-    this._writeItemJson(histId, histDoc, 'item-history');
+    this._writeItemJson(histId, histDoc, store);
 
-    // 2) Derived index row so history() works without a rebuild.
-    this._indexHistoryDoc(db, histDoc);
+    // 2) Index so history() works without a rebuild. In 'ITEM' mode the event is
+    //    a real item in items/, so index it fully (items table + derived history,
+    //    matching how a rebuild scans it); in 'EXTERNAL' mode only the derived
+    //    history projection is touched.
+    if (store === 'items') this._insertIndexTx(db, histId, histDoc, histId);
+    else                   this._indexHistoryDoc(db, histDoc);
   }
 
   // Upsert the derived `history` row from an item_history item.json. Used both by
@@ -1774,7 +1783,7 @@ class SqliteFsAdapter {
              m.connector_id, m.materialized, m.files, m.layer,
              m.source_system, m.source_external_id, m.icon
       FROM items i LEFT JOIN items_meta m ON m.item_id = i.id
-      WHERE i.type NOT IN ('alias', 'relationship', 'annotation')
+      WHERE i.type NOT IN ('alias', 'relationship', 'annotation', 'item_history')
     `).all().map(r => this._rowToItem(r));
   }
 
@@ -1845,7 +1854,7 @@ class SqliteFsAdapter {
 
     // Metadata items (annotations live under their target via the "comments"
     // aspect) are not part of the content tree.
-    const exclude = " AND i.type NOT IN ('alias', 'relationship', 'annotation')";
+    const exclude = " AND i.type NOT IN ('alias', 'relationship', 'annotation', 'item_history')";
     let rows;
     if (maxDepth === Infinity) {
       rows = db.prepare(joinSql + ' WHERE (i.path = ? OR i.path LIKE ?)' + exclude).all(rootPath, rootPath + '/%');
@@ -1943,7 +1952,7 @@ class SqliteFsAdapter {
     if (!row?.path) return 0;
     const r = this._openDb().prepare(
       `SELECT COUNT(*) AS cnt FROM items WHERE (path = ? OR path LIKE ?)
-       AND type NOT IN ('alias', 'relationship', 'annotation')`
+       AND type NOT IN ('alias', 'relationship', 'annotation', 'item_history')`
     ).get(row.path, row.path + '/%');
     return r?.cnt ?? 0;
   }
