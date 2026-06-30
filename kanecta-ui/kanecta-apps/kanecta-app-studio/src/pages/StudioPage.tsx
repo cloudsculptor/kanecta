@@ -31,7 +31,7 @@ import { CommandPalette } from '@kanecta/component-command-palette';
 import { SettingsPage } from './SettingsPage';
 import { LocationProvider } from '../context/LocationContext';
 import { KeycloakProvider } from '../auth/KeycloakProvider';
-import { useWorkspaceStore } from '../store/workspace';
+import { useWorkingSetStore } from '../store/workingSet';
 import { useSettingsStore, THEMES } from '../store/settings';
 import { useUiStore } from '../store/ui';
 import { useLiveActivity } from '../hooks/useLiveActivity';
@@ -50,7 +50,7 @@ const theme = createTheme({
 function StudioInner() {
   const [quickCaptureOpen, setQuickCaptureOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const { getApi, activeWorkspaceId } = useWorkspaceStore();
+  const { getApi, activeWorkingSetId } = useWorkingSetStore();
   const { applyTheme } = useSettingsStore();
   const { setVscodeAvailable, focusedItemId, setFocusedItem, vscodeAvailable } = useUiStore();
   const { setItemId, openOverlay } = useLocation();
@@ -103,7 +103,7 @@ function StudioInner() {
         <TreeView
           panelId={panelId}
           api={getApi()}
-          workspaceKey={activeWorkspaceId ?? undefined}
+          workspaceKey={activeWorkingSetId ?? undefined}
           focusedItemId={focusedItemId}
           vscodeAvailable={vscodeAvailable}
           onFocusItem={(id) => setFocusedItem(id)}

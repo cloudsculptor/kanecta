@@ -1,7 +1,7 @@
 import type { ViewMeta } from '../../../lib/viewMeta';
 import { useViewLocation } from '../../../context/LocationContext';
 import { MissionControl as MissionControlPkg } from '@kanecta/component-mission-control';
-import { useWorkspaceStore } from '../../../store/workspace';
+import { useWorkingSetStore } from '../../../store/workingSet';
 import { useReviewStore } from '../../../store/review';
 import { useUiStore } from '../../../store/ui';
 
@@ -14,15 +14,22 @@ export const MissionControlMeta: ViewMeta = {
 
 export function MissionControl() {
   useViewLocation(MissionControlMeta.uuid);
-  const { workspaces, getApi, activeWorkspaceId } = useWorkspaceStore();
+  const { workingSets, getApi, activeWorkingSetId } = useWorkingSetStore();
   const { activityLog, reviewQueue, conveyorIndex, advanceConveyor, markSeen } = useReviewStore();
   const { setFocusedItem } = useUiStore();
   const api = getApi();
 
+  // The mission-control component contract uses `workspaceId`; map from our
+  // domain field `workingSetId` at the boundary.
+  const activityLogForPkg = activityLog.map(({ workingSetId, ...rest }) => ({
+    ...rest,
+    workspaceId: workingSetId,
+  }));
+
   return (
     <MissionControlPkg
-      workspaces={workspaces}
-      activityLog={activityLog}
+      workspaces={workingSets}
+      activityLog={activityLogForPkg}
       reviewQueue={reviewQueue}
       conveyorIndex={conveyorIndex}
       onAdvanceConveyor={advanceConveyor}
@@ -31,7 +38,7 @@ export function MissionControl() {
       onFetchWorkspaceItems={(wsId) => getApi(wsId).items.list()}
       onApproveItem={(id) => api.items.update(id, { confidence: 'high' })}
       onDeleteItem={(id) => api.items.delete(id)}
-      queryKeyPrefix={activeWorkspaceId ?? ''}
+      queryKeyPrefix={activeWorkingSetId ?? ''}
     />
   );
 }

@@ -1,7 +1,7 @@
 import type { ViewMeta } from '../../../lib/viewMeta';
 import { useViewLocation } from '../../../context/LocationContext';
 import { TypesView as TypesViewPkg } from '@kanecta/component-types-view';
-import { useWorkspaceStore } from '../../../store/workspace';
+import { useWorkingSetStore } from '../../../store/workingSet';
 import type { ItemType } from '../../../types/kanecta';
 import typeSpecRaw from '@kanecta/specification/1.2.0/file-specs/type.json?raw';
 
@@ -14,7 +14,7 @@ export const TypesViewMeta: ViewMeta = {
 
 export function TypesView() {
   useViewLocation(TypesViewMeta.uuid);
-  const { getApi, activeWorkspaceId } = useWorkspaceStore();
+  const { getApi, activeWorkingSetId } = useWorkingSetStore();
   const api = getApi();
 
   return (
@@ -30,7 +30,7 @@ export function TypesView() {
       onImportTypes={(ids) => api.systemItems.importItems(ids)}
       onExportTypes={(ids) => api.systemItems.exportItems(ids)}
       typeSpec={typeSpecRaw}
-      queryKey={activeWorkspaceId ?? ''}
+      queryKey={activeWorkingSetId ?? ''}
     />
   );
 }

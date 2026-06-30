@@ -1,7 +1,7 @@
 import type { ViewMeta } from '../../../lib/viewMeta';
 import { useViewLocation } from '../../../context/LocationContext';
 import { AIInstructionsView as AIInstructionsViewPkg } from '@kanecta/component-ai-instructions-view';
-import { useWorkspaceStore } from '../../../store/workspace';
+import { useWorkingSetStore } from '../../../store/workingSet';
 
 export const AIInstructionsViewMeta: ViewMeta = {
   uuid: 'c6b5d4e3-f7a8-4b9c-0d1e-2f3a4b5c6d7e',
@@ -12,7 +12,7 @@ export const AIInstructionsViewMeta: ViewMeta = {
 
 export function AIInstructionsView() {
   useViewLocation(AIInstructionsViewMeta.uuid);
-  const { getApi } = useWorkspaceStore();
+  const { getApi } = useWorkingSetStore();
   const api = getApi();
 
   return (

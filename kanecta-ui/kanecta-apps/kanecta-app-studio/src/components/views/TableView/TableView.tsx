@@ -1,7 +1,7 @@
 import type { ViewMeta } from '../../../lib/viewMeta';
 import { useViewLocation } from '../../../context/LocationContext';
 import { TableView as TableViewPkg } from '@kanecta/component-table-view';
-import { useWorkspaceStore } from '../../../store/workspace';
+import { useWorkingSetStore } from '../../../store/workingSet';
 import type { ItemType } from '../../../types/kanecta';
 
 export const TableViewMeta: ViewMeta = {
@@ -13,9 +13,9 @@ export const TableViewMeta: ViewMeta = {
 
 export function TableView() {
   useViewLocation(TableViewMeta.uuid);
-  const { getApi, getActiveWorkspace, activeWorkspaceId } = useWorkspaceStore();
+  const { getApi, getActiveWorkingSet, activeWorkingSetId } = useWorkingSetStore();
   const api = getApi();
-  const apiUrl = getActiveWorkspace()?.apiUrl ?? '/api';
+  const apiUrl = getActiveWorkingSet()?.apiUrl ?? '/api';
 
   return (
     <TableViewPkg
@@ -37,7 +37,7 @@ export function TableView() {
       onCreateItem={(type) =>
         api.items.create({ value: `New ${type.value}`, type: type.value as ItemType, parentId: type.id })
       }
-      queryKey={activeWorkspaceId ?? ''}
+      queryKey={activeWorkingSetId ?? ''}
     />
   );
 }

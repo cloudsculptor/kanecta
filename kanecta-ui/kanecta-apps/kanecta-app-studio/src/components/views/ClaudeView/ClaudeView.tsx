@@ -1,7 +1,7 @@
 import type { ViewMeta } from '../../../lib/viewMeta';
 import { useViewLocation } from '../../../context/LocationContext';
 import { ClaudeView as ClaudeViewPkg } from '@kanecta/component-claude-view';
-import { useWorkspaceStore } from '../../../store/workspace';
+import { useWorkingSetStore } from '../../../store/workingSet';
 
 export const ClaudeViewMeta: ViewMeta = {
   uuid: 'd7c6e5f4-a8b9-4c0d-1e2f-3a4b5c6d7e8f',
@@ -12,7 +12,7 @@ export const ClaudeViewMeta: ViewMeta = {
 
 export function ClaudeView() {
   useViewLocation(ClaudeViewMeta.uuid);
-  const { getApi } = useWorkspaceStore();
+  const { getApi } = useWorkingSetStore();
   const api = getApi();
 
   return (

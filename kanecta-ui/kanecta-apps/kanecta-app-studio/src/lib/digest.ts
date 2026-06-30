@@ -1,5 +1,5 @@
 import type { KanectaItem } from '../types/kanecta';
-import type { ActivityEvent } from '../types/workspace';
+import type { ActivityEvent } from '../types/workingSet';
 
 export interface DigestGroup {
   parentId: string | null;

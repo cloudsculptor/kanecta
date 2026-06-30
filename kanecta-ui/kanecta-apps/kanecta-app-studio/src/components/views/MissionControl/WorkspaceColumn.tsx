@@ -1,19 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
-import { useWorkspaceStore } from '../../../store/workspace';
+import { useWorkingSetStore } from '../../../store/workingSet';
 import { useReviewStore } from '../../../store/review';
-import type { WorkspaceConfig, WorkspaceStatus } from '../../../types/workspace';
+import type { WorkingSetConfig, WorkingSetStatus } from '../../../types/workingSet';
 import type { KanectaItem } from '../../../types/kanecta';
 import { WorkspaceIndicator } from '@kanecta/component-workspace-indicator';
 import './WorkspaceColumn.scss';
 
-function deriveStatus(items: KanectaItem[], errorFlag: boolean): WorkspaceStatus {
+function deriveStatus(items: KanectaItem[], errorFlag: boolean): WorkingSetStatus {
   if (errorFlag) return 'red';
   const unreviewed = items.filter((i) => i.confidence === 'low').length;
   if (unreviewed > 10) return 'yellow';
   return 'green';
 }
 
-const STATUS_LABEL: Record<WorkspaceStatus, string> = {
+const STATUS_LABEL: Record<WorkingSetStatus, string> = {
   green: 'Active',
   yellow: 'Needs review',
   red: 'Unreachable',
@@ -21,12 +21,12 @@ const STATUS_LABEL: Record<WorkspaceStatus, string> = {
 };
 
 interface WorkspaceColumnProps {
-  workspace: WorkspaceConfig;
+  workspace: WorkingSetConfig;
   onOpenReview: () => void;
 }
 
 export function WorkspaceColumn({ workspace, onOpenReview }: WorkspaceColumnProps) {
-  const { getApi } = useWorkspaceStore();
+  const { getApi } = useWorkingSetStore();
   const { activityLog } = useReviewStore();
 
   const { data: items = [], isError } = useQuery<KanectaItem[]>({
@@ -37,7 +37,7 @@ export function WorkspaceColumn({ workspace, onOpenReview }: WorkspaceColumnProp
   });
 
   const status = deriveStatus(items, isError);
-  const recentActivity = activityLog.filter((e) => e.workspaceId === workspace.id).slice(0, 5);
+  const recentActivity = activityLog.filter((e) => e.workingSetId === workspace.id).slice(0, 5);
   const lowConfidenceCount = items.filter((i) => i.confidence === 'low').length;
 
   return (

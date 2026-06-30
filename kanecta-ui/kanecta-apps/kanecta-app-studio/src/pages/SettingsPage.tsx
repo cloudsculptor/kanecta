@@ -1,6 +1,6 @@
 import type { ViewMeta } from '../lib/viewMeta';
 import { useViewLocation } from '../context/LocationContext';
-import { useWorkspaceStore } from '../store/workspace';
+import { useWorkingSetStore } from '../store/workingSet';
 
 export const SettingsViewMeta: ViewMeta = {
   uuid: 'e8d7f6a5-b9c0-4d1e-2f3a-4b5c6d7e8f9a',
@@ -14,7 +14,7 @@ import './SettingsPage.scss';
 
 export function SettingsPage() {
   useViewLocation(SettingsViewMeta.uuid);
-  const { getApi } = useWorkspaceStore();
+  const { getApi } = useWorkingSetStore();
   const { themeName, applyTheme } = useSettingsStore();
 
   const handleThemeChange = async (name: string) => {

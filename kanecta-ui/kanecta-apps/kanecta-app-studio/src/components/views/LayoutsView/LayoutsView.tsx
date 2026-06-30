@@ -22,7 +22,7 @@ import ViewListIcon from '@mui/icons-material/ViewList';
 import AltRouteIcon from '@mui/icons-material/AltRoute';
 import type { ViewMeta } from '../../../lib/viewMeta';
 import { useViewLocation, LocationContext } from '../../../context/LocationContext';
-import { useWorkspaceStore } from '../../../store/workspace';
+import { useWorkingSetStore } from '../../../store/workingSet';
 import { useUiStore } from '../../../store/ui';
 import { LayoutsView as LayoutsViewPkg } from '@kanecta/component-layouts-view';
 import type { AvailableView } from '@kanecta/component-layouts-view';
@@ -91,14 +91,14 @@ function PaneLocationWrapper({
 }
 
 function PaneTreeView({ paneId }: { paneId: string }) {
-  const { getApi, activeWorkspaceId } = useWorkspaceStore();
+  const { getApi, activeWorkingSetId } = useWorkingSetStore();
   const { focusedItemId, setFocusedItem, vscodeAvailable } = useUiStore();
   const { setItemId, openOverlay } = useLocation();
   return (
     <TreeView
       panelId={paneId}
       api={getApi()}
-      workspaceKey={activeWorkspaceId ?? undefined}
+      workspaceKey={activeWorkingSetId ?? undefined}
       focusedItemId={focusedItemId}
       vscodeAvailable={vscodeAvailable}
       onFocusItem={(id) => setFocusedItem(id)}
@@ -135,7 +135,7 @@ function renderPaneView(viewType: string, paneId: string): ReactNode {
 
 export function LayoutsView() {
   useViewLocation(LayoutsViewMeta.uuid);
-  const { getApi } = useWorkspaceStore();
+  const { getApi } = useWorkingSetStore();
   const api = getApi();
 
   return (

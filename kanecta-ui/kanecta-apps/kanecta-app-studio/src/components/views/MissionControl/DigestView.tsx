@@ -1,7 +1,7 @@
 import type { ViewMeta } from '../../../lib/viewMeta';
 import { useViewLocation } from '../../../context/LocationContext';
 import { DigestView as DigestViewPkg } from '@kanecta/component-mission-control';
-import { useWorkspaceStore } from '../../../store/workspace';
+import { useWorkingSetStore } from '../../../store/workingSet';
 import { useReviewStore } from '../../../store/review';
 import { flattenTree } from '../../../lib/items';
 
@@ -14,13 +14,20 @@ export const DigestViewMeta: ViewMeta = {
 
 export function DigestView() {
   useViewLocation(DigestViewMeta.uuid);
-  const { workspaces, getApi } = useWorkspaceStore();
+  const { workingSets, getApi } = useWorkingSetStore();
   const { activityLog, reviewQueue } = useReviewStore();
+
+  // The mission-control component contract uses `workspaceId`; map from our
+  // domain field `workingSetId` at the boundary.
+  const activityLogForPkg = activityLog.map(({ workingSetId, ...rest }) => ({
+    ...rest,
+    workspaceId: workingSetId,
+  }));
 
   return (
     <DigestViewPkg
-      workspaces={workspaces}
-      activityLog={activityLog}
+      workspaces={workingSets}
+      activityLog={activityLogForPkg}
       reviewQueueLength={reviewQueue.length}
       onFetchWorkspaceItems={async (wsId) => {
         const tree = await getApi(wsId).tree.full();
@@ -35,7 +42,7 @@ export function DigestView() {
         }));
       }}
       onDeleteItem={(wsId, itemId) => getApi(wsId).items.delete(itemId)}
-      queryKeyPrefix={workspaces.map((w) => w.id).join(',')}
+      queryKeyPrefix={workingSets.map((w) => w.id).join(',')}
     />
   );
 }

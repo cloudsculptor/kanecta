@@ -1,12 +1,12 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useWorkspaceStore } from '../store/workspace';
+import { useWorkingSetStore } from '../store/workingSet';
 import { flattenTree } from '../lib/items';
 import type { KanectaItem } from '../types/kanecta';
 
-export function useItemLookup(workspaceId?: string): (id: string) => KanectaItem | undefined {
-  const { getApi, activeWorkspaceId } = useWorkspaceStore();
-  const wsId = workspaceId ?? activeWorkspaceId;
+export function useItemLookup(workingSetId?: string): (id: string) => KanectaItem | undefined {
+  const { getApi, activeWorkingSetId } = useWorkingSetStore();
+  const wsId = workingSetId ?? activeWorkingSetId;
 
   const { data } = useQuery({
     queryKey: ['all-items', wsId],

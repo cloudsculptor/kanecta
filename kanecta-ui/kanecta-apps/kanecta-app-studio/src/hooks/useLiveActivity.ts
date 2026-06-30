@@ -1,11 +1,11 @@
 import { useEffect, useRef } from 'react';
-import { useWorkspaceStore } from '../store/workspace';
+import { useWorkingSetStore } from '../store/workingSet';
 import { useReviewStore } from '../store/review';
 import { diffItems, buildItemMap } from '../lib/activity';
 import type { KanectaItem } from '../types/kanecta';
 
 export function useLiveActivity() {
-  const { workspaces, getApi } = useWorkspaceStore();
+  const { workingSets, getApi } = useWorkingSetStore();
   const { appendActivity, setReviewQueue, seenItemIds } = useReviewStore();
 
   const snapshotRef = useRef<Map<string, Map<string, KanectaItem>>>(new Map());
@@ -13,14 +13,14 @@ export function useLiveActivity() {
   useEffect(() => {
     const timers: ReturnType<typeof setInterval>[] = [];
 
-    for (const workspace of workspaces) {
+    for (const workingSet of workingSets) {
       const poll = async () => {
         try {
-          const api = getApi(workspace.id);
+          const api = getApi(workingSet.id);
           const items: KanectaItem[] = await api.items.list();
-          const previous = snapshotRef.current.get(workspace.id) ?? new Map<string, KanectaItem>();
-          const events = diffItems(workspace.id, previous, items);
-          snapshotRef.current.set(workspace.id, buildItemMap(items));
+          const previous = snapshotRef.current.get(workingSet.id) ?? new Map<string, KanectaItem>();
+          const events = diffItems(workingSet.id, previous, items);
+          snapshotRef.current.set(workingSet.id, buildItemMap(items));
 
           if (events.length > 0) {
             appendActivity(events);
@@ -34,11 +34,11 @@ export function useLiveActivity() {
       };
 
       void poll();
-      timers.push(setInterval(poll, workspace.pollIntervalMs));
+      timers.push(setInterval(poll, workingSet.pollIntervalMs));
     }
 
     return () => {
       for (const t of timers) clearInterval(t);
     };
-  }, [workspaces, getApi, appendActivity, setReviewQueue, seenItemIds]);
+  }, [workingSets, getApi, appendActivity, setReviewQueue, seenItemIds]);
 }

@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { BoardView as BoardViewPkg } from '@kanecta/component-board-view';
 import { useAllItems } from '../../../hooks/useAllItems';
 import { useUiStore } from '../../../store/ui';
-import { useWorkspaceStore } from '../../../store/workspace';
+import { useWorkingSetStore } from '../../../store/workingSet';
 import { ITEM_TYPES, CONFIDENCE_LEVELS } from '../../../lib/constants';
 
 export const BoardViewMeta: ViewMeta = {
@@ -22,7 +22,7 @@ export function BoardView({ panelId }: BoardViewProps) {
   useViewLocation(BoardViewMeta.uuid);
   const { items, isLoading, filter } = useAllItems(panelId);
   const { setPanelFilter, setFocusedItem, focusedItemId } = useUiStore();
-  const { getApi } = useWorkspaceStore();
+  const { getApi } = useWorkingSetStore();
   const qc = useQueryClient();
 
   const updateMutation = useMutation({

@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ConflictPair } from '../../../lib/conflicts';
-import { useWorkspaceStore } from '../../../store/workspace';
+import { useWorkingSetStore } from '../../../store/workingSet';
 import { ConfidenceBadge } from '@kanecta/component-confidence-badge';
 import { TypeBadge } from '@kanecta/component-type-badge';
 import './ConflictList.scss';
@@ -16,15 +16,15 @@ interface ConflictCardProps {
 }
 
 function ConflictCard({ conflict, onResolved }: ConflictCardProps) {
-  const { workspaces, getApi } = useWorkspaceStore();
+  const { workingSets, getApi } = useWorkingSetStore();
   const qc = useQueryClient();
-  const wsMap = new Map(workspaces.map((w) => [w.id, w]));
+  const wsMap = new Map(workingSets.map((w) => [w.id, w]));
 
-  const wsA = wsMap.get(conflict.workspaceIdA);
-  const wsB = wsMap.get(conflict.workspaceIdB);
+  const wsA = wsMap.get(conflict.workingSetIdA);
+  const wsB = wsMap.get(conflict.workingSetIdB);
 
   const keepA = useMutation({
-    mutationFn: () => getApi(conflict.workspaceIdB).items.delete(conflict.itemB.id),
+    mutationFn: () => getApi(conflict.workingSetIdB).items.delete(conflict.itemB.id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['items-list'] });
       onResolved?.(conflict.id);
@@ -32,7 +32,7 @@ function ConflictCard({ conflict, onResolved }: ConflictCardProps) {
   });
 
   const keepB = useMutation({
-    mutationFn: () => getApi(conflict.workspaceIdA).items.delete(conflict.itemA.id),
+    mutationFn: () => getApi(conflict.workingSetIdA).items.delete(conflict.itemA.id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['items-list'] });
       onResolved?.(conflict.id);

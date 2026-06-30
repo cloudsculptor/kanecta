@@ -25,6 +25,18 @@ export type { ClipboardEntry } from './breadcrumb';
 export type { SkillFile, SkillFileWithContent } from './skills';
 export type { ClaudeEvent, ApprovalNeededEvent, ToolRanEvent } from './claude';
 export type { AppSettings } from './settings';
+export type { WorkingSetsList } from './workingSets';
+
+/**
+ * Normalised `GET /config` response. The backend now returns
+ * `{ datastorePath, workingSetName, vscodeAvailable }`. The generated
+ * api-client type does not yet describe `workingSetName`, so we widen it here.
+ */
+export interface StudioConfig {
+  datastorePath: string;
+  workingSetName?: string;
+  vscodeAvailable: boolean;
+}
 
 export function createApi(baseUrl: string) {
   // `keycloak.token` is undefined when unauthenticated or when auth is
@@ -35,7 +47,7 @@ export function createApi(baseUrl: string) {
   const client = createApiClient({ baseUrl, token: () => keycloak.token });
   return {
     config: {
-      get: () => client.config.get(),
+      get: () => client.config.get() as unknown as Promise<StudioConfig>,
       openPath: (path: string) => client.config.openPath(path),
       openInBrowser: (path: string) => client.config.openInBrowser(path),
       openInVscode: (path: string) => client.config.openInVSCode(path),

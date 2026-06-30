@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import LinkIcon from '@mui/icons-material/Link';
-import { useWorkspaceStore } from '../../store/workspace';
+import { useWorkingSetStore } from '../../store/workingSet';
 import { useUiStore } from '../../store/ui';
 import './BacklinkList.scss';
 
@@ -9,7 +9,7 @@ interface BacklinkListProps {
 }
 
 export function BacklinkList({ itemId }: BacklinkListProps) {
-  const { getApi } = useWorkspaceStore();
+  const { getApi } = useWorkingSetStore();
   const { setFocusedItem } = useUiStore();
 
   const { data: backlinks = [], isLoading } = useQuery({

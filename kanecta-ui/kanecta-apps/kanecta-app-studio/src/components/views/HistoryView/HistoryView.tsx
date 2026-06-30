@@ -1,7 +1,7 @@
 import type { ViewMeta } from '../../../lib/viewMeta';
 import { useViewLocation } from '../../../context/LocationContext';
 import { HistoryView as HistoryViewPkg, HistoryList } from '@kanecta/component-history-view';
-import { useWorkspaceStore } from '../../../store/workspace';
+import { useWorkingSetStore } from '../../../store/workingSet';
 import { useUiStore } from '../../../store/ui';
 import { TYPE_ICONS, FallbackIcon } from '../../../lib/typeIcons';
 import type { ItemType } from '../../../types/kanecta';
@@ -17,9 +17,9 @@ export const HistoryViewMeta: ViewMeta = {
 
 export function HistoryView() {
   useViewLocation(HistoryViewMeta.uuid);
-  const { getApi, activeWorkspaceId } = useWorkspaceStore();
+  const { getApi, activeWorkingSetId } = useWorkingSetStore();
   const { layout, updatePanel } = useUiStore();
-  const api = getApi(activeWorkspaceId);
+  const api = getApi(activeWorkingSetId);
 
   const handleNavigate = (e: React.MouseEvent, id: string) => {
     e.preventDefault();

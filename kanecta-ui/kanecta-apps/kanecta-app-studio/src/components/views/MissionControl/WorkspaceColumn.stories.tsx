@@ -2,9 +2,9 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { WorkspaceColumn } from './WorkspaceColumn';
-import type { WorkspaceConfig } from '../../../types/workspace';
+import type { WorkingSetConfig } from '../../../types/workingSet';
 
-const ws: WorkspaceConfig = {
+const ws: WorkingSetConfig = {
   id: 'ws-1',
   name: 'Primary',
   apiUrl: 'http://localhost:3000',

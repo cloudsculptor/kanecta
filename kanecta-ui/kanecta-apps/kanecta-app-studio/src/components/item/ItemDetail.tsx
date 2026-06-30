@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useWorkspaceStore } from '../../store/workspace';
+import { useWorkingSetStore } from '../../store/workingSet';
 import './ItemDetail.scss';
 
 interface ItemDetailProps {
@@ -7,7 +7,7 @@ interface ItemDetailProps {
 }
 
 export function ItemDetail({ itemId }: ItemDetailProps) {
-  const { getApi } = useWorkspaceStore();
+  const { getApi } = useWorkingSetStore();
 
   const { data: doc, isLoading } = useQuery({
     queryKey: ['item', itemId],

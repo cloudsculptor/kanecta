@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { ActivityFeed } from './ActivityFeed';
 import { useReviewStore } from '../../../store/review';
-import type { ActivityEvent } from '../../../types/workspace';
+import type { ActivityEvent } from '../../../types/workingSet';
 import type { KanectaItem } from '../../../types/kanecta';
 
 function makeItem(id: string, value: string): KanectaItem {
@@ -10,9 +10,9 @@ function makeItem(id: string, value: string): KanectaItem {
 }
 
 const events: ActivityEvent[] = [
-  { id: '1', workspaceId: 'ws-1', item: makeItem('a', 'Climate change accelerates'), operation: 'created', seenAt: new Date(Date.now() - 60_000).toISOString() },
-  { id: '2', workspaceId: 'ws-1', item: makeItem('b', 'Sea levels rising faster'), operation: 'modified', seenAt: new Date(Date.now() - 300_000).toISOString() },
-  { id: '3', workspaceId: 'ws-2', item: makeItem('c', 'Carbon capture research'), operation: 'created', seenAt: new Date(Date.now() - 900_000).toISOString() },
+  { id: '1', workingSetId: 'ws-1', item: makeItem('a', 'Climate change accelerates'), operation: 'created', seenAt: new Date(Date.now() - 60_000).toISOString() },
+  { id: '2', workingSetId: 'ws-1', item: makeItem('b', 'Sea levels rising faster'), operation: 'modified', seenAt: new Date(Date.now() - 300_000).toISOString() },
+  { id: '3', workingSetId: 'ws-2', item: makeItem('c', 'Carbon capture research'), operation: 'created', seenAt: new Date(Date.now() - 900_000).toISOString() },
 ];
 
 function Seeded({ children }: { children: React.ReactNode }) {

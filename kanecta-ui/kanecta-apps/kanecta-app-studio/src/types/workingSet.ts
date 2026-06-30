@@ -1,6 +1,6 @@
 import type { KanectaItem } from './kanecta';
 
-export interface WorkspaceConfig {
+export interface WorkingSetConfig {
   id: string;
   name: string;
   apiUrl: string;
@@ -11,10 +11,10 @@ export interface WorkspaceConfig {
 
 export interface ActivityEvent {
   id: string;
-  workspaceId: string;
+  workingSetId: string;
   item: KanectaItem;
   operation: 'created' | 'modified';
   seenAt: string;
 }
 
-export type WorkspaceStatus = 'green' | 'yellow' | 'red' | 'unknown';
+export type WorkingSetStatus = 'green' | 'yellow' | 'red' | 'unknown';

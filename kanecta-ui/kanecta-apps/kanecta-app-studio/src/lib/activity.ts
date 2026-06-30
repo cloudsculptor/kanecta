@@ -1,8 +1,8 @@
 import type { KanectaItem } from '../types/kanecta';
-import type { ActivityEvent } from '../types/workspace';
+import type { ActivityEvent } from '../types/workingSet';
 
 export function diffItems(
-  workspaceId: string,
+  workingSetId: string,
   previous: Map<string, KanectaItem>,
   current: KanectaItem[],
 ): ActivityEvent[] {
@@ -12,9 +12,9 @@ export function diffItems(
   for (const item of current) {
     const prev = previous.get(item.id);
     if (!prev) {
-      events.push({ id: crypto.randomUUID(), workspaceId, item, operation: 'created', seenAt });
+      events.push({ id: crypto.randomUUID(), workingSetId, item, operation: 'created', seenAt });
     } else if (prev.modifiedAt !== item.modifiedAt) {
-      events.push({ id: crypto.randomUUID(), workspaceId, item, operation: 'modified', seenAt });
+      events.push({ id: crypto.randomUUID(), workingSetId, item, operation: 'modified', seenAt });
     }
   }
 

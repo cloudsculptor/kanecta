@@ -29,10 +29,10 @@ vi.mock('@tiptap/core', () => ({ Extension: { create: vi.fn(() => ({})) } }));
 vi.mock('tippy.js', () => ({ default: vi.fn(() => [{ destroy: vi.fn(), hide: vi.fn(), setProps: vi.fn() }]) }));
 
 const mockUpdate = vi.fn().mockResolvedValue({ id: 'item-1', value: '', type: 'text' });
-vi.mock('../../../store/workspace', () => ({
-  useWorkspaceStore: () => ({
+vi.mock('../../../store/workingSet', () => ({
+  useWorkingSetStore: () => ({
     getApi: () => ({ items: { update: mockUpdate }, tree: { full: vi.fn().mockResolvedValue([]) } }),
-    primaryWorkspace: { id: 'ws-1' },
+    primaryWorkingSet: { id: 'ws-1' },
   }),
 }));
 
