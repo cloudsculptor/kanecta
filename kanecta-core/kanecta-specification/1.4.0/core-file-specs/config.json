@@ -65,25 +65,9 @@
           "type": "string",
           "default": "main",
           "description": "Fallback branch for this working set, used when no active branch is recorded in state.json and none is supplied via KANECTA_BRANCH or a per-call argument. Defaults to 'main'. Each adapter maps the branch name to its native mechanism: filesystem → branch folder, Postgres → schema name (slashes become double-underscores), S3 → key prefix. Kanecta branching is independent of Git."
-        },
-        "features": {
-          "type": "object",
-          "description": "Optional feature flags for this workingSet. Omitting a flag is equivalent to false.",
-          "additionalProperties": false,
-          "properties": {
-            "history": {
-              "type": "boolean",
-              "default": false,
-              "description": "Enable item_history tracking. When true, every item write produces an item_history item capturing the event type, a field-level delta, and a full snapshot. Disabled by default. For filesystem workingSets tracked by Git, leave this false — Git already provides history and enabling it would double up and conflict with Git's in-place change model. For Postgres workingSets without Git, consider enabling. When disabled, the system is fully functional — history is not required for any core feature."
-            },
-            "activity": {
-              "type": "boolean",
-              "default": false,
-              "description": "Enable activity tracking. When true, application-level events (item.viewed, search.performed, sync.completed, etc.) are recorded as activity items. Disabled by default. Activity can grow extremely large in high-traffic workingSets — a single popular item can generate millions of activity items. Enable only when the activity data will be actively used. When disabled, the system is fully functional."
-            }
-          }
         }
-      }
+      },
+      "description": "A working set. History and activity tracking are NOT configured here — they are a property of the datastore itself, set in the root node payload (rootPayload.itemHistory / rootPayload.activity, each NONE | ITEM | EXTERNAL). The config only locates and selects datastores; the datastore owns its own history/activity policy so it is consistent across every machine and config that references it."
     },
     "localFilesystem": {
       "type": "object",
