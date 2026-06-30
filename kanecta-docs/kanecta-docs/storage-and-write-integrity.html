@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kanecta — Storage Levels &amp; Write Integrity</title>
+<style>
+  :root {
+    --l0: #1f6f54;   /* authority   */
+    --l1: #2b6cb0;   /* structured  */
+    --l2: #805ad5;   /* projections */
+    --ink: #1a202c; --muted: #5a6878; --line: #d4dae3; --bg: #f7f9fc; --card:#fff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.55 -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+         color: var(--ink); background: var(--bg); }
+  main { max-width: 1040px; margin: 0 auto; padding: 40px 24px 80px; }
+  h1 { font-size: 30px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 32px; }
+  h2 { font-size: 21px; margin: 44px 0 14px; padding-bottom: 6px; border-bottom: 2px solid var(--line); }
+  h3 { font-size: 16px; margin: 22px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  p { margin: 0 0 14px; } code { background:#eef1f6; padding: 1px 5px; border-radius: 4px; font-size: 90%; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 760px){ .grid2 { grid-template-columns: 1fr; } }
+
+  .stack { display: flex; flex-direction: column; gap: 10px; margin: 6px 0 4px; }
+  .layer { border-radius: 10px; padding: 12px 16px; color: #fff; }
+  .layer .tag { font-weight: 700; letter-spacing:.03em; }
+  .layer .role { opacity: .92; }
+  .layer .where { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; opacity:.95; margin-top:4px; }
+  .L0 { background: var(--l0); } .L1 { background: var(--l1); } .L2 { background: var(--l2); }
+  .collapsed { background: linear-gradient(100deg, var(--l0), var(--l1)); }
+  .legend { display:flex; gap:18px; flex-wrap:wrap; color:var(--muted); font-size:14px; margin-top:8px; }
+  .dot { display:inline-block; width:12px; height:12px; border-radius:3px; vertical-align:-1px; margin-right:6px; }
+
+  ol.flow { list-style: none; counter-reset: step; padding: 0; margin: 8px 0; }
+  ol.flow li { counter-increment: step; position: relative; padding: 10px 12px 10px 46px; margin: 0 0 8px;
+               border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+  ol.flow li::before { content: counter(step); position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+               width: 26px; height: 26px; border-radius: 50%; background: var(--ink); color:#fff;
+               display: grid; place-items: center; font-size: 13px; font-weight: 700; }
+  ol.flow li.authority { border-color: var(--l0); box-shadow: inset 4px 0 0 var(--l0); }
+  ol.flow li b { font-weight: 700; }
+  .note { background:#fffbea; border:1px solid #f0e2a8; border-radius:10px; padding:12px 16px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  pre { background:#0f1722; color:#d8e0ec; border-radius:10px; padding:14px 16px; overflow:auto; font-size:13px; line-height:1.5; }
+  .pill { display:inline-block; font-size:12px; font-weight:700; border-radius:999px; padding:2px 10px; color:#fff; }
+  .pill.full { background: var(--l1); } .pill.sparse { background: var(--l2); }
+  .rule { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Kanecta — Storage Levels &amp; Write Integrity</h1>
+  <p class="sub">Visual companion to the spec chapters <em>Write Integrity &amp; Durability</em> and <em>Working Sets, Branches &amp; Sync</em>.</p>
+
+  <h2>The storage levels (L0 / L1 / L2)</h2>
+  <p>Every adapter has the same three <strong>roles</strong>, numbered from the source of truth (0) outward to the most derived and disposable (2). The number tracks the role, not the medium — so <code>L1</code> means the same thing everywhere. <strong>Lower number = closer to the truth; everything above L0 is derived and 100% rebuildable.</strong></p>
+  <div class="grid2">
+    <div class="card">
+      <h3>Filesystem + SQLite</h3>
+      <div class="stack">
+        <div class="layer L0"><span class="tag">L0 · Authority</span> <span class="role">— source of truth</span><div class="where">item.json + file sidecars</div></div>
+        <div class="layer L1"><span class="tag">L1 · Structured store</span><div class="where">SQLite — complete copy of every item.json (derived)</div></div>
+        <div class="layer L2"><span class="tag">L2 · Projections</span><div class="where">CQRS read tables (derived)</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Postgres + S3</h3>
+      <div class="stack">
+        <div class="layer collapsed"><span class="tag">L0 = L1 · Authority &amp; Structured store</span><div class="where">item tables + S3 objects (the DB <em>is</em> the structured store)</div></div>
+        <div class="layer L2"><span class="tag">L2 · Projections</span><div class="where">CQRS read tables (derived)</div></div>
+      </div>
+      <p class="rule" style="margin-top:12px">Adapters may <strong>collapse adjacent levels</strong>: Postgres has no separate derived copy — L0 and L1 are the same tables.</p>
+    </div>
+  </div>
+  <div class="legend">
+    <span><span class="dot" style="background:var(--l0)"></span>L0 Authority — must be atomic</span>
+    <span><span class="dot" style="background:var(--l1)"></span>L1 Structured store — derived</span>
+    <span><span class="dot" style="background:var(--l2)"></span>L2 Projections — derived</span>
+  </div>
+
+  <h2>The life of a write</h2>
+  <p>Writes to a branch are <strong>serialized</strong> (one in flight at a time; new writes queue). A write either fully lands or fully rolls back, and is reported successful only after it lands.</p>
+  <ol class="flow">
+    <li><b>queue</b> — wait for the branch's write slot (serialized; new writes queue, none dropped)</li>
+    <li><b>lock</b> — take the cross-process lock (PID + heartbeat)</li>
+    <li><b>journal</b> — record intent + the adapter's full step plan (write-ahead)</li>
+    <li class="authority"><b>L0</b> — write authority (item.json + sidecars / S3 then the Postgres txn) &nbsp;— <em>the one step that must be atomic</em></li>
+    <li><b>L1</b> — update the structured store (SQLite copy; = L0 on Postgres)</li>
+    <li><b>L2</b> — update projections</li>
+    <li><b>commit</b> — mark the journal committed, release the lock</li>
+    <li><b>return</b> — only now is success reported to the caller</li>
+  </ol>
+  <p class="note"><strong>Crash before step 7?</strong> On next open: if <strong>L0 completed</strong> → roll <em>forward</em> (rebuild L1/L2 from L0); if <strong>L0 did not complete</strong> → roll <em>back</em> to the pre-image. Because L1/L2 are 100% derived, only the L0 step must be truly atomic.</p>
+  <p class="note" style="background:#eef6ff;border-color:#bcd9f5"><strong>Reads during a write?</strong> Never blocked, never partial — a <strong>snapshot</strong> read returns the last fully-committed value (at most one version stale, only during the write window). Read-your-writes holds because writes are synchronous. The new version becomes visible atomically across the levels a reader touches.</p>
+  <p class="rule">Why a journal at all? No single transaction spans filesystem + SQLite, or Postgres + S3 — the journal is what makes a multi-store write atomic and recoverable.</p>
+
+  <h2>Branches: per-branch folders &amp; classes</h2>
+  <p>Every branch — including <code>main</code> — is a complete, self-contained folder. Kanecta branching is independent of Git.</p>
+  <pre>.kanecta/
+  config/config.json                 datastore-level config (shared)
+  branches/&lt;encoded-name&gt;/
+    items/&lt;shard&gt;/item.json           the branch's items (added / edited / deleted_at tombstone)
+    index.db                         per-branch derived index (never a source of truth)
+    branch.json                      { name, fill, upstream, branchPoint, createdAt }</pre>
+  <table>
+    <tr><th>Class</th><th>fill</th><th>upstream</th><th>Role</th></tr>
+    <tr><td>canonical <code>main</code></td><td><span class="pill full">full</span></td><td><code>null</code></td><td>the source of truth (≤1 per lineage)</td></tr>
+    <tr><td>mirror</td><td><span class="pill full">full</span></td><td>canonical</td><td>complete offline cache; refreshed by sync; read-only</td></tr>
+    <tr><td>sparse branch</td><td><span class="pill sparse">sparse</span></td><td>canonical / mirror</td><td>local changes only; the rest synthesized on demand</td></tr>
+  </table>
+  <p class="rule" style="margin-top:12px">A read is a <strong>layer stack</strong>: branch diff → working-set data → device library (core/app, read-only). Membership, point reads, navigation, and merge are exact; cross-seam sort/paging/search-ranking is best-effort.</p>
+</main>
+</body>
+</html>

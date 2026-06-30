@@ -252,9 +252,10 @@ read during 2–6?  returns the last fully-committed value, never blocks, never 
 
 == Visual
 
-A rendered HTML diagram of the L0/L1/L2 stack and the write/recovery flow lives in
-**kanecta-docs** and is embedded into the published form of this chapter. The
-`listing` blocks above are the authoritative text source for that diagram.
+A rendered HTML diagram of the L0/L1/L2 stack, the write/recovery flow, snapshot
+reads, and the per-branch folder layout lives at
+`kanecta-docs/kanecta-docs/storage-and-write-integrity.html`. The `listing` blocks
+above are the authoritative text source for that diagram.
 
 == Deferred / open
 
