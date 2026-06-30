@@ -240,10 +240,12 @@ No remote at all. Canonical `main` simply lives on this machine.
 ----
 local .kanecta/
   branches/
-    main/                      fill: full, upstream: null          (canonical)
-      items/<shard>/item.json  ← the whole datastore
+    main/                            fill: full, upstream: null    (canonical)
+      items/<shard>/item.json        ← the whole datastore (incl. alias/
+                                       relationship/annotation items)
+      item-history/<shard>/item.json ← item_history events (when enabled)
       branch.json
-      index.db
+      index.db                       ← derived from items/ + item-history/
 ----
 
 TIP: "Going offline" and "scaling up" are just *class transitions* over the same
@@ -330,9 +332,18 @@ analog. Studio's "switch working set/branch" writes here; nothing else does.
 [IMPORTANT]
 ====
 *Hard rule: `index.db` is 100% derived/projected. It is never a source of truth,
-in any situation.* It must always be rebuildable by scanning the filesystem
-(`items/`) plus, for a sparse branch, the federated upstream at query time. If it
-is ever deleted or diverges, it is rebuilt — no information is lost.
+in any situation.* It must always be rebuildable by scanning the branch's
+authoritative item files — `items/` and the sibling `item-history/` (and
+`activity/` when enabled) — plus, for a sparse branch, the federated upstream at
+query time. If it is ever deleted or diverges, it is rebuilt — no information is
+lost.
+
+Concretely, the SQLite tables that look like their own stores —
+`aliases`, `relationships`, `annotations`, `history` — are *derived projections*,
+not authority. Aliases, relationships and annotations are ordinary items
+(`type: "alias" | "relationship" | "annotation"`) living in `items/`; history
+events are `item_history` items living in `item-history/`. Each projection is
+repopulated by scanning those item files, so deleting `index.db` loses nothing.
 ====
 
 === `items/<shard>/item.json` — the data (pure)

@@ -101,6 +101,31 @@ function buildOldLayout() {
     .run(ids.branchId, ids.edit, '2026-06-02T00:00:00.000Z');
   db.prepare("INSERT INTO branch_changes (branch_id, item_id, change_type, section, data, changed_at) VALUES (?, ?, 'delete', 'item', NULL, ?)")
     .run(ids.branchId, ids.del, '2026-06-02T00:00:00.000Z');
+
+  // Old format kept these ONLY in index.db (the bug we are fixing). The migration
+  // must re-materialise them as item.json so they survive the index rebuild.
+  db.exec(`
+    CREATE TABLE aliases (alias TEXT PRIMARY KEY, target_id TEXT NOT NULL);
+    CREATE TABLE relationships (
+      id TEXT PRIMARY KEY, source_id TEXT NOT NULL, type TEXT NOT NULL, target_id TEXT NOT NULL,
+      note TEXT, created_at TEXT NOT NULL, created_by TEXT
+    );
+    CREATE TABLE annotations (
+      id TEXT PRIMARY KEY, target_id TEXT NOT NULL, author TEXT, content TEXT NOT NULL,
+      created_at TEXT NOT NULL, parent_annotation_id TEXT
+    );
+    CREATE TABLE history (
+      seq INTEGER PRIMARY KEY AUTOINCREMENT, item_id TEXT NOT NULL, change_type TEXT NOT NULL,
+      snapshot TEXT NOT NULL, changed_at TEXT NOT NULL, changed_by TEXT
+    );
+  `);
+  db.prepare('INSERT INTO aliases (alias, target_id) VALUES (?, ?)').run('keep-alias', ids.keep);
+  db.prepare('INSERT INTO relationships (id, source_id, type, target_id, note, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .run('66666666-6666-4666-8666-666666666666', ids.keep, 'depends-on', ids.edit, 'a note', '2026-06-02T00:00:00.000Z', 'test@example.com');
+  db.prepare('INSERT INTO annotations (id, target_id, author, content, created_at, parent_annotation_id) VALUES (?, ?, ?, ?, ?, ?)')
+    .run('77777777-7777-4777-8777-777777777777', ids.keep, 'al@x.z', 'an old comment', '2026-06-02T00:00:00.000Z', null);
+  db.prepare('INSERT INTO history (item_id, change_type, snapshot, changed_at, changed_by) VALUES (?, ?, ?, ?, ?)')
+    .run(ids.keep, 'create', JSON.stringify({ id: ids.keep, value: 'keep me', changeType: 'create' }), '2026-06-01T00:00:00.000Z', 'test@example.com');
   db.close();
 
   return { root, k, ids };
@@ -146,6 +171,18 @@ describe('migrate datastore overlay → per-branch full folders', () => {
 
     const manifest = JSON.parse(fs.readFileSync(path.join(k, 'branches', 'feature__x', 'branch.json'), 'utf8'));
     expect(manifest).toMatchObject({ name: 'feature/x', fill: 'full', upstream: null });
+  });
+
+  test('re-materialises old db-only metadata (aliases/relationships/annotations/history) — no data loss', () => {
+    migrateDatastoreToPerBranch(root);
+    const a = SqliteFsAdapter.open(root); // index rebuilt purely from the filesystem
+
+    expect(a.resolveAlias('keep-alias')).toBe(ids.keep);
+    expect(a.relationships(ids.keep).outbound).toHaveLength(1);
+    expect(a.relationships(ids.keep).outbound[0].targetId).toBe(ids.edit);
+    expect(a.annotations(ids.keep)).toHaveLength(1);
+    expect(a.annotations(ids.keep)[0].content).toBe('an old comment');
+    expect(a.history(ids.keep).length).toBeGreaterThan(0);
   });
 
   test('is idempotent — second run is a no-op', () => {

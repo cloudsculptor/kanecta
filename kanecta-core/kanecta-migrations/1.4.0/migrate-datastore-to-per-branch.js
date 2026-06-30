@@ -92,6 +92,105 @@ function deleteItemDir(baseItemsDir, id) {
   if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
 }
 
+// Fixed built-in type-item UUIDs (mirror of adapter.js TYPE_ITEM_UUIDS).
+const TYPE_ITEM_UUIDS = {
+  item_history: 'b81923c7-ecf5-4fef-8588-2d91c3985aea',
+  alias:        '80f95b21-6c51-43b5-bdfb-35aad8991c7a',
+  relationship: '334ea5f6-6bfa-43e5-b77f-5d811642d897',
+  annotation:   '8797b002-091a-4289-abf0-850d4b05a743',
+};
+
+function uuid() { return require('crypto').randomUUID(); }
+
+// Build a five-section item.json doc for a metadata item.
+function metaDoc({ id, parentId, type, value, aspect = null, createdAt, createdBy, layer, payload }) {
+  const now = createdAt || new Date().toISOString();
+  return {
+    item: { id, parentId, type, typeId: null, value: value ?? null, sortOrder: 0, aspect },
+    meta: {
+      specVersion: '1.4.0', owner: createdBy ?? null, license: null, visibility: 'private',
+      confidence: null, status: null, tags: [], createdAt: now, modifiedAt: now,
+      createdBy: createdBy ?? null, modifiedBy: createdBy ?? null, completedAt: null, dueAt: null,
+      expiresAt: null, deletedAt: null, cachedAt: null, connectorId: null, materialized: null,
+      files: {}, layer: layer ?? null, sourceSystem: null, sourceExternalId: null, icon: null,
+    },
+    search: null, payload: payload ?? null, time: null,
+  };
+}
+
+// Old format kept aliases/relationships/annotations/history ONLY in the shared
+// index.db (a source-of-truth violation). Re-materialise each as an item.json so
+// the new per-branch index is genuinely derivable — and so the data is not lost
+// when the derived index is later rebuilt. alias/relationship/annotation go into
+// branches/main/items/; item_history events go into branches/main/item-history/.
+function materialiseOldMetadata(oldSharedDbPath, mainItemsDir, mainHistoryDir, log) {
+  if (!fs.existsSync(oldSharedDbPath)) return;
+  let Database;
+  try { Database = require('better-sqlite3'); } catch { return; }
+  let db;
+  try { db = new Database(oldSharedDbPath, { readonly: true }); } catch { return; }
+  const has = (t) => !!db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(t);
+  try {
+    let n = 0;
+    if (has('aliases')) {
+      for (const r of db.prepare('SELECT alias, target_id FROM aliases').all()) {
+        const id = uuid();
+        writeItemJson(mainItemsDir, id, metaDoc({
+          id, parentId: TYPE_ITEM_UUIDS.alias, type: 'alias', value: r.alias, layer: 'system',
+          payload: { targetId: r.target_id, scope: 'personal', provisional: false, confirmedAt: null, computedFrom: null },
+        }));
+        n++;
+      }
+    }
+    if (has('relationships')) {
+      for (const r of db.prepare('SELECT id, source_id, type, target_id, note, created_at, created_by FROM relationships').all()) {
+        writeItemJson(mainItemsDir, r.id, metaDoc({
+          id: r.id, parentId: TYPE_ITEM_UUIDS.relationship, type: 'relationship', value: r.type,
+          createdAt: r.created_at, createdBy: r.created_by, layer: 'user',
+          payload: { typeId: null, sourceId: r.source_id, targetId: r.target_id, data: null, confidence: null, note: r.note ?? null },
+        }));
+        n++;
+      }
+    }
+    if (has('annotations')) {
+      for (const r of db.prepare('SELECT id, target_id, author, content, created_at, parent_annotation_id FROM annotations').all()) {
+        writeItemJson(mainItemsDir, r.id, metaDoc({
+          id: r.id, parentId: r.target_id, type: 'annotation',
+          value: typeof r.content === 'string' ? r.content.slice(0, 255) : null,
+          aspect: 'comments', createdAt: r.created_at, createdBy: r.author, layer: 'user',
+          payload: { content: r.content, author: r.author, parentAnnotationId: r.parent_annotation_id },
+        }));
+        n++;
+      }
+    }
+    if (has('history')) {
+      const seqByTarget = new Map();
+      const eventType = (ct) => ct === 'create' ? 'created' : ct === 'delete' ? 'deleted' : 'updated';
+      for (const r of db.prepare('SELECT item_id, change_type, snapshot, changed_at, changed_by FROM history ORDER BY seq').all()) {
+        const seq = (seqByTarget.get(r.item_id) ?? 0) + 1;
+        seqByTarget.set(r.item_id, seq);
+        let snapshot = {};
+        try { snapshot = JSON.parse(r.snapshot); } catch {}
+        const id = uuid();
+        writeItemJson(mainHistoryDir, id, metaDoc({
+          id, parentId: TYPE_ITEM_UUIDS.item_history, type: 'item_history',
+          value: `${r.change_type} ${r.item_id}`, createdAt: r.changed_at, createdBy: r.changed_by, layer: 'system',
+          payload: {
+            targetId: r.item_id, eventType: eventType(r.change_type), sequence: seq,
+            by: r.changed_by ?? null, delta: {}, snapshot, changeType: r.change_type,
+          },
+        }));
+        n++;
+      }
+    }
+    if (n) log.push(`  materialised ${n} metadata item(s) (aliases/relationships/annotations/history) from old index.db`);
+  } catch (e) {
+    log.push(`  WARNING: could not materialise old metadata: ${e.message}`);
+  } finally {
+    try { db.close(); } catch {}
+  }
+}
+
 // Read the OLD overlay registry + change set from the shared index.db, if present.
 // Returns a Map<branchName, { id, baseBranch, createdAt }> and a function to read
 // the per-branch overlay change set. Falls back gracefully if the table is gone.
@@ -175,6 +274,11 @@ function migrateDatastoreToPerBranch(datastorePath, { log = [] } = {}) {
     );
   }
   migratedBranches.push('main');
+
+  // 1b) Re-materialise old db-only metadata (aliases/relationships/annotations/
+  //     history) as item.json files so nothing is lost when the derived index is
+  //     rebuilt. Without this, the old shared index.db is the only home for them.
+  materialiseOldMetadata(oldSharedDb, mainItemsDir, path.join(mainRoot, 'item-history'), log);
 
   // Ensure .gitignore ignores index.db at any depth.
   const giPath = path.join(k, '.gitignore');

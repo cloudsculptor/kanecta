@@ -221,6 +221,72 @@ describe('filesystem: file-first model', () => {
   });
 });
 
+// ─── source of truth lives on the filesystem (index.db is 100% derived) ─────────
+
+describe('index.db is 100% derived from the filesystem', () => {
+  it('history, aliases, relationships and annotations all survive deleting index.db', () => {
+    const a = ds.create({ value: 'alpha' });
+    const b = ds.create({ value: 'beta' });
+    ds.update(a.id, { value: 'alpha-2' });                  // → item_history event
+    ds.setAlias('the-alpha', a.id);                          // → alias item
+    ds.relate(a.id, 'depends-on', b.id, { note: 'critical' }); // → relationship item
+    ds.annotate(a.id, { content: 'a note', author: 'x@y.z' }); // → annotation item
+
+    // Nuke the entire derived index — the filesystem must still hold everything.
+    const dbPath = path.join(tmp, '.kanecta', 'branches', 'main', 'index.db');
+    ds._db.close();
+    ds._db = null;
+    fs.unlinkSync(dbPath);
+
+    const ds2 = SqliteFsAdapter.open(tmp); // rebuilds index.db by scanning the FS
+
+    expect(ds2.history(a.id).length).toBeGreaterThan(0);
+    expect(ds2.history(a.id).some(e => e.changeType === 'update')).toBe(true);
+    expect(ds2.resolveAlias('the-alpha')).toBe(a.id);
+    expect(ds2.relationships(a.id).outbound).toHaveLength(1);
+    expect(ds2.relationships(a.id).outbound[0].targetId).toBe(b.id);
+    expect(ds2.relationships(b.id).inbound).toHaveLength(1);
+    expect(ds2.annotations(a.id)).toHaveLength(1);
+    expect(ds2.annotations(a.id)[0].content).toBe('a note');
+  });
+
+  it('rebuildIndexes() reprojects metadata tables from item.json files', () => {
+    const a = ds.create({ value: 'x' });
+    ds.setAlias('xx', a.id);
+    ds.annotate(a.id, { content: 'note' });
+    ds.rebuildIndexes();
+    expect(ds.resolveAlias('xx')).toBe(a.id);
+    expect(ds.annotations(a.id)).toHaveLength(1);
+  });
+
+  it('the metadata derived tables are never the only home for the data', () => {
+    // Sanity: an alias/relationship/annotation must exist as an item.json on disk.
+    const a = ds.create({ value: 'x' });
+    const b = ds.create({ value: 'y' });
+    ds.setAlias('zz', a.id);
+    ds.relate(a.id, 'relates-to', b.id);
+    ds.annotate(a.id, { content: 'c' });
+    const itemsDir = path.join(tmp, '.kanecta', 'branches', 'main', 'items');
+    const histDir  = path.join(tmp, '.kanecta', 'branches', 'main', 'item-history');
+    const countJson = (dir) => {
+      let n = 0;
+      const walk = (d) => {
+        if (!fs.existsSync(d)) return;
+        for (const e of fs.readdirSync(d)) {
+          const full = path.join(d, e);
+          if (fs.statSync(full).isDirectory()) walk(full);
+          else if (e === 'item.json') n++;
+        }
+      };
+      walk(dir);
+      return n;
+    };
+    // alias + relationship + annotation + the two content items + roots all on disk.
+    expect(countJson(itemsDir)).toBeGreaterThanOrEqual(5);
+    expect(countJson(histDir)).toBeGreaterThan(0); // history events written to disk
+  });
+});
+
 // ─── create ────────────────────────────────────────────────────────────────────
 
 describe('create', () => {

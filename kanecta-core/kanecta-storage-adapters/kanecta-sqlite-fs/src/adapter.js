@@ -26,6 +26,24 @@ const UUID_RE      = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 const DEFAULT_LICENSE = 'bb3bf137-d8a9-4264-9fb7-ac373b1d4739';
 const LINK_SOURCE  = '\\[\\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\\]\\]';
 
+// Fixed built-in type-item UUIDs (per specification.adoc §built-in type item UUIDs).
+// Metadata items (item_history, activity, alias, relationship, annotation) reference
+// these as parentId/typeId so they slot under well-known type buckets in every tree.
+const TYPE_ITEM_UUIDS = {
+  item_history:        'b81923c7-ecf5-4fef-8588-2d91c3985aea',
+  activity:            '2033f23f-f1d6-43bb-b74e-f62e96251df7',
+  alias:               '80f95b21-6c51-43b5-bdfb-35aad8991c7a',
+  relationship:        '334ea5f6-6bfa-43e5-b77f-5d811642d897',
+  'relationship-type': '15861dd7-e54c-4209-bceb-bdd65de4f472',
+  annotation:          '8797b002-091a-4289-abf0-850d4b05a743',
+};
+
+// Metadata item types: real items (source of truth on disk) that back the derived
+// lookup tables (history/aliases/relationships/annotations). They are NEVER stored
+// only in index.db. They are excluded from ordinary content traversal — the spec
+// calls them "metadata and tree structure, not graph edges".
+const METADATA_TYPES = new Set(['item_history', 'activity', 'alias', 'relationship']);
+
 class UnknownTypeError extends Error {
   constructor(typeName) {
     super(`unknown type "${typeName}" — not a registered type definition`);
@@ -175,7 +193,8 @@ CREATE INDEX IF NOT EXISTS idx_hist_changed ON history(changed_at);
 
 CREATE TABLE IF NOT EXISTS aliases (
   alias     TEXT PRIMARY KEY,
-  target_id TEXT NOT NULL
+  target_id TEXT NOT NULL,
+  item_id   TEXT
 );
 
 CREATE TABLE IF NOT EXISTS type_defs (
@@ -227,36 +246,42 @@ class SqliteFsAdapter {
     return path.join(this.k, 'branches', this._encodeBranchName(name ?? this._branch));
   }
 
-  _itemDir(id) {
+  // The `store` selects which sibling tree under the branch root holds the file:
+  //   'items'        — content items (the source of truth, default)
+  //   'item-history' — item_history events (write-heavy; kept out of items/)
+  //   'activity'     — activity events
+  // Keeping history/activity in sibling trees keeps items/ pure, so branchDiff and
+  // content traversal (which scan items/) never see them.
+  _itemDir(id, store = 'items') {
     const [s1, s2] = this._shard(id);
-    return path.join(this._branchRoot(), 'items', s1, s2, id);
+    return path.join(this._branchRoot(), store, s1, s2, id);
   }
 
-  _itemPath(id) {
-    return path.join(this._itemDir(id), 'item.json');
+  _itemPath(id, store = 'items') {
+    return path.join(this._itemDir(id, store), 'item.json');
   }
 
   // Read an item.json from the active branch's own items/ tree. Each branch is a
   // complete folder, so there is no overlay/fall-through — the branch's files are
   // the whole truth for that branch.
-  _readItemJson(id) {
-    const p = this._itemPath(id);
+  _readItemJson(id, store = 'items') {
+    const p = this._itemPath(id, store);
     try { return JSON.parse(fs.readFileSync(p, 'utf8')); }
     catch { return null; }
   }
 
   // Atomic write: temp file + rename so item.json is never partially written.
-  _writeItemJson(id, doc) {
-    const dir = this._itemDir(id);
+  _writeItemJson(id, doc, store = 'items') {
+    const dir = this._itemDir(id, store);
     fs.mkdirSync(dir, { recursive: true });
-    const p   = this._itemPath(id);
+    const p   = this._itemPath(id, store);
     const tmp = p + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify(doc, null, 2), 'utf8');
     fs.renameSync(tmp, p);
   }
 
-  _deleteItemDir(id) {
-    const dir = this._itemDir(id);
+  _deleteItemDir(id, store = 'items') {
+    const dir = this._itemDir(id, store);
     if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
   }
 
@@ -328,7 +353,7 @@ class SqliteFsAdapter {
 
     const adapter     = new SqliteFsAdapter(root);
     const rootPayload = {
-      owner, specVersion: '1.4.0', itemHistory: 'NONE', activity: 'NONE',
+      owner, specVersion: '1.4.0', itemHistory: 'ITEM', activity: 'NONE',
     };
 
     const rootDoc = adapter._buildDoc(
@@ -574,6 +599,84 @@ class SqliteFsAdapter {
 
     for (const link of this._parseLinks(item.value))
       db.prepare('INSERT OR IGNORE INTO backlinks (source_id, target_id) VALUES (?, ?)').run(id, link);
+
+    // Derived lookup projections for metadata item types. The item.json in items/
+    // is the source of truth; these rows are pure projections rebuilt by scanning
+    // items/ (so _rebuildFromFs repopulates them for free).
+    this._indexMetadataDoc(db, doc);
+  }
+
+  // Project an alias/relationship/annotation item.json into its derived lookup
+  // table. No-op for ordinary content items.
+  _indexMetadataDoc(db, doc) {
+    const { item, meta, payload } = doc;
+    const p = payload || {};
+    if (item.type === 'alias') {
+      db.prepare('INSERT OR REPLACE INTO aliases (alias, target_id, item_id) VALUES (?, ?, ?)')
+        .run(item.value, p.targetId ?? null, item.id);
+    } else if (item.type === 'relationship') {
+      db.prepare(
+        'INSERT OR REPLACE INTO relationships (id, source_id, type, target_id, note, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).run(item.id, p.sourceId ?? null, item.value, p.targetId ?? null,
+            p.note ?? null, meta?.createdAt ?? null, meta?.createdBy ?? null);
+    } else if (item.type === 'annotation') {
+      db.prepare(
+        'INSERT OR REPLACE INTO annotations (id, target_id, author, content, created_at, parent_annotation_id) VALUES (?, ?, ?, ?, ?, ?)'
+      ).run(item.id, item.parentId, p.author ?? meta?.createdBy ?? null,
+            p.content ?? item.value, meta?.createdAt ?? null, p.parentAnnotationId ?? null);
+    }
+  }
+
+  // Write a metadata item (alias/relationship/annotation) as a real item.json in
+  // items/ — the source of truth — and project it into its derived lookup table.
+  // No history snapshot is taken for metadata items.
+  _metaItem(fields) {
+    const now = new Date().toISOString();
+    return this._itemToDoc({
+      typeId: null, sortOrder: 0, aspect: null,
+      owner: this.config.owner, license: null, visibility: 'private',
+      confidence: null, status: null, tags: [],
+      createdAt: now, modifiedAt: now,
+      createdBy: this.config.owner, modifiedBy: this.config.owner,
+      layer: 'system',
+      ...fields,
+    });
+  }
+
+  _writeMetadataItem(doc) {
+    this._writeItemJson(doc.item.id, doc);
+    const db = this._openDb();
+    db.transaction(() => this._insertIndexTx(db, doc.item.id, doc, doc.item.id))();
+    this._mem.delete(doc.item.id);
+    return doc;
+  }
+
+  // Delete a metadata item: its item.json, its index rows, and its derived-lookup
+  // row. Must be called inside a db transaction (or standalone).
+  _deleteMetadataItem(db, itemId, type) {
+    this._deleteItemDir(itemId);
+    db.prepare('DELETE FROM items_meta    WHERE item_id = ?').run(itemId);
+    db.prepare('DELETE FROM items_payload WHERE item_id = ?').run(itemId);
+    db.prepare('DELETE FROM items_search  WHERE item_id = ?').run(itemId);
+    db.prepare('DELETE FROM items_time    WHERE item_id = ?').run(itemId);
+    db.prepare('DELETE FROM item_tags     WHERE item_id = ?').run(itemId);
+    db.prepare('DELETE FROM backlinks     WHERE source_id = ?').run(itemId);
+    db.prepare('DELETE FROM items         WHERE id = ?').run(itemId);
+    if      (type === 'alias')        db.prepare('DELETE FROM aliases       WHERE item_id = ?').run(itemId);
+    else if (type === 'relationship') db.prepare('DELETE FROM relationships WHERE id = ?').run(itemId);
+    else if (type === 'annotation')   db.prepare('DELETE FROM annotations   WHERE id = ?').run(itemId);
+  }
+
+  // When a content item is deleted, cascade-delete the metadata items that hang
+  // off it: relationships in either direction, annotations on it, aliases to it.
+  // Keeps the derived tables consistent with items/ after a rebuild.
+  _cascadeDeleteMetadata(db, id) {
+    for (const r of db.prepare('SELECT id FROM relationships WHERE source_id = ? OR target_id = ?').all(id, id))
+      this._deleteMetadataItem(db, r.id, 'relationship');
+    for (const a of db.prepare('SELECT id FROM annotations WHERE target_id = ?').all(id))
+      this._deleteMetadataItem(db, a.id, 'annotation');
+    for (const a of db.prepare('SELECT item_id FROM aliases WHERE target_id = ?').all(id))
+      if (a.item_id) this._deleteMetadataItem(db, a.item_id, 'alias');
   }
 
   _updateIndexMeta(db, id, meta, tags) {
@@ -652,19 +755,97 @@ class SqliteFsAdapter {
         const id = doc.item.id;
         this._insertIndexTx(db, id, doc, paths.get(id) ?? id);
       }
+      // Derived lookups whose source of truth lives outside items/.
+      this._rebuildHistoryFromFs(db);
     })();
   }
 
   // ─── History ───────────────────────────────────────────────────────────────
 
+  // History placement: the canonical `item_history` event is written as a real
+  // item.json under the branch's sibling `item-history/` tree — that file is the
+  // source of truth, never the SQLite `history` table (which is a derived index,
+  // rebuilt from item-history/ on demand). Keeping events in item-history/ rather
+  // than items/ keeps the content tree and branchDiff lean.
+  //
+  // Recording is controlled by rootPayload.itemHistory: 'NONE' disables it;
+  // anything else records. (The spec's enum overloads ITEM/EXTERNAL with both a
+  // placement and a Git-delegation meaning — see the divergence note; we always
+  // place locally-written events in item-history/.)
+  _historyEnabled() {
+    const mode = this.config?.itemHistory;
+    return mode !== 'NONE';
+  }
+
+  // created | updated | deleted — the spec's coarse eventType. The adapter's finer
+  // changeType (soft-delete/restore/…) is preserved inside the snapshot.
+  _eventType(changeType) {
+    if (changeType === 'create')  return 'created';
+    if (changeType === 'delete')  return 'deleted';
+    return 'updated';
+  }
+
+  _nextHistorySeq(db, targetId) {
+    const row = db.prepare('SELECT COUNT(*) AS n FROM history WHERE item_id = ?').get(targetId);
+    return (row?.n ?? 0) + 1;
+  }
+
   _snapshot(db, item, changeType, changedBy, now) {
+    if (!this._historyEnabled()) return;
+
+    const snapshot = { ...item, snapshotAt: now.toISOString(), changedBy, changeType };
+    const histId   = crypto.randomUUID();
+    const seq      = this._nextHistorySeq(db, item.id);
+
+    // 1) Source of truth: an item_history item.json under item-history/.
+    const histDoc = this._itemToDoc({
+      id: histId, parentId: TYPE_ITEM_UUIDS.item_history, type: 'item_history', typeId: null,
+      value: `${changeType} ${item.id}`, sortOrder: seq, aspect: null,
+      owner: changedBy ?? null, license: null, visibility: 'private',
+      confidence: null, status: null, tags: [],
+      createdAt: now.toISOString(), modifiedAt: now.toISOString(),
+      createdBy: changedBy ?? null, modifiedBy: changedBy ?? null,
+      layer: 'system',
+    });
+    histDoc.payload = {
+      targetId: item.id, eventType: this._eventType(changeType), sequence: seq,
+      by: changedBy ?? null, delta: {}, snapshot, changeType,
+    };
+    this._writeItemJson(histId, histDoc, 'item-history');
+
+    // 2) Derived index row so history() works without a rebuild.
+    this._indexHistoryDoc(db, histDoc);
+  }
+
+  // Upsert the derived `history` row from an item_history item.json. Used both by
+  // _snapshot (live) and _rebuildHistoryFromFs (rebuild) so the table is always a
+  // pure projection of item-history/.
+  _indexHistoryDoc(db, histDoc) {
+    const p = histDoc.payload || {};
+    const snap = p.snapshot || {};
     db.prepare(
       'INSERT INTO history (item_id, change_type, snapshot, changed_at, changed_by) VALUES (?, ?, ?, ?, ?)'
     ).run(
-      item.id, changeType,
-      JSON.stringify({ ...item, snapshotAt: now.toISOString(), changedBy, changeType }),
-      now.toISOString(), changedBy,
+      p.targetId, p.changeType ?? p.eventType ?? 'updated',
+      JSON.stringify(snap),
+      snap.snapshotAt ?? histDoc.meta?.createdAt ?? null, p.by ?? null,
     );
+  }
+
+  // Rebuild the derived history table by scanning the branch's item-history/ tree.
+  _rebuildHistoryFromFs(db) {
+    const dir = path.join(this._branchRoot(), 'item-history');
+    const docs = [];
+    for (const jsonPath of this._scanItemFiles(dir)) {
+      try {
+        const doc = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+        if (doc?.payload?.targetId) docs.push(doc);
+      } catch { /* skip corrupt */ }
+    }
+    // Insert in chronological order so the AUTOINCREMENT seq preserves order.
+    docs.sort((a, b) => String(a.payload.snapshot?.snapshotAt ?? a.meta?.createdAt ?? '')
+      .localeCompare(String(b.payload.snapshot?.snapshotAt ?? b.meta?.createdAt ?? '')));
+    for (const doc of docs) this._indexHistoryDoc(db, doc);
   }
 
   // ─── Materialized path helpers ─────────────────────────────────────────────
@@ -1084,9 +1265,11 @@ class SqliteFsAdapter {
     const db = this._openDb();
     db.transaction(() => {
       this._snapshot(db, item, 'delete', actor, now);
+      // Cascade-delete the metadata items hanging off this item (relationships,
+      // annotations, aliases) — their item.json files and derived rows together.
+      this._cascadeDeleteMetadata(db, id);
       db.prepare('DELETE FROM item_tags    WHERE item_id = ?').run(id);
       db.prepare('DELETE FROM backlinks    WHERE source_id = ? OR target_id = ?').run(id, id);
-      db.prepare('DELETE FROM relationships WHERE source_id = ? OR target_id = ?').run(id, id);
       db.prepare('DELETE FROM items_meta   WHERE item_id = ?').run(id);
       db.prepare('DELETE FROM items_payload WHERE item_id = ?').run(id);
       db.prepare('DELETE FROM items_search WHERE item_id = ?').run(id);
@@ -1443,11 +1626,24 @@ class SqliteFsAdapter {
   // ─── Aliases ───────────────────────────────────────────────────────────────
 
   setAlias(alias, id) {
-    this._openDb().prepare('INSERT OR REPLACE INTO aliases (alias, target_id) VALUES (?, ?)').run(alias, id);
+    const db = this._openDb();
+    // Overwrite: drop any existing alias item carrying this string first.
+    const existing = db.prepare('SELECT item_id FROM aliases WHERE alias = ?').get(alias);
+    if (existing?.item_id) db.transaction(() => this._deleteMetadataItem(db, existing.item_id, 'alias'))();
+
+    const now = new Date().toISOString();
+    const doc = this._metaItem({
+      id: crypto.randomUUID(), parentId: TYPE_ITEM_UUIDS.alias, type: 'alias', value: alias,
+    });
+    doc.payload = { targetId: id, scope: 'personal', provisional: false, confirmedAt: now, computedFrom: null };
+    this._writeMetadataItem(doc);
   }
 
   removeAlias(alias) {
-    this._openDb().prepare('DELETE FROM aliases WHERE alias = ?').run(alias);
+    const db = this._openDb();
+    const existing = db.prepare('SELECT item_id FROM aliases WHERE alias = ?').get(alias);
+    if (existing?.item_id) db.transaction(() => this._deleteMetadataItem(db, existing.item_id, 'alias'))();
+    else db.prepare('DELETE FROM aliases WHERE alias = ?').run(alias);
   }
 
   listAliases() {
@@ -1458,16 +1654,22 @@ class SqliteFsAdapter {
   // ─── Annotations ───────────────────────────────────────────────────────────
 
   annotate(targetId, { author, content, parentAnnotationId = null } = {}) {
-    const id  = crypto.randomUUID();
-    const now = new Date();
-    const ann = {
-      id, targetId,
-      author: author || this.config.owner,
-      content, createdAt: now.toISOString(), parentAnnotationId,
-    };
-    this._openDb().prepare(
-      'INSERT INTO annotations (id, target_id, author, content, created_at, parent_annotation_id) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(id, targetId, ann.author, content, ann.createdAt, parentAnnotationId);
+    const id     = crypto.randomUUID();
+    const now    = new Date();
+    const actor  = author || this.config.owner;
+    const ann    = { id, targetId, author: actor, content, createdAt: now.toISOString(), parentAnnotationId };
+
+    // Annotation is a real `annotation` item.json parented under its target, in
+    // the "comments" aspect so it stays out of default content traversal. The
+    // item.json is the source of truth; the annotations table is derived.
+    const doc = this._metaItem({
+      id, parentId: targetId, type: 'annotation',
+      value: typeof content === 'string' ? content.slice(0, 255) : null,
+      aspect: 'comments', layer: 'user',
+      owner: actor, createdBy: actor, modifiedBy: actor, createdAt: now.toISOString(), modifiedAt: now.toISOString(),
+    });
+    doc.payload = { content, author: actor, parentAnnotationId };
+    this._writeMetadataItem(doc);
     return ann;
   }
 
@@ -1510,9 +1712,17 @@ class SqliteFsAdapter {
     const now   = new Date();
     const actor = createdBy || this.config.owner;
     const relId = crypto.randomUUID();
-    this._openDb().prepare(
-      'INSERT INTO relationships (id, source_id, type, target_id, note, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).run(relId, sourceId, type, targetId, note, now.toISOString(), actor);
+
+    // A relationship is a real `relationship` item.json (the source of truth); the
+    // relationships table is a derived projection. The relationship-type slug lives
+    // in item.value; source/target live in the payload.
+    const doc = this._metaItem({
+      id: relId, parentId: TYPE_ITEM_UUIDS.relationship, type: 'relationship', value: type,
+      layer: 'user', owner: actor, createdBy: actor, modifiedBy: actor,
+      createdAt: now.toISOString(), modifiedAt: now.toISOString(),
+    });
+    doc.payload = { typeId: null, sourceId, targetId, data: null, confidence: null, note };
+    this._writeMetadataItem(doc);
     return { id: relId, sourceId, targetId, type, createdAt: now.toISOString(), createdBy: actor, note };
   }
 
@@ -1564,6 +1774,7 @@ class SqliteFsAdapter {
              m.connector_id, m.materialized, m.files, m.layer,
              m.source_system, m.source_external_id, m.icon
       FROM items i LEFT JOIN items_meta m ON m.item_id = i.id
+      WHERE i.type NOT IN ('alias', 'relationship', 'annotation')
     `).all().map(r => this._rowToItem(r));
   }
 
@@ -1632,12 +1843,15 @@ class SqliteFsAdapter {
       FROM items i LEFT JOIN items_meta m ON m.item_id = i.id
     `;
 
+    // Metadata items (annotations live under their target via the "comments"
+    // aspect) are not part of the content tree.
+    const exclude = " AND i.type NOT IN ('alias', 'relationship', 'annotation')";
     let rows;
     if (maxDepth === Infinity) {
-      rows = db.prepare(joinSql + ' WHERE i.path = ? OR i.path LIKE ?').all(rootPath, rootPath + '/%');
+      rows = db.prepare(joinSql + ' WHERE (i.path = ? OR i.path LIKE ?)' + exclude).all(rootPath, rootPath + '/%');
     } else {
       rows = db.prepare(joinSql + ` WHERE (i.path = ? OR i.path LIKE ?)
-        AND (length(i.path) - length(replace(i.path, '/', ''))) <= ?`
+        AND (length(i.path) - length(replace(i.path, '/', ''))) <= ?` + exclude
       ).all(rootPath, rootPath + '/%', rootDepth + maxDepth);
     }
 
@@ -1728,7 +1942,8 @@ class SqliteFsAdapter {
     const row = this._openDb().prepare('SELECT path FROM items WHERE id = ?').get(rootId);
     if (!row?.path) return 0;
     const r = this._openDb().prepare(
-      'SELECT COUNT(*) AS cnt FROM items WHERE path = ? OR path LIKE ?'
+      `SELECT COUNT(*) AS cnt FROM items WHERE (path = ? OR path LIKE ?)
+       AND type NOT IN ('alias', 'relationship', 'annotation')`
     ).get(row.path, row.path + '/%');
     return r?.cnt ?? 0;
   }
@@ -1851,6 +2066,10 @@ class SqliteFsAdapter {
       db.prepare('DELETE FROM items_meta').run();
       db.prepare('DELETE FROM item_tags').run();
       db.prepare('DELETE FROM backlinks').run();
+      db.prepare('DELETE FROM history').run();
+      db.prepare('DELETE FROM aliases').run();
+      db.prepare('DELETE FROM relationships').run();
+      db.prepare('DELETE FROM annotations').run();
       db.prepare('DELETE FROM items').run();
       this._rebuildFromFs(db);
     })();
