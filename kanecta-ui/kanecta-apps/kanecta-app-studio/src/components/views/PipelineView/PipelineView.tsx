@@ -126,6 +126,9 @@ export function PipelineRunSummary({ run }: { run: RunView }) {
 
 const PIPELINE_TYPE = 'pipeline';
 const RUN_TYPE = 'pipeline-run';
+// The built-in `pipeline` type item — always present. Pipeline instances live as
+// its children; each pipeline's runs live as children of the pipeline.
+const PIPELINE_TYPE_ID = '90bdc2b2-0963-4ec9-a37c-4b42f724752d';
 
 interface RawItem {
   id: string;
@@ -200,9 +203,18 @@ export function PipelineView() {
     // Poll so a live run's phases animate as they progress.
     refetchInterval: 2500,
     queryFn: async (): Promise<RunView[]> => {
-      const items = (await api.items.list()) as RawItem[];
-      const runs = items.filter((i) => i.type === RUN_TYPE);
-      const pipelines = items.filter((i) => i.type === PIPELINE_TYPE);
+      // Pipeline instances are children of the built-in `pipeline` type item;
+      // filter out the type's own synthetic schema-field nodes. Each pipeline's
+      // runs are its children.
+      const typeChildren = (await api.items.children(PIPELINE_TYPE_ID)) as RawItem[];
+      const pipelines = typeChildren.filter((i) => i.type === PIPELINE_TYPE);
+
+      const runArrays = await Promise.all(
+        pipelines.map((p) => api.items.children(p.id).catch(() => []) as Promise<RawItem[]>),
+      );
+      const runs = runArrays.flat().filter((i) => i.type === RUN_TYPE);
+      const items = [...pipelines, ...runs];
+
       const payloads: Record<string, RunPayload | null> = {};
       const pipelinePayloads: Record<string, { phases?: Array<{ id: string; name: string }> } | null> = {};
       await Promise.all([
