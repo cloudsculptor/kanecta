@@ -45,6 +45,7 @@
     "kanecta-ui/kanecta-components/kanecta-components-react/kanecta-component-breadcrumb",
     "kanecta-ui/kanecta-components/kanecta-components-react/kanecta-component-quick-capture",
     "kanecta-ui/kanecta-components/kanecta-components-react/kanecta-component-type-badge",
+    "kanecta-ui/kanecta-components/kanecta-components-react/kanecta-component-web-tiling-view",
     "kanecta-ui/kanecta-components/kanecta-components-react/kanecta-component-confidence-badge",
     "kanecta-ui/kanecta-components/kanecta-components-react/kanecta-component-item-value",
     "kanecta-ui/kanecta-components/kanecta-components-react/kanecta-component-command-palette",

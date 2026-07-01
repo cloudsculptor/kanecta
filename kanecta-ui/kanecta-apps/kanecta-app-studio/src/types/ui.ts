@@ -21,6 +21,7 @@ export type ViewType =
   | 'sync'
   | 'claude'
   | 'pull-requests'
+  | 'frames'
   | 'pipelines'
   | 'settings'
   | 'home'

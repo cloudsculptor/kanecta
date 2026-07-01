@@ -21,6 +21,7 @@ import { DigestView } from '../components/views/MissionControl/DigestView';
 import { AIInstructionsView } from '../components/views/AIInstructionsView/AIInstructionsView';
 import { ClaudeView } from '../components/views/ClaudeView/ClaudeView';
 import { PullRequestsView } from '../components/views/PullRequestsView/PullRequestsView';
+import { FramesView } from '../components/views/FramesView/FramesView';
 import { PipelineView } from '../components/views/PipelineView/PipelineView';
 import { HomeView } from '../components/views/HomeView/HomeView';
 import { FunctionsView } from '../components/views/FunctionsView/FunctionsView';
@@ -128,6 +129,7 @@ function StudioInner() {
       case 'claude': return <ClaudeView />;
       case 'pull-requests': return <PullRequestsView />;
       case 'pipelines': return <PipelineView />;
+      case 'frames': return <FramesView />;
       case 'settings': return <SettingsPage />;
       case 'home': return <HomeView />;
       case 'functions': return <FunctionsView />;

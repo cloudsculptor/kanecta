@@ -1,0 +1,11 @@
+{
+  "name": "@kanecta/component-web-tiling-view",
+  "version": "1.4.0",
+  "private": true,
+  "main": "src/index.ts",
+  "description": "A tiling window manager of web panes (Kanecta + any website). Electron-only — each pane is a <webview>.",
+  "peerDependencies": {
+    "@mui/icons-material": "^9.1.1",
+    "react": ">=19"
+  }
+}
