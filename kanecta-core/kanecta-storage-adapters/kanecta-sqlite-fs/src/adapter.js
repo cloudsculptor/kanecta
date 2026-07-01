@@ -2013,13 +2013,17 @@ class SqliteFsAdapter {
     // Metadata items (annotations live under their target via the "comments"
     // aspect) are not part of the content tree.
     const exclude = " AND i.type NOT IN ('root', 'types', 'alias', 'relationship', 'annotation', 'item_history', 'type')";
+    // With an implicit root we skip the root node and start its CHILDREN at
+    // traversal-depth 0, so the absolute path is already one level deeper than
+    // the traversal depth — widen the SQL bound by one to match.
+    const depthBound = rootDepth + maxDepth + (implicitRoot ? 1 : 0);
     let rows;
     if (maxDepth === Infinity) {
       rows = db.prepare(joinSql + ' WHERE (i.path = ? OR i.path LIKE ?)' + exclude).all(rootPath, rootPath + '/%');
     } else {
       rows = db.prepare(joinSql + ` WHERE (i.path = ? OR i.path LIKE ?)
         AND (length(i.path) - length(replace(i.path, '/', ''))) <= ?` + exclude
-      ).all(rootPath, rootPath + '/%', rootDepth + maxDepth);
+      ).all(rootPath, rootPath + '/%', depthBound);
     }
 
     const subtreeItems = rows.map(r => this._rowToItem(r));
