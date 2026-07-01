@@ -8,6 +8,7 @@ import PauseCircleIcon from '@mui/icons-material/PauseCircleOutlined';
 import RemoveCircleIcon from '@mui/icons-material/RemoveCircleOutlined';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SchemaIcon from '@mui/icons-material/Schema';
 import type { ViewMeta } from '../../../lib/viewMeta';
 import { useViewLocation } from '../../../context/LocationContext';
@@ -34,6 +35,8 @@ export interface PhaseView {
   completedAt?: string | null;
   /** Best-effort token spend for this phase (from the phase's output map). */
   tokens?: number | null;
+  /** Condensed transcript log for this phase's time window (from output.log). */
+  log?: string | null;
 }
 
 export interface RunView {
@@ -120,6 +123,15 @@ function StatusGlyph({ status }: { status: PhaseStatus | RunStatus }) {
 export function PipelineRunSummary({ run }: { run: RunView }) {
   const done = run.phases.filter((p) => p.status === 'complete').length;
   const totalTokens = run.phases.reduce((sum, p) => sum + (p.tokens ?? 0), 0);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggle = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
   return (
     <section className={`PipelineView__run PipelineView__run--${run.status}`} aria-label={run.runName}>
       <header className="PipelineView__run-header">
@@ -138,19 +150,54 @@ export function PipelineRunSummary({ run }: { run: RunView }) {
       </header>
 
       <ol className="PipelineView__phases">
-        {run.phases.map((phase) => (
-          <li key={phase.id} className={`PipelineView__phase PipelineView__phase--${phase.status}`}>
-            <span className="PipelineView__phase-connector" aria-hidden />
-            <StatusGlyph status={phase.status} />
-            <span className="PipelineView__phase-name">{phase.name}</span>
-            {fmtTokens(phase.tokens) && (
-              <span className="PipelineView__phase-tokens">{fmtTokens(phase.tokens)}</span>
-            )}
-            <span className="PipelineView__phase-duration">
-              {fmtDuration(phase.startedAt, phase.completedAt)}
-            </span>
-          </li>
-        ))}
+        {run.phases.map((phase) => {
+          const hasLog = Boolean(phase.log && phase.log.trim());
+          const isOpen = expanded.has(phase.id);
+          return (
+            <li
+              key={phase.id}
+              className={`PipelineView__phase PipelineView__phase--${phase.status}${
+                hasLog ? ' PipelineView__phase--has-log' : ''
+              }`}
+            >
+              <div
+                className="PipelineView__phase-row"
+                role={hasLog ? 'button' : undefined}
+                tabIndex={hasLog ? 0 : undefined}
+                aria-expanded={hasLog ? isOpen : undefined}
+                onClick={hasLog ? () => toggle(phase.id) : undefined}
+                onKeyDown={
+                  hasLog
+                    ? (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          toggle(phase.id);
+                        }
+                      }
+                    : undefined
+                }
+              >
+                <span className="PipelineView__phase-connector" aria-hidden />
+                <StatusGlyph status={phase.status} />
+                <span className="PipelineView__phase-name">{phase.name}</span>
+                {fmtTokens(phase.tokens) && (
+                  <span className="PipelineView__phase-tokens">{fmtTokens(phase.tokens)}</span>
+                )}
+                <span className="PipelineView__phase-duration">
+                  {fmtDuration(phase.startedAt, phase.completedAt)}
+                </span>
+                {hasLog && (
+                  <ExpandMoreIcon
+                    className={`PipelineView__phase-caret${
+                      isOpen ? ' PipelineView__phase-caret--open' : ''
+                    }`}
+                  />
+                )}
+              </div>
+              {hasLog && isOpen && <pre className="PipelineView__phase-log">{phase.log}</pre>}
+            </li>
+          );
+        })}
       </ol>
     </section>
   );
@@ -230,7 +277,7 @@ interface RunPayload {
     status?: PhaseStatus;
     startedAt?: string | null;
     completedAt?: string | null;
-    output?: { tokens?: number | null } | null;
+    output?: { tokens?: number | null; log?: string | null } | null;
   }>;
   pipelineSnapshot?: { phases?: Array<{ id: string; name: string }> } | null;
 }
@@ -267,6 +314,7 @@ export function buildRuns(
         startedAt: ph.startedAt ?? null,
         completedAt: ph.completedAt ?? null,
         tokens: ph.output?.tokens ?? null,
+        log: ph.output?.log ?? null,
       }));
 
       return {

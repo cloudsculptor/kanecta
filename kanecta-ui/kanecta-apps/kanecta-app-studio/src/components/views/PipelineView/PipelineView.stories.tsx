@@ -14,7 +14,8 @@ const RUNNING: RunView = {
   startedAt: iso(0),
   completedAt: null,
   phases: [
-    { id: 'inspect', name: 'Inspect live pipeline data', status: 'complete', startedAt: iso(0), completedAt: iso(90) },
+    { id: 'inspect', name: 'Inspect live pipeline data', status: 'complete', startedAt: iso(0), completedAt: iso(90),
+      log: 'Reading the pipeline + pipeline-run type definitions…\n↳ Bash: node -e "…loadAll()…"\nFound 0 pipeline instances — seeding a live demo.\n↳ Write: pipeline-dev-tracker.js' },
     { id: 'build', name: 'Build PipelineView (GH Actions look)', status: 'complete', startedAt: iso(90), completedAt: iso(420) },
     { id: 'wire', name: 'Register view + LeftBar', status: 'running', startedAt: iso(420), completedAt: null },
     { id: 'seed', name: 'Seed live pipeline + run', status: 'pending' },
