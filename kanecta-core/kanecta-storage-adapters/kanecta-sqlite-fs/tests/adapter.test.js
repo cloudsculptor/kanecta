@@ -81,8 +81,11 @@ describe('init', () => {
     const root = ds.getRoot();
     expect(root.id).toBe(ROOT_ID);
     expect(root.type).toBe('root');
+    // The types node exists but is a structural boundary — not surfaced as content
+    // (excluded from children/tree/loadAll), reachable directly by its fixed UUID.
+    expect(ds.get('11111111-1111-1111-1111-111111111111')?.type).toBe('types');
     const kids = ds.children(ROOT_ID);
-    expect(kids.some(k => k.type === 'types')).toBe(true);
+    expect(kids.some(k => k.type === 'types')).toBe(false);
     // 1.4.0 has only root + types — no system_root/app_root/component_root/data_root.
     expect(kids.some(k => ['system_root', 'app_root', 'component_root', 'data_root'].includes(k.type))).toBe(false);
   });
@@ -589,7 +592,7 @@ describe('update', () => {
   });
 
   it('throws when editing a reserved node (types)', () => {
-    const types = ds.children(ROOT_ID).find(c => c.type === 'types');
+    const types = ds.get('11111111-1111-1111-1111-111111111111');
     expect(() => ds.update(types.id, { value: 'x' })).toThrow(/reserved root node/);
   });
 
@@ -1542,12 +1545,12 @@ describe('well-known node protection', () => {
   });
 
   it('cannot delete the reserved types node', () => {
-    const types = ds.children(ROOT_ID).find(c => c.type === 'types');
+    const types = ds.get('11111111-1111-1111-1111-111111111111');
     expect(() => ds.delete(types.id)).toThrow(/reserved root node/);
   });
 
   it('cannot update the reserved types node', () => {
-    const types = ds.children(ROOT_ID).find(c => c.type === 'types');
+    const types = ds.get('11111111-1111-1111-1111-111111111111');
     expect(() => ds.update(types.id, { value: 'x' })).toThrow(/reserved root node/);
   });
 });

@@ -1973,6 +1973,7 @@ class SqliteFsAdapter {
              m.source_system, m.source_external_id, m.icon
       FROM items i LEFT JOIN items_meta m ON m.item_id = i.id
       WHERE i.parent_id = ? AND i.id != i.parent_id AND i.aspect ${aspect === null || aspect === undefined ? 'IS NULL' : '= ?'}
+        AND i.type NOT IN ('root', 'types', 'alias', 'relationship', 'annotation', 'item_history')
       ORDER BY i.sort_order
     `;
     const rows = (aspect === null || aspect === undefined)
@@ -2011,7 +2012,7 @@ class SqliteFsAdapter {
 
     // Metadata items (annotations live under their target via the "comments"
     // aspect) are not part of the content tree.
-    const exclude = " AND i.type NOT IN ('alias', 'relationship', 'annotation', 'item_history', 'type')";
+    const exclude = " AND i.type NOT IN ('root', 'types', 'alias', 'relationship', 'annotation', 'item_history', 'type')";
     let rows;
     if (maxDepth === Infinity) {
       rows = db.prepare(joinSql + ' WHERE (i.path = ? OR i.path LIKE ?)' + exclude).all(rootPath, rootPath + '/%');
