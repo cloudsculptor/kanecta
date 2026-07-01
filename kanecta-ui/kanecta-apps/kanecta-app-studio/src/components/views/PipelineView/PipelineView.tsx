@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
@@ -5,6 +6,9 @@ import ScheduleIcon from '@mui/icons-material/Schedule';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
 import PauseCircleIcon from '@mui/icons-material/PauseCircleOutlined';
 import RemoveCircleIcon from '@mui/icons-material/RemoveCircleOutlined';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import SchemaIcon from '@mui/icons-material/Schema';
 import type { ViewMeta } from '../../../lib/viewMeta';
 import { useViewLocation } from '../../../context/LocationContext';
 import { useWorkingSetStore } from '../../../store/workingSet';
@@ -34,12 +38,42 @@ export interface PhaseView {
 
 export interface RunView {
   id: string;
+  pipelineId: string;
   runName: string;
   pipelineName: string;
   status: RunStatus;
   startedAt?: string | null;
   completedAt?: string | null;
   phases: PhaseView[];
+}
+
+export interface PipelineParam {
+  name: string;
+  type: string;
+  required: boolean;
+  description?: string | null;
+}
+
+export interface PipelinePhaseDef {
+  id: string;
+  name: string;
+  agentId?: string | null;
+  needs?: string[];
+}
+
+/** A pipeline's configuration (its definition), shown when a pipeline is selected. */
+export interface PipelineConfigView {
+  description?: string | null;
+  params: PipelineParam[];
+  phases: PipelinePhaseDef[];
+}
+
+/** A pipeline and its runs — the unit of the left browse column. */
+export interface PipelineGroup {
+  id: string;
+  name: string;
+  config: PipelineConfigView;
+  runs: RunView[];
 }
 
 // ─── Presentation — GitHub-Actions summary look ─────────────────────────────────
@@ -122,6 +156,55 @@ export function PipelineRunSummary({ run }: { run: RunView }) {
   );
 }
 
+export function PipelineConfigSummary({ name, config }: { name: string; config: PipelineConfigView }) {
+  return (
+    <section className="PipelineView__config" aria-label={`${name} configuration`}>
+      <header className="PipelineView__config-header">
+        <div className="PipelineView__config-name">{name}</div>
+        <span className="PipelineView__config-tag">pipeline</span>
+      </header>
+      {config.description && <p className="PipelineView__config-desc">{config.description}</p>}
+
+      {config.params.length > 0 && (
+        <div className="PipelineView__config-block">
+          <h3 className="PipelineView__config-heading">Parameters</h3>
+          <ul className="PipelineView__config-params">
+            {config.params.map((p) => (
+              <li key={p.name} className="PipelineView__config-param">
+                <code className="PipelineView__config-param-name">{p.name}</code>
+                <span className="PipelineView__config-param-type">{p.type}</span>
+                {p.required && <span className="PipelineView__config-param-req">required</span>}
+                {p.description && (
+                  <span className="PipelineView__config-param-desc">{p.description}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="PipelineView__config-block">
+        <h3 className="PipelineView__config-heading">Phases ({config.phases.length})</h3>
+        <ol className="PipelineView__config-phases">
+          {config.phases.map((ph) => (
+            <li key={ph.id} className="PipelineView__config-phase">
+              <span className="PipelineView__config-phase-connector" aria-hidden />
+              <span className="PipelineView__config-phase-dot" aria-hidden />
+              <span className="PipelineView__config-phase-body">
+                <span className="PipelineView__config-phase-name">{ph.name}</span>
+                <span className="PipelineView__config-phase-meta">
+                  {ph.agentId ? `agent ${ph.agentId.slice(0, 8)}` : 'no agent'}
+                  {ph.needs && ph.needs.length > 0 ? ` · needs ${ph.needs.join(', ')}` : ''}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+  );
+}
+
 // ─── Live-data wrapper ──────────────────────────────────────────────────────────
 
 const PIPELINE_TYPE = 'pipeline';
@@ -152,11 +235,17 @@ interface RunPayload {
   pipelineSnapshot?: { phases?: Array<{ id: string; name: string }> } | null;
 }
 
+interface PipelinePayload {
+  description?: string | null;
+  params?: PipelineParam[] | null;
+  phases?: PipelinePhaseDef[] | null;
+}
+
 /** Build the normalised RunView list from the live items + their payloads. */
 export function buildRuns(
   items: RawItem[],
   payloads: Record<string, RunPayload | null>,
-  pipelinePayloads: Record<string, { phases?: Array<{ id: string; name: string }> } | null>,
+  pipelinePayloads: Record<string, PipelinePayload | null>,
 ): RunView[] {
   const pipelinesById = new Map(items.filter((i) => i.type === PIPELINE_TYPE).map((p) => [p.id, p]));
   const runs = items.filter((i) => i.type === RUN_TYPE);
@@ -182,6 +271,7 @@ export function buildRuns(
 
       return {
         id: run.id,
+        pipelineId: pipeline?.id ?? run.parentId ?? '',
         runName: run.value ?? 'Run',
         pipelineName: pipeline?.value ?? 'Pipeline',
         status: payload.status ?? 'pending',
@@ -193,16 +283,43 @@ export function buildRuns(
     .sort((a, b) => a.runName.localeCompare(b.runName));
 }
 
+/** Group every pipeline with its config + runs (pipelines with no runs appear too). */
+export function groupPipelines(
+  pipelines: RawItem[],
+  runs: RunView[],
+  pipelinePayloads: Record<string, PipelinePayload | null>,
+): PipelineGroup[] {
+  return pipelines
+    .map((p) => {
+      const pl = pipelinePayloads[p.id] ?? {};
+      return {
+        id: p.id,
+        name: p.value ?? 'Pipeline',
+        config: {
+          description: pl.description ?? null,
+          params: pl.params ?? [],
+          phases: pl.phases ?? [],
+        },
+        runs: runs.filter((r) => r.pipelineId === p.id),
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+type Selection = { kind: 'pipeline' | 'run'; id: string };
+
 export function PipelineView() {
   useViewLocation(PipelineViewMeta.uuid);
   const { getApi, activeWorkingSetId } = useWorkingSetStore();
   const api = getApi();
+  const [selection, setSelection] = useState<Selection | null>(null);
+  const [collapsed, setCollapsed] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['pipelines', activeWorkingSetId],
     // Poll so a live run's phases animate as they progress.
     refetchInterval: 2500,
-    queryFn: async (): Promise<RunView[]> => {
+    queryFn: async (): Promise<PipelineGroup[]> => {
       // Pipeline instances are children of the built-in `pipeline` type item;
       // filter out the type's own synthetic schema-field nodes. Each pipeline's
       // runs are its children.
@@ -212,39 +329,118 @@ export function PipelineView() {
       const runArrays = await Promise.all(
         pipelines.map((p) => api.items.children(p.id).catch(() => []) as Promise<RawItem[]>),
       );
-      const runs = runArrays.flat().filter((i) => i.type === RUN_TYPE);
-      const items = [...pipelines, ...runs];
+      const runItems = runArrays.flat().filter((i) => i.type === RUN_TYPE);
+      const items = [...pipelines, ...runItems];
 
       const payloads: Record<string, RunPayload | null> = {};
-      const pipelinePayloads: Record<string, { phases?: Array<{ id: string; name: string }> } | null> = {};
+      const pipelinePayloads: Record<string, PipelinePayload | null> = {};
       await Promise.all([
-        ...runs.map(async (r) => {
+        ...runItems.map(async (r) => {
           payloads[r.id] = (await api.items.getObject(r.id).catch(() => null)) as RunPayload | null;
         }),
         ...pipelines.map(async (p) => {
-          pipelinePayloads[p.id] = (await api.items.getObject(p.id).catch(() => null)) as {
-            phases?: Array<{ id: string; name: string }>;
-          } | null;
+          pipelinePayloads[p.id] = (await api.items.getObject(p.id).catch(() => null)) as PipelinePayload | null;
         }),
       ]);
-      return buildRuns(items, payloads, pipelinePayloads);
+      const runs = buildRuns(items, payloads, pipelinePayloads);
+      return groupPipelines(pipelines, runs, pipelinePayloads);
     },
   });
 
+  const groups = data ?? [];
+  const allRuns = groups.flatMap((g) => g.runs);
+
+  // Resolve the current selection, defaulting to the first run (else first pipeline).
+  let resolved: Selection | null = selection;
+  if (resolved) {
+    const stillExists =
+      resolved.kind === 'run'
+        ? allRuns.some((r) => r.id === resolved!.id)
+        : groups.some((g) => g.id === resolved!.id);
+    if (!stillExists) resolved = null;
+  }
+  if (!resolved) {
+    if (allRuns[0]) resolved = { kind: 'run', id: allRuns[0].id };
+    else if (groups[0]) resolved = { kind: 'pipeline', id: groups[0].id };
+  }
+
+  const selectedRun = resolved?.kind === 'run' ? allRuns.find((r) => r.id === resolved!.id) : null;
+  const selectedPipeline =
+    resolved?.kind === 'pipeline' ? groups.find((g) => g.id === resolved!.id) : null;
+
   return (
-    <div className="PipelineView">
-      <div className="PipelineView__header">
-        <h1 className="PipelineView__title">Pipelines</h1>
-      </div>
-      {isLoading && <p className="PipelineView__empty">Loading pipeline runs…</p>}
-      {error && <p className="PipelineView__empty">Couldn’t load pipelines.</p>}
-      {!isLoading && !error && (data?.length ?? 0) === 0 && (
-        <p className="PipelineView__empty">No pipeline runs yet.</p>
-      )}
-      <div className="PipelineView__runs">
-        {data?.map((run) => (
-          <PipelineRunSummary key={run.id} run={run} />
-        ))}
+    <div className={`PipelineView${collapsed ? ' PipelineView--collapsed' : ''}`}>
+      {/* ── Left: browse pipelines → runs ── */}
+      <aside className="PipelineView__sidebar">
+        <div className="PipelineView__sidebar-header">
+          {!collapsed && <span className="PipelineView__sidebar-title">Pipelines</span>}
+          <button
+            className="PipelineView__collapse-btn"
+            onClick={() => setCollapsed((c) => !c)}
+            aria-label={collapsed ? 'Expand pipeline list' : 'Collapse pipeline list'}
+            title={collapsed ? 'Expand' : 'Collapse'}
+          >
+            {collapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+          </button>
+        </div>
+
+        {!collapsed && (
+          <>
+            {isLoading && <p className="PipelineView__empty">Loading…</p>}
+            {error && <p className="PipelineView__empty">Couldn’t load pipelines.</p>}
+            {!isLoading && !error && groups.length === 0 && (
+              <p className="PipelineView__empty">No pipelines yet.</p>
+            )}
+            {groups.map((group) => (
+              <div key={group.id} className="PipelineView__group">
+                <button
+                  className={`PipelineView__group-name${
+                    resolved?.kind === 'pipeline' && resolved.id === group.id
+                      ? ' PipelineView__group-name--active'
+                      : ''
+                  }`}
+                  title={group.name}
+                  onClick={() => setSelection({ kind: 'pipeline', id: group.id })}
+                >
+                  <SchemaIcon className="PipelineView__group-icon" />
+                  <span className="PipelineView__group-label">{group.name}</span>
+                </button>
+                {group.runs.length === 0 ? (
+                  <div className="PipelineView__group-empty">No runs</div>
+                ) : (
+                  <ul className="PipelineView__run-list">
+                    {group.runs.map((run) => (
+                      <li key={run.id}>
+                        <button
+                          className={`PipelineView__run-link${
+                            resolved?.kind === 'run' && resolved.id === run.id
+                              ? ' PipelineView__run-link--active'
+                              : ''
+                          }`}
+                          onClick={() => setSelection({ kind: 'run', id: run.id })}
+                        >
+                          <StatusGlyph status={run.status} />
+                          <span className="PipelineView__run-link-name">{run.runName}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </>
+        )}
+      </aside>
+
+      {/* ── Right: config (pipeline) or run summary (run) ── */}
+      <div className="PipelineView__detail">
+        {selectedRun && <PipelineRunSummary run={selectedRun} />}
+        {selectedPipeline && (
+          <PipelineConfigSummary name={selectedPipeline.name} config={selectedPipeline.config} />
+        )}
+        {!selectedRun && !selectedPipeline && !isLoading && (
+          <p className="PipelineView__empty">Select a pipeline or run.</p>
+        )}
       </div>
     </div>
   );

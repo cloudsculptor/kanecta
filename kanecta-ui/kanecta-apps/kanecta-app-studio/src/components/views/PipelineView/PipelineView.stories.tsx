@@ -7,6 +7,7 @@ const iso = (offsetSecs: number) => new Date(now + offsetSecs * 1000).toISOStrin
 
 const RUNNING: RunView = {
   id: 'run-1',
+  pipelineId: 'pipe-1',
   runName: 'Pipeline View — build & dogfood · Run 1',
   pipelineName: 'Pipeline View',
   status: 'running',
@@ -23,6 +24,7 @@ const RUNNING: RunView = {
 
 const FAILED: RunView = {
   id: 'run-2',
+  pipelineId: 'pipe-2',
   runName: 'Nightly audit · Run 42',
   pipelineName: 'Nightly audit',
   status: 'failed',
