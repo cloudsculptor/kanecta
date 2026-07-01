@@ -48,8 +48,8 @@ test.describe('AppShell structure', () => {
     });
 
     const leftBarItems = [
-      'Tree', 'Types', 'Table', 'Functions', 'Diagram',
-      'Combinator', 'AI', 'Graph', 'Quality', 'Claude', 'PR',
+      'Tree', 'Types', 'Table', 'Functions',
+      'Combinator', 'AI', 'Graph', 'Quality', 'Pipelines', 'Claude', 'PR',
     ];
 
     for (const label of leftBarItems) {

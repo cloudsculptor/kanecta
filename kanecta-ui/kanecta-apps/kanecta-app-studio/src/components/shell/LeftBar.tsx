@@ -1,5 +1,4 @@
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
-import SchemaIcon from '@mui/icons-material/Schema';
 import BubbleChartIcon from '@mui/icons-material/BubbleChart';
 import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
@@ -9,6 +8,7 @@ import PsychologyIcon from '@mui/icons-material/Psychology';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import AltRouteIcon from '@mui/icons-material/AltRoute';
+import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutlined';
 import type { ViewType } from '../../types/ui';
 import './LeftBar.scss';
 
@@ -23,8 +23,8 @@ const NAV_ITEMS: NavItem[] = [
   { view: 'tree', label: 'Tree', icon: <AccountTreeIcon /> },
   { view: 'types', label: 'Types', icon: <DashboardCustomizeIcon /> },
   { view: 'table', label: 'Table', icon: <TableChartIcon /> },
+  { view: 'pipelines', label: 'Pipelines', icon: <PlayCircleOutlineIcon /> },
   { view: 'functions', label: 'Functions', icon: <FunctionsIcon /> },
-  { view: 'diagram', label: 'Diagram', icon: <SchemaIcon /> },
   { view: 'combinator', label: 'Combinator', icon: <MergeTypeIcon /> },
   { view: 'ai-instructions', label: 'AI', icon: <PsychologyIcon /> },
   { view: 'graph', label: 'Graph', icon: <BubbleChartIcon /> },

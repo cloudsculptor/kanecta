@@ -41,11 +41,11 @@ test.describe('View navigation', () => {
       { label: 'Types' },
       { label: 'Table' },
       { label: 'Functions' },
-      { label: 'Diagram' },
       { label: 'Combinator' },
       { label: 'AI' },
       { label: 'Graph' },
       { label: 'Quality' },
+      { label: 'Pipelines' },
       { label: 'Claude' },
       { label: 'PR' },
     ];

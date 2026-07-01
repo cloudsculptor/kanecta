@@ -1,0 +1,472 @@
+// GitHub-Actions-summary look: a run card with a vertical list of phases, each
+// with a coloured status glyph, a connector line, a name, and a duration.
+
+$gh-green: #1a7f37;
+$gh-red: #cf222e;
+$gh-yellow: #bf8700;
+$gh-grey: #7d8590;
+$gh-blue: #0969da;
+
+.PipelineView {
+  height: 100%;
+  display: flex;
+  background: var(--color-surface, #fff);
+
+  &__empty {
+    color: var(--color-text-muted, #7d8590);
+    font-size: 0.85rem;
+    padding: 8px 12px;
+  }
+
+  // ── Left browse column: 20% width, never below 500px ────────────────────────
+  &__sidebar {
+    flex: 0 0 20%;
+    min-width: 500px;
+    border-right: 1px solid var(--color-border, #d0d7de);
+    overflow-y: auto;
+    padding: 8px 0;
+    transition: min-width 0.12s ease, flex-basis 0.12s ease;
+  }
+
+  &--collapsed &__sidebar {
+    flex-basis: 44px;
+    min-width: 44px;
+    overflow: hidden;
+  }
+
+  &__sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px 8px 16px;
+  }
+
+  &--collapsed &__sidebar-header {
+    justify-content: center;
+    padding: 4px;
+  }
+
+  &__sidebar-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted, #7d8590);
+  }
+
+  &__collapse-btn {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: var(--color-text-muted, #7d8590);
+    display: flex;
+    padding: 2px;
+    border-radius: 4px;
+
+    &:hover {
+      background: var(--color-surface-muted, #f6f8fa);
+    }
+  }
+
+  &__group {
+    margin-bottom: 4px;
+  }
+
+  &__group-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    border: none;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    color: inherit;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    padding: 6px 16px;
+
+    &:hover {
+      background: var(--color-surface-muted, #f6f8fa);
+    }
+
+    &--active {
+      background: rgba(9, 105, 218, 0.1);
+    }
+  }
+
+  &__group-icon {
+    font-size: 16px !important;
+    color: var(--color-text-muted, #7d8590);
+    flex-shrink: 0;
+  }
+
+  &__group-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__group-empty {
+    font-size: 0.75rem;
+    color: var(--color-text-muted, #7d8590);
+    padding: 2px 16px 4px 28px;
+    font-style: italic;
+  }
+
+  &__run-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  &__run-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    border: none;
+    background: transparent;
+    text-align: left;
+    padding: 5px 16px 5px 24px;
+    font-size: 0.8125rem;
+    cursor: pointer;
+    color: inherit;
+
+    &:hover {
+      background: var(--color-surface-muted, #f6f8fa);
+    }
+
+    &--active {
+      background: rgba(9, 105, 218, 0.1);
+      font-weight: 600;
+    }
+
+    .PipelineView__glyph {
+      font-size: 16px !important;
+    }
+  }
+
+  &__run-link-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  // ── Right detail column ─────────────────────────────────────────────────────
+  &__detail {
+    flex: 1;
+    min-width: 0;
+    overflow: auto;
+    padding: 24px;
+  }
+
+  &__runs {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 900px;
+  }
+
+  // ── Run card ──────────────────────────────────────────────────────────────
+  &__run {
+    border: 1px solid var(--color-border, #d0d7de);
+    border-radius: 8px;
+    background: var(--color-surface, #fff);
+    overflow: hidden;
+  }
+
+  &__run-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--color-border, #d0d7de);
+    background: var(--color-surface-muted, #f6f8fa);
+  }
+
+  &__run-titles {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__run-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__run-sub {
+    font-size: 0.75rem;
+    color: var(--color-text-muted, #7d8590);
+    margin-top: 2px;
+  }
+
+  &__run-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  &__run-duration {
+    font-size: 0.75rem;
+    color: var(--color-text-muted, #7d8590);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__badge {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: capitalize;
+    padding: 2px 8px;
+    border-radius: 2em;
+    border: 1px solid transparent;
+
+    &--complete { color: $gh-green; background: rgba(26, 127, 55, 0.1); }
+    &--running  { color: $gh-blue;  background: rgba(9, 105, 218, 0.1); }
+    &--failed,
+    &--cancelled { color: $gh-red;  background: rgba(207, 34, 46, 0.1); }
+    &--waiting  { color: $gh-yellow; background: rgba(191, 135, 0, 0.1); }
+    &--pending  { color: $gh-grey;  background: rgba(125, 133, 144, 0.12); }
+  }
+
+  // ── Phases ────────────────────────────────────────────────────────────────
+  &__phases {
+    list-style: none;
+    margin: 0;
+    padding: 8px 0;
+  }
+
+  &__phase {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 16px 6px 20px;
+    font-size: 0.875rem;
+
+    &:hover {
+      background: var(--color-surface-muted, #f6f8fa);
+    }
+  }
+
+  // The vertical connector line between phase glyphs (GH Actions style).
+  &__phase-connector {
+    position: absolute;
+    left: 30px;
+    top: -6px;
+    bottom: -6px;
+    width: 2px;
+    background: var(--color-border, #d0d7de);
+  }
+
+  &__phase:first-child &__phase-connector { top: 50%; }
+  &__phase:last-child &__phase-connector { bottom: 50%; }
+
+  &__phase-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__phase--skipped &__phase-name { color: var(--color-text-muted, #7d8590); }
+
+  &__phase-tokens {
+    font-size: 0.6875rem;
+    color: $gh-blue;
+    background: rgba(9, 105, 218, 0.08);
+    border-radius: 2em;
+    padding: 1px 8px;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+  }
+
+  &__phase-duration {
+    font-size: 0.75rem;
+    color: var(--color-text-muted, #7d8590);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+    min-width: 44px;
+    text-align: right;
+  }
+
+  // ── Status glyphs ─────────────────────────────────────────────────────────
+  &__glyph {
+    position: relative;
+    z-index: 1;
+    background: var(--color-surface, #fff);
+    border-radius: 50%;
+    font-size: 20px !important;
+
+    &--complete { color: $gh-green; }
+    &--running  { color: $gh-blue; }
+    &--failed,
+    &--cancelled { color: $gh-red; }
+    &--waiting  { color: $gh-yellow; }
+    &--skipped,
+    &--pending  { color: $gh-grey; }
+  }
+
+  &__glyph--spin {
+    animation: PipelineView__spin 1.2s linear infinite;
+  }
+
+  // ── Pipeline config (right column when a pipeline is selected) ───────────────
+  &__config {
+    max-width: 760px;
+    border: 1px solid var(--color-border, #d0d7de);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  &__config-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--color-border, #d0d7de);
+    background: var(--color-surface-muted, #f6f8fa);
+  }
+
+  &__config-name {
+    font-weight: 600;
+    font-size: 1rem;
+    flex: 1;
+  }
+
+  &__config-tag {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: $gh-grey;
+    background: rgba(125, 133, 144, 0.12);
+    border-radius: 2em;
+    padding: 2px 8px;
+  }
+
+  &__config-desc {
+    margin: 0;
+    padding: 12px 16px;
+    color: var(--color-text-muted, #57606a);
+    font-size: 0.875rem;
+    border-bottom: 1px solid var(--color-border, #eaeef2);
+  }
+
+  &__config-block {
+    padding: 12px 16px;
+
+    & + & {
+      border-top: 1px solid var(--color-border, #eaeef2);
+    }
+  }
+
+  &__config-heading {
+    margin: 0 0 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted, #7d8590);
+  }
+
+  &__config-params {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__config-param {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 0.8125rem;
+  }
+
+  &__config-param-name {
+    font-family: monospace;
+    background: var(--color-surface-muted, #f6f8fa);
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+
+  &__config-param-type {
+    color: $gh-blue;
+  }
+
+  &__config-param-req {
+    font-size: 0.6875rem;
+    color: $gh-red;
+    text-transform: uppercase;
+  }
+
+  &__config-param-desc {
+    color: var(--color-text-muted, #7d8590);
+    flex-basis: 100%;
+  }
+
+  &__config-phases {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  &__config-phase {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 6px 0 6px 4px;
+  }
+
+  &__config-phase-connector {
+    position: absolute;
+    left: 8px;
+    top: -6px;
+    bottom: -6px;
+    width: 2px;
+    background: var(--color-border, #d0d7de);
+  }
+
+  &__config-phase:first-child &__config-phase-connector { top: 12px; }
+  &__config-phase:last-child &__config-phase-connector { bottom: 50%; }
+
+  &__config-phase-dot {
+    position: relative;
+    z-index: 1;
+    width: 10px;
+    height: 10px;
+    margin-top: 4px;
+    border-radius: 50%;
+    background: var(--color-surface, #fff);
+    border: 2px solid $gh-grey;
+    flex-shrink: 0;
+  }
+
+  &__config-phase-body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__config-phase-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  &__config-phase-meta {
+    font-size: 0.75rem;
+    color: var(--color-text-muted, #7d8590);
+  }
+}
+
+@keyframes PipelineView__spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
