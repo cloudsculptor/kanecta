@@ -1,0 +1,190 @@
+// GitHub-Actions-summary look: a run card with a vertical list of phases, each
+// with a coloured status glyph, a connector line, a name, and a duration.
+
+$gh-green: #1a7f37;
+$gh-red: #cf222e;
+$gh-yellow: #bf8700;
+$gh-grey: #7d8590;
+$gh-blue: #0969da;
+
+.PipelineView {
+  height: 100%;
+  overflow: auto;
+  padding: 24px;
+  background: var(--color-surface, #fff);
+
+  &__header {
+    margin-bottom: 16px;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+
+  &__empty {
+    color: var(--color-text-muted, #7d8590);
+    font-size: 0.9rem;
+  }
+
+  &__runs {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 900px;
+  }
+
+  // ── Run card ──────────────────────────────────────────────────────────────
+  &__run {
+    border: 1px solid var(--color-border, #d0d7de);
+    border-radius: 8px;
+    background: var(--color-surface, #fff);
+    overflow: hidden;
+  }
+
+  &__run-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--color-border, #d0d7de);
+    background: var(--color-surface-muted, #f6f8fa);
+  }
+
+  &__run-titles {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__run-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__run-sub {
+    font-size: 0.75rem;
+    color: var(--color-text-muted, #7d8590);
+    margin-top: 2px;
+  }
+
+  &__run-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  &__run-duration {
+    font-size: 0.75rem;
+    color: var(--color-text-muted, #7d8590);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__badge {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: capitalize;
+    padding: 2px 8px;
+    border-radius: 2em;
+    border: 1px solid transparent;
+
+    &--complete { color: $gh-green; background: rgba(26, 127, 55, 0.1); }
+    &--running  { color: $gh-blue;  background: rgba(9, 105, 218, 0.1); }
+    &--failed,
+    &--cancelled { color: $gh-red;  background: rgba(207, 34, 46, 0.1); }
+    &--waiting  { color: $gh-yellow; background: rgba(191, 135, 0, 0.1); }
+    &--pending  { color: $gh-grey;  background: rgba(125, 133, 144, 0.12); }
+  }
+
+  // ── Phases ────────────────────────────────────────────────────────────────
+  &__phases {
+    list-style: none;
+    margin: 0;
+    padding: 8px 0;
+  }
+
+  &__phase {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 16px 6px 20px;
+    font-size: 0.875rem;
+
+    &:hover {
+      background: var(--color-surface-muted, #f6f8fa);
+    }
+  }
+
+  // The vertical connector line between phase glyphs (GH Actions style).
+  &__phase-connector {
+    position: absolute;
+    left: 30px;
+    top: -6px;
+    bottom: -6px;
+    width: 2px;
+    background: var(--color-border, #d0d7de);
+  }
+
+  &__phase:first-child &__phase-connector { top: 50%; }
+  &__phase:last-child &__phase-connector { bottom: 50%; }
+
+  &__phase-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__phase--skipped &__phase-name { color: var(--color-text-muted, #7d8590); }
+
+  &__phase-tokens {
+    font-size: 0.6875rem;
+    color: $gh-blue;
+    background: rgba(9, 105, 218, 0.08);
+    border-radius: 2em;
+    padding: 1px 8px;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+  }
+
+  &__phase-duration {
+    font-size: 0.75rem;
+    color: var(--color-text-muted, #7d8590);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+    min-width: 44px;
+    text-align: right;
+  }
+
+  // ── Status glyphs ─────────────────────────────────────────────────────────
+  &__glyph {
+    position: relative;
+    z-index: 1;
+    background: var(--color-surface, #fff);
+    border-radius: 50%;
+    font-size: 20px !important;
+
+    &--complete { color: $gh-green; }
+    &--running  { color: $gh-blue; }
+    &--failed,
+    &--cancelled { color: $gh-red; }
+    &--waiting  { color: $gh-yellow; }
+    &--skipped,
+    &--pending  { color: $gh-grey; }
+  }
+
+  &__glyph--spin {
+    animation: PipelineView__spin 1.2s linear infinite;
+  }
+}
+
+@keyframes PipelineView__spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

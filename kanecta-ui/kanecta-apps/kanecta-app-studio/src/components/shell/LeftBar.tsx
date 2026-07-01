@@ -9,6 +9,7 @@ import PsychologyIcon from '@mui/icons-material/Psychology';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import AltRouteIcon from '@mui/icons-material/AltRoute';
+import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutlined';
 import type { ViewType } from '../../types/ui';
 import './LeftBar.scss';
 
@@ -29,6 +30,7 @@ const NAV_ITEMS: NavItem[] = [
   { view: 'ai-instructions', label: 'AI', icon: <PsychologyIcon /> },
   { view: 'graph', label: 'Graph', icon: <BubbleChartIcon /> },
   { view: 'quality-control', label: 'Quality', icon: <FactCheckIcon /> },
+  { view: 'pipelines', label: 'Pipelines', icon: <PlayCircleOutlineIcon /> },
   { view: 'claude', label: 'Claude', icon: <AutoAwesomeIcon /> },
   { view: 'pull-requests', label: 'PR', icon: <AltRouteIcon /> },
 ];
