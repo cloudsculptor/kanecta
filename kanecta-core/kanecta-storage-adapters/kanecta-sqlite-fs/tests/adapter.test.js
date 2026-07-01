@@ -865,17 +865,14 @@ describe('materialized path', () => {
   });
 
   it('child of root has path = ROOT_ID/childId', () => {
-    const dr = ds.getRoot();
-    const p  = ds._getPath(dr.id);
-    expect(p).toBe(`${ROOT_ID}/${dr.id}`);
+    const child = ds.create({ value: 'c' });   // parentId defaults to root
+    expect(ds._getPath(child.id)).toBe(`${ROOT_ID}/${child.id}`);
   });
 
   it('grandchild path encodes full ancestry', () => {
-    const parent = ds.create({ value: 'p' });
+    const parent = ds.create({ value: 'p' });   // under root
     const child  = ds.create({ value: 'c', parentId: parent.id });
-    const dr     = ds.getRoot();
-    const expected = `${ROOT_ID}/${dr.id}/${parent.id}/${child.id}`;
-    expect(ds._getPath(child.id)).toBe(expected);
+    expect(ds._getPath(child.id)).toBe(`${ROOT_ID}/${parent.id}/${child.id}`);
   });
 
   it('cascades path on parentId change, including deep descendants', () => {
@@ -912,9 +909,9 @@ describe('ancestors', () => {
   });
 
   it('returns [root] for a direct child of root', () => {
-    const dr  = ds.getRoot();
-    const anc = ds.ancestors(dr.id);
-    expect(anc.map(a => a.id)).toContain(ROOT_ID);
+    const child = ds.create({ value: 'c' });   // under root
+    const anc   = ds.ancestors(child.id);
+    expect(anc.map(a => a.id)).toEqual([ROOT_ID]);
   });
 
   it('returns full ancestor chain root → parent', () => {

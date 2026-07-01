@@ -1148,6 +1148,20 @@ class SqliteFsAdapter {
 
   // ─── Item CRUD ─────────────────────────────────────────────────────────────
 
+  // Next sortOrder among REAL content siblings. Excludes synthetic payload-field
+  // nodes (they are not rows in `items`), the structural root/types nodes, and
+  // metadata/type items — so content items order among themselves from 0 and are
+  // never pushed down by, e.g., the root node's rendered payload fields.
+  _nextSortOrder(parentId, aspect) {
+    const db = this._openDb();
+    const noAspect = aspect === null || aspect === undefined;
+    const sql = `SELECT MAX(sort_order) AS m FROM items
+      WHERE parent_id = ? AND id != parent_id AND aspect ${noAspect ? 'IS NULL' : '= ?'}
+        AND type NOT IN ('root','types','alias','relationship','annotation','item_history','type')`;
+    const row = noAspect ? db.prepare(sql).get(parentId) : db.prepare(sql).get(parentId, aspect);
+    return row?.m == null ? 0 : row.m + 1;
+  }
+
   create({
     parentId, value = null, type = 'string', typeId = null,
     owner, license = null, sortOrder, confidence = null, status = null, tags = [],
@@ -1167,8 +1181,7 @@ class SqliteFsAdapter {
     const actor    = createdBy || ownerVal;
 
     if (sortOrder == null) {
-      const siblings = this.children(parentId, aspect);
-      sortOrder = siblings.length === 0 ? 0 : Math.max(...siblings.map(s => s.sortOrder)) + 1;
+      sortOrder = this._nextSortOrder(parentId, aspect);
     }
 
     let typeWarning = null;
