@@ -11,6 +11,8 @@
   "homepage": "https://github.com/cloudsculptor/kanecta",
   "scripts": {
     "start": "electron .",
+    "dev": "KANECTA_STUDIO_URL=http://localhost:9743 electron .",
+    "update": "git -C ../../.. pull origin master",
     "dist": "electron-builder --linux deb"
   },
   "devDependencies": {
