@@ -313,15 +313,19 @@ app.post('/working-sets/:name/activate', async (req, res) => {
 // POST /working-sets/:name/branches — create a branch
 app.post('/working-sets/:name/branches', async (req, res) => {
   const { name } = req.params;
-  const { branchName } = req.body;
+  const { branchName, fill, upstream } = req.body;
   if (!branchName) return res.status(400).json({ error: 'branchName is required' });
+  if (fill && fill !== 'full' && fill !== 'sparse')
+    return res.status(400).json({ error: `fill must be 'full' or 'sparse'` });
   const appCfg = readAppConfig();
   const ws = appCfg?.workingSets?.[name];
   const local = workingSetLocal(ws);
   if (!local) return res.status(404).json({ error: `Working set '${name}' not found or has no local datastore` });
   try {
     const ds = Datastore.open(local.localPath);
-    const branch = ds.createBranch(branchName);
+    // fill: 'sparse' creates a branch that reads through to `upstream` (default
+    // the current branch) and stores only local changes; 'full' (default) copies.
+    const branch = ds.createBranch(branchName, fill ? { fill, upstream } : undefined);
     res.json({ ok: true, branch });
   } catch (err) {
     res.status(400).json({ error: err.message });

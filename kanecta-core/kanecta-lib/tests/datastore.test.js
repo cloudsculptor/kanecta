@@ -608,3 +608,45 @@ test('deleteTimeJson removes time.json, readTimeJson returns null afterwards', a
   expect(await ds.readTimeJson(item.id)).toBeNull();
   fs.rmSync(ds.root, { recursive: true });
 });
+
+// ─── Sparse branches (lib passthrough) ──────────────────────────────────────────
+
+describe('sparse branches via the Datastore facade', () => {
+  test('create sparse branch, make local changes, read through, and merge', async () => {
+    const ds     = tmpDs();
+    const onMain = await ds.create({ value: 'on main', type: 'text' });
+    const child  = await ds.create({ value: 'child', type: 'text', parentId: onMain.id });
+
+    const branch = ds.createBranch('feature/sparse', { fill: 'sparse' });
+    expect(branch.fill).toBe('sparse');
+    expect(branch.upstream).toEqual({ branch: 'main' });
+
+    ds.useBranch('feature/sparse');
+    // Reads fall through to upstream.
+    expect((await ds.get(onMain.id)).value).toBe('on main');
+
+    // Local add + edit + delete.
+    const added = await ds.create({ value: 'branch only', type: 'text' });
+    await ds.update(onMain.id, { value: 'edited' }, 'test@example.com');
+    await ds.delete(child.id, 'test@example.com');
+    expect(await ds.get(child.id)).toBeNull();
+
+    const diff = ds.branchDiff('feature/sparse');
+    expect(diff.adds.map((x) => x.id)).toContain(added.id);
+    expect(diff.edits.map((x) => x.id)).toContain(onMain.id);
+    expect(diff.deletes.map((x) => x.id)).toContain(child.id);
+
+    // Upstream untouched until merge.
+    ds.useBranch('main');
+    expect((await ds.get(onMain.id)).value).toBe('on main');
+    expect((await ds.get(child.id)).value).toBe('child');
+
+    const res = ds.mergeBranchLocally('feature/sparse');
+    expect(res.merged).toBe(3);
+    expect((await ds.get(added.id)).value).toBe('branch only');
+    expect((await ds.get(onMain.id)).value).toBe('edited');
+    expect(await ds.get(child.id)).toBeNull();
+
+    fs.rmSync(ds.root, { recursive: true, force: true });
+  });
+});
