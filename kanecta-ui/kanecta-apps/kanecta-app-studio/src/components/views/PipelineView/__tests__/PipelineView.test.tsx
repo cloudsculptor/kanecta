@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import {
   PipelineRunSummary,
   PipelineConfigSummary,
@@ -36,6 +37,31 @@ describe('PipelineRunSummary', () => {
   it('marks the running phase with a spinning glyph', () => {
     const { container } = render(<PipelineRunSummary run={RUN} />);
     expect(container.querySelector('.PipelineView__glyph--spin')).toBeTruthy();
+  });
+
+  it('reveals a phase log on click and hides it again', async () => {
+    const user = userEvent.setup();
+    const withLog: RunView = {
+      ...RUN,
+      phases: [{ id: 'a', name: 'Phase A', status: 'complete', log: 'did the thing\n↳ Bash: ls' }],
+    };
+    render(<PipelineRunSummary run={withLog} />);
+
+    // Collapsed by default.
+    expect(screen.queryByText(/did the thing/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Phase A/ }));
+    expect(screen.getByText(/did the thing/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Phase A/ }));
+    expect(screen.queryByText(/did the thing/)).not.toBeInTheDocument();
+  });
+
+  it('does not make a phase without a log clickable', () => {
+    const noLog: RunView = {
+      ...RUN,
+      phases: [{ id: 'a', name: 'Phase A', status: 'complete' }],
+    };
+    render(<PipelineRunSummary run={noLog} />);
+    expect(screen.queryByRole('button', { name: /Phase A/ })).not.toBeInTheDocument();
   });
 });
 
