@@ -23,7 +23,6 @@ import { ClaudeView } from '../components/views/ClaudeView/ClaudeView';
 import { PullRequestsView } from '../components/views/PullRequestsView/PullRequestsView';
 import { PipelineView } from '../components/views/PipelineView/PipelineView';
 import { HomeView } from '../components/views/HomeView/HomeView';
-import { DiagramView } from '../components/views/DiagramView/DiagramView';
 import { FunctionsView } from '../components/views/FunctionsView/FunctionsView';
 import { TodoView } from '../components/views/TodoView/TodoView';
 import { LayoutsView } from '../components/views/LayoutsView/LayoutsView';
@@ -131,7 +130,6 @@ function StudioInner() {
       case 'pipelines': return <PipelineView />;
       case 'settings': return <SettingsPage />;
       case 'home': return <HomeView />;
-      case 'diagram': return <DiagramView />;
       case 'functions': return <FunctionsView />;
       case 'todo': return <TodoView />;
       case 'layouts': return <LayoutsView />;

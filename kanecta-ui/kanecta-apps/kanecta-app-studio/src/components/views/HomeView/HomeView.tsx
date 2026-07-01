@@ -14,7 +14,6 @@ import IosShareIcon from '@mui/icons-material/IosShare';
 import ManageSearchIcon from '@mui/icons-material/ManageSearch';
 import MergeTypeIcon from '@mui/icons-material/MergeType';
 import PsychologyIcon from '@mui/icons-material/Psychology';
-import SchemaIcon from '@mui/icons-material/Schema';
 import SettingsIcon from '@mui/icons-material/Settings';
 import StarIcon from '@mui/icons-material/Star';
 import StorefrontIcon from '@mui/icons-material/Storefront';
@@ -49,7 +48,6 @@ const NAV_ITEMS = [
   { id: 'calendar',        label: 'Calendar',   icon: <DateRangeIcon />,          disabled: false },
   { id: 'mission-control', label: 'Mission',    icon: <FlightIcon />,             disabled: false },
   { id: 'claude',          label: 'Claude',     icon: <AutoAwesomeIcon />,        disabled: false },
-  { id: 'diagram',         label: 'Diagram',    icon: <SchemaIcon />,             disabled: false },
   { id: 'settings',        label: 'Settings',   icon: <SettingsIcon />,           disabled: false },
   { id: 'query',           label: 'Query',      icon: <ManageSearchIcon />,       disabled: true },
   { id: 'inbox',           label: 'Inbox',      icon: <InboxIcon />,              disabled: true },

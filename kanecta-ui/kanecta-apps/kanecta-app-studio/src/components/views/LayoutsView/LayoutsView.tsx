@@ -13,7 +13,6 @@ import GridViewIcon from '@mui/icons-material/GridView';
 import HistoryIcon from '@mui/icons-material/History';
 import MergeTypeIcon from '@mui/icons-material/MergeType';
 import PsychologyIcon from '@mui/icons-material/Psychology';
-import SchemaIcon from '@mui/icons-material/Schema';
 import SettingsIcon from '@mui/icons-material/Settings';
 import StarIcon from '@mui/icons-material/Star';
 import TableChartIcon from '@mui/icons-material/TableChart';
@@ -41,7 +40,6 @@ import { TypesView } from '../TemplatesView/TypesView';
 import { StarredView } from '../StarredView/StarredView';
 import { AIInstructionsView } from '../AIInstructionsView/AIInstructionsView';
 import { ClaudeView } from '../ClaudeView/ClaudeView';
-import { DiagramView } from '../DiagramView/DiagramView';
 import { FunctionsView } from '../FunctionsView/FunctionsView';
 import { TodoView } from '../TodoView/TodoView';
 import { PullRequestsView } from '../PullRequestsView/PullRequestsView';
@@ -58,7 +56,6 @@ const AVAILABLE_VIEWS: AvailableView[] = [
   { id: 'types',           label: 'Types',       icon: <DashboardCustomizeIcon /> },
   { id: 'table',           label: 'Table',       icon: <TableChartIcon /> },
   { id: 'functions',       label: 'Functions',   icon: <FunctionsIcon /> },
-  { id: 'diagram',         label: 'Diagram',     icon: <SchemaIcon /> },
   { id: 'combinator',      label: 'Combinator',  icon: <MergeTypeIcon /> },
   { id: 'ai-instructions', label: 'AI',          icon: <PsychologyIcon /> },
   { id: 'graph',           label: 'Graph',       icon: <BubbleChartIcon /> },
@@ -125,7 +122,6 @@ function renderPaneView(viewType: string, paneId: string): ReactNode {
     case 'starred':         return <StarredView />;
     case 'ai-instructions': return <AIInstructionsView />;
     case 'claude':          return <ClaudeView />;
-    case 'diagram':         return <DiagramView />;
     case 'functions':       return <FunctionsView />;
     case 'todo':            return <TodoView />;
     case 'pull-requests':   return <PullRequestsView />;

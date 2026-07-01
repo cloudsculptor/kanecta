@@ -19,14 +19,13 @@ import { PullRequestsViewMeta } from '../components/views/PullRequestsView/PullR
 import { PipelineViewMeta } from '../components/views/PipelineView/PipelineView';
 import { SettingsViewMeta } from '../pages/SettingsPage';
 import { HomeViewMeta } from '../components/views/HomeView/HomeView';
-import { DiagramViewMeta } from '../components/views/DiagramView/DiagramView';
 
 const ALL_METAS: ViewMeta[] = [
   TreeViewMeta, TableViewMeta, TypesViewMeta, BoardViewMeta, GalleryViewMeta,
   ListViewMeta, CalendarViewMeta, GraphViewMeta, CombinatorViewMeta,
   MissionControlMeta, QualityControlViewMeta, HistoryViewMeta, StarredViewMeta,
   DigestViewMeta, AIInstructionsViewMeta, ClaudeViewMeta, PullRequestsViewMeta,
-  PipelineViewMeta, SettingsViewMeta, HomeViewMeta, DiagramViewMeta,
+  PipelineViewMeta, SettingsViewMeta, HomeViewMeta,
 ];
 
 export const VIEW_REGISTRY: Record<string, ViewMeta> = Object.fromEntries(

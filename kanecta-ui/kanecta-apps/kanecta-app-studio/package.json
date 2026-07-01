@@ -42,7 +42,6 @@
     "@kanecta/component-combinator-view": "*",
     "@kanecta/component-confidence-badge": "*",
     "@kanecta/component-core": "^1.4.0",
-    "@kanecta/component-diagram-view": "*",
     "@kanecta/component-filter-bar": "*",
     "@kanecta/component-functions-view": "*",
     "@kanecta/component-gallery-view": "*",

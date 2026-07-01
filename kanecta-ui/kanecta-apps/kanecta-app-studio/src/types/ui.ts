@@ -24,7 +24,6 @@ export type ViewType =
   | 'pipelines'
   | 'settings'
   | 'home'
-  | 'diagram'
   | 'functions'
   | 'todo'
   | 'layouts';
