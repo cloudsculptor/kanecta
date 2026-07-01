@@ -1,0 +1,140 @@
+.ReviewConveyor {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px;
+
+  &-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  &-progress {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--color-text-muted, #888);
+    letter-spacing: 0.02em;
+  }
+
+  &-close {
+    border: none;
+    background: transparent;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--color-text-muted, #888);
+    padding: 0 8px;
+
+    &:hover {
+      color: var(--color-text, #222);
+    }
+  }
+
+  &-done {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 48px 24px;
+    color: var(--color-text-muted, #888);
+
+    button {
+      padding: 8px 16px;
+      border: 1px solid var(--color-border, #e0e0e0);
+      border-radius: 6px;
+      background: var(--color-surface, #fff);
+      cursor: pointer;
+    }
+  }
+
+  &-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 20px;
+    border: 1px solid var(--color-border, #e0e0e0);
+    border-radius: 8px;
+    background: var(--color-surface, #fff);
+  }
+
+  &-card-badges {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &-card-value {
+    margin: 0;
+    font-size: 1.0625rem;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+
+  &-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  &-card-meta {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--color-text-muted, #888);
+  }
+
+  &-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  &-action {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 12px;
+    border: 1px solid var(--color-border, #e0e0e0);
+    border-radius: 6px;
+    background: var(--color-surface, #fff);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+
+    kbd {
+      font-size: 0.6875rem;
+      padding: 1px 5px;
+      border: 1px solid var(--color-border, #cfcfcf);
+      border-radius: 3px;
+      background: var(--color-surface-muted, #f5f5f5);
+    }
+
+    &:hover {
+      background: var(--color-surface-muted, #f5f5f5);
+    }
+
+    &--approve:hover {
+      border-color: #2e7d32;
+      color: #2e7d32;
+    }
+
+    &--skip:hover {
+      border-color: #1565c0;
+      color: #1565c0;
+    }
+
+    &--next:hover {
+      border-color: #6a1b9a;
+      color: #6a1b9a;
+    }
+
+    &--delete:hover {
+      border-color: #c62828;
+      color: #c62828;
+    }
+  }
+}
