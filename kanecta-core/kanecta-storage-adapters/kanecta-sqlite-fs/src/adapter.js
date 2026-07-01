@@ -4,8 +4,20 @@ const fs     = require('fs');
 const path   = require('path');
 const crypto = require('crypto');
 const Database = require('better-sqlite3');
-const { version: specVersion } = require('@kanecta/specification');
+const { version: specVersion, primitiveTypes, builtInTypeItems } = require('@kanecta/specification');
 const { WriteGuard } = require('./write-integrity');
+
+// ─── Icons (resolved on read, never stored on the item) ─────────────────────────
+// Every item gets a MUI icon slug on read. It is resolved from the item's type:
+//   typed object        → its type definition's payload.meta.icon
+//   built-in/custom type → that type item's payload.meta.icon (by name)
+//   primitive            → a single placeholder slug (refine per-primitive later)
+//   reserved root/types  → fixed defaults
+// The item.json never carries meta.icon.
+const PRIMITIVE_TYPE_SET = new Set(primitiveTypes);
+const PRIMITIVE_ICON = 'Stop';
+const RESERVED_ICONS = { root: 'Home', types: 'Category' };
+const FALLBACK_ICON  = 'Category';
 
 const ROOT_ID    = '00000000-0000-0000-0000-000000000000';
 const TYPES_NODE = '11111111-1111-1111-1111-111111111111';
@@ -262,13 +274,28 @@ class SqliteFsAdapter {
     return path.join(this._itemDir(id, store), 'item.json');
   }
 
-  // Read an item.json from the active branch's own items/ tree. Each branch is a
-  // complete folder, so there is no overlay/fall-through — the branch's files are
-  // the whole truth for that branch.
+  // Read an item.json for the active branch. A full branch is a complete folder,
+  // so this reads only its own file. A SPARSE branch layers: its own items/ wins
+  // (a local tombstone masks the item → null), otherwise the read falls through
+  // to the local upstream branch's file.
   _readItemJson(id, store = 'items') {
     const p = this._itemPath(id, store);
-    try { return JSON.parse(fs.readFileSync(p, 'utf8')); }
-    catch { return null; }
+    let localExists = false;
+    try {
+      const doc = JSON.parse(fs.readFileSync(p, 'utf8'));
+      localExists = true;
+      if (this._isTombstone(doc)) return null;   // masks the upstream item
+      return doc;
+    } catch { /* no local file — maybe fall through below */ }
+
+    if (!localExists && store === 'items') {
+      const up = this._localUpstream();
+      if (up) {
+        try { return JSON.parse(fs.readFileSync(this._branchItemPath(up, id), 'utf8')); }
+        catch { /* not upstream either */ }
+      }
+    }
+    return null;
   }
 
   // Atomic write: temp file + rename so item.json is never partially written.
@@ -290,6 +317,46 @@ class SqliteFsAdapter {
 
   // Branch names encode `/` as `__` for the on-disk directory.
   _encodeBranchName(name) { return name.replace(/\//g, '__'); }
+
+  // ─── Sparse-branch helpers ─────────────────────────────────────────────────
+  // A sparse branch stores only its local changes in items/; the rest is read
+  // through from an upstream branch. Its branch.json records `fill: 'sparse'`
+  // and `upstream`. Deleted upstream items are masked by a tombstone item.json
+  // (a doc with `tombstone: true`) in the local items/ tree.
+
+  _branchManifest(name) {
+    const n = name ?? this._branch;
+    try { return JSON.parse(fs.readFileSync(path.join(this._branchRoot(n), 'branch.json'), 'utf8')); }
+    catch { return { name: n, fill: 'full', upstream: null }; }
+  }
+
+  _isSparse(name) { return this._branchManifest(name).fill === 'sparse'; }
+
+  // The LOCAL full branch a sparse branch reads through to. Remote upstreams are
+  // federated at query time (deferred) and return null here. Full branches too.
+  _localUpstream(name) {
+    const m = this._branchManifest(name ?? this._branch);
+    if (m.fill !== 'sparse' || !m.upstream) return null;
+    if (m.upstream.remote) return null;
+    return m.upstream.branch ?? m.base ?? 'main';
+  }
+
+  _isTombstone(doc) { return !!doc && doc.tombstone === true; }
+
+  _makeTombstone(id, parentId, actor, now) {
+    return {
+      tombstone: true,
+      item:      { id, parentId: parentId ?? null },
+      deletedAt: (now instanceof Date ? now : new Date()).toISOString(),
+      deletedBy: actor ?? null,
+    };
+  }
+
+  // The on-disk item.json path for `id` in a specific branch's items/ tree.
+  _branchItemPath(branch, id, store = 'items') {
+    const [s1, s2] = this._shard(id);
+    return path.join(this._branchRoot(branch), store, s1, s2, id, 'item.json');
+  }
 
   // Walk every item.json under items/ (or a custom dir).
   * _scanItemFiles(baseDir) {
@@ -388,7 +455,8 @@ class SqliteFsAdapter {
     // Rebuild if the index is empty (fresh clone, deleted index.db, new copy).
     const cnt = this._db.prepare('SELECT COUNT(*) AS n FROM items').get();
     if (!cnt || cnt.n === 0) {
-      if (fs.existsSync(path.join(branchRoot, 'items'))) this._rebuildFromFs(this._db);
+      if (this._isSparse())                                     this._rebuildFromFsSparse(this._db);
+      else if (fs.existsSync(path.join(branchRoot, 'items')))   this._rebuildFromFs(this._db);
     }
     return this._db;
   }
@@ -440,6 +508,9 @@ class SqliteFsAdapter {
     // Resolve any write-ahead journal/lock left by a crashed writer before
     // serving anything (roll forward if the data landed, else roll back).
     adapter._recover();
+    // Backfill the built-in type items on datastores created before they existed
+    // (idempotent — a no-op once present), so icon resolution always has them.
+    adapter._ensureBuiltInTypes();
     adapter._loadRoots();
     return adapter;
   }
@@ -487,8 +558,7 @@ class SqliteFsAdapter {
   _docToItem(doc) {
     if (!doc?.item || !doc?.meta) return null;
     const { item, meta } = doc;
-    let icon = meta.icon ?? null;
-    return {
+    const out = {
       id:               item.id,
       specVersion:      meta.specVersion || specVersion,
       parentId:         item.parentId,
@@ -518,8 +588,9 @@ class SqliteFsAdapter {
       sourceSystem:     meta.sourceSystem ?? null,
       sourceExternalId: meta.sourceExternalId ?? null,
       files:            meta.files ?? {},
-      icon,
     };
+    out.icon = this._resolveIcon(out);   // read model: derived icon slug (never stored)
+    return out;
   }
 
   // Flat item object → five-section doc, preserving existing payload/time/search.
@@ -557,7 +628,6 @@ class SqliteFsAdapter {
         layer:            item.layer ?? null,
         sourceSystem:     item.sourceSystem ?? null,
         sourceExternalId: item.sourceExternalId ?? null,
-        icon:             item.icon ?? null,
       },
       search:  existingDoc?.search  ?? null,
       payload: existingDoc?.payload ?? null,
@@ -565,10 +635,10 @@ class SqliteFsAdapter {
     };
   }
 
-  // DB row (items JOIN items_meta) → flat item object.
+  // DB row (items JOIN items_meta) → flat item object (the read model).
   _rowToItem(row) {
     if (!row) return null;
-    return {
+    const out = {
       id:               row.id,
       specVersion:      row.spec_version || specVersion,
       parentId:         row.parent_id,
@@ -598,8 +668,9 @@ class SqliteFsAdapter {
       sourceSystem:     row.source_system ?? null,
       sourceExternalId: row.source_external_id ?? null,
       files:            row.files ? JSON.parse(row.files) : {},
-      icon:             row.icon ?? null,
     };
+    out.icon = this._resolveIcon(out);   // read model: derived icon slug (never stored)
+    return out;
   }
 
   // ─── Index helpers ─────────────────────────────────────────────────────────
@@ -790,10 +861,47 @@ class SqliteFsAdapter {
     for (const jsonPath of this._scanItemFiles(itemsDir)) {
       try {
         const doc = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-        if (doc?.item?.id) docs.push(doc);
+        if (doc?.item?.id && !this._isTombstone(doc)) docs.push(doc);
       } catch { /* skip corrupt files */ }
     }
+    this._indexDocs(db, docs);
+  }
 
+  // Rebuild a SPARSE branch's index by projecting its local upstream (a full
+  // local branch) and overlaying the branch's own items/: added/edited item.json
+  // files replace the upstream doc; tombstones (deleted_at markers) remove it.
+  // The index is thus fully derived from items/ + the local upstream, and the
+  // branch's own items/ stays sparse (only its local changes). Remote upstreams
+  // are federated at query time instead (deferred).
+  _rebuildFromFsSparse(db) {
+    const docById = new Map();
+    const up = this._localUpstream();
+    if (up) {
+      const upItemsDir = path.join(this._branchRoot(up), 'items');
+      for (const jsonPath of this._scanItemFiles(upItemsDir)) {
+        try {
+          const doc = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+          if (doc?.item?.id && !this._isTombstone(doc)) docById.set(doc.item.id, doc);
+        } catch { /* skip corrupt files */ }
+      }
+    }
+    const localItemsDir = path.join(this._branchRoot(), 'items');
+    for (const jsonPath of this._scanItemFiles(localItemsDir)) {
+      try {
+        const doc = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+        const id  = doc?.item?.id;
+        if (!id) continue;
+        if (this._isTombstone(doc)) docById.delete(id);
+        else                        docById.set(id, doc);
+      } catch { /* skip corrupt files */ }
+    }
+    this._indexDocs(db, [...docById.values()]);
+  }
+
+  // Index a resolved set of item docs: compute materialized paths in
+  // parent→child order, then insert every row (shared by the full and sparse
+  // rebuild paths).
+  _indexDocs(db, docs) {
     // Compute materialized paths in parent→child order
     const parentMap = new Map();
     for (const doc of docs) {
@@ -1044,7 +1152,61 @@ class SqliteFsAdapter {
   _initRoots() {
     if (!this.get(ROOT_ID))       this._createWellKnownNode(ROOT_ID,    ROOT_ID,    'root',  0);
     if (!this.get(TYPES_NODE))    this._createWellKnownNode(TYPES_NODE, ROOT_ID,    'types', 1);
+    this._ensureBuiltInTypes();
     this._loadRoots();
+  }
+
+  // Seed the core manifest of built-in type items (relationship, file, alias, …)
+  // under the types node, with their fixed UUIDs, from @kanecta/specification.
+  // Idempotent: only writes the ones not already present, so it safely backfills
+  // existing datastores on open as well as seeding fresh ones at init.
+  _ensureBuiltInTypes() {
+    const db = this._openDb();
+    const typesPath = this._getPath(TYPES_NODE) ?? TYPES_NODE;
+    let wrote = false;
+    db.transaction(() => {
+      for (const src of builtInTypeItems) {
+        const id = src.item.id;
+        if (this._getRow(db, id)) continue;            // already seeded
+        // The spec file is already a 5-section item.json; write it verbatim as the
+        // source of truth, then index it under the types node.
+        const doc = { item: src.item, meta: src.meta, search: src.search ?? null, payload: src.payload ?? null, time: src.time ?? null };
+        this._writeItemJson(id, doc);
+        this._insertIndexTx(db, id, doc, `${typesPath}/${id}`);
+        wrote = true;
+      }
+    })();
+    if (wrote) { this._iconCache = null; this._mem.clear(); }
+  }
+
+  // ─── Icon resolution (derived on read; never stored on the item) ─────────────
+
+  // type-name → icon and typeId → icon, built once from the seeded type items.
+  _iconMaps() {
+    if (this._iconCache) return this._iconCache;
+    const byName = {}, byId = {};
+    try {
+      const rows = this._openDb().prepare(
+        "SELECT i.id, i.value, p.payload FROM items i JOIN items_payload p ON p.item_id = i.id WHERE i.type = 'type'"
+      ).all();
+      for (const r of rows) {
+        let icon; try { icon = JSON.parse(r.payload)?.meta?.icon; } catch {}
+        if (typeof icon === 'string' && icon) { byName[r.value] = icon; byId[r.id] = icon; }
+      }
+    } catch { /* db not ready */ }
+    this._iconCache = { byName, byId };
+    return this._iconCache;
+  }
+
+  // Resolve the MUI icon slug for an item (read model only).
+  _resolveIcon(item) {
+    if (!item) return FALLBACK_ICON;
+    const { byName, byId } = this._iconMaps();
+    if (item.typeId && byId[item.typeId]) return byId[item.typeId];       // typed object → its type's icon
+    if (byName[item.type]) return byName[item.type];                       // built-in/custom type → its type icon
+    if (PRIMITIVE_TYPE_SET.has(item.type)) return PRIMITIVE_ICON;          // primitive → placeholder
+    if (RESERVED_ICONS[item.type]) return RESERVED_ICONS[item.type];       // root / types
+    return FALLBACK_ICON;
   }
 
   _loadRoots() {
@@ -1079,6 +1241,20 @@ class SqliteFsAdapter {
 
   // ─── Item CRUD ─────────────────────────────────────────────────────────────
 
+  // Next sortOrder among REAL content siblings. Excludes synthetic payload-field
+  // nodes (they are not rows in `items`), the structural root/types nodes, and
+  // metadata/type items — so content items order among themselves from 0 and are
+  // never pushed down by, e.g., the root node's rendered payload fields.
+  _nextSortOrder(parentId, aspect) {
+    const db = this._openDb();
+    const noAspect = aspect === null || aspect === undefined;
+    const sql = `SELECT MAX(sort_order) AS m FROM items
+      WHERE parent_id = ? AND id != parent_id AND aspect ${noAspect ? 'IS NULL' : '= ?'}
+        AND type NOT IN ('root','types','alias','relationship','annotation','item_history','type')`;
+    const row = noAspect ? db.prepare(sql).get(parentId) : db.prepare(sql).get(parentId, aspect);
+    return row?.m == null ? 0 : row.m + 1;
+  }
+
   create({
     parentId, value = null, type = 'string', typeId = null,
     owner, license = null, sortOrder, confidence = null, status = null, tags = [],
@@ -1098,21 +1274,12 @@ class SqliteFsAdapter {
     const actor    = createdBy || ownerVal;
 
     if (sortOrder == null) {
-      const siblings = this.children(parentId, aspect);
-      sortOrder = siblings.length === 0 ? 0 : Math.max(...siblings.map(s => s.sortOrder)) + 1;
+      sortOrder = this._nextSortOrder(parentId, aspect);
     }
 
     let typeWarning = null;
     if (type === 'object' && typeId && this._getTypeName(typeId) === null)
       typeWarning = this._guardTypeIdRef(typeId, strict);
-
-    let resolvedIcon = null;
-    if (type === 'object' && typeId) {
-      const tr = this._openDb().prepare('SELECT payload FROM items_payload WHERE item_id = ?').get(typeId);
-      if (tr) {
-        try { resolvedIcon = JSON.parse(tr.payload)?.meta?.icon || null; } catch {}
-      }
-    }
 
     const resolvedPayload = (type === 'object' && typeId) ? (objectData ?? {}) : null;
 
@@ -1126,7 +1293,7 @@ class SqliteFsAdapter {
       createdBy: actor, modifiedBy: actor,
       cachedAt: null, expiresAt: null, deletedAt: null,
       connectorId: null, materialized: null, completedAt: null, dueAt,
-      layer: null, sourceSystem: null, sourceExternalId: null, files: {}, icon: resolvedIcon,
+      layer: null, sourceSystem: null, sourceExternalId: null, files: {},
     };
 
     const parentPath = this._getPath(parentId);
@@ -1146,6 +1313,7 @@ class SqliteFsAdapter {
       })();
     });
 
+    item.icon = this._resolveIcon(item);   // read model carries the derived icon
     this._mem.set(id, item);
 
     if (typeWarning)
@@ -1269,16 +1437,6 @@ class SqliteFsAdapter {
       db.transaction(() => {
       this._snapshot(db, current, 'update', actor, now);
 
-      // Icon update
-      let newIcon = current.icon || null;
-      if (updated.typeId && updated.typeId !== current.typeId) {
-        const tr = db.prepare('SELECT payload FROM items_payload WHERE item_id = ?').get(updated.typeId);
-        if (tr) {
-          try { newIcon = JSON.parse(tr.payload)?.meta?.icon || null; } catch {}
-        }
-      }
-      updated.icon = newIcon;
-
       // Update items table
       db.prepare(`
         UPDATE items SET parent_id = ?, type = ?, type_id = ?, value = ?, sort_order = ?, aspect = ?
@@ -1310,6 +1468,7 @@ class SqliteFsAdapter {
       })();
     });
 
+    updated.icon = this._resolveIcon(updated);   // read model carries the derived icon
     this._mem.set(id, updated);
     if (this._roots && WELL_KNOWN_TYPES.has(updated.type)) this._roots[updated.type] = updated;
 
@@ -1342,8 +1501,12 @@ class SqliteFsAdapter {
     // journal's ops so a crash mid-delete can roll every one of them back.
     const cascadeOps = this._cascadeMetadataOps(db, id);
 
+    const sparse = this._isSparse();
     this._withWrite([{ id, store: 'items' }, ...cascadeOps], () => {
-      this._deleteItemDir(id);
+      // On a sparse branch the item may live upstream; a tombstone masks it on
+      // read and applies the delete on merge. On a full branch, remove the file.
+      if (sparse) this._writeItemJson(id, this._makeTombstone(id, item.parentId, actor, now));
+      else        this._deleteItemDir(id);
       this._mem.delete(id);
       db.transaction(() => {
         this._snapshot(db, item, 'delete', actor, now);
@@ -1667,6 +1830,7 @@ class SqliteFsAdapter {
     })();
 
     this._mem.set(id, item);
+    this._iconCache = null;   // a new type changes icon resolution
     return { metadata: this.get(id), schema: resolvedSchema };
   }
 
@@ -1685,6 +1849,8 @@ class SqliteFsAdapter {
     const updated = { ...doc, payload: data };
     this._writeItemJson(id, updated);
     this._openDb().prepare('INSERT OR REPLACE INTO items_payload (item_id, payload) VALUES (?,?)').run(id, JSON.stringify(data));
+    this._iconCache = null;   // a type's icon may have changed
+    this._mem.clear();
   }
 
   _getTypeName(typeId) {
@@ -1871,7 +2037,7 @@ class SqliteFsAdapter {
              m.connector_id, m.materialized, m.files, m.layer,
              m.source_system, m.source_external_id, m.icon
       FROM items i LEFT JOIN items_meta m ON m.item_id = i.id
-      WHERE i.type NOT IN ('alias', 'relationship', 'annotation', 'item_history')
+      WHERE i.type NOT IN ('alias', 'relationship', 'annotation', 'item_history', 'type')
     `).all().map(r => this._rowToItem(r));
   }
 
@@ -1904,6 +2070,7 @@ class SqliteFsAdapter {
              m.source_system, m.source_external_id, m.icon
       FROM items i LEFT JOIN items_meta m ON m.item_id = i.id
       WHERE i.parent_id = ? AND i.id != i.parent_id AND i.aspect ${aspect === null || aspect === undefined ? 'IS NULL' : '= ?'}
+        AND i.type NOT IN ('root', 'types', 'alias', 'relationship', 'annotation', 'item_history')
       ORDER BY i.sort_order
     `;
     const rows = (aspect === null || aspect === undefined)
@@ -1942,14 +2109,18 @@ class SqliteFsAdapter {
 
     // Metadata items (annotations live under their target via the "comments"
     // aspect) are not part of the content tree.
-    const exclude = " AND i.type NOT IN ('alias', 'relationship', 'annotation', 'item_history')";
+    const exclude = " AND i.type NOT IN ('root', 'types', 'alias', 'relationship', 'annotation', 'item_history', 'type')";
+    // With an implicit root we skip the root node and start its CHILDREN at
+    // traversal-depth 0, so the absolute path is already one level deeper than
+    // the traversal depth — widen the SQL bound by one to match.
+    const depthBound = rootDepth + maxDepth + (implicitRoot ? 1 : 0);
     let rows;
     if (maxDepth === Infinity) {
       rows = db.prepare(joinSql + ' WHERE (i.path = ? OR i.path LIKE ?)' + exclude).all(rootPath, rootPath + '/%');
     } else {
       rows = db.prepare(joinSql + ` WHERE (i.path = ? OR i.path LIKE ?)
         AND (length(i.path) - length(replace(i.path, '/', ''))) <= ?` + exclude
-      ).all(rootPath, rootPath + '/%', rootDepth + maxDepth);
+      ).all(rootPath, rootPath + '/%', depthBound);
     }
 
     const subtreeItems = rows.map(r => this._rowToItem(r));
@@ -2040,7 +2211,7 @@ class SqliteFsAdapter {
     if (!row?.path) return 0;
     const r = this._openDb().prepare(
       `SELECT COUNT(*) AS cnt FROM items WHERE (path = ? OR path LIKE ?)
-       AND type NOT IN ('alias', 'relationship', 'annotation', 'item_history')`
+       AND type NOT IN ('alias', 'relationship', 'annotation', 'item_history', 'type')`
     ).get(row.path, row.path + '/%');
     return r?.cnt ?? 0;
   }
@@ -2168,9 +2339,11 @@ class SqliteFsAdapter {
       db.prepare('DELETE FROM relationships').run();
       db.prepare('DELETE FROM annotations').run();
       db.prepare('DELETE FROM items').run();
-      this._rebuildFromFs(db);
+      if (this._isSparse()) this._rebuildFromFsSparse(db);
+      else                  this._rebuildFromFs(db);
     })();
     this._mem.clear();
+    this._iconCache = null;
     const cnt = db.prepare('SELECT COUNT(*) AS n FROM items').get();
     return cnt?.n ?? 0;
   }
@@ -2189,7 +2362,14 @@ class SqliteFsAdapter {
     return fs.existsSync(path.join(this._branchRoot(name), 'items'));
   }
 
-  createBranch(name) {
+  // createBranch(name, { fill, upstream })
+  //   fill: 'full' (default) → recursive copy of the base branch folder.
+  //   fill: 'sparse'         → empty items/ that reads through to an upstream
+  //                            branch; only local changes (and tombstones for
+  //                            deletes) live in this branch's items/.
+  //   upstream: { branch } for a LOCAL full branch (default { branch: base }),
+  //             or { remote, branch } for a remote (federated at query time).
+  createBranch(name, opts = {}) {
     if (!name || typeof name !== 'string' || !name.trim()) throw new Error('branch name is required');
     name = name.trim();
     if (name === 'main') throw new Error('Cannot create a branch named "main"');
@@ -2197,6 +2377,20 @@ class SqliteFsAdapter {
 
     const base = this._branch;
     const now  = new Date().toISOString();
+
+    if (opts.fill === 'sparse') {
+      const upstream = opts.upstream ?? { branch: base };
+      const destDir  = this._branchRoot(name);
+      fs.mkdirSync(path.join(destDir, 'items'), { recursive: true });
+      const manifest = {
+        name, fill: 'sparse', upstream, base,
+        branchPoint: { branch: upstream.branch ?? base, at: now },
+        createdAt: now,
+      };
+      fs.writeFileSync(path.join(destDir, 'branch.json'), JSON.stringify(manifest, null, 2), 'utf8');
+      // index.db is projected lazily on first useBranch() (_rebuildFromFsSparse).
+      return { name, base, baseBranch: base, fill: 'sparse', upstream, createdAt: now };
+    }
 
     // Flush the base branch's index so the copy includes an up-to-date index.db.
     if (this._db && this._dbBranch === base) { try { this._db.pragma('wal_checkpoint(TRUNCATE)'); } catch {} }
@@ -2250,6 +2444,7 @@ class SqliteFsAdapter {
     this._branch = name;
     this._mem.clear();
     this._roots  = null;
+    this._iconCache = null;   // type items are per-branch
     // A crashed writer may have left a journal on the branch we're switching to.
     this._recover();
   }
@@ -2306,20 +2501,48 @@ class SqliteFsAdapter {
       return map;
     };
 
-    const branchDocs = readTree(name);
-    const mainDocs   = readTree('main');
+    const manifest = this._branchManifest(name);
+    const upName   = manifest.fill === 'sparse'
+      ? (manifest.upstream?.branch ?? manifest.base ?? 'main')
+      : 'main';
+    const upDocs = readTree(upName);
 
     const adds = [], edits = [], deletes = [];
+
+    if (manifest.fill === 'sparse') {
+      // Sparse: the branch's own items/ IS the diff. Each local file is an
+      // add/edit; a tombstone is a delete of the upstream item. Inherited items
+      // (present upstream, absent locally) are UNCHANGED, never deletes.
+      const localDir = path.join(this._branchRoot(name), 'items');
+      for (const jsonPath of this._scanItemFiles(localDir)) {
+        let doc; try { doc = JSON.parse(fs.readFileSync(jsonPath, 'utf8')); } catch { continue; }
+        const id = doc?.item?.id;
+        if (!id) continue;
+        if (this._isTombstone(doc)) {
+          const upDoc = upDocs.get(id);
+          if (upDoc) deletes.push({ id, before: this._docToItem(upDoc) });
+          continue;
+        }
+        const upDoc = upDocs.get(id);
+        if (!upDoc) adds.push({ id, after: this._docToItem(doc), doc });
+        else if (JSON.stringify(upDoc) !== JSON.stringify(doc))
+          edits.push({ id, before: this._docToItem(upDoc), after: this._docToItem(doc), doc });
+      }
+      return { adds, edits, deletes };
+    }
+
+    // Full branch: compare the two complete trees.
+    const branchDocs = readTree(name);
     for (const [id, doc] of branchDocs) {
-      const mainDoc = mainDocs.get(id);
-      if (!mainDoc) {
+      const upDoc = upDocs.get(id);
+      if (!upDoc) {
         adds.push({ id, after: this._docToItem(doc), doc });
-      } else if (JSON.stringify(mainDoc) !== JSON.stringify(doc)) {
-        edits.push({ id, before: this._docToItem(mainDoc), after: this._docToItem(doc), doc });
+      } else if (JSON.stringify(upDoc) !== JSON.stringify(doc)) {
+        edits.push({ id, before: this._docToItem(upDoc), after: this._docToItem(doc), doc });
       }
     }
-    for (const [id, mainDoc] of mainDocs) {
-      if (!branchDocs.has(id)) deletes.push({ id, before: this._docToItem(mainDoc) });
+    for (const [id, upDoc] of upDocs) {
+      if (!branchDocs.has(id)) deletes.push({ id, before: this._docToItem(upDoc) });
     }
     return { adds, edits, deletes };
   }

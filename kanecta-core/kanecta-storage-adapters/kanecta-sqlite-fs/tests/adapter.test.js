@@ -81,8 +81,11 @@ describe('init', () => {
     const root = ds.getRoot();
     expect(root.id).toBe(ROOT_ID);
     expect(root.type).toBe('root');
+    // The types node exists but is a structural boundary — not surfaced as content
+    // (excluded from children/tree/loadAll), reachable directly by its fixed UUID.
+    expect(ds.get('11111111-1111-1111-1111-111111111111')?.type).toBe('types');
     const kids = ds.children(ROOT_ID);
-    expect(kids.some(k => k.type === 'types')).toBe(true);
+    expect(kids.some(k => k.type === 'types')).toBe(false);
     // 1.4.0 has only root + types — no system_root/app_root/component_root/data_root.
     expect(kids.some(k => ['system_root', 'app_root', 'component_root', 'data_root'].includes(k.type))).toBe(false);
   });
@@ -443,7 +446,7 @@ describe('create', () => {
   });
 
   it('creates item with objectData for typed object', () => {
-    const { metadata: typeMeta } = ds.createType('Bug');
+    const { metadata: typeMeta } = ds.createType('Bug', { icon: 'Category' });
     const item = ds.create({ value: 'bug', type: 'object', typeId: typeMeta.id, objectData: { severity: 'P1' } });
     expect(ds.readObjectJson(item.id)).toEqual({ severity: 'P1' });
   });
@@ -497,7 +500,7 @@ describe('get', () => {
   });
 
   it('handles synthetic IDs for objectData fields', () => {
-    const { metadata: t } = ds.createType('Widget');
+    const { metadata: t } = ds.createType('Widget', { icon: 'Category' });
     const item = ds.create({ value: 'w', type: 'object', typeId: t.id, objectData: { colour: 'red' } });
     const synId = `${item.id}__colour`;
     const syn   = ds.get(synId);
@@ -589,7 +592,7 @@ describe('update', () => {
   });
 
   it('throws when editing a reserved node (types)', () => {
-    const types = ds.children(ROOT_ID).find(c => c.type === 'types');
+    const types = ds.get('11111111-1111-1111-1111-111111111111');
     expect(() => ds.update(types.id, { value: 'x' })).toThrow(/reserved root node/);
   });
 
@@ -782,14 +785,14 @@ describe('children', () => {
   });
 
   it('returns synthetic children for a typed object', () => {
-    const { metadata: t } = ds.createType('Card');
+    const { metadata: t } = ds.createType('Card', { icon: 'Category' });
     const item = ds.create({ value: 'c', type: 'object', typeId: t.id, objectData: { title: 'Hello' } });
     const kids = ds.children(item.id);
     expect(kids.some(k => k._synthetic && k._fieldPath === 'title')).toBe(true);
   });
 
   it('navigates into synthetic parent', () => {
-    const { metadata: t } = ds.createType('Nested');
+    const { metadata: t } = ds.createType('Nested', { icon: 'Category' });
     const item = ds.create({ value: 'n', type: 'object', typeId: t.id, objectData: { meta: { author: 'Alice' } } });
     const synId = `${item.id}__meta`;
     const kids  = ds.children(synId);
@@ -797,7 +800,7 @@ describe('children', () => {
   });
 
   it('returns empty array for synthetic leaf', () => {
-    const { metadata: t } = ds.createType('T');
+    const { metadata: t } = ds.createType('T', { icon: 'Category' });
     const item = ds.create({ value: 'x', type: 'object', typeId: t.id, objectData: { val: 'scalar' } });
     expect(ds.children(`${item.id}__val.__`)).toEqual([]);
   });
@@ -865,17 +868,14 @@ describe('materialized path', () => {
   });
 
   it('child of root has path = ROOT_ID/childId', () => {
-    const dr = ds.getRoot();
-    const p  = ds._getPath(dr.id);
-    expect(p).toBe(`${ROOT_ID}/${dr.id}`);
+    const child = ds.create({ value: 'c' });   // parentId defaults to root
+    expect(ds._getPath(child.id)).toBe(`${ROOT_ID}/${child.id}`);
   });
 
   it('grandchild path encodes full ancestry', () => {
-    const parent = ds.create({ value: 'p' });
+    const parent = ds.create({ value: 'p' });   // under root
     const child  = ds.create({ value: 'c', parentId: parent.id });
-    const dr     = ds.getRoot();
-    const expected = `${ROOT_ID}/${dr.id}/${parent.id}/${child.id}`;
-    expect(ds._getPath(child.id)).toBe(expected);
+    expect(ds._getPath(child.id)).toBe(`${ROOT_ID}/${parent.id}/${child.id}`);
   });
 
   it('cascades path on parentId change, including deep descendants', () => {
@@ -912,9 +912,9 @@ describe('ancestors', () => {
   });
 
   it('returns [root] for a direct child of root', () => {
-    const dr  = ds.getRoot();
-    const anc = ds.ancestors(dr.id);
-    expect(anc.map(a => a.id)).toContain(ROOT_ID);
+    const child = ds.create({ value: 'c' });   // under root
+    const anc   = ds.ancestors(child.id);
+    expect(anc.map(a => a.id)).toEqual([ROOT_ID]);
   });
 
   it('returns full ancestor chain root → parent', () => {
@@ -1167,22 +1167,23 @@ describe('history', () => {
 
 describe('type definitions', () => {
   it('createType() stores and returns metadata + schema', () => {
-    const { metadata, schema } = ds.createType('Bug');
+    const { metadata, schema } = ds.createType('Bug', { icon: 'Category' });
     expect(metadata.value).toBe('Bug');
     expect(metadata.id).toMatch(/^[0-9a-f-]{36}$/);
     expect(schema.jsonSchema.title).toBe('Bug');
   });
 
   it('readTypeJson() returns the stored schema', () => {
-    const { metadata } = ds.createType('Feature');
+    const { metadata } = ds.createType('Feature', { icon: 'Category' });
     const s = ds.readTypeJson(metadata.id);
     expect(s.jsonSchema.title).toBe('Feature');
   });
 
   it('writeTypeJson() updates the schema', () => {
-    const { metadata } = ds.createType('Task');
-    ds.writeTypeJson(metadata.id, { custom: true });
-    expect(ds.readTypeJson(metadata.id)).toEqual({ custom: true });
+    const { metadata } = ds.createType('Task', { icon: 'Category' });
+    const next = { meta: { icon: 'Star', description: 'updated' }, custom: true };
+    ds.writeTypeJson(metadata.id, next);
+    expect(ds.readTypeJson(metadata.id)).toEqual(next);
   });
 
   it('readTypeJson() returns null for unknown id', () => {
@@ -1203,7 +1204,7 @@ describe('type definitions', () => {
   });
 
   it('resolveTypeId returns { id } for registered custom type', () => {
-    const { metadata } = ds.createType('Sprint');
+    const { metadata } = ds.createType('Sprint', { icon: 'Category' });
     const r = ds.resolveTypeId('Sprint');
     expect(r.id).toBe(metadata.id);
   });
@@ -1228,7 +1229,7 @@ describe('objectData / functionData / timeData', () => {
   });
 
   it('readObjectJson returns null for synthetic IDs', () => {
-    const { metadata: t } = ds.createType('T');
+    const { metadata: t } = ds.createType('T', { icon: 'Category' });
     const item = ds.create({ value: 'x', type: 'object', typeId: t.id, objectData: { a: 1 } });
     expect(ds.readObjectJson(`${item.id}__a`)).toBeNull();
   });
@@ -1324,7 +1325,7 @@ describe('byTag / byType', () => {
   });
 
   it('byType returns items with matching typeId', () => {
-    const { metadata: t } = ds.createType('Bug');
+    const { metadata: t } = ds.createType('Bug', { icon: 'Category' });
     const bug = ds.create({ value: 'bug-1', type: 'object', typeId: t.id });
     ds.create({ value: 'other' });
     expect(ds.byType(t.id)).toContain(bug.id);
@@ -1362,7 +1363,7 @@ describe('query', () => {
   });
 
   it('filters by registered custom type', () => {
-    const { metadata: t } = ds.createType('Epic');
+    const { metadata: t } = ds.createType('Epic', { icon: 'Category' });
     const bug = ds.create({ value: 'epic-1', type: 'object', typeId: t.id });
     ds.create({ value: 'noise' });
     const results = ds.query({ type: 'Epic', limit: 100 });
@@ -1381,7 +1382,7 @@ describe('query', () => {
   });
 
   it('where clause filters on objectData fields', () => {
-    const { metadata: t } = ds.createType('Bug');
+    const { metadata: t } = ds.createType('Bug', { icon: 'Category' });
     const b1 = ds.create({ value: 'b1', type: 'object', typeId: t.id, objectData: { severity: 'P1' } });
     ds.create({ value: 'b2', type: 'object', typeId: t.id, objectData: { severity: 'P2' } });
     const results = ds.query({ where: { severity: 'P1' }, limit: 100 });
@@ -1390,14 +1391,14 @@ describe('query', () => {
   });
 
   it('where clause: "contains" operator', () => {
-    const { metadata: t } = ds.createType('Note');
+    const { metadata: t } = ds.createType('Note', { icon: 'Category' });
     const n = ds.create({ value: 'note', type: 'object', typeId: t.id, objectData: { body: 'Hello World' } });
     const results = ds.query({ where: { body: { op: 'contains', value: 'hello' } }, limit: 100 });
     expect(results.some(i => i.id === n.id)).toBe(true);
   });
 
   it('where clause: "in" operator', () => {
-    const { metadata: t } = ds.createType('Task');
+    const { metadata: t } = ds.createType('Task', { icon: 'Category' });
     const a = ds.create({ value: 'a', type: 'object', typeId: t.id, objectData: { status: 'open' } });
     const b = ds.create({ value: 'b', type: 'object', typeId: t.id, objectData: { status: 'closed' } });
     ds.create({ value: 'c', type: 'object', typeId: t.id, objectData: { status: 'archived' } });
@@ -1448,7 +1449,7 @@ describe('query', () => {
   });
 
   it('sort by field ascending', () => {
-    const { metadata: t } = ds.createType('Item');
+    const { metadata: t } = ds.createType('Item', { icon: 'Category' });
     ds.create({ value: 'z', type: 'object', typeId: t.id, objectData: { rank: 3 } });
     ds.create({ value: 'a', type: 'object', typeId: t.id, objectData: { rank: 1 } });
     ds.create({ value: 'm', type: 'object', typeId: t.id, objectData: { rank: 2 } });
@@ -1457,7 +1458,7 @@ describe('query', () => {
   });
 
   it('sort by field descending', () => {
-    const { metadata: t } = ds.createType('DItem');
+    const { metadata: t } = ds.createType('DItem', { icon: 'Category' });
     ds.create({ value: 'a', type: 'object', typeId: t.id, objectData: { rank: 1 } });
     ds.create({ value: 'b', type: 'object', typeId: t.id, objectData: { rank: 2 } });
     const results = ds.query({ type: 'DItem', sort: { field: 'rank', dir: 'desc' }, limit: 100 });
@@ -1530,7 +1531,7 @@ describe('checkIntegrity', () => {
   });
 
   it('clean typed object has no orphan finding', () => {
-    const { metadata: t } = ds.createType('Clean');
+    const { metadata: t } = ds.createType('Clean', { icon: 'Category' });
     ds.create({ value: 'x', type: 'object', typeId: t.id });
     expect(ds.checkIntegrity()).toEqual([]);
   });
@@ -1544,12 +1545,12 @@ describe('well-known node protection', () => {
   });
 
   it('cannot delete the reserved types node', () => {
-    const types = ds.children(ROOT_ID).find(c => c.type === 'types');
+    const types = ds.get('11111111-1111-1111-1111-111111111111');
     expect(() => ds.delete(types.id)).toThrow(/reserved root node/);
   });
 
   it('cannot update the reserved types node', () => {
-    const types = ds.children(ROOT_ID).find(c => c.type === 'types');
+    const types = ds.get('11111111-1111-1111-1111-111111111111');
     expect(() => ds.update(types.id, { value: 'x' })).toThrow(/reserved root node/);
   });
 });

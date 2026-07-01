@@ -1,7 +1,7 @@
 {
   "item": {
     "id": "abbd7b52-92aa-4fca-b458-d9c4e1a60061",
-    "parentId": "31ef9fcb-636d-4007-b25f-80c1c4f054ef",
+    "parentId": "11111111-1111-1111-1111-111111111111",
     "type": "type",
     "typeId": null,
     "value": "type",
@@ -53,13 +53,15 @@
         "meta": {
           "type": "object",
           "required": [
-            "description"
+            "description",
+            "icon"
           ],
           "additionalProperties": false,
           "properties": {
             "icon": {
               "type": "string",
-              "description": "MUI icon component name (e.g. \"Person\")."
+              "pattern": "^[A-Z][A-Za-z0-9]*$",
+              "description": "Required. Slug (component name) of a MUI icon, e.g. \"Person\" or \"Category\". PascalCase; not an emoji or path. Enforced by the adapter (createType, writeTypeJson) and the API."
             },
             "description": {
               "type": "string",

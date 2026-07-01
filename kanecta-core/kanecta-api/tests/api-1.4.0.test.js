@@ -406,7 +406,7 @@ describe('GET /items/stats', () => {
   });
 
   it('shows type name (not UUID) for structured objects', async () => {
-    const { metadata } = await ds.createType('Widget');
+    const { metadata } = await ds.createType('Widget', { icon: 'Category' });
     const typeId = metadata.id;
     await ds.create({ type: 'object', typeId, value: 'w1' });
     await ds.create({ type: 'object', typeId, value: 'w2' });

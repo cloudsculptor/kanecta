@@ -17,22 +17,25 @@ export function itemsApi(client: KanectaApiClient) {
 
     stats: () => client.items.stats(),
 
-    get: (id: string) => client.items.get(id).then((doc) => ({
-      id: doc.item.id,
-      value: doc.item.value ?? '',
-      type: doc.item.type,
-      typeId: doc.item.typeId,
-      parentId: doc.item.parentId,
-      sortOrder: doc.item.sortOrder ?? 0,
-      tags: doc.meta.tags ?? [],
-      icon: doc.meta.icon ?? null,
-      status: doc.meta.status ?? null,
-      confidence: doc.meta.confidence ?? null,
-      createdAt: doc.meta.createdAt ?? null,
-      modifiedAt: doc.meta.modifiedAt ?? null,
-      childCount: doc.childCount,
-      _hasObject: doc._hasObject,
-      _synthetic: doc._synthetic,
+    // The API returns the flat read model (promoted fields + resolved icon +
+    // boxed payload), so pass it straight through.
+    get: (id: string) => client.items.get(id).then((item) => ({
+      id: item.id,
+      value: item.value ?? '',
+      type: item.type,
+      typeId: item.typeId,
+      parentId: item.parentId,
+      sortOrder: item.sortOrder ?? 0,
+      tags: item.tags ?? [],
+      icon: item.icon ?? null,
+      status: item.status ?? null,
+      confidence: item.confidence ?? null,
+      createdAt: item.createdAt ?? null,
+      modifiedAt: item.modifiedAt ?? null,
+      payload: item.payload ?? null,
+      childCount: item.childCount,
+      _hasObject: item._hasObject,
+      _synthetic: item._synthetic,
     } as KanectaItem)),
 
     create: (payload: CreateItemPayload) =>

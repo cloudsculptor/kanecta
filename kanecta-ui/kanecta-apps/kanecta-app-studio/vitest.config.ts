@@ -19,6 +19,10 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     globals: true,
+    // Unit/component tests live under src/. The e2e/ specs are Playwright tests
+    // (they import @playwright/test) and must not be collected by Vitest.
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
     // Force @mui and @emotion through Vite's pipeline so our aliases apply
     // when root-hoisted packages try to import peer deps missing from root.
     server: {

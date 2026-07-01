@@ -47,21 +47,44 @@ export interface KanectaItemDocument {
   _synthetic?: boolean;
 }
 
+// The flat read model returned by the API/lib/MCP: item + meta fields promoted
+// to the top level, a derived `icon` slug always present, and the object data
+// kept boxed under `payload` (so payload field names never clash with basics).
 export interface KanectaItem {
   id: string;
+  specVersion?: string;
   value?: string | null;
   type: string;
   typeId?: string | null;
   parentId?: string | null;
+  icon: string;
   owner?: string | null;
   license?: string | null;
+  visibility?: string;
+  aspect?: string | null;
   sortOrder?: number | null;
   confidence?: string | null;
   status?: string | null;
   tags?: string[];
-  completedAt?: string | null;
   createdAt: string;
-  updatedAt: string;
+  modifiedAt?: string;
+  /** @deprecated the flat model uses `modifiedAt`; kept for back-compat */
+  updatedAt?: string;
+  createdBy?: string | null;
+  modifiedBy?: string | null;
+  completedAt?: string | null;
+  dueAt?: string | null;
+  expiresAt?: string | null;
+  deletedAt?: string | null;
+  cachedAt?: string | null;
+  connectorId?: string | null;
+  materialized?: boolean | null;
+  layer?: string | null;
+  sourceSystem?: string | null;
+  sourceExternalId?: string | null;
+  files?: Record<string, unknown>;
+  /** object data, present only for items that have a payload section */
+  payload?: Record<string, unknown> | null;
   childCount?: number;
   _hasObject?: boolean;
   _synthetic?: boolean;
@@ -340,7 +363,7 @@ export interface ItemsApi {
   list(): Promise<KanectaItem[]>;
   root(): Promise<KanectaItem>;
   stats(): Promise<ItemStats>;
-  get(id: string): Promise<KanectaItemDocument>;
+  get(id: string): Promise<KanectaItem>;
   create(payload: CreateItemPayload): Promise<KanectaItem>;
   bulkCreate(items: CreateItemPayload[]): Promise<BulkCreateResult>;
   update(id: string, payload: UpdateItemPayload): Promise<KanectaItem>;

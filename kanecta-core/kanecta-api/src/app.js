@@ -153,23 +153,14 @@ async function withChildCounts(ds, items) {
     }
   }
 
-  // Resolve icons: typeId → type item → schema.meta.icon
-  const typeIds = [...new Set(items.map(i => i.typeId).filter(Boolean))];
-  const iconByTypeId = {};
-  await Promise.all(typeIds.map(async tid => {
-    try {
-      const schema = await ds.readTypeJson(tid);
-      iconByTypeId[tid] = schema?.meta?.icon ?? null;
-    } catch { iconByTypeId[tid] = null; }
-  }));
-
+  // icon is already resolved on the flat read model by the adapter (item.icon);
+  // here we only add derived child counts + the object-payload flag.
   return Promise.all(items.map(async item => {
     if (item._synthetic) return item;
     const realCount = counts.get(item.id) || 0;
     const obj = await ds.readObjectJson(item.id);
     const synCount = obj ? Object.keys(obj).length : 0;
-    const icon = item.typeId ? (iconByTypeId[item.typeId] ?? null) : null;
-    return { ...item, icon, childCount: realCount + synCount, _hasObject: synCount > 0 };
+    return { ...item, childCount: realCount + synCount, _hasObject: synCount > 0 };
   }));
 }
 
@@ -322,15 +313,19 @@ app.post('/working-sets/:name/activate', async (req, res) => {
 // POST /working-sets/:name/branches — create a branch
 app.post('/working-sets/:name/branches', async (req, res) => {
   const { name } = req.params;
-  const { branchName } = req.body;
+  const { branchName, fill, upstream } = req.body;
   if (!branchName) return res.status(400).json({ error: 'branchName is required' });
+  if (fill && fill !== 'full' && fill !== 'sparse')
+    return res.status(400).json({ error: `fill must be 'full' or 'sparse'` });
   const appCfg = readAppConfig();
   const ws = appCfg?.workingSets?.[name];
   const local = workingSetLocal(ws);
   if (!local) return res.status(404).json({ error: `Working set '${name}' not found or has no local datastore` });
   try {
     const ds = Datastore.open(local.localPath);
-    const branch = ds.createBranch(branchName);
+    // fill: 'sparse' creates a branch that reads through to `upstream` (default
+    // the current branch) and stores only local changes; 'full' (default) copies.
+    const branch = ds.createBranch(branchName, fill ? { fill, upstream } : undefined);
     res.json({ ok: true, branch });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -635,9 +630,14 @@ app.get('/items/:id', async (req, res) => {
   if (!isValidId(id)) return res.status(400).json({ error: 'Invalid ID format' });
   const ds = await openDatastore(res);
   if (!ds) return;
-  const doc = await ds.getDocument(id);
-  if (!doc) return res.status(404).json({ error: 'Item not found' });
-  res.json(doc);
+  const item = await ds.get(id);
+  if (!item) return res.status(404).json({ error: 'Item not found' });
+  // Flat read model: promoted item+meta fields, resolved icon, child counts,
+  // and the object data kept boxed under `payload` (no clash with basic fields).
+  const [flat] = await withChildCounts(ds, [item]);
+  const payload = await ds.readObjectJson(id);
+  if (payload && Object.keys(payload).length) flat.payload = payload;
+  res.json(flat);
 });
 
 // PUT /items/:id — update item
