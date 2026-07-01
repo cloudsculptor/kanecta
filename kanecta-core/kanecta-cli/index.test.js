@@ -56,20 +56,19 @@ function cliErr(ds, ...args) {
 
 // ─── Datastore.init ───────────────────────────────────────────────────────────
 
-test('init: creates .kanecta directory structure', () => {
+test('init: creates the per-branch datastore structure', () => {
   const ds = tmpDs();
-  const dirs = ['data', 'aliases', 'annotations', 'config', 'history', 'links',
-    'relationships', 'remotes', 'remotes-index', 'search', 'tags', 'types'];
-  for (const d of dirs) {
-    assert.ok(fs.existsSync(path.join(ds.k, d)), `missing dir: ${d}`);
-  }
+  // 1.4.0: each branch is a self-contained folder (items/ + index.db + branch.json).
+  assert.ok(fs.existsSync(path.join(ds.k, 'branches', 'main', 'items')), 'missing branches/main/items');
+  assert.ok(fs.existsSync(path.join(ds.k, 'branches', 'main', 'index.db')), 'missing branches/main/index.db');
+  assert.ok(fs.existsSync(path.join(ds.k, 'branches', 'main', 'branch.json')), 'missing branches/main/branch.json');
 });
 
-test('init: writes config.json with owner and specVersion', () => {
+test('init: records owner and specVersion in the root payload', () => {
   const ds = tmpDs();
-  const cfg = JSON.parse(fs.readFileSync(path.join(ds.k, 'config', 'config.json'), 'utf8'));
-  assert.equal(cfg.owner, 'test@example.com');
-  assert.equal(cfg.specVersion, '1.4.0');
+  // 1.4.0: config lives in the root node's payload, not a separate config.json.
+  assert.equal(ds.config.owner, 'test@example.com');
+  assert.equal(ds.config.specVersion, '1.4.0');
 });
 
 test('init: isDatastore returns true for initialised root', () => {
@@ -84,11 +83,11 @@ test('init: isDatastore returns false for random directory', () => {
 
 // ─── Shard path ───────────────────────────────────────────────────────────────
 
-test('_itemDir: computes 2+2+full_uuid shard path', () => {
+test('_itemDir: computes 2+2+full_uuid shard path under items/', () => {
   const ds = tmpDs();
   const id = 'a1b2c3d4-e5f6-4abc-9def-123456789012';
   const dir = ds._adapter._itemDir(id);
-  assert.ok(dir.endsWith(path.join('data', 'a1', 'b2', id)));
+  assert.ok(dir.endsWith(path.join('items', 'a1', 'b2', id)), dir);
 });
 
 // ─── create ───────────────────────────────────────────────────────────────────
@@ -99,14 +98,14 @@ test('create: returns item with UUID v4', async () => {
   assert.match(item.id, UUID_RE);
 });
 
-test('create: writes metadata.json at correct shard path', async () => {
+test('create: writes item.json at correct shard path', async () => {
   const ds = tmpDs();
   const item = await ds.create({ value: 'hello', type: 'string' });
-  const metaPath = path.join(ds._adapter._itemDir(item.id), 'metadata.json');
-  assert.ok(fs.existsSync(metaPath), 'metadata.json missing');
-  const written = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-  assert.equal(written.id, item.id);
-  assert.equal(written.value, 'hello');
+  const itemPath = path.join(ds._adapter._itemDir(item.id), 'item.json');
+  assert.ok(fs.existsSync(itemPath), 'item.json missing');
+  const doc = JSON.parse(fs.readFileSync(itemPath, 'utf8'));
+  assert.equal(doc.item.id, item.id);
+  assert.equal(doc.item.value, 'hello');
 });
 
 test('create: defaults license, visibility, and aspect per spec 1.4.0', async () => {
@@ -350,9 +349,8 @@ test('delete: snapshots with changeType delete before removing', async () => {
   const ds = tmpDs();
   const item = await ds.create({ value: 'ephemeral' });
   await ds.delete(item.id);
-  const histDir = ds._adapter._historyDir(item.id);
-  const files = fs.readdirSync(histDir).filter(n => n.endsWith('.json'));
-  const snapshots = files.map(f => JSON.parse(fs.readFileSync(path.join(histDir, f), 'utf8')));
+  // 1.4.0: history is item_history items (item-history/); read via history().
+  const snapshots = await ds.history(item.id);
   const del = snapshots.find(s => s.changeType === 'delete');
   assert.ok(del, 'no delete snapshot found');
   assert.equal(del.value, 'ephemeral');
@@ -586,9 +584,9 @@ test('loadAll: returns all items from sample datastore', async () => {
 test('rebuildIndexes: repopulates tag index', async () => {
   const ds = tmpDs();
   const item = await ds.create({ value: 'x', tags: ['mytag'] });
-  // Corrupt the tag index
-  const tagFile = path.join(ds._adapter._shardDir('tags', 'mytag'), 'items.json');
-  fs.writeFileSync(tagFile, '{"items":[]}');
+  // 1.4.0: the index is index.db, rebuilt from item.json. Wipe the derived tag
+  // rows, then rebuild and confirm byTag is repopulated.
+  ds._adapter._openDb().prepare('DELETE FROM item_tags').run();
   await ds.rebuildIndexes();
   assert.ok((await ds.byTag('mytag')).includes(item.id));
 });
@@ -597,10 +595,8 @@ test('rebuildIndexes: repopulates backlinks index', async () => {
   const ds = tmpDs();
   const target = await ds.create({ value: 'target' });
   const src = await ds.create({ value: `[[${target.id}]]` });
-  // Corrupt backlinks
-  const hex = target.id.replace(/-/g, '');
-  const linksFile = path.join(ds.k, 'links', hex.slice(0, 2), hex.slice(2, 4), target.id, 'backlinks.json');
-  fs.writeFileSync(linksFile, '{"backlinks":[]}');
+  // 1.4.0: wipe the derived backlinks rows, then rebuild from item.json.
+  ds._adapter._openDb().prepare('DELETE FROM backlinks').run();
   await ds.rebuildIndexes();
   assert.ok((await ds.backlinks(target.id)).includes(src.id));
 });
@@ -933,8 +929,9 @@ test('cli: init creates datastore at given path', () => {
   try {
     execFileSync('node', [CLI, 'init', dir, '--owner', 'init@example.com'], { encoding: 'utf8' });
     assert.ok(Datastore.isDatastore(dir));
-    const cfg = JSON.parse(fs.readFileSync(path.join(dir, '.kanecta', 'config', 'config.json'), 'utf8'));
-    assert.equal(cfg.owner, 'init@example.com');
+    // 1.4.0: owner lives in the root payload, read via the opened datastore.
+    const opened = Datastore.open(dir);
+    assert.equal(opened.config.owner, 'init@example.com');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
