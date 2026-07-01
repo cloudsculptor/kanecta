@@ -1,19 +1,50 @@
 'use strict';
 
+const path = require('path');
 const { FilesystemAdapter } = require('@kanecta/sqlite-fs');
 
 // ─── Filesystem ────────────────────────────────────────────────────────────────
+
+// Intern filesystem adapters by resolved absolute path. Within one process,
+// opening the same datastore twice must yield the SAME adapter instance:
+//   - it keeps the in-memory item cache coherent across every consumer (the API
+//     request handlers, the CLI, MCP, and — crucially — test fixtures that hold
+//     their own handle alongside the code under test); and
+//   - it bounds resource use to one instance per datastore (the reason the API
+//     hand-rolled its own datastore cache).
+// Keyed by path only: branch selection is an in-memory, per-instance concern
+// (useBranch) layered on top, matching the current single-index model.
+const _adapters = new Map(); // resolvedPath → FilesystemAdapter
+
+function _key(location) {
+  return path.resolve(location);
+}
 
 function isDatastore(location) {
   return FilesystemAdapter.isDatastore(location);
 }
 
 function createFilesystemAdapter(location, owner) {
-  return FilesystemAdapter.init(location, owner);
+  // init always builds a fresh datastore on disk; replace any interned handle so
+  // later opens of this path observe the freshly-initialised instance.
+  const adapter = FilesystemAdapter.init(location, owner);
+  _adapters.set(_key(location), adapter);
+  return adapter;
 }
 
 function openFilesystemAdapter(location) {
-  return FilesystemAdapter.open(location);
+  const key = _key(location);
+  let adapter = _adapters.get(key);
+  if (!adapter) {
+    adapter = FilesystemAdapter.open(location);
+    _adapters.set(key, adapter);
+  }
+  return adapter;
+}
+
+// Drop an interned adapter (e.g. after a datastore is deleted/rebuilt in tests).
+function forgetFilesystemAdapter(location) {
+  _adapters.delete(_key(location));
 }
 
 // ─── Cloud ─────────────────────────────────────────────────────────────────────
@@ -93,6 +124,7 @@ module.exports = {
   isDatastore,
   createFilesystemAdapter,
   openFilesystemAdapter,
+  forgetFilesystemAdapter,
   openCloudAdapter,
   createCloudAdapter,
   copyDatastore,
