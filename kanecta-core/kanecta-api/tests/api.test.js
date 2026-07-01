@@ -649,3 +649,29 @@ describe('GET /search', () => {
     expect(res.body.results[0].id).toBe(item1.id);
   });
 });
+
+describe('Documents API', () => {
+  it('creates, lists, gets and updates a document (mode)', async () => {
+    const target = await ds.create({ value: 'Todos', type: 'text' });
+
+    const created = await request(app)
+      .post(`/items/${target.id}/documents`)
+      .send({ name: 'Todo view', mode: 'todo' });
+    expect(created.status).toBe(200);
+    expect(created.body.payload.mode).toBe('todo');
+    const docId = created.body.id;
+
+    const list = await request(app).get(`/items/${target.id}/documents`);
+    expect(list.status).toBe(200);
+    expect(list.body.map((d) => d.id)).toContain(docId);
+
+    const got = await request(app).get(`/documents/${docId}`);
+    expect(got.status).toBe(200);
+    expect(got.body.mode).toBe('todo');
+
+    const upd = await request(app).put(`/documents/${docId}`).send({ ...got.body, mode: 'tree' });
+    expect(upd.status).toBe(200);
+    const after = await request(app).get(`/documents/${docId}`);
+    expect(after.body.mode).toBe('tree');
+  });
+});

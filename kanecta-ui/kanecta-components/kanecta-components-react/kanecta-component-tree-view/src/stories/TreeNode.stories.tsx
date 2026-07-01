@@ -85,6 +85,11 @@ const noopApi: TreeViewApi = {
   tree: {
     full: () => Promise.resolve([]),
   },
+  documents: {
+    listForTarget: () => Promise.resolve([]),
+    create: () => Promise.resolve({} as never),
+    update: () => Promise.resolve({ ok: true }),
+  },
   config: {
     get: () => Promise.resolve({ vscodeAvailable: false, datastorePath: '' }),
     openPath: () => Promise.resolve({ ok: true }),
@@ -98,6 +103,7 @@ interface ContextValue {
   workspaceKey: string | undefined;
   vscodeAvailable: boolean;
   focusedItemId: string | null;
+  todoMode: boolean;
   onFocusItem: (id: string) => void;
   onSelectItem: (id: string | null) => void;
   onOpenOverlay: () => void;
@@ -109,6 +115,7 @@ function makeContextValue(apiOverride?: Partial<TreeViewApi>): ContextValue {
     workspaceKey: 'test-workspace',
     vscodeAvailable: false,
     focusedItemId: null,
+    todoMode: false,
     onFocusItem: () => {},
     onSelectItem: () => {},
     onOpenOverlay: () => {},

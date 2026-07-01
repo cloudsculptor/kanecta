@@ -50,6 +50,7 @@ function makeContextValue() {
     workspaceKey: undefined,
     vscodeAvailable: false,
     focusedItemId: null,
+    todoMode: false,
     onFocusItem: () => {},
     onSelectItem: () => {},
     onOpenOverlay: () => {},

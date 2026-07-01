@@ -6,6 +6,8 @@ interface TreeViewContextValue {
   workspaceKey: string | undefined;
   vscodeAvailable: boolean;
   focusedItemId: string | null;
+  /** When true, rows render a completion checkbox bound to completedAt (todo mode). */
+  todoMode: boolean;
   onFocusItem: (id: string) => void;
   onSelectItem: (id: string | null) => void;
   onOpenOverlay: () => void;

@@ -395,6 +395,40 @@ export interface TreeApi {
   get(depth?: number): Promise<unknown>;
 }
 
+export type DocumentMode = 'document' | 'tree' | 'todo';
+
+export interface DocumentPayload {
+  targetId: string;
+  name: string;
+  mode?: DocumentMode;
+  expandState?: { defaultDepth?: number; exceptions?: Record<string, number | false> };
+  roleMap?: { byDepth?: Record<string, string>; byType?: Record<string, string> };
+  isOrgDefault?: boolean;
+  baseDocumentId?: string | null;
+}
+
+export interface DocumentItem extends KanectaItem {
+  payload?: DocumentPayload | null;
+}
+
+export interface CreateDocumentPayload {
+  name: string;
+  mode?: DocumentMode;
+  expandState?: DocumentPayload['expandState'];
+  roleMap?: DocumentPayload['roleMap'];
+  isOrgDefault?: boolean;
+  visibility?: string;
+  baseDocumentId?: string | null;
+  actor?: string;
+}
+
+export interface DocumentsApi {
+  listForTarget(targetId: string): Promise<DocumentItem[]>;
+  create(targetId: string, payload: CreateDocumentPayload): Promise<DocumentItem>;
+  get(docId: string): Promise<DocumentPayload>;
+  update(docId: string, payload: DocumentPayload): Promise<{ ok: boolean }>;
+}
+
 export interface AliasesApi {
   list(targetId?: string): Promise<AliasEntry[]>;
   resolve(alias: string): Promise<AliasEntry>;
@@ -515,6 +549,7 @@ export declare class KanectaApiClient {
   readonly config: ConfigApi;
   readonly items: ItemsApi;
   readonly tree: TreeApi;
+  readonly documents: DocumentsApi;
   readonly aliases: AliasesApi;
   readonly relationships: RelationshipsApi;
   readonly tags: TagsApi;

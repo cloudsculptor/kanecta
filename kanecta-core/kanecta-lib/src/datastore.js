@@ -131,6 +131,10 @@ class Datastore {
   async children(parentId, aspect)           { return this._adapter.children(parentId, aspect); }
   async tree(rootId, maxDepth)               { return this._adapter.tree(rootId, maxDepth); }
   async getDocument(id)                      { return this._adapter.getDocument(id); }
+  createDocument(targetId, name, opts)       { return this._adapter.createDocument(targetId, name, opts); }
+  listDocuments(targetId)                    { return this._adapter.listDocuments(targetId); }
+  readDocumentPayload(id)                    { return this._adapter.readDocumentPayload(id); }
+  writeDocumentPayload(id, payload)          { return this._adapter.writeDocumentPayload(id, payload); }
   async readObjectJson(id)                   { return this._adapter.readObjectJson(id); }
   async writeObjectJson(id, data)            { return this._adapter.writeObjectJson(id, data); }
   async readFunctionJson(id)                 { return this._adapter.readFunctionJson(id); }

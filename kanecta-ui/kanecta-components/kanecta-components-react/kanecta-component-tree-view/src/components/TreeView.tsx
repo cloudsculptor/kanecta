@@ -6,6 +6,7 @@ import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import LinkIcon from '@mui/icons-material/Link';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import ChecklistIcon from '@mui/icons-material/Checklist';
 import DifferenceOutlinedIcon from '@mui/icons-material/DifferenceOutlined';
 import CategoryIcon from '@mui/icons-material/Category';
 import DataObjectIcon from '@mui/icons-material/DataObject';
@@ -202,6 +203,35 @@ export function TreeView({
   });
   const rootSavedLevel = rootViewSettings?.levels ?? null;
   const currentLabel = zoomStack[zoomStack.length - 1]?.label ?? '';
+
+  // ─── Todo mode (persisted as a document targeting the current root) ──────────
+  // The active subtree's mode lives on a document whose targetId is the root
+  // item (or the datastore root when viewing the top level). Toggling flips the
+  // document's `mode` between 'tree' and 'todo', creating the document on demand.
+  const modeTargetId = rootId ?? '00000000-0000-0000-0000-000000000000';
+  const { data: rootDocuments = [] } = useQuery({
+    queryKey: ['documents', modeTargetId],
+    queryFn: () => api.documents.listForTarget(modeTargetId),
+    staleTime: 60_000,
+  });
+  const modeDoc = rootDocuments[0] ?? null;
+  const todoMode = modeDoc?.payload?.mode === 'todo';
+  const toggleTodoMode = useMutation({
+    mutationFn: async () => {
+      const nextMode = todoMode ? 'tree' : 'todo';
+      if (modeDoc) {
+        await api.documents.update(modeDoc.id, {
+          ...(modeDoc.payload ?? { targetId: modeTargetId, name: 'Tree view' }),
+          targetId: modeTargetId,
+          name: modeDoc.payload?.name ?? 'Tree view',
+          mode: nextMode,
+        });
+      } else {
+        await api.documents.create(modeTargetId, { name: 'Tree view', mode: nextMode });
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['documents', modeTargetId] }),
+  });
 
   const handleStar = useCallback(async () => {
     if (!rootId) return;
@@ -530,10 +560,25 @@ export function TreeView({
     workspaceKey,
     vscodeAvailable: vscodeAvailable ?? false,
     focusedItemId: focusedItemId ?? null,
+    todoMode,
     onFocusItem: onFocusItem ?? (() => {}),
     onSelectItem: onSelectItem ?? (() => {}),
     onOpenOverlay: onOpenOverlay ?? (() => {}),
   };
+
+  const todoToggle = (
+    <Tooltip title={todoMode ? 'Exit todo mode' : 'Todo mode — completion checkboxes'}>
+      <IconButton
+        size="small"
+        className={`TreeView-breadcrumb-btn${todoMode ? ' TreeView-breadcrumb-btn--starred' : ''}`}
+        onClick={() => toggleTodoMode.mutate()}
+        aria-label={todoMode ? 'Exit todo mode' : 'Enter todo mode'}
+        aria-pressed={todoMode}
+      >
+        <ChecklistIcon sx={{ fontSize: 16 }} />
+      </IconButton>
+    </Tooltip>
+  );
 
   return (
     <TreeViewContext.Provider value={contextValue}>
@@ -549,6 +594,7 @@ export function TreeView({
               }}
             />
             <div className="TreeView-breadcrumb-actions">
+              {todoToggle}
               <Tooltip title={isStarred ? 'Unstar' : 'Star'}>
                 <IconButton size="small" className={`TreeView-breadcrumb-btn${isStarred ? ' TreeView-breadcrumb-btn--starred' : ''}`} onClick={() => void handleStar()}>
                   {isStarred ? <StarIcon sx={{ fontSize: 16 }} /> : <StarBorderIcon sx={{ fontSize: 16 }} />}
@@ -599,15 +645,16 @@ export function TreeView({
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span>{dataRoot?.value ?? 'Home'}</span>
-                {dataRoot && (
-                  <div className="TreeView-heading-actions TreeNode-actions">
+                <div className="TreeView-heading-actions TreeNode-actions">
+                  {dataRoot && (
                     <Tooltip title="Rename">
                       <IconButton size="small" onClick={startRootEdit} sx={{ padding: '2px', marginTop: '-4px' }}>
                         <EditIcon sx={{ width: '24px !important', height: '24px !important', color: '#999' }} />
                       </IconButton>
                     </Tooltip>
-                  </div>
-                )}
+                  )}
+                  {todoToggle}
+                </div>
               </div>
             )
           ) : (

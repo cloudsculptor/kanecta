@@ -2,6 +2,15 @@
   display: flex;
   flex-direction: column;
 
+  &-checkbox {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    margin: 0 2px;
+    cursor: pointer;
+    accent-color: var(--color-primary, #1976d2);
+  }
+
   &-row {
     display: flex;
     align-items: center;

@@ -232,3 +232,33 @@ describe('payload persistence', () => {
     fs.rmSync(root, { recursive: true, force: true });
   });
 });
+
+// ─── document mode (tree/todo) ─────────────────────────────────────────────────
+
+describe('document mode', () => {
+  test('defaults mode to "document"', () => {
+    const a = tmpAdapter();
+    const t = a.create({ value: 'Root', type: 'text' });
+    const doc = a.createDocument(t.id, 'D');
+    expect(a.readDocumentPayload(doc.id).mode).toBe('document');
+    cleanup(a);
+  });
+
+  test('stores an explicit mode and finds it via listDocuments', () => {
+    const a = tmpAdapter();
+    const t = a.create({ value: 'Todos', type: 'text' });
+    const doc = a.createDocument(t.id, 'Todo view', { mode: 'todo' });
+    expect(a.listDocuments(t.id).map((d) => d.id)).toContain(doc.id);
+    expect(a.readDocumentPayload(doc.id).mode).toBe('todo');
+    cleanup(a);
+  });
+
+  test('writeDocumentPayload flips the mode', () => {
+    const a = tmpAdapter();
+    const t = a.create({ value: 'Todos', type: 'text' });
+    const doc = a.createDocument(t.id, 'Todo view', { mode: 'todo' });
+    a.writeDocumentPayload(doc.id, { ...a.readDocumentPayload(doc.id), mode: 'tree' });
+    expect(a.readDocumentPayload(doc.id).mode).toBe('tree');
+    cleanup(a);
+  });
+});
