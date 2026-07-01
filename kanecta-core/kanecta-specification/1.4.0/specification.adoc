@@ -92,7 +92,7 @@ v1.4.0 is a breaking change from v1.3.0. A migration script is provided in `kane
 | Five new first-class platform types. A `"pipeline"` item defines a multi-agent workflow as a directed graph of phases with typed params, DAG dependencies, confidence gates, forEach fan-out, fanIn aggregation, loopBack cycles, and phase output passing. An `"agent"` item declares the model, system prompt, and tools for a reusable agent. A `"pipeline-run"` item is the live execution record. An `"eval"` item declares automated assertions (count, type, payload, meta, llm-judge, no-regression) against pipeline output. An `"eval-run"` item records assertion results including LLM judge verdicts and reasoning. See <<pipelines>>.
 
 | *Branching*
-| Delta/overlay model across all adapters. Branches are not copies — they store only what changed. Postgres uses schema-per-branch; S3 uses key prefixes; filesystem uses Git. See <<branching>>.
+| Per-branch model, adapter-native. On the filesystem every branch is a complete folder (`branches/<name>/`), either `full` (a copy) or `sparse` (local changes only, read through to an upstream, with tombstones for deletes). Postgres uses schema-per-branch; S3 uses key prefixes. Branching is Git-independent. See <<branching>>.
 
 | *`reference` type and PR pre-flight*
 | Before any branch merge, the platform scans the blast radius of every changed UUID: structural references, declared `reference` items, active subscriptions. Merges blocked when unacknowledged `blockDeletion` references are present.
@@ -4968,68 +4968,89 @@ TIP: *Postgres* — `gen_random_uuid()` (PostgreSQL ≥ 13) generates UUID v4. A
 
 The active branch for a workspace is set by `branch` in `config.json`. Each storage adapter translates the branch name into its native mechanism. The caller always uses a plain branch name — adapter translation is internal.
 
-=== Branch model: delta, not copy
+=== Branch model: full folders and sparse overlays
 
-A branch is *never a full copy of the datastore*. It is an overlay — a bounded set of additions, modifications, and deletions applied on top of the base branch. Branch creation is O(1). Storage is proportional to what changed, not the size of the datastore.
+Branches have *nothing to do with Git.* A user may choose to keep a filesystem datastore under Git externally, but Kanecta is never Git-aware and never depends on Git for branching (see the callout below for why). Each adapter translates a plain branch name into its native mechanism.
+
+On the filesystem, *every branch is a complete, self-contained folder* under `.kanecta/branches/<encoded-name>/`. `main` is simply `branches/main` — it is not special, and there is no top-level `.kanecta/items/`. A branch folder holds three things: an `items/` tree of `item.json` files, a per-branch `index.db` (derived, gitignored), and a `branch.json` manifest. Branch name encoding: `/` becomes `__` (double underscore), matching the Postgres and S3 conventions (`feature/new-types` → `branches/feature__new-types/`).
+
+A branch has two orthogonal properties, recorded in `branch.json`:
+
+* *`fill`* — `full` or `sparse`.
+* *`upstream`* — the branch this one reads through to, or `null` for the canonical `main`.
+
+[cols="1,3", options="header"]
+|===
+| `fill` | Meaning
+
+| `full`
+| The branch's `items/` holds the *entire* item tree. Creating a full branch is a recursive copy of the base branch folder (items + index.db); it is then wholly independent. `main`, and any *mirror* of a remote, are full branches. Reads come straight from the branch's own `items/` + `index.db` — no fall-through.
+
+| `sparse`
+| The branch's `items/` holds *only its own changes*; everything else is read through from `upstream`. Creating a sparse branch writes an empty `items/` and a manifest — O(1), regardless of datastore size. This is the model for working offline against a large canonical, or making a quick edit without localising the whole store.
+|===
+
+A sparse branch's `items/` contains exactly three kinds of `item.json`:
+
+* *added* — a new item that does not exist upstream;
+* *edited* — an upstream item modified locally (the first edit materialises the full item.json into the branch, then applies the change);
+* *deleted* — a *tombstone*: a minimal `item.json` marked `{ "tombstone": true }` that masks the upstream item on read and applies the delete on merge. Tombstones-as-files keep `items/` pure (only `item.json` files, no side-channel delete list) while keeping `index.db` fully derivable.
+
+*Read path (sparse).* The active branch's own `items/` wins: a local added/edited file is returned as-is; a local tombstone returns "not found" (masking upstream). If there is no local file, the read falls through to the upstream branch. When the upstream is a *local full branch* (the canonical `main`, or a mirror), fall-through is a direct read of that folder. When the upstream is *remote*, it is federated at query time (reserved; see <<sync-model,Sync>>).
+
+*The index is 100% derived.* A sparse branch's `index.db` is *projected*: the upstream's indexed items overlaid with the branch's local `items/` (added/edited rows replace; tombstoned rows are removed). Because it is derived, it can always be rebuilt by scanning `items/` plus the local upstream — it is never a source of truth. This is why all ordinary queries (`get`, `children`, `tree`, `loadAll`, search) work unchanged on a sparse branch: they run against a normal, complete `index.db`.
+
+.branch.json
+[source,json]
+----
+{
+  "name": "feature/offline-edits",
+  "fill": "sparse",
+  "upstream": { "branch": "main" },
+  "base": "main",
+  "branchPoint": { "branch": "main", "at": "2026-07-01T00:00:00.000Z" },
+  "createdAt": "2026-07-01T00:00:00.000Z"
+}
+----
+
+`branchPoint` records where the branch forked, so that a future merge can tell an EDIT (upstream unchanged since the fork) from a CONFLICT (upstream also changed) on a per-item basis.
 
 [cols="1,2", options="header"]
 |===
-| Adapter | Branch implementation
-
-| Filesystem
-| Directory overlay. `main` branch items live in `.kanecta/items/` as always. Each non-main branch gets its own overlay directory: `.kanecta/branches/<encoded-name>/items/` containing only the items that were added or changed on that branch — nothing else. A `.kanecta/branches/<encoded-name>/branch.json` manifest records branch id, name, base branch, and creation timestamp. Deletions are tracked as entries in `branch_changes` (see below) rather than in the filesystem — removing the file would make "what was deleted" invisible.
-
-`index.db` gains `workspace_meta`, `branches`, and `branch_changes` tables mirroring the Postgres schema (SQLite-typed). On branch switch the adapter updates `workspace_meta.current_branch` — no file moves, no index rebuild. Read path: check `branch_changes` for a delete marker first; if the item has a create/update entry, read from the branch overlay directory; otherwise fall through to main `items/`. Write path: on a non-main branch, item.json is written to the branch overlay directory and `branch_changes` is updated — main `items/` is never touched until merge.
-
-Git is deliberately excluded. Depending on Git would mean branch switches require a `git checkout` (blocking, slow, requires a clean working tree) and `index.db` would immediately become stale — it is gitignored and does not switch with the branch. The directory overlay model is branch-agnostic, works with or without Git, and keeps index.db always consistent with the active branch without any rebuild.
-
-Branch name encoding for directory: `/` becomes `__` (double underscore), matching the Postgres and S3 conventions. Example: `feature/new-types` → `.kanecta/branches/feature__new-types/`.
+| Other adapters | Branch implementation (planned; the filesystem model above is the reference)
 
 | Postgres
-| Schema per branch within one database. `main` branch lives in the `main` schema. Each other branch gets its own schema — `feature__new_types` (slashes in branch names become double underscores). The adapter queries the branch schema first and falls through to `main` for unmodified items. Schema names are capped at 63 chars (Postgres limit); branch names that exceed this after encoding are rejected at creation time.
+| Schema per branch within one database. `main` lives in the `main` schema; each other branch gets its own (`feature__new_types`). Schema names are capped at 63 chars; branch names exceeding that after encoding are rejected at creation.
 
 | S3 / object storage
-| Key prefix per branch. `main/` for main, `feature__new_types/` for a feature branch. Only changed or new objects are written to the branch prefix; deletions are tracked in a per-branch manifest file. Merge copies changed objects to `main/` and removes the branch prefix.
+| Key prefix per branch (`main/`, `feature__new_types/`). Only changed or new objects are written to the branch prefix; deletions are tracked as tombstone objects. Merge copies changed objects to `main/` and removes the branch prefix.
 |===
 
-=== Filesystem branching tables
+[NOTE]
+.Why not Git for branching?
+====
+Kanecta deliberately does not build branching on Git, even for the filesystem adapter:
 
-Three tables in `index.db` govern branching on filesystem workspaces. The schema mirrors Postgres so the SyncEngine can treat both adapters uniformly.
+* *Scale* — the canonical datastore may never be localisable; even a partial Git checkout carries the full commit DAG.
+* *Reference-awareness* — a merge must scan the *blast radius* of every changed UUID (parent references, declared `reference` items, `[[uuid]]` links, alias uniqueness, `blockDeletion`, subscriptions). Git diffs lines, not references.
+* *Structured merge* — items merge as schema-aware, field-level, atomic database transactions; line-based 3-way merge of JSON is fragile and can produce invalid documents.
+* *Multi-backend* — a branch is a folder, a Postgres schema, or an S3 prefix. Git is filesystem-only.
+* *The derived index can't ride checkouts* — `index.db` is gitignored and would go stale on `git checkout`; the per-branch-folder model keeps it consistent with no rebuild.
+* *Identity is the UUID, not a path*; per-item grants filter what a sparse client may even synthesise; large/binary payloads live in S3, not Git-LFS.
 
-[source,sql]
-----
--- Tracks the active branch for this workspace instance
-CREATE TABLE IF NOT EXISTS workspace_meta (
-  key   TEXT PRIMARY KEY,
-  value TEXT NOT NULL
-);
--- Seed: INSERT OR IGNORE INTO workspace_meta VALUES ('current_branch', 'main');
+A user MAY still keep a filesystem datastore under Git for their own history — Kanecta neither needs nor knows about it.
+====
 
--- Branch registry
-CREATE TABLE IF NOT EXISTS branches (
-  id          TEXT PRIMARY KEY,          -- UUID
-  name        TEXT NOT NULL UNIQUE,
-  base_branch TEXT NOT NULL DEFAULT 'main',
-  created_at  TEXT NOT NULL,             -- ISO 8601
-  merged_at   TEXT,
-  deleted_at  TEXT
-);
+=== Branch operations (filesystem)
 
--- Delta store — one row per changed section per item (same shape as Postgres)
-CREATE TABLE IF NOT EXISTS branch_changes (
-  branch_id   TEXT NOT NULL REFERENCES branches(id),
-  item_id     TEXT NOT NULL,
-  change_type TEXT NOT NULL CHECK (change_type IN ('create', 'update', 'delete')),
-  section     TEXT NOT NULL CHECK (section IN ('item', 'meta', 'search', 'payload', 'time')),
-  data        TEXT,                      -- JSON blob (null for delete entries)
-  changed_at  TEXT NOT NULL,
-  PRIMARY KEY (branch_id, item_id, section)
-);
-CREATE INDEX IF NOT EXISTS idx_bc_branch   ON branch_changes(branch_id);
-CREATE INDEX IF NOT EXISTS idx_bc_item     ON branch_changes(branch_id, item_id);
-----
+`createBranch(name, { fill, upstream })` creates a branch (default `fill: 'full'`; `upstream` defaults to the current branch). `useBranch(name)` / `switchBranch(name)` select the active branch for the instance (reopening its `index.db`; no shared "current branch" is persisted, so concurrent consumers — API, MCP, CLI — operate on different branches independently). `listBranches()` reads the `branches/` directory and each `branch.json`. `deleteBranch(name)` removes the folder.
 
-The `branch_changes` table is the index of what is in the branch overlay directory. It is strictly derived from the overlay files and can be rebuilt by walking `.kanecta/branches/<name>/items/`. It is never the source of truth for item content — the item.json files are.
+`branchDiff(name)` returns the branch's changes versus its upstream as `{ adds, edits, deletes }`:
+
+* For a *full* branch, both complete trees are compared.
+* For a *sparse* branch, the branch's own `items/` *is* the diff — each local file is an add or edit, each tombstone is a delete, and inherited items (present upstream, absent locally) are never reported as deletes.
+
+`mergeBranchLocally(name)` applies that diff to the upstream (`adds`/`edits` write the item, tombstone `deletes` remove it), rebuilds the upstream index, and removes the merged branch folder. Merge targets the canonical branch only; a mirror is read-only and never a merge target.
 
 === Postgres branching tables
 
@@ -5076,8 +5097,9 @@ Items created on a branch only exist in `branch_changes` (with `change_type = 'c
 
 === Branch naming
 
-Branch names follow Git conventions. When translated to a Postgres schema name or S3 prefix, `/` becomes `__` (double underscore). Examples: `main` → `main`, `feature/new-types` → `feature__new-types`.
+Branch names may contain `/` (a common convention, e.g. `feature/new-types`). When translated to an on-disk folder, Postgres schema name, or S3 prefix, `/` becomes `__` (double underscore). Examples: `main` → `main`, `feature/new-types` → `feature__new-types`. This encoding is a naming convention only — it does not imply any Git dependency.
 
+[#sync-model]
 === Sync model
 
 Kanecta's sync model follows the Git mental model applied to knowledge graph datastores — branch freely, experiment locally, share deliberately, merge with confidence. Syncing is always *explicit and inspectable*. Kanecta never silently merges in the background.
