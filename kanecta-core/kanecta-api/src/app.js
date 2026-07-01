@@ -153,23 +153,14 @@ async function withChildCounts(ds, items) {
     }
   }
 
-  // Resolve icons: typeId → type item → schema.meta.icon
-  const typeIds = [...new Set(items.map(i => i.typeId).filter(Boolean))];
-  const iconByTypeId = {};
-  await Promise.all(typeIds.map(async tid => {
-    try {
-      const schema = await ds.readTypeJson(tid);
-      iconByTypeId[tid] = schema?.meta?.icon ?? null;
-    } catch { iconByTypeId[tid] = null; }
-  }));
-
+  // icon is already resolved on the flat read model by the adapter (item.icon);
+  // here we only add derived child counts + the object-payload flag.
   return Promise.all(items.map(async item => {
     if (item._synthetic) return item;
     const realCount = counts.get(item.id) || 0;
     const obj = await ds.readObjectJson(item.id);
     const synCount = obj ? Object.keys(obj).length : 0;
-    const icon = item.typeId ? (iconByTypeId[item.typeId] ?? null) : null;
-    return { ...item, icon, childCount: realCount + synCount, _hasObject: synCount > 0 };
+    return { ...item, childCount: realCount + synCount, _hasObject: synCount > 0 };
   }));
 }
 
@@ -635,9 +626,14 @@ app.get('/items/:id', async (req, res) => {
   if (!isValidId(id)) return res.status(400).json({ error: 'Invalid ID format' });
   const ds = await openDatastore(res);
   if (!ds) return;
-  const doc = await ds.getDocument(id);
-  if (!doc) return res.status(404).json({ error: 'Item not found' });
-  res.json(doc);
+  const item = await ds.get(id);
+  if (!item) return res.status(404).json({ error: 'Item not found' });
+  // Flat read model: promoted item+meta fields, resolved icon, child counts,
+  // and the object data kept boxed under `payload` (no clash with basic fields).
+  const [flat] = await withChildCounts(ds, [item]);
+  const payload = await ds.readObjectJson(id);
+  if (payload && Object.keys(payload).length) flat.payload = payload;
+  res.json(flat);
 });
 
 // PUT /items/:id — update item

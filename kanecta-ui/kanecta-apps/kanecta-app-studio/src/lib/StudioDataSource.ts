@@ -1,35 +1,13 @@
 import type { DataSource, KanectaItem, QueryFilter } from '@kanecta/component-core';
-import type { KanectaItemDocument } from '@kanecta/api-client';
 import { createApi } from '../api';
 
 type StudioApi = ReturnType<typeof createApi>;
 
-function docToFlat(doc: KanectaItemDocument): KanectaItem {
-  return {
-    id: doc.item.id,
-    parentId: doc.item.parentId ?? undefined,
-    type: doc.item.type as KanectaItem['type'],
-    typeId: doc.item.typeId ?? undefined,
-    value: doc.item.value ?? undefined,
-    sortOrder: doc.item.sortOrder ?? 0,
-    tags: doc.meta.tags ?? [],
-    confidence: doc.meta.confidence ?? null,
-    status: doc.meta.status ?? null,
-    createdAt: doc.meta.createdAt,
-    modifiedAt: doc.meta.modifiedAt,
-    completedAt: doc.meta.completedAt ?? null,
-    icon: doc.meta.icon ?? null,
-    childCount: doc.childCount,
-    _hasObject: doc._hasObject,
-    _synthetic: doc._synthetic,
-  } as KanectaItem;
-}
-
 export function createStudioDataSource(api: StudioApi): DataSource {
   return {
     async get(id) {
-      const doc = await api.items.get(id) as unknown as KanectaItemDocument;
-      return docToFlat(doc) as KanectaItem;
+      // api.items.get already returns the flat read model.
+      return api.items.get(id) as unknown as KanectaItem;
     },
 
     async query(filter: QueryFilter) {
