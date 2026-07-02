@@ -351,6 +351,49 @@ app.post('/working-sets/:name/branches/:branch/switch', async (req, res) => {
   }
 });
 
+// GET /working-sets/:name/branches/:branch/diff — change counts vs upstream
+app.get('/working-sets/:name/branches/:branch/diff', async (req, res) => {
+  const { name, branch } = req.params;
+  const appCfg = readAppConfig();
+  const ws = appCfg?.workingSets?.[name];
+  const local = workingSetLocal(ws);
+  if (!local) return res.status(404).json({ error: `Working set '${name}' not found or has no local datastore` });
+  try {
+    const ds = Datastore.open(local.localPath);
+    const diff = ds.branchDiff(branch);
+    res.json({
+      branch,
+      adds: diff.adds.length,
+      edits: diff.edits.length,
+      deletes: diff.deletes.length,
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// POST /working-sets/:name/branches/:branch/merge — merge a branch into main
+// (the local "create PR" action). Applies the branch's diff to main, removes the
+// branch folder, and leaves the working set active on main.
+app.post('/working-sets/:name/branches/:branch/merge', async (req, res) => {
+  const { name, branch } = req.params;
+  if (branch === 'main') return res.status(400).json({ error: 'Cannot merge main into itself' });
+  const appCfg = readAppConfig();
+  const ws = appCfg?.workingSets?.[name];
+  const local = workingSetLocal(ws);
+  if (!local) return res.status(404).json({ error: `Working set '${name}' not found or has no local datastore` });
+  try {
+    const ds = Datastore.open(local.localPath);
+    ds.useBranch('main'); // merge target must be active
+    const result = ds.mergeBranchLocally(branch);
+    setActiveBranch(name, 'main'); // the merged branch folder is now gone
+    _datastoreCache = null;
+    res.json({ ok: true, merged: result.merged });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // POST /open-in-vscode — open a path in VS Code
 app.post('/open-in-vscode', async (req, res) => {
   const { path: targetPath } = req.body;

@@ -1,0 +1,22 @@
+.NewBranchDialog {
+  &__content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 8px;
+  }
+
+  &__fill {
+    margin-top: 4px;
+  }
+
+  &__upstream {
+    margin-top: 4px;
+  }
+
+  &__error {
+    margin: 4px 0 0;
+    color: #c62828;
+    font-size: 0.8125rem;
+  }
+}
