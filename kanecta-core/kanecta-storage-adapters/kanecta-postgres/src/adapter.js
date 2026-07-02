@@ -307,8 +307,11 @@ class PostgresAdapter {
       // Update all descendants whose path starts with the old prefix.
       // SUBSTRING(path FROM length) extracts the part after the old prefix.
       await this._pool.query(
+        // $2::int forces SUBSTRING's positional form; without the cast an
+        // untyped parameter is treated as the regex-pattern form and returns
+        // null, wiping every descendant's path.
         `UPDATE items
-         SET path = $1 || '/' || SUBSTRING(path FROM $2)
+         SET path = $1 || '/' || SUBSTRING(path FROM $2::int)
          WHERE path LIKE $3 AND id != $4`,
         [newPath, oldPrefix.length + 1, oldPrefix + '%', id],
       );
@@ -524,6 +527,9 @@ class PostgresAdapter {
     const warnings = await this.deleteWarnings(id);
     await this._snapshot(item, 'delete', actor, now);
     await this._pool.query('DELETE FROM aliases WHERE target_id = $1', [id]);
+    // Derived backlink rows reference items via FK in both directions — clear
+    // them before removing the item.
+    await this._pool.query('DELETE FROM links WHERE source_id = $1 OR target_id = $1', [id]);
     await this._pool.query('DELETE FROM items WHERE id = $1', [id]);
     return { warnings };
   }
@@ -772,6 +778,7 @@ class PostgresAdapter {
     // Build parent→children map and DFS-traverse for deterministic order.
     const byParent = new Map();
     for (const item of items) {
+      if (item.id === item.parentId) continue; // root is self-parented — never nest it under itself
       const pid = item.parentId;
       if (!byParent.has(pid)) byParent.set(pid, []);
       byParent.get(pid).push(item);
@@ -886,7 +893,11 @@ class PostgresAdapter {
       }
     }
 
-    if (type && !typeWarning) {
+    if (type && typeWarning) {
+      // Unknown type (non-strict): it matches nothing — return an empty set
+      // with the warning attached, rather than silently ignoring the filter.
+      conditions.push('FALSE');
+    } else if (type) {
       conditions.push(
         `(type = $${p} OR (type = 'object' AND type_id IN (SELECT id FROM items WHERE value = $${p} AND type = 'type')))`,
       );
