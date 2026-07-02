@@ -153,9 +153,37 @@ class PostgresAdapter {
     const path = require('path');
     const dir  = path.join(__dirname, '..', 'migrations');
     const files = fs.readdirSync(dir).filter(f => f.endsWith('.sql')).sort();
+
+    // Migrations are forward-only and run exactly once, in filename order. A
+    // ledger records what's been applied so reopening a datastore does not
+    // re-run (and fail on) non-idempotent statements like ADD CONSTRAINT.
+    await this._pool.query(
+      `CREATE TABLE IF NOT EXISTS schema_migrations (
+         filename   TEXT PRIMARY KEY,
+         applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+       )`,
+    );
+
+    // Baseline: a schema that was already migrated before this ledger existed
+    // (items table present, no ledger rows) is recorded as fully applied so we
+    // never re-run migrations against a live database.
+    const { rows: count } = await this._pool.query('SELECT COUNT(*)::int AS n FROM schema_migrations');
+    if (count[0].n === 0) {
+      const { rows: has } = await this._pool.query("SELECT to_regclass('items') IS NOT NULL AS has_items");
+      if (has[0].has_items) {
+        for (const file of files) {
+          await this._pool.query('INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING', [file]);
+        }
+        return;
+      }
+    }
+
+    const { rows } = await this._pool.query('SELECT filename FROM schema_migrations');
+    const applied = new Set(rows.map(r => r.filename));
     for (const file of files) {
-      const sql = fs.readFileSync(path.join(dir, file), 'utf8');
-      await this._pool.query(sql);
+      if (applied.has(file)) continue;
+      await this._pool.query(fs.readFileSync(path.join(dir, file), 'utf8'));
+      await this._pool.query('INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING', [file]);
     }
   }
 
@@ -1254,9 +1282,12 @@ class PostgresAdapter {
     await this._pool.query(
       `INSERT INTO items (id, spec_version, parent_id, path, value, type, owner, license, sort_order,
          created_at, modified_at, created_by, modified_by)
-       VALUES ($1, $2, $1, $1, $3, 'type', $4, $5, 0, $6, $6, $4, $4)
+       VALUES ($1, $2, $1, $7, $3, 'type', $4, $5, 0, $6, $6, $4, $4)
        ON CONFLICT (id) DO NOTHING`,
-      [id, specVersion, value.trim(), owner, DEFAULT_LICENSE, now],
+      // $7 is the text `path` (a type item's path is its own id). It is a
+      // separate parameter from $1 (uuid id/parent_id) so PG doesn't try to
+      // deduce one type for a value used as both uuid and text.
+      [id, specVersion, value.trim(), owner, DEFAULT_LICENSE, now, String(id)],
     );
 
     const resolvedSchema = schema || {

@@ -73,9 +73,21 @@ INSERT INTO rel_types (type) VALUES
   ('blocks'), ('blocked-by'), ('prerequisite-for'), ('derived-from'), ('supersedes')
 ON CONFLICT DO NOTHING;
 
--- ── history.change_type: add soft-delete and restore ─────────────────────────
+-- ── history.change_type: widen + add soft-delete and restore ─────────────────
+-- The 001 column is VARCHAR(10); 'soft-delete' (11 chars) overflows it, so widen
+-- before expanding the allowed values.
 
+ALTER TABLE history ALTER COLUMN change_type TYPE VARCHAR(20);
 ALTER TABLE history DROP CONSTRAINT IF EXISTS chk_history_change_type;
 ALTER TABLE history ADD CONSTRAINT chk_history_change_type CHECK (
   change_type IN ('create', 'update', 'delete', 'soft-delete', 'restore')
+);
+
+-- ── functions.return_type: a function may declare no return type ──────────────
+-- The 002 CHECK required exactly one of return_type / return_type_id; 1.4.0
+-- allows neither (an undeclared return). Forbid only both being set at once.
+
+ALTER TABLE functions DROP CONSTRAINT IF EXISTS chk_functions_return_type;
+ALTER TABLE functions ADD CONSTRAINT chk_functions_return_type CHECK (
+  NOT (return_type IS NOT NULL AND return_type_id IS NOT NULL)
 );
