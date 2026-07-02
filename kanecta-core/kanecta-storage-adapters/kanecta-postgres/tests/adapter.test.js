@@ -1081,8 +1081,19 @@ describe('rebuildIndexes', () => {
 
 describe('checkIntegrity', () => {
   test('returns [] for a clean datastore', async () => {
-    const findings = await adapter.checkIntegrity({ checks: ['orphan-type-id'] });
-    expect(findings).toEqual([]);
+    // Use an isolated schema: the shared test schema accumulates the orphan
+    // objects other tests create, so "clean" must be its own fresh datastore.
+    const cleanSchema = `clean_${crypto.randomBytes(4).toString('hex')}`;
+    await adminPool.query(`CREATE SCHEMA "${cleanSchema}"`);
+    const cleanPool = new Pool({ connectionString: CONNECTION_STRING, options: `-c search_path="${cleanSchema}"` });
+    try {
+      const clean = await PostgresAdapter.init(cleanPool, OWNER);
+      const findings = await clean.checkIntegrity({ checks: ['orphan-type-id'] });
+      expect(findings).toEqual([]);
+    } finally {
+      await cleanPool.end();
+      await adminPool.query(`DROP SCHEMA IF EXISTS "${cleanSchema}" CASCADE`);
+    }
   });
 
   test('detects orphan-type-id', async () => {
@@ -1281,13 +1292,24 @@ describe('semantic / hybrid search', () => {
   });
 
   test('processPendingEmbeddings drains the queue', async () => {
-    const item = await semanticAdapter.create({ value: 'queued for background embedding' });
-    const { rows: queued } = await pool.query('SELECT 1 FROM pending_embeddings WHERE item_id = $1', [item.id]);
-    expect(queued).toHaveLength(1);
-    const result = await semanticAdapter.processPendingEmbeddings({ limit: 100 });
-    expect(result.embedded).toBeGreaterThan(0);
-    const { rows: remaining } = await pool.query('SELECT 1 FROM pending_embeddings WHERE item_id = $1', [item.id]);
-    expect(remaining).toHaveLength(0);
+    // Isolated schema: the shared schema accumulates 100s of queued items from
+    // other tests, so this item (newest) may fall outside any single batch.
+    const s = `emb_${crypto.randomBytes(4).toString('hex')}`;
+    await adminPool.query(`CREATE SCHEMA "${s}"`);
+    const p = new Pool({ connectionString: CONNECTION_STRING, options: `-c search_path="${s}"` });
+    try {
+      await PostgresAdapter.init(p, OWNER);
+      const emb = await PostgresAdapter.open(p, { embeddings: { provider: 'mock', dimensions: 16 } });
+      const item = await emb.create({ value: 'queued for background embedding' });
+      expect((await p.query('SELECT 1 FROM pending_embeddings WHERE item_id = $1', [item.id])).rows).toHaveLength(1);
+      const result = await emb.processPendingEmbeddings({ limit: 100 });
+      expect(result.embedded).toBeGreaterThan(0);
+      const { rows: remaining } = await p.query('SELECT 1 FROM pending_embeddings WHERE item_id = $1', [item.id]);
+      expect(remaining).toHaveLength(0);
+    } finally {
+      await p.end();
+      await adminPool.query(`DROP SCHEMA IF EXISTS "${s}" CASCADE`);
+    }
   });
 
   test('semanticSearch and hybridSearch behave correctly without provider', async () => {
