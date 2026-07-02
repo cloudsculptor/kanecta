@@ -18,9 +18,12 @@
  *
  * Options:
  *   --dry-run                Parse and report only; write nothing.
- *   --max-text-chars <n>     Cap stored turn text (default 20000; 0 = unlimited).
- *   --max-result-chars <n>   Cap stored tool-result text (default 20000; 0 = unlimited).
  *   -h, --help               Show this help.
+ *
+ * Transcripts import as typed objects (claude-session / claude-turn /
+ * claude-tool-call) with each tool call's arguments as child `property` items.
+ * Text is stored in full (never truncated). Import is idempotent — re-running
+ * updates in place and appends new turns.
  */
 
 const os = require('os');
@@ -82,16 +85,6 @@ async function main() {
     process.exit(1);
   }
 
-  const toNum = (v, dflt) => {
-    if (v == null) return dflt;
-    const n = Number(v);
-    return n === 0 ? Infinity : n; // 0 = unlimited
-  };
-  const opts = {
-    maxTextChars: toNum(flags['max-text-chars'], 20000),
-    maxResultChars: toNum(flags['max-result-chars'], 20000),
-  };
-
   console.log(`${flags.dryRun ? '[dry-run] ' : ''}Importing ${files.length} transcript file(s) from ${target}`);
 
   const ds = flags.dryRun ? null : await openDatastore(flags);
@@ -109,7 +102,7 @@ async function main() {
       } else {
         const text = fs.readFileSync(file, 'utf8');
         for (const session of parseTranscript(text)) {
-          const st = await importSession(ds, session, opts);
+          const st = await importSession(ds, session);
           totals.sessions++;
           totals.created += st.created;
           totals.updated += st.updated;

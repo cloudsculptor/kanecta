@@ -3,36 +3,30 @@
 const fs = require('fs');
 const path = require('path');
 const { parseTranscript } = require('./parse');
+const { ensureTypes, TYPE_IDS } = require('./types');
 
 /**
- * Import parsed Claude Code transcripts into a Kanecta datastore as items.
+ * Import parsed Claude Code transcripts into a Kanecta datastore as TYPED OBJECTS.
+ *
+ * Every entity is a `type:'object'` item whose payload is a flat, schema-defined
+ * shape (see ./types.js) — portable across the filesystem and Postgres backends.
+ * Variable maps (a tool call's arguments, a session's model list) are decomposed
+ * into child `property` (key-value) items, because a flat SQL row cannot hold a
+ * per-tool-varying map and the canonical schema has no JSON column.
  *
  * The import is DETERMINISTIC and IDEMPOTENT: every entity carries a stable
  * external key (`sourceSystem = 'claude-code'`, `sourceExternalId = <kind>:<id>`),
- * and each upsert is `bySource() ? update() : create()`. Re-importing the same
- * (or a grown) transcript never duplicates — it updates in place and appends new
- * turns. This is the "log everything Claude does into Connector" foundation.
+ * and each upsert is `bySource() ? update() : create()`. Re-importing the same (or
+ * a grown) transcript never duplicates — it updates in place and appends new turns.
  *
- * Item shape (everything-is-an-item; structured data on the object payload):
- *
- *   claude-session          (child of root; key session:<sessionId>)
+ *   claude-session          (child of root;    key session:<sessionId>)
+ *     ├─ property            (a model used;     key session:<sessionId>:model:<m>)
  *     └─ claude-turn         (child of session; key turn:<uuid>)
  *          └─ claude-tool-call  (child of turn; key tool:<toolUseId>)
+ *               └─ property     (an argument;   key tool:<toolUseId>:param:<name>)
  */
 
 const SOURCE_SYSTEM = 'claude-code';
-
-const TYPE_SESSION = 'claude-session';
-const TYPE_TURN = 'claude-turn';
-const TYPE_TOOL_CALL = 'claude-tool-call';
-
-const DEFAULTS = { maxTextChars: 20000, maxResultChars: 20000 };
-
-function truncate(str, max) {
-  if (typeof str !== 'string') return { text: str, truncated: false };
-  if (max === Infinity || str.length <= max) return { text: str, truncated: false };
-  return { text: str.slice(0, max) + `\n…[truncated ${str.length - max} chars]`, truncated: true };
-}
 
 function snippet(str, max = 100) {
   const s = String(str ?? '').replace(/\s+/g, ' ').trim();
@@ -59,112 +53,153 @@ function turnLabel(turn) {
   return `[${turn.kind}]`;
 }
 
-/**
- * Idempotent upsert by external key. Returns { item, created }.
- * `payload` (when provided) is written to the item's object payload.
- */
-async function upsert(ds, { key, type, value, parentId, sortOrder, payload }) {
-  const existing = await ds.bySource(SOURCE_SYSTEM, key);
-  let item;
-  let created;
-  if (existing) {
-    const changes = { value };
-    if (parentId != null && existing.parentId !== parentId) changes.parentId = parentId;
-    item = await ds.update(existing.id, changes);
-    created = false;
-  } else {
-    item = await ds.create({
-      type, value, parentId,
-      ...(sortOrder != null ? { sortOrder } : {}),
-      sourceSystem: SOURCE_SYSTEM, sourceExternalId: key,
-    });
-    created = true;
-  }
-  if (payload !== undefined) await ds.writeObjectJson(item.id, payload);
-  return { item, created };
+/** Coerce any tool-argument value to the `property.value` TEXT column. */
+function toText(v) {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'object') return JSON.stringify(v);
+  return String(v);
 }
 
 /**
- * Import one normalised session (from parseTranscript) into `ds`.
- * Returns per-run stats.
+ * Idempotent upsert of a typed-object item by external key. Returns
+ * { item, created }. `objectData` is the typed payload (columns).
  */
-async function importSession(ds, session, opts = {}) {
-  const { maxTextChars, maxResultChars } = { ...DEFAULTS, ...opts };
-  const stats = { sessionId: session.sessionId, created: 0, updated: 0, turns: 0, toolCalls: 0 };
-  const bump = (created) => (created ? stats.created++ : stats.updated++);
+async function upsert(ds, { key, typeId, value, parentId, sortOrder, objectData }) {
+  const existing = await ds.bySource(SOURCE_SYSTEM, key);
+  if (existing) {
+    const changes = { value };
+    if (parentId != null && existing.parentId !== parentId) changes.parentId = parentId;
+    await ds.update(existing.id, changes);
+    if (objectData !== undefined) await ds.writeObjectJson(existing.id, objectData);
+    return { item: existing, created: false };
+  }
+  const item = await ds.create({
+    type: 'object', typeId, value, parentId,
+    ...(sortOrder != null ? { sortOrder } : {}),
+    objectData,
+    sourceSystem: SOURCE_SYSTEM, sourceExternalId: key,
+  });
+  return { item, created: true };
+}
 
-  // 1. Session item (under root).
-  const sessionRes = await upsert(ds, {
+/** Upsert one child `property` item. */
+async function upsertProperty(ds, { key, parentId, sortOrder, name, value }) {
+  return upsert(ds, {
+    key,
+    typeId: TYPE_IDS.property,
+    value: name,
+    parentId,
+    sortOrder,
+    objectData: { name, value },
+  });
+}
+
+/**
+ * Import one normalised session (from parseTranscript) into `ds` as typed
+ * objects. Ensures the transcript types exist first (idempotent). Returns stats.
+ */
+async function importSession(ds, session) {
+  await ensureTypes(ds);
+
+  const stats = { sessionId: session.sessionId, created: 0, updated: 0, turns: 0, toolCalls: 0, properties: 0 };
+  const bump = (r) => { r.created ? stats.created++ : stats.updated++; return r; };
+
+  // 1. Session object (under root).
+  const sessionRes = bump(await upsert(ds, {
     key: `session:${session.sessionId}`,
-    type: TYPE_SESSION,
+    typeId: TYPE_IDS.session,
     value: sessionLabel(session),
     parentId: null,
-    payload: {
+    objectData: {
       sessionId: session.sessionId,
       cwd: session.cwd,
       gitBranch: session.gitBranch,
       version: session.version,
       startedAt: session.startedAt,
       endedAt: session.endedAt,
-      models: session.models,
-      tokens: session.tokens,
       turnCount: session.turnCount,
       toolCallCount: session.toolCallCount,
+      tokensInput: session.tokens.input,
+      tokensOutput: session.tokens.output,
+      tokensCacheCreation: session.tokens.cacheCreation,
+      tokensCacheRead: session.tokens.cacheRead,
     },
-  });
-  bump(sessionRes.created);
+  }));
   const sessionId = sessionRes.item.id;
+
+  // 1a. The session's models — a scalar list, decomposed into child properties.
+  let modelIdx = 0;
+  for (const model of session.models) {
+    bump(await upsertProperty(ds, {
+      key: `session:${session.sessionId}:model:${model}`,
+      parentId: sessionId,
+      sortOrder: modelIdx++,
+      name: 'model',
+      value: model,
+    }));
+    stats.properties++;
+  }
 
   // 2. Turns (children of the session), in transcript order.
   let turnIndex = 0;
   for (const turn of session.turns) {
     if (!turn.uuid) continue; // cannot key a turn without an id
-    const textCap = truncate(turn.text, maxTextChars);
-    const turnRes = await upsert(ds, {
+    const turnRes = bump(await upsert(ds, {
       key: `turn:${turn.uuid}`,
-      type: TYPE_TURN,
+      typeId: TYPE_IDS.turn,
       value: turnLabel(turn),
       parentId: sessionId,
       sortOrder: turnIndex++,
-      payload: {
+      objectData: {
         kind: turn.kind,
         timestamp: turn.timestamp,
         model: turn.model,
-        usage: turn.usage,
+        usageInput: turn.usage ? turn.usage.input : null,
+        usageOutput: turn.usage ? turn.usage.output : null,
+        usageCacheCreation: turn.usage ? turn.usage.cacheCreation : null,
+        usageCacheRead: turn.usage ? turn.usage.cacheRead : null,
         parentUuid: turn.parentUuid,
         isSidechain: turn.isSidechain,
         agentId: turn.agentId,
-        text: textCap.text,
-        textTruncated: textCap.truncated,
+        text: turn.text,
         textLength: (turn.text || '').length,
-        toolCallCount: turn.toolCalls.length,
       },
-    });
-    bump(turnRes.created);
+    }));
     stats.turns++;
 
     // 3. Tool calls (children of the turn).
     let toolIndex = 0;
     for (const call of turn.toolCalls) {
       if (!call.toolUseId) continue;
-      const resultCap = truncate(call.result, maxResultChars);
-      const callRes = await upsert(ds, {
+      const callRes = bump(await upsert(ds, {
         key: `tool:${call.toolUseId}`,
-        type: TYPE_TOOL_CALL,
+        typeId: TYPE_IDS.toolCall,
         value: call.name || 'tool call',
         parentId: turnRes.item.id,
         sortOrder: toolIndex++,
-        payload: {
+        objectData: {
           name: call.name,
           toolUseId: call.toolUseId,
-          input: call.input,
-          result: resultCap.text,
-          resultTruncated: resultCap.truncated,
           isError: call.isError,
+          result: call.result,
         },
-      });
-      bump(callRes.created);
+      }));
       stats.toolCalls++;
+
+      // 3a. The tool's arguments — a variable map, decomposed into properties.
+      let paramIdx = 0;
+      const input = call.input && typeof call.input === 'object' ? call.input : {};
+      for (const [name, raw] of Object.entries(input)) {
+        bump(await upsertProperty(ds, {
+          key: `tool:${call.toolUseId}:param:${name}`,
+          parentId: callRes.item.id,
+          sortOrder: paramIdx++,
+          name,
+          value: toText(raw),
+        }));
+        stats.properties++;
+      }
     }
   }
 
@@ -172,12 +207,12 @@ async function importSession(ds, session, opts = {}) {
 }
 
 /** Read a transcript JSONL file and import every session it contains. */
-async function importTranscriptFile(ds, filePath, opts = {}) {
+async function importTranscriptFile(ds, filePath) {
   const text = fs.readFileSync(filePath, 'utf8');
   const sessions = parseTranscript(text);
   const results = [];
   for (const session of sessions) {
-    results.push(await importSession(ds, session, opts));
+    results.push(await importSession(ds, session));
   }
   return results;
 }
@@ -200,9 +235,8 @@ function findTranscriptFiles(dir) {
 
 module.exports = {
   SOURCE_SYSTEM,
-  TYPE_SESSION,
-  TYPE_TURN,
-  TYPE_TOOL_CALL,
+  TYPE_IDS,
+  ensureTypes,
   importSession,
   importTranscriptFile,
   findTranscriptFiles,

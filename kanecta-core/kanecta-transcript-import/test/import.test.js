@@ -7,7 +7,7 @@ const path = require('path');
 const fs = require('fs');
 const { Datastore } = require('@kanecta/lib');
 const { parseTranscript } = require('../src/parse');
-const { importSession, SOURCE_SYSTEM } = require('../src/import');
+const { importSession, SOURCE_SYSTEM, TYPE_IDS } = require('../src/import');
 
 function tmpDs() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'kanecta-transcript-'));
@@ -17,6 +17,9 @@ function tmpDs() {
 function makeTranscript(turns) {
   return turns.map((t) => JSON.stringify(t)).join('\n');
 }
+
+const childrenOfType = async (ds, id, typeId) =>
+  (await ds.children(id)).filter((c) => c.typeId === typeId);
 
 const BASE = [
   { type: 'user', uuid: 'u1', timestamp: '2026-06-01T10:00:00Z', sessionId: 's1', cwd: '/p', message: { role: 'user', content: 'Add a feature' } },
@@ -34,7 +37,11 @@ const BASE = [
   { type: 'user', uuid: 'u2', timestamp: '2026-06-01T10:00:08Z', sessionId: 's1', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'toolu_1', content: 'file.txt', is_error: false }] } },
 ];
 
-test('imports a session as session → turn → tool-call items', async () => {
+// Item count for BASE: session(1) + model-property(1) + 3 turns + tool-call(1) +
+// tool-arg property(1) = 7.
+const BASE_ITEMS = 7;
+
+test('imports a session as typed objects (session → turn → tool-call), payload in columns', async () => {
   const { ds, root } = tmpDs();
   try {
     const [session] = parseTranscript(makeTranscript(BASE));
@@ -42,29 +49,60 @@ test('imports a session as session → turn → tool-call items', async () => {
 
     assert.equal(stats.turns, 3);
     assert.equal(stats.toolCalls, 1);
-    assert.equal(stats.created, 5); // 1 session + 3 turns + 1 tool call
+    assert.equal(stats.properties, 2); // 1 model + 1 tool arg
+    assert.equal(stats.created, BASE_ITEMS);
 
-    // Session item, found by its external key.
+    // Session is a typed object; its payload holds the flat columns.
     const sess = await ds.bySource(SOURCE_SYSTEM, 'session:s1');
     assert.ok(sess, 'session item exists');
-    assert.equal(sess.type, 'claude-session');
-    const sessPayload = await ds.readObjectJson(sess.id);
-    assert.equal(sessPayload.tokens.output, 2);
-    assert.equal(sessPayload.turnCount, 3);
+    assert.equal(sess.type, 'object');
+    assert.equal(sess.typeId, TYPE_IDS.session);
+    const sp = await ds.readObjectJson(sess.id);
+    assert.equal(sp.tokensOutput, 2);
+    assert.equal(sp.turnCount, 3);
+    assert.equal(sp.sessionId, 's1');
 
-    // Turns are children of the session. (children() also surfaces the object
-    // payload's fields as synthetic nodes — the documented spec gap — so filter
-    // to the real turn items by type, as consumers do.)
-    const turns = (await ds.children(sess.id)).filter((c) => c.type === 'claude-turn');
+    // The session's model is a child `property`.
+    const models = await childrenOfType(ds, sess.id, TYPE_IDS.property);
+    assert.equal(models.length, 1);
+    assert.deepEqual(await ds.readObjectJson(models[0].id), { name: 'model', value: 'claude-opus-4-8' });
+
+    // Turns are typed-object children of the session.
+    const turns = await childrenOfType(ds, sess.id, TYPE_IDS.turn);
     assert.equal(turns.length, 3);
 
-    // The assistant turn owns the tool-call child, with its result merged in.
+    // The assistant turn owns the tool-call, with its result merged in.
     const asst = await ds.bySource(SOURCE_SYSTEM, 'turn:a1');
-    const toolCalls = (await ds.children(asst.id)).filter((c) => c.type === 'claude-tool-call');
+    const toolCalls = await childrenOfType(ds, asst.id, TYPE_IDS.toolCall);
     assert.equal(toolCalls.length, 1);
-    const callPayload = await ds.readObjectJson(toolCalls[0].id);
-    assert.equal(callPayload.name, 'Bash');
-    assert.equal(callPayload.result, 'file.txt');
+    const cp = await ds.readObjectJson(toolCalls[0].id);
+    assert.equal(cp.name, 'Bash');
+    assert.equal(cp.result, 'file.txt');
+
+    // The tool call's argument is a child `property`.
+    const args = await childrenOfType(ds, toolCalls[0].id, TYPE_IDS.property);
+    assert.equal(args.length, 1);
+    assert.deepEqual(await ds.readObjectJson(args[0].id), { name: 'command', value: 'ls' });
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('seeds the four transcript types (idempotently)', async () => {
+  const { ds, root } = tmpDs();
+  try {
+    await importSession(ds, parseTranscript(makeTranscript(BASE))[0]);
+    // A second import must not re-create the types.
+    await importSession(ds, parseTranscript(makeTranscript(BASE))[0]);
+    for (const [name, id] of Object.entries(TYPE_IDS)) {
+      const t = await ds.get(id);
+      assert.ok(t, `type ${name} exists`);
+      assert.equal(t.type, 'type');
+      // resolveTypeId maps the title back to our fixed id — proving no duplicate
+      // type was created under a fresh id on the second import.
+      const r = await ds.resolveTypeId(t.value);
+      assert.equal(r.id, id, `type ${name} resolves to its fixed id`);
+    }
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -79,7 +117,7 @@ test('re-importing the identical transcript creates nothing new (idempotent)', a
 
     const stats2 = await importSession(ds, session);
     assert.equal(stats2.created, 0);
-    assert.equal(stats2.updated, 5);
+    assert.equal(stats2.updated, BASE_ITEMS);
 
     const after = (await ds.loadAll()).length;
     assert.equal(after, before, 'no duplicate items on re-import');
@@ -88,7 +126,7 @@ test('re-importing the identical transcript creates nothing new (idempotent)', a
   }
 });
 
-test('re-importing a grown transcript appends only the new turns', async () => {
+test('re-importing a grown transcript appends only the new items', async () => {
   const { ds, root } = tmpDs();
   try {
     await importSession(ds, parseTranscript(makeTranscript(BASE))[0]);
@@ -108,35 +146,35 @@ test('re-importing a grown transcript appends only the new turns', async () => {
     ];
     const stats = await importSession(ds, parseTranscript(makeTranscript(grown))[0]);
 
-    // Exactly two new items: the new turn + its tool call. Everything else updates.
-    assert.equal(stats.created, 2);
+    // Three new items: the new turn + its tool call + its one arg property.
+    assert.equal(stats.created, 3);
     const after = (await ds.loadAll()).length;
-    assert.equal(after, before + 2);
+    assert.equal(after, before + 3);
 
     // Session token totals are refreshed to include the new turn.
     const sess = await ds.bySource(SOURCE_SYSTEM, 'session:s1');
     const payload = await ds.readObjectJson(sess.id);
-    assert.equal(payload.tokens.output, 6); // 2 + 4
+    assert.equal(payload.tokensOutput, 6); // 2 + 4
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
 
-test('caps oversized text and marks it truncated', async () => {
+test('stores large text in full (no truncation, no offload)', async () => {
   const { ds, root } = tmpDs();
   try {
-    const big = 'x'.repeat(500);
+    const big = 'x'.repeat(200000);
     const evts = [
       { type: 'user', uuid: 'u1', timestamp: '2026-06-01T10:00:00Z', sessionId: 'big', message: { role: 'user', content: big } },
     ];
     const [session] = parseTranscript(makeTranscript(evts));
-    await importSession(ds, session, { maxTextChars: 100 });
+    await importSession(ds, session);
 
     const turn = await ds.bySource(SOURCE_SYSTEM, 'turn:u1');
     const payload = await ds.readObjectJson(turn.id);
-    assert.equal(payload.textTruncated, true);
-    assert.equal(payload.textLength, 500);
-    assert.ok(payload.text.length < 200);
+    assert.equal(payload.textLength, 200000);
+    assert.equal(payload.text.length, 200000);
+    assert.equal(payload.text, big);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
