@@ -58,6 +58,11 @@
           "type": "string",
           "description": "Human-readable name for this document (e.g. 'Executive summary', 'Onboarding guide')."
         },
+        "mode": {
+          "type": "string",
+          "enum": ["document", "tree", "todo"],
+          "description": "How the projected subtree is rendered. 'document' (default) = a well-formed document per roleMap; 'tree' = the interactive tree; 'todo' = the tree with a completion checkbox on each item bound to its completedAt field (checking sets completedAt to now, unchecking clears it)."
+        },
         "expandState": {
           "type": "object",
           "additionalProperties": false,

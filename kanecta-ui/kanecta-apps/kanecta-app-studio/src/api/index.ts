@@ -5,6 +5,7 @@ import { aliasesApi } from './aliases';
 import { relationshipsApi } from './relationships';
 import { tagsApi } from './tags';
 import { treeApi } from './tree';
+import { documentsApi } from './documents';
 import { typesApi } from './types';
 import { breadcrumbApi } from './breadcrumb';
 import { starredApi } from './starred';
@@ -57,6 +58,7 @@ export function createApi(baseUrl: string) {
     relationships: relationshipsApi(client),
     tags: tagsApi(client),
     tree: treeApi(client),
+    documents: documentsApi(client),
     types: typesApi(client),
     breadcrumb: breadcrumbApi(client),
     starred: starredApi(client),

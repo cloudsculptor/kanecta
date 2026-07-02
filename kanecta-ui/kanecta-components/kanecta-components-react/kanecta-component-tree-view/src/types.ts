@@ -9,6 +9,7 @@ export interface KanectaItem {
   tags: string[];
   icon?: string | null;
   status?: string | null;
+  completedAt?: string | null;
   createdAt: string | null;
   modifiedAt: string | null;
   childCount?: number;
@@ -33,6 +34,7 @@ export interface UpdateItemPayload {
   value?: string;
   type?: string;
   parentId?: string;
+  completedAt?: string | null;
 }
 
 export interface TreeEntry {
@@ -122,4 +124,21 @@ export interface TreeViewApi {
   tree: {
     full(depth?: number): Promise<KanectaItemWithChildren[]>;
   };
+  documents: {
+    listForTarget(targetId: string): Promise<Array<{ id: string; payload?: DocumentPayload | null }>>;
+    create(targetId: string, payload: { name: string; mode?: DocumentMode } & Record<string, unknown>): Promise<{ id: string; payload?: DocumentPayload | null }>;
+    update(docId: string, payload: DocumentPayload): Promise<{ ok: boolean }>;
+  };
+}
+
+export type DocumentMode = 'document' | 'tree' | 'todo';
+
+export interface DocumentPayload {
+  targetId: string;
+  name: string;
+  mode?: DocumentMode;
+  expandState?: { defaultDepth?: number; exceptions?: Record<string, number | false> };
+  roleMap?: { byDepth?: Record<string, string>; byType?: Record<string, string> };
+  isOrgDefault?: boolean;
+  baseDocumentId?: string | null;
 }

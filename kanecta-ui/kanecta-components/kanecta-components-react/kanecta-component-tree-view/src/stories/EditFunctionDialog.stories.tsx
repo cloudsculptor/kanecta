@@ -51,6 +51,7 @@ function makeContextValue(itemsOverride: Partial<TreeViewApi['items']> = {}) {
     workspaceKey: undefined,
     vscodeAvailable: false,
     focusedItemId: null,
+    todoMode: false,
     onFocusItem: () => {},
     onSelectItem: () => {},
     onOpenOverlay: () => {},

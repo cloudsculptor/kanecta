@@ -113,8 +113,18 @@ export function TreeNode({
   const [isHovered, setIsHovered] = useState(false);
   const diskConfigRef = useRef<{ datastorePath: string } | null>(null);
   const resolveId = useItemLookup();
-  const { api, vscodeAvailable, onSelectItem: setItemId, onOpenOverlay: openOverlay } = useTreeViewContext();
+  const { api, vscodeAvailable, todoMode, onSelectItem: setItemId, onOpenOverlay: openOverlay } = useTreeViewContext();
   const queryClient = useQueryClient();
+
+  // Todo mode: a completion checkbox bound to completedAt. Headings and synthetic
+  // (payload-field) rows never get one.
+  const showCheckbox = todoMode && !item._synthetic && item.type !== 'heading';
+  const isComplete = item.completedAt != null;
+  const toggleComplete = async (e: React.SyntheticEvent) => {
+    e.stopPropagation();
+    await api.items.update(item.id, { completedAt: isComplete ? null : new Date().toISOString() });
+    void queryClient.invalidateQueries({ queryKey: ['tree-children'] });
+  };
 
   const { data: allAliases = [] } = useQuery({
     queryKey: ['aliases'],
@@ -328,6 +338,17 @@ const allConversionsDestructive = item.type === 'function';
             <ExpandMoreIcon sx={{ fontSize: '18px', width: '18px', height: '18px' }} />
           )}
         </button>
+
+        {showCheckbox && (
+          <input
+            type="checkbox"
+            className="TreeNode-checkbox"
+            checked={isComplete}
+            onClick={(e) => e.stopPropagation()}
+            onChange={toggleComplete}
+            aria-label={isComplete ? 'Mark incomplete' : 'Mark complete'}
+          />
+        )}
 
         {item.icon && !item._synthetic
           ? <DynamicIcon name={item.icon} className="TreeNode-bullet" onClick={(e) => { e.stopPropagation(); onZoom(); onRecordViewed(item.type, item.typeId ?? ''); }} />

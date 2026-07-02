@@ -794,6 +794,64 @@ app.put('/items/:id/object', async (req, res) => {
   res.json({ ok: true });
 });
 
+// ─── Documents (saved subtree projections — see documentPayload) ─────────────
+
+// GET /items/:id/documents — list documents whose targetId is this item
+app.get('/items/:id/documents', async (req, res) => {
+  const { id } = req.params;
+  if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
+  const ds = await openDatastore(res);
+  if (!ds) return;
+  const docs = await ds.listDocuments(id);
+  const withPayload = await Promise.all(
+    docs.map(async (d) => ({ ...d, payload: await ds.readDocumentPayload(d.id) })),
+  );
+  res.json(withPayload);
+});
+
+// POST /items/:id/documents — create a document targeting this item
+app.post('/items/:id/documents', async (req, res) => {
+  const { id } = req.params;
+  if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
+  const ds = await openDatastore(res);
+  if (!ds) return;
+  const { name, mode, expandState, roleMap, isOrgDefault, visibility, baseDocumentId, actor } = req.body;
+  if (!name) return res.status(400).json({ error: 'name is required' });
+  try {
+    const doc = await ds.createDocument(id, name, {
+      mode, expandState, roleMap, isOrgDefault, baseDocumentId, owner: actor, visibility,
+    });
+    res.json({ ...doc, payload: await ds.readDocumentPayload(doc.id) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// GET /documents/:docId — a document's payload
+app.get('/documents/:docId', async (req, res) => {
+  const { docId } = req.params;
+  if (!isUuid(docId)) return res.status(400).json({ error: 'Invalid UUID format' });
+  const ds = await openDatastore(res);
+  if (!ds) return;
+  const payload = await ds.readDocumentPayload(docId);
+  if (!payload) return res.status(404).json({ error: 'Document not found' });
+  res.json(payload);
+});
+
+// PUT /documents/:docId — replace a document's payload
+app.put('/documents/:docId', async (req, res) => {
+  const { docId } = req.params;
+  if (!isUuid(docId)) return res.status(400).json({ error: 'Invalid UUID format' });
+  const ds = await openDatastore(res);
+  if (!ds) return;
+  try {
+    await ds.writeDocumentPayload(docId, req.body);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // POST /items/:id/complete — mark item as completed (sets completedAt to now)
 app.post('/items/:id/complete', async (req, res) => {
   const { id } = req.params;

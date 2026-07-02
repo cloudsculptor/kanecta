@@ -1634,6 +1634,7 @@ class SqliteFsAdapter {
   static get DOCUMENT_TYPE_UUID() { return 'b4e2f1c3-a0d5-4e6f-8b9c-d7f2e1a3b5c0'; }
 
   createDocument(targetId, name, {
+    mode = 'document',
     expandState = null,
     roleMap = null,
     isOrgDefault = false,
@@ -1652,6 +1653,7 @@ class SqliteFsAdapter {
     const payload = {
       targetId,
       name,
+      mode,
       expandState: expandState ?? { defaultDepth: 2, exceptions: {} },
       roleMap: roleMap ?? { byDepth: { '1': 'heading', '2': 'subheading', '3': 'body' }, byType: {} },
       isOrgDefault,

@@ -108,6 +108,18 @@ class KanectaApiClient {
     };
   }
 
+  // ─── Documents (saved subtree projections) ───────────────────────────────────
+
+  get documents() {
+    const c = this;
+    return {
+      listForTarget: (targetId) => c._fetch('GET', `/items/${targetId}/documents`),
+      create: (targetId, payload) => c._fetch('POST', `/items/${targetId}/documents`, payload),
+      get: (docId) => c._fetch('GET', `/documents/${docId}`),
+      update: (docId, payload) => c._fetch('PUT', `/documents/${docId}`, payload),
+    };
+  }
+
   // ─── Aliases ─────────────────────────────────────────────────────────────────
 
   get aliases() {
