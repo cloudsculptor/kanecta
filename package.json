@@ -26,6 +26,7 @@
     "kanecta-core/kanecta-api",
     "kanecta-core/kanecta-cli",
     "kanecta-core/kanecta-mcp",
+    "kanecta-core/kanecta-transcript-import",
     "kanecta-core/kanecta-runner",
     "kanecta-core/kanecta-migrations",
     "kanecta-core/kanecta-system-items",

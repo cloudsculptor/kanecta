@@ -1,0 +1,47 @@
+.MergePullRequestDialog {
+  &__content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 8px;
+  }
+
+  &__summary {
+    margin: 0;
+    font-size: 0.9375rem;
+  }
+
+  &__stats {
+    display: flex;
+    gap: 12px;
+    margin: 4px 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.8125rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__stat {
+    &--add { color: #2e7d32; }
+    &--edit { color: #ed6c02; }
+    &--del { color: #c62828; }
+  }
+
+  &__empty {
+    margin: 0;
+    color: var(--color-text-muted, #888);
+    font-size: 0.8125rem;
+  }
+
+  &__note {
+    margin: 0;
+    color: var(--color-text-muted, #888);
+    font-size: 0.75rem;
+  }
+
+  &__error {
+    margin: 4px 0 0;
+    color: #c62828;
+    font-size: 0.8125rem;
+  }
+}

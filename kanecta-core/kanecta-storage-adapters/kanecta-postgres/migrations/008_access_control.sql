@@ -21,6 +21,8 @@
 ALTER TABLE items
     ADD COLUMN IF NOT EXISTS visibility VARCHAR(20) NOT NULL DEFAULT 'private';
 
+-- Idempotent: migrations re-run on every open, so drop before adding.
+ALTER TABLE items DROP CONSTRAINT IF EXISTS chk_items_visibility;
 ALTER TABLE items
     ADD CONSTRAINT chk_items_visibility CHECK (visibility IN ('private', 'organisation', 'public'));
 
