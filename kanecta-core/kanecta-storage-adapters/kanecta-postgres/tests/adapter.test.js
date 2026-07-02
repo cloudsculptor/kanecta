@@ -48,14 +48,11 @@ describe('init / open', () => {
     expect(adapter.config.spec_version).toBe('1.4.0');
   });
 
-  test('init seeds root and data_root well-known nodes', async () => {
-    const root     = await adapter.getRoot();
-    const dataRoot = await adapter.getDataRoot();
+  test('init seeds the root node', async () => {
+    const root = await adapter.getRoot();
     expect(root).toBeTruthy();
     expect(root.id).toBe(ROOT_ID);
     expect(root.type).toBe('root');
-    expect(dataRoot).toBeTruthy();
-    expect(dataRoot.type).toBe('data_root');
   });
 
   test('open works against existing schema', async () => {
@@ -92,17 +89,15 @@ describe('materialized path', () => {
     expect(await adapter._getPath(ROOT_ID)).toBe(ROOT_ID);
   });
 
-  test('data_root path = ROOT_ID/dataRootId', async () => {
-    const dr   = await adapter.getDataRoot();
-    const path = await adapter._getPath(dr.id);
-    expect(path).toBe(`${ROOT_ID}/${dr.id}`);
+  test('child of root has path ROOT_ID/childId', async () => {
+    const child = await adapter.create({ value: 'root-child' });
+    expect(await adapter._getPath(child.id)).toBe(`${ROOT_ID}/${child.id}`);
   });
 
   test('create computes path from parent', async () => {
     const parent = await adapter.create({ value: 'parent' });
     const child  = await adapter.create({ value: 'child', parentId: parent.id });
-    const dr     = await adapter.getDataRoot();
-    const expected = `${ROOT_ID}/${dr.id}/${parent.id}/${child.id}`;
+    const expected = `${ROOT_ID}/${parent.id}/${child.id}`;
     expect(await adapter._getPath(child.id)).toBe(expected);
   });
 
@@ -155,9 +150,9 @@ describe('ancestors', () => {
   });
 
   test('direct child of root has root as only ancestor', async () => {
-    const dr  = await adapter.getDataRoot();
-    const anc = await adapter.ancestors(dr.id);
-    expect(anc.map(a => a.id)).toContain(ROOT_ID);
+    const child = await adapter.create({ value: 'anc-root-child' });
+    const anc = await adapter.ancestors(child.id);
+    expect(anc.map(a => a.id)).toEqual([ROOT_ID]);
   });
 });
 
@@ -183,10 +178,9 @@ describe('subtreeCount', () => {
 // ─── create ────────────────────────────────────────────────────────────────────
 
 describe('create', () => {
-  test('defaults parentId to data_root', async () => {
-    const dr   = await adapter.getDataRoot();
+  test('defaults parentId to root', async () => {
     const item = await adapter.create({ value: 'default-parent' });
-    expect(item.parentId).toBe(dr.id);
+    expect(item.parentId).toBe(ROOT_ID);
   });
 
   test('respects explicit parentId', async () => {
@@ -244,7 +238,7 @@ describe('create', () => {
 
   test('throws for well-known type names', async () => {
     await expect(adapter.create({ type: 'root' })).rejects.toThrow(/well-known/);
-    await expect(adapter.create({ type: 'data_root' })).rejects.toThrow(/well-known/);
+    await expect(adapter.create({ type: 'root' })).rejects.toThrow(/well-known/);
   });
 
   test('records create event in history', async () => {
@@ -334,15 +328,8 @@ describe('update', () => {
     expect((await adapter.history(item.id)).some(e => e.changeType === 'update')).toBe(true);
   });
 
-  test('throws when editing a reserved root node', async () => {
-    const kids = await adapter.children(ROOT_ID);
-    const sys  = kids.find(c => c.type === 'system_root');
-    await expect(adapter.update(sys.id, { value: 'x' }, OWNER)).rejects.toThrow(/reserved root node/);
-  });
-
-  test('allows editing data_root', async () => {
-    const dr = await adapter.getDataRoot();
-    await expect(adapter.update(dr.id, { value: 'Mine' }, OWNER)).resolves.not.toThrow();
+  test('throws when editing the reserved root node', async () => {
+    await expect(adapter.update(ROOT_ID, { value: 'x' }, OWNER)).rejects.toThrow(/reserved root node/);
   });
 });
 
@@ -371,8 +358,6 @@ describe('delete', () => {
 
   test('throws for well-known nodes', async () => {
     await expect(adapter.delete(ROOT_ID, OWNER)).rejects.toThrow(/reserved root node/);
-    const dr = await adapter.getDataRoot();
-    await expect(adapter.delete(dr.id, OWNER)).rejects.toThrow(/reserved root node/);
   });
 
   test('records delete event in history', async () => {
@@ -512,7 +497,7 @@ describe('tree', () => {
     expect(await adapter.tree('ffffffff-ffff-4fff-bfff-ffffffffffff')).toEqual([]);
   });
 
-  test('uses data_root when no rootId given', async () => {
+  test('uses root when no rootId given', async () => {
     const item = await adapter.create({ value: 'null-root-item' });
     const t    = await adapter.tree(null);
     expect(t.some(n => n.item.id === item.id)).toBe(true);
@@ -1096,8 +1081,19 @@ describe('rebuildIndexes', () => {
 
 describe('checkIntegrity', () => {
   test('returns [] for a clean datastore', async () => {
-    const findings = await adapter.checkIntegrity({ checks: ['orphan-type-id'] });
-    expect(findings).toEqual([]);
+    // Use an isolated schema: the shared test schema accumulates the orphan
+    // objects other tests create, so "clean" must be its own fresh datastore.
+    const cleanSchema = `clean_${crypto.randomBytes(4).toString('hex')}`;
+    await adminPool.query(`CREATE SCHEMA "${cleanSchema}"`);
+    const cleanPool = new Pool({ connectionString: CONNECTION_STRING, options: `-c search_path="${cleanSchema}"` });
+    try {
+      const clean = await PostgresAdapter.init(cleanPool, OWNER);
+      const findings = await clean.checkIntegrity({ checks: ['orphan-type-id'] });
+      expect(findings).toEqual([]);
+    } finally {
+      await cleanPool.end();
+      await adminPool.query(`DROP SCHEMA IF EXISTS "${cleanSchema}" CASCADE`);
+    }
   });
 
   test('detects orphan-type-id', async () => {
@@ -1137,10 +1133,9 @@ describe('well-known node protection', () => {
     }
   });
 
-  test('data_root can be updated but not deleted', async () => {
-    const dr = await adapter.getDataRoot();
-    await expect(adapter.update(dr.id, { value: 'Org Space' }, OWNER)).resolves.not.toThrow();
-    await expect(adapter.delete(dr.id, OWNER)).rejects.toThrow(/reserved root node/);
+  test('the root node cannot be updated or deleted', async () => {
+    await expect(adapter.update(ROOT_ID, { value: 'Org Space' }, OWNER)).rejects.toThrow(/reserved root node/);
+    await expect(adapter.delete(ROOT_ID, OWNER)).rejects.toThrow(/reserved root node/);
   });
 });
 
@@ -1297,13 +1292,24 @@ describe('semantic / hybrid search', () => {
   });
 
   test('processPendingEmbeddings drains the queue', async () => {
-    const item = await semanticAdapter.create({ value: 'queued for background embedding' });
-    const { rows: queued } = await pool.query('SELECT 1 FROM pending_embeddings WHERE item_id = $1', [item.id]);
-    expect(queued).toHaveLength(1);
-    const result = await semanticAdapter.processPendingEmbeddings({ limit: 100 });
-    expect(result.embedded).toBeGreaterThan(0);
-    const { rows: remaining } = await pool.query('SELECT 1 FROM pending_embeddings WHERE item_id = $1', [item.id]);
-    expect(remaining).toHaveLength(0);
+    // Isolated schema: the shared schema accumulates 100s of queued items from
+    // other tests, so this item (newest) may fall outside any single batch.
+    const s = `emb_${crypto.randomBytes(4).toString('hex')}`;
+    await adminPool.query(`CREATE SCHEMA "${s}"`);
+    const p = new Pool({ connectionString: CONNECTION_STRING, options: `-c search_path="${s}"` });
+    try {
+      await PostgresAdapter.init(p, OWNER);
+      const emb = await PostgresAdapter.open(p, { embeddings: { provider: 'mock', dimensions: 16 } });
+      const item = await emb.create({ value: 'queued for background embedding' });
+      expect((await p.query('SELECT 1 FROM pending_embeddings WHERE item_id = $1', [item.id])).rows).toHaveLength(1);
+      const result = await emb.processPendingEmbeddings({ limit: 100 });
+      expect(result.embedded).toBeGreaterThan(0);
+      const { rows: remaining } = await p.query('SELECT 1 FROM pending_embeddings WHERE item_id = $1', [item.id]);
+      expect(remaining).toHaveLength(0);
+    } finally {
+      await p.end();
+      await adminPool.query(`DROP SCHEMA IF EXISTS "${s}" CASCADE`);
+    }
   });
 
   test('semanticSearch and hybridSearch behave correctly without provider', async () => {
