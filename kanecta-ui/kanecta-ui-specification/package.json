@@ -27,7 +27,7 @@
     "build:spec": "asciidoctor 1.4.0/specification.adoc -o 1.4.0/specification.html"
   },
   "devDependencies": {
-    "asciidoctor": "^4.0.0"
+    "asciidoctor": "^4.0.1"
   },
   "files": [
     "index.js",

@@ -25,7 +25,7 @@
     "@kanecta/sqlite-fs": "^1.4.0"
   },
   "peerDependencies": {
-    "@aws-sdk/client-s3": "^3.1075.0",
+    "@aws-sdk/client-s3": "^3.1078.0",
     "@kanecta/cloud": "^1.0.0",
     "@kanecta/database": "^1.4.0",
     "@kanecta/s3": "^1.0.0",
