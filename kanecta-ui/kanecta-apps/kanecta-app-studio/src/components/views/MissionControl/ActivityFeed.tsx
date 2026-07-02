@@ -39,7 +39,7 @@ export function ActivityFeed() {
             {ws && (
               <WorkspaceIndicator colour={ws.colour} name={ws.name} />
             )}
-            <span className="ActivityFeed-event-op ActivityFeed-event-op--{event.operation}">
+            <span className={`ActivityFeed-event-op ActivityFeed-event-op--${event.operation}`}>
               {event.operation === 'created' ? '+' : '~'}
             </span>
             <span className="ActivityFeed-event-value">{event.item.value}</span>
