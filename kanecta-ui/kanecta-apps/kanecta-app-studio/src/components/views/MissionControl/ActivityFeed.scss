@@ -1,0 +1,57 @@
+.ActivityFeed {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  &-empty {
+    padding: 24px;
+    text-align: center;
+    font-size: 0.8125rem;
+    color: var(--color-text-muted, #888);
+  }
+
+  &-event {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 10px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    color: var(--color-text, inherit);
+    font: inherit;
+
+    &:hover {
+      background: var(--color-surface-hover, rgba(0, 0, 0, 0.04));
+    }
+
+    &-op {
+      flex: 0 0 auto;
+      width: 1.25em;
+      text-align: center;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+
+      &--created { color: #2e7d32; }
+      &--modified { color: #ed6c02; }
+    }
+
+    &-value {
+      flex: 1 1 auto;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      font-size: 0.875rem;
+    }
+
+    &-time {
+      flex: 0 0 auto;
+      font-size: 0.75rem;
+      color: var(--color-text-muted, #888);
+      font-variant-numeric: tabular-nums;
+    }
+  }
+}
