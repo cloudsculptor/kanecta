@@ -20,7 +20,10 @@
  */
 
 const TYPE_IDS = {
-  property: '0a9f1e00-0000-4000-8000-000000000001',
+  // `property` is a CORE built-in (canonical id from the spec's built-in-types).
+  // The importer seeds it here only until the bootstrapper seeds built-in type
+  // items; the fixed id + schema keep that future seeding idempotent.
+  property: '105354a8-4bd9-4333-9b54-68192f44599c',
   session: '0a9f1e00-0000-4000-8000-000000000002',
   turn: '0a9f1e00-0000-4000-8000-000000000003',
   toolCall: '0a9f1e00-0000-4000-8000-000000000004',
@@ -72,10 +75,9 @@ function buildType(id, title, icon, description, cols) {
 }
 
 const PROPERTY = buildType(
-  TYPE_IDS.property, 'Property', 'DataObject',
-  'A key-value pair — the reusable representation of an arbitrary map (one child per entry).',
+  TYPE_IDS.property, 'property', 'DataObject',
+  'One entry of an arbitrary key-value map. The key is item.value; this payload holds the value.',
   [
-    ['name', 'TEXT', 'string'],
     ['value', 'TEXT', 'string'],
   ],
 );

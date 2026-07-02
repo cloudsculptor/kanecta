@@ -83,15 +83,19 @@ async function upsert(ds, { key, typeId, value, parentId, sortOrder, objectData 
   return { item, created: true };
 }
 
-/** Upsert one child `property` item. */
-async function upsertProperty(ds, { key, parentId, sortOrder, name, value }) {
+/**
+ * Upsert one child `property` item (a map entry). The map key is the item's
+ * value (`item.value`); the payload holds just the value — matching the core
+ * `property` type and the spec's `map` child-semantics.
+ */
+async function upsertProperty(ds, { key, parentId, sortOrder, mapKey, value }) {
   return upsert(ds, {
     key,
     typeId: TYPE_IDS.property,
-    value: name,
+    value: mapKey,
     parentId,
     sortOrder,
-    objectData: { name, value },
+    objectData: { value },
   });
 }
 
@@ -128,18 +132,8 @@ async function importSession(ds, session) {
   }));
   const sessionId = sessionRes.item.id;
 
-  // 1a. The session's models — a scalar list, decomposed into child properties.
-  let modelIdx = 0;
-  for (const model of session.models) {
-    bump(await upsertProperty(ds, {
-      key: `session:${session.sessionId}:model:${model}`,
-      parentId: sessionId,
-      sortOrder: modelIdx++,
-      name: 'model',
-      value: model,
-    }));
-    stats.properties++;
-  }
+  // (The session's model list is intentionally NOT stored separately — it is
+  // derivable from the `model` column of the session's turns.)
 
   // 2. Turns (children of the session), in transcript order.
   let turnIndex = 0;
@@ -195,7 +189,7 @@ async function importSession(ds, session) {
           key: `tool:${call.toolUseId}:param:${name}`,
           parentId: callRes.item.id,
           sortOrder: paramIdx++,
-          name,
+          mapKey: name,
           value: toText(raw),
         }));
         stats.properties++;

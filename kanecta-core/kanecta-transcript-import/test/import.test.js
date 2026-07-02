@@ -37,9 +37,9 @@ const BASE = [
   { type: 'user', uuid: 'u2', timestamp: '2026-06-01T10:00:08Z', sessionId: 's1', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'toolu_1', content: 'file.txt', is_error: false }] } },
 ];
 
-// Item count for BASE: session(1) + model-property(1) + 3 turns + tool-call(1) +
-// tool-arg property(1) = 7.
-const BASE_ITEMS = 7;
+// Item count for BASE: session(1) + 3 turns + tool-call(1) + tool-arg property(1)
+// = 6. (Models are not stored separately — they are derivable from turn.model.)
+const BASE_ITEMS = 6;
 
 test('imports a session as typed objects (session → turn → tool-call), payload in columns', async () => {
   const { ds, root } = tmpDs();
@@ -49,7 +49,7 @@ test('imports a session as typed objects (session → turn → tool-call), paylo
 
     assert.equal(stats.turns, 3);
     assert.equal(stats.toolCalls, 1);
-    assert.equal(stats.properties, 2); // 1 model + 1 tool arg
+    assert.equal(stats.properties, 1); // 1 tool arg
     assert.equal(stats.created, BASE_ITEMS);
 
     // Session is a typed object; its payload holds the flat columns.
@@ -62,10 +62,9 @@ test('imports a session as typed objects (session → turn → tool-call), paylo
     assert.equal(sp.turnCount, 3);
     assert.equal(sp.sessionId, 's1');
 
-    // The session's model is a child `property`.
-    const models = await childrenOfType(ds, sess.id, TYPE_IDS.property);
-    assert.equal(models.length, 1);
-    assert.deepEqual(await ds.readObjectJson(models[0].id), { name: 'model', value: 'claude-opus-4-8' });
+    // The session has no `property` children (models are not stored separately).
+    const sessProps = await childrenOfType(ds, sess.id, TYPE_IDS.property);
+    assert.equal(sessProps.length, 0);
 
     // Turns are typed-object children of the session.
     const turns = await childrenOfType(ds, sess.id, TYPE_IDS.turn);
@@ -79,10 +78,12 @@ test('imports a session as typed objects (session → turn → tool-call), paylo
     assert.equal(cp.name, 'Bash');
     assert.equal(cp.result, 'file.txt');
 
-    // The tool call's argument is a child `property`.
+    // The tool call's argument is a child `property`: the key is item.value,
+    // the value is in the payload.
     const args = await childrenOfType(ds, toolCalls[0].id, TYPE_IDS.property);
     assert.equal(args.length, 1);
-    assert.deepEqual(await ds.readObjectJson(args[0].id), { name: 'command', value: 'ls' });
+    assert.equal(args[0].value, 'command'); // item.value = the map key
+    assert.deepEqual(await ds.readObjectJson(args[0].id), { value: 'ls' });
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

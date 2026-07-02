@@ -24,7 +24,6 @@ as inline JSON. The four types are seeded idempotently on import (see
 
 ```
 claude-session          (child of root)          key: session:<sessionId>
-  ├─ property            (a model used)           key: session:<sessionId>:model:<m>
   └─ claude-turn         (child of session)       key: turn:<uuid>
        └─ claude-tool-call  (child of turn)        key: tool:<toolUseId>
             └─ property     (a tool argument)      key: tool:<toolUseId>:param:<name>
@@ -32,14 +31,17 @@ claude-session          (child of root)          key: session:<sessionId>
 
 - **claude-session** columns: `session_id`, `cwd`, `git_branch`, `version`,
   `started_at`, `ended_at`, `turn_count`, `tool_call_count`, and the summed
-  `tokens_input/output/cache_creation/cache_read`.
+  `tokens_input/output/cache_creation/cache_read`. (The set of models used is not
+  stored separately — it is derivable from each turn's `model` column.)
 - **claude-turn** columns: `kind`, `timestamp`, `model`, `usage_*`, `parent_uuid`,
   `is_sidechain`, `agent_id`, `text` (full, never truncated), `text_length`.
 - **claude-tool-call** columns: `name`, `tool_use_id`, `is_error`, `result` (full).
-- **property** columns: `name`, `value` — the reusable EAV key-value type. Variable
-  maps (a tool call's arguments, a session's model list) decompose into child
-  `property` items, because a flat SQL row can't hold a per-tool-varying map and
-  the canonical schema (portable ANSI SQL) has no JSON column.
+- **property** — the core key-value type (`item.value` = the key, payload `value` =
+  the value). A tool call's variable argument map decomposes into child `property`
+  items, because a flat SQL row can't hold a per-tool-varying map and the canonical
+  schema (portable ANSI SQL) has no JSON column. `property` is a Kanecta *core*
+  built-in; the importer seeds it (with the canonical id) only until the
+  bootstrapper does.
 
 Text is stored in full and never offloaded (large text is a `TEXT`/`CLOB` column;
 S3 is only for actual files). Postgres returns `BIGINT` columns (the token totals)

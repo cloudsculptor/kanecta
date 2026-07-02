@@ -61,7 +61,7 @@ test('imports transcripts as typed objects with real columns on Postgres', async
 
   const [session] = parseTranscript(jsonl);
   const stats = await importSession(ds, session);
-  assert.equal(stats.created, 8); // session + model prop + 3 turns + tool-call + 2 arg props
+  assert.equal(stats.created, 7); // session + 3 turns + tool-call + 2 arg props (models not stored)
   assert.equal(stats.turns, 3);
   assert.equal(stats.toolCalls, 1);
 
@@ -86,7 +86,8 @@ test('imports transcripts as typed objects with real columns on Postgres', async
   const args = (await ds.children(toolCalls[0].id)).filter((c) => c.typeId === TYPE_IDS.property);
   assert.equal(args.length, 2);
   const argMap = {};
-  for (const a of args) { const p = await ds.readObjectJson(a.id); argMap[p.name] = p.value; }
+  // property: key is item.value, value is payload.value.
+  for (const a of args) { const p = await ds.readObjectJson(a.id); argMap[a.value] = p.value; }
   assert.deepEqual(argMap, { command: 'ls', description: 'list' });
 });
 
@@ -95,5 +96,5 @@ test('re-import is idempotent on Postgres', async (t) => {
   const [session] = parseTranscript(jsonl);
   const stats = await importSession(ds, session);
   assert.equal(stats.created, 0);
-  assert.equal(stats.updated, 8);
+  assert.equal(stats.updated, 7);
 });
