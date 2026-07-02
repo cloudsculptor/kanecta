@@ -1012,6 +1012,16 @@ class PostgresAdapter {
   }
 
   async writeObjectJson(id, typeId, data) {
+    // Support both the adapter form (id, typeId, data) and the Datastore facade's
+    // (id, data): when `data` is omitted the second arg IS the payload, and the
+    // typeId is looked up from the item (mirrors readObjectJson). Without this,
+    // every facade caller — the API's object-write endpoints, connectorEngine —
+    // silently no-ops against Postgres (the payload lands in `typeId`).
+    if (data === undefined) { data = typeId; typeId = undefined; }
+    if (!typeId) {
+      const item = await this.get(id);
+      typeId = item?.typeId;
+    }
     if (!typeId) return;
     const table        = objTableName(typeId);
     const camelToSnake = s => s.replace(/[A-Z]/g, c => '_' + c.toLowerCase());

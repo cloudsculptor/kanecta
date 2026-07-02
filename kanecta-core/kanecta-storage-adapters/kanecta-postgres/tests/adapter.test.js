@@ -951,6 +951,22 @@ describe('objectData round-trip', () => {
     const item = await adapter.create({ value: 'obj-create', type: 'object', typeId, objectData: { label: 'at-create' } });
     expect(await adapter.readObjectJson(item.id, typeId)).toMatchObject({ label: 'at-create' });
   });
+
+  // The Datastore facade calls writeObjectJson(id, data) / readObjectJson(id)
+  // with no typeId (as the API's object-write endpoints and connectorEngine do).
+  // The adapter must look the typeId up from the item, not treat the payload as
+  // the typeId and silently no-op.
+  test('writeObjectJson/readObjectJson work without an explicit typeId (facade form)', async () => {
+    const item = await adapter.create({ value: 'obj-facade', type: 'object', typeId });
+    await adapter.writeObjectJson(item.id, { label: 'via-facade', rank: 7 });
+    expect(await adapter.readObjectJson(item.id)).toMatchObject({ label: 'via-facade', rank: 7 });
+  });
+
+  test('the (id, typeId, data) form still works (back-compat)', async () => {
+    const item = await adapter.create({ value: 'obj-3arg', type: 'object', typeId });
+    await adapter.writeObjectJson(item.id, typeId, { label: 'explicit', rank: 9 });
+    expect(await adapter.readObjectJson(item.id, typeId)).toMatchObject({ label: 'explicit', rank: 9 });
+  });
 });
 
 describe('functionData round-trip', () => {
