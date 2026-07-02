@@ -1,0 +1,19 @@
+{
+  "name": "@kanecta/tiling-wm",
+  "version": "1.4.0",
+  "private": true,
+  "description": "Control a running i3 / Sway tiling window manager over its IPC socket (Linux only). Zero runtime dependencies.",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "node --test",
+    "example:list": "node examples/list-windows.js",
+    "example:move": "node examples/move-resize.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "os": [
+    "linux"
+  ],
+  "license": "MIT"
+}
