@@ -10,4 +10,8 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ${KANECTA_DATASTORE:-.}/.kanecta/database:/var/lib/postgresql
+      # The container's own data dir, kept beside this compose file. (Pre-1.4.0
+      # this was templated on the removed KANECTA_DATASTORE env var, which always
+      # fell back to "." anyway — a Postgres working set's data lives in Postgres,
+      # not under a local datastore folder, so the path no longer tracks one.)
+      - ./.kanecta/database:/var/lib/postgresql

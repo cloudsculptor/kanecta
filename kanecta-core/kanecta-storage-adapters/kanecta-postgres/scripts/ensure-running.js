@@ -10,7 +10,6 @@
 //                      await ensureRunning();
 
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { Client } = require('pg');
@@ -18,27 +17,11 @@ const { Client } = require('pg');
 const COMPOSE_DIR = path.join(__dirname, '..');
 const CONTAINER = 'kanecta-postgres';
 
-const HOME = os.homedir();
-const XDG_CONFIG = process.env.XDG_CONFIG_HOME || path.join(HOME, '.config');
-const POINTER_LOCATIONS = [
-  path.join(XDG_CONFIG, 'kanecta', 'config.json'),
-  path.join(HOME, '.kanecta', 'config.json'),
-];
-
-// Resolves the active datastore path the same way kanecta-dev's
-// ensure-datastore.js does: explicit env override, then pointer files.
-// Returns null if no datastore is configured (e.g. first run) — in which
-// case docker-compose.yml falls back to a .kanecta/database dir of its own.
-function resolveDatastorePath() {
-  if (process.env.KANECTA_DATASTORE) return process.env.KANECTA_DATASTORE;
-  for (const file of POINTER_LOCATIONS) {
-    try {
-      const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-      if (data.default) return data.default;
-    } catch {}
-  }
-  return null;
-}
+// The container persists its data under COMPOSE_DIR/.kanecta/database (see the
+// volume mount in docker-compose.yml). Post-1.4.0 this is a fixed local path,
+// not derived from a datastore location — a Postgres working set's data lives in
+// Postgres, and the datastore location comes from config.json, not an env var.
+const DB_DIR = path.join(COMPOSE_DIR, '.kanecta', 'database');
 
 const CONNECTION = {
   host: 'localhost',
@@ -59,10 +42,6 @@ function dockerAvailable() {
   }
 }
 
-function composeEnv(datastorePath) {
-  return datastorePath ? { ...process.env, KANECTA_DATASTORE: datastorePath } : process.env;
-}
-
 function containerRunning() {
   try {
     const out = execFileSync(
@@ -75,8 +54,8 @@ function containerRunning() {
   }
 }
 
-function composeUp(datastorePath) {
-  execFileSync('docker', ['compose', 'up', '-d'], { cwd: COMPOSE_DIR, env: composeEnv(datastorePath), stdio: 'inherit' });
+function composeUp() {
+  execFileSync('docker', ['compose', 'up', '-d'], { cwd: COMPOSE_DIR, stdio: 'inherit' });
 }
 
 async function canConnect() {
@@ -118,11 +97,9 @@ async function ensureRunning({ log = () => {} } = {}) {
   if (containerRunning()) {
     log(`✓ ${CONTAINER} is already running`);
   } else {
-    const datastorePath = resolveDatastorePath();
-    const dbDir = path.join(datastorePath || COMPOSE_DIR, '.kanecta', 'database');
-    fs.mkdirSync(dbDir, { recursive: true });
-    log(`→ starting ${CONTAINER} (data dir: ${dbDir})`);
-    composeUp(datastorePath);
+    fs.mkdirSync(DB_DIR, { recursive: true });
+    log(`→ starting ${CONTAINER} (data dir: ${DB_DIR})`);
+    composeUp();
   }
 
   log('→ waiting for Postgres to accept connections...');
