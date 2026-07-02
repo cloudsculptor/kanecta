@@ -831,6 +831,20 @@ class PostgresAdapter {
     return rows.map(r => r.id);
   }
 
+  // Look up a single item by its external-source key. (source_system,
+  // source_external_id) is UNIQUE (migration 020), so this is the idempotency
+  // primitive for ingestion — the Postgres peer of the filesystem adapter's
+  // bySource: upsert = bySource() ? update() : create(). Returns the read-model
+  // item or null.
+  async bySource(sourceSystem, sourceExternalId) {
+    if (!sourceSystem || !sourceExternalId) return null;
+    const { rows } = await this._pool.query(
+      'SELECT * FROM items WHERE source_system = $1 AND source_external_id = $2 LIMIT 1',
+      [sourceSystem, sourceExternalId],
+    );
+    return rows.length ? rowToItem(rows[0]) : null;
+  }
+
   async loadAll() {
     const { rows } = await this._pool.query('SELECT * FROM items ORDER BY sort_order');
     return rows.map(rowToItem);
