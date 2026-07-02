@@ -707,6 +707,10 @@ Types are grouped into three categories.
 | An instance of a custom type definition. `item.typeId` identifies the type.
 | link:../built-in-types/types/object.json[object.json^]
 
+| `property`
+| One entry of an arbitrary key-value map: `item.value` is the key, `payload.value` is the value. The core scalar value-holder that `constraints.children` `semantics: "map"` uses (see <<jsonSchema-rules>>) — a variable/unbounded map is stored as `property` children rather than fixed columns, keeping the parent type flat and portable.
+| link:../built-in-types/types/property.json[property.json^]
+
 | `grant`
 | An access control grant on the parent item. Lives in the `"grants"` aspect.
 | link:../built-in-types/types/grant.json[grant.json^]
@@ -1725,6 +1729,8 @@ An array of child constraint objects. Each constraint declares the permitted car
 | `"map"`
 | Children are key-value pairs: `item.value` is the key (unique, as in `"set"`), and the child's payload is the value. The adapter enforces uniqueness of `item.value` among siblings of this type. Order is not significant. Use for named settings, locale translations, named configurations.
 |===
+
+NOTE: *Scalar maps and the `property` type.* When a map's values are themselves rich structured objects, the child under a `"map"` constraint is a domain type whose payload carries the value. When the values are *scalars* — or the key set is *variable/unbounded* and cannot be fixed columns (e.g. a tool call's arguments, an imported record's arbitrary attributes) — the child is the built-in `property` type: `item.value` is the key, `payload.value` is the value. This is the portable way to store an open map without a JSON column and without inflating the parent type's schema; it keeps every type flat (one level deep) while the map itself grows as child items. See the `property` built-in type.
 
 ===== constraints.defaultEnforce
 
