@@ -1259,6 +1259,7 @@ class SqliteFsAdapter {
     parentId, value = null, type = 'string', typeId = null,
     owner, license = null, sortOrder, confidence = null, status = null, tags = [],
     createdBy, objectData = null, dueAt = null, visibility = 'private', aspect = null,
+    sourceSystem = null, sourceExternalId = null,
     strict,
   } = {}) {
     if (WELL_KNOWN_TYPES.has(type))
@@ -1293,7 +1294,7 @@ class SqliteFsAdapter {
       createdBy: actor, modifiedBy: actor,
       cachedAt: null, expiresAt: null, deletedAt: null,
       connectorId: null, materialized: null, completedAt: null, dueAt,
-      layer: null, sourceSystem: null, sourceExternalId: null, files: {},
+      layer: null, sourceSystem, sourceExternalId, files: {},
     };
 
     const parentPath = this._getPath(parentId);
@@ -2029,6 +2030,18 @@ class SqliteFsAdapter {
   byType(typeId) {
     return this._openDb().prepare('SELECT id FROM items WHERE type_id = ?').all(typeId)
       .map(r => r.id);
+  }
+
+  // Look up a single item by its external-source key. (source_system,
+  // source_external_id) is UNIQUE, so this is the idempotency primitive for
+  // ingestion: upsert = bySource() ? update() : create(). Returns the read-model
+  // item or null.
+  bySource(sourceSystem, sourceExternalId) {
+    if (!sourceSystem || !sourceExternalId) return null;
+    const row = this._openDb().prepare(
+      'SELECT item_id FROM items_meta WHERE source_system = ? AND source_external_id = ?'
+    ).get(sourceSystem, sourceExternalId);
+    return row ? this.get(row.item_id) : null;
   }
 
   loadAll() {
