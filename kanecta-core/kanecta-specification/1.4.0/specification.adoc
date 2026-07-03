@@ -1626,7 +1626,7 @@ JSON Schema Draft-07 for instances. Types are *flat — exactly one level deep*.
 * UUID references to other Kanecta custom types: `{ "type": "string", "format": "uuid", "typeId": "<type-uuid>" }`
 * UUID references to built-in Kanecta types: `{ "type": "string", "format": "uuid", "x-kanecta-itemType": "<built-in-type-name>" }`
 
-No inline nested objects. A reusable nested concept must be its own standalone type, referenced via `typeId`. This guarantees every type maps to exactly one table.
+No inline nested objects. A reusable nested concept must be its own standalone type, referenced via `typeId`. This keeps every type flat: its scalar fields map to one object table (plus, on ANSI backends without array columns, one small child value-table per scalar-array field — see the sqlSchema rules).
 
 ===== Reference enforcement keywords
 
@@ -1647,13 +1647,31 @@ Both keywords also drive Postgres FK generation (see `sqlSchema` rules below) �
 
 ==== sqlSchema rules
 
-Ordered SQL DDL statements (PostgreSQL dialect) that create all storage for instances of this type. Defined once at type creation — a changed shape is a new type.
+`sqlSchema` is *not hand-authored* — it is *derived* from `jsonSchema` by the schema compiler (`@kanecta/schema-compiler`). `jsonSchema` is the single source of truth; the compiler emits the `CREATE TABLE` DDL for whichever backend a datastore uses, so the SQL can never drift from the schema and ontology-generated types (which ship only a `jsonSchema`) get storage for free. The stored `sqlSchema`, when present, is a derived cache of the compiled DDL, not an authored input. A changed shape is a new type.
 
-TIP: *Postgres* — table naming convention: `obj_<type-uuid-with-hyphens-as-underscores>`. Strict 1:1 with `items` via `item_id PRIMARY KEY REFERENCES items(id)`. Every property in `jsonSchema` maps to one column: primitives → native SQL types, arrays of primitives → `TEXT[]` / `INTEGER[]`, `typeId` references → `UUID` with `FOREIGN KEY REFERENCES items(id)`.
+The *canonical* schema is portable to *any ANSI SQL database*: only scalar column types — no JSON columns, no array columns (both are engine-specific). Each adapter then derives a physical form that preserves the same logical shape:
 
-TIP: *SQLite* — `sqlSchema` is author-defined in Postgres dialect but adapters must translate to SQLite types at `CREATE TABLE` time: `UUID` → `TEXT`, `TIMESTAMPTZ` → `TEXT`, `BOOLEAN` → `INTEGER`, native arrays → JSON `TEXT`.
+[cols="1,1,1,1", options="header"]
+|===
+| `jsonSchema` | `ansi` (canonical) | Postgres | SQLite
 
-NOTE: *Required even for filesystem-only types* — every type defines `sqlSchema` regardless of current adapter, so a future filesystem→cloud migration never needs retrofitting.
+| `string` | `CLOB` | `TEXT` | `TEXT`
+| `integer` | `BIGINT` | `BIGINT` | `INTEGER`
+| `number` | `DOUBLE PRECISION` | `DOUBLE PRECISION` | `REAL`
+| `boolean` | `BOOLEAN` | `BOOLEAN` | `INTEGER`
+| UUID reference (`typeId` / `x-kanecta-itemType`) | `CHAR(36)` + FK to `items(id)` | `UUID` + FK | `TEXT` + FK
+| *array of scalars* | *decomposed child value-table* | native `TYPE[]` column | JSON `TEXT` column
+|===
+
+Table naming: `obj_<type-uuid-with-hyphens-as-underscores>`, strict 1:1 with `items` via `item_id PRIMARY KEY` + `FOREIGN KEY REFERENCES items(id)`. camelCase property names become snake_case columns.
+
+*Arrays and portability.* ANSI SQL has no array type, so in the canonical model a scalar-array field is decomposed into an ordered child value-table `obj_<typeId>_<field>(item_id, ord, value)` — a portable multi-valued field. Postgres keeps a native `TYPE[]` column (fast) and SQLite stores JSON text; all three are the same logical array in the read model. Object arrays (arrays of typed objects) are never columns — they are child items, per the flat one-level rule.
+
+NOTE: *Derived for every backend, including filesystem-only types* — a type's storage is compiled from its `jsonSchema` on demand for the target backend, so a filesystem→cloud (or a switch to any other ANSI SQL engine) never needs retrofitting. The filesystem adapter stores the payload inline as JSON validated by the same `jsonSchema`; the compiled `sqlSchema` is what a SQL backend materialises.
+
+===== Text fields are never offloaded
+
+A `string` payload field is a `CLOB`/`TEXT` column of *any size* — never split out to object storage. Large text stays in the database so it remains full-text searchable (an offloaded value could not be in the FTS index) and so a `string` field has one uniform storage rule regardless of length; the SQL engine's own large-object handling (Postgres TOAST, etc.) manages the physical bytes. Text fields are included in the FTS corpus by default; a type opts specific fields out via `meta.searchFields` (see <<jsonSchema-rules>> `meta` and Search, below). *Object storage (S3) is used only for actual files* — content stored as the built-in `file` type (see Files and Sidecars) — never for a type's text fields.
 
 ==== constraints
 
