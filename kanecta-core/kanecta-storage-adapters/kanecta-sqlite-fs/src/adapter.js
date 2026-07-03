@@ -2571,6 +2571,37 @@ class SqliteFsAdapter {
   // per-item EDIT-vs-CONFLICT detection the spec's `branchPoint` exists for
   // (see specification.adoc "Branching"): merge no longer blindly clobbers
   // upstream work. Pure read — applies nothing.
+  // Reverse-reference lookup ("who points at this id") in the ACTIVE branch's
+  // index. Covers the three ways one item can depend on another: structural
+  // children (parentId), [[uuid]] backlinks, and inbound relationship items.
+  _referrersTo(id) {
+    const db = this._openDb();
+    const children = db.prepare('SELECT id FROM items WHERE parent_id = ? AND id != parent_id').all(id).map(r => r.id);
+    const links    = this.backlinks(id);
+    const relationships = (this.relationships(id).inbound || []).map(r => r.sourceId).filter(Boolean);
+    return { children, links, relationships };
+  }
+
+  // The blast radius of deleting each id in `deleteIds`: which OTHER items in the
+  // active branch reference them. Referrers that are themselves part of the same
+  // delete set are excluded (they are going away too, so no dangling reference is
+  // created). Returns [{ id, referencedBy: [{ id, via }] }] for ids that have live
+  // referrers — an empty array means the deletes leave referential integrity intact.
+  _computeBlastRadius(deleteIds) {
+    const delSet = new Set(deleteIds);
+    const out = [];
+    for (const id of deleteIds) {
+      const r = this._referrersTo(id);
+      const referencedBy = [
+        ...r.children.map(x => ({ id: x, via: 'parent' })),
+        ...r.links.map(x => ({ id: x, via: 'link' })),
+        ...r.relationships.map(x => ({ id: x, via: 'relationship' })),
+      ].filter(ref => ref.id && !delSet.has(ref.id));
+      if (referencedBy.length) out.push({ id, referencedBy });
+    }
+    return out;
+  }
+
   previewMerge(name) {
     name = (name ?? this._branch).trim();
     const diff     = this.branchDiff(name);
@@ -2590,7 +2621,13 @@ class SqliteFsAdapter {
       if (movedSinceFork(d.before?.modifiedAt))
         conflicts.push({ id: d.id, kind: 'delete-edit', before: d.before });
     }
-    return { ...diff, watermark, conflicts };
+
+    // Blast radius of the branch's deletions. Computed against the ACTIVE branch's
+    // index — preview from the merge target (main) for the accurate picture; the
+    // merge itself always recomputes on main before applying.
+    const blastRadius = this._computeBlastRadius(diff.deletes.map(d => d.id));
+
+    return { ...diff, watermark, conflicts, blastRadius };
   }
 
   // Merge a local branch into main by applying its full-folder diff to main's
@@ -2633,6 +2670,22 @@ class SqliteFsAdapter {
     const conflictIds = new Set(conflicts.map(c => c.id));
     const skip = (id) => strategy === 'ours' && conflictIds.has(id);
 
+    // Blast radius of the deletions that will actually be applied, computed here on
+    // main (the target). Surfaced in the result so a caller never silently orphans
+    // a child or dangles a [[uuid]]/relationship reference. `blockOnBlastRadius`
+    // turns it into a hard gate: abort before applying anything, branch preserved.
+    const appliedDeleteIds = preview.deletes.filter(d => !skip(d.id)).map(d => d.id);
+    const blastRadius = this._computeBlastRadius(appliedDeleteIds);
+    if (opts.blockOnBlastRadius && blastRadius.length) {
+      const err = new Error(
+        `Merge of "${name}" would break ${blastRadius.length} reference target(s): deleted item(s) are ` +
+        `still referenced on main. Re-run without { blockOnBlastRadius } to merge anyway, or resolve the ` +
+        `references first.`);
+      err.code = 'MERGE_BLAST_RADIUS';
+      err.blastRadius = blastRadius;
+      throw err;
+    }
+
     const mainItemsDir = path.join(this._branchRoot('main'), 'items');
 
     // Apply onto main's items/ tree (note: _itemPath/_itemDir target the ACTIVE
@@ -2665,7 +2718,7 @@ class SqliteFsAdapter {
     const dir = this._branchRoot(name);
     if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
 
-    return { merged, skipped, conflicts };
+    return { merged, skipped, conflicts, blastRadius };
   }
 
   // ─── Integrity checks ─────────────────────────────────────────────────────

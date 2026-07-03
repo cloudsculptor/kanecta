@@ -299,3 +299,72 @@ describe('sparse branch conflict-aware merge', () => {
     cleanup(a);
   });
 });
+
+// ─── Merge blast radius (reverse-reference safety) ─────────────────────────────
+
+describe('sparse branch merge blast radius', () => {
+  test('surfaces referrers when a deleted item is still referenced (parentId)', () => {
+    const { a, onMain, child } = withSparseBranch();
+    a.delete(onMain.id, 'test@example.com'); // delete the parent; child still inherits parentId
+
+    a.useBranch('main');
+    const res = a.mergeBranchLocally('feature/sparse');
+    const hit = res.blastRadius.find(b => b.id === onMain.id);
+    expect(hit).toBeDefined();
+    expect(hit.referencedBy.some(r => r.id === child.id && r.via === 'parent')).toBe(true);
+    cleanup(a);
+  });
+
+  test('includes [[uuid]] backlinks in the blast radius', () => {
+    const a      = tmpAdapter();
+    const target = a.create({ value: 'target', type: 'text' });
+    const linker = a.create({ value: `see [[${target.id}]]`, type: 'text' });
+    a.createBranch('feature/sparse', { fill: 'sparse' });
+    a.useBranch('feature/sparse');
+    a.delete(target.id, 'test@example.com');
+
+    a.useBranch('main');
+    const res = a.mergeBranchLocally('feature/sparse');
+    const hit = res.blastRadius.find(b => b.id === target.id);
+    expect(hit?.referencedBy.some(r => r.id === linker.id && r.via === 'link')).toBe(true);
+    cleanup(a);
+  });
+
+  test('blockOnBlastRadius aborts the merge and preserves the branch', () => {
+    const { a, onMain } = withSparseBranch();
+    a.delete(onMain.id, 'test@example.com');
+
+    a.useBranch('main');
+    let err;
+    try { a.mergeBranchLocally('feature/sparse', { blockOnBlastRadius: true }); }
+    catch (e) { err = e; }
+    expect(err?.code).toBe('MERGE_BLAST_RADIUS');
+    expect(err.blastRadius.map(b => b.id)).toContain(onMain.id);
+
+    // Nothing applied; branch still present.
+    expect(a.get(onMain.id)?.value).toBe('on main');
+    expect(a.listBranches().map(b => b.name)).toContain('feature/sparse');
+    cleanup(a);
+  });
+
+  test('no blast radius when the deleted item has no referrers', () => {
+    const { a, child } = withSparseBranch();
+    a.delete(child.id, 'test@example.com'); // a leaf — nothing points at it
+
+    a.useBranch('main');
+    const res = a.mergeBranchLocally('feature/sparse');
+    expect(res.blastRadius).toEqual([]);
+    cleanup(a);
+  });
+
+  test('a referrer that is also deleted in the same merge is not blast radius', () => {
+    const { a, onMain, child } = withSparseBranch();
+    a.delete(child.id, 'test@example.com');   // the only referrer of onMain…
+    a.delete(onMain.id, 'test@example.com');  // …deleted alongside it
+
+    a.useBranch('main');
+    const res = a.mergeBranchLocally('feature/sparse');
+    expect(res.blastRadius).toEqual([]); // no dangling reference is created
+    cleanup(a);
+  });
+});
