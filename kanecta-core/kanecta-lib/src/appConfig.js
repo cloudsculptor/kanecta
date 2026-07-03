@@ -274,6 +274,31 @@ function migrateConfigShape(config) {
   return out;
 }
 
+// Resolve the per-device component store — the npm/Gradle-style cache of
+// soft-coded component packages (keyed package@version), shared across every
+// Connector app on this device. Resolution order (mirrors config discovery, but
+// under the OS *cache* location rather than *config*):
+//   1. KANECTA_COMPONENT_STORE env var, else
+//   2. config.json `componentStore`, else
+//   3. platform default.
+function resolveComponentStore(config) {
+  const env = process.env.KANECTA_COMPONENT_STORE;
+  if (env) return expandHome(env);
+
+  const cfg = config ?? readAppConfig();
+  if (cfg && cfg.componentStore) return expandHome(cfg.componentStore);
+
+  if (process.platform === 'darwin') {
+    return path.join(os.homedir(), 'Library', 'Caches', 'kanecta', 'components');
+  }
+  if (process.platform === 'win32') {
+    const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
+    return path.join(localAppData, 'kanecta', 'components');
+  }
+  const xdgCache = process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache');
+  return path.join(xdgCache, 'kanecta', 'components');
+}
+
 module.exports = {
   expandHome,
   getConfigPath,
@@ -287,4 +312,5 @@ module.exports = {
   resolveWorkingSet,
   resolveBranch,
   workingSetLocalPath,
+  resolveComponentStore,
 };
