@@ -37,6 +37,51 @@ export interface BranchDiffSummary {
   deletes: number;
 }
 
+/** How merging conflicts are resolved: branch wins, or keep the upstream (main). */
+export type MergeStrategy = 'theirs' | 'ours';
+
+/**
+ * One item that changed on both sides since the branch forked. `kind`:
+ *  - `edit-edit`   both edited it
+ *  - `delete-edit` the branch deleted an item main modified
+ *  - `add-delete`  the branch kept/edited an item main has since deleted
+ */
+export interface MergeConflict {
+  id: string;
+  kind: 'edit-edit' | 'delete-edit' | 'add-delete';
+}
+
+/** A deleted item that other items on main still reference (would dangle). */
+export interface BlastRadiusEntry {
+  id: string;
+  referencedBy: Array<{ id: string; via: 'parent' | 'link' | 'relationship' | 'alias' }>;
+}
+
+/** `GET .../merge-preview` — what a merge into main would do, applying nothing. */
+export interface MergePreview {
+  branch: string;
+  adds: number;
+  edits: number;
+  deletes: number;
+  conflicts: MergeConflict[];
+  blastRadius: BlastRadiusEntry[];
+}
+
+/** Options for `POST .../merge`. */
+export interface MergeOptions {
+  strategy?: MergeStrategy;
+  blockOnBlastRadius?: boolean;
+}
+
+/** `POST .../merge` success result. */
+export interface MergeResult {
+  ok: boolean;
+  merged: number;
+  skipped?: number;
+  conflicts?: MergeConflict[];
+  blastRadius?: BlastRadiusEntry[];
+}
+
 export function workingSetsApi(client: KanectaApiClient) {
   const raw = client as unknown as RawFetchClient;
   const enc = encodeURIComponent;
@@ -64,10 +109,10 @@ export function workingSetsApi(client: KanectaApiClient) {
       client.workingSets.switchBranch(name, branch),
     branchDiff: (name: string, branch: string) =>
       raw._fetch('GET', `/working-sets/${enc(name)}/branches/${enc(branch)}/diff`) as Promise<BranchDiffSummary>,
-    mergeBranch: (name: string, branch: string) =>
-      raw._fetch('POST', `/working-sets/${enc(name)}/branches/${enc(branch)}/merge`) as Promise<{
-        ok: boolean;
-        merged: number;
-      }>,
+    /** Conflicts + blast radius a merge into main would produce — applies nothing. */
+    getMergePreview: (name: string, branch: string) =>
+      raw._fetch('GET', `/working-sets/${enc(name)}/branches/${enc(branch)}/merge-preview`) as Promise<MergePreview>,
+    mergeBranch: (name: string, branch: string, opts?: MergeOptions) =>
+      raw._fetch('POST', `/working-sets/${enc(name)}/branches/${enc(branch)}/merge`, opts ?? {}) as Promise<MergeResult>,
   };
 }

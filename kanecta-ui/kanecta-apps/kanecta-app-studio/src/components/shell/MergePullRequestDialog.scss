@@ -44,4 +44,52 @@
     color: #c62828;
     font-size: 0.8125rem;
   }
+
+  &__loading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 4px 0 0;
+    color: var(--color-text-muted, #888);
+    font-size: 0.8125rem;
+  }
+
+  &__section {
+    margin: 4px 0 0;
+    padding: 8px;
+    border: 1px solid var(--color-border, #e0e0e0);
+    border-radius: 6px;
+  }
+
+  &__section-title {
+    margin: 0 0 6px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+
+    &--warn { color: #ed6c02; }
+  }
+
+  &__conflicts,
+  &__blast {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+
+    code {
+      font-size: 0.75rem;
+      color: var(--color-text-secondary, #616161);
+    }
+  }
+
+  &__strategy {
+    margin-top: 8px;
+
+    .MuiFormLabel-root {
+      font-size: 0.8125rem;
+    }
+    .MuiFormControlLabel-label {
+      font-size: 0.8125rem;
+    }
+  }
 }
