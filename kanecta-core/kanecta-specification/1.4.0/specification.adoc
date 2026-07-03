@@ -5542,6 +5542,36 @@ Every entry point — Electron, `npm start`, MCP server, API server — uses the
 
 NOTE: Mac uses `~/Library/Application Support` rather than `~/.config` because Electron (the primary entry point for most users) is a native Mac app and expects config there. `npm start` follows the same path so terminal and Electron users always share the same config.
 
+[#device-component-store]
+=== The device component store
+
+Alongside `workingSets`, `config.json` may declare a `componentStore` — the path to a *per-device cache of soft-coded component packages*. Where a workingSet holds *data*, the componentStore holds *executable UI and definition packages*: the `component` items (and their source/build) that a Connector application renders at runtime instead of compiling them in. See the UI specification for how an app resolves and loads them.
+
+The store is modelled on an npm / Gradle local cache:
+
+* *Keyed by `package@version`* — `<componentStore>/<package>@<version>/`. Multiple versions of the same package coexist.
+* *Device-scoped, not working-set-scoped* — one cache per machine, shared by every Connector application on it. Two apps that depend on the same component version resolve to the same cached copy; they never each keep a private copy.
+* *Populated from manifests* — on install/startup an application reads its `kanecta.manifest.json`, and each referenced component package is materialised into the store. Today packages come from source (a sibling directory in the Connector repository); in future they come from a registry (npm or a central Connector registry). The store layout and the resolution contract are identical either way, so the *source* of a package is not visible to the application.
+* *Idempotent* — a package already present at the right `package@version` is not re-fetched.
+
+When `componentStore` is absent, the platform default is used (mirroring config discovery, but under the OS *cache* location rather than *config*):
+
+[cols="1,2", options="header"]
+|===
+| Platform | Default path
+
+| Linux
+| `$XDG_CACHE_HOME/kanecta/components` (default `~/.cache/kanecta/components`)
+
+| Mac
+| `~/Library/Caches/kanecta/components`
+
+| Windows
+| `%LOCALAPPDATA%\kanecta\components`
+|===
+
+NOTE: The component store is a *cache*, not a source of truth — it can be deleted and repopulated from manifests at any time. It is deliberately separate from both `config.json` (config) and the datastore (data): it is per-device executable-package infrastructure — the counterpart, for UI and definitions, of what the datastore is for content.
+
 === Key rules
 
 * `specVersion` is required — used by the platform to detect config schema changes.
