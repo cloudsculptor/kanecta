@@ -3,8 +3,12 @@
   "version": "1.4.0",
   "description": "Kanecta filesystem datastore — core library",
   "main": "src/index.js",
+  "bin": {
+    "kanecta-sync-components": "bin/kanecta-sync-components.js"
+  },
   "files": [
-    "src/"
+    "src/",
+    "bin/"
   ],
   "scripts": {
     "test": "jest --runInBand",
