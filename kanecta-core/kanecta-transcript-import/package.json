@@ -29,5 +29,9 @@
   },
   "dependencies": {
     "@kanecta/lib": "^1.0.0"
+  },
+  "devDependencies": {
+    "@kanecta/postgres": "^1.4.0",
+    "pg": "^8.22.0"
   }
 }
