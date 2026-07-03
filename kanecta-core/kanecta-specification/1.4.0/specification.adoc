@@ -14,6 +14,8 @@ Richard Thomas
 
 Kanecta is an open-source, local-first personal and organisational knowledge graph. Data is stored as a tree of items with globally unique identifiers, enabling flexible organisation, semantic linking, typed structured data, access control, full-text search, and semantic (vector) search. The protocol is designed as a human-AI bridge: structured enough for AI to reason about efficiently, transparent enough for humans to read and audit.
 
+IMPORTANT: The **reference implementation language is TypeScript**. No JavaScript (`.js`/`.cjs`/`.mjs`) is written — a repository check (`scripts/check-source-languages.sh`, run in CI and pre-commit) fails on any new `.js`. Existing `.js` is grandfathered tech debt being migrated to TypeScript.
+
 .Design philosophy
 * *Local-first* — data lives on your device, sync is optional
 * *Human-readable* — every item is a JSON file a human can open and understand

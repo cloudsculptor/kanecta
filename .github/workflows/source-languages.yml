@@ -1,0 +1,19 @@
+name: Source languages
+
+# Kanecta is TypeScript-only and SCSS-only. This job fails if any NEW
+# JavaScript (.js/.cjs/.mjs) or plain CSS (.css) source is added beyond the
+# grandfathered migration ratchets (scripts/allowed-js.txt, allowed-css.txt).
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  no-new-js-or-css:
+    name: No new JavaScript / CSS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enforce TypeScript-only / SCSS-only
+        run: bash scripts/check-source-languages.sh

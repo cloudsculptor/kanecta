@@ -3,3 +3,6 @@ if command -v gitleaks >/dev/null 2>&1; then
 else
   echo "gitleaks not installed — skipping local secret scan (install from https://github.com/gitleaks/gitleaks)"
 fi
+
+# Kanecta is TypeScript-only and SCSS-only — block any new .js/.cjs/.mjs/.css.
+bash scripts/check-source-languages.sh

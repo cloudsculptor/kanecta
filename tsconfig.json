@@ -1,0 +1,19 @@
+{
+  "//": "Root TypeScript declaration for the Kanecta monorepo. Kanecta is TypeScript-only; every package extends this base. Presence of this file is the canonical 'this is a TypeScript project' signal for tooling and IDEs.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "noEmit": true,
+    "allowJs": false,
+    "checkJs": false
+  },
+  "exclude": ["node_modules", "**/dist", "**/build", "**/storybook-static", "**/coverage"]
+}

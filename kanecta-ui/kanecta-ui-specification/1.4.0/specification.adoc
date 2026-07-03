@@ -13,6 +13,8 @@
 
 This document defines the rules for every package in `kanecta-ui/`. It is the UI-layer equivalent of `kanecta-core/kanecta-specification/`. Tooling in `kanecta-ui-validator` enforces these rules programmatically.
 
+IMPORTANT: The **reference implementation language is TypeScript** and the **styling language is SCSS**. No JavaScript (`.js`/`.cjs`/`.mjs`) and no plain CSS (`.css`) is written — a repository check (`scripts/check-source-languages.sh`, run in CI and pre-commit) fails on any new `.js`/`.css`. Existing `.js`/`.css` is grandfathered tech debt being migrated to TypeScript/SCSS.
+
 The UI layer is divided into two sub-directories:
 
 * `kanecta-components/` — standalone React component packages, one per component or view
@@ -227,66 +229,68 @@ const results = workspaces.map((ws) => useQuery(...)); // eslint-disable doesn't
 
 A package may define a React context internally to avoid deep prop-drilling within a complex component tree. The context must not escape the package boundary — it is an internal implementation detail, not part of the public API.
 
-== CSS Rules
+== SCSS Rules
 
-=== Flat CSS files only
+Kanecta styling is **SCSS only** — never plain `.css`, no PostCSS, no CSS Modules. Styles are component-isolated and travel with the component (important for the soft-coded/device-store model, where a component package is self-contained). Global standards arrive through SCSS `@use` at compile time, never through global stylesheets or the cascade.
 
-No SCSS, no PostCSS, no CSS Modules. One `.css` file per component file, imported directly:
+=== One co-located `.scss` per component
+
+Exactly one `.scss` file per component, sitting beside it and imported directly:
 
 [source,typescript]
 ----
-import './MyComponent.css';
+import './MyComponent.scss';   // MyComponent.tsx + MyComponent.scss, co-located
 ----
 
-=== BEM class names
+No shared/global component stylesheet, and no massive global `.scss` — a component's styles live with the component and nowhere else.
 
-Block name is derived from the component filename (PascalCase → BEM block). Modifier values use `--`, elements use `__`.
+=== Modified BEM — block is the component file name
 
-[source,css]
+The BEM *block* is not a hand-chosen semantic name: it is the **component's file name as a prefix, PascalCase** (matching the `.tsx` filename). Elements use SCSS `&__element` concatenation; modifiers use `&--modifier`.
+
+[source,scss]
 ----
-/* Block */
-.ConfidenceBadge { ... }
-
-/* Element */
-.ConfidenceBadge__label { ... }
-
-/* Modifier */
-.ConfidenceBadge--high { ... }
-.ConfidenceBadge--low { ... }
-----
-
-=== Self-contained
-
-No `@import` from other packages or shared token files. When converting from SCSS, inline all variable values as literals. Example: `$color-border: #e0e0e0` → write `#e0e0e0` directly.
-
-=== CSS custom properties
-
-MUI and Studio CSS custom properties may be referenced — they are resolved by the consuming app's theme at runtime:
-
-[source,css]
-----
-.MyView {
-  color: var(--mui-palette-text-primary);
-  border-color: var(--color-border);
+// KanectaToolbar.scss
+.KanectaToolbar {          // block = the file name
+  &__thing { ... }         // compiles to .KanectaToolbar__thing
+  &--active { ... }        // compiles to .KanectaToolbar--active
 }
 ----
 
-=== No nested selectors
-
-Flatten all nesting. Each rule is a standalone block at the top level.
-
-[source,css]
+[source,tsx]
 ----
-/* ✓ correct */
-.MyView__item { ... }
-.MyView__item--active { ... }
+<div className="KanectaToolbar">
+  <div className="KanectaToolbar__thing" />
+</div>
+----
 
-/* ✗ wrong — nested */
-.MyView {
-  .item { ... }
-  &--active { ... }
+`&__element` / `&--modifier` concatenation is the required idiom — it compiles to *flat* classes (`.KanectaToolbar__thing`), so there is still no descendant-selector cascade. Do NOT write descendant nesting (`.Block { .child { … } }`) — only `&`-concatenated BEM.
+
+=== Global standards via `@use`, not the cascade
+
+Shared design decisions — colours, spacing, typography, mixins — live in a shared SCSS **design-system** partial (e.g. `styles/_theme.scss` exporting `$color-*`, spacing/typography scales, and mixins). Each component `@use`s it, so the token *values* are compiled INTO that component's isolated stylesheet:
+
+[source,scss]
+----
+// _theme.scss  (the design system)
+$color-surface: #ffffff;
+$space-2: 8px;
+@mixin card { border: 1px solid $color-border; border-radius: 8px; }
+
+// KanectaToolbar.scss
+@use '../../styles/theme' as t;   // pulled in at compile time — no runtime cascade
+
+.KanectaToolbar {
+  background: t.$color-surface;
+  &__thing { padding: t.$space-2; @include t.card; }
 }
 ----
+
+Rules:
+
+* **Do NOT theme via global `:root { --color-* }` custom properties consumed through the cascade** — that is "global via cascade" and is exactly what this model avoids.
+* **Do NOT hardcode values** (`#ffffff`, `8px`) in a component — pull them from the design system so a change propagates everywhere without touching every file.
+* There is **no global stylesheet and no unexpected cascading**; every component is self-contained, and consistency comes from the shared SCSS it imports.
 
 [[component-item]]
 == `kanecta.item.json` Rules

@@ -7,7 +7,8 @@
     "start": "node kanecta-dev/scripts/ensure-datastore.js",
     "dev": "node kanecta-dev/scripts/ensure-datastore.js",
     "help": "cat kanecta-docs/kanecta-docs/dev-setup.md",
-    "prepare": "husky || true"
+    "prepare": "husky || true",
+    "check:languages": "bash scripts/check-source-languages.sh"
   },
   "workspaces": [
     "kanecta-core/kanecta-specification",
