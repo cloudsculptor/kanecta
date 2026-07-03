@@ -14,6 +14,11 @@ function tmpAdapter() {
 
 function cleanup(a) { fs.rmSync(a.root, { recursive: true, force: true }); }
 
+// Advance the wall clock so a following write gets a strictly-later `modifiedAt`
+// than the branch point (the watermark comparison is strict). Real merges happen
+// long after the fork; this just makes that ordering deterministic in-test.
+function tick(ms = 2) { const until = Date.now() + ms; while (Date.now() < until) { /* spin */ } }
+
 function itemPathOn(a, branch, id) {
   const hex = id.replace(/-/g, '');
   return path.join(a.k, 'branches', branch, 'items', hex.slice(0, 2), hex.slice(2, 4), id, 'item.json');
@@ -187,6 +192,232 @@ describe('sparse branch diff + merge', () => {
     expect(a.get(added.id)?.value).toBe('branch only');
     expect(a.get(onMain.id)?.value).toBe('edited');
     expect(a.get(child.id)).toBeNull();
+    cleanup(a);
+  });
+});
+
+// ─── Conflict-aware merge (per-item watermark) ─────────────────────────────────
+
+// Fork a sparse branch, mutate the SAME upstream item on main after the fork, and
+// edit it on the branch — exercising the branchPoint watermark that distinguishes
+// a clean EDIT from a CONFLICT.
+function withDivergedEdit() {
+  const a      = tmpAdapter();
+  const onMain = a.create({ value: 'v0', type: 'text' });
+  a.createBranch('feature/sparse', { fill: 'sparse' });
+
+  // Edit on the branch.
+  a.useBranch('feature/sparse');
+  a.update(onMain.id, { value: 'branch edit' }, 'test@example.com');
+
+  // Independently edit the SAME item on main, AFTER the branch point.
+  a.useBranch('main');
+  tick();
+  a.update(onMain.id, { value: 'main edit' }, 'someone@else.com');
+
+  return { a, onMain };
+}
+
+describe('sparse branch conflict-aware merge', () => {
+  test('previewMerge flags an item edited on BOTH sides as a conflict', () => {
+    const { a, onMain } = withDivergedEdit();
+    const preview = a.previewMerge('feature/sparse');
+    expect(preview.edits.map(e => e.id)).toContain(onMain.id);
+    expect(preview.conflicts.map(c => c.id)).toContain(onMain.id);
+    expect(preview.conflicts[0].kind).toBe('edit-edit');
+    cleanup(a);
+  });
+
+  test('previewMerge reports NO conflict when upstream is untouched since the fork', () => {
+    const { a, onMain } = withSparseBranch();
+    a.update(onMain.id, { value: 'branch only edit' }, 'test@example.com');
+    const preview = a.previewMerge('feature/sparse');
+    expect(preview.edits.map(e => e.id)).toContain(onMain.id);
+    expect(preview.conflicts).toEqual([]);
+    cleanup(a);
+  });
+
+  test('mergeBranchLocally ABORTS on conflict — nothing applied, branch preserved', () => {
+    const { a, onMain } = withDivergedEdit();
+    a.useBranch('main');
+
+    let err;
+    try { a.mergeBranchLocally('feature/sparse'); } catch (e) { err = e; }
+    expect(err).toBeDefined();
+    expect(err.code).toBe('MERGE_CONFLICT');
+    expect(err.conflicts.map(c => c.id)).toContain(onMain.id);
+
+    // Upstream is untouched by the aborted merge…
+    expect(a.get(onMain.id)?.value).toBe('main edit');
+    // …and the branch still exists for the caller to resolve.
+    expect(a.listBranches().map(b => b.name)).toContain('feature/sparse');
+    cleanup(a);
+  });
+
+  test("strategy 'theirs' forces the branch to win", () => {
+    const { a, onMain } = withDivergedEdit();
+    a.useBranch('main');
+    const res = a.mergeBranchLocally('feature/sparse', { strategy: 'theirs' });
+    expect(res.merged).toBe(1);
+    expect(res.skipped).toBe(0);
+    expect(a.get(onMain.id)?.value).toBe('branch edit');
+    cleanup(a);
+  });
+
+  test("strategy 'ours' keeps upstream and skips the conflicting change", () => {
+    const { a, onMain } = withDivergedEdit();
+    a.useBranch('main');
+    const res = a.mergeBranchLocally('feature/sparse', { strategy: 'ours' });
+    expect(res.skipped).toBe(1);
+    expect(res.merged).toBe(0);
+    // Upstream value is preserved.
+    expect(a.get(onMain.id)?.value).toBe('main edit');
+    // Branch folder is consumed by the merge.
+    expect(a.listBranches().map(b => b.name)).not.toContain('feature/sparse');
+    cleanup(a);
+  });
+
+  test('flags a branch edit of an item deleted upstream — no silent resurrection', () => {
+    const a = tmpAdapter();
+    const x = a.create({ value: 'x0', type: 'text' });
+    a.createBranch('feature/sparse', { fill: 'sparse' });
+
+    // Branch keeps/edits x (materialises it locally).
+    a.useBranch('feature/sparse');
+    a.update(x.id, { value: 'branch edit of x' }, 'test@example.com');
+
+    // Upstream deletes x after the fork.
+    a.useBranch('main');
+    a.delete(x.id, 'someone@else.com');
+
+    const preview = a.previewMerge('feature/sparse');
+    const c = preview.conflicts.find(c => c.id === x.id);
+    expect(c?.kind).toBe('add-delete');
+
+    // Default merge aborts rather than resurrect x…
+    let err;
+    try { a.mergeBranchLocally('feature/sparse'); } catch (e) { err = e; }
+    expect(err?.code).toBe('MERGE_CONFLICT');
+
+    // …and 'ours' respects the upstream deletion (x stays gone).
+    const res = a.mergeBranchLocally('feature/sparse', { strategy: 'ours' });
+    expect(a.get(x.id)).toBeNull();
+    expect(res.skipped).toBeGreaterThanOrEqual(1);
+    cleanup(a);
+  });
+
+  test('a genuine branch-only add (created after the fork) is NOT a conflict', () => {
+    const { a } = withSparseBranch();
+    const added = a.create({ value: 'brand new', type: 'text' });
+    const preview = a.previewMerge('feature/sparse');
+    expect(preview.adds.map(x => x.id)).toContain(added.id);
+    expect(preview.conflicts.map(c => c.id)).not.toContain(added.id);
+    cleanup(a);
+  });
+
+  test('a clean edit still merges alongside a conflicting one under a strategy', () => {
+    const a       = tmpAdapter();
+    const conf    = a.create({ value: 'c0', type: 'text' });
+    const clean   = a.create({ value: 'k0', type: 'text' });
+    a.createBranch('feature/sparse', { fill: 'sparse' });
+
+    a.useBranch('feature/sparse');
+    a.update(conf.id,  { value: 'branch-conf' },  'test@example.com');
+    a.update(clean.id, { value: 'branch-clean' }, 'test@example.com');
+
+    a.useBranch('main');
+    tick();
+    a.update(conf.id, { value: 'main-conf' }, 'someone@else.com'); // only conf diverges
+
+    const res = a.mergeBranchLocally('feature/sparse', { strategy: 'ours' });
+    expect(res.merged).toBe(1);   // clean applied
+    expect(res.skipped).toBe(1);  // conflicting skipped
+    expect(a.get(clean.id)?.value).toBe('branch-clean');
+    expect(a.get(conf.id)?.value).toBe('main-conf');
+    cleanup(a);
+  });
+});
+
+// ─── Merge blast radius (reverse-reference safety) ─────────────────────────────
+
+describe('sparse branch merge blast radius', () => {
+  test('surfaces referrers when a deleted item is still referenced (parentId)', () => {
+    const { a, onMain, child } = withSparseBranch();
+    a.delete(onMain.id, 'test@example.com'); // delete the parent; child still inherits parentId
+
+    a.useBranch('main');
+    const res = a.mergeBranchLocally('feature/sparse');
+    const hit = res.blastRadius.find(b => b.id === onMain.id);
+    expect(hit).toBeDefined();
+    expect(hit.referencedBy.some(r => r.id === child.id && r.via === 'parent')).toBe(true);
+    cleanup(a);
+  });
+
+  test('includes [[uuid]] backlinks in the blast radius', () => {
+    const a      = tmpAdapter();
+    const target = a.create({ value: 'target', type: 'text' });
+    const linker = a.create({ value: `see [[${target.id}]]`, type: 'text' });
+    a.createBranch('feature/sparse', { fill: 'sparse' });
+    a.useBranch('feature/sparse');
+    a.delete(target.id, 'test@example.com');
+
+    a.useBranch('main');
+    const res = a.mergeBranchLocally('feature/sparse');
+    const hit = res.blastRadius.find(b => b.id === target.id);
+    expect(hit?.referencedBy.some(r => r.id === linker.id && r.via === 'link')).toBe(true);
+    cleanup(a);
+  });
+
+  test('includes aliases that target a deleted item', () => {
+    const a      = tmpAdapter();
+    const target = a.create({ value: 'aliased target', type: 'text' });
+    a.setAlias('my-alias', target.id);
+    a.createBranch('feature/sparse', { fill: 'sparse' });
+    a.useBranch('feature/sparse');
+    a.delete(target.id, 'test@example.com');
+
+    a.useBranch('main');
+    const res = a.mergeBranchLocally('feature/sparse');
+    const hit = res.blastRadius.find(b => b.id === target.id);
+    expect(hit?.referencedBy.some(r => r.via === 'alias')).toBe(true);
+    cleanup(a);
+  });
+
+  test('blockOnBlastRadius aborts the merge and preserves the branch', () => {
+    const { a, onMain } = withSparseBranch();
+    a.delete(onMain.id, 'test@example.com');
+
+    a.useBranch('main');
+    let err;
+    try { a.mergeBranchLocally('feature/sparse', { blockOnBlastRadius: true }); }
+    catch (e) { err = e; }
+    expect(err?.code).toBe('MERGE_BLAST_RADIUS');
+    expect(err.blastRadius.map(b => b.id)).toContain(onMain.id);
+
+    // Nothing applied; branch still present.
+    expect(a.get(onMain.id)?.value).toBe('on main');
+    expect(a.listBranches().map(b => b.name)).toContain('feature/sparse');
+    cleanup(a);
+  });
+
+  test('no blast radius when the deleted item has no referrers', () => {
+    const { a, child } = withSparseBranch();
+    a.delete(child.id, 'test@example.com'); // a leaf — nothing points at it
+
+    a.useBranch('main');
+    const res = a.mergeBranchLocally('feature/sparse');
+    expect(res.blastRadius).toEqual([]);
+    cleanup(a);
+  });
+
+  test('a referrer that is also deleted in the same merge is not blast radius', () => {
+    const { a, onMain, child } = withSparseBranch();
+    a.delete(child.id, 'test@example.com');   // the only referrer of onMain…
+    a.delete(onMain.id, 'test@example.com');  // …deleted alongside it
+
+    a.useBranch('main');
+    const res = a.mergeBranchLocally('feature/sparse');
+    expect(res.blastRadius).toEqual([]); // no dangling reference is created
     cleanup(a);
   });
 });

@@ -80,4 +80,54 @@ describe('POST /working-sets/:name/branches/:branch/merge', () => {
     const res = await request(app).post('/working-sets/default/branches/main/merge');
     expect(res.status).toBe(400);
   });
+
+  it('reports a conflict (409) when upstream moved after the fork, and resolves with a strategy', async () => {
+    const item = await ds.create({ type: 'string', value: 'v0' });
+    ds.createBranch('feature/c', { fill: 'sparse', upstream: { branch: 'main' } });
+    ds.useBranch('feature/c');
+    await ds.update(item.id, { value: 'branch edit' }, 'test@example.com');
+
+    ds.useBranch('main');
+    await new Promise((r) => setTimeout(r, 5)); // main edit must land after the branch point
+    await ds.update(item.id, { value: 'main edit' }, 'other@example.com');
+
+    // Preview flags the conflict without applying anything.
+    const prev = await request(app).get('/working-sets/default/branches/feature%2Fc/merge-preview');
+    expect(prev.status).toBe(200);
+    expect(prev.body.conflicts.map((c) => c.id)).toContain(item.id);
+
+    // Default merge is refused.
+    const res = await request(app).post('/working-sets/default/branches/feature%2Fc/merge');
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('MERGE_CONFLICT');
+    expect(res.body.conflicts.map((c) => c.id)).toContain(item.id);
+
+    // A strategy resolves it.
+    const forced = await request(app)
+      .post('/working-sets/default/branches/feature%2Fc/merge')
+      .send({ strategy: 'theirs' });
+    expect(forced.status).toBe(200);
+    expect(forced.body.merged).toBe(1);
+  });
+
+  it('surfaces blast radius and blocks on it when requested', async () => {
+    const parent = await ds.create({ type: 'string', value: 'parent' });
+    const child = await ds.create({ type: 'string', value: 'child', parentId: parent.id });
+    ds.createBranch('feature/d', { fill: 'sparse', upstream: { branch: 'main' } });
+    ds.useBranch('feature/d');
+    await ds.delete(parent.id, 'test@example.com');
+
+    const prev = await request(app).get('/working-sets/default/branches/feature%2Fd/merge-preview');
+    expect(prev.status).toBe(200);
+    const hit = prev.body.blastRadius.find((b) => b.id === parent.id);
+    expect(hit).toBeTruthy();
+    expect(hit.referencedBy.some((r) => r.id === child.id && r.via === 'parent')).toBe(true);
+
+    // blockOnBlastRadius refuses the merge.
+    const blocked = await request(app)
+      .post('/working-sets/default/branches/feature%2Fd/merge')
+      .send({ blockOnBlastRadius: true });
+    expect(blocked.status).toBe(409);
+    expect(blocked.body.code).toBe('MERGE_BLAST_RADIUS');
+  });
 });

@@ -180,8 +180,9 @@ class Datastore {
   useBranch(name)          { return this._adapter.useBranch(name); }
   listBranches()           { return this._adapter.listBranches(); }
   deleteBranch(name)       { return this._adapter.deleteBranch(name); }
-  branchDiff(name)         { return this._adapter.branchDiff(name); }
-  mergeBranchLocally(name) { return this._adapter.mergeBranchLocally(name); }
+  branchDiff(name)               { return this._adapter.branchDiff(name); }
+  previewMerge(name)             { return this._adapter.previewMerge(name); }
+  mergeBranchLocally(name, opts) { return this._adapter.mergeBranchLocally(name, opts); }
 }
 
 module.exports = { Datastore, ROOT_ID, TYPES_NODE, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE, DEFAULT_LICENSE };
