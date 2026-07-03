@@ -13,6 +13,7 @@
 //   files/<hex[0:2]>/<hex[2:4]>/<item-id>/<filename>
 
 const {
+  S3Client,
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
@@ -21,8 +22,37 @@ const {
 
 class S3Adapter {
   constructor({ client, bucket }) {
+    if (!client) throw new Error('S3Adapter: `client` (an S3Client) is required');
+    if (!bucket) throw new Error('S3Adapter: `bucket` is required');
     this._client = client;
     this._bucket = bucket;
+  }
+
+  // Build an adapter from plain config (the shape in config.json's remote
+  // definition) rather than a pre-constructed S3Client. `forcePathStyle` defaults
+  // to true because MinIO / R2 / most self-hosted gateways require path-style URLs;
+  // set it false for AWS S3 virtual-hosted-style. `endpoint` is omitted for real
+  // AWS (the SDK derives it from `region`).
+  //   { endpoint?, region?, bucket, accessKeyId?, secretAccessKey?, forcePathStyle? }
+  static fromConfig(cfg = {}) {
+    const {
+      endpoint,
+      region = 'us-east-1',
+      bucket,
+      accessKeyId,
+      secretAccessKey,
+      forcePathStyle = true,
+    } = cfg;
+    if (!bucket) throw new Error('S3Adapter.fromConfig: `bucket` is required');
+    const client = new S3Client({
+      region,
+      ...(endpoint ? { endpoint } : {}),
+      forcePathStyle,
+      ...(accessKeyId && secretAccessKey
+        ? { credentials: { accessKeyId, secretAccessKey } }
+        : {}),
+    });
+    return new S3Adapter({ client, bucket });
   }
 
   // ─── File operations ───────────────────────────────────────────────────────
@@ -44,10 +74,16 @@ class S3Adapter {
         Key: this._objectKey(itemId, filename),
       }));
     } catch (err) {
-      if (err.name === 'NoSuchKey') return null;
+      // A missing object surfaces differently across S3 gateways: NoSuchKey (AWS
+      // GetObject), NotFound (HEAD-style), or a bare 404. Treat all as absent.
+      if (err.name === 'NoSuchKey' || err.name === 'NotFound' || err.$metadata?.httpStatusCode === 404) {
+        return null;
+      }
       throw err;
     }
-    return Buffer.concat(await res.Body.toArray());
+    // aws-sdk v3: the response Body is a stream with helper transforms; use
+    // transformToByteArray() (there is no .toArray()).
+    return Buffer.from(await res.Body.transformToByteArray());
   }
 
   async deleteFile(itemId, filename) {

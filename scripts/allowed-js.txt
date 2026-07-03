@@ -74,6 +74,8 @@ kanecta-core/kanecta-storage-adapters/kanecta-postgres/tests/source-ingestion.te
 kanecta-core/kanecta-storage-adapters/kanecta-postgres/tests/sync.integration.test.js
 kanecta-core/kanecta-storage-adapters/kanecta-s3/src/adapter.js
 kanecta-core/kanecta-storage-adapters/kanecta-s3/src/index.js
+# s3 test grandfathered with its wholly-JS package; migrate the package to TS as a unit.
+kanecta-core/kanecta-storage-adapters/kanecta-s3/tests/s3.integration.test.js
 kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/src/adapter.js
 kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/src/index.js
 kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/src/write-integrity.js
