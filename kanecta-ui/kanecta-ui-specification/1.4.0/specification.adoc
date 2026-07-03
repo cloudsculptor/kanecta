@@ -20,6 +20,12 @@ The UI layer is divided into two sub-directories:
 
 A third directory, `kanecta-ui-specification/`, contains this document and the validator.
 
+=== Soft-coded components — the direction
+
+A Connector application is not a fixed, compiled bundle of screens. Its end state is a *thin bootstrapper plus a package of `component` items* that are resolved from the device component store (see the core spec, "The device component store") and rendered at *runtime* — the same way built-in type items are seeded from a manifest rather than hard-coded. "Connector Studio" is simply one such package of component items (its views: tree, table, quality, and the rest); a different Connector application is a different package of the same kind of items.
+
+The rules in this document are what make that possible: every component is a standalone package with a stable `component` item identity (`kanecta.item.json`), a props-only API with no store or disk access, and a place in an app's `kanecta.manifest.json`. An application therefore does not import its views by name at compile time — it reads its manifest, resolves each component from the device store by `package@version`, and includes it at runtime. (During the transition a host may still bundle components behind the loader; the manifest → store → item → loader contract is identical, so moving to true runtime loading is a change of loader, not of application code. See <<runtime-resolution>>.)
+
 == Directory Layout
 
 [source]
@@ -437,6 +443,36 @@ Every app in `kanecta-apps/` that ships or consumes UI components must include a
 | Path to the `kanecta.item.json`, relative to this manifest file. No duplicate IDs allowed.
 |===
 
+[#runtime-resolution]
+== Runtime Resolution and the Device Store
+
+An application does not hold compile-time references to its views. At startup it *resolves* the components declared in its `kanecta.manifest.json` and includes them dynamically. The resolution contract:
+
+1. *Read the manifest.* Each `items[]` entry names a component by its stable `id` (the `component` item UUID) and points at its `kanecta.item.json`.
+2. *Resolve from the device store.* Each component package is materialised in the per-device component store (core spec, "The device component store") at `<componentStore>/<package>@<version>/`. The application resolves the package by name + version; multiple versions may be present and an app binds to the one its manifest depends on.
+3. *Load and render.* The host loads the component's entry (`meta.files.body`, a named export) and renders it with props (below). The physical load mechanism is host-specific and MUST NOT be assumed by the component: during the transition a browser host may bundle components behind a loader; a host with a build/serve step may `import()` built ESM from the store at runtime. Either way the component sees the same props-only interface.
+
+Because identity is the `component` item UUID (not an import path), a component can be added, removed, reordered, or swapped for a different version by changing *data* (the manifest / the store) — with no application code change. This is what "the app is a package of component items" means in practice.
+
+*Populating the store.* The store is filled from manifests. Running from source (the Connector repository), the packages under `kanecta-ui/kanecta-components/` are synced into the store keyed `package@version`. Running from a registry (future), packages are fetched by the same key. An application never reads `kanecta-ui/kanecta-components/` directly at runtime — always the store — so the two modes are indistinguishable to it.
+
+== View Components and the Host State Contract
+
+Component packages fall into two broad classes, and one class carries an extra contract.
+
+* *Display components* — badges, chips, indicators, bars. Pure functions of their props; no state of their own.
+* *View components* — full-screen views (tree, table, quality, …). Stateful and long-lived, but *the host owns that state, not the view*.
+
+A view MUST NOT persist anything itself. It does not know its environment (filesystem, browser, Electron), so it cannot and must not touch disk, `localStorage`, or any store — consistent with the props-only / no-store-imports rules above. Instead:
+
+* The *host application* owns per-view state and its persistence. Connector Studio, for example, keeps the state of each view a user has opened and restores it on return, so the user can switch between views without losing place. Only one view is mounted at a time — opening a view replaces the current one, it is not layered on top.
+* A view receives its state and a way to update it *through props*:
+** `state` — the view's last-persisted state (opaque to the host; the view defines its own shape). Absent/`null` on first open.
+** `onStateChange(next)` — the view calls this when its state changes; the host persists it (to file, or wherever that host keeps state) and passes it back as `state` next time.
+* A view also receives the *Kanecta data interface* it needs (the API / query client) through props — never by importing a store — so the same view works unchanged across datastores and hosts.
+
+This keeps view components portable and host-agnostic: the same `component` item renders in Studio, in another Connector app, or in a future runtime, with each host free to persist state however it likes.
+
 == Storybook
 
 Every component package that exports a renderable React component must include at least one Storybook story file alongside the component source:
@@ -534,3 +570,12 @@ All three functions return `{ valid: boolean, errors: ValidationError[] }` where
 |===
 
 When bumping the spec version, create a new versioned folder (e.g. `2.0.0/`) and update the `package.json` exports map. The `vNext/` folder is a scratchpad for breaking changes under consideration — nothing in `vNext/` is enforced by the validator.
+
+=== Package versioning and cache identity
+
+Two distinct notions of identity apply to a component, and they must not be conflated:
+
+* *Item identity* — the `component` item's UUID in `kanecta.item.json`. This is *permanent* and stable across every version and every installation; it is how the item graph and any manifest reference the component. It never changes.
+* *Package version* — the component package's `package.json` `version`. Together with the package name it forms the *cache key*, `package@version`, under which the package is materialised in the device component store (core spec, "The device component store").
+
+So a component has *one* permanent UUID and *many* possible `package@version` artifacts. The device store may hold several versions of the same package side by side, and different applications on the same device may bind to different versions of the same component — all sharing the one item UUID. Changing a component's behaviour is a *new version* (a new cache artifact); it is never a new UUID. Conversely, the UUID is the thing an app's manifest pins, and the version is what the resolver selects.

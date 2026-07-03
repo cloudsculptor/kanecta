@@ -35,6 +35,10 @@
       "minimum": 1024,
       "maximum": 65535,
       "description": "Port for the Kanecta API server. Defaults to 9744 if absent."
+    },
+    "componentStore": {
+      "type": "string",
+      "description": "Path to the per-device component cache (an npm/Gradle-style local store of soft-coded component packages, keyed by package@version and shared across all Connector apps on this device). Optional. When absent, the platform default is used:\n  - Linux:   $XDG_CACHE_HOME/kanecta/components  (default ~/.cache/kanecta/components)\n  - Mac:     ~/Library/Caches/kanecta/components\n  - Windows: %LOCALAPPDATA%\\kanecta\\components\nUnlike a workingSet (which is data), the componentStore holds executable UI/definition packages; it is device-scoped, not working-set-scoped, so multiple apps and multiple package versions coexist. '~' is expanded; a '$VAR' value is resolved from the environment."
     }
   },
   "definitions": {
