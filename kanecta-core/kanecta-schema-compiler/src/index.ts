@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  * jsonSchema → sqlSchema compiler.
  *
@@ -22,7 +20,37 @@
  *   }
  */
 
-const DIALECTS = {
+export type DialectName = 'postgres' | 'sqlite' | 'ansi';
+
+export interface Dialect {
+  string: string;
+  integer: string;
+  number: string;
+  boolean: string;
+  uuid: string;
+  /** null ⇒ no array columns (decompose to a child value-table). */
+  arrayColumn: ((base: string) => string) | null;
+}
+
+/** A single property in a flat type `jsonSchema`. */
+export interface JsonSchemaProp {
+  type?: string;
+  format?: string;
+  typeId?: string;
+  'x-kanecta-itemType'?: string;
+  items?: JsonSchemaProp;
+}
+
+export interface JsonSchema {
+  properties?: Record<string, JsonSchemaProp>;
+}
+
+export interface DeriveOptions {
+  typeId?: string;
+  dialect?: DialectName;
+}
+
+export const DIALECTS: Record<DialectName, Dialect> = {
   postgres: {
     string: 'TEXT',
     integer: 'BIGINT',
@@ -49,19 +77,19 @@ const DIALECTS = {
   },
 };
 
-const snake = (k) => k.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase());
+const snake = (k: string): string => k.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase());
 
 /** obj_<typeId> with hyphens as underscores. */
-function objTableName(typeId) {
+export function objTableName(typeId: string): string {
   return `obj_${String(typeId).replace(/-/g, '_')}`;
 }
 
-function isRef(prop) {
+function isRef(prop: JsonSchemaProp | undefined): boolean {
   return Boolean(prop && (prop.typeId || prop['x-kanecta-itemType'] || prop.format === 'uuid'));
 }
 
-/** Map a scalar (or ref) property to a base SQL type for a dialect. Returns { sql, ref }. */
-function scalarType(prop, d) {
+/** Map a scalar (or ref) property to a base SQL type for a dialect. */
+function scalarType(prop: JsonSchemaProp | undefined, d: Dialect): { sql: string; ref: boolean } {
   if (isRef(prop)) return { sql: d.uuid, ref: true };
   const t = prop && prop.type;
   if (t === 'integer') return { sql: d.integer, ref: false };
@@ -71,19 +99,16 @@ function scalarType(prop, d) {
   return { sql: d.string, ref: false };
 }
 
-function q(id) {
+function q(id: string): string {
   return `"${id}"`;
 }
 
 /**
- * Derive the DDL for a type.
- * @param {object} jsonSchema  Draft-07-style flat type schema (with `properties`).
- * @param {object} opts
- * @param {string} opts.typeId   The type's UUID (drives the table name).
- * @param {string} [opts.dialect='postgres']  'postgres' | 'sqlite' | 'ansi'.
- * @returns {string[]}  Ordered DDL statements (object table, then child tables).
+ * Derive the DDL for a type. Returns ordered DDL statements (object table, then
+ * any child value-tables). `dialect` defaults to 'postgres'.
  */
-function deriveSqlSchema(jsonSchema, { typeId, dialect = 'postgres' } = {}) {
+export function deriveSqlSchema(jsonSchema: JsonSchema, opts: DeriveOptions = {}): string[] {
+  const { typeId, dialect = 'postgres' } = opts;
   if (!typeId) throw new Error('deriveSqlSchema: typeId is required');
   const d = DIALECTS[dialect];
   if (!d) throw new Error(`deriveSqlSchema: unknown dialect "${dialect}"`);
@@ -92,7 +117,7 @@ function deriveSqlSchema(jsonSchema, { typeId, dialect = 'postgres' } = {}) {
   const props = (jsonSchema && jsonSchema.properties) || {};
 
   const columns = [`  item_id ${d.uuid} NOT NULL`];
-  const childTables = [];
+  const childTables: string[] = [];
 
   for (const [name, prop] of Object.entries(props)) {
     const col = snake(name);
@@ -129,5 +154,3 @@ function deriveSqlSchema(jsonSchema, { typeId, dialect = 'postgres' } = {}) {
   const objTable = `CREATE TABLE ${q(table)} (\n${columns.join(',\n')}\n)`;
   return [objTable, ...childTables];
 }
-
-module.exports = { deriveSqlSchema, objTableName, DIALECTS };
