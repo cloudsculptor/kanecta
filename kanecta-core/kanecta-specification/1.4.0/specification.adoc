@@ -707,6 +707,10 @@ Types are grouped into three categories.
 | An instance of a custom type definition. `item.typeId` identifies the type.
 | link:../built-in-types/types/object.json[object.json^]
 
+| `property`
+| One entry of an arbitrary key-value map: `item.value` is the key, `payload.value` is the value. The core scalar value-holder that `constraints.children` `semantics: "map"` uses (see <<jsonSchema-rules>>) — a variable/unbounded map is stored as `property` children rather than fixed columns, keeping the parent type flat and portable.
+| link:../built-in-types/types/property.json[property.json^]
+
 | `grant`
 | An access control grant on the parent item. Lives in the `"grants"` aspect.
 | link:../built-in-types/types/grant.json[grant.json^]
@@ -816,6 +820,30 @@ The `types` node (`11111111-1111-1111-1111-111111111111`) is a *lazy boundary*. 
 * *When a query does not filter by type bucket*, exclude items whose `parentId` chains through `11111111-1111-1111-1111-111111111111` unless the query explicitly requests type-system content.
 
 The UUID itself is the signal. Any system reading a `parentId` of `11111111-1111-1111-1111-111111111111` knows it is in the type-system subtree and must apply appropriate caution.
+
+[#type-tiers]
+=== Type tiers — where a type lives
+
+Every Kanecta type is one of three tiers. The tier is decided by a single question — *what hardcoded logic references this type?* — and the tier determines where the definition lives and how it reaches a datastore. This is the general form of the built-in-types principle stated above ("if the generic layer needs to understand a type to do its job, the type belongs in the spec").
+
+[cols="1,2,2", options="header"]
+|===
+| Tier | Referenced by | Home & distribution
+
+| *Core*
+| Kanecta's own generic/core logic — the adapter, the API, the schema validator, the sync engine (e.g. `object`, `type`, `file`, `reference`, `relationship`, `property`).
+| Defined in this specification (`built-in-types/`). Seeded into *every* datastore by the bootstrapper before any manifest or user data (like `root` and `types`). `meta.layer: "core"`.
+
+| *App*
+| Hardcoded *application* logic — a specific Studio view, component, or importer depends on the type existing and having a known shape (e.g. `claude-session`, `claude-turn`, `claude-tool-call`, referenced by the transcript importer and any session view).
+| *Manifested by the component/package that references it* and shipped as an exported type definition, synthesized into datastores that install that app/component (see <<componentPayload>> manifests). Not in the core spec. `meta.layer: "app"`. Stable UUIDs so every install shares the same type.
+
+| *Library / user*
+| *No* hardcoded core or app logic — the type is pure data modelling (e.g. `Person`, `Address`, `Organization`, or any type a user invents).
+| The generic **`kanecta-types`** library (see <<kanecta-types>>) provides a large curated set so users start from standard types instead of inventing them; users may also create their own. Synthesized on demand / created at runtime. `meta.layer: "user"`.
+|===
+
+The rule is deliberately mechanical: *promotion follows dependency.* A type only earns a place in the core spec when the generic layer must understand it to do its job; a type only becomes an app type when specific application code depends on it; everything else is library/user data. Moving a type between tiers is the same decision applied again — it is not a schema change to the type itself, only a change in where its definition is owned and seeded from.
 
 [#item-placement]
 == Item Placement
@@ -1588,6 +1616,7 @@ For `type: "type"`. Defines a custom Kanecta type. Four top-level keys: `meta`, 
 | SHA-256 over `jsonSchema` + `sqlSchema` + `primaryField`. Computed and set when `immutable` is true.
 |===
 
+[#jsonSchema-rules]
 ==== jsonSchema rules
 
 JSON Schema Draft-07 for instances. Types are *flat — exactly one level deep*. Each property must carry a stable `"x-id"` UUID. Property types must be:
@@ -1597,7 +1626,7 @@ JSON Schema Draft-07 for instances. Types are *flat — exactly one level deep*.
 * UUID references to other Kanecta custom types: `{ "type": "string", "format": "uuid", "typeId": "<type-uuid>" }`
 * UUID references to built-in Kanecta types: `{ "type": "string", "format": "uuid", "x-kanecta-itemType": "<built-in-type-name>" }`
 
-No inline nested objects. A reusable nested concept must be its own standalone type, referenced via `typeId`. This guarantees every type maps to exactly one table.
+No inline nested objects. A reusable nested concept must be its own standalone type, referenced via `typeId`. This keeps every type flat: its scalar fields map to one object table (plus, on ANSI backends without array columns, one small child value-table per scalar-array field — see the sqlSchema rules).
 
 ===== Reference enforcement keywords
 
@@ -1618,13 +1647,31 @@ Both keywords also drive Postgres FK generation (see `sqlSchema` rules below) �
 
 ==== sqlSchema rules
 
-Ordered SQL DDL statements (PostgreSQL dialect) that create all storage for instances of this type. Defined once at type creation — a changed shape is a new type.
+`sqlSchema` is *not hand-authored* — it is *derived* from `jsonSchema` by the schema compiler (`@kanecta/schema-compiler`). `jsonSchema` is the single source of truth; the compiler emits the `CREATE TABLE` DDL for whichever backend a datastore uses, so the SQL can never drift from the schema and ontology-generated types (which ship only a `jsonSchema`) get storage for free. The stored `sqlSchema`, when present, is a derived cache of the compiled DDL, not an authored input. A changed shape is a new type.
 
-TIP: *Postgres* — table naming convention: `obj_<type-uuid-with-hyphens-as-underscores>`. Strict 1:1 with `items` via `item_id PRIMARY KEY REFERENCES items(id)`. Every property in `jsonSchema` maps to one column: primitives → native SQL types, arrays of primitives → `TEXT[]` / `INTEGER[]`, `typeId` references → `UUID` with `FOREIGN KEY REFERENCES items(id)`.
+The *canonical* schema is portable to *any ANSI SQL database*: only scalar column types — no JSON columns, no array columns (both are engine-specific). Each adapter then derives a physical form that preserves the same logical shape:
 
-TIP: *SQLite* — `sqlSchema` is author-defined in Postgres dialect but adapters must translate to SQLite types at `CREATE TABLE` time: `UUID` → `TEXT`, `TIMESTAMPTZ` → `TEXT`, `BOOLEAN` → `INTEGER`, native arrays → JSON `TEXT`.
+[cols="1,1,1,1", options="header"]
+|===
+| `jsonSchema` | `ansi` (canonical) | Postgres | SQLite
 
-NOTE: *Required even for filesystem-only types* — every type defines `sqlSchema` regardless of current adapter, so a future filesystem→cloud migration never needs retrofitting.
+| `string` | `CLOB` | `TEXT` | `TEXT`
+| `integer` | `BIGINT` | `BIGINT` | `INTEGER`
+| `number` | `DOUBLE PRECISION` | `DOUBLE PRECISION` | `REAL`
+| `boolean` | `BOOLEAN` | `BOOLEAN` | `INTEGER`
+| UUID reference (`typeId` / `x-kanecta-itemType`) | `CHAR(36)` + FK to `items(id)` | `UUID` + FK | `TEXT` + FK
+| *array of scalars* | *decomposed child value-table* | native `TYPE[]` column | JSON `TEXT` column
+|===
+
+Table naming: `obj_<type-uuid-with-hyphens-as-underscores>`, strict 1:1 with `items` via `item_id PRIMARY KEY` + `FOREIGN KEY REFERENCES items(id)`. camelCase property names become snake_case columns.
+
+*Arrays and portability.* ANSI SQL has no array type, so in the canonical model a scalar-array field is decomposed into an ordered child value-table `obj_<typeId>_<field>(item_id, ord, value)` — a portable multi-valued field. Postgres keeps a native `TYPE[]` column (fast) and SQLite stores JSON text; all three are the same logical array in the read model. Object arrays (arrays of typed objects) are never columns — they are child items, per the flat one-level rule.
+
+NOTE: *Derived for every backend, including filesystem-only types* — a type's storage is compiled from its `jsonSchema` on demand for the target backend, so a filesystem→cloud (or a switch to any other ANSI SQL engine) never needs retrofitting. The filesystem adapter stores the payload inline as JSON validated by the same `jsonSchema`; the compiled `sqlSchema` is what a SQL backend materialises.
+
+===== Text fields are never offloaded
+
+A `string` payload field is a `CLOB`/`TEXT` column of *any size* — never split out to object storage. Large text stays in the database so it remains full-text searchable (an offloaded value could not be in the FTS index) and so a `string` field has one uniform storage rule regardless of length; the SQL engine's own large-object handling (Postgres TOAST, etc.) manages the physical bytes. Text fields are included in the FTS corpus by default; a type opts specific fields out via `meta.searchFields` (see <<jsonSchema-rules>> `meta` and Search, below). *Object storage (S3) is used only for actual files* — content stored as the built-in `file` type (see Files and Sidecars) — never for a type's text fields.
 
 ==== constraints
 
@@ -1700,6 +1747,8 @@ An array of child constraint objects. Each constraint declares the permitted car
 | `"map"`
 | Children are key-value pairs: `item.value` is the key (unique, as in `"set"`), and the child's payload is the value. The adapter enforces uniqueness of `item.value` among siblings of this type. Order is not significant. Use for named settings, locale translations, named configurations.
 |===
+
+NOTE: *Scalar maps and the `property` type.* When a map's values are themselves rich structured objects, the child under a `"map"` constraint is a domain type whose payload carries the value. When the values are *scalars* — or the key set is *variable/unbounded* and cannot be fixed columns (e.g. a tool call's arguments, an imported record's arbitrary attributes) — the child is the built-in `property` type: `item.value` is the key, `payload.value` is the value. This is the portable way to store an open map without a JSON column and without inflating the parent type's schema; it keeps every type flat (one level deep) while the map itself grows as child items. See the `property` built-in type.
 
 ===== constraints.defaultEnforce
 
@@ -4480,6 +4529,28 @@ Any type system with URIs works automatically. Systems without URIs use URN form
 * *Item instance* — `"this item is Albert Einstein (wikidata:Q937)"`
 
 The list of external type systems is open-ended and non-exhaustive. Any classification system — biological taxonomy, astronomical catalogs, legal codes — can be mapped.
+
+[#kanecta-types]
+== The kanecta-types Library
+
+`kanecta-types` is a large, versioned, curated library of *generic, reusable Kanecta type definitions* — `Person`, `Address`, `Organization`, `Event`, `Product`, and so on — produced by converting public open-source ontologies (primarily Schema.org, plus Wikidata and domain vocabularies) into Kanecta types. It exists so a user starts from a rich set of standard types on day one instead of inventing `Person` from scratch, and so independent installations converge on the *same* shapes for the same concepts.
+
+It is a *tier-3 library* (see <<type-tiers>>): its types are referenced by no core or app logic — they are pure data-modelling vocabulary. The library is therefore too large for, and deliberately kept out of, the core specification; it lives in its own repository and is synthesized into a datastore on demand (via the device-library / manifest mechanism), never bundled into every datastore the way core built-ins are.
+
+=== Deterministic identity from the source ontology
+
+Each library type's UUID is derived deterministically from its source URI as a **UUIDv5** under the standard URL namespace (`6ba7b810-9dad-11d1-80b4-00c04fd430c8`). Thus `https://schema.org/Person` always yields the same Kanecta type id in every installation. This is what makes the library interoperable and dedup-friendly: two users who both adopt "Person" get the identical type id, queries and references compose across datastores, and the `meta.sameAs` mapping back to the source ontology (see External Type Systems, above) is intrinsic rather than bolted on. The derivation is reproducible from the source URI alone — ids are never hand-assigned.
+
+=== Ontologies decompose into flat linked types
+
+Ontology concepts are richly nested — Schema.org's `Person` embeds a `PostalAddress`, an `Organization`, `ContactPoint`s. Converting them into Kanecta obeys the ordinary flat/one-level rule (see <<jsonSchema-rules>>): a nested concept becomes its *own* type, and the parent holds a UUID reference to it. So `Person` becomes a flat type whose `address` field references the `PostalAddress` type, whose `worksFor` field references `Organization`, and so on — the ontology's nesting becomes Kanecta's graph of linked flat types. The same decomposition engine that reviews a hand-authored type (below) is what drives ontology conversion; nothing about the library is special-cased.
+
+A library entry stores only the portable definition — `jsonSchema` (flat, scalar-typed properties + UUID references), `meta` (including `sameAs` back to the source), and the declared references. It does *not* store `sqlSchema`: as everywhere else, the SQL schema is *derived* from the jsonSchema at synthesis time for whichever backend the target datastore uses.
+
+[#type-reuse]
+=== Reuse over reinvention
+
+The library is the corpus behind type reuse. When a new type is proposed — a user creating one, or the system deriving one from an example object or an imported shape — Kanecta does not immediately mint a fresh type. It first *searches existing types* (the local datastore's types and the `kanecta-types` library) for structurally similar shapes and **presents the candidates to the user, each with a count of how many objects of that type already exist**, so the user can adopt a popular existing format rather than spawn a near-duplicate. Only if the user declines the candidates is a new type created — and if the proposed shape is more than one level deep, the system decomposes it into a reviewed set of linked types (see <<type-tiers>> and the decomposition rule) which the user accepts or redirects before anything is written. This review-and-reuse step is what keeps a datastore's type system convergent rather than sprawling.
 
 == Multiple Trees and Collections
 
