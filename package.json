@@ -17,6 +17,7 @@
     "kanecta-core/kanecta-storage-adapters/kanecta-s3",
     "kanecta-core/kanecta-storage-adapters/kanecta-cloud",
     "kanecta-core/kanecta-storage-adapters/kanecta-datastore-utils",
+    "kanecta-core/kanecta-schema-compiler",
     "kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs",
     "kanecta-core/kanecta-lib",
     "kanecta-core/kanecta-api-client",
