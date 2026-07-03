@@ -5123,7 +5123,46 @@ A user MAY still keep a filesystem datastore under Git for their own history —
 * For a *full* branch, both complete trees are compared.
 * For a *sparse* branch, the branch's own `items/` *is* the diff — each local file is an add or edit, each tombstone is a delete, and inherited items (present upstream, absent locally) are never reported as deletes.
 
-`mergeBranchLocally(name)` applies that diff to the upstream (`adds`/`edits` write the item, tombstone `deletes` remove it), rebuilds the upstream index, and removes the merged branch folder. Merge targets the canonical branch only; a mirror is read-only and never a merge target.
+`mergeBranchLocally(name, opts)` applies that diff to the upstream (`adds`/`edits` write the item, tombstone `deletes` remove it), rebuilds the upstream index, and removes the merged branch folder. Merge targets the canonical branch only; a mirror is read-only and never a merge target. Unless overridden, a merge that conflicts (see below) is aborted before anything is applied.
+
+[#conflict-aware-merge]
+=== Conflict-aware merge
+
+A merge is not a blind overwrite. `previewMerge(name)` returns the branch's diff
+plus a `conflicts` array and a `blastRadius`, applying nothing — the basis for a
+"review before you merge" step.
+
+*Conflicts (the `branchPoint` watermark).* Every branch records `branchPoint.at`,
+the instant it forked. An item is in conflict when both sides touched it since the
+fork, detected per-item by comparing the upstream item's `modifiedAt` (or, for the
+resurrection case, the branch item's `createdAt`) against that watermark:
+
+[cols="1,3"]
+|===
+| `edit-edit`    | The branch edited an item the upstream also modified after the fork.
+| `delete-edit`  | The branch deleted an item the upstream modified after the fork.
+| `add-delete`   | The branch kept/edited an item the upstream has since deleted (its
+                   `createdAt` predates the fork, so it cannot be a genuine new add).
+                   Flagged so a merge never silently resurrects a deleted item.
+|===
+
+`mergeBranchLocally(name, opts)` handles them per `opts.strategy`: with no strategy
+(the default) any conflict aborts the whole merge — nothing is applied and the
+branch is preserved for resolution; `'theirs'` force-applies the branch's version;
+`'ours'` keeps the upstream for conflicting items and applies only the clean ones.
+
+*Blast radius (reverse references).* Deleting an item can break others that point
+at it. A merge scans, for each deleted item, the live referrers on the target —
+children (`parentId`), `\[\[uuid]]` backlinks, inbound relationships, and aliases —
+excluding referrers deleted in the same merge. The result is returned as
+`blastRadius`; `opts.blockOnBlastRadius` turns it into a hard gate that aborts the
+merge rather than create a dangling reference. By default it is surfaced, not
+blocked — a delete with external referrers is sometimes intentional; silent
+breakage is the failure mode being prevented.
+
+These are exposed over HTTP by `GET .../branches/:branch/merge-preview` and
+`POST .../branches/:branch/merge` (which returns `409` with the `conflicts` /
+`blastRadius` payload for a conflicting or reference-breaking merge).
 
 === Postgres branching tables
 
