@@ -330,6 +330,21 @@ describe('sparse branch merge blast radius', () => {
     cleanup(a);
   });
 
+  test('includes aliases that target a deleted item', () => {
+    const a      = tmpAdapter();
+    const target = a.create({ value: 'aliased target', type: 'text' });
+    a.setAlias('my-alias', target.id);
+    a.createBranch('feature/sparse', { fill: 'sparse' });
+    a.useBranch('feature/sparse');
+    a.delete(target.id, 'test@example.com');
+
+    a.useBranch('main');
+    const res = a.mergeBranchLocally('feature/sparse');
+    const hit = res.blastRadius.find(b => b.id === target.id);
+    expect(hit?.referencedBy.some(r => r.via === 'alias')).toBe(true);
+    cleanup(a);
+  });
+
   test('blockOnBlastRadius aborts the merge and preserves the branch', () => {
     const { a, onMain } = withSparseBranch();
     a.delete(onMain.id, 'test@example.com');

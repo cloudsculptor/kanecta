@@ -2579,7 +2579,8 @@ class SqliteFsAdapter {
     const children = db.prepare('SELECT id FROM items WHERE parent_id = ? AND id != parent_id').all(id).map(r => r.id);
     const links    = this.backlinks(id);
     const relationships = (this.relationships(id).inbound || []).map(r => r.sourceId).filter(Boolean);
-    return { children, links, relationships };
+    const aliases  = db.prepare('SELECT item_id FROM aliases WHERE target_id = ?').all(id).map(r => r.item_id).filter(Boolean);
+    return { children, links, relationships, aliases };
   }
 
   // The blast radius of deleting each id in `deleteIds`: which OTHER items in the
@@ -2596,6 +2597,7 @@ class SqliteFsAdapter {
         ...r.children.map(x => ({ id: x, via: 'parent' })),
         ...r.links.map(x => ({ id: x, via: 'link' })),
         ...r.relationships.map(x => ({ id: x, via: 'relationship' })),
+        ...r.aliases.map(x => ({ id: x, via: 'alias' })),
       ].filter(ref => ref.id && !delSet.has(ref.id));
       if (referencedBy.length) out.push({ id, referencedBy });
     }
