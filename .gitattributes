@@ -1,0 +1,16 @@
+# Keep GitHub's language bar honest: exclude generated/vendored artifacts so the
+# stats reflect real source. Kanecta is TypeScript + SCSS; the remaining .js/.css
+# are real source being migrated (see scripts/allowed-js.txt / allowed-css.txt),
+# NOT mislabelled here — we fix the language by converting, not by faking linguist.
+
+# Generated / build output — not authored source.
+**/dist/**                 linguist-generated=true
+**/build/**                linguist-generated=true
+**/storybook-static/**     linguist-generated=true
+**/coverage/**             linguist-generated=true
+**/*.min.js                linguist-generated=true
+**/*.min.css               linguist-generated=true
+package-lock.json          linguist-generated=true
+
+# Rendered spec HTML is generated from .adoc — exclude from the language bar.
+**/specification.html      linguist-generated=true
