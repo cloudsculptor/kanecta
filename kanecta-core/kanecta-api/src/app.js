@@ -372,9 +372,39 @@ app.get('/working-sets/:name/branches/:branch/diff', async (req, res) => {
   }
 });
 
+// GET /working-sets/:name/branches/:branch/merge-preview — the conflicts and
+// reverse-reference blast radius a merge into main would produce, WITHOUT applying
+// anything. Backs a "review before you merge" step in the Studio PR flow.
+app.get('/working-sets/:name/branches/:branch/merge-preview', async (req, res) => {
+  const { name, branch } = req.params;
+  const appCfg = readAppConfig();
+  const ws = appCfg?.workingSets?.[name];
+  const local = workingSetLocal(ws);
+  if (!local) return res.status(404).json({ error: `Working set '${name}' not found or has no local datastore` });
+  try {
+    const ds = Datastore.open(local.localPath);
+    ds.useBranch('main'); // compute blast radius against the merge target
+    const preview = ds.previewMerge(branch);
+    res.json({
+      branch,
+      adds: preview.adds.length,
+      edits: preview.edits.length,
+      deletes: preview.deletes.length,
+      conflicts: preview.conflicts,
+      blastRadius: preview.blastRadius,
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // POST /working-sets/:name/branches/:branch/merge — merge a branch into main
 // (the local "create PR" action). Applies the branch's diff to main, removes the
 // branch folder, and leaves the working set active on main.
+//
+// Body (optional): { strategy: 'theirs' | 'ours', blockOnBlastRadius: boolean }.
+// A conflicting or reference-breaking merge is reported as 409 (with the
+// conflicts / blastRadius payload) rather than silently applied.
 app.post('/working-sets/:name/branches/:branch/merge', async (req, res) => {
   const { name, branch } = req.params;
   if (branch === 'main') return res.status(400).json({ error: 'Cannot merge main into itself' });
@@ -382,14 +412,25 @@ app.post('/working-sets/:name/branches/:branch/merge', async (req, res) => {
   const ws = appCfg?.workingSets?.[name];
   const local = workingSetLocal(ws);
   if (!local) return res.status(404).json({ error: `Working set '${name}' not found or has no local datastore` });
+  const { strategy, blockOnBlastRadius } = req.body || {};
   try {
     const ds = Datastore.open(local.localPath);
     ds.useBranch('main'); // merge target must be active
-    const result = ds.mergeBranchLocally(branch);
+    const result = ds.mergeBranchLocally(branch, { strategy, blockOnBlastRadius });
     setActiveBranch(name, 'main'); // the merged branch folder is now gone
     _datastoreCache = null;
-    res.json({ ok: true, merged: result.merged });
+    res.json({
+      ok: true,
+      merged: result.merged,
+      skipped: result.skipped,
+      conflicts: result.conflicts,
+      blastRadius: result.blastRadius,
+    });
   } catch (err) {
+    if (err.code === 'MERGE_CONFLICT')
+      return res.status(409).json({ error: err.message, code: err.code, conflicts: err.conflicts });
+    if (err.code === 'MERGE_BLAST_RADIUS')
+      return res.status(409).json({ error: err.message, code: err.code, blastRadius: err.blastRadius });
     res.status(400).json({ error: err.message });
   }
 });
