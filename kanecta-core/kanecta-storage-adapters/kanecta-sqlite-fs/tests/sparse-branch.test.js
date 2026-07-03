@@ -277,6 +277,44 @@ describe('sparse branch conflict-aware merge', () => {
     cleanup(a);
   });
 
+  test('flags a branch edit of an item deleted upstream — no silent resurrection', () => {
+    const a = tmpAdapter();
+    const x = a.create({ value: 'x0', type: 'text' });
+    a.createBranch('feature/sparse', { fill: 'sparse' });
+
+    // Branch keeps/edits x (materialises it locally).
+    a.useBranch('feature/sparse');
+    a.update(x.id, { value: 'branch edit of x' }, 'test@example.com');
+
+    // Upstream deletes x after the fork.
+    a.useBranch('main');
+    a.delete(x.id, 'someone@else.com');
+
+    const preview = a.previewMerge('feature/sparse');
+    const c = preview.conflicts.find(c => c.id === x.id);
+    expect(c?.kind).toBe('add-delete');
+
+    // Default merge aborts rather than resurrect x…
+    let err;
+    try { a.mergeBranchLocally('feature/sparse'); } catch (e) { err = e; }
+    expect(err?.code).toBe('MERGE_CONFLICT');
+
+    // …and 'ours' respects the upstream deletion (x stays gone).
+    const res = a.mergeBranchLocally('feature/sparse', { strategy: 'ours' });
+    expect(a.get(x.id)).toBeNull();
+    expect(res.skipped).toBeGreaterThanOrEqual(1);
+    cleanup(a);
+  });
+
+  test('a genuine branch-only add (created after the fork) is NOT a conflict', () => {
+    const { a } = withSparseBranch();
+    const added = a.create({ value: 'brand new', type: 'text' });
+    const preview = a.previewMerge('feature/sparse');
+    expect(preview.adds.map(x => x.id)).toContain(added.id);
+    expect(preview.conflicts.map(c => c.id)).not.toContain(added.id);
+    cleanup(a);
+  });
+
   test('a clean edit still merges alongside a conflicting one under a strategy', () => {
     const a       = tmpAdapter();
     const conf    = a.create({ value: 'c0', type: 'text' });

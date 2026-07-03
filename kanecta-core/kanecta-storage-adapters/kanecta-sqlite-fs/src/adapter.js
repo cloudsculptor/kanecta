@@ -2623,6 +2623,16 @@ class SqliteFsAdapter {
       if (movedSinceFork(d.before?.modifiedAt))
         conflicts.push({ id: d.id, kind: 'delete-edit', before: d.before });
     }
+    // Edit-vs-upstream-delete: an "add" (present locally, absent upstream) whose
+    // item was CREATED before the fork can only be an item that existed at the
+    // fork and has since been deleted upstream — the branch kept/edited it while
+    // upstream removed it. Left unflagged, a blind merge would silently resurrect
+    // it. (A genuine branch add is created after the fork, so createdAt >= watermark.)
+    for (const add of diff.adds) {
+      const created = add.after?.createdAt ?? add.doc?.meta?.createdAt ?? null;
+      if (watermark && created && String(created) < String(watermark))
+        conflicts.push({ id: add.id, kind: 'add-delete', after: add.after });
+    }
 
     // Blast radius of the branch's deletions. Computed against the ACTIVE branch's
     // index — preview from the merge target (main) for the accurate picture; the
