@@ -2562,15 +2562,77 @@ class SqliteFsAdapter {
     return { adds, edits, deletes };
   }
 
+  // Classify a branch's changes against its CURRENT upstream using the per-item
+  // watermark. `branchPoint.at` (else the branch's `createdAt`) is the instant the
+  // branch forked; any upstream item whose `modifiedAt` is NEWER than that was
+  // changed after the fork. An edit or delete of such an item is a CONFLICT (both
+  // sides touched it); everything else is a clean change. Adds are never conflicts
+  // — branchDiff only reports an add when the id is absent upstream. This is the
+  // per-item EDIT-vs-CONFLICT detection the spec's `branchPoint` exists for
+  // (see specification.adoc "Branching"): merge no longer blindly clobbers
+  // upstream work. Pure read — applies nothing.
+  previewMerge(name) {
+    name = (name ?? this._branch).trim();
+    const diff     = this.branchDiff(name);
+    const manifest = this._branchManifest(name) || {};
+    const watermark = manifest.branchPoint?.at ?? manifest.createdAt ?? null;
+
+    // ISO-8601 UTC timestamps sort correctly as plain strings.
+    const movedSinceFork = (upstreamModifiedAt) =>
+      !!watermark && !!upstreamModifiedAt && String(upstreamModifiedAt) > String(watermark);
+
+    const conflicts = [];
+    for (const e of diff.edits) {
+      if (movedSinceFork(e.before?.modifiedAt))
+        conflicts.push({ id: e.id, kind: 'edit-edit', before: e.before, after: e.after });
+    }
+    for (const d of diff.deletes) {
+      if (movedSinceFork(d.before?.modifiedAt))
+        conflicts.push({ id: d.id, kind: 'delete-edit', before: d.before });
+    }
+    return { ...diff, watermark, conflicts };
+  }
+
   // Merge a local branch into main by applying its full-folder diff to main's
   // items/ and rebuilding main's index. Must be run from a different branch
   // (switch to main first). The branch folder is removed after a successful merge.
-  mergeBranchLocally(name) {
+  //
+  // Conflict handling (via previewMerge's per-item watermark):
+  //   * default (no strategy) — if ANY item conflicts (upstream moved after the
+  //     fork), the merge ABORTS: nothing is applied and the branch is preserved so
+  //     the caller can resolve. Throws an Error with `.code = 'MERGE_CONFLICT'`
+  //     and `.conflicts`.
+  //   * { strategy: 'theirs' } — the branch wins: force-apply every change,
+  //     including conflicting ones (the pre-conflict-detection behaviour).
+  //   * { strategy: 'ours' } — upstream wins for conflicting items: apply only the
+  //     clean changes, skip the conflicting ones (they are discarded with the
+  //     branch folder).
+  // A clean merge (no conflicts) applies all changes exactly as before.
+  mergeBranchLocally(name, opts = {}) {
     if (!name || name === 'main') throw new Error('Cannot merge the main branch into itself');
     if (this._branch === name) throw new Error(`Switch to main before merging branch "${name}"`);
     if (!this._branchExists(name)) throw new Error(`Branch "${name}" not found`);
 
-    const diff = this.branchDiff(name);
+    const strategy = opts.strategy ?? null; // null | 'theirs' | 'ours'
+    if (strategy && strategy !== 'theirs' && strategy !== 'ours')
+      throw new Error(`Unknown merge strategy "${strategy}" (expected 'theirs' or 'ours')`);
+
+    const preview   = this.previewMerge(name);
+    const conflicts = preview.conflicts;
+
+    if (conflicts.length && !strategy) {
+      const err = new Error(
+        `Merge of "${name}" has ${conflicts.length} conflict(s): upstream item(s) changed after the ` +
+        `branch point. Re-run with { strategy: 'theirs' } (branch wins) or { strategy: 'ours' } ` +
+        `(keep upstream) to resolve.`);
+      err.code = 'MERGE_CONFLICT';
+      err.conflicts = conflicts;
+      throw err;
+    }
+
+    const conflictIds = new Set(conflicts.map(c => c.id));
+    const skip = (id) => strategy === 'ours' && conflictIds.has(id);
+
     const mainItemsDir = path.join(this._branchRoot('main'), 'items');
 
     // Apply onto main's items/ tree (note: _itemPath/_itemDir target the ACTIVE
@@ -2591,9 +2653,10 @@ class SqliteFsAdapter {
       if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
     };
 
-    for (const a of diff.adds)    writeMainDoc(a.id, a.doc);
-    for (const e of diff.edits)   writeMainDoc(e.id, e.doc);
-    for (const d of diff.deletes) deleteMainDoc(d.id);
+    let merged = 0, skipped = 0;
+    for (const a of preview.adds)    { if (skip(a.id)) { skipped++; continue; } writeMainDoc(a.id, a.doc); merged++; }
+    for (const e of preview.edits)   { if (skip(e.id)) { skipped++; continue; } writeMainDoc(e.id, e.doc); merged++; }
+    for (const d of preview.deletes) { if (skip(d.id)) { skipped++; continue; } deleteMainDoc(d.id);       merged++; }
 
     // index.db is fully derived — rebuild main's index from its files.
     this.rebuildIndexes();
@@ -2602,7 +2665,7 @@ class SqliteFsAdapter {
     const dir = this._branchRoot(name);
     if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
 
-    return { merged: diff.adds.length + diff.edits.length + diff.deletes.length };
+    return { merged, skipped, conflicts };
   }
 
   // ─── Integrity checks ─────────────────────────────────────────────────────

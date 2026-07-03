@@ -14,6 +14,11 @@ function tmpAdapter() {
 
 function cleanup(a) { fs.rmSync(a.root, { recursive: true, force: true }); }
 
+// Advance the wall clock so a following write gets a strictly-later `modifiedAt`
+// than the branch point (the watermark comparison is strict). Real merges happen
+// long after the fork; this just makes that ordering deterministic in-test.
+function tick(ms = 2) { const until = Date.now() + ms; while (Date.now() < until) { /* spin */ } }
+
 function itemPathOn(a, branch, id) {
   const hex = id.replace(/-/g, '');
   return path.join(a.k, 'branches', branch, 'items', hex.slice(0, 2), hex.slice(2, 4), id, 'item.json');
@@ -187,6 +192,110 @@ describe('sparse branch diff + merge', () => {
     expect(a.get(added.id)?.value).toBe('branch only');
     expect(a.get(onMain.id)?.value).toBe('edited');
     expect(a.get(child.id)).toBeNull();
+    cleanup(a);
+  });
+});
+
+// ─── Conflict-aware merge (per-item watermark) ─────────────────────────────────
+
+// Fork a sparse branch, mutate the SAME upstream item on main after the fork, and
+// edit it on the branch — exercising the branchPoint watermark that distinguishes
+// a clean EDIT from a CONFLICT.
+function withDivergedEdit() {
+  const a      = tmpAdapter();
+  const onMain = a.create({ value: 'v0', type: 'text' });
+  a.createBranch('feature/sparse', { fill: 'sparse' });
+
+  // Edit on the branch.
+  a.useBranch('feature/sparse');
+  a.update(onMain.id, { value: 'branch edit' }, 'test@example.com');
+
+  // Independently edit the SAME item on main, AFTER the branch point.
+  a.useBranch('main');
+  tick();
+  a.update(onMain.id, { value: 'main edit' }, 'someone@else.com');
+
+  return { a, onMain };
+}
+
+describe('sparse branch conflict-aware merge', () => {
+  test('previewMerge flags an item edited on BOTH sides as a conflict', () => {
+    const { a, onMain } = withDivergedEdit();
+    const preview = a.previewMerge('feature/sparse');
+    expect(preview.edits.map(e => e.id)).toContain(onMain.id);
+    expect(preview.conflicts.map(c => c.id)).toContain(onMain.id);
+    expect(preview.conflicts[0].kind).toBe('edit-edit');
+    cleanup(a);
+  });
+
+  test('previewMerge reports NO conflict when upstream is untouched since the fork', () => {
+    const { a, onMain } = withSparseBranch();
+    a.update(onMain.id, { value: 'branch only edit' }, 'test@example.com');
+    const preview = a.previewMerge('feature/sparse');
+    expect(preview.edits.map(e => e.id)).toContain(onMain.id);
+    expect(preview.conflicts).toEqual([]);
+    cleanup(a);
+  });
+
+  test('mergeBranchLocally ABORTS on conflict — nothing applied, branch preserved', () => {
+    const { a, onMain } = withDivergedEdit();
+    a.useBranch('main');
+
+    let err;
+    try { a.mergeBranchLocally('feature/sparse'); } catch (e) { err = e; }
+    expect(err).toBeDefined();
+    expect(err.code).toBe('MERGE_CONFLICT');
+    expect(err.conflicts.map(c => c.id)).toContain(onMain.id);
+
+    // Upstream is untouched by the aborted merge…
+    expect(a.get(onMain.id)?.value).toBe('main edit');
+    // …and the branch still exists for the caller to resolve.
+    expect(a.listBranches().map(b => b.name)).toContain('feature/sparse');
+    cleanup(a);
+  });
+
+  test("strategy 'theirs' forces the branch to win", () => {
+    const { a, onMain } = withDivergedEdit();
+    a.useBranch('main');
+    const res = a.mergeBranchLocally('feature/sparse', { strategy: 'theirs' });
+    expect(res.merged).toBe(1);
+    expect(res.skipped).toBe(0);
+    expect(a.get(onMain.id)?.value).toBe('branch edit');
+    cleanup(a);
+  });
+
+  test("strategy 'ours' keeps upstream and skips the conflicting change", () => {
+    const { a, onMain } = withDivergedEdit();
+    a.useBranch('main');
+    const res = a.mergeBranchLocally('feature/sparse', { strategy: 'ours' });
+    expect(res.skipped).toBe(1);
+    expect(res.merged).toBe(0);
+    // Upstream value is preserved.
+    expect(a.get(onMain.id)?.value).toBe('main edit');
+    // Branch folder is consumed by the merge.
+    expect(a.listBranches().map(b => b.name)).not.toContain('feature/sparse');
+    cleanup(a);
+  });
+
+  test('a clean edit still merges alongside a conflicting one under a strategy', () => {
+    const a       = tmpAdapter();
+    const conf    = a.create({ value: 'c0', type: 'text' });
+    const clean   = a.create({ value: 'k0', type: 'text' });
+    a.createBranch('feature/sparse', { fill: 'sparse' });
+
+    a.useBranch('feature/sparse');
+    a.update(conf.id,  { value: 'branch-conf' },  'test@example.com');
+    a.update(clean.id, { value: 'branch-clean' }, 'test@example.com');
+
+    a.useBranch('main');
+    tick();
+    a.update(conf.id, { value: 'main-conf' }, 'someone@else.com'); // only conf diverges
+
+    const res = a.mergeBranchLocally('feature/sparse', { strategy: 'ours' });
+    expect(res.merged).toBe(1);   // clean applied
+    expect(res.skipped).toBe(1);  // conflicting skipped
+    expect(a.get(clean.id)?.value).toBe('branch-clean');
+    expect(a.get(conf.id)?.value).toBe('main-conf');
     cleanup(a);
   });
 });
