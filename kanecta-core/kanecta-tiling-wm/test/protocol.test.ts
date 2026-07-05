@@ -1,8 +1,6 @@
-'use strict';
-
-const test = require('node:test');
-const assert = require('node:assert');
-const { encode, Decoder, MESSAGE, HEADER_LEN, EVENT_BIT } = require('../src/protocol');
+import { test } from 'node:test';
+import assert from 'node:assert';
+import { encode, Decoder, MESSAGE, HEADER_LEN, EVENT_BIT } from '../src/protocol.js';
 
 test('encode produces the i3-ipc magic + header + payload', () => {
   const buf = encode(MESSAGE.RUN_COMMAND, 'focus left');

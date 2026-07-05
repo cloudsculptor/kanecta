@@ -1,16 +1,14 @@
-'use strict';
-
 // Demonstrates moving + resizing a window. Targets the currently focused
 // window (or pass a con_id as the first arg):
-//   node examples/move-resize.js [conId] [workspace]
+//   node --import tsx examples/move-resize.ts [conId] [workspace]
 // It moves the window to the given workspace (default "9: tiling-demo") and
 // resizes it to 50% width. Exits cleanly if no tiling WM is detected.
 
-const { createTilingService } = require('../src');
+import { createTilingService } from '../src/index.js';
 
 (async () => {
   const svc = await createTilingService();
-  if (!svc.available) {
+  if (!svc.available || !svc.client) {
     console.log(`Tiling unavailable: ${svc.reason}`);
     process.exit(0);
   }
@@ -24,7 +22,7 @@ const { createTilingService } = require('../src');
       ? windows.find((w) => w.id === argConId)
       : windows.find((w) => w.focused) || windows[0];
 
-    if (!target) { console.log('No windows to act on.'); return; }
+    if (!target || target.id == null) { console.log('No windows to act on.'); return; }
     console.log(`Target: con_id=${target.id} "${target.name}" (${target.workspace}@${target.output})`);
 
     await client.moveWindowToWorkspace(target.id, workspace);
@@ -38,4 +36,4 @@ const { createTilingService } = require('../src');
   } finally {
     client.close();
   }
-})().catch((err) => { console.error('Error:', err.message); process.exit(1); });
+})().catch((err: unknown) => { console.error('Error:', (err as Error).message); process.exit(1); });

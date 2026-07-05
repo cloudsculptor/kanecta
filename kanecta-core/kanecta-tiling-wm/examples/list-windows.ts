@@ -1,14 +1,12 @@
-'use strict';
-
 // Lists the current outputs, workspaces and windows from the running i3/Sway.
-//   node examples/list-windows.js
+//   node --import tsx examples/list-windows.ts
 // Exits cleanly with a message if no tiling WM is detected.
 
-const { createTilingService } = require('../src');
+import { createTilingService } from '../src/index.js';
 
 (async () => {
   const svc = await createTilingService();
-  if (!svc.available) {
+  if (!svc.available || !svc.client) {
     console.log(`Tiling unavailable: ${svc.reason}`);
     process.exit(0);
   }
@@ -33,4 +31,4 @@ const { createTilingService } = require('../src');
   } finally {
     client.close();
   }
-})().catch((err) => { console.error('Error:', err.message); process.exit(1); });
+})().catch((err: unknown) => { console.error('Error:', (err as Error).message); process.exit(1); });
