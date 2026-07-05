@@ -1,8 +1,6 @@
-'use strict';
-
-const { test } = require('node:test');
-const assert = require('node:assert');
-const { deriveSqlSchema, objTableName } = require('../src');
+import { test } from 'node:test';
+import assert from 'node:assert';
+import { deriveSqlSchema, objTableName } from '../src/index.js';
 
 const TYPE_ID = '105354a8-4bd9-4333-9b54-68192f44599c';
 const TABLE = 'obj_105354a8_4bd9_4333_9b54_68192f44599c';
@@ -13,7 +11,10 @@ test('objTableName maps hyphens to underscores', () => {
 
 test('requires a typeId and a known dialect', () => {
   assert.throws(() => deriveSqlSchema({}, {}), /typeId/);
-  assert.throws(() => deriveSqlSchema({}, { typeId: TYPE_ID, dialect: 'oracle' }), /dialect/);
+  assert.throws(
+    () => deriveSqlSchema({}, { typeId: TYPE_ID, dialect: 'oracle' as never }),
+    /dialect/,
+  );
 });
 
 test('derives scalar columns with item_id PK + FK (postgres)', () => {
