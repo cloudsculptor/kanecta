@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  * The typed-object schema for imported transcripts.
  *
@@ -19,7 +17,7 @@
  * just stores the definition.
  */
 
-const TYPE_IDS = {
+export const TYPE_IDS = {
   // `property` is a CORE built-in (canonical id from the spec's built-in-types).
   // The importer seeds it here only until the bootstrapper seeds built-in type
   // items; the fixed id + schema keep that future seeding idempotent.
@@ -29,14 +27,24 @@ const TYPE_IDS = {
   toolCall: '0a9f1e00-0000-4000-8000-000000000004',
 };
 
-const snake = (k) => k.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase());
-const objTable = (id) => `obj_${id.replace(/-/g, '_')}`;
+/** A flat column spec: [camelKey, sqlType, jsonType]. */
+type ColSpec = [string, string, string];
+
+/** A transcript type definition (title + schema). */
+export interface TypeDef {
+  id: string;
+  title: string;
+  schema: any;
+}
+
+const snake = (k: string): string => k.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase());
+const objTable = (id: string): string => `obj_${id.replace(/-/g, '_')}`;
 
 /**
  * Build a type definition from a flat column spec.
  * cols: [camelKey, sqlType, jsonType][] — jsonType is a JSON-schema primitive.
  */
-function buildType(id, title, icon, description, cols) {
+function buildType(id: string, title: string, icon: string, description: string, cols: ColSpec[]): TypeDef {
   const table = objTable(id);
   const colDefs = cols.map(([k, sql]) => `  "${snake(k)}" ${sql}`).join(',\n');
   const ddl =
@@ -46,7 +54,7 @@ function buildType(id, title, icon, description, cols) {
     `  CONSTRAINT "pk_${table}" PRIMARY KEY (item_id),\n` +
     `  CONSTRAINT "fk_${table}_item" FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE\n` +
     `)`;
-  const properties = {};
+  const properties: Record<string, { type: string }> = {};
   for (const [k, , json] of cols) properties[k] = { type: json };
   return {
     id,
@@ -131,14 +139,14 @@ const TOOL_CALL = buildType(
   ],
 );
 
-const ALL_TYPES = [PROPERTY, SESSION, TURN, TOOL_CALL];
+export const ALL_TYPES: TypeDef[] = [PROPERTY, SESSION, TURN, TOOL_CALL];
 
 /**
  * Idempotently ensure all transcript types exist in `ds`. Safe to call every
  * import: resolves each by name, creating (with its fixed id + schema) only if
  * missing. Returns the TYPE_IDS map.
  */
-async function ensureTypes(ds) {
+export async function ensureTypes(ds: any): Promise<typeof TYPE_IDS> {
   for (const def of ALL_TYPES) {
     const resolved = await ds.resolveTypeId(def.title);
     if (resolved && resolved.id) continue;
@@ -147,4 +155,4 @@ async function ensureTypes(ds) {
   return TYPE_IDS;
 }
 
-module.exports = { TYPE_IDS, ALL_TYPES, ensureTypes, buildType, objTable };
+export { buildType, objTable };

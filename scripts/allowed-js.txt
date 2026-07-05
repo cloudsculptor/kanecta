@@ -85,14 +85,6 @@ kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/tests/migrate-per-branch
 kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/tests/source-ingestion.test.js
 kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/tests/sparse-branch.test.js
 kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/tests/write-integrity.test.js
-kanecta-core/kanecta-transcript-import/bin/kanecta-import-transcripts.js
-kanecta-core/kanecta-transcript-import/src/import.js
-kanecta-core/kanecta-transcript-import/src/index.js
-kanecta-core/kanecta-transcript-import/src/parse.js
-kanecta-core/kanecta-transcript-import/src/types.js
-kanecta-core/kanecta-transcript-import/test/import.test.js
-kanecta-core/kanecta-transcript-import/test/parse.test.js
-kanecta-core/kanecta-transcript-import/test/postgres.test.js
 kanecta-dev/scripts/ensure-datastore.js
 kanecta-ui/kanecta-apps/kanecta-app-claude/index.js
 kanecta-ui/kanecta-apps/kanecta-app-claude/lib/claude.js

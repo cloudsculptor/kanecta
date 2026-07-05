@@ -1,9 +1,7 @@
-'use strict';
-
-const fs = require('fs');
-const path = require('path');
-const { parseTranscript } = require('./parse');
-const { ensureTypes, TYPE_IDS } = require('./types');
+import fs from 'fs';
+import path from 'path';
+import { parseTranscript, type Session, type Turn } from './parse.js';
+import { ensureTypes, TYPE_IDS } from './types.js';
 
 /**
  * Import parsed Claude Code transcripts into a Kanecta datastore as TYPED OBJECTS.
@@ -28,23 +26,23 @@ const { ensureTypes, TYPE_IDS } = require('./types');
 
 const SOURCE_SYSTEM = 'claude-code';
 
-function snippet(str, max = 100) {
+function snippet(str: unknown, max = 100): string {
   const s = String(str ?? '').replace(/\s+/g, ' ').trim();
   return s.length <= max ? s : s.slice(0, max) + '…';
 }
 
-function shortId(id) {
+function shortId(id: unknown): string {
   return String(id ?? '').split('-')[0] || 'unknown';
 }
 
-function sessionLabel(session) {
+function sessionLabel(session: Session): string {
   const firstUser = session.turns.find((t) => t.kind === 'user' && t.text);
   if (firstUser) return snippet(firstUser.text, 80);
   const dir = session.cwd ? path.basename(session.cwd) : null;
   return `Session ${shortId(session.sessionId)}${dir ? ` — ${dir}` : ''}`;
 }
 
-function turnLabel(turn) {
+function turnLabel(turn: Turn): string {
   if (turn.text) return `[${turn.kind}] ${snippet(turn.text, 90)}`;
   if (turn.toolCalls.length) {
     const names = turn.toolCalls.map((c) => c.name).filter(Boolean);
@@ -54,21 +52,35 @@ function turnLabel(turn) {
 }
 
 /** Coerce any tool-argument value to the `property.value` TEXT column. */
-function toText(v) {
+function toText(v: unknown): string {
   if (v == null) return '';
   if (typeof v === 'string') return v;
   if (typeof v === 'object') return JSON.stringify(v);
   return String(v);
 }
 
+interface UpsertArgs {
+  key: string;
+  typeId: string;
+  value: string;
+  parentId: string | null;
+  sortOrder?: number;
+  objectData?: any;
+}
+
+interface UpsertResult {
+  item: any;
+  created: boolean;
+}
+
 /**
  * Idempotent upsert of a typed-object item by external key. Returns
  * { item, created }. `objectData` is the typed payload (columns).
  */
-async function upsert(ds, { key, typeId, value, parentId, sortOrder, objectData }) {
+async function upsert(ds: any, { key, typeId, value, parentId, sortOrder, objectData }: UpsertArgs): Promise<UpsertResult> {
   const existing = await ds.bySource(SOURCE_SYSTEM, key);
   if (existing) {
-    const changes = { value };
+    const changes: any = { value };
     if (parentId != null && existing.parentId !== parentId) changes.parentId = parentId;
     await ds.update(existing.id, changes);
     if (objectData !== undefined) await ds.writeObjectJson(existing.id, objectData);
@@ -83,12 +95,20 @@ async function upsert(ds, { key, typeId, value, parentId, sortOrder, objectData 
   return { item, created: true };
 }
 
+interface UpsertPropertyArgs {
+  key: string;
+  parentId: string | null;
+  sortOrder?: number;
+  mapKey: string;
+  value: string;
+}
+
 /**
  * Upsert one child `property` item (a map entry). The map key is the item's
  * value (`item.value`); the payload holds just the value — matching the core
  * `property` type and the spec's `map` child-semantics.
  */
-async function upsertProperty(ds, { key, parentId, sortOrder, mapKey, value }) {
+async function upsertProperty(ds: any, { key, parentId, sortOrder, mapKey, value }: UpsertPropertyArgs): Promise<UpsertResult> {
   return upsert(ds, {
     key,
     typeId: TYPE_IDS.property,
@@ -103,11 +123,11 @@ async function upsertProperty(ds, { key, parentId, sortOrder, mapKey, value }) {
  * Import one normalised session (from parseTranscript) into `ds` as typed
  * objects. Ensures the transcript types exist first (idempotent). Returns stats.
  */
-async function importSession(ds, session) {
+export async function importSession(ds: any, session: Session) {
   await ensureTypes(ds);
 
   const stats = { sessionId: session.sessionId, created: 0, updated: 0, turns: 0, toolCalls: 0, properties: 0 };
-  const bump = (r) => { r.created ? stats.created++ : stats.updated++; return r; };
+  const bump = (r: UpsertResult): UpsertResult => { r.created ? stats.created++ : stats.updated++; return r; };
 
   // 1. Session object (under root).
   const sessionRes = bump(await upsert(ds, {
@@ -201,7 +221,7 @@ async function importSession(ds, session) {
 }
 
 /** Read a transcript JSONL file and import every session it contains. */
-async function importTranscriptFile(ds, filePath) {
+export async function importTranscriptFile(ds: any, filePath: string) {
   const text = fs.readFileSync(filePath, 'utf8');
   const sessions = parseTranscript(text);
   const results = [];
@@ -212,9 +232,9 @@ async function importTranscriptFile(ds, filePath) {
 }
 
 /** Recursively find `*.jsonl` transcript files under a directory. */
-function findTranscriptFiles(dir) {
-  const out = [];
-  const walk = (d) => {
+export function findTranscriptFiles(dir: string): string[] {
+  const out: string[] = [];
+  const walk = (d: string) => {
     let entries;
     try { entries = fs.readdirSync(d, { withFileTypes: true }); } catch { return; }
     for (const e of entries) {
@@ -227,11 +247,4 @@ function findTranscriptFiles(dir) {
   return out.sort();
 }
 
-module.exports = {
-  SOURCE_SYSTEM,
-  TYPE_IDS,
-  ensureTypes,
-  importSession,
-  importTranscriptFile,
-  findTranscriptFiles,
-};
+export { SOURCE_SYSTEM, TYPE_IDS, ensureTypes };

@@ -1,5 +1,4 @@
-#!/usr/bin/env node
-'use strict';
+#!/usr/bin/env -S node --import tsx
 
 /**
  * Import Claude Code session transcripts into a Kanecta datastore.
@@ -26,23 +25,29 @@
  * updates in place and appends new turns.
  */
 
-const os = require('os');
-const path = require('path');
-const fs = require('fs');
-const {
+import os from 'os';
+import path from 'path';
+import fs from 'fs';
+import {
   Datastore,
   resolveWorkingSet,
   resolveBranch,
-} = require('@kanecta/lib');
-const {
+} from '@kanecta/lib';
+import {
   parseTranscript,
   importSession,
   findTranscriptFiles,
-} = require('../src');
+} from '../src/index.js';
 
-function parseArgs(argv) {
-  const flags = {};
-  const positional = [];
+interface Flags {
+  help?: boolean;
+  dryRun?: boolean;
+  [key: string]: any;
+}
+
+function parseArgs(argv: string[]): { flags: Flags; positional: string[] } {
+  const flags: Flags = {};
+  const positional: string[] = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '-h' || a === '--help') { flags.help = true; }
@@ -53,7 +58,7 @@ function parseArgs(argv) {
   return { flags, positional };
 }
 
-function help() {
+function help(): void {
   process.stdout.write(fs.readFileSync(__filename, 'utf8')
     .split('\n')
     .filter((l) => l.startsWith(' *') || l.startsWith('/**'))
@@ -61,14 +66,14 @@ function help() {
     .join('\n') + '\n');
 }
 
-async function openDatastore(flags) {
+async function openDatastore(flags: Flags): Promise<any> {
   if (flags.datastore) return Datastore.open(flags.datastore);
   const { name, workingSet } = resolveWorkingSet(flags['working-set']);
   const branch = resolveBranch(name, flags.branch);
   return Datastore.openWorkingSet(workingSet, { branch });
 }
 
-async function main() {
+async function main(): Promise<void> {
   const { flags, positional } = parseArgs(process.argv.slice(2));
   if (flags.help) { help(); return; }
 
@@ -111,7 +116,7 @@ async function main() {
         }
       }
       totals.files++;
-    } catch (err) {
+    } catch (err: any) {
       totals.errors++;
       console.error(`  ✗ ${file}: ${err.message}`);
     }
