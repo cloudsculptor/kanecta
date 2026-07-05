@@ -108,9 +108,14 @@ const BRANCHED_WORKING_SETS = {
   activeWorkingSet: 'kanecta-internal',
 };
 
+interface BranchedState {
+  mergeCalls: number;
+  mergeBodies: unknown[];
+}
+
 /** Same as withWorkingSets, but the active branch is a working branch with a diff. */
-async function withBranchedWorkingSet(page: Page): Promise<{ mergeCalls: number }> {
-  const state = { mergeCalls: 0 };
+async function withBranchedWorkingSet(page: Page): Promise<BranchedState> {
+  const state: BranchedState = { mergeCalls: 0, mergeBodies: [] };
   await setupApp(page);
 
   await page.route(
@@ -121,10 +126,21 @@ async function withBranchedWorkingSet(page: Page): Promise<{ mergeCalls: number 
     (url) => /\/api\/working-sets\/[^/]+\/branches\/[^/]+\/diff$/.test(url.pathname),
     (route) => route.fulfill({ status: 200, json: { branch: 'feature/edits', adds: 3, edits: 2, deletes: 1 } }),
   );
+  // The dialog previews conflicts / blast radius when it opens. Default: clean.
+  // Individual tests can register a higher-priority route to return conflicts.
+  await page.route(
+    (url) => /\/api\/working-sets\/[^/]+\/branches\/[^/]+\/merge-preview$/.test(url.pathname),
+    (route) =>
+      route.fulfill({
+        status: 200,
+        json: { branch: 'feature/edits', adds: 3, edits: 2, deletes: 1, conflicts: [], blastRadius: [] },
+      }),
+  );
   await page.route(
     (url) => /\/api\/working-sets\/[^/]+\/branches\/[^/]+\/merge$/.test(url.pathname),
     (route) => {
       state.mergeCalls += 1;
+      state.mergeBodies.push(route.request().postDataJSON());
       return route.fulfill({ status: 200, json: { ok: true, merged: 6 } });
     },
   );
@@ -151,8 +167,47 @@ test.describe('Working-set pull requests', () => {
     await page.getByRole('button', { name: /Create Pull Request/ }).click();
 
     await expect(page.getByRole('dialog')).toBeVisible();
-    await page.getByRole('button', { name: 'Merge into main' }).click();
+    const merge = page.getByRole('button', { name: 'Merge into main' });
+    await expect(merge).toBeEnabled(); // clean preview → no strategy needed
+    await merge.click();
 
     await expect.poll(() => state.mergeCalls).toBeGreaterThan(0);
+  });
+
+  test('surfaces conflicts and requires a strategy before merging', async ({ page }) => {
+    const state = await withBranchedWorkingSet(page);
+
+    // Override the preview to report a conflict (main moved since the fork).
+    await page.route(
+      (url) => /\/api\/working-sets\/[^/]+\/branches\/[^/]+\/merge-preview$/.test(url.pathname),
+      (route) =>
+        route.fulfill({
+          status: 200,
+          json: {
+            branch: 'feature/edits',
+            adds: 3,
+            edits: 2,
+            deletes: 1,
+            conflicts: [{ id: 'aaaaaaaa-1111-2222-3333-444444444444', kind: 'edit-edit' }],
+            blastRadius: [],
+          },
+        }),
+    );
+
+    await page.getByRole('button', { name: 'Switch working set' }).click();
+    await page.getByRole('button', { name: /Create Pull Request/ }).click();
+
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.getByTestId('merge-conflicts')).toBeVisible();
+
+    // Merge is blocked until a strategy is chosen.
+    const merge = page.getByRole('button', { name: 'Merge into main' });
+    await expect(merge).toBeDisabled();
+    await page.getByRole('radio', { name: /Keep this branch's version/ }).click();
+    await expect(merge).toBeEnabled();
+
+    await merge.click();
+    await expect.poll(() => state.mergeCalls).toBeGreaterThan(0);
+    expect(state.mergeBodies[0]).toMatchObject({ strategy: 'theirs' });
   });
 });
