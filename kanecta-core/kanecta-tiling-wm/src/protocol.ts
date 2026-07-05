@@ -1,5 +1,3 @@
-'use strict';
-
 // The i3 / Sway IPC wire protocol.
 //
 // Both i3 and Sway speak the *same* message format over a Unix domain socket
@@ -17,15 +15,15 @@
 //
 // Refs: i3 "IPC interface" docs; Sway sway-ipc(7).
 
-const os = require('os');
+import os from 'os';
 
-const MAGIC = 'i3-ipc';
-const HEADER_LEN = MAGIC.length + 4 + 4; // 14
+export const MAGIC = 'i3-ipc';
+export const HEADER_LEN = MAGIC.length + 4 + 4; // 14
 const LE = os.endianness() === 'LE';
-const EVENT_BIT = 0x80000000;
+export const EVENT_BIT = 0x80000000;
 
 // Request/reply message types. 0–12 are i3; 100/101 are Sway extensions.
-const MESSAGE = Object.freeze({
+export const MESSAGE = {
   RUN_COMMAND: 0,
   GET_WORKSPACES: 1,
   SUBSCRIBE: 2,
@@ -41,20 +39,26 @@ const MESSAGE = Object.freeze({
   GET_BINDING_STATE: 12,
   GET_INPUTS: 100, // Sway only
   GET_SEATS: 101, // Sway only
-});
+} as const;
 
-function writeU32(buf, value, offset) {
+export interface DecodedMessage {
+  type: number;
+  isEvent: boolean;
+  payload: unknown;
+}
+
+function writeU32(buf: Buffer, value: number, offset: number): void {
   if (LE) buf.writeUInt32LE(value >>> 0, offset);
   else buf.writeUInt32BE(value >>> 0, offset);
 }
 
-function readU32(buf, offset) {
+function readU32(buf: Buffer, offset: number): number {
   return LE ? buf.readUInt32LE(offset) : buf.readUInt32BE(offset);
 }
 
 // Encode a single message to a Buffer ready to write to the socket.
 // `payload` may be a string (RUN_COMMAND) or a JSON-serialisable value.
-function encode(type, payload = '') {
+export function encode(type: number, payload: unknown = ''): Buffer {
   const body = Buffer.from(
     typeof payload === 'string' ? payload : JSON.stringify(payload),
     'utf8',
@@ -69,15 +73,13 @@ function encode(type, payload = '') {
 
 // Streaming decoder: feed it socket chunks, get back complete messages.
 // Handles messages split across chunks and multiple messages per chunk.
-class Decoder {
-  constructor() {
-    this._buf = Buffer.alloc(0);
-  }
+export class Decoder {
+  private _buf: Buffer = Buffer.alloc(0);
 
   // Returns an array of { type, isEvent, payload } for each complete message.
-  push(chunk) {
+  push(chunk: Buffer): DecodedMessage[] {
     this._buf = this._buf.length ? Buffer.concat([this._buf, chunk]) : chunk;
-    const out = [];
+    const out: DecodedMessage[] = [];
 
     while (this._buf.length >= HEADER_LEN) {
       if (this._buf.toString('ascii', 0, MAGIC.length) !== MAGIC) {
@@ -92,7 +94,7 @@ class Decoder {
       const raw = this._buf.subarray(HEADER_LEN, HEADER_LEN + len).toString('utf8');
       this._buf = this._buf.subarray(HEADER_LEN + len);
 
-      let payload = null;
+      let payload: unknown = null;
       if (raw.length) {
         try { payload = JSON.parse(raw); } catch { payload = raw; }
       }
@@ -101,5 +103,3 @@ class Decoder {
     return out;
   }
 }
-
-module.exports = { MAGIC, HEADER_LEN, MESSAGE, EVENT_BIT, encode, Decoder };

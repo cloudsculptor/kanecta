@@ -1,20 +1,18 @@
-'use strict';
-
-const test = require('node:test');
-const assert = require('node:assert');
-const os = require('os');
-const fs = require('fs');
-const path = require('path');
-const net = require('net');
-const { detectTiling } = require('../src/detect');
-const { windowsFromTree } = require('../src/client');
-const { createTilingService, TilingUnavailableError } = require('../src');
+import { test } from 'node:test';
+import assert from 'node:assert';
+import os from 'os';
+import fs from 'fs';
+import path from 'path';
+import net from 'net';
+import { detectTiling } from '../src/detect.js';
+import { windowsFromTree } from '../src/client.js';
+import { createTilingService, TilingUnavailableError } from '../src/index.js';
 
 test('detectTiling prefers $SWAYSOCK when the socket exists', async () => {
   const sockPath = path.join(os.tmpdir(), `tiling-test-${process.pid}.sock`);
   try { fs.unlinkSync(sockPath); } catch { /* noop */ }
   const server = net.createServer();
-  await new Promise((r) => server.listen(sockPath, r));
+  await new Promise<void>((r) => server.listen(sockPath, () => r()));
   try {
     const got = detectTiling({ SWAYSOCK: sockPath });
     assert.deepStrictEqual(got, { variant: 'sway', socketPath: sockPath });
@@ -66,6 +64,7 @@ test('windowsFromTree flattens i3 (window) and Sway (app_id) leaves with context
   assert.strictEqual(windows.length, 2);
 
   const ff = windows.find((w) => w.id === 101);
+  assert.ok(ff);
   assert.strictEqual(ff.name, 'Firefox');
   assert.strictEqual(ff.windowClass, 'firefox');
   assert.strictEqual(ff.workspace, '1: web');
@@ -73,6 +72,7 @@ test('windowsFromTree flattens i3 (window) and Sway (app_id) leaves with context
   assert.strictEqual(ff.focused, true);
 
   const term = windows.find((w) => w.id === 102);
+  assert.ok(term);
   assert.strictEqual(term.appId, 'foot');
   assert.strictEqual(term.workspace, '1: web');
 

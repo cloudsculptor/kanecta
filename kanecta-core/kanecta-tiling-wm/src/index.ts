@@ -1,12 +1,14 @@
-'use strict';
-
-const { detectTiling } = require('./detect');
-const { TilingClient } = require('./client');
+import { detectTiling } from './detect.js';
+import { TilingClient } from './client.js';
 
 // Thrown by openTiling() when no supported WM is available. Callers that treat
 // tiling as optional should catch this (or use createTilingService()).
-class TilingUnavailableError extends Error {
-  constructor(message) { super(message); this.name = 'TilingUnavailableError'; this.code = 'TILING_UNAVAILABLE'; }
+export class TilingUnavailableError extends Error {
+  code = 'TILING_UNAVAILABLE';
+  constructor(message: string) {
+    super(message);
+    this.name = 'TilingUnavailableError';
+  }
 }
 
 const UNAVAILABLE_MESSAGE =
@@ -16,7 +18,7 @@ const UNAVAILABLE_MESSAGE =
 
 // Detect + connect. Resolves to a connected TilingClient, or throws
 // TilingUnavailableError if no WM is running / not on Linux.
-async function openTiling(env = process.env) {
+export async function openTiling(env: NodeJS.ProcessEnv = process.env): Promise<TilingClient> {
   if (process.platform !== 'linux') {
     throw new TilingUnavailableError(`Window tiling is Linux-only (platform: ${process.platform}).`);
   }
@@ -27,21 +29,28 @@ async function openTiling(env = process.env) {
   return client;
 }
 
+export interface TilingService {
+  available: boolean;
+  client: TilingClient | null;
+  variant: string | null;
+  reason: string | null;
+}
+
 // Non-throwing variant for a backend that wants to expose tiling as an optional
 // capability. Returns { available, client, variant, reason }. `client` is null
 // when unavailable; `reason` explains why.
-async function createTilingService(env = process.env) {
+export async function createTilingService(env: NodeJS.ProcessEnv = process.env): Promise<TilingService> {
   try {
     const client = await openTiling(env);
     return { available: true, client, variant: client.variant, reason: null };
   } catch (err) {
-    return { available: false, client: null, variant: null, reason: err.message };
+    return { available: false, client: null, variant: null, reason: (err as Error).message };
   }
 }
 
 // The operations a backend can safely expose to a renderer over its existing
 // IPC/HTTP channel. Keyed by name so a backend can do generic RPC dispatch.
-const OPERATIONS = Object.freeze({
+export const OPERATIONS: Record<string, (c: TilingClient, a?: any) => unknown> = Object.freeze({
   listWindows: (c) => c.listWindows(),
   listWorkspaces: (c) => c.listWorkspaces(),
   listOutputs: (c) => c.listOutputs(),
@@ -56,18 +65,10 @@ const OPERATIONS = Object.freeze({
 
 // Generic dispatcher: dispatch(client, 'moveWindowToWorkspace', { conId, workspace }).
 // Handy for wiring a single backend endpoint that proxies renderer requests.
-async function dispatch(client, op, args = {}) {
+export async function dispatch(client: TilingClient, op: string, args: any = {}): Promise<unknown> {
   const fn = OPERATIONS[op];
   if (!fn) throw new Error(`Unknown tiling operation: ${op}`);
   return fn(client, args);
 }
 
-module.exports = {
-  openTiling,
-  createTilingService,
-  detectTiling,
-  dispatch,
-  OPERATIONS,
-  TilingClient,
-  TilingUnavailableError,
-};
+export { detectTiling, TilingClient };

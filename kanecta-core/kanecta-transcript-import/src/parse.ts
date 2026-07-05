@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  * Parse a Claude Code session transcript (JSONL) into a normalised, storage-
  * agnostic shape. Pure: no filesystem, no datastore — text in, structure out, so
@@ -37,9 +35,65 @@
  * later user turn), so each toolCall carries its own result.
  */
 
+// External/loose JSON boundary: transcript files are arbitrary JSON per line, so
+// events and content blocks are typed loosely (`any`) at the parse boundary.
+type TranscriptEvent = any;
+type ContentBlock = any;
+
+/** Summed / per-turn token usage. */
+export interface Usage {
+  input: number;
+  output: number;
+  cacheCreation: number;
+  cacheRead: number;
+}
+
+/** A single tool invocation within an assistant turn. */
+export interface ToolCall {
+  toolUseId: string | null;
+  name: string | null;
+  input: any;
+  result: string | null;
+  isError: boolean | null;
+}
+
+/** One normalised turn (a user or assistant message). */
+export interface Turn {
+  uuid: string | null;
+  kind: string;
+  timestamp: string | null;
+  parentUuid: string | null;
+  isSidechain: boolean;
+  agentId: string | null;
+  model: string | null;
+  usage: Usage | null;
+  text: string;
+  toolCalls: ToolCall[];
+  _seenText?: Set<string>;
+  _seenTool?: Set<string>;
+}
+
+/** One normalised session (from parseTranscript). */
+export interface Session {
+  sessionId: string;
+  cwd: string | null;
+  gitBranch: string | null;
+  version: string | null;
+  startedAt: string | null;
+  endedAt: string | null;
+  models: string[];
+  tokens: Usage;
+  turnCount: number;
+  toolCallCount: number;
+  turns: Turn[];
+  _byUuid?: Map<string, Turn>;
+  _seenUsage?: Set<string>;
+  _noId?: number;
+}
+
 /** Parse JSONL text into an array of event objects, skipping blank/invalid lines. */
-function parseJsonl(text) {
-  const events = [];
+export function parseJsonl(text: string): TranscriptEvent[] {
+  const events: TranscriptEvent[] = [];
   for (const line of String(text).split('\n')) {
     const trimmed = line.trim();
     if (!trimmed) continue;
@@ -53,14 +107,14 @@ function parseJsonl(text) {
   return events;
 }
 
-function blocksOf(event) {
+function blocksOf(event: TranscriptEvent): ContentBlock[] {
   const content = event?.message?.content;
   if (Array.isArray(content)) return content;
   if (typeof content === 'string') return [{ type: 'text', text: content }];
   return [];
 }
 
-function textOf(event) {
+function textOf(event: TranscriptEvent): string {
   return blocksOf(event)
     .filter((b) => b && b.type === 'text' && typeof b.text === 'string')
     .map((b) => b.text)
@@ -68,7 +122,7 @@ function textOf(event) {
     .trim();
 }
 
-function usageOf(event) {
+function usageOf(event: TranscriptEvent): Usage | null {
   const u = event?.message?.usage;
   if (!u || typeof u !== 'object') return null;
   return {
@@ -90,13 +144,13 @@ function usageOf(event) {
  * therefore MERGE occurrences by uuid (unioning content + tool calls) and count
  * `usage` exactly ONCE per uuid — otherwise both tokens and text double-count.
  */
-function groupSessions(events) {
-  const sessions = new Map();
-  let firstSessionId = null;
+export function groupSessions(events: TranscriptEvent[]): Session[] {
+  const sessions = new Map<string, Session>();
+  let firstSessionId: string | null = null;
 
   // Collect tool results across the whole stream first, keyed by tool_use_id, so
   // a tool_use can be paired with its (later) result regardless of order.
-  const resultsByToolId = new Map();
+  const resultsByToolId = new Map<string, { content: string; isError: boolean }>();
   for (const ev of events) {
     for (const b of blocksOf(ev)) {
       if (b && b.type === 'tool_result' && b.tool_use_id) {
@@ -108,7 +162,7 @@ function groupSessions(events) {
     }
   }
 
-  const ensure = (sid, ev) => {
+  const ensure = (sid: string, ev: TranscriptEvent): Session => {
     if (!sessions.has(sid)) {
       sessions.set(sid, {
         sessionId: sid,
@@ -127,11 +181,11 @@ function groupSessions(events) {
         _noId: 0,             // counter for turns that lack a uuid
       });
     }
-    return sessions.get(sid);
+    return sessions.get(sid)!;
   };
 
   for (const ev of events) {
-    const sid = ev.sessionId ?? firstSessionId;
+    const sid: string | null = ev.sessionId ?? firstSessionId;
     if (sid == null) continue; // no session context at all — cannot attribute
     if (firstSessionId == null) firstSessionId = sid;
 
@@ -150,8 +204,8 @@ function groupSessions(events) {
 
     // Locate-or-create the turn for this uuid (split lines merge into one).
     const uuid = ev.uuid ?? null;
-    const key = uuid ?? `__noid:${s._noId++}`;
-    let turn = s._byUuid.get(key);
+    const key = uuid ?? `__noid:${s._noId!++}`;
+    let turn = s._byUuid!.get(key);
     if (!turn) {
       turn = {
         uuid,
@@ -167,14 +221,14 @@ function groupSessions(events) {
         _seenText: new Set(),
         _seenTool: new Set(),
       };
-      s._byUuid.set(key, turn);
+      s._byUuid!.set(key, turn);
       s.turns.push(turn);
     }
 
     // Count usage exactly once per uuid.
     const usage = usageOf(ev);
-    if (usage && !s._seenUsage.has(key)) {
-      s._seenUsage.add(key);
+    if (usage && !s._seenUsage!.has(key)) {
+      s._seenUsage!.add(key);
       turn.usage = usage;
       s.tokens.input += usage.input;
       s.tokens.output += usage.output;
@@ -184,28 +238,28 @@ function groupSessions(events) {
 
     // Merge in this line's text (dedup identical fragments).
     const text = textOf(ev);
-    if (text && !turn._seenText.has(text)) {
-      turn._seenText.add(text);
+    if (text && !turn._seenText!.has(text)) {
+      turn._seenText!.add(text);
       turn.text = turn.text ? `${turn.text}\n${text}` : text;
     }
 
     // Merge in this line's tool calls (dedup by tool_use id).
     for (const b of blocksOf(ev)) {
       if (!b || b.type !== 'tool_use') continue;
-      if (b.id && turn._seenTool.has(b.id)) continue;
-      if (b.id) turn._seenTool.add(b.id);
+      if (b.id && turn._seenTool!.has(b.id)) continue;
+      if (b.id) turn._seenTool!.add(b.id);
       turn.toolCalls.push({
         toolUseId: b.id ?? null,
         name: b.name ?? null,
         input: b.input ?? null,
-        result: b.id && resultsByToolId.has(b.id) ? resultsByToolId.get(b.id).content : null,
-        isError: b.id && resultsByToolId.has(b.id) ? resultsByToolId.get(b.id).isError : null,
+        result: b.id && resultsByToolId.has(b.id) ? resultsByToolId.get(b.id)!.content : null,
+        isError: b.id && resultsByToolId.has(b.id) ? resultsByToolId.get(b.id)!.isError : null,
       });
     }
   }
 
   // Finalise counts and strip internal bookkeeping.
-  const out = [];
+  const out: Session[] = [];
   for (const s of sessions.values()) {
     s.turnCount = s.turns.length;
     s.toolCallCount = s.turns.reduce((n, t) => n + t.toolCalls.length, 0);
@@ -217,8 +271,6 @@ function groupSessions(events) {
 }
 
 /** Parse transcript JSONL text into normalised session(s). */
-function parseTranscript(text) {
+export function parseTranscript(text: string): Session[] {
   return groupSessions(parseJsonl(text));
 }
-
-module.exports = { parseTranscript, parseJsonl, groupSessions };

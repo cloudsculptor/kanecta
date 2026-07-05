@@ -2,16 +2,17 @@
   "name": "@kanecta/transcript-import",
   "version": "1.4.0",
   "description": "Deterministic, idempotent importer for Claude Code session transcripts into a Kanecta datastore",
-  "main": "src/index.js",
+  "main": "src/index.ts",
   "bin": {
-    "kanecta-import-transcripts": "bin/kanecta-import-transcripts.js"
+    "kanecta-import-transcripts": "bin/kanecta-import-transcripts.ts"
   },
   "files": [
     "src/",
     "bin/"
   ],
   "scripts": {
-    "test": "node --test"
+    "test": "node --import tsx --test test/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "keywords": [
     "kanecta",
@@ -32,6 +33,7 @@
   },
   "devDependencies": {
     "@kanecta/postgres": "^1.4.0",
-    "pg": "^8.22.0"
+    "pg": "^8.22.0",
+    "tsx": "^4.23.0"
   }
 }

@@ -1,25 +1,23 @@
-'use strict';
-
-const { test } = require('node:test');
-const assert = require('node:assert');
-const os = require('os');
-const path = require('path');
-const fs = require('fs');
-const { Datastore } = require('@kanecta/lib');
-const { parseTranscript } = require('../src/parse');
-const { importSession, SOURCE_SYSTEM, TYPE_IDS } = require('../src/import');
+import { test } from 'node:test';
+import assert from 'node:assert';
+import os from 'os';
+import path from 'path';
+import fs from 'fs';
+import { Datastore } from '@kanecta/lib';
+import { parseTranscript } from '../src/parse.js';
+import { importSession, SOURCE_SYSTEM, TYPE_IDS } from '../src/import.js';
 
 function tmpDs() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'kanecta-transcript-'));
   return { ds: Datastore.init(root, 'test@example.com'), root };
 }
 
-function makeTranscript(turns) {
+function makeTranscript(turns: any[]): string {
   return turns.map((t) => JSON.stringify(t)).join('\n');
 }
 
-const childrenOfType = async (ds, id, typeId) =>
-  (await ds.children(id)).filter((c) => c.typeId === typeId);
+const childrenOfType = async (ds: any, id: string, typeId: string): Promise<any[]> =>
+  (await ds.children(id)).filter((c: any) => c.typeId === typeId);
 
 const BASE = [
   { type: 'user', uuid: 'u1', timestamp: '2026-06-01T10:00:00Z', sessionId: 's1', cwd: '/p', message: { role: 'user', content: 'Add a feature' } },
@@ -45,6 +43,7 @@ test('imports a session as typed objects (session → turn → tool-call), paylo
   const { ds, root } = tmpDs();
   try {
     const [session] = parseTranscript(makeTranscript(BASE));
+    assert.ok(session);
     const stats = await importSession(ds, session);
 
     assert.equal(stats.turns, 3);
@@ -113,6 +112,7 @@ test('re-importing the identical transcript creates nothing new (idempotent)', a
   const { ds, root } = tmpDs();
   try {
     const [session] = parseTranscript(makeTranscript(BASE));
+    assert.ok(session);
     await importSession(ds, session);
     const before = (await ds.loadAll()).length;
 
@@ -169,6 +169,7 @@ test('stores large text in full (no truncation, no offload)', async () => {
       { type: 'user', uuid: 'u1', timestamp: '2026-06-01T10:00:00Z', sessionId: 'big', message: { role: 'user', content: big } },
     ];
     const [session] = parseTranscript(makeTranscript(evts));
+    assert.ok(session);
     await importSession(ds, session);
 
     const turn = await ds.bySource(SOURCE_SYSTEM, 'turn:u1');

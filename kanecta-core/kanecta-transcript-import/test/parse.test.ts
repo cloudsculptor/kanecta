@@ -1,8 +1,6 @@
-'use strict';
-
-const { test } = require('node:test');
-const assert = require('node:assert');
-const { parseTranscript, parseJsonl } = require('../src/parse');
+import { test } from 'node:test';
+import assert from 'node:assert';
+import { parseTranscript, parseJsonl } from '../src/parse.js';
 
 // A small but representative transcript: a user prompt, an assistant turn that
 // makes a tool call, and a following user turn carrying the tool result.
@@ -38,6 +36,7 @@ test('parseJsonl skips blank and corrupt lines', () => {
 
 test('parses a session with turns, tokens and time bounds', () => {
   const [s] = parseTranscript(SAMPLE);
+  assert.ok(s);
   assert.equal(s.sessionId, 'sess-1');
   assert.equal(s.cwd, '/home/dev/proj');
   assert.equal(s.gitBranch, 'main');
@@ -52,7 +51,9 @@ test('parses a session with turns, tokens and time bounds', () => {
 
 test('assistant text and tool_use are captured on the turn', () => {
   const [s] = parseTranscript(SAMPLE);
+  assert.ok(s);
   const asst = s.turns.find((t) => t.uuid === 'a1');
+  assert.ok(asst);
   assert.equal(asst.kind, 'assistant');
   assert.equal(asst.text, 'Sure, running them now.');
   assert.equal(asst.model, 'claude-opus-4-8');
@@ -63,14 +64,19 @@ test('assistant text and tool_use are captured on the turn', () => {
 
 test('a tool_result in a later turn is matched back onto its tool_use', () => {
   const [s] = parseTranscript(SAMPLE);
-  const call = s.turns.find((t) => t.uuid === 'a1').toolCalls[0];
+  assert.ok(s);
+  const asst = s.turns.find((t) => t.uuid === 'a1');
+  assert.ok(asst);
+  const call = asst.toolCalls[0];
   assert.equal(call.result, 'All tests passed');
   assert.equal(call.isError, false);
 });
 
 test('a plain user prompt becomes a text turn with no tool calls', () => {
   const [s] = parseTranscript(SAMPLE);
+  assert.ok(s);
   const u1 = s.turns.find((t) => t.uuid === 'u1');
+  assert.ok(u1);
   assert.equal(u1.kind, 'user');
   assert.equal(u1.text, 'Please run the tests');
   assert.equal(u1.toolCalls.length, 0);
@@ -83,6 +89,7 @@ test('non-turn events still extend the session time window', () => {
     JSON.stringify({ type: 'attachment', timestamp: '2026-06-01T10:05:00.000Z', sessionId: 's' }),
   ].join('\n');
   const [s] = parseTranscript(jsonl);
+  assert.ok(s);
   assert.equal(s.startedAt, '2026-06-01T09:59:00.000Z');
   assert.equal(s.endedAt, '2026-06-01T10:05:00.000Z');
   assert.equal(s.turnCount, 1); // only the user turn
@@ -99,11 +106,13 @@ test('merges split lines that share a uuid; counts usage once', () => {
   ].map((e) => JSON.stringify(e)).join('\n');
 
   const [s] = parseTranscript(jsonl);
+  assert.ok(s);
   assert.equal(s.turnCount, 1, 'split lines collapse into one turn');
   assert.equal(s.toolCallCount, 1);
   // Usage counted once, not doubled.
   assert.deepEqual(s.tokens, { input: 100, output: 50, cacheCreation: 0, cacheRead: 200 });
   const [turn] = s.turns;
+  assert.ok(turn);
   assert.equal(turn.text, 'Thinking...\nDone.');
   assert.equal(turn.toolCalls.length, 1);
 });
@@ -113,6 +122,7 @@ test('deduplicates identical repeated lines (no text or token doubling)', () => 
   const line = { type: 'assistant', uuid: 'dup', timestamp: '2026-06-01T10:00:00Z', sessionId: 's', message: { model: 'm', id: 'x', content: [{ type: 'text', text: 'hi' }], usage } };
   const jsonl = [line, line].map((e) => JSON.stringify(e)).join('\n');
   const [s] = parseTranscript(jsonl);
+  assert.ok(s);
   assert.equal(s.turnCount, 1);
   assert.equal(s.tokens.output, 20);
   assert.equal(s.turns[0].text, 'hi');
