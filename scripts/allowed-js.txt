@@ -71,17 +71,6 @@ kanecta-core/kanecta-storage-adapters/kanecta-s3/src/adapter.js
 kanecta-core/kanecta-storage-adapters/kanecta-s3/src/index.js
 # s3 test grandfathered with its wholly-JS package; migrate the package to TS as a unit.
 kanecta-core/kanecta-storage-adapters/kanecta-s3/tests/s3.integration.test.js
-kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/src/adapter.js
-kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/src/index.js
-kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/src/write-integrity.js
-kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/test-helpers/makeSampleDatastore.js
-kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/tests/adapter.test.js
-kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/tests/branching.test.js
-kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/tests/document.test.js
-kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/tests/migrate-per-branch.test.js
-kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/tests/source-ingestion.test.js
-kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/tests/sparse-branch.test.js
-kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/tests/write-integrity.test.js
 kanecta-dev/scripts/ensure-datastore.js
 kanecta-ui/kanecta-apps/kanecta-app-claude/index.js
 kanecta-ui/kanecta-apps/kanecta-app-claude/lib/claude.js

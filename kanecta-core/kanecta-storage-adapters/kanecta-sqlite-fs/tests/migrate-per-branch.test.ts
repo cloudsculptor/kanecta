@@ -5,15 +5,15 @@
 // this package already has jest + better-sqlite3 wired up, and because the real
 // proof is that the migrated datastore opens cleanly with the new adapter.
 
-const fs   = require('fs');
-const path = require('path');
-const os   = require('os');
-const Database = require('better-sqlite3');
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import Database from 'better-sqlite3';
 
-const { SqliteFsAdapter } = require('../src/adapter');
-const {
+import { SqliteFsAdapter } from '../src/adapter';
+import {
   migrateDatastoreToPerBranch,
-} = require('../../../kanecta-migrations/1.4.0/migrate-datastore-to-per-branch');
+} from '../../../kanecta-migrations/1.4.0/migrate-datastore-to-per-branch';
 
 const ROOT_ID = '00000000-0000-0000-0000-000000000000';
 

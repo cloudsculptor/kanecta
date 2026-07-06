@@ -1,5 +1,3 @@
-'use strict';
-
 // ─── Write integrity: cross-process lock + write-ahead journal ──────────────────
 //
 // Implements the filesystem half of the spec's Write Integrity & Durability
@@ -19,20 +17,25 @@
 // process are already serialized by the event loop; the lock exists to serialize
 // across processes (the MCP server, the API and the CLI may share one datastore).
 
-const fs   = require('fs');
-const os   = require('os');
-const path = require('path');
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 
 // Synchronous sleep (no busy-spin). Used while waiting for a contended lock.
-function sleepSync(ms) {
+function sleepSync(ms: number): void {
   if (ms <= 0) return;
   const shared = new Int32Array(new SharedArrayBuffer(4));
   Atomics.wait(shared, 0, 0, ms);
 }
 
 class WriteGuard {
+  branchRoot: string;
+  _nowMs: () => number;
+  _sleep: (ms: number) => void;
+  _held: boolean;
+
   // `nowMs` and `sleep` are injectable for deterministic tests.
-  constructor(branchRoot, { nowMs = Date.now, sleep = sleepSync } = {}) {
+  constructor(branchRoot: string, { nowMs = Date.now, sleep = sleepSync }: any = {}) {
     this.branchRoot = branchRoot;
     this._nowMs = nowMs;
     this._sleep = sleep;
@@ -44,18 +47,18 @@ class WriteGuard {
 
   // ── Lock ──────────────────────────────────────────────────────────────────
 
-  _readLock() {
+  _readLock(): any {
     try { return JSON.parse(fs.readFileSync(this.lockPath, 'utf8')); }
     catch { return null; }
   }
 
   // A lock is stale if its holder is provably gone: a dead PID on this host, or an
   // expired heartbeat (covers other hosts and hung processes).
-  _lockIsStale(lock, staleMs) {
+  _lockIsStale(lock: any, staleMs: number): boolean {
     if (!lock) return true;
     if (lock.host === os.hostname() && Number.isInteger(lock.pid)) {
       try { process.kill(lock.pid, 0); }            // probe — does not actually signal
-      catch (e) { if (e.code === 'ESRCH') return true; } // no such process → crashed holder
+      catch (e: any) { if (e.code === 'ESRCH') return true; } // no such process → crashed holder
     }
     const beat = lock.heartbeatAt ?? lock.startedAt ?? 0;
     return (this._nowMs() - beat) > staleMs;
@@ -63,7 +66,7 @@ class WriteGuard {
 
   // Acquire the branch lock, stealing a stale one and waiting (up to waitMs) for a
   // live one. Throws if the wait times out.
-  acquire({ pid = process.pid, staleMs = 30000, waitMs = 10000, pollMs = 25 } = {}) {
+  acquire({ pid = process.pid, staleMs = 30000, waitMs = 10000, pollMs = 25 }: any = {}): boolean {
     const deadline = this._nowMs() + waitMs;
     fs.mkdirSync(this.branchRoot, { recursive: true });
     for (;;) {
@@ -73,7 +76,7 @@ class WriteGuard {
         fs.closeSync(fd);
         this._held = true;
         return true;
-      } catch (e) {
+      } catch (e: any) {
         if (e.code !== 'EEXIST') throw e;
         const lock = this._readLock();
         if (this._lockIsStale(lock, staleMs)) {
@@ -81,7 +84,7 @@ class WriteGuard {
           continue; // retry the exclusive create
         }
         if (this._nowMs() >= deadline) {
-          const err = new Error(`write lock held by another process: ${JSON.stringify(lock)}`);
+          const err: any = new Error(`write lock held by another process: ${JSON.stringify(lock)}`);
           err.code = 'KANECTA_WRITE_LOCKED';
           throw err;
         }
@@ -91,7 +94,7 @@ class WriteGuard {
   }
 
   // Refresh the heartbeat during a long write so watchers don't deem us stale.
-  heartbeat() {
+  heartbeat(): void {
     if (!this._held) return;
     const lock = this._readLock();
     if (!lock) return;
@@ -99,13 +102,13 @@ class WriteGuard {
     this._atomicWrite(this.lockPath, JSON.stringify(lock));
   }
 
-  release() {
+  release(): void {
     this._held = false;
     try { fs.rmSync(this.lockPath, { force: true }); } catch {}
   }
 
   // Clear a leftover lock from a crashed holder. Returns true if one was cleared.
-  clearStaleLock({ staleMs = 30000 } = {}) {
+  clearStaleLock({ staleMs = 30000 }: any = {}): boolean {
     const lock = this._readLock();
     if (lock && this._lockIsStale(lock, staleMs)) {
       try { fs.rmSync(this.lockPath, { force: true }); } catch {}
@@ -116,7 +119,7 @@ class WriteGuard {
 
   // ── Journal ─────────────────────────────────────────────────────────────────
 
-  _atomicWrite(p, contents) {
+  _atomicWrite(p: string, contents: string): void {
     const tmp = p + '.tmp';
     fs.writeFileSync(tmp, contents, 'utf8');
     fs.renameSync(tmp, p);
@@ -124,27 +127,27 @@ class WriteGuard {
 
   // Record write-ahead intent. `ops` is [{ id, store, preImage }] — preImage is the
   // item.json before this write (null for a freshly-created item), used to roll back.
-  begin(entry) {
+  begin(entry: any): void {
     this._atomicWrite(this.journalPath, JSON.stringify({ phase: 'started', startedAt: this._nowMs(), ...entry }));
   }
 
   // Mark the authoritative data as fully written: recovery will now roll forward.
-  markL0Done() {
+  markL0Done(): void {
     const j = this.read();
     if (!j) return;
     j.phase = 'l0-done';
     this._atomicWrite(this.journalPath, JSON.stringify(j));
   }
 
-  read() {
+  read(): any {
     try { return JSON.parse(fs.readFileSync(this.journalPath, 'utf8')); }
     catch { return null; }
   }
 
   // Commit = the write fully landed; the journal is no longer needed.
-  commit() {
+  commit(): void {
     try { fs.rmSync(this.journalPath, { force: true }); } catch {}
   }
 }
 
-module.exports = { WriteGuard, sleepSync };
+export { WriteGuard, sleepSync };

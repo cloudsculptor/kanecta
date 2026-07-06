@@ -1,11 +1,30 @@
-'use strict';
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
+import Database from 'better-sqlite3';
+import * as spec from '@kanecta/specification';
+import { WriteGuard } from './write-integrity';
 
-const fs     = require('fs');
-const path   = require('path');
-const crypto = require('crypto');
-const Database = require('better-sqlite3');
-const { version: specVersion, primitiveTypes, builtInTypeItems } = require('@kanecta/specification');
-const { WriteGuard } = require('./write-integrity');
+// Minimal structural type for the better-sqlite3 handle (the package ships no
+// type declarations). Query methods return `any`/`any[]` so downstream
+// .map/.filter/.sort callbacks infer `any` cleanly under noImplicitAny.
+interface SqlStatement {
+  get(...params: any[]): any;
+  all(...params: any[]): any[];
+  run(...params: any[]): any;
+  iterate(...params: any[]): IterableIterator<any>;
+}
+interface SqlDatabase {
+  prepare(sql: string): SqlStatement;
+  transaction<T extends (...args: any[]) => any>(fn: T): T;
+  exec(sql: string): any;
+  pragma(source: string, options?: any): any;
+  close(): any;
+}
+
+const specVersion: string = spec.version;
+const primitiveTypes = spec.primitiveTypes;
+const builtInTypeItems: any[] = (spec as any).builtInTypeItems;
 
 // ─── Icons (resolved on read, never stored on the item) ─────────────────────────
 // Every item gets a MUI icon slug on read. It is resolved from the item's type:
@@ -16,7 +35,7 @@ const { WriteGuard } = require('./write-integrity');
 // The item.json never carries meta.icon.
 const PRIMITIVE_TYPE_SET = new Set(primitiveTypes);
 const PRIMITIVE_ICON = 'Stop';
-const RESERVED_ICONS = { root: 'Home', types: 'Category' };
+const RESERVED_ICONS: Record<string, string> = { root: 'Home', types: 'Category' };
 const FALLBACK_ICON  = 'Category';
 
 const ROOT_ID    = '00000000-0000-0000-0000-000000000000';
@@ -58,7 +77,9 @@ const TYPE_ITEM_UUIDS = {
 const METADATA_TYPES = new Set(['item_history', 'activity', 'alias', 'relationship']);
 
 class UnknownTypeError extends Error {
-  constructor(typeName) {
+  code: string;
+  typeName: string;
+  constructor(typeName: any) {
     super(`unknown type "${typeName}" — not a registered type definition`);
     this.name     = 'UnknownTypeError';
     this.code     = 'UNKNOWN_TYPE';
@@ -235,7 +256,17 @@ CREATE TABLE IF NOT EXISTS type_defs (
 // an ordered layer-stack for sparse branches, but every branch here is fill:full).
 
 class SqliteFsAdapter {
-  constructor(root) {
+  root: string;
+  k: string;
+  _db: any;
+  _dbBranch: any;
+  _config: any;
+  _mem: Map<string, any>;
+  _roots: any;
+  _branch: string;
+  _iconCache: any = null;
+
+  constructor(root: any) {
     this.root      = path.resolve(root);
     this.k         = path.join(this.root, '.kanecta');
     this._db       = null;
@@ -248,14 +279,14 @@ class SqliteFsAdapter {
 
   // ─── Filesystem helpers ────────────────────────────────────────────────────
 
-  _shard(id) {
+  _shard(id: any) {
     // 2+2 sharding on the raw hex chars of the UUID (hyphens stripped)
     const hex = id.replace(/-/g, '');
     return [hex.slice(0, 2), hex.slice(2, 4)];
   }
 
   // Root folder of the active branch: .kanecta/branches/<encoded-name>
-  _branchRoot(name) {
+  _branchRoot(name?: any) {
     return path.join(this.k, 'branches', this._encodeBranchName(name ?? this._branch));
   }
 
@@ -265,12 +296,12 @@ class SqliteFsAdapter {
   //   'activity'     — activity events
   // Keeping history/activity in sibling trees keeps items/ pure, so branchDiff and
   // content traversal (which scan items/) never see them.
-  _itemDir(id, store = 'items') {
+  _itemDir(id: any, store: any = 'items') {
     const [s1, s2] = this._shard(id);
     return path.join(this._branchRoot(), store, s1, s2, id);
   }
 
-  _itemPath(id, store = 'items') {
+  _itemPath(id: any, store: any = 'items') {
     return path.join(this._itemDir(id, store), 'item.json');
   }
 
@@ -278,7 +309,7 @@ class SqliteFsAdapter {
   // so this reads only its own file. A SPARSE branch layers: its own items/ wins
   // (a local tombstone masks the item → null), otherwise the read falls through
   // to the local upstream branch's file.
-  _readItemJson(id, store = 'items') {
+  _readItemJson(id: any, store: any = 'items') {
     const p = this._itemPath(id, store);
     let localExists = false;
     try {
@@ -299,7 +330,7 @@ class SqliteFsAdapter {
   }
 
   // Atomic write: temp file + rename so item.json is never partially written.
-  _writeItemJson(id, doc, store = 'items') {
+  _writeItemJson(id: any, doc: any, store: any = 'items') {
     const dir = this._itemDir(id, store);
     fs.mkdirSync(dir, { recursive: true });
     const p   = this._itemPath(id, store);
@@ -308,7 +339,7 @@ class SqliteFsAdapter {
     fs.renameSync(tmp, p);
   }
 
-  _deleteItemDir(id, store = 'items') {
+  _deleteItemDir(id: any, store: any = 'items') {
     const dir = this._itemDir(id, store);
     if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -316,7 +347,7 @@ class SqliteFsAdapter {
   // ─── Branch filesystem helpers ─────────────────────────────────────────────
 
   // Branch names encode `/` as `__` for the on-disk directory.
-  _encodeBranchName(name) { return name.replace(/\//g, '__'); }
+  _encodeBranchName(name: any) { return name.replace(/\//g, '__'); }
 
   // ─── Sparse-branch helpers ─────────────────────────────────────────────────
   // A sparse branch stores only its local changes in items/; the rest is read
@@ -324,26 +355,26 @@ class SqliteFsAdapter {
   // and `upstream`. Deleted upstream items are masked by a tombstone item.json
   // (a doc with `tombstone: true`) in the local items/ tree.
 
-  _branchManifest(name) {
+  _branchManifest(name?: any) {
     const n = name ?? this._branch;
     try { return JSON.parse(fs.readFileSync(path.join(this._branchRoot(n), 'branch.json'), 'utf8')); }
     catch { return { name: n, fill: 'full', upstream: null }; }
   }
 
-  _isSparse(name) { return this._branchManifest(name).fill === 'sparse'; }
+  _isSparse(name?: any) { return this._branchManifest(name).fill === 'sparse'; }
 
   // The LOCAL full branch a sparse branch reads through to. Remote upstreams are
   // federated at query time (deferred) and return null here. Full branches too.
-  _localUpstream(name) {
+  _localUpstream(name?: any) {
     const m = this._branchManifest(name ?? this._branch);
     if (m.fill !== 'sparse' || !m.upstream) return null;
     if (m.upstream.remote) return null;
     return m.upstream.branch ?? m.base ?? 'main';
   }
 
-  _isTombstone(doc) { return !!doc && doc.tombstone === true; }
+  _isTombstone(doc: any) { return !!doc && doc.tombstone === true; }
 
-  _makeTombstone(id, parentId, actor, now) {
+  _makeTombstone(id: any, parentId: any, actor: any, now: any) {
     return {
       tombstone: true,
       item:      { id, parentId: parentId ?? null },
@@ -353,13 +384,13 @@ class SqliteFsAdapter {
   }
 
   // The on-disk item.json path for `id` in a specific branch's items/ tree.
-  _branchItemPath(branch, id, store = 'items') {
+  _branchItemPath(branch: any, id: any, store: any = 'items') {
     const [s1, s2] = this._shard(id);
     return path.join(this._branchRoot(branch), store, s1, s2, id, 'item.json');
   }
 
   // Walk every item.json under items/ (or a custom dir).
-  * _scanItemFiles(baseDir) {
+  * _scanItemFiles(baseDir: any) {
     if (!fs.existsSync(baseDir)) return;
     for (const s1 of fs.readdirSync(baseDir).sort()) {
       const d1 = path.join(baseDir, s1);
@@ -385,13 +416,13 @@ class SqliteFsAdapter {
   // rolls back to the pre-images if it did not. index.db being 100% derived is
   // what makes roll-forward a simple rebuild.
 
-  _guard(branch) { return new WriteGuard(this._branchRoot(branch)); }
+  _guard(branch?: any) { return new WriteGuard(this._branchRoot(branch)); }
 
-  _withWrite(ops, fn) {
+  _withWrite(ops: any, fn: any) {
     const guard = this._guard();
     guard.acquire();
     try {
-      const recs = ops.map(o => ({
+      const recs = ops.map((o: any) => ({
         id: o.id, store: o.store || 'items',
         preImage: this._readItemJson(o.id, o.store || 'items'),
       }));
@@ -413,7 +444,7 @@ class SqliteFsAdapter {
   }
 
   // Restore each op's item.json to its pre-image (or delete it if it was created).
-  _rollback(opRecs) {
+  _rollback(opRecs: any) {
     for (const op of opRecs) {
       if (op.preImage == null) this._deleteItemDir(op.id, op.store);
       else                     this._writeItemJson(op.id, op.preImage, op.store);
@@ -440,7 +471,7 @@ class SqliteFsAdapter {
   // branch: when the active branch changes, the previously-open DB is closed and
   // the new branch's index.db is opened. index.db is 100% derived — if it is
   // empty or missing it is rebuilt by scanning the branch's items/ tree.
-  _openDb() {
+  _openDb(): SqlDatabase {
     if (this._db && this._dbBranch === this._branch) return this._db;
     if (this._db) { try { this._db.close(); } catch {} this._db = null; }
 
@@ -461,11 +492,11 @@ class SqliteFsAdapter {
     return this._db;
   }
 
-  static isDatastore(root) {
+  static isDatastore(root: any) {
     return fs.existsSync(path.join(root, '.kanecta', 'branches', 'main', 'items'));
   }
 
-  static init(root, owner) {
+  static init(root: any, owner: any) {
     const k        = path.join(root, '.kanecta');
     const mainRoot = path.join(k, 'branches', 'main');
     fs.mkdirSync(path.join(mainRoot, 'items'), { recursive: true });
@@ -500,7 +531,7 @@ class SqliteFsAdapter {
     return adapter;
   }
 
-  static open(root) {
+  static open(root: any) {
     if (!SqliteFsAdapter.isDatastore(root)) throw new Error(`Not a Kanecta datastore: ${root}`);
     const adapter = new SqliteFsAdapter(root);
     // _openDb rebuilds the active branch's index from its items/ if empty.
@@ -550,15 +581,15 @@ class SqliteFsAdapter {
   // ─── Document ↔ item conversion ────────────────────────────────────────────
 
   // Build a five-section doc from separate pieces.
-  _buildDoc(itemSection, metaSection, payload, time, search) {
+  _buildDoc(itemSection: any, metaSection: any, payload: any, time: any, search: any) {
     return { item: itemSection, meta: metaSection, search: search ?? null, payload: payload ?? null, time: time ?? null };
   }
 
   // Five-section doc → flat item object (what the public API returns).
-  _docToItem(doc) {
+  _docToItem(doc: any) {
     if (!doc?.item || !doc?.meta) return null;
     const { item, meta } = doc;
-    const out = {
+    const out: any = {
       id:               item.id,
       specVersion:      meta.specVersion || specVersion,
       parentId:         item.parentId,
@@ -594,7 +625,7 @@ class SqliteFsAdapter {
   }
 
   // Flat item object → five-section doc, preserving existing payload/time/search.
-  _itemToDoc(item, existingDoc = null) {
+  _itemToDoc(item: any, existingDoc: any = null) {
     return {
       item: {
         id:        item.id,
@@ -636,9 +667,9 @@ class SqliteFsAdapter {
   }
 
   // DB row (items JOIN items_meta) → flat item object (the read model).
-  _rowToItem(row) {
+  _rowToItem(row: any) {
     if (!row) return null;
-    const out = {
+    const out: any = {
       id:               row.id,
       specVersion:      row.spec_version || specVersion,
       parentId:         row.parent_id,
@@ -675,7 +706,7 @@ class SqliteFsAdapter {
 
   // ─── Index helpers ─────────────────────────────────────────────────────────
 
-  _insertIndexTx(db, id, doc, itemPath) {
+  _insertIndexTx(db: SqlDatabase, id: any, doc: any, itemPath: any) {
     const { item, meta, search, payload, time } = doc;
     const tags = Array.isArray(meta.tags) ? meta.tags : [];
 
@@ -720,7 +751,7 @@ class SqliteFsAdapter {
         INSERT INTO items_time (item_id, key, start_at, end_at, recurrence_rule, recurrence_exceptions, next_occurrence_at, completed_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `);
-      for (const [key, entry] of Object.entries(time)) {
+      for (const [key, entry] of Object.entries<any>(time)) {
         if (!entry) continue;
         ins.run(id, key, entry.startAt ?? null, entry.endAt ?? null, entry.recurrenceRule ?? null,
                 JSON.stringify(entry.recurrenceExceptions ?? []), entry.nextOccurrenceAt ?? null, entry.completedAt ?? null);
@@ -742,7 +773,7 @@ class SqliteFsAdapter {
 
   // Project an alias/relationship/annotation item.json into its derived lookup
   // table. No-op for ordinary content items.
-  _indexMetadataDoc(db, doc) {
+  _indexMetadataDoc(db: SqlDatabase, doc: any) {
     const { item, meta, payload } = doc;
     const p = payload || {};
     if (item.type === 'alias') {
@@ -767,7 +798,7 @@ class SqliteFsAdapter {
   // Write a metadata item (alias/relationship/annotation) as a real item.json in
   // items/ — the source of truth — and project it into its derived lookup table.
   // No history snapshot is taken for metadata items.
-  _metaItem(fields) {
+  _metaItem(fields: any) {
     const now = new Date().toISOString();
     return this._itemToDoc({
       typeId: null, sortOrder: 0, aspect: null,
@@ -780,7 +811,7 @@ class SqliteFsAdapter {
     });
   }
 
-  _writeMetadataItem(doc) {
+  _writeMetadataItem(doc: any) {
     const db = this._openDb();
     this._withWrite([{ id: doc.item.id, store: 'items' }], () => {
       this._writeItemJson(doc.item.id, doc);
@@ -792,7 +823,7 @@ class SqliteFsAdapter {
 
   // Delete a metadata item: its item.json, its index rows, and its derived-lookup
   // row. Must be called inside a db transaction (or standalone).
-  _deleteMetadataItem(db, itemId, type) {
+  _deleteMetadataItem(db: SqlDatabase, itemId: any, type: any) {
     this._deleteItemDir(itemId);
     db.prepare('DELETE FROM items_meta    WHERE item_id = ?').run(itemId);
     db.prepare('DELETE FROM items_payload WHERE item_id = ?').run(itemId);
@@ -809,7 +840,7 @@ class SqliteFsAdapter {
   // When a content item is deleted, cascade-delete the metadata items that hang
   // off it: relationships in either direction, annotations on it, aliases to it.
   // Keeps the derived tables consistent with items/ after a rebuild.
-  _cascadeDeleteMetadata(db, id) {
+  _cascadeDeleteMetadata(db: SqlDatabase, id: any) {
     for (const r of db.prepare('SELECT id FROM relationships WHERE source_id = ? OR target_id = ?').all(id, id))
       this._deleteMetadataItem(db, r.id, 'relationship');
     for (const a of db.prepare('SELECT id FROM annotations WHERE target_id = ?').all(id))
@@ -818,7 +849,7 @@ class SqliteFsAdapter {
       if (a.item_id) this._deleteMetadataItem(db, a.item_id, 'alias');
   }
 
-  _updateIndexMeta(db, id, meta, tags) {
+  _updateIndexMeta(db: SqlDatabase, id: any, meta: any, tags: any) {
     db.prepare(`
       UPDATE items_meta SET
         owner = ?, license = ?, visibility = ?, confidence = ?, status = ?, tags = ?,
@@ -840,7 +871,7 @@ class SqliteFsAdapter {
   }
 
   // Full JOIN query for a single item (items + items_meta).
-  _getRow(db, id) {
+  _getRow(db: SqlDatabase, id: any) {
     return db.prepare(`
       SELECT i.*, m.owner, m.license, m.visibility, m.confidence, m.status, m.tags,
              m.created_at, m.modified_at, m.created_by, m.modified_by,
@@ -854,10 +885,10 @@ class SqliteFsAdapter {
 
   // ─── Index rebuild from filesystem ────────────────────────────────────────
 
-  _rebuildFromFs(db) {
+  _rebuildFromFs(db: SqlDatabase) {
     const itemsDir = path.join(this._branchRoot(), 'items');
     // First pass: read all item.json files and collect items
-    const docs = [];
+    const docs: any[] = [];
     for (const jsonPath of this._scanItemFiles(itemsDir)) {
       try {
         const doc = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
@@ -873,7 +904,7 @@ class SqliteFsAdapter {
   // The index is thus fully derived from items/ + the local upstream, and the
   // branch's own items/ stays sparse (only its local changes). Remote upstreams
   // are federated at query time instead (deferred).
-  _rebuildFromFsSparse(db) {
+  _rebuildFromFsSparse(db: SqlDatabase) {
     const docById = new Map();
     const up = this._localUpstream();
     if (up) {
@@ -901,7 +932,7 @@ class SqliteFsAdapter {
   // Index a resolved set of item docs: compute materialized paths in
   // parent→child order, then insert every row (shared by the full and sparse
   // rebuild paths).
-  _indexDocs(db, docs) {
+  _indexDocs(db: SqlDatabase, docs: any) {
     // Compute materialized paths in parent→child order
     const parentMap = new Map();
     for (const doc of docs) {
@@ -912,10 +943,10 @@ class SqliteFsAdapter {
         parentMap.get(pid).push(id);
       }
     }
-    const docById = new Map(docs.map(d => [d.item.id, d]));
+    const docById = new Map(docs.map((d: any) => [d.item.id, d]));
     const paths   = new Map();
 
-    const computePath = (id, parentPath) => {
+    const computePath = (id: any, parentPath: any): void => {
       const p = parentPath ? `${parentPath}/${id}` : id;
       paths.set(id, p);
       for (const childId of (parentMap.get(id) || [])) computePath(childId, p);
@@ -955,18 +986,18 @@ class SqliteFsAdapter {
 
   // created | updated | deleted — the spec's coarse eventType. The adapter's finer
   // changeType (soft-delete/restore/…) is preserved inside the snapshot.
-  _eventType(changeType) {
+  _eventType(changeType: any) {
     if (changeType === 'create')  return 'created';
     if (changeType === 'delete')  return 'deleted';
     return 'updated';
   }
 
-  _nextHistorySeq(db, targetId) {
+  _nextHistorySeq(db: SqlDatabase, targetId: any) {
     const row = db.prepare('SELECT COUNT(*) AS n FROM history WHERE item_id = ?').get(targetId);
     return (row?.n ?? 0) + 1;
   }
 
-  _snapshot(db, item, changeType, changedBy, now) {
+  _snapshot(db: SqlDatabase, item: any, changeType: any, changedBy: any, now: any) {
     const store = this._historyStore();
     if (!store) return;
 
@@ -1002,7 +1033,7 @@ class SqliteFsAdapter {
   // Upsert the derived `history` row from an item_history item.json. Used both by
   // _snapshot (live) and _rebuildHistoryFromFs (rebuild) so the table is always a
   // pure projection of item-history/.
-  _indexHistoryDoc(db, histDoc) {
+  _indexHistoryDoc(db: SqlDatabase, histDoc: any) {
     const p = histDoc.payload || {};
     const snap = p.snapshot || {};
     db.prepare(
@@ -1015,9 +1046,9 @@ class SqliteFsAdapter {
   }
 
   // Rebuild the derived history table by scanning the branch's item-history/ tree.
-  _rebuildHistoryFromFs(db) {
+  _rebuildHistoryFromFs(db: SqlDatabase) {
     const dir = path.join(this._branchRoot(), 'item-history');
-    const docs = [];
+    const docs: any[] = [];
     for (const jsonPath of this._scanItemFiles(dir)) {
       try {
         const doc = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
@@ -1032,17 +1063,17 @@ class SqliteFsAdapter {
 
   // ─── Materialized path helpers ─────────────────────────────────────────────
 
-  _getPath(id) {
+  _getPath(id: any) {
     const row = this._openDb().prepare('SELECT path FROM items WHERE id = ?').get(id);
     return row?.path ?? null;
   }
 
-  _pathDepth(p) {
+  _pathDepth(p: any) {
     if (!p) return 0;
     return (p.match(/\//g) || []).length;
   }
 
-  _cascadePathUpdate(db, id, newPath) {
+  _cascadePathUpdate(db: SqlDatabase, id: any, newPath: any) {
     const oldPath = this._getPath(id);
     db.prepare('UPDATE items SET path = ? WHERE id = ?').run(newPath, id);
     if (oldPath) {
@@ -1055,18 +1086,18 @@ class SqliteFsAdapter {
 
   // ─── Synthetic node helpers ────────────────────────────────────────────────
 
-  _isSyntheticId(id) { return typeof id === 'string' && id.includes('__'); }
+  _isSyntheticId(id: any) { return typeof id === 'string' && id.includes('__'); }
 
-  _parseSyntheticId(id) {
+  _parseSyntheticId(id: any) {
     const sep = id.indexOf('__');
     return { realId: id.slice(0, sep), fieldPath: id.slice(sep + 2) };
   }
 
-  _toTitleCase(key) {
-    return key.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase());
+  _toTitleCase(key: any) {
+    return key.replace(/([A-Z])/g, ' $1').replace(/^./, (c: any) => c.toUpperCase());
   }
 
-  _buildSyntheticNode(realId, parentId, key, val, fieldPath, sortOrder) {
+  _buildSyntheticNode(realId: any, parentId: any, key: any, val: any, fieldPath: any, sortOrder: any) {
     const isObj  = val !== null && typeof val === 'object' && !Array.isArray(val);
     const isNull = val === null || val === undefined;
     return {
@@ -1082,7 +1113,7 @@ class SqliteFsAdapter {
     };
   }
 
-  _buildValueLeaf(realId, parentFieldPath, val) {
+  _buildValueLeaf(realId: any, parentFieldPath: any, val: any) {
     const isArr    = Array.isArray(val);
     const parentId = parentFieldPath ? `${realId}__${parentFieldPath}` : realId;
     return {
@@ -1098,7 +1129,7 @@ class SqliteFsAdapter {
     };
   }
 
-  _buildSyntheticChildren(realId, obj, parentId, prefix = '') {
+  _buildSyntheticChildren(realId: any, obj: any, parentId: any, prefix: any = '') {
     return Object.entries(obj).map(([key, val], i) => {
       const fieldPath = prefix ? `${prefix}.${key}` : key;
       return this._buildSyntheticNode(realId, parentId, key, val, fieldPath, i);
@@ -1107,7 +1138,7 @@ class SqliteFsAdapter {
 
   // ─── Link extraction ───────────────────────────────────────────────────────
 
-  _parseLinks(value) {
+  _parseLinks(value: any) {
     if (!value || typeof value !== 'string') return [];
     const links = new Set();
     const re    = new RegExp(LINK_SOURCE, 'g');
@@ -1118,7 +1149,7 @@ class SqliteFsAdapter {
 
   // ─── Well-known root nodes ─────────────────────────────────────────────────
 
-  _createWellKnownNode(id, parentId, type, sortOrder) {
+  _createWellKnownNode(id: any, parentId: any, type: any, sortOrder: any) {
     const now   = new Date();
     const owner = this.config.owner;
     const item  = {
@@ -1184,7 +1215,7 @@ class SqliteFsAdapter {
   // type-name → icon and typeId → icon, built once from the seeded type items.
   _iconMaps() {
     if (this._iconCache) return this._iconCache;
-    const byName = {}, byId = {};
+    const byName: any = {}, byId: any = {};
     try {
       const rows = this._openDb().prepare(
         "SELECT i.id, i.value, p.payload FROM items i JOIN items_payload p ON p.item_id = i.id WHERE i.type = 'type'"
@@ -1199,7 +1230,7 @@ class SqliteFsAdapter {
   }
 
   // Resolve the MUI icon slug for an item (read model only).
-  _resolveIcon(item) {
+  _resolveIcon(item: any) {
     if (!item) return FALLBACK_ICON;
     const { byName, byId } = this._iconMaps();
     if (item.typeId && byId[item.typeId]) return byId[item.typeId];       // typed object → its type's icon
@@ -1227,13 +1258,13 @@ class SqliteFsAdapter {
 
   // ─── Guard helpers ─────────────────────────────────────────────────────────
 
-  _assertEditable(item, id) {
+  _assertEditable(item: any, id: any) {
     if (!item) throw new Error(`Item not found: ${id}`);
     if (WELL_KNOWN_TYPES.has(item.type) || item.id === ROOT_ID)
       throw new Error(`Item '${id}' (type: ${item.type}) is a reserved root node and cannot be modified`);
   }
 
-  _assertDeletable(item, id) {
+  _assertDeletable(item: any, id: any) {
     if (!item) throw new Error(`Item not found: ${id}`);
     if (WELL_KNOWN_TYPES.has(item.type) || item.id === ROOT_ID)
       throw new Error(`Item '${id}' (type: ${item.type}) is a reserved root node and cannot be deleted`);
@@ -1245,7 +1276,7 @@ class SqliteFsAdapter {
   // nodes (they are not rows in `items`), the structural root/types nodes, and
   // metadata/type items — so content items order among themselves from 0 and are
   // never pushed down by, e.g., the root node's rendered payload fields.
-  _nextSortOrder(parentId, aspect) {
+  _nextSortOrder(parentId: any, aspect: any) {
     const db = this._openDb();
     const noAspect = aspect === null || aspect === undefined;
     const sql = `SELECT MAX(sort_order) AS m FROM items
@@ -1261,7 +1292,7 @@ class SqliteFsAdapter {
     createdBy, objectData = null, dueAt = null, visibility = 'private', aspect = null,
     sourceSystem = null, sourceExternalId = null,
     strict,
-  } = {}) {
+  }: any = {}) {
     if (WELL_KNOWN_TYPES.has(type))
       throw new Error(`Type '${type}' is a well-known root type and cannot be created via create()`);
 
@@ -1284,7 +1315,7 @@ class SqliteFsAdapter {
 
     const resolvedPayload = (type === 'object' && typeId) ? (objectData ?? {}) : null;
 
-    const item = {
+    const item: any = {
       id, specVersion, parentId, value, type,
       typeId: type === 'object' ? (typeId || null) : null,
       owner: ownerVal, license: license ?? DEFAULT_LICENSE,
@@ -1323,7 +1354,7 @@ class SqliteFsAdapter {
     return item;
   }
 
-  get(id) {
+  get(id: any) {
     if (this._isSyntheticId(id)) {
       const { realId, fieldPath } = this._parseSyntheticId(id);
       const obj = this.readObjectJson(realId);
@@ -1374,18 +1405,18 @@ class SqliteFsAdapter {
     return item;
   }
 
-  resolveAlias(alias) {
+  resolveAlias(alias: any) {
     const row = this._openDb().prepare('SELECT target_id FROM aliases WHERE alias = ?').get(alias);
     return row ? row.target_id : null;
   }
 
-  resolve(idOrAlias) {
+  resolve(idOrAlias: any) {
     if (UUID_RE.test(idOrAlias)) return this.get(idOrAlias);
     const id = this.resolveAlias(idOrAlias);
     return id ? this.get(id) : null;
   }
 
-  update(id, changes, actor, { strict } = {}) {
+  update(id: any, changes: any, actor: any, { strict }: any = {}) {
     const current = this.get(id);
     this._assertEditable(current, id);
 
@@ -1479,16 +1510,16 @@ class SqliteFsAdapter {
     return updated;
   }
 
-  deleteWarnings(id) {
+  deleteWarnings(id: any) {
     const bl   = this.backlinks(id);
     const rels = this.relationships(id);
-    const w    = [];
+    const w: any[] = [];
     if (bl.length)                   w.push(`${bl.length} item(s) link to this via [[uuid]] syntax`);
     if ((rels.inbound || []).length) w.push(`${rels.inbound.length} inbound relationship(s) point to this item`);
     return w;
   }
 
-  delete(id, actor) {
+  delete(id: any, actor: any) {
     if (this._isSyntheticId(id)) return { warnings: [] };
     const item = this.get(id);
     this._assertDeletable(item, id);
@@ -1529,7 +1560,7 @@ class SqliteFsAdapter {
 
   // The item ids the delete cascade will remove (relationships either direction,
   // annotations on the item, aliases to it) — so _withWrite can journal them.
-  _cascadeMetadataOps(db, id) {
+  _cascadeMetadataOps(db: SqlDatabase, id: any) {
     const ids = new Set();
     for (const r of db.prepare('SELECT id FROM relationships WHERE source_id = ? OR target_id = ?').all(id, id)) ids.add(r.id);
     for (const a of db.prepare('SELECT id FROM annotations WHERE target_id = ?').all(id)) ids.add(a.id);
@@ -1537,7 +1568,7 @@ class SqliteFsAdapter {
     return [...ids].map(x => ({ id: x, store: 'items' }));
   }
 
-  softDelete(id, actor) {
+  softDelete(id: any, actor: any) {
     const item = this.get(id);
     this._assertEditable(item, id);
     actor = actor || this.config.owner;
@@ -1561,7 +1592,7 @@ class SqliteFsAdapter {
     return updated;
   }
 
-  restore(id, actor) {
+  restore(id: any, actor: any) {
     const item = this.get(id);
     if (!item) throw new Error(`Item not found: ${id}`);
     actor = actor || this.config.owner;
@@ -1587,14 +1618,14 @@ class SqliteFsAdapter {
 
   // ─── Payload sidecars (read/write item.json payload section) ──────────────
 
-  readObjectJson(id) {
+  readObjectJson(id: any) {
     if (this._isSyntheticId(id)) return null;
     const doc = this._readItemJson(id);
     if (!doc) return null;
     return doc.payload ?? null;
   }
 
-  writeObjectJson(id, data) {
+  writeObjectJson(id: any, data: any) {
     const doc = this._readItemJson(id);
     if (!doc) throw new Error(`Item not found: ${id}`);
     doc.payload = data;
@@ -1608,23 +1639,23 @@ class SqliteFsAdapter {
     });
   }
 
-  readFunctionJson(id) {
+  readFunctionJson(id: any) {
     if (this._isSyntheticId(id)) return null;
     const doc = this._readItemJson(id);
     return doc?.payload ?? null;
   }
 
-  writeFunctionJson(id, data) {
+  writeFunctionJson(id: any, data: any) {
     this.writeObjectJson(id, data);
   }
 
-  readScheduleJson(id) {
+  readScheduleJson(id: any) {
     if (this._isSyntheticId(id)) return null;
     const doc = this._readItemJson(id);
     return doc?.payload ?? null;
   }
 
-  writeScheduleJson(id, data) {
+  writeScheduleJson(id: any, data: any) {
     this.writeObjectJson(id, data);
   }
 
@@ -1634,14 +1665,14 @@ class SqliteFsAdapter {
   // built-in-types/types/document.json and identical across all installations.
   static get DOCUMENT_TYPE_UUID() { return 'b4e2f1c3-a0d5-4e6f-8b9c-d7f2e1a3b5c0'; }
 
-  createDocument(targetId, name, {
+  createDocument(targetId: any, name: any, {
     mode = 'document',
     expandState = null,
     roleMap = null,
     isOrgDefault = false,
     baseDocumentId = null,
     owner, visibility = 'private',
-  } = {}) {
+  }: any = {}) {
     if (!targetId) throw new Error('createDocument: targetId is required');
     if (!name)     throw new Error('createDocument: name is required');
     const item = this.create({
@@ -1664,18 +1695,18 @@ class SqliteFsAdapter {
     return item;
   }
 
-  readDocumentPayload(id) {
+  readDocumentPayload(id: any) {
     return this.readObjectJson(id);
   }
 
-  writeDocumentPayload(id, payload) {
+  writeDocumentPayload(id: any, payload: any) {
     const doc = this._readItemJson(id);
     if (!doc) throw new Error(`Item not found: ${id}`);
     if (doc.item?.type !== 'document') throw new Error(`Item ${id} is not a document`);
     this.writeObjectJson(id, payload);
   }
 
-  listDocuments(targetId) {
+  listDocuments(targetId: any) {
     const rows = this._openDb().prepare(`
       SELECT i.*, m.owner, m.license, m.visibility, m.confidence, m.status, m.tags,
              m.created_at, m.modified_at, m.created_by, m.modified_by,
@@ -1693,7 +1724,7 @@ class SqliteFsAdapter {
     return rows.map(r => this._rowToItem(r));
   }
 
-  listDueSchedules(beforeAt) {
+  listDueSchedules(beforeAt: any) {
     const rows = this._openDb().prepare(`
       SELECT i.*, m.owner, m.license, m.visibility, m.confidence, m.status, m.tags,
              m.created_at, m.modified_at, m.created_by, m.modified_by,
@@ -1706,18 +1737,18 @@ class SqliteFsAdapter {
     return rows.map(r => this._rowToItem(r));
   }
 
-  getDocument(id) {
+  getDocument(id: any) {
     if (this._isSyntheticId(id)) return null;
     return this._readItemJson(id) ?? null;
   }
 
-  readTimeJson(id) {
+  readTimeJson(id: any) {
     if (this._isSyntheticId(id)) return null;
     const doc = this._readItemJson(id);
     return doc?.time ?? null;
   }
 
-  writeTimeJson(id, data) {
+  writeTimeJson(id: any, data: any) {
     const doc = this._readItemJson(id);
     if (!doc) throw new Error(`Item not found: ${id}`);
     doc.time = data;
@@ -1729,7 +1760,7 @@ class SqliteFsAdapter {
         INSERT INTO items_time (item_id, key, start_at, end_at, recurrence_rule, recurrence_exceptions, next_occurrence_at, completed_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `);
-      for (const [key, entry] of Object.entries(data)) {
+      for (const [key, entry] of Object.entries<any>(data)) {
         if (!entry) continue;
         ins.run(id, key, entry.startAt ?? null, entry.endAt ?? null, entry.recurrenceRule ?? null,
                 JSON.stringify(entry.recurrenceExceptions ?? []), entry.nextOccurrenceAt ?? null, entry.completedAt ?? null);
@@ -1738,7 +1769,7 @@ class SqliteFsAdapter {
     this._mem.delete(id);
   }
 
-  deleteTimeJson(id) {
+  deleteTimeJson(id: any) {
     const doc = this._readItemJson(id);
     if (!doc) return;
     doc.time = null;
@@ -1749,7 +1780,7 @@ class SqliteFsAdapter {
 
   // ─── Connector queries ─────────────────────────────────────────────────────
 
-  listStubs(connectorId) {
+  listStubs(connectorId: any) {
     const rows = this._openDb().prepare(`
       SELECT i.*, m.owner, m.license, m.visibility, m.confidence, m.status, m.tags,
              m.created_at, m.modified_at, m.created_by, m.modified_by,
@@ -1762,7 +1793,7 @@ class SqliteFsAdapter {
     return rows.map(r => this._rowToItem(r));
   }
 
-  listDueForRefresh(beforeAt) {
+  listDueForRefresh(beforeAt: any) {
     const rows = this._openDb().prepare(`
       SELECT i.*, m.owner, m.license, m.visibility, m.confidence, m.status, m.tags,
              m.created_at, m.modified_at, m.created_by, m.modified_by,
@@ -1784,7 +1815,7 @@ class SqliteFsAdapter {
 
   // ─── Type definitions ─────────────────────────────────────────────────────
 
-  createType(value, { schema, createdBy, id: explicitId, icon } = {}) {
+  createType(value: any, { schema, createdBy, id: explicitId, icon }: any = {}) {
     if (!value || typeof value !== 'string' || !value.trim()) throw new Error('value is required');
     const resolvedIcon = schema?.meta?.icon ?? icon;
     if (!resolvedIcon || typeof resolvedIcon !== 'string' || !resolvedIcon.trim()) {
@@ -1806,7 +1837,7 @@ class SqliteFsAdapter {
       },
     };
 
-    const item = {
+    const item: any = {
       id, specVersion, parentId: TYPES_NODE,
       value: value.trim(), type: 'type', typeId: null,
       owner, license: DEFAULT_LICENSE, visibility: 'private',
@@ -1837,12 +1868,12 @@ class SqliteFsAdapter {
     return { metadata: this.get(id), schema: resolvedSchema };
   }
 
-  readTypeJson(id) {
+  readTypeJson(id: any) {
     const doc = this._readItemJson(id);
     return doc?.payload ?? null;
   }
 
-  writeTypeJson(id, data) {
+  writeTypeJson(id: any, data: any) {
     const icon = data?.meta?.icon;
     if (!icon || typeof icon !== 'string' || !icon.trim()) {
       throw new Error('meta.icon is required and must be a non-empty MUI icon name');
@@ -1856,16 +1887,16 @@ class SqliteFsAdapter {
     this._mem.clear();
   }
 
-  _getTypeName(typeId) {
+  _getTypeName(typeId: any) {
     if (!typeId) return null;
     const row = this._openDb().prepare(`SELECT value FROM items WHERE id = ? AND type = 'type'`).get(typeId);
     return row ? row.value : null;
   }
 
-  _guardTypeIdRef(typeId, strict) {
+  _guardTypeIdRef(typeId: any, strict: any) {
     const effectiveStrict = strict !== undefined ? !!strict : !!this.config.strictTypeIds;
     if (effectiveStrict) {
-      const err = new Error(`unknown typeId "${typeId}" — no registered type definition`);
+      const err: any = new Error(`unknown typeId "${typeId}" — no registered type definition`);
       err.name   = 'UnknownTypeError';
       err.code   = 'UNKNOWN_TYPE';
       err.typeId = typeId;
@@ -1880,7 +1911,7 @@ class SqliteFsAdapter {
       .all();
   }
 
-  resolveTypeId(name) {
+  resolveTypeId(name: any) {
     if (!name) return { unknown: true };
     if (VALID_TYPES.includes(name)) return { primitive: true };
     const row = this._openDb()
@@ -1891,7 +1922,7 @@ class SqliteFsAdapter {
 
   // ─── Aliases ───────────────────────────────────────────────────────────────
 
-  setAlias(alias, id) {
+  setAlias(alias: any, id: any) {
     const db = this._openDb();
     // Overwrite: drop any existing alias item carrying this string first.
     const existing = db.prepare('SELECT item_id FROM aliases WHERE alias = ?').get(alias);
@@ -1905,7 +1936,7 @@ class SqliteFsAdapter {
     this._writeMetadataItem(doc);
   }
 
-  removeAlias(alias) {
+  removeAlias(alias: any) {
     const db = this._openDb();
     const existing = db.prepare('SELECT item_id FROM aliases WHERE alias = ?').get(alias);
     if (existing?.item_id) db.transaction(() => this._deleteMetadataItem(db, existing.item_id, 'alias'))();
@@ -1919,7 +1950,7 @@ class SqliteFsAdapter {
 
   // ─── Annotations ───────────────────────────────────────────────────────────
 
-  annotate(targetId, { author, content, parentAnnotationId = null } = {}) {
+  annotate(targetId: any, { author, content, parentAnnotationId = null }: any = {}) {
     const id     = crypto.randomUUID();
     const now    = new Date();
     const actor  = author || this.config.owner;
@@ -1939,7 +1970,7 @@ class SqliteFsAdapter {
     return ann;
   }
 
-  annotations(targetId) {
+  annotations(targetId: any) {
     return this._openDb()
       .prepare('SELECT * FROM annotations WHERE target_id = ? ORDER BY created_at, id')
       .all(targetId)
@@ -1957,7 +1988,7 @@ class SqliteFsAdapter {
     return [...new Set([...VALID_REL_TYPES, ...extra])];
   }
 
-  addRelTypes(names) {
+  addRelTypes(names: any) {
     const list = (Array.isArray(names) ? names : [names]).map(n => String(n).trim()).filter(Boolean);
     for (const n of list) {
       if (!/^[a-z][a-z0-9-]*$/.test(n))
@@ -1972,7 +2003,7 @@ class SqliteFsAdapter {
     return this.relTypes;
   }
 
-  relate(sourceId, type, targetId, { createdBy, note = null } = {}) {
+  relate(sourceId: any, type: any, targetId: any, { createdBy, note = null }: any = {}) {
     if (!this.relTypes.includes(type))
       throw new Error(`Invalid relationship type: ${type}. Valid: ${this.relTypes.join(', ')}`);
     const now   = new Date();
@@ -1992,7 +2023,7 @@ class SqliteFsAdapter {
     return { id: relId, sourceId, targetId, type, createdAt: now.toISOString(), createdBy: actor, note };
   }
 
-  relationships(id) {
+  relationships(id: any) {
     const db  = this._openDb();
     const out = db.prepare('SELECT * FROM relationships WHERE source_id = ?').all(id)
       .map(r => ({ id: r.id, targetId: r.target_id, type: r.type, createdAt: r.created_at, createdBy: r.created_by, note: r.note }));
@@ -2001,7 +2032,7 @@ class SqliteFsAdapter {
     return { outbound: out, inbound: inn };
   }
 
-  backlinks(id) {
+  backlinks(id: any) {
     return this._openDb().prepare('SELECT source_id FROM backlinks WHERE target_id = ?').all(id)
       .map(r => r.source_id);
   }
@@ -2013,7 +2044,7 @@ class SqliteFsAdapter {
 
   // ─── History ───────────────────────────────────────────────────────────────
 
-  history(id) {
+  history(id: any) {
     return this._openDb()
       .prepare('SELECT * FROM history WHERE item_id = ? ORDER BY changed_at, change_type')
       .all(id)
@@ -2022,12 +2053,12 @@ class SqliteFsAdapter {
 
   // ─── Queries ───────────────────────────────────────────────────────────────
 
-  byTag(tag) {
+  byTag(tag: any) {
     return this._openDb().prepare('SELECT item_id FROM item_tags WHERE tag = ?').all(tag)
       .map(r => r.item_id);
   }
 
-  byType(typeId) {
+  byType(typeId: any) {
     return this._openDb().prepare('SELECT id FROM items WHERE type_id = ?').all(typeId)
       .map(r => r.id);
   }
@@ -2036,7 +2067,7 @@ class SqliteFsAdapter {
   // source_external_id) is UNIQUE, so this is the idempotency primitive for
   // ingestion: upsert = bySource() ? update() : create(). Returns the read-model
   // item or null.
-  bySource(sourceSystem, sourceExternalId) {
+  bySource(sourceSystem: any, sourceExternalId: any) {
     if (!sourceSystem || !sourceExternalId) return null;
     const row = this._openDb().prepare(
       'SELECT item_id FROM items_meta WHERE source_system = ? AND source_external_id = ?'
@@ -2058,7 +2089,7 @@ class SqliteFsAdapter {
 
   // ─── Tree ──────────────────────────────────────────────────────────────────
 
-  children(parentId, aspect = null) {
+  children(parentId: any, aspect: any = null) {
     if (this._isSyntheticId(parentId)) {
       const { realId, fieldPath } = this._parseSyntheticId(parentId);
       if (fieldPath.endsWith('.__')) return [];
@@ -2098,7 +2129,7 @@ class SqliteFsAdapter {
     return [...this._buildSyntheticChildren(parentId, obj, parentId), ...realChildren];
   }
 
-  tree(rootId, maxDepth = Infinity) {
+  tree(rootId: any, maxDepth: any = Infinity) {
     let implicitRoot = false;
     const db = this._openDb();
 
@@ -2145,12 +2176,12 @@ class SqliteFsAdapter {
       if (!byParent.has(item.parentId)) byParent.set(item.parentId, []);
       byParent.get(item.parentId).push(item);
     }
-    for (const arr of byParent.values()) arr.sort((a, b) => a.sortOrder - b.sortOrder);
+    for (const arr of byParent.values()) arr.sort((a: any, b: any) => a.sortOrder - b.sortOrder);
 
     const itemById = new Map(subtreeItems.map(i => [i.id, i]));
-    const result   = [];
+    const result: any[] = [];
 
-    const traverse = (id, depth) => {
+    const traverse = (id: any, depth: any): void => {
       if (depth > maxDepth) return;
       if (this._isSyntheticId(id)) {
         const item = this.get(id);
@@ -2176,7 +2207,7 @@ class SqliteFsAdapter {
     return result;
   }
 
-  _treeSlow(rootId, maxDepth, implicitRoot) {
+  _treeSlow(rootId: any, maxDepth: any, implicitRoot: any) {
     const all      = this.loadAll();
     const byParent = new Map();
     for (const item of all) {
@@ -2184,9 +2215,9 @@ class SqliteFsAdapter {
       if (!byParent.has(item.parentId)) byParent.set(item.parentId, []);
       byParent.get(item.parentId).push(item);
     }
-    for (const arr of byParent.values()) arr.sort((a, b) => a.sortOrder - b.sortOrder);
-    const result   = [];
-    const traverse = (id, depth) => {
+    for (const arr of byParent.values()) arr.sort((a: any, b: any) => a.sortOrder - b.sortOrder);
+    const result: any[] = [];
+    const traverse = (id: any, depth: any): void => {
       if (depth > maxDepth) return;
       const item = all.find(i => i.id === id);
       if (!item) return;
@@ -2202,7 +2233,7 @@ class SqliteFsAdapter {
     return result;
   }
 
-  ancestors(id) {
+  ancestors(id: any) {
     const row = this._openDb().prepare('SELECT path FROM items WHERE id = ?').get(id);
     if (!row?.path) return [];
     const ancestorIds = row.path.split('/').slice(0, -1);
@@ -2218,10 +2249,10 @@ class SqliteFsAdapter {
       WHERE i.id IN (${placeholders})
     `).all(...ancestorIds);
     const byId = new Map(rows.map(r => [r.id, this._rowToItem(r)]));
-    return ancestorIds.map(aid => byId.get(aid)).filter(Boolean);
+    return ancestorIds.map((aid: any) => byId.get(aid)).filter(Boolean);
   }
 
-  subtreeCount(rootId) {
+  subtreeCount(rootId: any) {
     const row = this._openDb().prepare('SELECT path FROM items WHERE id = ?').get(rootId);
     if (!row?.path) return 0;
     const r = this._openDb().prepare(
@@ -2233,7 +2264,7 @@ class SqliteFsAdapter {
 
   // ─── Query ─────────────────────────────────────────────────────────────────
 
-  _evaluatePredicate(fieldValue, op, expectedValue) {
+  _evaluatePredicate(fieldValue: any, op: any, expectedValue: any) {
     switch (op) {
       case '=':        return fieldValue === expectedValue;
       case '!=':       return fieldValue !== expectedValue;
@@ -2257,7 +2288,7 @@ class SqliteFsAdapter {
   query({
     type, where, rootId, sort, limit, strictTypes,
     includeDeleted = false, excludeExpired = false, expiredOnly = false,
-  } = {}) {
+  }: any = {}) {
     let items       = this.loadAll();
     let typeWarning = null;
 
@@ -2275,7 +2306,7 @@ class SqliteFsAdapter {
         byP.get(item.parentId).push(item.id);
       }
       const subtree = new Set();
-      const walk    = (id) => { if (subtree.has(id)) return; subtree.add(id); for (const c of (byP.get(id) || [])) walk(c); };
+      const walk    = (id: any): void => { if (subtree.has(id)) return; subtree.add(id); for (const c of (byP.get(id) || [])) walk(c); };
       walk(rootId);
       items = items.filter(i => subtree.has(i.id));
     }
@@ -2301,7 +2332,7 @@ class SqliteFsAdapter {
     if (where && Object.keys(where).length > 0) {
       items = items.filter(item => {
         if (item.type !== 'object' || !item.objectData) return false;
-        for (const [field, predicate] of Object.entries(where)) {
+        for (const [field, predicate] of Object.entries<any>(where)) {
           const fieldValue = item.objectData[field];
           let op = '=', expectedValue = predicate;
           if (predicate !== null && typeof predicate === 'object' && 'op' in predicate && 'value' in predicate) {
@@ -2373,7 +2404,7 @@ class SqliteFsAdapter {
 
   currentBranch() { return this._branch; }
 
-  _branchExists(name) {
+  _branchExists(name: any) {
     return fs.existsSync(path.join(this._branchRoot(name), 'items'));
   }
 
@@ -2384,7 +2415,7 @@ class SqliteFsAdapter {
   //                            deletes) live in this branch's items/.
   //   upstream: { branch } for a LOCAL full branch (default { branch: base }),
   //             or { remote, branch } for a remote (federated at query time).
-  createBranch(name, opts = {}) {
+  createBranch(name: any, opts: any = {}) {
     if (!name || typeof name !== 'string' || !name.trim()) throw new Error('branch name is required');
     name = name.trim();
     if (name === 'main') throw new Error('Cannot create a branch named "main"');
@@ -2436,7 +2467,7 @@ class SqliteFsAdapter {
 
   // Set the active branch and persist it as the process default. With per-branch
   // folders there is no shared default to write — this simply reopens the branch.
-  switchBranch(name) {
+  switchBranch(name: any) {
     name = (name || 'main').trim();
     if (name !== 'main' && !this._branchExists(name)) throw new Error(`Branch "${name}" not found`);
     this._setActiveBranch(name);
@@ -2447,13 +2478,13 @@ class SqliteFsAdapter {
   // separate so a consumer can express intent. Switching closes the current
   // index.db so the next _openDb() opens the new branch's folder, and clears the
   // memory cache (stale after a branch change).
-  useBranch(name) {
+  useBranch(name: any) {
     name = (name || 'main').trim();
     if (name !== 'main' && !this._branchExists(name)) throw new Error(`Branch "${name}" not found`);
     this._setActiveBranch(name);
   }
 
-  _setActiveBranch(name) {
+  _setActiveBranch(name: any) {
     if (name === this._branch) return;
     if (this._db) { try { this._db.close(); } catch {} this._db = null; this._dbBranch = null; }
     this._branch = name;
@@ -2468,7 +2499,7 @@ class SqliteFsAdapter {
   listBranches() {
     const branchesDir = path.join(this.k, 'branches');
     if (!fs.existsSync(branchesDir)) return [];
-    const out = [];
+    const out: any[] = [];
     for (const entry of fs.readdirSync(branchesDir).sort()) {
       if (entry === 'main') continue; // listBranches reports non-main branches
       const full = path.join(branchesDir, entry);
@@ -2489,7 +2520,7 @@ class SqliteFsAdapter {
     return out;
   }
 
-  deleteBranch(name) {
+  deleteBranch(name: any) {
     if (!name || name === 'main') throw new Error('Cannot delete the main branch');
     if (this._branch === name) throw new Error(`Cannot delete the currently active branch "${name}" — switch to main first`);
     if (!this._branchExists(name)) throw new Error(`Branch "${name}" not found`);
@@ -2499,12 +2530,12 @@ class SqliteFsAdapter {
 
   // Returns the full ADD/EDIT/DELETE diff of a branch vs main, computed by
   // scanning both branches' items/ trees (each branch is a full folder).
-  branchDiff(name) {
+  branchDiff(name: any) {
     name = (name ?? this._branch).trim();
     if (name === 'main') return { adds: [], edits: [], deletes: [] };
     if (!this._branchExists(name)) return { adds: [], edits: [], deletes: [] };
 
-    const readTree = (branchName) => {
+    const readTree = (branchName: any) => {
       const dir = path.join(this._branchRoot(branchName), 'items');
       const map = new Map();
       for (const jsonPath of this._scanItemFiles(dir)) {
@@ -2522,7 +2553,7 @@ class SqliteFsAdapter {
       : 'main';
     const upDocs = readTree(upName);
 
-    const adds = [], edits = [], deletes = [];
+    const adds: any[] = [], edits: any[] = [], deletes: any[] = [];
 
     if (manifest.fill === 'sparse') {
       // Sparse: the branch's own items/ IS the diff. Each local file is an
@@ -2574,7 +2605,7 @@ class SqliteFsAdapter {
   // Reverse-reference lookup ("who points at this id") in the ACTIVE branch's
   // index. Covers the three ways one item can depend on another: structural
   // children (parentId), [[uuid]] backlinks, and inbound relationship items.
-  _referrersTo(id) {
+  _referrersTo(id: any) {
     const db = this._openDb();
     const children = db.prepare('SELECT id FROM items WHERE parent_id = ? AND id != parent_id').all(id).map(r => r.id);
     const links    = this.backlinks(id);
@@ -2588,9 +2619,9 @@ class SqliteFsAdapter {
   // delete set are excluded (they are going away too, so no dangling reference is
   // created). Returns [{ id, referencedBy: [{ id, via }] }] for ids that have live
   // referrers — an empty array means the deletes leave referential integrity intact.
-  _computeBlastRadius(deleteIds) {
+  _computeBlastRadius(deleteIds: any) {
     const delSet = new Set(deleteIds);
-    const out = [];
+    const out: any[] = [];
     for (const id of deleteIds) {
       const r = this._referrersTo(id);
       const referencedBy = [
@@ -2604,17 +2635,17 @@ class SqliteFsAdapter {
     return out;
   }
 
-  previewMerge(name) {
+  previewMerge(name: any) {
     name = (name ?? this._branch).trim();
     const diff     = this.branchDiff(name);
     const manifest = this._branchManifest(name) || {};
     const watermark = manifest.branchPoint?.at ?? manifest.createdAt ?? null;
 
     // ISO-8601 UTC timestamps sort correctly as plain strings.
-    const movedSinceFork = (upstreamModifiedAt) =>
+    const movedSinceFork = (upstreamModifiedAt: any) =>
       !!watermark && !!upstreamModifiedAt && String(upstreamModifiedAt) > String(watermark);
 
-    const conflicts = [];
+    const conflicts: any[] = [];
     for (const e of diff.edits) {
       if (movedSinceFork(e.before?.modifiedAt))
         conflicts.push({ id: e.id, kind: 'edit-edit', before: e.before, after: e.after });
@@ -2657,7 +2688,7 @@ class SqliteFsAdapter {
   //     clean changes, skip the conflicting ones (they are discarded with the
   //     branch folder).
   // A clean merge (no conflicts) applies all changes exactly as before.
-  mergeBranchLocally(name, opts = {}) {
+  mergeBranchLocally(name: any, opts: any = {}) {
     if (!name || name === 'main') throw new Error('Cannot merge the main branch into itself');
     if (this._branch === name) throw new Error(`Switch to main before merging branch "${name}"`);
     if (!this._branchExists(name)) throw new Error(`Branch "${name}" not found`);
@@ -2670,7 +2701,7 @@ class SqliteFsAdapter {
     const conflicts = preview.conflicts;
 
     if (conflicts.length && !strategy) {
-      const err = new Error(
+      const err: any = new Error(
         `Merge of "${name}" has ${conflicts.length} conflict(s): upstream item(s) changed after the ` +
         `branch point. Re-run with { strategy: 'theirs' } (branch wins) or { strategy: 'ours' } ` +
         `(keep upstream) to resolve.`);
@@ -2680,7 +2711,7 @@ class SqliteFsAdapter {
     }
 
     const conflictIds = new Set(conflicts.map(c => c.id));
-    const skip = (id) => strategy === 'ours' && conflictIds.has(id);
+    const skip = (id: any) => strategy === 'ours' && conflictIds.has(id);
 
     // Blast radius of the deletions that will actually be applied, computed here on
     // main (the target). Surfaced in the result so a caller never silently orphans
@@ -2689,7 +2720,7 @@ class SqliteFsAdapter {
     const appliedDeleteIds = preview.deletes.filter(d => !skip(d.id)).map(d => d.id);
     const blastRadius = this._computeBlastRadius(appliedDeleteIds);
     if (opts.blockOnBlastRadius && blastRadius.length) {
-      const err = new Error(
+      const err: any = new Error(
         `Merge of "${name}" would break ${blastRadius.length} reference target(s): deleted item(s) are ` +
         `still referenced on main. Re-run without { blockOnBlastRadius } to merge anyway, or resolve the ` +
         `references first.`);
@@ -2703,7 +2734,7 @@ class SqliteFsAdapter {
     // Apply onto main's items/ tree (note: _itemPath/_itemDir target the ACTIVE
     // branch, which must be main here — enforced by the guard above + the usual
     // "switch to main first" workflow).
-    const writeMainDoc = (id, doc) => {
+    const writeMainDoc = (id: any, doc: any) => {
       const [s1, s2] = this._shard(id);
       const dir = path.join(mainItemsDir, s1, s2, id);
       fs.mkdirSync(dir, { recursive: true });
@@ -2712,7 +2743,7 @@ class SqliteFsAdapter {
       fs.writeFileSync(tmp, JSON.stringify(doc, null, 2), 'utf8');
       fs.renameSync(tmp, p);
     };
-    const deleteMainDoc = (id) => {
+    const deleteMainDoc = (id: any) => {
       const [s1, s2] = this._shard(id);
       const dir = path.join(mainItemsDir, s1, s2, id);
       if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
@@ -2735,13 +2766,13 @@ class SqliteFsAdapter {
 
   // ─── Integrity checks ─────────────────────────────────────────────────────
 
-  checkIntegrity({ checks } = {}) {
+  checkIntegrity({ checks }: any = {}) {
     const wanted   = Array.isArray(checks) && checks.length ? new Set(checks) : null;
-    const run      = (name) => !wanted || wanted.has(name);
-    const findings = [];
+    const run      = (name: any) => !wanted || wanted.has(name);
+    const findings: any[] = [];
     if (run('orphan-type-id')) {
       const cache    = new Map();
-      const typeName = (tid) => {
+      const typeName = (tid: any) => {
         if (!cache.has(tid)) cache.set(tid, this._getTypeName(tid));
         return cache.get(tid);
       };
@@ -2773,7 +2804,7 @@ class SqliteFsAdapter {
   }
 }
 
-module.exports = {
+export {
   SqliteFsAdapter, UnknownTypeError,
   ROOT_ID, TYPES_NODE, WELL_KNOWN_TYPES,
   VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE, DEFAULT_LICENSE,

@@ -1,5 +1,3 @@
-'use strict';
-
 // Test fixture generator — builds a known sample datastore using the CURRENT
 // adapter, so it can never go stale the way a committed datastore does. Each test
 // suite that needs a populated store calls this into a fresh temp directory; the
@@ -26,9 +24,9 @@
 //       ├── Simplicity over cleverness
 //       └── Leave it better than you found it
 
-const { SqliteFsAdapter } = require('../src/adapter');
+import { SqliteFsAdapter } from '../src/adapter';
 
-function makeSampleDatastore(dir, { owner = 'sample@kanecta.test' } = {}) {
+function makeSampleDatastore(dir: any, { owner = 'sample@kanecta.test' } = {}) {
   const ds = SqliteFsAdapter.init(dir, owner);
 
   const bwp = ds.create({ value: 'Base Work Process', type: 'text', owner });
@@ -67,8 +65,8 @@ function makeSampleDatastore(dir, { owner = 'sample@kanecta.test' } = {}) {
     principles: principles.id,
   };
 
-  ds.close?.();
+  (ds as any).close?.();
   return { root: dir, ids, counts };
 }
 
-module.exports = { makeSampleDatastore };
+export { makeSampleDatastore };

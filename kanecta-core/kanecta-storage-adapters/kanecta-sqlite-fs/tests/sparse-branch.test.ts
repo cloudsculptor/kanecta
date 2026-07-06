@@ -1,9 +1,9 @@
 'use strict';
 
-const fs   = require('fs');
-const path = require('path');
-const os   = require('os');
-const { SqliteFsAdapter, ROOT_ID } = require('../src/adapter');
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import { SqliteFsAdapter, ROOT_ID } from '../src/adapter';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

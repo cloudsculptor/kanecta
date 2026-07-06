@@ -4,11 +4,11 @@
 // bySource() looking one up. These back deterministic importers (e.g. the Claude
 // transcript importer) whose upsert is: bySource() ? update() : create().
 
-const os   = require('os');
-const path = require('path');
-const fs   = require('fs');
+import os from 'os';
+import path from 'path';
+import fs from 'fs';
 
-const { SqliteFsAdapter } = require('../src/adapter');
+import { SqliteFsAdapter } from '../src/adapter';
 
 let tmp;
 let ds;

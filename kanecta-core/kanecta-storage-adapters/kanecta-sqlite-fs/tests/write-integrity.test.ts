@@ -1,10 +1,10 @@
 'use strict';
 
-const fs   = require('fs');
-const os   = require('os');
-const path = require('path');
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 
-const { WriteGuard } = require('../src/write-integrity');
+import { WriteGuard } from '../src/write-integrity';
 
 let dir;
 beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanecta-wg-')); });

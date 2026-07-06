@@ -1,15 +1,15 @@
 'use strict';
 
-const os   = require('os');
-const path = require('path');
-const fs   = require('fs');
+import os from 'os';
+import path from 'path';
+import fs from 'fs';
 
-const {
+import {
   SqliteFsAdapter,
   UnknownTypeError,
   ROOT_ID,
   VALID_REL_TYPES,
-} = require('../src/adapter');
+} from '../src/adapter';
 
 // ─── Setup helpers ─────────────────────────────────────────────────────────────
 
@@ -381,7 +381,7 @@ describe('write integrity — crash recovery', () => {
   });
 
   it('clears a stale lock left by a dead process on open', () => {
-    fs.writeFileSync(lockPath(), JSON.stringify({ pid: 2 ** 30, host: require('os').hostname(), heartbeatAt: Date.now() }));
+    fs.writeFileSync(lockPath(), JSON.stringify({ pid: 2 ** 30, host: os.hostname(), heartbeatAt: Date.now() }));
     const ds2 = reopen();
     expect(fs.existsSync(lockPath())).toBe(false);
     expect(() => ds2.create({ value: 'after-recovery' })).not.toThrow();
@@ -396,7 +396,7 @@ describe('write integrity — crash recovery', () => {
   it('reads never block on an in-flight write — they return the last committed value', () => {
     const a = ds.create({ value: 'committed' });
     // Simulate another process holding the write lock with an in-flight journal.
-    fs.writeFileSync(lockPath(), JSON.stringify({ pid: process.pid, host: require('os').hostname(), heartbeatAt: Date.now() }));
+    fs.writeFileSync(lockPath(), JSON.stringify({ pid: process.pid, host: os.hostname(), heartbeatAt: Date.now() }));
     fs.writeFileSync(journalPath(), JSON.stringify({ phase: 'started', branch: 'main', ops: [{ id: a.id, store: 'items', preImage: null }] }));
     // Reads do not acquire the lock, so this returns immediately with the
     // last-committed value rather than waiting for the writer.
