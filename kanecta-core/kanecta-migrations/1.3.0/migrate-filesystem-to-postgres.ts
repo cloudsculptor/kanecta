@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S node --import tsx
 /**
  * Migrate a Kanecta filesystem datastore into Postgres.
  *
@@ -13,10 +13,12 @@
  * Object-type tables are created with CREATE TABLE IF NOT EXISTS before insertion.
  */
 
-'use strict';
+import * as fs from 'fs';
+import * as path from 'path';
 
-const fs   = require('fs');
-const path = require('path');
+// `pg` ships no bundled types and there is no @types/pg installed, so keep it as
+// a CommonJS require (yields `any`) rather than an `import` that would fail the
+// typecheck. Runtime behaviour is unchanged.
 const { Client } = require('pg');
 
 const DATASTORE  = process.argv[2] ?? '/path/to/datastore';
@@ -32,11 +34,11 @@ const DEFAULT_LICENSE = 'bb3bf137-d8a9-4264-9fb7-ac373b1d4739'; // All Rights Re
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-function camelToSnake(str) {
-  return str.replace(/[A-Z]/g, c => '_' + c.toLowerCase());
+function camelToSnake(str: any) {
+  return str.replace(/[A-Z]/g, (c: any) => '_' + c.toLowerCase());
 }
 
-function walkDir(dir, results = []) {
+function walkDir(dir: any, results: any[] = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) walkDir(full, results);
@@ -45,20 +47,20 @@ function walkDir(dir, results = []) {
   return results;
 }
 
-function readJson(filePath) {
+function readJson(filePath: any) {
   try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); }
   catch { return null; }
 }
 
 /** Extract the table name from a CREATE TABLE DDL string. */
-function tableNameFromDdl(ddl) {
+function tableNameFromDdl(ddl: any) {
   const m = ddl.match(/CREATE TABLE\s+"?([^"\s(]+)"?\s*\(/i);
   return m ? m[1] : null;
 }
 
 /** Extract quoted column names from a CREATE TABLE DDL string. */
-function columnsFromDdl(ddl) {
-  const cols = [];
+function columnsFromDdl(ddl: any) {
+  const cols: any[] = [];
   const re = /^\s+"([^"]+)"\s+/gm;
   let m;
   while ((m = re.exec(ddl)) !== null) {
@@ -70,7 +72,7 @@ function columnsFromDdl(ddl) {
 }
 
 /** Resolve a parent ID — root is self-referential, orphans go to data_root. */
-function resolveParent(id, parentId, knownIds, dataRoot, counts) {
+function resolveParent(id: any, parentId: any, knownIds: any, dataRoot: any, counts: any) {
   if (!parentId) return id;
   if (parentId === id) return id;
   if (knownIds.has(parentId)) return parentId;
@@ -83,8 +85,8 @@ function resolveParent(id, parentId, knownIds, dataRoot, counts) {
  *  Prefers system-items (updated with sqlSchema) over the local datastore
  *  types/ which may be pre-1.3.0 files without sqlSchema. Falls back to
  *  local if system-items doesn't have a match. */
-function resolveTypeJson(typeId) {
-  const shard = (id) => path.join(id.slice(0, 2), id.slice(2, 4), typeId);
+function resolveTypeJson(typeId: any) {
+  const shard = (id: any) => path.join(id.slice(0, 2), id.slice(2, 4), typeId);
 
   const systemPath = path.join(SYSTEM_ITEMS, shard(typeId), 'type.json');
   const systemJson = fs.existsSync(systemPath) ? readJson(systemPath) : null;
@@ -100,7 +102,7 @@ function resolveTypeJson(typeId) {
 // ─── collect items ────────────────────────────────────────────────────────────
 
 function collectItems() {
-  const items = [];
+  const items: any[] = [];
   for (const file of walkDir(DATA_DIR)) {
     if (path.basename(file) !== 'metadata.json') continue;
     const meta = readJson(file);
@@ -237,7 +239,7 @@ async function main() {
     const knownCols = columnsFromDdl(typeJson.sqlSchema[0]);
 
     // Map camelCase object.json keys → snake_case column names, keeping only known columns
-    const colVals = {};
+    const colVals: Record<string, any> = {};
     for (const [key, val] of Object.entries(objectData)) {
       const col = camelToSnake(key);
       if (knownCols.includes(col)) colVals[col] = val;
@@ -266,7 +268,7 @@ async function main() {
   await client.end();
 }
 
-main().catch(err => {
+main().catch((err: any) => {
   console.error('Migration failed:', err);
   process.exit(1);
 });

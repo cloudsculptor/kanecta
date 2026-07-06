@@ -1,5 +1,4 @@
-#!/usr/bin/env node
-'use strict';
+#!/usr/bin/env -S node --import tsx
 
 // Migrate a Kanecta config.json from the legacy shape to the working-set shape:
 //   workspaces               -> workingSets
@@ -13,9 +12,9 @@
 //   node migrate-config-keys.js [path/to/config.json]
 //   (no arg → KANECTA_CONFIG / platform default, via @kanecta/lib)
 
-const fs = require('fs');
-const path = require('path');
-const { getConfigPath, migrateConfigShape } = require('@kanecta/lib');
+import * as fs from 'fs';
+import * as path from 'path';
+import { getConfigPath, migrateConfigShape } from '@kanecta/lib';
 
 function resolvePath() {
   const arg = process.argv[2];

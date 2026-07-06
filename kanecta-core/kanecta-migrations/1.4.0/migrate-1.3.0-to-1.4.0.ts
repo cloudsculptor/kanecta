@@ -1,5 +1,4 @@
-#!/usr/bin/env node
-'use strict';
+#!/usr/bin/env -S node --import tsx
 
 /**
  * Kanecta datastore migration: v1.3.0 → v1.4.0
@@ -24,9 +23,9 @@
  * and config/ manually once satisfied.
  */
 
-const fs     = require('fs');
-const path   = require('path');
-const crypto = require('crypto');
+import * as fs from 'fs';
+import * as path from 'path';
+import * as crypto from 'crypto';
 
 // ─── CLI ─────────────────────────────────────────────────────────────────────
 
@@ -64,26 +63,26 @@ const BUILT_IN_REL_TYPES = new Set([
   'blocks', 'blocked-by', 'prerequisite-for', 'derived-from', 'supersedes',
 ]);
 
-const counts = { items: 0, types: 0, relationships: 0, skipped: 0, errors: [] };
-const reshapeQueue = [];
+const counts = { items: 0, types: 0, relationships: 0, skipped: 0, errors: [] as string[] };
+const reshapeQueue: any[] = [];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function readJson(filePath) {
+function readJson(filePath: any) {
   try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); } catch { return null; }
 }
 
-function log(msg)  { console.log(msg); }
-function warn(msg) { console.warn(`  WARN: ${msg}`); counts.errors.push(msg); }
+function log(msg: any)  { console.log(msg); }
+function warn(msg: any) { console.warn(`  WARN: ${msg}`); counts.errors.push(msg); }
 
 /** Compute the 2+2 shard pair for a UUID. */
-function shard(id) {
+function shard(id: any) {
   const hex = id.replace(/-/g, '');
   return [hex.slice(0, 2), hex.slice(2, 4)];
 }
 
 /** Return the directory for a given item id under the items/ tree. */
-function itemDir(id) {
+function itemDir(id: any) {
   const [s1, s2] = shard(id);
   return path.join(itemsDir, s1, s2, id);
 }
@@ -92,7 +91,7 @@ function itemDir(id) {
  * Write a five-section item.json atomically (temp + rename).
  * doc must be { item, meta, search, payload, time }.
  */
-function writeItemJson(id, doc) {
+function writeItemJson(id: any, doc: any) {
   if (DRY_RUN) return;
   const dir = itemDir(id);
   fs.mkdirSync(dir, { recursive: true });
@@ -103,7 +102,7 @@ function writeItemJson(id, doc) {
 }
 
 /** Walk all item directories in a sharded layout: <s1>/<s2>/<uuid>/ */
-function* walkSharded(dir) {
+function* walkSharded(dir: any) {
   if (!fs.existsSync(dir)) return;
   for (const s1 of fs.readdirSync(dir).sort()) {
     const d1 = path.join(dir, s1);
@@ -119,9 +118,9 @@ function* walkSharded(dir) {
   }
 }
 
-function extractBacklinks(value) {
+function extractBacklinks(value: any) {
   if (!value) return [];
-  const ids = [];
+  const ids: any[] = [];
   let m;
   LINK_RE.lastIndex = 0;
   while ((m = LINK_RE.exec(value)) !== null) ids.push(m[1]);
@@ -139,7 +138,7 @@ function extractBacklinks(value) {
  * payload — arbitrary structured data (object.json, function.json, or relationship payload)
  * time    — null (temporal contexts not used in 1.3.0)
  */
-function buildDoc(fields) {
+function buildDoc(fields: any) {
   const {
     id, parentId, type, typeId, value, sortOrder, aspect,
     owner, license, visibility, tags,
@@ -199,7 +198,7 @@ function readConfig() {
 
 // ─── Step 2: Write root item (ROOT_ID) with config as payload ────────────────
 
-function writeRootItem(config) {
+function writeRootItem(config: any) {
   log('\n── Step 1: Write root item ───────────────────────────────');
   const now = new Date().toISOString();
 

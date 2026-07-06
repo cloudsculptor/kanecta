@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-'use strict';
 
 /**
  * Kanecta datastore migration: overlay branches → per-branch full folders
@@ -42,8 +40,8 @@
  * satisfied.
  */
 
-const fs   = require('fs');
-const path = require('path');
+import * as fs from 'fs';
+import * as path from 'path';
 
 // ─── CLI ─────────────────────────────────────────────────────────────────────
 
@@ -53,13 +51,13 @@ const FORCE   = flags.includes('--force');
 
 // ─── Migration (exported for tests) ────────────────────────────────────────────
 
-function shardDir(baseItemsDir, id) {
+function shardDir(baseItemsDir: any, id: any) {
   const hex = id.replace(/-/g, '');
   return path.join(baseItemsDir, hex.slice(0, 2), hex.slice(2, 4), id);
 }
 
 // Walk every item.json under an items/ tree.
-function* scanItemFiles(baseDir) {
+function* scanItemFiles(baseDir: any) {
   if (!fs.existsSync(baseDir)) return;
   for (const s1 of fs.readdirSync(baseDir).sort()) {
     const d1 = path.join(baseDir, s1);
@@ -75,7 +73,7 @@ function* scanItemFiles(baseDir) {
   }
 }
 
-function writeItemJson(baseItemsDir, id, doc, log) {
+function writeItemJson(baseItemsDir: any, id: any, doc: any, log?: any) {
   const dir = shardDir(baseItemsDir, id);
   if (log) log.push(`  write ${path.relative(baseItemsDir, path.join(dir, 'item.json'))}`);
   if (DRY_RUN) return;
@@ -86,7 +84,7 @@ function writeItemJson(baseItemsDir, id, doc, log) {
   fs.renameSync(tmp, p);
 }
 
-function deleteItemDir(baseItemsDir, id) {
+function deleteItemDir(baseItemsDir: any, id: any) {
   const dir = shardDir(baseItemsDir, id);
   if (DRY_RUN) return;
   if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
@@ -106,7 +104,7 @@ function uuid() { return require('crypto').randomUUID(); }
 
 // If the old datastore was recording history, keep it recording after migration —
 // don't silently disable it. Sets rootPayload.itemHistory unless already specified.
-function setRootItemHistory(mainItemsDir, mode, log) {
+function setRootItemHistory(mainItemsDir: any, mode: any, log?: any) {
   const p = path.join(shardDir(mainItemsDir, ROOT_ID), 'item.json');
   let doc;
   try { doc = JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return; }
@@ -119,7 +117,7 @@ function setRootItemHistory(mainItemsDir, mode, log) {
 }
 
 // Build a five-section item.json doc for a metadata item.
-function metaDoc({ id, parentId, type, value, aspect = null, createdAt, createdBy, layer, payload }) {
+function metaDoc({ id, parentId, type, value, aspect = null, createdAt, createdBy, layer, payload }: any) {
   const now = createdAt || new Date().toISOString();
   return {
     item: { id, parentId, type, typeId: null, value: value ?? null, sortOrder: 0, aspect },
@@ -139,13 +137,13 @@ function metaDoc({ id, parentId, type, value, aspect = null, createdAt, createdB
 // the new per-branch index is genuinely derivable — and so the data is not lost
 // when the derived index is later rebuilt. alias/relationship/annotation go into
 // branches/main/items/; item_history events go into branches/main/item-history/.
-function materialiseOldMetadata(oldSharedDbPath, mainItemsDir, mainHistoryDir, log) {
+function materialiseOldMetadata(oldSharedDbPath: any, mainItemsDir: any, mainHistoryDir: any, log: any) {
   if (!fs.existsSync(oldSharedDbPath)) return;
-  let Database;
+  let Database: any;
   try { Database = require('better-sqlite3'); } catch { return; }
-  let db;
+  let db: any;
   try { db = new Database(oldSharedDbPath, { readonly: true }); } catch { return; }
-  const has = (t) => !!db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(t);
+  const has = (t: any) => !!db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(t);
   try {
     let n = 0;
     if (has('aliases')) {
@@ -182,7 +180,7 @@ function materialiseOldMetadata(oldSharedDbPath, mainItemsDir, mainHistoryDir, l
     let historyCount = 0;
     if (has('history')) {
       const seqByTarget = new Map();
-      const eventType = (ct) => ct === 'create' ? 'created' : ct === 'delete' ? 'deleted' : 'updated';
+      const eventType = (ct: any) => ct === 'create' ? 'created' : ct === 'delete' ? 'deleted' : 'updated';
       for (const r of db.prepare('SELECT item_id, change_type, snapshot, changed_at, changed_by FROM history ORDER BY seq').all()) {
         const seq = (seqByTarget.get(r.item_id) ?? 0) + 1;
         seqByTarget.set(r.item_id, seq);
@@ -202,7 +200,7 @@ function materialiseOldMetadata(oldSharedDbPath, mainItemsDir, mainHistoryDir, l
     }
     if (n) log.push(`  materialised ${n} metadata item(s) (aliases/relationships/annotations/history) from old index.db`);
     if (historyCount > 0) setRootItemHistory(mainItemsDir, 'EXTERNAL', log);
-  } catch (e) {
+  } catch (e: any) {
     log.push(`  WARNING: could not materialise old metadata: ${e.message}`);
   } finally {
     try { db.close(); } catch {}
@@ -212,11 +210,11 @@ function materialiseOldMetadata(oldSharedDbPath, mainItemsDir, mainHistoryDir, l
 // Read the OLD overlay registry + change set from the shared index.db, if present.
 // Returns a Map<branchName, { id, baseBranch, createdAt }> and a function to read
 // the per-branch overlay change set. Falls back gracefully if the table is gone.
-function readOldBranchTables(sharedDbPath) {
+function readOldBranchTables(sharedDbPath: any) {
   if (!fs.existsSync(sharedDbPath)) return null;
-  let Database;
+  let Database: any;
   try { Database = require('better-sqlite3'); } catch { return null; }
-  let db;
+  let db: any;
   try { db = new Database(sharedDbPath, { readonly: true }); } catch { return null; }
   try {
     const hasBranches = db.prepare(
@@ -232,8 +230,8 @@ function readOldBranchTables(sharedDbPath) {
       "SELECT name FROM sqlite_master WHERE type='table' AND name='branch_changes'"
     ).get();
 
-    const overlay = (branchId) => {
-      const deletedIds = new Set();
+    const overlay = (branchId: any) => {
+      const deletedIds = new Set<any>();
       if (!hasChanges) return { deletedIds };
       const rows = db.prepare(
         "SELECT item_id, change_type FROM branch_changes WHERE branch_id = ? AND section = 'item'"
@@ -249,7 +247,7 @@ function readOldBranchTables(sharedDbPath) {
   }
 }
 
-function migrateDatastoreToPerBranch(datastorePath, { log = [] } = {}) {
+function migrateDatastoreToPerBranch(datastorePath: any, { log = [] as any[] }: { log?: any[] } = {}) {
   const k = path.join(datastorePath, '.kanecta');
   if (!fs.existsSync(k)) throw new Error(`No .kanecta directory found at: ${datastorePath}`);
 
@@ -270,7 +268,7 @@ function migrateDatastoreToPerBranch(datastorePath, { log = [] } = {}) {
   }
 
   const now = new Date().toISOString();
-  const migratedBranches = [];
+  const migratedBranches: any[] = [];
 
   // 1) Move main: .kanecta/items → .kanecta/branches/main/items
   log.push('Migrating main → branches/main');
@@ -313,7 +311,7 @@ function migrateDatastoreToPerBranch(datastorePath, { log = [] } = {}) {
   //    branch_changes delete set. The full branch = copy of main + overlay edits
   //    applied + tombstoned (deleted) items removed.
   const reg = readOldBranchTables(oldSharedDb);
-  const overlayNamesOnDisk = new Set();
+  const overlayNamesOnDisk = new Set<string>();
   if (fs.existsSync(branchesDir)) {
     for (const entry of fs.readdirSync(branchesDir)) {
       if (entry === 'main') continue;
@@ -327,8 +325,8 @@ function migrateDatastoreToPerBranch(datastorePath, { log = [] } = {}) {
   }
 
   // Build a lookup of registered branches by encoded dir name.
-  const encode = (name) => name.replace(/\//g, '__');
-  const regByDir = new Map();
+  const encode = (name: any) => name.replace(/\//g, '__');
+  const regByDir = new Map<any, any>();
   if (reg?.branches) for (const b of reg.branches) regByDir.set(encode(b.name), b);
 
   for (const dirName of overlayNamesOnDisk) {
@@ -344,7 +342,7 @@ function migrateDatastoreToPerBranch(datastorePath, { log = [] } = {}) {
     log.push(`Materialising overlay branch "${name}" → full folder`);
 
     // Collect overlay edits/creates already present in the branch's items/.
-    const overlayDocs = new Map();
+    const overlayDocs = new Map<any, any>();
     for (const jsonPath of scanItemFiles(overlayItemsDir)) {
       let doc;
       try { doc = JSON.parse(fs.readFileSync(jsonPath, 'utf8')); } catch { continue; }
@@ -406,11 +404,11 @@ function main() {
     console.error('Usage: node migrate-datastore-to-per-branch.js <datastore-path> [--dry-run] [--force]');
     process.exit(1);
   }
-  const log = [];
+  const log: any[] = [];
   let result;
   try {
     result = migrateDatastoreToPerBranch(datastorePath, { log });
-  } catch (err) {
+  } catch (err: any) {
     console.error(err.message);
     process.exit(1);
   }
@@ -423,4 +421,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { migrateDatastoreToPerBranch };
+export { migrateDatastoreToPerBranch };

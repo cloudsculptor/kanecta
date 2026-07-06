@@ -10,7 +10,7 @@ Migrates a Kanecta **filesystem** datastore from spec v1.3.0 to v1.4.0.
 ## Prerequisites
 
 The migration scripts live inside the monorepo and one of them
-(`migrate-config-keys.js`) imports `@kanecta/lib`, so the repo must be
+(`migrate-config-keys.ts`) imports `@kanecta/lib`, so the repo must be
 installed, not just this folder copied:
 
 ```sh
@@ -59,9 +59,9 @@ non-built-in type is logged to `reshape-queue.json` for the owner to confirm
 **Important:** 1.4.0's on-disk model is *per-branch full folders*, not the flat
 `.kanecta/items/` layout. Producing it takes **two** scripts, in order:
 
-1. `migrate-1.3.0-to-1.4.0.js` merges the split files into
+1. `migrate-1.3.0-to-1.4.0.ts` merges the split files into
    `.kanecta/items/<s1>/<s2>/<uuid>/item.json`.
-2. `migrate-datastore-to-per-branch.js` restructures that into
+2. `migrate-datastore-to-per-branch.ts` restructures that into
    `.kanecta/branches/main/items/...` (+ `branch.json` per branch). `main`
    stops being special; every branch becomes a self-contained folder.
 
@@ -93,8 +93,8 @@ datastore folder anyway before writing anything.
 ### Step 2 — merge split files → item.json
 
 ```sh
-node migrate-1.3.0-to-1.4.0.js <datastore-path> --dry-run   # review first
-node migrate-1.3.0-to-1.4.0.js <datastore-path>
+node --import tsx migrate-1.3.0-to-1.4.0.ts <datastore-path> --dry-run   # review first
+node --import tsx migrate-1.3.0-to-1.4.0.ts <datastore-path>
 ```
 
 - `<datastore-path>` — the directory that *contains* `.kanecta/`, not
@@ -110,8 +110,8 @@ continuing.
 ### Step 3 — restructure into per-branch folders
 
 ```sh
-node migrate-datastore-to-per-branch.js <datastore-path> --dry-run
-node migrate-datastore-to-per-branch.js <datastore-path>
+node --import tsx migrate-datastore-to-per-branch.ts <datastore-path> --dry-run
+node --import tsx migrate-datastore-to-per-branch.ts <datastore-path>
 ```
 
 Idempotent; no-op if `branches/main/items` already exists (unless `--force`).
@@ -124,7 +124,7 @@ changed in 1.4.0 (`workspaces → workingSets`, `defaultWorkspace/default →
 defaultWorkingSet`, per-set `branch → defaultBranch`). Migrate it:
 
 ```sh
-node migrate-config-keys.js <path/to/config.json>
+node --import tsx migrate-config-keys.ts <path/to/config.json>
 ```
 
 With no argument it resolves the platform-default config path via `@kanecta/lib`

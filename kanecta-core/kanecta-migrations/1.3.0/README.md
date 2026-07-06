@@ -22,7 +22,7 @@ full picture. The parts that matter for this migration:
 ## Running it
 
 ```sh
-node migrate-1.2.0-to-1.3.0.js <datastore-path> [--dry-run]
+node --import tsx migrate-1.2.0-to-1.3.0.ts <datastore-path> [--dry-run]
 ```
 
 - `<datastore-path>` — path to the datastore root (the directory that

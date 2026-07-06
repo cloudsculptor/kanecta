@@ -13,7 +13,7 @@ import Database from 'better-sqlite3';
 import { SqliteFsAdapter } from '../src/adapter';
 import {
   migrateDatastoreToPerBranch,
-} from '../../../kanecta-migrations/1.4.0/migrate-datastore-to-per-branch';
+} from '../../../kanecta-migrations/1.4.0/migrate-datastore-to-per-branch.ts';
 
 const ROOT_ID = '00000000-0000-0000-0000-000000000000';
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S node --import tsx
 /**
  * Migrate a Kanecta filesystem datastore from spec v1.2.0 to v1.3.0.
  *
@@ -30,13 +30,10 @@
  * Safe to re-run — every step is idempotent.
  */
 
-'use strict';
+import * as fs from 'fs';
+import * as path from 'path';
 
-const fs   = require('fs');
-const path = require('path');
-
-const { validateMetadata, validateType, validateItem } =
-  require('../kanecta-specification/1.3.0/kanecta-schema-validator/index.js');
+import { validateMetadata, validateType, validateItem } from '@kanecta/specification/1.3.0/validator';
 
 const DATASTORE = process.argv[2];
 const DRY_RUN   = process.argv.includes('--dry-run');
@@ -59,9 +56,9 @@ const DEFAULT_VISIBILITY  = 'private';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-function shard(id) { return path.join(id.slice(0, 2), id.slice(2, 4), id); }
+function shard(id: any) { return path.join(id.slice(0, 2), id.slice(2, 4), id); }
 
-function walkDir(dir, results = []) {
+function walkDir(dir: any, results: any[] = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) walkDir(full, results);
@@ -70,22 +67,22 @@ function walkDir(dir, results = []) {
   return results;
 }
 
-function readJson(filePath) {
+function readJson(filePath: any) {
   try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); }
   catch { return null; }
 }
 
-function writeJson(filePath, value) {
+function writeJson(filePath: any, value: any) {
   if (DRY_RUN) return;
   fs.writeFileSync(filePath, JSON.stringify(value, null, 2) + '\n');
 }
 
-function systemTypeJson(typeId) {
+function systemTypeJson(typeId: any) {
   const p = path.join(SYSTEM_ITEMS, shard(typeId), 'type.json');
   return fs.existsSync(p) ? readJson(p) : null;
 }
 
-function propertyKeys(typeJson) {
+function propertyKeys(typeJson: any) {
   return new Set(Object.keys(typeJson?.jsonSchema?.properties ?? {}));
 }
 
@@ -108,7 +105,7 @@ function migrateConfig() {
 
 // ─── 2. metadata.json (items + type records) ────────────────────────────────
 
-function migrateMetadata(metaPath, counts) {
+function migrateMetadata(metaPath: any, counts: any) {
   const meta = readJson(metaPath);
   if (!meta) return;
 
@@ -153,7 +150,7 @@ function migrateMetadata(metaPath, counts) {
  *   { typeId, replaced: false, custom: true,  oldTypeJson }                              — no system-items match
  *   { typeId, replaced: false, blocked: true, oldTypeJson }                              — system-items version itself invalid
  */
-function migrateType(typePath, counts) {
+function migrateType(typePath: any, counts: any) {
   const oldTypeJson = readJson(typePath);
   const dir    = path.dirname(typePath);
   const typeId = path.basename(dir);
@@ -199,9 +196,9 @@ function migrateType(typePath, counts) {
  * its type wasn't a recognised system type at all. Collect these into a
  * queue for the AI-assisted reshaping runbook.
  */
-function buildReshapeQueue(typeResults, counts) {
-  const queue = [];
-  const typeById = new Map(typeResults.map(t => [t.typeId, t]));
+function buildReshapeQueue(typeResults: any, counts: any) {
+  const queue: any[] = [];
+  const typeById = new Map<any, any>(typeResults.map((t: any) => [t.typeId, t]));
 
   for (const metaPath of walkDir(DATA_DIR)) {
     if (path.basename(metaPath) !== 'metadata.json') continue;
@@ -276,7 +273,7 @@ function main() {
     typesReplaced: 0, typesShapeChanged: 0, typesBlocked: 0, customTypes: 0,
     itemsInvalid: 0,
   };
-  const typeResults = [];
+  const typeResults: any[] = [];
   for (const file of walkDir(TYPES_DIR)) {
     if (path.basename(file) === 'type.json') typeResults.push(migrateType(file, counts));
   }

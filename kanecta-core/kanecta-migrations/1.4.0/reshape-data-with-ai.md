@@ -1,7 +1,7 @@
 # Reshaping flagged data after the 1.3.0 → 1.4.0 migration
 
 This is a runbook for an AI agent (e.g. Claude Code) to follow, **together with
-the datastore owner**, after `migrate-1.3.0-to-1.4.0.js` has written a
+the datastore owner**, after `migrate-1.3.0-to-1.4.0.ts` has written a
 `reshape-queue.json`.
 
 Don't run it unattended. Everything in the queue is a judgement call about the
@@ -53,7 +53,7 @@ affected relationship item's `item.json` (or use the MCP tools once the
 datastore is open) to set the corrected `payload.relationshipType`. Re-run the
 migration afterwards if you changed source data — it's idempotent.
 
-**4. Final check.** Re-run `migrate-1.3.0-to-1.4.0.js --dry-run`. The queue
+**4. Final check.** Re-run `migrate-1.3.0-to-1.4.0.ts --dry-run`. The queue
 should now contain only the custom types the owner has explicitly chosen to
 keep. Make sure they know which ones remain and why. Delete
 `reshape-queue.json` once every entry is actioned or deferred with their
