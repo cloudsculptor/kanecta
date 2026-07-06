@@ -14,8 +14,6 @@ kanecta-core/kanecta-api/tests/api.test.js
 kanecta-core/kanecta-api/tests/auth.test.js
 kanecta-core/kanecta-api/tests/branches.test.js
 kanecta-core/kanecta-api/tests/helpers.js
-kanecta-core/kanecta-cli/index.js
-kanecta-core/kanecta-cli/index.test.js
 kanecta-core/kanecta-mcp/src/index.js
 kanecta-core/kanecta-mcp/tests/helpers.js
 kanecta-core/kanecta-mcp/tests/kanecta-1.4.0.test.js

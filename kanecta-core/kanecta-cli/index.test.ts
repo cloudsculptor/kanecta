@@ -1,30 +1,34 @@
 'use strict';
 
-const { test, before, after } = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const os = require('node:os');
-const { execFileSync } = require('node:child_process');
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
-const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, DEFAULT_LICENSE } = require('@kanecta/lib');
-const { makeSampleDatastore } = require('../kanecta-storage-adapters/kanecta-sqlite-fs/test-helpers/makeSampleDatastore');
+import { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, DEFAULT_LICENSE } from '@kanecta/lib';
+import { makeSampleDatastore } from '../kanecta-storage-adapters/kanecta-sqlite-fs/test-helpers/makeSampleDatastore.ts';
 
-const CLI = path.resolve(__dirname, 'index.js');
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+// The CLI is a .ts binary; spawn it under the tsx loader so the subprocess runs
+// the TypeScript source directly (mirrors the `node --import tsx index.ts` bin).
+const CLI = path.resolve(HERE, 'index.ts');
+const NODE_TSX = ['--import', 'tsx', CLI];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 // The sample datastore is GENERATED fresh from the current adapter (never a
 // committed fixture, which would rot on format changes). ROOT_ID/CLARIFY_ID are
 // the generated UUIDs of the "Base Work Process" and "Clarify" fixture nodes.
 let SAMPLE, ROOT_ID, CLARIFY_ID, SAMPLE_COUNTS;
-before(() => {
+beforeAll(() => {
   SAMPLE = fs.mkdtempSync(path.join(os.tmpdir(), 'kanecta-sample-'));
   const built = makeSampleDatastore(SAMPLE);
   ROOT_ID = built.ids.baseWorkProcess;
   CLARIFY_ID = built.ids.clarify;
   SAMPLE_COUNTS = built.counts;
 });
-after(() => { try { fs.rmSync(SAMPLE, { recursive: true, force: true }); } catch {} });
+afterAll(() => { try { fs.rmSync(SAMPLE, { recursive: true, force: true }); } catch {} });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -34,7 +38,7 @@ function tmpDs() {
 }
 
 function cli(ds, ...args) {
-  return execFileSync('node', [CLI, '--datastore', ds.root, ...args], {
+  return execFileSync('node', [...NODE_TSX, '--datastore', ds.root, ...args], {
     encoding: 'utf8',
     env: { ...process.env, KANECTA_CONFIG: undefined, KANECTA_WORKING_SET: undefined, KANECTA_BRANCH: undefined },
   });
@@ -42,7 +46,7 @@ function cli(ds, ...args) {
 
 function cliErr(ds, ...args) {
   try {
-    execFileSync('node', [CLI, '--datastore', ds.root, ...args], {
+    execFileSync('node', [...NODE_TSX, '--datastore', ds.root, ...args], {
       encoding: 'utf8',
       env: { ...process.env, KANECTA_CONFIG: undefined, KANECTA_WORKING_SET: undefined, KANECTA_BRANCH: undefined },
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -647,7 +651,7 @@ test('sample: clarify children in order', async () => {
 // ─── CLI integration ──────────────────────────────────────────────────────────
 
 test('cli: help output contains command list', () => {
-  const out = execFileSync('node', [CLI, '--help'], { encoding: 'utf8' });
+  const out = execFileSync('node', [...NODE_TSX, '--help'], { encoding: 'utf8' });
   assert.ok(out.includes('create'));
   assert.ok(out.includes('update'));
   assert.ok(out.includes('delete'));
@@ -927,7 +931,7 @@ test('cli: unknown command exits non-zero with helpful message', () => {
 test('cli: init creates datastore at given path', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanecta-init-test-'));
   try {
-    execFileSync('node', [CLI, 'init', dir, '--owner', 'init@example.com'], { encoding: 'utf8' });
+    execFileSync('node', [...NODE_TSX, 'init', dir, '--owner', 'init@example.com'], { encoding: 'utf8' });
     assert.ok(Datastore.isDatastore(dir));
     // 1.4.0: owner lives in the root payload, read via the opened datastore.
     const opened = Datastore.open(dir);

@@ -1,14 +1,13 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S node --import tsx
 'use strict';
 
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const readline = require('readline');
-const {
-  Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE,
+import fs from 'fs';
+import path from 'path';
+import readline from 'readline';
+import {
+  Datastore, VALID_TYPES, VALID_CONFIDENCES,
   readAppConfig, resolveWorkingSet, resolveBranch,
-} = require('@kanecta/lib');
+} from '@kanecta/lib';
 
 // ─── Help text ────────────────────────────────────────────────────────────────
 
@@ -174,9 +173,13 @@ EXAMPLES
 
 // ─── Arg parser ───────────────────────────────────────────────────────────────
 
-function parseArgs(argv) {
-  const flags = {};
-  const positional = [];
+// The CLI is dynamically typed: flags are an open bag of string | boolean | string[]
+// values keyed by arbitrary option names, so `any` is the honest type here.
+type Flags = Record<string, any>;
+
+function parseArgs(argv: string[]) {
+  const flags: Flags = {};
+  const positional: string[] = [];
   let i = 0;
   while (i < argv.length) {
     const arg = argv[i];
@@ -229,7 +232,7 @@ function findDatastore() {
   return null;
 }
 
-async function openDatastore(flags) {
+async function openDatastore(flags: Flags) {
   // Explicit --datastore path always wins.
   if (flags['datastore']) {
     if (!Datastore.isDatastore(flags['datastore'])) {
@@ -269,13 +272,13 @@ async function openDatastore(flags) {
 
 // ─── Output helpers ───────────────────────────────────────────────────────────
 
-function die(msg) {
+function die(msg: string): never {
   process.stderr.write(`kanecta: ${msg}\n`);
   process.exit(1);
 }
 
-function printItem(item) {
-  const field = (label, val) => {
+function printItem(item: any) {
+  const field = (label: string, val: any) => {
     if (val === null || val === undefined) return;
     if (Array.isArray(val) && val.length === 0) return;
     const display = Array.isArray(val) ? val.join(', ') : String(val);
@@ -300,7 +303,7 @@ function printItem(item) {
   field('subscriptionSource', item.subscriptionSource);
 }
 
-function printTree(nodes, showIds) {
+function printTree(nodes: any[], showIds: boolean) {
   for (const { item, depth } of nodes) {
     const indent = '  '.repeat(depth);
     if (showIds) {
@@ -311,7 +314,7 @@ function printTree(nodes, showIds) {
   }
 }
 
-function confirm(question) {
+function confirm(question: string) {
   return new Promise(resolve => {
     if (!process.stdin.isTTY) { resolve(false); return; }
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -324,7 +327,7 @@ function confirm(question) {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-async function collectSubtreeIds(ds, id) {
+async function collectSubtreeIds(ds: any, id: string): Promise<string[]> {
   const ids = [id];
   for (const child of await ds.children(id)) {
     ids.push(...await collectSubtreeIds(ds, child.id));
@@ -334,7 +337,7 @@ async function collectSubtreeIds(ds, id) {
 
 // ─── Command handlers ─────────────────────────────────────────────────────────
 
-async function cmdInit(positional, flags) {
+async function cmdInit(positional: string[], flags: Flags) {
   const defaultPath = path.join(process.env.HOME || process.env.USERPROFILE || '~', '.kanecta');
   const root = path.resolve(positional[0] || defaultPath);
   const owner = flags['owner'];
@@ -345,7 +348,7 @@ async function cmdInit(positional, flags) {
   console.log(`Owner: ${owner}`);
 }
 
-async function cmdGet(positional, flags) {
+async function cmdGet(positional: string[], flags: Flags) {
   const ds = await openDatastore(flags);
   const ref = positional[0];
   if (!ref) die('Usage: kanecta get <id|alias>');
@@ -358,7 +361,7 @@ async function cmdGet(positional, flags) {
   }
 }
 
-async function cmdCreate(positional, flags) {
+async function cmdCreate(positional: string[], flags: Flags) {
   const ds = await openDatastore(flags);
 
   const type = flags['type'] || 'string';
@@ -398,7 +401,7 @@ async function cmdCreate(positional, flags) {
   printItem(item);
 }
 
-async function cmdUpdate(positional, flags) {
+async function cmdUpdate(positional: string[], flags: Flags) {
   const ds = await openDatastore(flags);
   const ref = positional[0];
   if (!ref) die('Usage: kanecta update <id|alias> [options]');
@@ -406,7 +409,7 @@ async function cmdUpdate(positional, flags) {
   const item = await ds.resolve(ref);
   if (!item) die(`Not found: ${ref}`);
 
-  const changes = {};
+  const changes: Record<string, any> = {};
 
   if ('value' in flags) changes.value = flags['value'];
   if ('type' in flags) {
@@ -459,7 +462,7 @@ async function cmdUpdate(positional, flags) {
   printItem(updated);
 }
 
-async function cmdDelete(positional, flags) {
+async function cmdDelete(positional: string[], flags: Flags) {
   const ds = await openDatastore(flags);
   const ref = positional[0];
   if (!ref) die('Usage: kanecta delete <id|alias>');
@@ -491,7 +494,7 @@ async function cmdDelete(positional, flags) {
   console.log(`Deleted: ${item.id}  "${item.value ?? ''}"${suffix}`);
 }
 
-async function cmdTree(positional, flags) {
+async function cmdTree(positional: string[], flags: Flags) {
   const ds = await openDatastore(flags);
   let rootId = null;
   if (positional[0]) {
@@ -505,7 +508,7 @@ async function cmdTree(positional, flags) {
   else printTree(nodes, !!flags['ids']);
 }
 
-async function cmdAlias(positional, flags) {
+async function cmdAlias(positional: string[], flags: Flags) {
   const ds = await openDatastore(flags);
   const sub = positional[0];
 
@@ -538,7 +541,7 @@ async function cmdAlias(positional, flags) {
   }
 }
 
-async function cmdAnnotate(positional, flags) {
+async function cmdAnnotate(positional: string[], flags: Flags) {
   const ds = await openDatastore(flags);
   const ref = positional[0], content = positional.slice(1).join(' ') || flags['content'];
   if (!ref || !content) die('Usage: kanecta annotate <id|alias> <content>');
@@ -557,7 +560,7 @@ async function cmdAnnotate(positional, flags) {
   console.log(`  Content: ${annotation.content}`);
 }
 
-async function cmdAnnotations(positional, flags) {
+async function cmdAnnotations(positional: string[], flags: Flags) {
   const ds = await openDatastore(flags);
   const ref = positional[0];
   if (!ref) die('Usage: kanecta annotations <id|alias>');
@@ -572,7 +575,7 @@ async function cmdAnnotations(positional, flags) {
   }
 }
 
-async function cmdRelate(positional, flags) {
+async function cmdRelate(positional: string[], flags: Flags) {
   const ds = await openDatastore(flags);
   const [srcRef, type, tgtRef] = positional;
   if (!srcRef || !type || !tgtRef) die('Usage: kanecta relate <source> <type> <target> [--note <text>]');
@@ -587,7 +590,7 @@ async function cmdRelate(positional, flags) {
   if (rel.note) console.log(`  Note: ${rel.note}`);
 }
 
-async function cmdRelationships(positional, flags) {
+async function cmdRelationships(positional: string[], flags: Flags) {
   const ds = await openDatastore(flags);
   const ref = positional[0];
   if (!ref) die('Usage: kanecta relationships <id|alias>');
@@ -609,7 +612,7 @@ async function cmdRelationships(positional, flags) {
   }
 }
 
-async function cmdBacklinks(positional, flags) {
+async function cmdBacklinks(positional: string[], flags: Flags) {
   const ds = await openDatastore(flags);
   const ref = positional[0];
   if (!ref) die('Usage: kanecta backlinks <id|alias>');
@@ -621,7 +624,7 @@ async function cmdBacklinks(positional, flags) {
   for (const id of ids) console.log(`  ${id}`);
 }
 
-async function cmdHistory(positional, flags) {
+async function cmdHistory(positional: string[], flags: Flags) {
   const ds = await openDatastore(flags);
   const ref = positional[0];
   if (!ref) die('Usage: kanecta history <id|alias>');
@@ -635,7 +638,7 @@ async function cmdHistory(positional, flags) {
   }
 }
 
-async function cmdTagList(positional, flags) {
+async function cmdTagList(positional: string[], flags: Flags) {
   const ds = await openDatastore(flags);
   const tag = positional[0];
   if (!tag) die('Usage: kanecta tag list <tag>');
@@ -645,7 +648,7 @@ async function cmdTagList(positional, flags) {
   for (const id of ids) console.log(`  ${id}`);
 }
 
-async function cmdExport(positional, flags) {
+async function cmdExport(positional: string[], flags: Flags) {
   const ds = await openDatastore(flags);
   let rootId = null;
   if (positional[0]) {
@@ -674,7 +677,7 @@ async function cmdExport(positional, flags) {
   }
 }
 
-async function cmdSearch(positional, flags) {
+async function cmdSearch(positional: string[], flags: Flags) {
   const ds = await openDatastore(flags);
   const query = positional[0];
   if (!query) die('Usage: kanecta search <query> [--root <id|alias>] [--limit <n>]');
@@ -682,18 +685,18 @@ async function cmdSearch(positional, flags) {
   const limit = flags['limit'] != null ? parseInt(flags['limit'], 10) : 20;
   const lower = query.toLowerCase();
 
-  let items;
+  let items: any[];
   if (flags['root']) {
     const rootItem = await ds.resolve(flags['root']);
     if (!rootItem) die(`Root not found: ${flags['root']}`);
     const subtreeIds = new Set(await collectSubtreeIds(ds, rootItem.id));
-    items = (await ds.loadAll()).filter(i => subtreeIds.has(i.id));
+    items = (await ds.loadAll()).filter((i: any) => subtreeIds.has(i.id));
   } else {
     items = await ds.loadAll();
   }
 
   const results = items
-    .filter(i => i.value && i.value.toLowerCase().includes(lower))
+    .filter((i: any) => i.value && i.value.toLowerCase().includes(lower))
     .slice(0, limit);
 
   if (results.length === 0) {
@@ -706,7 +709,7 @@ async function cmdSearch(positional, flags) {
   }
 }
 
-async function cmdByType(positional, flags) {
+async function cmdByType(positional: string[], flags: Flags) {
   const ds = await openDatastore(flags);
   const typeId = positional[0];
   if (!typeId) die('Usage: kanecta by-type <typeId>');
@@ -716,23 +719,23 @@ async function cmdByType(positional, flags) {
   for (const id of ids) console.log(`  ${id}`);
 }
 
-async function cmdRebuildIndexes(positional, flags) {
+async function cmdRebuildIndexes(positional: string[], flags: Flags) {
   const ds = await openDatastore(flags);
   const count = await ds.rebuildIndexes();
   console.log(`Rebuilt indexes from ${count} items.`);
 }
 
-function printDoctorFindings(findings) {
+function printDoctorFindings(findings: any[]) {
   if (findings.length === 0) {
     console.log('✓ No integrity problems found.');
     return;
   }
-  const byCheck = new Map();
+  const byCheck = new Map<string, any[]>();
   for (const f of findings) {
     if (!byCheck.has(f.check)) byCheck.set(f.check, []);
-    byCheck.get(f.check).push(f);
+    byCheck.get(f.check)!.push(f);
   }
-  const errors = findings.filter(f => f.severity === 'error').length;
+  const errors = findings.filter((f: any) => f.severity === 'error').length;
   const warns = findings.length - errors;
   for (const [check, group] of byCheck) {
     console.log(`\n${check} (${group.length}):`);
@@ -745,7 +748,7 @@ function printDoctorFindings(findings) {
   console.log(`\n${errors} error(s), ${warns} warning(s).`);
 }
 
-async function cmdDoctor(positional, flags) {
+async function cmdDoctor(positional: string[], flags: Flags) {
   const ds = await openDatastore(flags);
   const checks = flags['check']
     ? (Array.isArray(flags['check']) ? flags['check'] : [flags['check']])
@@ -756,7 +759,7 @@ async function cmdDoctor(positional, flags) {
   } else {
     printDoctorFindings(findings);
   }
-  process.exitCode = findings.some(f => f.severity === 'error') ? 1 : 0;
+  process.exitCode = findings.some((f: any) => f.severity === 'error') ? 1 : 0;
 }
 
 // ─── Dispatch ─────────────────────────────────────────────────────────────────
