@@ -4,7 +4,7 @@ Status of the JS→TS migration and the order to finish it. The gate
 (`scripts/check-source-languages.sh` + `scripts/allowed-js.txt`) fails on any
 tracked `.js`/`.cjs`/`.mjs` not listed in the ratchet; the goal is zero.
 
-**Remaining: 97 JS files** (was 116 at the start of the effort).
+**Remaining: 96 JS files** (was 116 at the start of the effort).
 `kanecta-app-community-hub` is excluded from the gate and from migration (live
 prod) and is not counted here.
 
@@ -47,7 +47,14 @@ migration cannot proceed purely leaf-by-leaf past the isolated packages below.
 |---|---|---|---|
 | `@kanecta/schema-compiler` | — | node:test | ✅ done |
 | `@kanecta/sdk` | 1 | none | ✅ done |
-| `@kanecta/api-client` | 1 (+ hand `.d.ts`) | none | **next** — consumed only by sdk (now `.ts`, not executed) and studio (Vite/`tsc`, verifiable). Big file; verify studio `typecheck` before/after. |
+| `@kanecta/api-client` | 1 (+ hand `.d.ts`) | none | ✅ done — first migrated package consumed by another TS project (studio); `main: index.ts` resolves across the boundary and studio `tsc -b` stays clean. |
+
+Bucket A is now exhausted — every remaining package is in B/C/D.
+
+**Proven:** a migrated package with `main: *.ts` is consumable by a TS project
+(studio) with no wrapper — TS resolves the `.ts` as both value and types, and
+`tsc -b` does not choke on it. This de-risks the bucket-B cut-over's type side;
+the remaining unknown there is purely the **runtime** entry-point flip.
 
 ### B. Core runtime graph — one coordinated cut-over (BLOCKED on 2 decisions)
 
@@ -92,8 +99,8 @@ README.md` in the same change.
 
 ## Recommended sequence
 
-1. `@kanecta/api-client` (bucket A) — last isolated-safe leaf. ← do now
-2. Make decisions (1) and (2).
+1. ~~`@kanecta/api-client` (bucket A)~~ ✅ done — bucket A exhausted.
+2. Make decisions (1) and (2). **These now gate all remaining progress.**
 3. Bucket B core cut-over — one coordinated branch: flip entry points, migrate
    graph leaf→root, migrate tests per (1), verify servers + suites.
 4. Buckets C and D — per app / per script, each with its own invocation change.
