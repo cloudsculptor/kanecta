@@ -1,12 +1,11 @@
-#!/usr/bin/env node
-'use strict';
+#!/usr/bin/env -S node --import tsx
 
-const os = require('os');
-const fs = require('fs');
-const path = require('path');
-const { createHash } = require('crypto');
-const { spawnSync } = require('child_process');
-const {
+import os from 'os';
+import fs from 'fs';
+import path from 'path';
+import { createHash } from 'crypto';
+import { spawnSync } from 'child_process';
+import {
   Datastore,
   VALID_TYPES,
   VALID_CONFIDENCES,
@@ -17,7 +16,8 @@ const {
   resolveWorkingSet,
   resolveBranch,
   workingSetLocalPath,
-} = require('@kanecta/lib');
+} from '@kanecta/lib';
+import * as kanectaSpec from '@kanecta/specification';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -33,7 +33,7 @@ function readConfig() {
   }
 }
 
-function writeConfig(cfg) {
+function writeConfig(cfg: any) {
   fs.writeFileSync(MCP_CONFIG_PATH, JSON.stringify(cfg, null, 2) + '\n');
 }
 
@@ -42,7 +42,7 @@ function writeConfig(cfg) {
 // (KANECTA_WORKING_SET / KANECTA_BRANCH) → state.json → config defaults. The
 // branch is applied via useBranch so this call never clobbers a shared default,
 // keeping concurrent consumers (e.g. a parallel API) independent.
-async function openDs({ workingSet, branch } = {}) {
+async function openDs({ workingSet, branch }: { workingSet?: any; branch?: any } = {}) {
   const { name, workingSet: ws } = resolveWorkingSet(workingSet);
   const resolvedBranch = resolveBranch(name, branch);
   const ds = await Datastore.openWorkingSet(ws, { branch: resolvedBranch });
@@ -74,7 +74,7 @@ const SECRET_PATTERNS = [
   },
 ];
 
-function detectSecrets(text) {
+function detectSecrets(text: any) {
   if (!text || typeof text !== 'string') return [];
   return SECRET_PATTERNS.filter(({ re }) => re.test(text)).map(
     ({ name }) => name,
@@ -86,27 +86,27 @@ function detectSecrets(text) {
 const WIKILINK_RE =
   /\[\[([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\]\]/g;
 
-async function resolveLinks(ds, value) {
+async function resolveLinks(ds: any, value: any) {
   if (!value || typeof value !== 'string') return value;
   const matches = [...value.matchAll(WIKILINK_RE)];
   if (!matches.length) return value;
   const fetched = await Promise.all(matches.map((m) => ds.get(m[1])));
-  const map = new Map(matches.map((m, i) => [m[1], fetched[i]]));
-  return value.replace(WIKILINK_RE, (match, uuid) => {
+  const map = new Map<string, any>(matches.map((m, i) => [m[1], fetched[i]]));
+  return value.replace(WIKILINK_RE, (match: string, uuid: string) => {
     const item = map.get(uuid);
     return item ? `[[${uuid}|${item.value}]]` : match;
   });
 }
 
-async function resolveItem(ds, item) {
+async function resolveItem(ds: any, item: any) {
   if (!item || typeof item.value !== 'string') return item;
   return { ...item, value: await resolveLinks(ds, item.value) };
 }
 
 // ─── Tree helpers ─────────────────────────────────────────────────────────────
 
-async function getAncestorChain(ds, id) {
-  const ancestors = [];
+async function getAncestorChain(ds: any, id: any) {
+  const ancestors: any[] = [];
   const seen = new Set([id]);
   let item = await ds.get(id);
   while (
@@ -128,7 +128,7 @@ async function getAncestorChain(ds, id) {
   return ancestors;
 }
 
-async function collectSubtreeIds(ds, id) {
+async function collectSubtreeIds(ds: any, id: any): Promise<any[]> {
   const ids = [id];
   for (const child of await ds.children(id)) {
     ids.push(...(await collectSubtreeIds(ds, child.id)));
@@ -136,7 +136,7 @@ async function collectSubtreeIds(ds, id) {
   return ids;
 }
 
-async function cloneSubtree(ds, sourceId, targetParentId, actor) {
+async function cloneSubtree(ds: any, sourceId: any, targetParentId: any, actor: any): Promise<any> {
   const source = await ds.get(sourceId);
   if (!source) return null;
   const cloned = await ds.create({
@@ -157,7 +157,7 @@ async function cloneSubtree(ds, sourceId, targetParentId, actor) {
 
 // ─── Tools ────────────────────────────────────────────────────────────────────
 
-const TOOLS = [
+const TOOLS: any[] = [
   // ── Capture & search ────────────────────────────────────────────────────────
   {
     name: 'kanecta_capture',
@@ -1010,7 +1010,7 @@ for (const tool of TOOLS) {
 
 // ─── Function helpers ─────────────────────────────────────────────────────────
 
-function fnItemDir(datastorePath, id) {
+function fnItemDir(datastorePath: any, id: any) {
   const s = id.replace(/-/g, '');
   return path.join(
     datastorePath,
@@ -1022,7 +1022,7 @@ function fnItemDir(datastorePath, id) {
   );
 }
 
-function hashIndexTs(fnDir) {
+function hashIndexTs(fnDir: any) {
   try {
     return createHash('sha256')
       .update(fs.readFileSync(path.join(fnDir, 'index.ts'), 'utf8'))
@@ -1032,7 +1032,7 @@ function hashIndexTs(fnDir) {
   }
 }
 
-function fnScaffoldStatus(fnDir) {
+function fnScaffoldStatus(fnDir: any) {
   if (!fs.existsSync(fnDir)) return { exists: false, stale: false };
   const current = hashIndexTs(fnDir);
   const hashPath = path.join(fnDir, '.build-hash');
@@ -1045,8 +1045,8 @@ function fnScaffoldStatus(fnDir) {
   return { exists: true, stale };
 }
 
-function compileFunctionScaffold(fnDir) {
-  const chunks = [];
+function compileFunctionScaffold(fnDir: any) {
+  const chunks: string[] = [];
   const install = spawnSync('npm', ['install'], {
     cwd: fnDir,
     encoding: 'utf8',
@@ -1073,8 +1073,8 @@ function compileFunctionScaffold(fnDir) {
   return { success, output: chunks.join('\n').trim() };
 }
 
-function buildFunctionJson(args, existing = {}) {
-  const fn = { ...existing };
+function buildFunctionJson(args: any, existing: any = {}) {
+  const fn: any = { ...existing };
   if ('description' in args) fn.description = args.description;
   if ('async' in args) fn.async = args.async;
   if ('ai' in args) fn.ai = args.ai;
@@ -1098,7 +1098,7 @@ function buildFunctionJson(args, existing = {}) {
 
 // ─── Handlers ─────────────────────────────────────────────────────────────────
 
-async function ensureDateBucket(ds, cfg) {
+async function ensureDateBucket(ds: any, cfg: any) {
   const today = new Date().toISOString().slice(0, 10);
   if (cfg?.lastCaptureDate === today && cfg?.lastCaptureDateId) {
     return cfg.lastCaptureDateId;
@@ -1119,7 +1119,7 @@ async function ensureDateBucket(ds, cfg) {
   return bucket.id;
 }
 
-async function handleCapture(args, ds, cfg) {
+async function handleCapture(args: any, ds: any, cfg: any) {
   const { text, tags = [], type = 'text' } = args;
   const secrets = detectSecrets(text);
   if (secrets.length) {
@@ -1131,7 +1131,7 @@ async function handleCapture(args, ds, cfg) {
   const allTags = [
     'kanecta-capture',
     ...tags.filter(
-      (t) =>
+      (t: any) =>
         !['kanecta-capture', 'kanecta-date', 'kanecta-internal'].includes(t),
     ),
   ];
@@ -1150,7 +1150,7 @@ async function handleCapture(args, ds, cfg) {
   };
 }
 
-function matchObjectData(objectData, q, fields) {
+function matchObjectData(objectData: any, q: any, fields: any) {
   if (!objectData || typeof objectData !== 'object') return false;
 
   const keys =
@@ -1185,21 +1185,21 @@ function matchObjectData(objectData, q, fields) {
   return false;
 }
 
-async function handleSearch(args, ds) {
+async function handleSearch(args: any, ds: any) {
   const { query, rootId, limit = 10, fields } = args;
 
   // Adapters that maintain a native full-text index (e.g. Postgres, via
   // search_index + triggers) expose ds.search — already ranked and limited.
   // Field-restricted searches fall through to the generic scan below, since
   // the native index covers whole rows rather than individual fields.
-  let ranked;
+  let ranked: any;
   if (typeof ds.search === 'function' && !fields) {
     ranked = await ds.search(query, { rootId, limit });
   } else {
     const q = query.toLowerCase();
     const all = await ds.loadAll();
 
-    const candidates = [];
+    const candidates: any[] = [];
     for (const i of all) {
       if (
         i.value &&
@@ -1227,11 +1227,11 @@ async function handleSearch(args, ds) {
   }
 
   const results = await Promise.all(
-    ranked.map(async (i) => ({
+    ranked.map(async (i: any) => ({
       id: i.id,
       type: i.type,
       tags: (i.tags || []).filter(
-        (t) =>
+        (t: any) =>
           !['kanecta-capture', 'kanecta-date', 'kanecta-internal'].includes(t),
       ),
       date: (i.createdAt || '').slice(0, 10),
@@ -1243,18 +1243,18 @@ async function handleSearch(args, ds) {
   return { query, count: results.length, results };
 }
 
-async function handleRecent(args, ds) {
+async function handleRecent(args: any, ds: any) {
   const { n = 10 } = args;
   const all = await ds.loadAll();
   const items = all
-    .filter((i) => (i.tags || []).includes('kanecta-capture'))
-    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+    .filter((i: any) => (i.tags || []).includes('kanecta-capture'))
+    .sort((a: any, b: any) => (b.createdAt || '').localeCompare(a.createdAt || ''))
     .slice(0, n)
-    .map((i) => ({
+    .map((i: any) => ({
       id: i.id,
       date: (i.createdAt || '').slice(0, 10),
       tags: (i.tags || []).filter(
-        (t) =>
+        (t: any) =>
           !['kanecta-capture', 'kanecta-date', 'kanecta-internal'].includes(t),
       ),
       value: i.value,
@@ -1267,18 +1267,18 @@ async function handleRecent(args, ds) {
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function typesDir(datastorePath) {
+function typesDir(datastorePath: any) {
   return path.join(datastorePath, '.kanecta', 'types');
 }
 
-function typeShardPath(datastorePath, id) {
+function typeShardPath(datastorePath: any, id: any) {
   return path.join(typesDir(datastorePath), id.slice(0, 2), id.slice(2, 4), id);
 }
 
-function handleListTypes(datastorePath) {
+function handleListTypes(datastorePath: any) {
   const dir = typesDir(datastorePath);
   if (!fs.existsSync(dir)) return { types: [] };
-  const results = [];
+  const results: any[] = [];
   for (const s1 of fs.readdirSync(dir)) {
     const p1 = path.join(dir, s1);
     if (!fs.statSync(p1).isDirectory()) continue;
@@ -1314,21 +1314,21 @@ function handleListTypes(datastorePath) {
   return { types: results };
 }
 
-function handleGetTypeSchema(datastorePath, id) {
+function handleGetTypeSchema(datastorePath: any, id: any) {
   if (!UUID_RE.test(id)) return { error: 'Invalid UUID format' };
   const schemaPath = path.join(typeShardPath(datastorePath, id), 'type.json');
   if (!fs.existsSync(schemaPath))
     return { error: `Type schema not found: ${id}` };
   try {
     return JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
-  } catch (err) {
+  } catch (err: any) {
     return { error: err.message };
   }
 }
 
-const { type: typeFileSpec } = require('@kanecta/specification');
+const typeFileSpec: any = (kanectaSpec as any).type;
 
-function validateTypeSchema(schema) {
+function validateTypeSchema(schema: any) {
   if (typeof schema !== 'object' || schema === null || Array.isArray(schema))
     return 'Schema must be a JSON object';
   for (const key of typeFileSpec.required) {
@@ -1358,7 +1358,7 @@ function validateTypeSchema(schema) {
   return null;
 }
 
-function handleUpdateTypeSchema(datastorePath, id, schema) {
+function handleUpdateTypeSchema(datastorePath: any, id: any, schema: any) {
   if (!UUID_RE.test(id)) return { error: 'Invalid UUID format' };
   const validationError = validateTypeSchema(schema);
   if (validationError) return { error: validationError };
@@ -1368,30 +1368,30 @@ function handleUpdateTypeSchema(datastorePath, id, schema) {
   try {
     fs.writeFileSync(schemaPath, JSON.stringify(schema, null, 2));
     return schema;
-  } catch (err) {
+  } catch (err: any) {
     return { error: err.message };
   }
 }
 
 // ─── MCP protocol ─────────────────────────────────────────────────────────────
 
-function send(msg) {
+function send(msg: any) {
   process.stdout.write(JSON.stringify(msg) + '\n');
 }
 
-function sendResult(id, result) {
+function sendResult(id: any, result: any) {
   send({ jsonrpc: '2.0', id, result });
 }
 
-function sendError(id, code, message) {
+function sendError(id: any, code: any, message: any) {
   send({ jsonrpc: '2.0', id, error: { code, message } });
 }
 
-async function dispatch(name, args) {
+async function dispatch(name: string, args: any): Promise<any> {
   // Pull the optional per-call working-set/branch selectors out of the arguments before they
   // reach any handler, so they can never be mistaken for a tool parameter (e.g. a kanecta_query
   // where-clause).
-  let workingSet, branch;
+  let workingSet: any, branch: any;
   if (args && typeof args === 'object' && !Array.isArray(args)) {
     ({ workingSet, branch, ...args } = args);
   }
@@ -1414,7 +1414,7 @@ async function dispatch(name, args) {
     case 'kanecta_get_children': {
       const children = await ds.children(args.parentId ?? null);
       return {
-        items: await Promise.all(children.map((i) => resolveItem(ds, i))),
+        items: await Promise.all(children.map((i: any) => resolveItem(ds, i))),
       };
     }
 
@@ -1424,12 +1424,12 @@ async function dispatch(name, args) {
       const treeItems = await ds.tree(root.id, args.depth ?? 3);
       return {
         tree: await Promise.all(
-          treeItems.map(async ({ item, depth }) => ({
+          treeItems.map(async ({ item, depth }: any) => ({
             depth,
             id: item.id,
             value: await resolveLinks(ds, item.value),
             type: item.type,
-            tags: (item.tags || []).filter((t) => t !== 'kanecta-internal'),
+            tags: (item.tags || []).filter((t: any) => t !== 'kanecta-internal'),
           })),
         ),
       };
@@ -1501,15 +1501,15 @@ async function dispatch(name, args) {
     }
 
     case 'kanecta_bulk_create': {
-      const created = [];
-      const errors = [];
+      const created: any[] = [];
+      const errors: any[] = [];
       for (const [i, itemArgs] of args.items.entries()) {
         try {
           const { alias, ...createArgs } = itemArgs;
           const item = await ds.create(createArgs);
           if (alias) await ds.setAlias(alias, item.id);
           created.push(item);
-        } catch (err) {
+        } catch (err: any) {
           errors.push({ index: i, error: err.message });
         }
       }
@@ -1517,12 +1517,12 @@ async function dispatch(name, args) {
     }
 
     case 'kanecta_bulk_update': {
-      const updated = [];
-      const errors = [];
+      const updated: any[] = [];
+      const errors: any[] = [];
       for (const [i, { id, ...changes }] of args.updates.entries()) {
         try {
           updated.push(await ds.update(id, changes, cfg?.owner));
-        } catch (err) {
+        } catch (err: any) {
           errors.push({ index: i, id, error: err.message });
         }
       }
@@ -1631,7 +1631,7 @@ async function dispatch(name, args) {
         // limit leaves it undefined, which the adapter treats as the default cap of 50 — so
         // count silently under-counted any bucket larger than 50. Pass 0 to count all matches.
         const items = await ds.query({ ...dsArgs, limit: 0 });
-        const out = { count: items.length };
+        const out: any = { count: items.length };
         if (items.warning) out.warning = items.warning;
         return out;
       }
@@ -1641,7 +1641,7 @@ async function dispatch(name, args) {
           return { error: 'group_by mode requires group_by_field' };
         // limit:0 = return all (see the count-mode note above) — otherwise buckets cap at 50.
         const items = await ds.query({ ...dsArgs, limit: 0 });
-        const groups = {};
+        const groups: Record<string, number> = {};
         for (const item of items) {
           const val =
             item.objectData && item.objectData[group_by_field] !== undefined
@@ -1650,14 +1650,14 @@ async function dispatch(name, args) {
           const key = String(val);
           groups[key] = (groups[key] || 0) + 1;
         }
-        const out = { groups };
+        const out: any = { groups };
         if (items.warning) out.warning = items.warning;
         return out;
       }
 
       const items = await ds.query(dsArgs);
-      const out = {
-        items: await Promise.all(items.map((item) => resolveItem(ds, item))),
+      const out: any = {
+        items: await Promise.all(items.map((item: any) => resolveItem(ds, item))),
       };
       if (items.warning) out.warning = items.warning;
       return out;
@@ -1665,16 +1665,16 @@ async function dispatch(name, args) {
 
     case 'kanecta_stats': {
       const ROOT_TYPES          = new Set(['root']);
-      const BUILT_IN_TYPE_ICONS = { pipeline: 'Schema', agent: 'SmartToy', 'pipeline-run': 'PlayCircle' };
+      const BUILT_IN_TYPE_ICONS: Record<string, string> = { pipeline: 'Schema', agent: 'SmartToy', 'pipeline-run': 'PlayCircle' };
       const BUILT_IN_TYPES      = new Set(Object.keys(BUILT_IN_TYPE_ICONS));
       const defs = await ds.listTypeDefs();
-      const typeInfo = {};
+      const typeInfo: Record<string, any> = {};
       for (const def of defs) {
         const typeDef = await ds.readTypeJson(def.id).catch(() => null);
         typeInfo[def.id] = { name: def.value, icon: typeDef?.meta?.icon ?? null };
       }
-      const structuredMap = {};
-      const unstructuredMap = {};
+      const structuredMap: Record<string, any> = {};
+      const unstructuredMap: Record<string, number> = {};
       let total = 0;
       for (const item of await ds.loadAll()) {
         const raw = item.type;
@@ -1757,7 +1757,7 @@ async function dispatch(name, args) {
       await ds.writeFunctionJson(item.id, fnData);
       generateFunctionScaffold(itemDir, name, fnData, datastorePath);
       const dir = path.join(itemDir, 'function');
-      const result = {
+      const result: any = {
         item,
         definition: fnData,
         scaffold: fnScaffoldStatus(dir),
@@ -1783,7 +1783,7 @@ async function dispatch(name, args) {
         datastorePath,
       );
       const dir = path.join(itemDir, 'function');
-      const result = { definition: fnData, scaffold: fnScaffoldStatus(dir) };
+      const result: any = { definition: fnData, scaffold: fnScaffoldStatus(dir) };
       if (compile) result.compile = compileFunctionScaffold(dir);
       return result;
     }
@@ -1870,7 +1870,7 @@ Promise.resolve(mod[${JSON.stringify(fnName)}](...values))
     }
 
     default: {
-      const err = new Error(`Unknown tool: ${name}`);
+      const err: any = new Error(`Unknown tool: ${name}`);
       err.code = -32601;
       throw err;
     }
@@ -1880,7 +1880,7 @@ Promise.resolve(mod[${JSON.stringify(fnName)}](...values))
 function runMcpServer() {
   let buf = '';
   process.stdin.setEncoding('utf8');
-  process.stdin.on('data', (chunk) => {
+  process.stdin.on('data', (chunk: string) => {
     buf += chunk;
     let nl;
     while ((nl = buf.indexOf('\n')) !== -1) {
@@ -1958,7 +1958,7 @@ function runMcpServer() {
   process.stdin.on('end', () => process.exit(0));
 }
 
-module.exports = { runMcpServer, TOOLS, openDs, dispatch };
+export { runMcpServer, TOOLS, openDs, dispatch };
 
 if (require.main === module) {
   runMcpServer();

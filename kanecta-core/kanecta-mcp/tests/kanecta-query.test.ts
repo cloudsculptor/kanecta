@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  * Tests for kanecta_query enhancements:
  *  - Bug 3 fix: case-insensitive severity and status normalisation in where filters
@@ -8,27 +6,29 @@
  *  - Unchanged behaviour: normal query (no mode) still returns items array
  */
 
-const os = require('os');
-const path = require('path');
-const fs = require('fs');
-const { Datastore } = require('@kanecta/lib');
+import os from 'os';
+import path from 'path';
+import fs from 'fs';
+import { Datastore } from '@kanecta/lib';
+import { vi } from 'vitest';
+import { singleConfig, clearConfigEnv } from './helpers.ts';
 
 let tmpRoot;
 let ds;
 let dispatch;
 
-beforeEach(() => {
-  jest.resetModules();
+beforeEach(async () => {
+  vi.resetModules();
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'kanecta-query-test-'));
   ds = Datastore.init(tmpRoot, 'test@example.com');
-  require('./helpers').singleConfig(tmpRoot);
-  ({ dispatch } = require('../src/index'));
+  singleConfig(tmpRoot);
+  ({ dispatch } = await import('../src/index.ts'));
 });
 
 afterEach(() => {
   fs.rmSync(tmpRoot, { recursive: true, force: true });
-  require('./helpers').clearConfigEnv();
-  jest.restoreAllMocks();
+  clearConfigEnv();
+  vi.restoreAllMocks();
 });
 
 /** Create an item with the given objectData in the temp store. */

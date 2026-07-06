@@ -14,12 +14,6 @@ kanecta-core/kanecta-api/tests/api.test.js
 kanecta-core/kanecta-api/tests/auth.test.js
 kanecta-core/kanecta-api/tests/branches.test.js
 kanecta-core/kanecta-api/tests/helpers.js
-kanecta-core/kanecta-mcp/src/index.js
-kanecta-core/kanecta-mcp/tests/helpers.js
-kanecta-core/kanecta-mcp/tests/kanecta-1.4.0.test.js
-kanecta-core/kanecta-mcp/tests/kanecta-query.test.js
-kanecta-core/kanecta-mcp/tests/multi-datastore.test.js
-kanecta-core/kanecta-mcp/tests/typeid-integrity.test.js
 kanecta-core/kanecta-migrations/1.3.0/migrate-1.2.0-to-1.3.0.js
 kanecta-core/kanecta-migrations/1.3.0/migrate-filesystem-to-postgres.js
 kanecta-core/kanecta-migrations/1.4.0/migrate-1.3.0-to-1.4.0.js

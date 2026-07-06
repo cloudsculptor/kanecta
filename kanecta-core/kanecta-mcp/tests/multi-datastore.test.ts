@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  * Tests for per-call working-set selection:
  *  - A `workingSet` argument on any tool selects a named working set from config.json.
@@ -9,11 +7,12 @@
  *  - The injected schema properties are present and never required.
  */
 
-const os = require('os');
-const path = require('path');
-const fs = require('fs');
-const { Datastore } = require('@kanecta/lib');
-const { useConfig, clearConfigEnv } = require('./helpers');
+import os from 'os';
+import path from 'path';
+import fs from 'fs';
+import { Datastore } from '@kanecta/lib';
+import { vi } from 'vitest';
+import { useConfig, clearConfigEnv } from './helpers.ts';
 
 let storeA;
 let storeB;
@@ -27,8 +26,8 @@ async function seed(ds, value, objectData) {
   return item;
 }
 
-beforeEach(() => {
-  jest.resetModules();
+beforeEach(async () => {
+  vi.resetModules();
   clearConfigEnv();
 
   storeA = fs.mkdtempSync(path.join(os.tmpdir(), 'kanecta-mds-a-'));
@@ -38,7 +37,7 @@ beforeEach(() => {
   Datastore.init(storeB, 'b@example.com');
   Datastore.init(storeDefault, 'def@example.com');
 
-  mod = require('../src/index');
+  mod = await import('../src/index.ts');
 });
 
 afterEach(() => {
@@ -46,7 +45,7 @@ afterEach(() => {
     fs.rmSync(p, { recursive: true, force: true });
   }
   clearConfigEnv();
-  jest.restoreAllMocks();
+  vi.restoreAllMocks();
 });
 
 function threeWorkingSets() {

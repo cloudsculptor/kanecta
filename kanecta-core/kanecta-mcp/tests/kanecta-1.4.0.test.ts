@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  * Tests for kanecta-mcp 1.4.0 features:
  *  - kanecta_soft_delete / kanecta_restore
@@ -10,28 +8,30 @@
  *  - TOOLS schema: new fields present, stale 'decision' enum absent
  */
 
-const os = require('os');
-const path = require('path');
-const fs = require('fs');
-const { Datastore } = require('@kanecta/lib');
+import os from 'os';
+import path from 'path';
+import fs from 'fs';
+import { Datastore } from '@kanecta/lib';
+import { vi } from 'vitest';
+import { singleConfig, clearConfigEnv } from './helpers.ts';
 
 let tmpRoot;
 let ds;
 let dispatch;
 let TOOLS;
 
-beforeEach(() => {
-  jest.resetModules();
+beforeEach(async () => {
+  vi.resetModules();
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'kanecta-1.4.0-test-'));
   ds = Datastore.init(tmpRoot, 'test@example.com');
-  require('./helpers').singleConfig(tmpRoot);
-  ({ dispatch, TOOLS } = require('../src/index'));
+  singleConfig(tmpRoot);
+  ({ dispatch, TOOLS } = await import('../src/index.ts'));
 });
 
 afterEach(() => {
   fs.rmSync(tmpRoot, { recursive: true, force: true });
-  require('./helpers').clearConfigEnv();
-  jest.restoreAllMocks();
+  clearConfigEnv();
+  vi.restoreAllMocks();
 });
 
 // ─── Tool schema integrity ─────────────────────────────────────────────────────

@@ -1,12 +1,10 @@
-'use strict';
-
 // Test helpers for pointing the MCP server at temp datastores via KANECTA_CONFIG.
 // The MCP no longer reads KANECTA_DATASTORE/KANECTA_DATASTORES — every consumer
 // resolves the active working set from config.json located by KANECTA_CONFIG.
 
-const os = require('os');
-const path = require('path');
-const fs = require('fs');
+import os from 'os';
+import path from 'path';
+import fs from 'fs';
 
 // Write a temp config.json with the given working sets and point KANECTA_CONFIG at it.
 function useConfig(workingSets, defaultWorkingSet) {
@@ -30,4 +28,4 @@ function clearConfigEnv() {
   delete process.env.KANECTA_BRANCH;
 }
 
-module.exports = { useConfig, singleConfig, clearConfigEnv };
+export { useConfig, singleConfig, clearConfigEnv };

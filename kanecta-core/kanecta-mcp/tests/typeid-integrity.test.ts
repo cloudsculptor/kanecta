@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  * Tests for typeId referential integrity (spec 03):
  *  - Writing an object whose typeId has no type definition warns by default
@@ -8,10 +6,12 @@
  *  - Surfaced through the MCP kanecta_add_item / kanecta_update_item tools.
  */
 
-const os = require('os');
-const path = require('path');
-const fs = require('fs');
-const { Datastore } = require('@kanecta/lib');
+import os from 'os';
+import path from 'path';
+import fs from 'fs';
+import { Datastore } from '@kanecta/lib';
+import { vi } from 'vitest';
+import { singleConfig, clearConfigEnv } from './helpers.ts';
 
 const ORPHAN_TYPE_ID = 'deadbeef-0000-4000-8000-000000000000';
 
@@ -19,18 +19,18 @@ let tmpRoot;
 let ds;
 let dispatch;
 
-beforeEach(() => {
-  jest.resetModules();
+beforeEach(async () => {
+  vi.resetModules();
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'kanecta-typeid-test-'));
   ds = Datastore.init(tmpRoot, 'test@example.com');
-  require('./helpers').singleConfig(tmpRoot);
-  ({ dispatch } = require('../src/index'));
+  singleConfig(tmpRoot);
+  ({ dispatch } = await import('../src/index.ts'));
 });
 
 afterEach(() => {
   fs.rmSync(tmpRoot, { recursive: true, force: true });
-  require('./helpers').clearConfigEnv();
-  jest.restoreAllMocks();
+  clearConfigEnv();
+  vi.restoreAllMocks();
 });
 
 describe('add_item typeId referential integrity', () => {
