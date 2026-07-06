@@ -1,5 +1,3 @@
-'use strict';
-
 // CloudAdapter implements the Kanecta datastore adapter interface by composing
 // an items adapter (@kanecta/database, backed by Postgres) and a files adapter
 // (@kanecta/s3, backed by any S3-compatible store). It lets kanecta-lib treat
@@ -29,19 +27,33 @@ const ITEM_METHODS = [
 
 const FILE_METHODS = ['putFile', 'getFile', 'deleteFile', 'listFiles'];
 
-class CloudAdapter {
-  constructor({ items, files }) {
+interface AdapterPair {
+  items: any;
+  files: any;
+}
+
+// The item/file methods are attached to the prototype dynamically below, so
+// expose them via an index signature (declaration-merged with the class).
+export interface CloudAdapter {
+  [method: string]: any;
+}
+
+export class CloudAdapter {
+  private _items: any;
+  private _files: any;
+
+  constructor({ items, files }: AdapterPair) {
     this._items = items;
     this._files = files;
   }
 
   // `items` and `files` are already-initialised/opened adapter instances —
   // CloudAdapter only composes them, it doesn't manage their lifecycle.
-  static async init({ items, files }) {
+  static async init({ items, files }: AdapterPair): Promise<CloudAdapter> {
     return new CloudAdapter({ items, files });
   }
 
-  static async open({ items, files }) {
+  static async open({ items, files }: AdapterPair): Promise<CloudAdapter> {
     return new CloudAdapter({ items, files });
   }
 
@@ -49,11 +61,9 @@ class CloudAdapter {
 }
 
 for (const name of ITEM_METHODS) {
-  CloudAdapter.prototype[name] = function (...args) { return this._items[name](...args); };
+  (CloudAdapter.prototype as any)[name] = function (this: any, ...args: any[]) { return this._items[name](...args); };
 }
 
 for (const name of FILE_METHODS) {
-  CloudAdapter.prototype[name] = function (...args) { return this._files[name](...args); };
+  (CloudAdapter.prototype as any)[name] = function (this: any, ...args: any[]) { return this._files[name](...args); };
 }
-
-module.exports = { CloudAdapter };
