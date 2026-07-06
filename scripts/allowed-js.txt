@@ -15,5 +15,4 @@ kanecta-ui/kanecta-apps/kanecta-app-studio-debian/main.cjs
 kanecta-ui/kanecta-apps/kanecta-app-studio-mac/main.cjs
 kanecta-ui/kanecta-apps/kanecta-app-studio-vscode-plugin/extension.js
 kanecta-ui/kanecta-apps/kanecta-app-studio-windows/main.cjs
-kanecta-ui/kanecta-apps/kanecta-app-studio/eslint.config.js
 kanecta-ui/kanecta-apps/kanecta-app-studio/src/server.cjs
