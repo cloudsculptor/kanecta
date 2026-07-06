@@ -5,9 +5,20 @@
 # (kanecta-app-community-hub is EXCLUDED from the gate and from migration — prod app.)
 #
 # MIGRATION RATCHET: convert each to .ts and DELETE its line. Goal: zero.
-# s3 test grandfathered with its wholly-JS package; migrate the package to TS as a unit.
+#
+# The JS→TS cut-over migrated all 91 remaining source/test/script files across
+# kanecta-core and the tooling to TypeScript + vitest (see
+# ts-migration-execution-plan.md). The 5 files below are the ONLY ones left:
+# host-mandated entry points where the repo's "run under tsx, no build step"
+# model does NOT apply, because the host (Electron main process, VS Code
+# extension host, or an externally-launched Node process) loads the entry
+# directly and cannot type-strip .ts. Migrating them properly needs an esbuild
+# bundle step per package (main.ts -> bundled .cjs) plus updates to the Electron
+# electron-builder / vsce packaging — changes that cannot be verified on this
+# machine (cross-platform desktop builds, vsce packaging, external launcher).
+# They are left as .cjs/.js pending that supervised, build-verified pass.
 kanecta-ui/kanecta-apps/kanecta-app-studio-debian/main.cjs
 kanecta-ui/kanecta-apps/kanecta-app-studio-mac/main.cjs
-kanecta-ui/kanecta-apps/kanecta-app-studio-vscode-plugin/extension.js
 kanecta-ui/kanecta-apps/kanecta-app-studio-windows/main.cjs
+kanecta-ui/kanecta-apps/kanecta-app-studio-vscode-plugin/extension.js
 kanecta-ui/kanecta-apps/kanecta-app-studio/src/server.cjs
