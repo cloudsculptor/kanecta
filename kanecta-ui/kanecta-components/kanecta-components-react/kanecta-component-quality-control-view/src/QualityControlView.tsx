@@ -1,5 +1,5 @@
 import { DynamicIcon } from '@kanecta/component-dynamic-icon';
-import './QualityControlView.css';
+import './QualityControlView.scss';
 
 export interface QualityControlStats {
   total: number;

@@ -4,7 +4,7 @@ import { SortBar } from '@kanecta/component-sort-bar';
 import { ConfidenceBadge } from '@kanecta/component-confidence-badge';
 import { TypeBadge } from '@kanecta/component-type-badge';
 import { TagChip } from '@kanecta/component-tag-chip';
-import './ListView.css';
+import './ListView.scss';
 
 export interface ViewItem {
   id: string;

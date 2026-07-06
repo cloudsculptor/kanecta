@@ -3,7 +3,7 @@ import { WorkspaceColumn } from './WorkspaceColumn';
 import { ActivityFeed } from './ActivityFeed';
 import { ReviewConveyor } from './ReviewConveyor';
 import type { MissionControlProps } from './types';
-import './MissionControl.css';
+import './MissionControl.scss';
 
 export function MissionControl({
   workspaces,

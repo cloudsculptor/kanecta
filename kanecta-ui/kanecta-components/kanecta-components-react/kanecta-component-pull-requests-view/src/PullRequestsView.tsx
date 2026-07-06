@@ -3,7 +3,7 @@ import AltRouteIcon from '@mui/icons-material/AltRoute';
 import MergeTypeIcon from '@mui/icons-material/MergeType';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutlineRounded';
 import AddIcon from '@mui/icons-material/Add';
-import './PullRequestsView.css';
+import './PullRequestsView.scss';
 
 type MainTab = 'list' | 'detail' | 'merge';
 type ListFilter = 'open' | 'closed';

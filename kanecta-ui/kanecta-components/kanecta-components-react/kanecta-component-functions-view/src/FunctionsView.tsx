@@ -1,4 +1,4 @@
-import './FunctionsView.css';
+import './FunctionsView.scss';
 
 export function FunctionsView() {
   return (

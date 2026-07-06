@@ -3,7 +3,7 @@ import { useQueries } from '@tanstack/react-query';
 import { buildDigest, detectConflicts } from './utils';
 import { ConflictList } from './ConflictList';
 import type { DigestViewProps, MissionItem } from './types';
-import './DigestView.css';
+import './DigestView.scss';
 
 function formatDate(isoString: string | null): string {
   if (!isoString) return '—';

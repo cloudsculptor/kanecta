@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@mui/material';
-import './QuickCapture.css';
+import './QuickCapture.scss';
 
 export interface QuickCaptureProps {
   open: boolean;

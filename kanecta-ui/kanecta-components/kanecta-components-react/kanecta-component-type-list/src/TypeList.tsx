@@ -4,7 +4,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
-import './TypeList.css';
+import './TypeList.scss';
 
 export interface TypeItem {
   id: string;

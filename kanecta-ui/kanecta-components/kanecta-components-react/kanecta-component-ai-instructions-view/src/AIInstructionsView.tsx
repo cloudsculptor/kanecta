@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CircularProgress } from '@mui/material';
-import './AIInstructionsView.css';
+import './AIInstructionsView.scss';
 
 export interface SkillEntry {
   id: string;

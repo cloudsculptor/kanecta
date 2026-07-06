@@ -1,4 +1,4 @@
-import './HomeView.css';
+import './HomeView.scss';
 
 export interface HomeNavItem {
   id: string;

@@ -1,4 +1,4 @@
-import './TagChip.css';
+import './TagChip.scss';
 
 export interface TagChipProps {
   tag: string;

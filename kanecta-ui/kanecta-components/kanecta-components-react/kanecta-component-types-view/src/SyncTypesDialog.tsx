@@ -11,7 +11,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import Alert from '@mui/material/Alert';
 import type { TypeItem } from '@kanecta/component-type-list';
 import type { SystemTypeItem } from './TypesView';
-import './SyncTypesDialog.css';
+import './SyncTypesDialog.scss';
 
 function useCopyId() {
   const [copiedId, setCopiedId] = useState<string | null>(null);

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { FilterState } from '@kanecta/component-core';
 import { FilterBar } from '@kanecta/component-filter-bar';
-import './CalendarView.css';
+import './CalendarView.scss';
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 

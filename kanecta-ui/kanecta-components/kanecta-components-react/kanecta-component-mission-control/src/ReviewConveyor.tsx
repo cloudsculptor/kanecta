@@ -4,7 +4,7 @@ import { ConfidenceBadge, type ConfidenceLevel } from '@kanecta/component-confid
 import { TypeBadge } from '@kanecta/component-type-badge';
 import { TagChip } from '@kanecta/component-tag-chip';
 import type { MissionReviewItem } from './types';
-import './ReviewConveyor.css';
+import './ReviewConveyor.scss';
 
 interface ReviewConveyorProps {
   reviewQueue: MissionReviewItem[];

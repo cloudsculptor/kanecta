@@ -27,8 +27,10 @@ check() {
   local label="$1" allow="$2"; shift 2
   local current_f allowed_f new
   current_f="$(mktemp)"; allowed_f="$(mktemp)"
-  git ls-files "$@" | grep -vE "$EXCLUDE" | LC_ALL=C sort -u > "$current_f"
-  grep -vE '^[[:space:]]*(#|$)' "$allow" | LC_ALL=C sort -u > "$allowed_f"
+  # `|| true`: once a file-kind reaches zero non-excluded files, grep matches
+  # nothing and exits 1, which would kill the script under `set -o pipefail`.
+  git ls-files "$@" | { grep -vE "$EXCLUDE" || true; } | LC_ALL=C sort -u > "$current_f"
+  { grep -vE '^[[:space:]]*(#|$)' "$allow" || true; } | LC_ALL=C sort -u > "$allowed_f"
 
   # New = tracked files of this kind not present in the allowlist.
   new="$(LC_ALL=C comm -23 "$current_f" "$allowed_f")"
@@ -52,7 +54,7 @@ if [ "$fail" -ne 0 ]; then
   exit 1
 fi
 
-js_left="$(grep -vcE '^[[:space:]]*(#|$)' scripts/allowed-js.txt || echo 0)"
-css_left="$(grep -vcE '^[[:space:]]*(#|$)' scripts/allowed-css.txt || echo 0)"
+js_left="$({ grep -vE '^[[:space:]]*(#|$)' scripts/allowed-js.txt || true; } | wc -l | tr -d ' ')"
+css_left="$({ grep -vE '^[[:space:]]*(#|$)' scripts/allowed-css.txt || true; } | wc -l | tr -d ' ')"
 echo "✓ source-language check passed — no new JS/CSS."
 echo "  (${js_left} .js and ${css_left} .css files grandfathered, awaiting migration to TS/SCSS.)"

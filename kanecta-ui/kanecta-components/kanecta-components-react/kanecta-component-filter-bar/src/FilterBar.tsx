@@ -1,6 +1,6 @@
 import SearchIcon from '@mui/icons-material/Search';
 import type { FilterState } from '@kanecta/component-core';
-import './FilterBar.css';
+import './FilterBar.scss';
 
 export type { FilterState };
 

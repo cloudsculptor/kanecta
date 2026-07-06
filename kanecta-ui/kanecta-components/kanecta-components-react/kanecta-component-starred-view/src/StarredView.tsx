@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { IconButton, Tooltip } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import StarIcon from '@mui/icons-material/Star';
-import './StarredView.css';
+import './StarredView.scss';
 
 export interface StarredEntry {
   id: string;

@@ -1,4 +1,4 @@
-import './ConfidenceBadge.css';
+import './ConfidenceBadge.scss';
 
 export type ConfidenceLevel = 'low' | 'medium' | 'high' | 'verified' | 'locked';
 
