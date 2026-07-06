@@ -33,16 +33,16 @@ import tSubscription from './1.4.0/built-in-types/types/subscription.json' with 
 import tType from './1.4.0/built-in-types/types/type.json' with { type: 'json' };
 import tView from './1.4.0/built-in-types/types/view.json' with { type: 'json' };
 
-export const version = pkg.version;
-export const item = itemSpec;
+export const version: string = pkg.version;
+export const item: object = itemSpec;
 export { types };
-export const allTypes = [...types.primitive, ...types.structured, ...types.wellKnown];
-export const primitiveTypes = types.primitive;
-export const structuredTypes = types.structured;
-export const wellKnownTypes = types.wellKnown;
+export const allTypes: readonly string[] = [...types.primitive, ...types.structured, ...types.wellKnown];
+export const primitiveTypes: readonly string[] = types.primitive;
+export const structuredTypes: readonly string[] = types.structured;
+export const wellKnownTypes: readonly string[] = types.wellKnown;
 
 export { builtInTypeManifest };
-export const builtInTypeItems = [
+export const builtInTypeItems: object[] = [
   tAction, tActivity, tAgent, tAlias, tAspectType, tCell, tComponent, tContext,
   tEval, tEvalRun, tFile, tFormula, tFunction, tGrant, tGrid, tItemHistory,
   tObject, tPipeline, tPipelineRun, tQuery, tReference, tRelationship,

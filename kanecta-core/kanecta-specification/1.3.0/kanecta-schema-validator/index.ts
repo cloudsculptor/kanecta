@@ -1,46 +1,61 @@
-'use strict';
+import { createHash } from 'crypto';
 
-const crypto = require('crypto');
+export interface ValidationError {
+  /** Dot-notation path to the offending field (e.g. "jsonSchema.properties.name"). */
+  path: string;
+  /** Human-readable explanation of the failure. */
+  message: string;
+  /**
+   * Machine-readable rule identifier.
+   *
+   * Standard JSON Schema rules:  "required" | "type" | "format:uuid" | "format:date-time" |
+   *                               "format:date" | "const" | "enum" | "exclusive"
+   *
+   * Kanecta-specific rules:       "kanecta:x-id-required"        | "kanecta:flat"                  |
+   *                               "kanecta:no-ref"               | "kanecta:valid-type"            |
+   *                               "kanecta:object-requires-typeid" | "kanecta:no-object-type"      |
+   *                               "kanecta:immutable-requires-hash" | "kanecta:hash-mismatch"
+   */
+  rule: string;
+}
+
+export interface ValidationResult {
+  valid: boolean;
+  errors: ValidationError[];
+}
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ISO8601_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const SEMVER_RE = /^\d+\.\d+\.\d+$/;
 
-function isUUID(v)    { return typeof v === 'string' && UUID_RE.test(v); }
-function isISO8601(v) { return typeof v === 'string' && ISO8601_RE.test(v); }
-function isDate(v)    { return typeof v === 'string' && DATE_RE.test(v); }
-function isSemver(v)  { return typeof v === 'string' && SEMVER_RE.test(v); }
-function e(path, message, rule) { return { path, message, rule }; }
+const isUUID    = (v: unknown): boolean => typeof v === 'string' && UUID_RE.test(v);
+const isISO8601 = (v: unknown): boolean => typeof v === 'string' && ISO8601_RE.test(v);
+const isDate    = (v: unknown): boolean => typeof v === 'string' && DATE_RE.test(v);
+const e = (path: string, message: string, rule: string): ValidationError => ({ path, message, rule });
 
 // Valid item type strings — mirrors 1.3.0/types/primitive.json
 const ALL_ITEM_TYPES = new Set([
-  // primitive
   'string','number','text','heading','file','symlink','url','image',
   'function','markdown','runner',
-  // structured
   'object','decision','annotation','claim','question','task','note',
   'concept','entity','event',
-  // well-known (the five singleton root nodes — see specification.md)
   'root','system_root','app_root','component_root','data_root',
-  // type-definition records
   'type',
 ]);
 
-const VISIBILITY = new Set(['private','organisation','public']);
-const UUID_ARRAYS = ['sync','supersededBy','implements','extends'];
+const VISIBILITY   = new Set(['private','organisation','public']);
+const UUID_ARRAYS  = ['sync','supersededBy','implements','extends'];
 
-// Compute the contract hash: SHA-256 over jsonSchema + sqlSchema + meta.primaryField
-function computeContractHash(typeJson) {
+function computeContractHash(typeJson: any): string {
   const contract = {
     jsonSchema:   typeJson.jsonSchema   ?? null,
     sqlSchema:    typeJson.sqlSchema    ?? null,
     primaryField: typeJson.meta?.primaryField ?? null,
   };
   const canonical = JSON.stringify(contract, Object.keys(contract).sort());
-  return crypto.createHash('sha256').update(canonical).digest('hex');
+  return createHash('sha256').update(canonical).digest('hex');
 }
 
 // ─── validateType ────────────────────────────────────────────────────────────
@@ -53,37 +68,32 @@ function computeContractHash(typeJson) {
  *  - Types must be flat: no nested objects, no arrays-of-objects, no $ref.
  *  - sqlSchema must be a non-empty array of SQL DDL strings.
  *  - meta.description is required.
- *
- * @param {unknown} typeJson
- * @returns {{ valid: boolean, errors: Array<{path:string, message:string, rule:string}> }}
  */
-function validateType(typeJson) {
-  const errors = [];
+export function validateType(typeJsonInput: unknown): ValidationResult {
+  const errors: ValidationError[] = [];
 
-  if (typeof typeJson !== 'object' || typeJson === null || Array.isArray(typeJson)) {
+  if (typeof typeJsonInput !== 'object' || typeJsonInput === null || Array.isArray(typeJsonInput)) {
     return { valid: false, errors: [e('', 'type.json must be a non-null object', 'type')] };
   }
+  const typeJson: any = typeJsonInput;
 
-  // Required top-level fields
   for (const f of ['meta', 'jsonSchema', 'sqlSchema']) {
     if (typeJson[f] == null) errors.push(e(f, `Required field "${f}" is missing`, 'required'));
   }
 
-  // meta
   const meta = typeJson.meta;
   if (meta && typeof meta === 'object') {
     if (!meta.description) {
       errors.push(e('meta.description', 'meta.description is required', 'required'));
     }
 
-    // UUID arrays inside meta
     for (const f of UUID_ARRAYS) {
       const v = meta[f];
       if (v == null) continue;
       if (!Array.isArray(v)) {
         errors.push(e(`meta.${f}`, `"meta.${f}" must be an array`, 'type'));
       } else {
-        v.forEach((u, i) => {
+        v.forEach((u: unknown, i: number) => {
           if (!isUUID(u)) errors.push(e(`meta.${f}[${i}]`, `Not a valid UUID: "${u}"`, 'format:uuid'));
         });
       }
@@ -101,7 +111,7 @@ function validateType(typeJson) {
       if (!Array.isArray(fns)) {
         errors.push(e('meta.functions', 'meta.functions must be an array of UUIDs', 'type'));
       } else {
-        fns.forEach((u, i) => {
+        fns.forEach((u: unknown, i: number) => {
           if (!isUUID(u)) errors.push(e(`meta.functions[${i}]`, `Not a valid UUID: "${u}"`, 'format:uuid'));
         });
       }
@@ -124,7 +134,6 @@ function validateType(typeJson) {
     }
   }
 
-  // jsonSchema
   const js = typeJson.jsonSchema;
   if (js && typeof js === 'object') {
     if (js.$schema !== 'http://json-schema.org/draft-07/schema#') {
@@ -139,14 +148,13 @@ function validateType(typeJson) {
     if (!props || typeof props !== 'object') {
       errors.push(e('jsonSchema.properties', 'jsonSchema.properties must be an object', 'required'));
     } else {
-      for (const [name, prop] of Object.entries(props)) {
+      for (const [name, prop] of Object.entries<any>(props)) {
         const base = `jsonSchema.properties.${name}`;
         if (typeof prop !== 'object' || prop === null) {
           errors.push(e(base, `Property definition for "${name}" must be an object`, 'type'));
           continue;
         }
 
-        // x-id: every Kanecta field must carry a stable UUID
         if (!prop['x-id']) {
           errors.push(e(base,
             `Property "${name}" is missing "x-id" — every Kanecta type field requires a stable UUID so it can survive renames`,
@@ -156,21 +164,16 @@ function validateType(typeJson) {
             `x-id must be a valid UUID, got "${prop['x-id']}"`, 'format:uuid'));
         }
 
-        // No JSON Schema $ref — use typeId instead
         if (prop.$ref) {
           errors.push(e(base,
             `Property "${name}" uses $ref — Kanecta uses typeId (a UUID string) instead of $ref`,
             'kanecta:no-ref'));
         }
-
-        // Flat: no inline nested objects
         if (prop.type === 'object') {
           errors.push(e(base,
             `Property "${name}" has type "object" — Kanecta types must be flat; model this concept as its own child type and reference it via typeId`,
             'kanecta:flat'));
         }
-
-        // Flat: arrays must contain primitives only
         if (prop.type === 'array' && prop.items) {
           if (prop.items.type === 'object') {
             errors.push(e(`${base}.items`,
@@ -187,13 +190,12 @@ function validateType(typeJson) {
     }
   }
 
-  // sqlSchema
   const sql = typeJson.sqlSchema;
   if (sql != null) {
     if (!Array.isArray(sql) || sql.length === 0) {
       errors.push(e('sqlSchema', 'sqlSchema must be a non-empty array of SQL DDL strings', 'required'));
     } else {
-      sql.forEach((s, i) => {
+      sql.forEach((s: unknown, i: number) => {
         if (typeof s !== 'string') {
           errors.push(e(`sqlSchema[${i}]`, `sqlSchema entries must be strings, got ${typeof s}`, 'type'));
         }
@@ -208,42 +210,26 @@ function validateType(typeJson) {
 
 /**
  * Validates a metadata.json object.
- *
- * @param {unknown} meta
- * @returns {{ valid: boolean, errors: Array<{path:string, message:string, rule:string}> }}
  */
-function validateMetadata(meta) {
-  const errors = [];
+export function validateMetadata(metaInput: unknown): ValidationResult {
+  const errors: ValidationError[] = [];
 
-  if (typeof meta !== 'object' || meta === null || Array.isArray(meta)) {
+  if (typeof metaInput !== 'object' || metaInput === null || Array.isArray(metaInput)) {
     return { valid: false, errors: [e('', 'metadata.json must be a non-null object', 'type')] };
   }
+  const meta: any = metaInput;
 
-  // parentId must be present (may be null)
   if (!('parentId' in meta)) {
     errors.push(e('parentId', 'Required field "parentId" is missing', 'required'));
   }
 
-  // Other required fields must be non-null
-  for (const f of ['id', 'specVersion', 'value', 'type', 'owner', 'license', 'createdAt', 'modifiedAt']) {
+  for (const f of ['id', 'value', 'type', 'owner', 'license', 'createdAt', 'modifiedAt']) {
     if (meta[f] == null) errors.push(e(f, `Required field "${f}" is missing or null`, 'required'));
   }
 
-  if (meta.id != null && !isUUID(meta.id)) {
-    errors.push(e('id', `id must be a valid UUID, got "${meta.id}"`, 'format:uuid'));
-  }
-
-  if (meta.specVersion != null && !isSemver(meta.specVersion)) {
-    errors.push(e('specVersion', `specVersion must be a semver string (e.g. "1.3.0"), got "${meta.specVersion}"`, 'format:semver'));
-  }
-
-  if (meta.license != null && !isUUID(meta.license)) {
-    errors.push(e('license', `license must be a valid UUID, got "${meta.license}"`, 'format:uuid'));
-  }
-
-  if (meta.typeId != null && !isUUID(meta.typeId)) {
-    errors.push(e('typeId', `typeId must be a valid UUID, got "${meta.typeId}"`, 'format:uuid'));
-  }
+  if (meta.id      != null && !isUUID(meta.id))      errors.push(e('id',      `id must be a valid UUID, got "${meta.id}"`,           'format:uuid'));
+  if (meta.license != null && !isUUID(meta.license))  errors.push(e('license', `license must be a valid UUID, got "${meta.license}"`, 'format:uuid'));
+  if (meta.typeId  != null && !isUUID(meta.typeId))   errors.push(e('typeId',  `typeId must be a valid UUID, got "${meta.typeId}"`,   'format:uuid'));
 
   if (meta.type === 'object' && !meta.typeId) {
     errors.push(e('typeId', 'Items of type "object" must have a typeId', 'kanecta:object-requires-typeid'));
@@ -260,7 +246,6 @@ function validateMetadata(meta) {
       errors.push(e(f, `${f} must be an ISO 8601 datetime string, got "${meta[f]}"`, 'format:date-time'));
     }
   }
-
   for (const f of ['cachedAt', 'subscribedAt', 'completedAt', 'dueAt']) {
     if (meta[f] != null && !isISO8601(meta[f])) {
       errors.push(e(f, `${f} must be an ISO 8601 datetime string or null, got "${meta[f]}"`, 'format:date-time'));
@@ -269,15 +254,14 @@ function validateMetadata(meta) {
 
   if (meta.visibility != null && !VISIBILITY.has(meta.visibility)) {
     errors.push(e('visibility',
-      `visibility must be one of: ${[...VISIBILITY].join(', ')}, got "${meta.visibility}"`,
-      'enum'));
+      `visibility must be one of: ${[...VISIBILITY].join(', ')}, got "${meta.visibility}"`, 'enum'));
   }
 
   if (meta.tags != null) {
     if (!Array.isArray(meta.tags)) {
       errors.push(e('tags', 'tags must be an array', 'type'));
     } else {
-      meta.tags.forEach((t, i) => {
+      meta.tags.forEach((t: unknown, i: number) => {
         if (typeof t !== 'string') errors.push(e(`tags[${i}]`, 'Each tag must be a string', 'type'));
       });
     }
@@ -292,16 +276,17 @@ function validateMetadata(meta) {
  * Validates item data against a type's jsonSchema.
  * Checks required fields, types, and formats (uuid, date, date-time).
  *
- * @param {unknown} data     - The item's field data object.
- * @param {object}  typeJson - The type.json for this item's type.
- * @returns {{ valid: boolean, errors: Array<{path:string, message:string, rule:string}> }}
+ * @param data     - The item's field data object.
+ * @param typeJson - The type.json for this item's type.
  */
-function validateItem(data, typeJson) {
-  const errors = [];
+export function validateItem(dataInput: unknown, typeJsonInput: object): ValidationResult {
+  const errors: ValidationError[] = [];
 
-  if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+  if (typeof dataInput !== 'object' || dataInput === null || Array.isArray(dataInput)) {
     return { valid: false, errors: [e('', 'Item data must be a non-null object', 'type')] };
   }
+  const data: any = dataInput;
+  const typeJson: any = typeJsonInput;
   if (!typeJson || typeof typeJson.jsonSchema !== 'object') {
     return { valid: false, errors: [e('', 'typeJson with a jsonSchema object is required', 'required')] };
   }
@@ -313,7 +298,7 @@ function validateItem(data, typeJson) {
     if (data[f] == null) errors.push(e(f, `Required field "${f}" is missing or null`, 'required'));
   }
 
-  for (const [name, def] of Object.entries(props)) {
+  for (const [name, def] of Object.entries<any>(props)) {
     const val = data[name];
     if (val == null) continue;
 
@@ -340,18 +325,18 @@ function validateItem(data, typeJson) {
       if (!Array.isArray(val)) {
         errors.push(e(name, `Expected array, got ${typeof val}`, 'type'));
       } else if (def.items) {
-        const it  = def.items.type;
+        const it   = def.items.type;
         const ifmt = def.items.format;
-        val.forEach((v, i) => {
+        val.forEach((v: unknown, i: number) => {
           if (it === 'string') {
             if (typeof v !== 'string') {
               errors.push(e(`${name}[${i}]`, `Expected string, got ${typeof v}`, 'type'));
             } else if (ifmt === 'uuid' && !isUUID(v)) {
               errors.push(e(`${name}[${i}]`, `Expected a valid UUID, got "${v}"`, 'format:uuid'));
             }
-          } else if (it === 'number'  && typeof v !== 'number')     { errors.push(e(`${name}[${i}]`, `Expected number, got ${typeof v}`, 'type')); }
-          else if (it === 'integer' && !Number.isInteger(v))        { errors.push(e(`${name}[${i}]`, `Expected integer, got ${v}`, 'type')); }
-          else if (it === 'boolean' && typeof v !== 'boolean')      { errors.push(e(`${name}[${i}]`, `Expected boolean, got ${typeof v}`, 'type')); }
+          } else if (it === 'number'  && typeof v !== 'number')  { errors.push(e(`${name}[${i}]`, `Expected number, got ${typeof v}`, 'type')); }
+          else if   (it === 'integer' && !Number.isInteger(v))   { errors.push(e(`${name}[${i}]`, `Expected integer, got ${v}`, 'type')); }
+          else if   (it === 'boolean' && typeof v !== 'boolean') { errors.push(e(`${name}[${i}]`, `Expected boolean, got ${typeof v}`, 'type')); }
         });
       }
     }
@@ -371,28 +356,26 @@ function validateItem(data, typeJson) {
 
 /**
  * Validates a function.json object.
- *
- * @param {unknown} fn
- * @returns {{ valid: boolean, errors: Array<{path:string, message:string, rule:string}> }}
  */
-function validateFunction(fn) {
-  const errors = [];
+export function validateFunction(fnInput: unknown): ValidationResult {
+  const errors: ValidationError[] = [];
 
-  if (typeof fn !== 'object' || fn === null || Array.isArray(fn)) {
+  if (typeof fnInput !== 'object' || fnInput === null || Array.isArray(fnInput)) {
     return { valid: false, errors: [e('', 'function.json must be a non-null object', 'type')] };
   }
+  const fn: any = fnInput;
 
   if (!Array.isArray(fn.parameters)) {
     errors.push(e('parameters', 'parameters must be an array', 'required'));
   } else {
-    fn.parameters.forEach((p, i) => {
+    fn.parameters.forEach((p: any, i: number) => {
       const base = `parameters[${i}]`;
       if (!p.name) errors.push(e(`${base}.name`, 'Parameter name is required', 'required'));
       if (!p.type && !p.typeId) {
-        errors.push(e(base, `Parameter "${p.name || i}" must have either type or typeId`, 'required'));
+        errors.push(e(base, `Parameter "${p.name ?? i}" must have either type or typeId`, 'required'));
       }
       if (p.type && p.typeId) {
-        errors.push(e(base, `Parameter "${p.name || i}" must have type or typeId, not both`, 'exclusive'));
+        errors.push(e(base, `Parameter "${p.name ?? i}" must have type or typeId, not both`, 'exclusive'));
       }
       if (p.typeId != null && !isUUID(p.typeId)) {
         errors.push(e(`${base}.typeId`, `typeId must be a valid UUID, got "${p.typeId}"`, 'format:uuid'));
@@ -432,7 +415,3 @@ function validateFunction(fn) {
 
   return { valid: errors.length === 0, errors };
 }
-
-// ─── exports ─────────────────────────────────────────────────────────────────
-
-module.exports = { validateType, validateMetadata, validateItem, validateFunction };
