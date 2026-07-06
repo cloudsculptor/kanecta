@@ -1,4 +1,4 @@
-const app = require('./app');
+import app from './app.ts';
 
 // Datastore selection is resolved from config.json (located via KANECTA_CONFIG) —
 // there is no KANECTA_DATASTORE default. See @kanecta/lib appConfig.

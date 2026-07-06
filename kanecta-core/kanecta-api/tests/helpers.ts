@@ -1,13 +1,11 @@
-'use strict';
-
 // Point the API at a temp datastore via KANECTA_CONFIG. The API no longer reads
 // KANECTA_DATASTORE — it resolves the active working set from config.json.
 
-const os = require('os');
-const path = require('path');
-const fs = require('fs');
+import os from 'os';
+import path from 'path';
+import fs from 'fs';
 
-function useConfig(datastoreRoot, name = 'default') {
+export function useConfig(datastoreRoot, name = 'default') {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanecta-api-cfg-'));
   fs.writeFileSync(
     path.join(dir, 'config.json'),
@@ -21,10 +19,8 @@ function useConfig(datastoreRoot, name = 'default') {
   return dir;
 }
 
-function clearConfigEnv() {
+export function clearConfigEnv() {
   delete process.env.KANECTA_CONFIG;
   delete process.env.KANECTA_WORKING_SET;
   delete process.env.KANECTA_BRANCH;
 }
-
-module.exports = { useConfig, clearConfigEnv };

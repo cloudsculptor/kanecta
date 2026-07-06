@@ -5,15 +5,6 @@
 # (kanecta-app-community-hub is EXCLUDED from the gate and from migration — prod app.)
 #
 # MIGRATION RATCHET: convert each to .ts and DELETE its line. Goal: zero.
-kanecta-core/kanecta-api/src/app.js
-kanecta-core/kanecta-api/src/middleware/auth.js
-kanecta-core/kanecta-api/src/server.js
-kanecta-core/kanecta-api/tests/__mocks__/jose.js
-kanecta-core/kanecta-api/tests/api-1.4.0.test.js
-kanecta-core/kanecta-api/tests/api.test.js
-kanecta-core/kanecta-api/tests/auth.test.js
-kanecta-core/kanecta-api/tests/branches.test.js
-kanecta-core/kanecta-api/tests/helpers.js
 kanecta-core/kanecta-migrations/1.3.0/migrate-1.2.0-to-1.3.0.js
 kanecta-core/kanecta-migrations/1.3.0/migrate-filesystem-to-postgres.js
 kanecta-core/kanecta-migrations/1.4.0/migrate-1.3.0-to-1.4.0.js

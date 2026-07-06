@@ -1,13 +1,12 @@
-'use strict';
-
-const jwt = require('jsonwebtoken');
-const jwksClient = require('jwks-rsa');
+import jwt from 'jsonwebtoken';
+import jwksClient from 'jwks-rsa';
+import type { Request, Response, NextFunction } from 'express';
 
 // Kanecta is installed into client systems that bring their own Keycloak —
 // there is no default realm to fall back to, every deployment must supply
 // KEYCLOAK_URL and KEYCLOAK_REALM explicitly.
-let _client = null;
-let _issuer = null;
+let _client: any = null;
+let _issuer: string | null = null;
 
 function getJwksClient() {
   const KEYCLOAK_URL = process.env.KEYCLOAK_URL;
@@ -29,16 +28,16 @@ function getJwksClient() {
   return { client: _client, issuer: _issuer };
 }
 
-function getKey(client) {
-  return (header, callback) => {
-    client.getSigningKey(header.kid, (err, key) => {
+function getKey(client: any) {
+  return (header: any, callback: any) => {
+    client.getSigningKey(header.kid, (err: any, key: any) => {
       if (err) return callback(err);
       callback(null, key.getPublicKey());
     });
   };
 }
 
-function requireAuth(req, res, next) {
+function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (process.env.AUTH_DISABLED === 'true') {
     req.user = { id: 'local-dev', name: 'Local Dev', roles: ['admin'], email_verified: true };
     return next();
@@ -52,12 +51,12 @@ function requireAuth(req, res, next) {
   let client, issuer;
   try {
     ({ client, issuer } = getJwksClient());
-  } catch (err) {
+  } catch (err: any) {
     return res.status(503).json({ error: err.message });
   }
 
   const token = authHeader.slice(7);
-  jwt.verify(token, getKey(client), { issuer }, (err, decoded) => {
+  jwt.verify(token, getKey(client), { issuer } as any, (err: any, decoded: any) => {
     if (err) return res.status(401).json({ error: 'Invalid token' });
     req.user = {
       id: decoded.sub,
@@ -69,12 +68,12 @@ function requireAuth(req, res, next) {
   });
 }
 
-function requireRole(...roles) {
-  return (req, res, next) => {
+function requireRole(...roles: string[]) {
+  return (req: Request, res: Response, next: NextFunction) => {
     const hasRole = roles.some((r) => req.user?.roles.includes(r));
     if (!hasRole) return res.status(403).json({ error: 'Insufficient role' });
     next();
   };
 }
 
-module.exports = { requireAuth, requireRole };
+export { requireAuth, requireRole };

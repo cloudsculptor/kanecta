@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  * Tests for kanecta-api 1.4.0 features:
  *  - POST /items/:id/soft-delete
@@ -9,12 +7,13 @@
  *  - GET /search: excludes soft-deleted by default, includeDeleted param
  */
 
-const os = require('os');
-const path = require('path');
-const fs = require('fs');
-const request = require('supertest');
-const { Datastore } = require('@kanecta/lib');
-const app = require('../src/app');
+import os from 'os';
+import path from 'path';
+import fs from 'fs';
+import request from 'supertest';
+import { Datastore } from '@kanecta/lib';
+import app from '../src/app.ts';
+import { useConfig, clearConfigEnv } from './helpers.ts';
 
 let tmpRoot;
 let ds;
@@ -22,7 +21,7 @@ let ds;
 beforeEach(async () => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'kanecta-api-1.4.0-test-'));
   ds = Datastore.init(tmpRoot, 'test@example.com');
-  require('./helpers').useConfig(tmpRoot);
+  useConfig(tmpRoot);
   process.env.AUTH_DISABLED = 'true';
   // Point XDG_CONFIG_HOME at the empty tmpRoot so readAppConfig() returns null
   // and the API falls through to filesystem mode (KANECTA_DATASTORE). Without
@@ -33,7 +32,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   fs.rmSync(tmpRoot, { recursive: true, force: true });
-  require('./helpers').clearConfigEnv();
+  clearConfigEnv();
   delete process.env.AUTH_DISABLED;
   delete process.env.XDG_CONFIG_HOME;
 });

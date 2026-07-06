@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  * Tests for the working-set branch diff/merge endpoints:
  *  - GET  /working-sets/:name/branches/:branch/diff
@@ -9,12 +7,13 @@
  * "Create Pull Request" (local merge into main) action.
  */
 
-const os = require('os');
-const path = require('path');
-const fs = require('fs');
-const request = require('supertest');
-const { Datastore } = require('@kanecta/lib');
-const app = require('../src/app');
+import os from 'os';
+import path from 'path';
+import fs from 'fs';
+import request from 'supertest';
+import { Datastore } from '@kanecta/lib';
+import app from '../src/app.ts';
+import { useConfig, clearConfigEnv } from './helpers.ts';
 
 let tmpRoot;
 let ds;
@@ -22,13 +21,13 @@ let ds;
 beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'kanecta-api-branches-test-'));
   ds = Datastore.init(tmpRoot, 'test@example.com');
-  require('./helpers').useConfig(tmpRoot); // working set "default" → tmpRoot
+  useConfig(tmpRoot); // working set "default" → tmpRoot
   process.env.AUTH_DISABLED = 'true';
 });
 
 afterEach(() => {
   fs.rmSync(tmpRoot, { recursive: true, force: true });
-  require('./helpers').clearConfigEnv();
+  clearConfigEnv();
   delete process.env.AUTH_DISABLED;
 });
 

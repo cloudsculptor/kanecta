@@ -1,5 +1,3 @@
-'use strict';
-
 // Integration tests for the requireAuth/requireRole middleware, run against a
 // *real* Keycloak instance (not mocked JWTs) — see kanecta-keycloak/.
 //
@@ -10,13 +8,16 @@
 // local Postgres — except here we degrade gracefully since most contributors
 // won't have Keycloak running locally).
 
-const os = require('os');
-const path = require('path');
-const fs = require('fs');
-const { execFileSync } = require('child_process');
-const express = require('express');
-const request = require('supertest');
-const { Datastore } = require('@kanecta/lib');
+import { vi } from 'vitest';
+import os from 'os';
+import path from 'path';
+import fs from 'fs';
+import { execFileSync } from 'child_process';
+import express from 'express';
+import request from 'supertest';
+import { Datastore } from '@kanecta/lib';
+import { requireAuth, requireRole } from '../src/middleware/auth.ts';
+import { useConfig, clearConfigEnv } from './helpers.ts';
 
 const KEYCLOAK_URL = process.env.KANECTA_TEST_KEYCLOAK_URL || 'http://localhost:45980';
 const REALM = process.env.KANECTA_TEST_KEYCLOAK_REALM || 'kanecta-test';
@@ -73,11 +74,11 @@ describeOrSkip('requireAuth / requireRole (real Keycloak)', () => {
     process.env.KEYCLOAK_REALM = REALM;
     delete process.env.AUTH_DISABLED;
 
-    // app.js caches the jwks client at module scope keyed by issuer, and reads
-    // env vars at require-time-adjacent points — re-require fresh so it picks
+    // app.ts caches the jwks client at module scope keyed by issuer, and reads
+    // env vars at require-time-adjacent points — re-import fresh so it picks
     // up the env vars set above.
-    delete require.cache[require.resolve('../src/app')];
-    app = require('../src/app');
+    vi.resetModules();
+    app = (await import('../src/app.ts')).default;
 
     [adminToken, memberToken] = await Promise.all([fetchToken(ADMIN_USER), fetchToken(MEMBER_USER)]);
   }, 60_000);
@@ -85,12 +86,12 @@ describeOrSkip('requireAuth / requireRole (real Keycloak)', () => {
   beforeEach(() => {
     tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'kanecta-api-auth-test-'));
     Datastore.init(tmpRoot, 'test@example.com');
-    require('./helpers').useConfig(tmpRoot);
+    useConfig(tmpRoot);
   });
 
   afterEach(() => {
     fs.rmSync(tmpRoot, { recursive: true, force: true });
-    require('./helpers').clearConfigEnv();
+    clearConfigEnv();
   });
 
   afterAll(() => {
@@ -123,7 +124,7 @@ describeOrSkip('requireAuth / requireRole (real Keycloak)', () => {
 
   test('decodes roles, name and email_verified for the admin user', async () => {
     const app2 = express();
-    app2.get('/whoami', require('../src/middleware/auth').requireAuth, (req, res) => res.json(req.user));
+    app2.get('/whoami', requireAuth, (req, res) => res.json(req.user));
 
     const res = await request(app2).get('/whoami').set('Authorization', `Bearer ${adminToken}`);
     expect(res.status).toBe(200);
@@ -135,7 +136,7 @@ describeOrSkip('requireAuth / requireRole (real Keycloak)', () => {
 
   test('decodes roles for the member user', async () => {
     const app2 = express();
-    app2.get('/whoami', require('../src/middleware/auth').requireAuth, (req, res) => res.json(req.user));
+    app2.get('/whoami', requireAuth, (req, res) => res.json(req.user));
 
     const res = await request(app2).get('/whoami').set('Authorization', `Bearer ${memberToken}`);
     expect(res.status).toBe(200);
@@ -147,7 +148,6 @@ describeOrSkip('requireAuth / requireRole (real Keycloak)', () => {
     let roleApp;
 
     beforeAll(() => {
-      const { requireAuth, requireRole } = require('../src/middleware/auth');
       roleApp = express();
       roleApp.get('/admin-only', requireAuth, requireRole('admin'), (req, res) => res.json({ ok: true }));
     });
@@ -169,20 +169,20 @@ describeOrSkip('requireAuth / requireRole (real Keycloak)', () => {
 describe('requireAuth (AUTH_DISABLED bypass)', () => {
   let app;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     process.env.AUTH_DISABLED = 'true';
-    delete require.cache[require.resolve('../src/app')];
-    app = require('../src/app');
+    vi.resetModules();
+    app = (await import('../src/app.ts')).default;
   });
 
   afterAll(() => {
     delete process.env.AUTH_DISABLED;
-    delete require.cache[require.resolve('../src/app')];
+    vi.resetModules();
   });
 
   test('populates a local-dev req.user without a token', async () => {
     const app2 = express();
-    app2.get('/whoami', require('../src/middleware/auth').requireAuth, (req, res) => res.json(req.user));
+    app2.get('/whoami', requireAuth, (req, res) => res.json(req.user));
 
     const res = await request(app2).get('/whoami');
     expect(res.status).toBe(200);

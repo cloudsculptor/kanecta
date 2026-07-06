@@ -1,11 +1,10 @@
-'use strict';
-
-const os = require('os');
-const path = require('path');
-const fs = require('fs');
-const request = require('supertest');
-const { Datastore } = require('@kanecta/lib');
-const app = require('../src/app');
+import os from 'os';
+import path from 'path';
+import fs from 'fs';
+import request from 'supertest';
+import { Datastore } from '@kanecta/lib';
+import app from '../src/app.ts';
+import { useConfig, clearConfigEnv } from './helpers.ts';
 
 
 let tmpRoot;
@@ -14,7 +13,7 @@ let ds;
 beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'kanecta-api-test-'));
   ds = Datastore.init(tmpRoot, 'test@example.com');
-  require('./helpers').useConfig(tmpRoot);
+  useConfig(tmpRoot);
   process.env.AUTH_DISABLED = 'true';
   // Block workspace mode so the API uses KANECTA_DATASTORE (filesystem fallback).
   process.env.XDG_CONFIG_HOME = tmpRoot;
@@ -22,7 +21,7 @@ beforeEach(() => {
 
 afterEach(() => {
   fs.rmSync(tmpRoot, { recursive: true, force: true });
-  require('./helpers').clearConfigEnv();
+  clearConfigEnv();
   delete process.env.AUTH_DISABLED;
   delete process.env.XDG_CONFIG_HOME;
 });

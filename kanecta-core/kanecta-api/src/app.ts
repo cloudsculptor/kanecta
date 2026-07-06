@@ -1,28 +1,30 @@
-'use strict';
-
-const express = require('express');
-const {
+/// <reference path="./express-shim.d.ts" />
+import express from 'express';
+import {
   Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE,
   readAppConfig, resolveWorkingSet, resolveBranch, workingSetLocalPath,
   setActiveWorkingSet, setActiveBranch,
-} = require('@kanecta/lib');
-const claude = require('@kanecta/ai');
-const { generateFunctionScaffold, getRuntimeDir, computeBundleHash, toCamelCase, toPythonName, VALID_RUNTIME_RE } = require('@kanecta/lib');
-const { requireAuth } = require('./middleware/auth');
-const { spawnSync, spawn } = require('child_process');
+} from '@kanecta/lib';
+import * as claude from '@kanecta/ai';
+import { generateFunctionScaffold, getRuntimeDir, computeBundleHash, toCamelCase, toPythonName, VALID_RUNTIME_RE } from '@kanecta/lib';
+import { requireAuth } from './middleware/auth.ts';
+import { spawnSync, spawn } from 'child_process';
+import path from 'path';
+import fs from 'fs';
+import os from 'os';
 
-function readBuildHash(runtimeDir) {
+function readBuildHash(runtimeDir: string) {
   try { return fs.readFileSync(path.join(runtimeDir, '.build-hash'), 'utf8').trim(); } catch { return null; }
 }
 
-function writeBuildHash(runtimeDir) {
+function writeBuildHash(runtimeDir: string) {
   try {
     const hash = computeBundleHash(runtimeDir);
     if (hash) fs.writeFileSync(path.join(runtimeDir, '.build-hash'), hash + '\n', 'utf8');
   } catch { /* not critical */ }
 }
 
-function runtimeFromQuery(req) {
+function runtimeFromQuery(req: any) {
   const rt = req.query.runtime ?? 'typescript';
   return VALID_RUNTIME_RE.test(rt) ? rt : 'typescript';
 }
@@ -31,9 +33,6 @@ const app = express();
 app.use(express.json());
 app.use(requireAuth);
 
-const path = require('path');
-const fs = require('fs');
-const os = require('os');
 // readAppConfig / resolveWorkingSet / resolveBranch / workingSetLocalPath come from
 // @kanecta/lib — the single config+state resolver shared by every entry point.
 
@@ -41,12 +40,12 @@ const os = require('os');
 // per request exhausts Postgres' connection limit within minutes. Cache the
 // opened datastore (keyed by resolved identity) and reuse it across requests;
 // re-open only if the resolved workspace/path changes.
-let _datastoreCache = null; // { key, promise }
+let _datastoreCache: any = null; // { key, promise }
 
 // Local filesystem path + default branch for a working set, or null for a
 // cloud-only working set. Thin wrapper over the lib resolver for the endpoints
 // that enumerate working sets.
-function workingSetLocal(workingSet) {
+function workingSetLocal(workingSet: any) {
   const localPath = workingSetLocalPath(workingSet);
   if (!localPath) return null;
   return { localPath, branch: workingSet?.defaultBranch ?? workingSet?.branch ?? 'main' };
@@ -57,7 +56,7 @@ function workingSetLocal(workingSet) {
 // X-Kanecta-Branch headers; otherwise the active selection (env → state.json →
 // config default) is used. Returns { name, workingSet, localPath, branch }; throws
 // with a clear message if nothing resolves.
-function resolveActive(req) {
+function resolveActive(req?: any) {
   const wsOverride = req?.query?.workingSet || req?.get?.('x-kanecta-working-set');
   const { name, workingSet } = resolveWorkingSet(wsOverride);
   const branchOverride = req?.query?.branch || req?.get?.('x-kanecta-branch');
@@ -71,7 +70,7 @@ function resolveActive(req) {
 
 // Sync helper for filesystem-path handlers: the active working set's local path,
 // or null (after sending a 503) if it cannot be resolved.
-function activeRoot(res, req) {
+function activeRoot(res: any, req?: any) {
   try {
     const { localPath } = resolveActive(req);
     if (!localPath) {
@@ -79,7 +78,7 @@ function activeRoot(res, req) {
       return null;
     }
     return localPath;
-  } catch (err) {
+  } catch (err: any) {
     res.status(503).json({ error: err.message });
     return null;
   }
@@ -91,11 +90,11 @@ function activeLocalPath() {
   try { return resolveActive().localPath || null; } catch { return null; }
 }
 
-async function openDatastore(res, req) {
+async function openDatastore(res: any, req?: any) {
   let resolved;
   try {
     resolved = resolveActive(req);
-  } catch (err) {
+  } catch (err: any) {
     res.status(503).json({ error: err.message });
     return null;
   }
@@ -125,26 +124,26 @@ async function openDatastore(res, req) {
 
   try {
     return await _datastoreCache.promise;
-  } catch (err) {
+  } catch (err: any) {
     _datastoreCache = null;
     res.status(503).json({ error: `${errorPrefix}: ${err.message}` });
     return null;
   }
 }
 
-function isUuid(str) {
+function isUuid(str: any) {
   return UUID_RE.test(str);
 }
 
-function isSyntheticId(str) {
+function isSyntheticId(str: any) {
   return typeof str === 'string' && str.includes('__');
 }
 
-function isValidId(str) {
+function isValidId(str: any) {
   return isUuid(str) || isSyntheticId(str);
 }
 
-async function withChildCounts(ds, items) {
+async function withChildCounts(ds: any, items: any[]) {
   const all = await ds.loadAll();
   const counts = new Map();
   for (const item of all) {
@@ -164,7 +163,7 @@ async function withChildCounts(ds, items) {
   }));
 }
 
-async function getAncestorChain(ds, id) {
+async function getAncestorChain(ds: any, id: any) {
   const ancestors = [];
   const seen = new Set([id]);
   let item = await ds.get(id);
@@ -178,7 +177,7 @@ async function getAncestorChain(ds, id) {
   return ancestors;
 }
 
-async function collectSubtreeIds(ds, id) {
+async function collectSubtreeIds(ds: any, id: any) {
   const ids = [id];
   for (const child of await ds.children(id)) {
     ids.push(...await collectSubtreeIds(ds, child.id));
@@ -186,7 +185,7 @@ async function collectSubtreeIds(ds, id) {
   return ids;
 }
 
-async function cloneSubtree(ds, sourceId, targetParentId, actor) {
+async function cloneSubtree(ds: any, sourceId: any, targetParentId: any, actor: any) {
   const source = await ds.get(sourceId);
   if (!source) return null;
   const cloned = await ds.create({
@@ -208,7 +207,7 @@ async function cloneSubtree(ds, sourceId, targetParentId, actor) {
 
 // ─── Search ───────────────────────────────────────────────────────────────────
 
-function matchObjectData(objectData, q, fields) {
+function matchObjectData(objectData: any, q: any, fields: any) {
   if (!objectData || typeof objectData !== 'object') return false;
 
   const keys = Array.isArray(fields) && fields.length > 0
@@ -264,7 +263,7 @@ app.get('/working-sets', async (req, res) => {
   try { activeWorkingSet = resolveWorkingSet().name; } catch { /* none active */ }
 
   const workingSets = await Promise.all(
-    Object.entries(appCfg.workingSets).map(async ([name, ws]) => {
+    Object.entries(appCfg.workingSets).map(async ([name, ws]: [string, any]) => {
       const local = workingSetLocal(ws);
       const configBranch = resolveBranch(name);
       let branches = [{ name: 'main', active: configBranch === 'main', baseBranch: null }];
@@ -278,7 +277,7 @@ app.get('/working-sets', async (req, res) => {
           currentBranch = dbBranch;
           branches = [
             { name: 'main', active: dbBranch === 'main', baseBranch: null },
-            ...dbBranches.map(b => ({ name: b.name, active: b.name === dbBranch, baseBranch: b.baseBranch })),
+            ...dbBranches.map((b: any) => ({ name: b.name, active: b.name === dbBranch, baseBranch: b.baseBranch })),
           ];
         } catch { /* use defaults */ }
       }
@@ -327,7 +326,7 @@ app.post('/working-sets/:name/branches', async (req, res) => {
     // the current branch) and stores only local changes; 'full' (default) copies.
     const branch = ds.createBranch(branchName, fill ? { fill, upstream } : undefined);
     res.json({ ok: true, branch });
-  } catch (err) {
+  } catch (err: any) {
     res.status(400).json({ error: err.message });
   }
 });
@@ -346,7 +345,7 @@ app.post('/working-sets/:name/branches/:branch/switch', async (req, res) => {
     // Invalidate the datastore cache so the next request re-resolves the branch.
     _datastoreCache = null;
     res.json({ ok: true, branch });
-  } catch (err) {
+  } catch (err: any) {
     res.status(400).json({ error: err.message });
   }
 });
@@ -367,7 +366,7 @@ app.get('/working-sets/:name/branches/:branch/diff', async (req, res) => {
       edits: diff.edits.length,
       deletes: diff.deletes.length,
     });
-  } catch (err) {
+  } catch (err: any) {
     res.status(400).json({ error: err.message });
   }
 });
@@ -393,7 +392,7 @@ app.get('/working-sets/:name/branches/:branch/merge-preview', async (req, res) =
       conflicts: preview.conflicts,
       blastRadius: preview.blastRadius,
     });
-  } catch (err) {
+  } catch (err: any) {
     res.status(400).json({ error: err.message });
   }
 });
@@ -426,7 +425,7 @@ app.post('/working-sets/:name/branches/:branch/merge', async (req, res) => {
       conflicts: result.conflicts,
       blastRadius: result.blastRadius,
     });
-  } catch (err) {
+  } catch (err: any) {
     if (err.code === 'MERGE_CONFLICT')
       return res.status(409).json({ error: err.message, code: err.code, conflicts: err.conflicts });
     if (err.code === 'MERGE_BLAST_RADIUS')
@@ -476,11 +475,11 @@ app.post('/open-in-browser', async (req, res) => {
       'chromium-browser',
       'chromium',
       'google-chrome',
-    ].filter(Boolean);
+    ].filter(Boolean) as string[];
     for (const browser of candidates) {
       const found = spawnSync('which', [browser], { encoding: 'utf8' });
       if (found.status === 0) {
-        spawnSync(browser, [url], { shell: false, detached: true });
+        spawnSync(browser, [url], { shell: false, detached: true } as any);
         break;
       }
     }
@@ -512,7 +511,7 @@ app.get('/search', async (req, res) => {
   const queryLower = q.toLowerCase();
   const showDeleted = includeDeleted === 'true' || includeDeleted === '1';
 
-  const allItems = (await ds.loadAll()).filter(i => showDeleted || i.deletedAt == null);
+  const allItems = (await ds.loadAll()).filter((i: any) => showDeleted || i.deletedAt == null);
   let candidates = [];
   for (const i of allItems) {
     if (i.value && typeof i.value === 'string' && i.value.toLowerCase().includes(queryLower)) {
@@ -552,12 +551,12 @@ app.get('/items', async (req, res) => {
   if (typeMatch) {
     const typeId = typeMatch[1];
     const ids = await ds.byType(typeId);
-    const items = (await Promise.all(ids.map(id => ds.get(id)))).filter(Boolean);
+    const items = (await Promise.all(ids.map((id: any) => ds.get(id)))).filter(Boolean);
     return res.json(await withChildCounts(ds, items));
   }
   const root = await ds.getRoot();
   const all = root ? await ds.children(root.id) : [];
-  const items = all.filter(i => !i.id.includes('__') && !i._synthetic);
+  const items = all.filter((i: any) => !i.id.includes('__') && !i._synthetic);
   res.json(await withChildCounts(ds, items));
 });
 
@@ -587,7 +586,7 @@ app.post('/items/bulk', async (req, res) => {
       const item = await ds.create({ parentId, value, type, typeId, owner, license, sortOrder, confidence, status, tags, createdBy, objectData });
       if (alias) await ds.setAlias(alias, item.id);
       created.push(item);
-    } catch (err) {
+    } catch (err: any) {
       errors.push({ index: i, error: err.message });
     }
   }
@@ -617,7 +616,7 @@ app.post('/items', async (req, res) => {
     const item = await ds.create({ parentId, value, type, typeId, owner, license, sortOrder, confidence, status, tags, createdBy, objectData });
     if (alias) await ds.setAlias(alias, item.id);
     res.status(201).json(item);
-  } catch (err) {
+  } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
@@ -641,7 +640,7 @@ app.patch('/items/bulk', async (req, res) => {
     }
     try {
       updated.push(await ds.update(id, changes, req.body.actor));
-    } catch (err) {
+    } catch (err: any) {
       errors.push({ index: i, id, error: err.message });
     }
   }
@@ -655,7 +654,7 @@ app.get('/items/stats', async (req, res) => {
   const ds = await openDatastore(res);
   if (!ds) return;
   // Build typeId → { name, icon } from type_defs table
-  const typeInfo = {};
+  const typeInfo: Record<string, any> = {};
   const defs = await ds.listTypeDefs();
   for (const def of defs) {
     const typeDef = await ds.readTypeJson(def.id).catch(() => null);
@@ -663,10 +662,10 @@ app.get('/items/stats', async (req, res) => {
   }
 
   const ROOT_TYPES      = new Set(['root']);
-  const BUILT_IN_TYPE_ICONS = { pipeline: 'Schema', agent: 'SmartToy', 'pipeline-run': 'PlayCircle' };
+  const BUILT_IN_TYPE_ICONS: Record<string, string> = { pipeline: 'Schema', agent: 'SmartToy', 'pipeline-run': 'PlayCircle' };
   const BUILT_IN_TYPES  = new Set(Object.keys(BUILT_IN_TYPE_ICONS));
-  const structuredMap = {};
-  const unstructuredMap = {};
+  const structuredMap: Record<string, any> = {};
+  const unstructuredMap: Record<string, any> = {};
   let total = 0;
 
   for (const item of await ds.loadAll()) {
@@ -733,7 +732,7 @@ app.put('/items/:id', async (req, res) => {
   if (!await ds.get(id)) return res.status(404).json({ error: 'Item not found' });
 
   const body = req.body;
-  const changes = {};
+  const changes: any = {};
   if ('value' in body) changes.value = body.value;
   if ('type' in body) {
     if (!VALID_TYPES.includes(body.type))
@@ -761,7 +760,7 @@ app.put('/items/:id', async (req, res) => {
     const updated = await ds.update(id, changes, body.actor);
     if (body.objectData !== undefined) await ds.writeObjectJson(id, body.objectData);
     res.json(updated);
-  } catch (err) {
+  } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
@@ -888,7 +887,7 @@ app.get('/items/:id/documents', async (req, res) => {
   if (!ds) return;
   const docs = await ds.listDocuments(id);
   const withPayload = await Promise.all(
-    docs.map(async (d) => ({ ...d, payload: await ds.readDocumentPayload(d.id) })),
+    docs.map(async (d: any) => ({ ...d, payload: await ds.readDocumentPayload(d.id) })),
   );
   res.json(withPayload);
 });
@@ -906,7 +905,7 @@ app.post('/items/:id/documents', async (req, res) => {
       mode, expandState, roleMap, isOrgDefault, baseDocumentId, owner: actor, visibility,
     });
     res.json({ ...doc, payload: await ds.readDocumentPayload(doc.id) });
-  } catch (err) {
+  } catch (err: any) {
     res.status(400).json({ error: err.message });
   }
 });
@@ -931,7 +930,7 @@ app.put('/documents/:docId', async (req, res) => {
   try {
     await ds.writeDocumentPayload(docId, req.body);
     res.json({ ok: true });
-  } catch (err) {
+  } catch (err: any) {
     res.status(400).json({ error: err.message });
   }
 });
@@ -974,7 +973,7 @@ app.get('/items/:id/function/package-json', async (req, res) => {
   try {
     const content = fs.readFileSync(pkgPath, 'utf8');
     res.json(runtime === 'python' ? { requirements: content } : JSON.parse(content));
-  } catch (err) {
+  } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
@@ -1033,7 +1032,7 @@ app.put('/items/:id/function', async (req, res) => {
     const itemDir = path.join(root, '.kanecta', 'data', s.slice(0, 2), s.slice(2, 4), id);
     runtimeDir = generateFunctionScaffold(itemDir, item.value ?? id, req.body, root);
     writeBuildHash(runtimeDir);
-  } catch (err) {
+  } catch (err: any) {
     console.error(`[kanecta] generateFunctionScaffold failed for ${id}:`, err);
   }
   res.json({ ok: true });
@@ -1166,13 +1165,13 @@ app.post('/items/:id/function/run', async (req, res) => {
       `sys.stdout.write(${JSON.stringify(RESULT_START)} + json.dumps(_result, default=str) + ${JSON.stringify(RESULT_END)} + "\\n")`,
     ].join('\n');
 
-    const child = spawn('python3', ['-c', pyRunner], { encoding: 'utf8' });
+    const child = spawn('python3', ['-c', pyRunner], { encoding: 'utf8' } as any);
     let stdout = '';
     let stderr = '';
-    child.stdout.on('data', chunk => { stdout += chunk; });
-    child.stderr.on('data', chunk => { stderr += chunk; });
+    child.stdout!.on('data', (chunk: any) => { stdout += chunk; });
+    child.stderr!.on('data', (chunk: any) => { stderr += chunk; });
     const timer = setTimeout(() => { child.kill(); stderr += '\nExecution timed out after 30s'; }, 30_000);
-    child.on('close', code => {
+    child.on('close', (code: any) => {
       clearTimeout(timer);
       const resultMatch = stdout.match(new RegExp(`${RESULT_START}([\\s\\S]*?)${RESULT_END}`));
       const output = resultMatch ? resultMatch[1].trim() : null;
@@ -1228,19 +1227,19 @@ Promise.resolve(mod[${JSON.stringify(fnName)}](...values))
   });
 `;
 
-  const child = spawn('node', ['-e', runnerCode], { encoding: 'utf8' });
+  const child = spawn('node', ['-e', runnerCode], { encoding: 'utf8' } as any);
 
   let stdout = '';
   let stderr = '';
-  child.stdout.on('data', chunk => { stdout += chunk; });
-  child.stderr.on('data', chunk => { stderr += chunk; });
+  child.stdout!.on('data', (chunk: any) => { stdout += chunk; });
+  child.stderr!.on('data', (chunk: any) => { stderr += chunk; });
 
   const timer = setTimeout(() => {
     child.kill();
     stderr += '\nExecution timed out after 30s';
   }, 30_000);
 
-  child.on('close', code => {
+  child.on('close', (code: any) => {
     clearTimeout(timer);
     const resultMatch = stdout.match(new RegExp(`${RESULT_START}([\\s\\S]*?)${RESULT_END}`));
     const output = resultMatch ? resultMatch[1].trim() : null;
@@ -1363,7 +1362,7 @@ app.get('/aliases', async (req, res) => {
   if (!ds) return;
   const all = await ds.listAliases();
   if (req.query.targetId) {
-    return res.json(all.filter(a => a.targetId === req.query.targetId));
+    return res.json(all.filter((a: any) => a.targetId === req.query.targetId));
   }
   res.json(all);
 });
@@ -1446,7 +1445,7 @@ app.get('/types', async (req, res) => {
   if (!ds) return;
   try {
     const defs = await ds.listTypeDefs();
-    const results = await Promise.all(defs.map(async (def) => {
+    const results = await Promise.all(defs.map(async (def: any) => {
       const typeDef = await ds.readTypeJson(def.id).catch(() => null);
       const meta = typeDef?.meta;
       return {
@@ -1461,7 +1460,7 @@ app.get('/types', async (req, res) => {
       };
     }));
     res.json(results);
-  } catch (err) {
+  } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
@@ -1480,12 +1479,12 @@ app.post('/types', async (req, res) => {
   try {
     const { metadata } = await ds.createType(value.trim(), { icon: icon.trim() });
     res.status(201).json({ ...metadata, icon: icon.trim(), description: null, details: null, keywords: null, primaryField: null, 'ai-instructions': null });
-  } catch (err) {
+  } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-function validateTypeSchema(schema) {
+function validateTypeSchema(schema: any) {
   if (typeof schema !== 'object' || schema === null || Array.isArray(schema))
     return 'Schema must be a JSON object';
   if (!schema.meta || typeof schema.meta !== 'object') return 'meta is required';
@@ -1531,7 +1530,7 @@ app.put('/types/:id/schema', async (req, res) => {
   try {
     await ds.writeTypeJson(id, schema);
     res.json(schema);
-  } catch (err) {
+  } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
@@ -1546,7 +1545,7 @@ app.get('/types/:id', async (req, res) => {
     const item = await ds.get(id);
     if (!item || item.type !== 'type') return res.status(404).json({ error: 'Type not found' });
     res.json(item);
-  } catch (err) {
+  } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
@@ -1561,7 +1560,7 @@ app.get('/types/:id/schema', async (req, res) => {
     const schema = await ds.readTypeJson(id);
     if (!schema) return res.status(404).json({ error: 'Schema not found' });
     res.json(schema);
-  } catch (err) {
+  } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
@@ -1572,7 +1571,7 @@ const BREADCRUMB_MAX = 100;
 // CSV columns: id,name,type,typeId,timestamp
 const HISTORY_NAMES = ['clipboard', 'viewed'];
 
-function historyDir() {
+function historyDir(): any {
   const root = activeLocalPath(); if (!root) return null;
   return path.join(root, '.kanecta', 'app', 'studio', 'history');
 }
@@ -1587,12 +1586,12 @@ function ensureHistoryDir() {
   }
 }
 
-function historyFilePath(name) {
+function historyFilePath(name: string) {
   ensureHistoryDir();
   return path.join(historyDir(), `${name}.csv`);
 }
 
-function readBreadcrumb(name) {
+function readBreadcrumb(name: string) {
   const p = historyFilePath(name);
   if (!fs.existsSync(p)) return [];
   const lines = fs.readFileSync(p, 'utf8').trim().split('\n').filter(Boolean);
@@ -1622,7 +1621,7 @@ function readBreadcrumb(name) {
   });
 }
 
-function appendBreadcrumb(name, id, itemName, type, typeId) {
+function appendBreadcrumb(name: string, id: any, itemName: any, type: any, typeId: any) {
   const timestamp = new Date().toISOString();
   let entries = readBreadcrumb(name);
   const safeName = (itemName || '').replace(/,/g, ' ');
@@ -1665,7 +1664,7 @@ app.post('/breadcrumb/viewed', async (req, res) => {
 
 // ─── Starred ─────────────────────────────────────────────────────────────────
 
-function starredFilePath() {
+function starredFilePath(): any {
   const root = activeLocalPath(); if (!root) return null;
   const studioDir = path.join(root, '.kanecta', 'app', 'studio');
   const dir = path.join(studioDir, 'starred');
@@ -1694,8 +1693,8 @@ function readStarred() {
   });
 }
 
-function writeStarred(entries) {
-  const csv = entries.map((e) => `${e.id},${e.name},${e.type},${e.typeId},${e.timestamp}`).join('\n');
+function writeStarred(entries: any[]) {
+  const csv = entries.map((e: any) => `${e.id},${e.name},${e.type},${e.typeId},${e.timestamp}`).join('\n');
   fs.writeFileSync(starredFilePath(), entries.length ? csv + '\n' : '');
 }
 
@@ -1725,7 +1724,7 @@ app.delete('/app/studio/starred/:id', async (req, res) => {
 
 // ─── View settings ───────────────────────────────────────────────────────────
 
-function viewDir(root, id) {
+function viewDir(root: string, id: string) {
   const stripped = id.replace(/-/g, '');
   return path.join(root, '.kanecta', 'app', 'studio', 'view', stripped.slice(0, 2), stripped.slice(2, 4), id);
 }
@@ -1782,7 +1781,7 @@ app.get('/app/studio/sync-system-items', async (_req, res) => {
         }
       }
     }
-  } catch (err) { return res.status(500).json({ error: err.message }); }
+  } catch (err: any) { return res.status(500).json({ error: err.message }); }
 
   // Step 2: find non-type items (instances)
   const instances = allItems.filter(({ meta }) => meta.type !== 'type');
@@ -1827,7 +1826,7 @@ app.post('/app/studio/sync-system-items/import', async (req, res) => {
       const title = schema.jsonSchema?.title || folderId;
       const { metadata } = await ds.createType(title, { schema, id: folderId });
       imported.push({ id: metadata.id, value: title });
-    } catch (err) { errors.push({ folderId, error: err.message }); }
+    } catch (err: any) { errors.push({ folderId, error: err.message }); }
   }
   res.json({ imported, errors });
 });
@@ -1852,7 +1851,7 @@ app.post('/app/studio/sync-system-items/export', async (req, res) => {
         fs.copyFileSync(path.join(srcDir, file), path.join(destDir, file));
       }
       exported.push({ id });
-    } catch (err) { errors.push({ id, error: err.message }); }
+    } catch (err: any) { errors.push({ id, error: err.message }); }
   }
   res.json({ exported, errors });
 });
@@ -1861,7 +1860,7 @@ app.post('/app/studio/sync-system-items/export', async (req, res) => {
 
 const DEFAULT_SETTINGS = { themeName: 'Green', sidebarBg: '#20a138', sidebarFg: '#ffffff', sidebarFgSelected: '#5a6a60', contentBg: '#ffffff', contentBorder: '#20a138', showContentBorder: false, locationBorder: '#15712a' };
 
-function settingsFilePath() {
+function settingsFilePath(): any {
   const root = activeLocalPath(); if (!root) return null;
   const dir = path.join(root, '.kanecta', 'app', 'studio', 'settings');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -1900,7 +1899,7 @@ app.post('/app/studio/settings', async (req, res) => {
 
 // ─── Layouts ─────────────────────────────────────────────────────────────────
 
-function layoutsFilePath() {
+function layoutsFilePath(): any {
   const root = activeLocalPath(); if (!root) return null;
   const dir = path.join(root, '.kanecta', 'app', 'studio', 'layouts');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -1936,12 +1935,12 @@ app.put('/app/studio/layouts', async (req, res) => {
 
 const SKILLS_DIR = process.env.KANECTA_SKILLS_PATH || path.join(__dirname, '../../../kanecta-skills');
 
-function extractSkillTitle(content) {
+function extractSkillTitle(content: string) {
   const match = content.match(/^#\s+(.+)$/m);
   return match ? match[1].trim() : null;
 }
 
-function safeSkillId(id) {
+function safeSkillId(id: any) {
   return typeof id === 'string' && id.endsWith('.md') && !id.includes('/') && !id.includes('..');
 }
 
@@ -1955,7 +1954,7 @@ app.get('/skills', async (req, res) => {
       return { id: filename, title, filename };
     }).sort((a, b) => a.title.localeCompare(b.title));
     res.json(skills);
-  } catch (err) {
+  } catch (err: any) {
     res.status(500).json({ error: 'Failed to read skills directory' });
   }
 });
@@ -1968,7 +1967,7 @@ app.get('/skills/:id', async (req, res) => {
     const content = fs.readFileSync(path.join(SKILLS_DIR, id), 'utf8');
     const title = extractSkillTitle(content) ?? id.replace(/\.md$/, '');
     res.json({ id, title, filename: id, content });
-  } catch (err) {
+  } catch (err: any) {
     res.status(404).json({ error: 'Skill not found' });
   }
 });
@@ -1983,7 +1982,7 @@ app.put('/skills/:id', async (req, res) => {
     fs.writeFileSync(path.join(SKILLS_DIR, id), content, 'utf8');
     const title = extractSkillTitle(content) ?? id.replace(/\.md$/, '');
     res.json({ id, title, filename: id });
-  } catch (err) {
+  } catch (err: any) {
     res.status(500).json({ error: 'Failed to write skill file' });
   }
 });
@@ -2018,7 +2017,7 @@ app.get('/claude/sessions/:id/stream', async (req, res) => {
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
 
-  const write = (data) => {
+  const write = (data: any) => {
     res.write(data);
     try {
       const event = JSON.parse(data.replace(/^data: /, ''));
@@ -2044,4 +2043,4 @@ app.delete('/claude/sessions/:id', async (req, res) => {
   res.json({ ok: true });
 });
 
-module.exports = app;
+export default app;
