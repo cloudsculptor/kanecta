@@ -2,14 +2,13 @@
   "name": "@kanecta/api-client",
   "version": "1.4.0",
   "description": "Kanecta API client — typed HTTP client for all kanecta-api endpoints",
-  "main": "index.js",
-  "types": "index.d.ts",
+  "main": "index.ts",
   "files": [
-    "index.js",
-    "index.d.ts"
+    "index.ts"
   ],
   "scripts": {
-    "test": "echo \"No tests yet\""
+    "test": "echo \"No tests yet\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "engines": {
     "node": ">=18.0.0"

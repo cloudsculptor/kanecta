@@ -2,14 +2,13 @@
   "name": "@kanecta/sdk",
   "version": "1.4.0",
   "description": "Kanecta SDK — interact with Kanecta and AI from within functions",
-  "main": "index.js",
-  "types": "index.d.ts",
+  "main": "index.ts",
   "files": [
-    "index.js",
-    "index.d.ts"
+    "index.ts"
   ],
   "scripts": {
-    "test": "echo \"No tests yet\""
+    "test": "echo \"No tests yet\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@kanecta/api-client": "*"

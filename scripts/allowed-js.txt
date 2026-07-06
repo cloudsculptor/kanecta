@@ -7,7 +7,6 @@
 # MIGRATION RATCHET: convert each to .ts and DELETE its line. Goal: zero.
 kanecta-core/kanecta-ai-adapters/kanecta-claude-bridge/src/index.js
 kanecta-core/kanecta-ai/index.js
-kanecta-core/kanecta-api-client/index.js
 kanecta-core/kanecta-api/src/app.js
 kanecta-core/kanecta-api/src/middleware/auth.js
 kanecta-core/kanecta-api/src/server.js
@@ -50,7 +49,6 @@ kanecta-core/kanecta-migrations/1.3.0/migrate-filesystem-to-postgres.js
 kanecta-core/kanecta-migrations/1.4.0/migrate-1.3.0-to-1.4.0.js
 kanecta-core/kanecta-migrations/1.4.0/migrate-config-keys.js
 kanecta-core/kanecta-migrations/1.4.0/migrate-datastore-to-per-branch.js
-kanecta-core/kanecta-sdk/index.js
 kanecta-core/kanecta-specification/1.3.0/kanecta-schema-validator/index.js
 kanecta-core/kanecta-specification/1.3.0/kanecta-schema-validator/index.mjs
 kanecta-core/kanecta-specification/1.4.0/kanecta-schema-validator/index.js
