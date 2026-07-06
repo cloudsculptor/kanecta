@@ -65,10 +65,7 @@ kanecta-core/kanecta-storage-adapters/kanecta-postgres/tests/adapter.test.js
 kanecta-core/kanecta-storage-adapters/kanecta-postgres/tests/branching.test.js
 kanecta-core/kanecta-storage-adapters/kanecta-postgres/tests/source-ingestion.test.js
 kanecta-core/kanecta-storage-adapters/kanecta-postgres/tests/sync.integration.test.js
-kanecta-core/kanecta-storage-adapters/kanecta-s3/src/adapter.js
-kanecta-core/kanecta-storage-adapters/kanecta-s3/src/index.js
 # s3 test grandfathered with its wholly-JS package; migrate the package to TS as a unit.
-kanecta-core/kanecta-storage-adapters/kanecta-s3/tests/s3.integration.test.js
 kanecta-dev/scripts/ensure-datastore.js
 kanecta-ui/kanecta-apps/kanecta-app-claude/index.js
 kanecta-ui/kanecta-apps/kanecta-app-claude/lib/claude.js

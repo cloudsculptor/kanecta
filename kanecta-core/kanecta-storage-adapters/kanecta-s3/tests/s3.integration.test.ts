@@ -1,5 +1,3 @@
-'use strict';
-
 // Integration tests for the S3 files adapter against a live S3-compatible store
 // (the dev MinIO). They run ONLY when KANECTA_TEST_S3_SECRET is set, so CI — which
 // has no S3 — skips them cleanly, and no secret is committed. Run locally with:
@@ -8,11 +6,12 @@
 //
 // The other KANECTA_TEST_S3_* vars default to the dev MinIO from
 // scripts/setup-local-minio.sh (endpoint :45900, bucket "kanecta").
+//
+// Runs under vitest (globals: true) — `test` is global.
 
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
-const crypto = require('node:crypto');
-const { S3Adapter } = require('../src/adapter');
+import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
+import { S3Adapter } from '../src/adapter';
 
 const SECRET = process.env.KANECTA_TEST_S3_SECRET;
 const skip = SECRET
