@@ -1,26 +1,33 @@
-'use strict';
-
-const { spawn } = require('child_process');
-const { randomUUID } = require('crypto');
+import { spawn, type ChildProcess } from 'child_process';
+import { randomUUID } from 'crypto';
 
 // ── Session store ─────────────────────────────────────────────────────────────
-// Map<sessionId, Session>
-// Session: { id, proc, subscribers, pendingApproval, status, messages }
 
-const sessions = new Map();
+type SubscriberWrite = (data: string) => void;
 
-function broadcast(session, event) {
+export interface Session {
+  id: string;
+  proc: ChildProcess;
+  subscribers: Set<SubscriberWrite>;
+  pendingApproval: Record<string, unknown> | null;
+  status: 'running' | 'done';
+  buffer: string;
+}
+
+const sessions = new Map<string, Session>();
+
+function broadcast(session: Session, event: Record<string, unknown>): void {
   const data = `data: ${JSON.stringify(event)}\n\n`;
   for (const write of session.subscribers) {
-    try { write(data); } catch {}
+    try { write(data); } catch { /* subscriber write failed; drop it */ }
   }
 }
 
 // ── Parse stream-json from claude CLI ────────────────────────────────────────
 
-function handleLine(session, line) {
+function handleLine(session: Session, line: string): void {
   if (!line.trim()) return;
-  let event;
+  let event: any;
   try { event = JSON.parse(line); } catch { return; }
 
   // Forward raw event to subscribers
@@ -49,7 +56,7 @@ function handleLine(session, line) {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-function createSession(prompt, workingDir) {
+export function createSession(prompt: string, workingDir?: string): string {
   const id = randomUUID();
 
   const proc = spawn('claude', [
@@ -63,7 +70,7 @@ function createSession(prompt, workingDir) {
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
-  const session = {
+  const session: Session = {
     id,
     proc,
     subscribers: new Set(),
@@ -72,14 +79,14 @@ function createSession(prompt, workingDir) {
     buffer: '',
   };
 
-  proc.stdout.on('data', (chunk) => {
+  proc.stdout?.on('data', (chunk) => {
     session.buffer += chunk.toString();
     const lines = session.buffer.split('\n');
-    session.buffer = lines.pop();
+    session.buffer = lines.pop() ?? '';
     for (const line of lines) handleLine(session, line);
   });
 
-  proc.stderr.on('data', (chunk) => {
+  proc.stderr?.on('data', (chunk) => {
     broadcast(session, { type: 'stderr', text: chunk.toString() });
   });
 
@@ -95,7 +102,7 @@ function createSession(prompt, workingDir) {
   return id;
 }
 
-function subscribe(id, writeFn) {
+export function subscribe(id: string, writeFn: SubscriberWrite): boolean {
   const session = sessions.get(id);
   if (!session) return false;
   session.subscribers.add(writeFn);
@@ -108,30 +115,28 @@ function subscribe(id, writeFn) {
   return true;
 }
 
-function unsubscribe(id, writeFn) {
+export function unsubscribe(id: string, writeFn: SubscriberWrite): void {
   sessions.get(id)?.subscribers.delete(writeFn);
 }
 
-function respond(id, approved) {
+export function respond(id: string, approved: boolean): boolean {
   const session = sessions.get(id);
   if (!session || !session.pendingApproval) return false;
-  session.proc.stdin.write(approved ? 'y\n' : 'n\n');
+  session.proc.stdin?.write(approved ? 'y\n' : 'n\n');
   session.pendingApproval = null;
-  session.proc.stdout.resume();
+  session.proc.stdout?.resume();
   broadcast(session, { type: 'approval_resolved', approved });
   return true;
 }
 
-function cancelSession(id) {
+export function cancelSession(id: string): boolean {
   const session = sessions.get(id);
   if (!session) return false;
-  try { session.proc.kill(); } catch {}
+  try { session.proc.kill(); } catch { /* already exited */ }
   sessions.delete(id);
   return true;
 }
 
-function getSession(id) {
+export function getSession(id: string): Session | null {
   return sessions.get(id) ?? null;
 }
-
-module.exports = { createSession, subscribe, unsubscribe, respond, cancelSession, getSession };
