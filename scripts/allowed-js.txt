@@ -54,7 +54,6 @@ kanecta-core/kanecta-specification/index.js
 kanecta-core/kanecta-specification/index.mjs
 kanecta-core/kanecta-storage-adapters/kanecta-cloud/src/adapter.js
 kanecta-core/kanecta-storage-adapters/kanecta-cloud/src/index.js
-kanecta-core/kanecta-storage-adapters/kanecta-database/index.js
 kanecta-core/kanecta-storage-adapters/kanecta-datastore-utils/src/index.js
 # s3 test grandfathered with its wholly-JS package; migrate the package to TS as a unit.
 kanecta-dev/scripts/ensure-datastore.js
