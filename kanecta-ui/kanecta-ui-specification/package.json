@@ -2,37 +2,23 @@
   "name": "@kanecta/ui-specification",
   "version": "1.4.0",
   "description": "Kanecta UI layer specification and validator for component packages and app manifests",
-  "main": "index.js",
-  "module": "index.mjs",
-  "types": "index.d.ts",
+  "main": "index.ts",
+  "type": "module",
   "exports": {
-    ".": {
-      "import": "./index.mjs",
-      "require": "./index.js",
-      "types": "./index.d.ts"
-    },
-    "./validator": {
-      "import": "./1.4.0/kanecta-ui-validator/index.mjs",
-      "require": "./1.4.0/kanecta-ui-validator/index.js",
-      "types": "./1.4.0/kanecta-ui-validator/index.d.ts"
-    },
-    "./1.4.0/validator": {
-      "import": "./1.4.0/kanecta-ui-validator/index.mjs",
-      "require": "./1.4.0/kanecta-ui-validator/index.js",
-      "types": "./1.4.0/kanecta-ui-validator/index.d.ts"
-    },
+    ".": "./index.ts",
+    "./validator": "./1.4.0/kanecta-ui-validator/index.ts",
+    "./1.4.0/validator": "./1.4.0/kanecta-ui-validator/index.ts",
     "./1.4.0/*": "./1.4.0/*"
   },
   "scripts": {
-    "build:spec": "asciidoctor 1.4.0/specification.adoc -o 1.4.0/specification.html"
+    "build:spec": "asciidoctor 1.4.0/specification.adoc -o 1.4.0/specification.html",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
     "asciidoctor": "^4.0.1"
   },
   "files": [
-    "index.js",
-    "index.mjs",
-    "index.d.ts",
+    "index.ts",
     "1.4.0/"
   ],
   "license": "MIT",

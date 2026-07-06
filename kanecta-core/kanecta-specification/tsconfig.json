@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "resolveJsonModule": true
+  },
+  "include": [
+    "index.ts",
+    "1.3.0/kanecta-schema-validator/index.ts",
+    "1.4.0/kanecta-schema-validator/index.ts"
+  ]
+}

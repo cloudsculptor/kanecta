@@ -2,12 +2,13 @@
   "name": "@kanecta/claude-bridge",
   "version": "1.4.0",
   "description": "Kanecta Claude bridge — spawns and manages Claude CLI sessions over SSE",
-  "main": "src/index.js",
+  "main": "src/index.ts",
   "files": [
     "src/"
   ],
   "scripts": {
-    "test": "echo \"No tests yet\""
+    "test": "echo \"No tests yet\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "engines": {
     "node": ">=18.0.0"

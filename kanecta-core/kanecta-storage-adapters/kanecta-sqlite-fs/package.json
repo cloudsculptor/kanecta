@@ -2,12 +2,13 @@
   "name": "@kanecta/sqlite-fs",
   "version": "1.4.0",
   "description": "Kanecta SQLite + filesystem adapter — hybrid local storage for items and files",
-  "main": "src/index.js",
+  "main": "src/index.ts",
   "files": [
     "src/"
   ],
   "scripts": {
-    "test": "jest --runInBand"
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@kanecta/specification": "^1.4.0",

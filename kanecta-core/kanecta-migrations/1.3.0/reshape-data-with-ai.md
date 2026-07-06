@@ -1,7 +1,7 @@
 # Reshaping orphaned data after the 1.2.0 → 1.3.0 migration
 
 This is a runbook for an AI agent (e.g. Claude Code) to follow, **together with
-the datastore owner**, after `migrate-1.2.0-to-1.3.0.js` has been run.
+the datastore owner**, after `migrate-1.2.0-to-1.3.0.ts` has been run.
 
 Don't run this unattended. The whole point of this phase is that reshaping old
 nested data into the new flat-type model requires judgement calls — what to
@@ -22,7 +22,7 @@ flattened in their v1.3.0 system-items definitions — usually by **dropping**
 the nested field outright, since modelling it properly means introducing a new
 standalone type.
 
-`migrate-1.2.0-to-1.3.0.js` already swapped the type definitions over (where
+`migrate-1.2.0-to-1.3.0.ts` already swapped the type definitions over (where
 it safely could). What it could *not* do is decide what should happen to the
 data that lived in those now-gone fields — that's this phase.
 
@@ -111,7 +111,7 @@ migration script left the type definition at v1.2.0. Instead:
   definitions in `kanecta-system-items/items/<shard>/<id>/type.json` are
   fixed — that's a separate, one-time fix to the monorepo (not something to
   patch per-datastore), and once it lands, re-running
-  `migrate-1.2.0-to-1.3.0.js` will pick it up automatically (it's idempotent).
+  `migrate-1.2.0-to-1.3.0.ts` will pick it up automatically (it's idempotent).
 
 **5. Custom types (`custom-type-not-in-system-items`)**
 
@@ -135,7 +135,7 @@ propagate the corrected type to the datastore automatically).
 
 **6. Final check**
 
-Re-run `migrate-1.2.0-to-1.3.0.js` once more. A clean final run should report:
+Re-run `migrate-1.2.0-to-1.3.0.ts` once more. A clean final run should report:
 - `0` items needing reshape that the owner has chosen to address (blocked /
   custom-type entries may legitimately remain until their upstream fixes land
   — make sure the owner knows which ones, and why).

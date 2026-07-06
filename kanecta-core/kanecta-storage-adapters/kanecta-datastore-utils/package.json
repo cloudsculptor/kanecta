@@ -1,13 +1,14 @@
 {
   "name": "@kanecta/datastore-utils",
   "version": "1.4.0",
-  "description": "Kanecta major datastore operations — create, open, copy, merge",
-  "main": "src/index.js",
+  "description": "Kanecta major datastore operations \u2014 create, open, copy, merge",
+  "main": "src/index.ts",
   "files": [
     "src/"
   ],
   "scripts": {
-    "test": "echo \"No standalone tests — tested via integration\" && exit 0"
+    "test": "echo \"No standalone tests \u2014 tested via integration\" && exit 0",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "keywords": [
     "kanecta",

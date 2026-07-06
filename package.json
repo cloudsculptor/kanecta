@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "prestart": "npm install",
-    "start": "node kanecta-dev/scripts/ensure-datastore.js",
-    "dev": "node kanecta-dev/scripts/ensure-datastore.js",
+    "start": "node --import tsx kanecta-dev/scripts/ensure-datastore.ts",
+    "dev": "node --import tsx kanecta-dev/scripts/ensure-datastore.ts",
     "help": "cat kanecta-docs/kanecta-docs/dev-setup.md",
     "prepare": "husky || true",
     "check:languages": "bash scripts/check-source-languages.sh"

@@ -2,13 +2,14 @@
   "name": "@kanecta/mcp",
   "version": "1.4.0",
   "description": "Kanecta MCP server — gives Claude direct access to your personal knowledge base",
-  "main": "src/index.js",
+  "main": "src/index.ts",
   "bin": {
-    "kanecta-mcp": "src/index.js"
+    "kanecta-mcp": "src/index.ts"
   },
   "scripts": {
-    "start": "node src/index.js",
-    "test": "jest --runInBand",
+    "start": "node --import tsx src/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "release": "bash scripts/release.sh",
     "release:minor": "bash scripts/release.sh minor",
     "release:major": "bash scripts/release.sh major"

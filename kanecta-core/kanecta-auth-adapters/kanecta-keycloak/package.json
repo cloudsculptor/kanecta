@@ -4,9 +4,10 @@
   "private": true,
   "description": "Local Keycloak + Postgres + MinIO stack for developing and testing Kanecta's auth integration",
   "scripts": {
-    "docker:up": "node scripts/ensure-running.js",
+    "docker:up": "node --import tsx scripts/ensure-running.ts",
     "docker:down": "docker compose down",
-    "docker:logs": "docker compose logs -f"
+    "docker:logs": "docker compose logs -f",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "keywords": [
     "kanecta",

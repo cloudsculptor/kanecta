@@ -5,100 +5,20 @@
 # (kanecta-app-community-hub is EXCLUDED from the gate and from migration — prod app.)
 #
 # MIGRATION RATCHET: convert each to .ts and DELETE its line. Goal: zero.
-kanecta-core/kanecta-ai-adapters/kanecta-claude-bridge/src/index.js
-kanecta-core/kanecta-ai/index.js
-kanecta-core/kanecta-api/src/app.js
-kanecta-core/kanecta-api/src/middleware/auth.js
-kanecta-core/kanecta-api/src/server.js
-kanecta-core/kanecta-api/tests/__mocks__/jose.js
-kanecta-core/kanecta-api/tests/api-1.4.0.test.js
-kanecta-core/kanecta-api/tests/api.test.js
-kanecta-core/kanecta-api/tests/auth.test.js
-kanecta-core/kanecta-api/tests/branches.test.js
-kanecta-core/kanecta-api/tests/helpers.js
-kanecta-core/kanecta-auth-adapters/kanecta-keycloak/scripts/ensure-running.js
-kanecta-core/kanecta-cli/index.js
-kanecta-core/kanecta-cli/index.test.js
-kanecta-core/kanecta-lib/bin/kanecta-sync-components.js
-kanecta-core/kanecta-lib/scripts/migrate-1.3.0.js
-kanecta-core/kanecta-lib/src/appConfig.js
-kanecta-core/kanecta-lib/src/componentStore.js
-kanecta-core/kanecta-lib/src/connectorEngine.js
-kanecta-core/kanecta-lib/src/datastore.js
-kanecta-core/kanecta-lib/src/exportMarkdown.js
-kanecta-core/kanecta-lib/src/generateFunctionCode.js
-kanecta-core/kanecta-lib/src/index.js
-kanecta-core/kanecta-lib/src/scheduleRunner.js
-kanecta-core/kanecta-lib/src/syncEngine.js
-kanecta-core/kanecta-lib/tests/appConfig.test.js
-kanecta-core/kanecta-lib/tests/componentStore.test.js
-kanecta-core/kanecta-lib/tests/connectorEngine.test.js
-kanecta-core/kanecta-lib/tests/datastore.test.js
-kanecta-core/kanecta-lib/tests/exportMarkdown.test.js
-kanecta-core/kanecta-lib/tests/generateFunctionCode.test.js
-kanecta-core/kanecta-lib/tests/scheduleRunner.test.js
-kanecta-core/kanecta-lib/tests/syncEngine.test.js
-kanecta-core/kanecta-mcp/src/index.js
-kanecta-core/kanecta-mcp/tests/helpers.js
-kanecta-core/kanecta-mcp/tests/kanecta-1.4.0.test.js
-kanecta-core/kanecta-mcp/tests/kanecta-query.test.js
-kanecta-core/kanecta-mcp/tests/multi-datastore.test.js
-kanecta-core/kanecta-mcp/tests/typeid-integrity.test.js
-kanecta-core/kanecta-migrations/1.3.0/migrate-1.2.0-to-1.3.0.js
-kanecta-core/kanecta-migrations/1.3.0/migrate-filesystem-to-postgres.js
-kanecta-core/kanecta-migrations/1.4.0/migrate-1.3.0-to-1.4.0.js
-kanecta-core/kanecta-migrations/1.4.0/migrate-config-keys.js
-kanecta-core/kanecta-migrations/1.4.0/migrate-datastore-to-per-branch.js
-kanecta-core/kanecta-specification/1.3.0/kanecta-schema-validator/index.js
-kanecta-core/kanecta-specification/1.3.0/kanecta-schema-validator/index.mjs
-kanecta-core/kanecta-specification/1.4.0/kanecta-schema-validator/index.js
-kanecta-core/kanecta-specification/1.4.0/kanecta-schema-validator/index.mjs
-kanecta-core/kanecta-specification/index.js
-kanecta-core/kanecta-specification/index.mjs
-kanecta-core/kanecta-storage-adapters/kanecta-cloud/src/adapter.js
-kanecta-core/kanecta-storage-adapters/kanecta-cloud/src/index.js
-kanecta-core/kanecta-storage-adapters/kanecta-database/index.js
-kanecta-core/kanecta-storage-adapters/kanecta-datastore-utils/src/index.js
-kanecta-core/kanecta-storage-adapters/kanecta-postgres/scripts/ensure-running.js
-kanecta-core/kanecta-storage-adapters/kanecta-postgres/src/adapter.js
-kanecta-core/kanecta-storage-adapters/kanecta-postgres/src/embeddings.js
-kanecta-core/kanecta-storage-adapters/kanecta-postgres/src/index.js
-kanecta-core/kanecta-storage-adapters/kanecta-postgres/src/type-table.js
-kanecta-core/kanecta-storage-adapters/kanecta-postgres/tests/adapter.test.js
-kanecta-core/kanecta-storage-adapters/kanecta-postgres/tests/branching.test.js
-kanecta-core/kanecta-storage-adapters/kanecta-postgres/tests/source-ingestion.test.js
-kanecta-core/kanecta-storage-adapters/kanecta-postgres/tests/sync.integration.test.js
-kanecta-core/kanecta-storage-adapters/kanecta-s3/src/adapter.js
-kanecta-core/kanecta-storage-adapters/kanecta-s3/src/index.js
-# s3 test grandfathered with its wholly-JS package; migrate the package to TS as a unit.
-kanecta-core/kanecta-storage-adapters/kanecta-s3/tests/s3.integration.test.js
-kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/src/adapter.js
-kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/src/index.js
-kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/src/write-integrity.js
-kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/test-helpers/makeSampleDatastore.js
-kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/tests/adapter.test.js
-kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/tests/branching.test.js
-kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/tests/document.test.js
-kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/tests/migrate-per-branch.test.js
-kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/tests/source-ingestion.test.js
-kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/tests/sparse-branch.test.js
-kanecta-core/kanecta-storage-adapters/kanecta-sqlite-fs/tests/write-integrity.test.js
-kanecta-dev/scripts/ensure-datastore.js
-kanecta-ui/kanecta-apps/kanecta-app-claude/index.js
-kanecta-ui/kanecta-apps/kanecta-app-claude/lib/claude.js
-kanecta-ui/kanecta-apps/kanecta-app-claude/lib/config.js
-kanecta-ui/kanecta-apps/kanecta-app-claude/lib/mcp-setup.js
-kanecta-ui/kanecta-apps/kanecta-app-claude/lib/mcp.js
-kanecta-ui/kanecta-apps/kanecta-app-claude/lib/secrets.js
-kanecta-ui/kanecta-apps/kanecta-app-claude/lib/wizard.js
-kanecta-ui/kanecta-apps/kanecta-app-claude/scripts/prepublish.js
+#
+# The JS→TS cut-over migrated all 91 remaining source/test/script files across
+# kanecta-core and the tooling to TypeScript + vitest (see
+# ts-migration-execution-plan.md). The 5 files below are the ONLY ones left:
+# host-mandated entry points where the repo's "run under tsx, no build step"
+# model does NOT apply, because the host (Electron main process, VS Code
+# extension host, or an externally-launched Node process) loads the entry
+# directly and cannot type-strip .ts. Migrating them properly needs an esbuild
+# bundle step per package (main.ts -> bundled .cjs) plus updates to the Electron
+# electron-builder / vsce packaging — changes that cannot be verified on this
+# machine (cross-platform desktop builds, vsce packaging, external launcher).
+# They are left as .cjs/.js pending that supervised, build-verified pass.
 kanecta-ui/kanecta-apps/kanecta-app-studio-debian/main.cjs
 kanecta-ui/kanecta-apps/kanecta-app-studio-mac/main.cjs
-kanecta-ui/kanecta-apps/kanecta-app-studio-vscode-plugin/extension.js
 kanecta-ui/kanecta-apps/kanecta-app-studio-windows/main.cjs
-kanecta-ui/kanecta-apps/kanecta-app-studio/eslint.config.js
+kanecta-ui/kanecta-apps/kanecta-app-studio-vscode-plugin/extension.js
 kanecta-ui/kanecta-apps/kanecta-app-studio/src/server.cjs
-kanecta-ui/kanecta-ui-specification/1.4.0/kanecta-ui-validator/index.js
-kanecta-ui/kanecta-ui-specification/1.4.0/kanecta-ui-validator/index.mjs
-kanecta-ui/kanecta-ui-specification/index.js
-kanecta-ui/kanecta-ui-specification/index.mjs

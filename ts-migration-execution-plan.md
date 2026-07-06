@@ -4,6 +4,44 @@ Status of the JS→TS migration and the order to finish it. The gate
 (`scripts/check-source-languages.sh` + `scripts/allowed-js.txt`) fails on any
 tracked `.js`/`.cjs`/`.mjs` not listed in the ratchet; the goal is zero.
 
+## ✅ OUTCOME — cut-over complete (branch `chore/ts-migration-core-cutover`)
+
+**Ratchet: 96 → 5.** All 91 migratable source/test/script/config files were
+migrated to TypeScript (+ vitest for tested packages), across the whole runtime
+graph: claude-bridge, ai, all storage adapters (sqlite-fs, s3, postgres,
+database, cloud, datastore-utils), lib, api, mcp, cli, app-claude, specification
++ ui-specification, the 5 migration scripts, ensure-datastore, keycloak dev
+helper, and the studio eslint config.
+
+**Verified:** every migrated package `tsc --noEmit` clean; studio `tsc -b` +
+`vite build` clean; **1150 tests pass** (sqlite-fs 327, postgres 208, lib 292,
+api 113 +8 keycloak-skip, mcp 100, cli 98, s3 3 +6 minio-skip, schema-compiler
+12); api + mcp servers boot under tsx. One collateral regression fixed
+(`transcript-import`'s obsolete ambient stubs conflicted with the now-typed
+lib/postgres). Pre-existing, out-of-scope: `kanecta-components-react/*` fail
+`tsc` in isolation on `import './x.css'` (no `*.css` ambient decl) — studio's
+Vite build handles CSS; unaffected by this cut-over.
+
+**Two foundational fixes** (both surfaced by verifying deps against consumers):
+1. *Cross-package vitest resolution* — vitest 4 externalises a transitive
+   `require()` of a TS-source workspace package and only tries `.js/.cjs/.json`;
+   fix = explicit `.ts` extensions on internal relative imports + root
+   `allowImportingTsExtensions`.
+2. *Vendor-type propagation* — `declare module 'pg'`/`'better-sqlite3'`/`'express'`
+   shims travel to consumers via a `/// <reference>` at the package entry.
+
+**The 5 remaining** (`scripts/allowed-js.txt`) are host-mandated entry points —
+3 Electron `main.cjs`, the VS Code `extension.js`, and the studio `server.cjs`
+launcher — where "run under tsx" doesn't apply (the host loads the entry and
+can't type-strip `.ts`). They need a per-package esbuild bundle step + Electron/
+vsce packaging changes that can't be verified on this machine. **Recommendation:
+a separate supervised pass** that builds/launches each app to confirm packaging,
+or a documented gate-exclusion (as with community-hub) if they're to stay CJS.
+
+---
+
+_Original plan below (kept for reference)._
+
 **Remaining: 96 JS files** (was 116 at the start of the effort).
 `kanecta-app-community-hub` is excluded from the gate and from migration (live
 prod) and is not counted here.

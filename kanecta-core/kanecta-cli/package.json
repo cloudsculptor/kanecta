@@ -2,16 +2,17 @@
   "name": "@kanecta/cli",
   "version": "1.4.0",
   "description": "Kanecta filesystem datastore CLI — full CRUD, aliases, annotations, relationships, history, and tree traversal conforming to spec v1.1.0",
-  "main": "index.js",
+  "main": "index.ts",
   "bin": {
-    "kanecta-cli": "./index.js"
+    "kanecta-cli": "./index.ts"
   },
   "scripts": {
-    "cli": "node index.js",
-    "test": "node --test index.test.js"
+    "cli": "node --import tsx index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "files": [
-    "index.js",
+    "index.ts",
     "README.md"
   ],
   "dependencies": {
