@@ -3,7 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 import Database from 'better-sqlite3';
 import * as spec from '@kanecta/specification';
-import { WriteGuard } from './write-integrity';
+import { WriteGuard } from './write-integrity.ts';
 
 // Minimal structural type for the better-sqlite3 handle (the package ships no
 // type declarations). Query methods return `any`/`any[]` so downstream

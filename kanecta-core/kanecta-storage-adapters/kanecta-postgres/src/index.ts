@@ -1,1 +1,2 @@
-export * from './adapter';
+/// <reference path="./vendor.d.ts" />
+export * from './adapter.ts';

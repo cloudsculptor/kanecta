@@ -11,7 +11,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { version as specVersion } from '@kanecta/specification';
 import { Pool } from 'pg';
-import { createEmbeddingProvider, reciprocalRankFusion } from './embeddings';
+import { createEmbeddingProvider, reciprocalRankFusion } from './embeddings.ts';
 
 const ROOT_ID         = '00000000-0000-0000-0000-000000000000';
 const DEFAULT_LICENSE = 'bb3bf137-d8a9-4264-9fb7-ac373b1d4739';

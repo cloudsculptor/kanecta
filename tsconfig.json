@@ -12,6 +12,7 @@
     "forceConsistentCasingInFileNames": true,
     "declaration": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "allowJs": false,
     "checkJs": false
   },
