@@ -1,9 +1,8 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S node --import tsx
 // Run before `npm publish` — updates @kanecta/cli dependency from local file: ref to npm version
-'use strict';
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
 const pkgPath = path.join(__dirname, '..', 'package.json');
 const cliPkgPath = path.join(__dirname, '..', '..', '..', 'kanecta-cli', 'package.json');

@@ -1,26 +1,25 @@
-'use strict';
-
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const readline = require('readline');
-const { Datastore } = require('@kanecta/cli/lib/datastore');
-const { readConfig, writeConfig, KANECTA_DIR, LOCATION_FILE } = require('./config');
-const { injectClaudeMd, installSlashCommands, isClaudeInstalled, CLAUDE_MD, COMMANDS_DIR } = require('./claude');
-const { setupMcpServer } = require('./mcp-setup');
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import readline from 'readline';
+// @ts-expect-error — runtime subpath re-export; not resolvable at typecheck time
+import { Datastore } from '@kanecta/cli/lib/datastore';
+import { readConfig, writeConfig, KANECTA_DIR, LOCATION_FILE } from './config.ts';
+import { injectClaudeMd, installSlashCommands, isClaudeInstalled, CLAUDE_MD, COMMANDS_DIR } from './claude.ts';
+import { setupMcpServer } from './mcp-setup.ts';
 
 const c = {
   reset: '\x1b[0m', bold: '\x1b[1m', dim: '\x1b[2m',
   green: '\x1b[32m', yellow: '\x1b[33m', cyan: '\x1b[36m', red: '\x1b[31m',
 };
 
-const ok = (msg) => process.stdout.write(`  ${c.green}✓${c.reset} ${msg}\n`);
-const warn = (msg) => process.stdout.write(`  ${c.yellow}!${c.reset} ${msg}\n`);
-const err = (msg) => process.stdout.write(`  ${c.red}✗${c.reset} ${msg}\n`);
-const header = (msg) => process.stdout.write(`\n${c.bold}${msg}${c.reset}\n`);
-const info = (msg) => process.stdout.write(`${msg}\n`);
+const ok = (msg: string) => process.stdout.write(`  ${c.green}✓${c.reset} ${msg}\n`);
+const warn = (msg: string) => process.stdout.write(`  ${c.yellow}!${c.reset} ${msg}\n`);
+const err = (msg: string) => process.stdout.write(`  ${c.red}✗${c.reset} ${msg}\n`);
+const header = (msg: string) => process.stdout.write(`\n${c.bold}${msg}${c.reset}\n`);
+const info = (msg: string) => process.stdout.write(`${msg}\n`);
 
-function ask(rl, question, defaultVal) {
+function ask(rl: readline.Interface, question: string, defaultVal?: string): Promise<string> {
   return new Promise(resolve => {
     const hint = defaultVal ? ` ${c.dim}[${defaultVal}]${c.reset}` : '';
     rl.question(`  ${question}${hint}: `, answer => {
@@ -29,7 +28,7 @@ function ask(rl, question, defaultVal) {
   });
 }
 
-function askYN(rl, question, defaultY = true) {
+function askYN(rl: readline.Interface, question: string, defaultY = true): Promise<boolean> {
   return new Promise(resolve => {
     const hint = defaultY ? 'Y/n' : 'y/N';
     rl.question(`  ${question} ${c.dim}(${hint})${c.reset}: `, answer => {
@@ -40,7 +39,7 @@ function askYN(rl, question, defaultY = true) {
   });
 }
 
-function askChoice(rl, choices, defaultVal) {
+function askChoice(rl: readline.Interface, choices: string[], defaultVal: number): Promise<number> {
   return new Promise(resolve => {
     choices.forEach((choice, i) => info(`    ${c.bold}${i + 1}.${c.reset} ${choice}`));
     rl.question(`\n  Choose ${c.dim}[${defaultVal}]${c.reset}: `, answer => {
@@ -50,7 +49,7 @@ function askChoice(rl, choices, defaultVal) {
   });
 }
 
-async function runWizard() {
+export async function runWizard(): Promise<void> {
   info('');
   info(`${c.bold}${c.cyan}Welcome to Kanecta${c.reset}`);
   info(`${c.dim}Personal knowledge base for Claude — context that persists across all sessions${c.reset}`);
@@ -196,5 +195,3 @@ async function runWizard() {
     rl.close();
   }
 }
-
-module.exports = { runWizard };

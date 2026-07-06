@@ -1,13 +1,11 @@
-'use strict';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import { execSync } from 'child_process';
 
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const { execSync } = require('child_process');
+export const SETTINGS_PATH = path.join(os.homedir(), '.claude', 'settings.json');
 
-const SETTINGS_PATH = path.join(os.homedir(), '.claude', 'settings.json');
-
-function setupMcpServer() {
+export function setupMcpServer(): { ok: boolean; method?: string; file?: string; error?: string } {
   // Try the Claude CLI first — cleanest approach, works for both Claude Code and Claude Desktop
   try {
     execSync('claude mcp add --transport stdio kanecta -- npx -y @kanecta/mcp', { stdio: 'pipe' });
@@ -18,11 +16,11 @@ function setupMcpServer() {
   }
 }
 
-function setupMcpServerDirect() {
-  let settings = {};
+function setupMcpServerDirect(): { ok: boolean; method?: string; file?: string; error?: string } {
+  let settings: any = {};
   try {
     settings = JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8'));
-  } catch (e) {
+  } catch (e: any) {
     if (e.code !== 'ENOENT') return { ok: false, error: e.message };
   }
 
@@ -38,12 +36,12 @@ function setupMcpServerDirect() {
     fs.mkdirSync(path.dirname(SETTINGS_PATH), { recursive: true });
     fs.writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2) + '\n');
     return { ok: true, method: 'settings-json', file: SETTINGS_PATH };
-  } catch (e) {
+  } catch (e: any) {
     return { ok: false, error: e.message };
   }
 }
 
-function removeMcpServer() {
+export function removeMcpServer(): void {
   // Try claude CLI first
   try {
     execSync('claude mcp remove kanecta', { stdio: 'pipe' });
@@ -56,5 +54,3 @@ function removeMcpServer() {
     fs.writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2) + '\n');
   } catch {}
 }
-
-module.exports = { setupMcpServer, removeMcpServer, SETTINGS_PATH };

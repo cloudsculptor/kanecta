@@ -2,13 +2,14 @@
   "name": "@kanecta/claude",
   "version": "1.4.0",
   "description": "Kanecta Claude integration — captures context, decisions, and insights across all Claude sessions.",
-  "main": "index.js",
+  "main": "index.ts",
   "scripts": {
     "test": "echo 'Tests live in kanecta-cli — run: cd ../kanecta-cli && npm test'",
-    "prepublishOnly": "node scripts/prepublish.js"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "node --import tsx scripts/prepublish.ts"
   },
   "files": [
-    "index.js",
+    "index.ts",
     "lib/",
     "commands/"
   ],

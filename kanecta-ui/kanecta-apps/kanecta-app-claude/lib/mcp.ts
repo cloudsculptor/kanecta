@@ -1,3 +1,1 @@
-'use strict';
-
-module.exports = require('@kanecta/mcp');
+export * from '@kanecta/mcp';

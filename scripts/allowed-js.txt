@@ -12,14 +12,6 @@ kanecta-core/kanecta-migrations/1.4.0/migrate-config-keys.js
 kanecta-core/kanecta-migrations/1.4.0/migrate-datastore-to-per-branch.js
 # s3 test grandfathered with its wholly-JS package; migrate the package to TS as a unit.
 kanecta-dev/scripts/ensure-datastore.js
-kanecta-ui/kanecta-apps/kanecta-app-claude/index.js
-kanecta-ui/kanecta-apps/kanecta-app-claude/lib/claude.js
-kanecta-ui/kanecta-apps/kanecta-app-claude/lib/config.js
-kanecta-ui/kanecta-apps/kanecta-app-claude/lib/mcp-setup.js
-kanecta-ui/kanecta-apps/kanecta-app-claude/lib/mcp.js
-kanecta-ui/kanecta-apps/kanecta-app-claude/lib/secrets.js
-kanecta-ui/kanecta-apps/kanecta-app-claude/lib/wizard.js
-kanecta-ui/kanecta-apps/kanecta-app-claude/scripts/prepublish.js
 kanecta-ui/kanecta-apps/kanecta-app-studio-debian/main.cjs
 kanecta-ui/kanecta-apps/kanecta-app-studio-mac/main.cjs
 kanecta-ui/kanecta-apps/kanecta-app-studio-vscode-plugin/extension.js

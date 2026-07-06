@@ -1,5 +1,3 @@
-'use strict';
-
 const PATTERNS = [
   { name: 'Anthropic API key', re: /sk-ant-[a-zA-Z0-9_-]{20,}/ },
   { name: 'OpenAI API key', re: /sk-[a-zA-Z0-9]{20,}/ },
@@ -10,13 +8,11 @@ const PATTERNS = [
   { name: 'secret/password field', re: /(password|passwd|secret|api[_-]?key|private[_-]?key|access[_-]?token)\s*[=:]\s*\S{8,}/i },
 ];
 
-function detectSecrets(text) {
+export function detectSecrets(text: unknown): string[] {
   if (!text || typeof text !== 'string') return [];
-  const found = [];
+  const found: string[] = [];
   for (const { name, re } of PATTERNS) {
     if (re.test(text)) found.push(name);
   }
   return found;
 }
-
-module.exports = { detectSecrets };

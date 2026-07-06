@@ -1,18 +1,16 @@
-'use strict';
-
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const { execSync } = require('child_process');
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import { execSync } from 'child_process';
 
 const CLAUDE_DIR = path.join(os.homedir(), '.claude');
-const CLAUDE_MD = path.join(CLAUDE_DIR, 'CLAUDE.md');
-const COMMANDS_DIR = path.join(CLAUDE_DIR, 'commands');
+export const CLAUDE_MD = path.join(CLAUDE_DIR, 'CLAUDE.md');
+export const COMMANDS_DIR = path.join(CLAUDE_DIR, 'commands');
 const MARKER_START = '<!-- kanecta-start -->';
 const MARKER_END = '<!-- kanecta-end -->';
 
 // Token-efficient instructions — added to the user's existing CLAUDE.md, not replacing it
-const MODE_INSTRUCTIONS = {
+export const MODE_INSTRUCTIONS: Record<string, string> = {
   always: `## Kanecta Knowledge Base
 Context store that persists across all sessions (like Obsidian for Claude). Capture automatically:
 - \`kanecta capture "..."\` — save a decision, insight, solution, or fact worth keeping (add \`--tag category\`)
@@ -43,12 +41,12 @@ Context store that persists across all sessions. Use when asked:
 Never capture secrets, API keys, passwords, or tokens.`,
 };
 
-function buildInstructions(mode) {
+export function buildInstructions(mode: string): string {
   return MODE_INSTRUCTIONS[mode] || MODE_INSTRUCTIONS.always;
 }
 
 // Inject/update kanecta block in CLAUDE.md, leaving all existing content intact
-function injectClaudeMd(mode) {
+export function injectClaudeMd(mode: string): void {
   const block = `${MARKER_START}\n${buildInstructions(mode)}\n${MARKER_END}`;
   let content = '';
   try { content = fs.readFileSync(CLAUDE_MD, 'utf8'); } catch {}
@@ -64,7 +62,7 @@ function injectClaudeMd(mode) {
   fs.writeFileSync(CLAUDE_MD, content);
 }
 
-function removeClaudeMd() {
+export function removeClaudeMd(): void {
   try {
     let content = fs.readFileSync(CLAUDE_MD, 'utf8');
     content = content.replace(new RegExp(`\n\n${MARKER_START}[\\s\\S]*?${MARKER_END}\n?`), '');
@@ -73,10 +71,10 @@ function removeClaudeMd() {
   } catch {}
 }
 
-function installSlashCommands() {
+export function installSlashCommands(): number {
   const srcDir = path.join(__dirname, '..', 'commands');
   fs.mkdirSync(COMMANDS_DIR, { recursive: true });
-  let entries;
+  let entries: string[];
   try { entries = fs.readdirSync(srcDir); } catch { return 0; }
   let count = 0;
   for (const f of entries) {
@@ -87,7 +85,7 @@ function installSlashCommands() {
   return count;
 }
 
-function isClaudeInstalled() {
+export function isClaudeInstalled(): boolean {
   try {
     execSync('which claude', { stdio: 'pipe' });
     return true;
@@ -95,14 +93,3 @@ function isClaudeInstalled() {
     return false;
   }
 }
-
-module.exports = {
-  injectClaudeMd,
-  removeClaudeMd,
-  installSlashCommands,
-  isClaudeInstalled,
-  buildInstructions,
-  MODE_INSTRUCTIONS,
-  CLAUDE_MD,
-  COMMANDS_DIR,
-};

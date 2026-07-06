@@ -1,13 +1,10 @@
-#!/usr/bin/env node
-'use strict';
+#!/usr/bin/env -S node --import tsx
 
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const readline = require('readline');
-const { Datastore } = require('@kanecta/cli/lib/datastore');
-const { readConfig, writeConfig, getDatastorePath, isConfigured, expandHome } = require('./lib/config');
-const { detectSecrets } = require('./lib/secrets');
+import fs from 'fs';
+// @ts-expect-error — runtime subpath re-export; not resolvable at typecheck time
+import { Datastore } from '@kanecta/cli/lib/datastore';
+import { readConfig, writeConfig, getDatastorePath, isConfigured, expandHome } from './lib/config.ts';
+import { detectSecrets } from './lib/secrets.ts';
 
 // ─── Help ─────────────────────────────────────────────────────────────────────
 
@@ -61,9 +58,11 @@ EXAMPLES
 
 // ─── Arg parser ───────────────────────────────────────────────────────────────
 
-function parseArgs(argv) {
-  const flags = {};
-  const positional = [];
+type Flags = Record<string, any>;
+
+function parseArgs(argv: string[]) {
+  const flags: Flags = {};
+  const positional: string[] = [];
   let i = 0;
   while (i < argv.length) {
     const arg = argv[i];
@@ -98,14 +97,14 @@ function parseArgs(argv) {
 
 // ─── Output helpers ───────────────────────────────────────────────────────────
 
-function die(msg) {
+function die(msg: string): never {
   process.stderr.write(`kanecta claude: ${msg}\n`);
   process.exit(1);
 }
 
 // ─── Capture helpers ──────────────────────────────────────────────────────────
 
-function getOrCreateDateBucket(ds, cfg) {
+function getOrCreateDateBucket(ds: any, cfg: any) {
   const today = new Date().toISOString().slice(0, 10);
   if (cfg && cfg.lastCaptureDate === today && cfg.lastCaptureDateId) {
     return cfg.lastCaptureDateId;
@@ -129,11 +128,11 @@ function getOrCreateDateBucket(ds, cfg) {
 // ─── Commands ─────────────────────────────────────────────────────────────────
 
 async function cmdWizard() {
-  const { runWizard } = require('./lib/wizard');
+  const { runWizard } = require('./lib/wizard.ts');
   await runWizard();
 }
 
-async function cmdCapture(positional, flags) {
+async function cmdCapture(positional: string[], flags: Flags) {
   const cfg = readConfig();
   if (!cfg) die('Kanecta not configured. Run `kanecta claude wizard` to set up.');
 
@@ -150,7 +149,7 @@ async function cmdCapture(positional, flags) {
   const ds = new Datastore(expandHome(cfg.datastorePath));
   const dateBucketId = getOrCreateDateBucket(ds, cfg);
 
-  const userTags = [].concat(flags['tag'] || []).filter(t => !['kanecta-capture', 'kanecta-date', 'kanecta-internal'].includes(t));
+  const userTags = ([] as any[]).concat(flags['tag'] || []).filter((t: any) => !['kanecta-capture', 'kanecta-date', 'kanecta-internal'].includes(t));
   const tags = ['kanecta-capture', ...userTags];
   const type = flags['type'] || 'text';
   if (!['text', 'string', 'decision', 'annotation'].includes(type)) die(`Invalid capture type: ${type}`);
@@ -172,7 +171,7 @@ async function cmdCapture(positional, flags) {
   console.log(`  ${preview}`);
 }
 
-async function cmdRecent(positional, flags) {
+async function cmdRecent(positional: string[], flags: Flags) {
   const cfg = readConfig();
   if (!cfg) die('Kanecta not configured. Run `kanecta claude wizard` to set up.');
 
@@ -180,8 +179,8 @@ async function cmdRecent(positional, flags) {
   const ds = new Datastore(expandHome(cfg.datastorePath));
 
   const items = ds.loadAll()
-    .filter(i => (i.tags || []).includes('kanecta-capture'))
-    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+    .filter((i: any) => (i.tags || []).includes('kanecta-capture'))
+    .sort((a: any, b: any) => (b.createdAt || '').localeCompare(a.createdAt || ''))
     .slice(0, n);
 
   if (items.length === 0) {
@@ -192,7 +191,7 @@ async function cmdRecent(positional, flags) {
   console.log(`${items.length} recent capture(s):\n`);
   for (const item of items) {
     const date = (item.createdAt || '').slice(0, 10);
-    const userTags = (item.tags || []).filter(t => !['kanecta-capture', 'kanecta-date', 'kanecta-internal'].includes(t));
+    const userTags = (item.tags || []).filter((t: any) => !['kanecta-capture', 'kanecta-date', 'kanecta-internal'].includes(t));
     const tagStr = userTags.length ? ` [${userTags.join(', ')}]` : '';
     console.log(`${date}${tagStr}`);
     const val = String(item.value || '');
@@ -202,12 +201,12 @@ async function cmdRecent(positional, flags) {
   }
 }
 
-async function cmdSearch(positional, flags) {
+async function cmdSearch(positional: string[], flags: Flags) {
   const query = positional.join(' ');
   if (!query) die('Usage: kanecta claude search "<query>"');
 
   const cfg = readConfig();
-  let ds;
+  let ds: any;
   if (flags['datastore']) {
     ds = new Datastore(flags['datastore']);
   } else if (cfg) {
@@ -218,8 +217,8 @@ async function cmdSearch(positional, flags) {
 
   const q = query.toLowerCase();
   const results = ds.loadAll()
-    .filter(i => i.value && typeof i.value === 'string' && i.value.toLowerCase().includes(q))
-    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+    .filter((i: any) => i.value && typeof i.value === 'string' && i.value.toLowerCase().includes(q))
+    .sort((a: any, b: any) => (b.createdAt || '').localeCompare(a.createdAt || ''))
     .slice(0, parseInt(flags['limit'] || '20', 10));
 
   if (results.length === 0) {
@@ -230,7 +229,7 @@ async function cmdSearch(positional, flags) {
   console.log(`${results.length} result(s) for "${query}":\n`);
   for (const item of results) {
     const date = (item.createdAt || '').slice(0, 10);
-    const userTags = (item.tags || []).filter(t => !['kanecta-capture', 'kanecta-date', 'kanecta-internal'].includes(t));
+    const userTags = (item.tags || []).filter((t: any) => !['kanecta-capture', 'kanecta-date', 'kanecta-internal'].includes(t));
     const tagStr = userTags.length ? ` [${userTags.join(', ')}]` : '';
     console.log(`[${item.type}]${tagStr} ${date}`);
     const val = String(item.value || '');
@@ -241,7 +240,7 @@ async function cmdSearch(positional, flags) {
 }
 
 async function cmdSetup() {
-  const { setupMcpServer } = require('./lib/mcp-setup');
+  const { setupMcpServer } = require('./lib/mcp-setup.ts');
   const result = setupMcpServer();
   if (!result.ok) {
     process.stderr.write(`kanecta claude: MCP setup failed — ${result.error}\n`);
@@ -255,7 +254,7 @@ async function cmdSetup() {
   console.log('Restart Claude Code to activate.');
 }
 
-async function cmdMode(positional) {
+async function cmdMode(positional: string[]) {
   const mode = positional[0];
   const validModes = ['always', 'extended', 'ask-at-start', 'manual'];
   if (!mode || !validModes.includes(mode)) {
@@ -265,7 +264,7 @@ async function cmdMode(positional) {
   if (!cfg) die('Kanecta not configured. Run `kanecta claude wizard` to set up.');
   cfg.captureMode = mode;
   writeConfig(cfg);
-  const { injectClaudeMd } = require('./lib/claude');
+  const { injectClaudeMd } = require('./lib/claude.ts');
   injectClaudeMd(mode);
   console.log(`Capture mode: ${mode}`);
   console.log(`Updated ~/.claude/CLAUDE.md`);
@@ -282,8 +281,8 @@ async function cmdStatus() {
   console.log(`Capture mode: ${cfg.captureMode}`);
   if (cfg.lastCaptureDate) console.log(`Last capture: ${cfg.lastCaptureDate}`);
 
-  const { CLAUDE_MD, COMMANDS_DIR } = require('./lib/claude');
-  const { SETTINGS_PATH } = require('./lib/mcp-setup');
+  const { CLAUDE_MD, COMMANDS_DIR } = require('./lib/claude.ts');
+  const { SETTINGS_PATH } = require('./lib/mcp-setup.ts');
   const hasClaude = fs.existsSync(CLAUDE_MD);
   const hasMcp = (() => {
     try {
@@ -302,7 +301,7 @@ async function main() {
 
   if (argv.length === 0 || argv[0] === '--help' || argv[0] === '-h' || argv[0] === 'help') {
     if (argv.length === 0 && !isConfigured()) {
-      const { runWizard } = require('./lib/wizard');
+      const { runWizard } = require('./lib/wizard.ts');
       await runWizard();
       return;
     }
@@ -322,13 +321,13 @@ async function main() {
     case 'search':  await cmdSearch(rest, flags); break;
     case 'mode':    await cmdMode(rest); break;
     case 'status':  await cmdStatus(); break;
-    case 'mcp':     { const { runMcpServer } = require('./lib/mcp'); runMcpServer(); return; }
+    case 'mcp':     { const { runMcpServer } = require('./lib/mcp.ts'); runMcpServer(); return; }
     default:
       die(`Unknown command: ${cmd}\nRun \`kanecta claude --help\` for usage.`);
   }
 }
 
-main().catch(err => {
+main().catch((err: any) => {
   process.stderr.write(`kanecta claude: ${err.message}\n`);
   process.exit(1);
 });

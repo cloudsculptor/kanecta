@@ -1,31 +1,29 @@
-'use strict';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
 
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
+export const CONFIG_PATH = path.join(os.homedir(), '.kanecta-config.json');
+export const KANECTA_DIR = path.join(os.homedir(), '.kanecta');
+export const LOCATION_FILE = path.join(KANECTA_DIR, 'location.txt');
 
-const CONFIG_PATH = path.join(os.homedir(), '.kanecta-config.json');
-const KANECTA_DIR = path.join(os.homedir(), '.kanecta');
-const LOCATION_FILE = path.join(KANECTA_DIR, 'location.txt');
-
-function readConfig() {
+export function readConfig(): any {
   try {
     return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-  } catch (e) {
+  } catch (e: any) {
     if (e.code === 'ENOENT') return null;
     throw e;
   }
 }
 
-function writeConfig(cfg) {
+export function writeConfig(cfg: any): void {
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2) + '\n');
 }
 
-function expandHome(p) {
+export function expandHome(p: string): string {
   return p ? p.replace(/^~/, os.homedir()) : p;
 }
 
-function getDatastorePath() {
+export function getDatastorePath(): string {
   const cfg = readConfig();
   if (cfg && cfg.datastorePath) return expandHome(cfg.datastorePath);
   try {
@@ -35,18 +33,7 @@ function getDatastorePath() {
   return KANECTA_DIR;
 }
 
-function isConfigured() {
+export function isConfigured(): boolean {
   const cfg = readConfig();
   return !!(cfg && cfg.wizardCompleted);
 }
-
-module.exports = {
-  readConfig,
-  writeConfig,
-  getDatastorePath,
-  isConfigured,
-  expandHome,
-  CONFIG_PATH,
-  KANECTA_DIR,
-  LOCATION_FILE,
-};
