@@ -1,4 +1,39 @@
-'use strict';
+export interface ValidationError {
+  /** Dot-notation path to the offending field (e.g. "item.type", "payload.props[0].name"). */
+  path: string;
+  /** Human-readable explanation of the failure. */
+  message: string;
+  /**
+   * Machine-readable rule identifier.
+   *
+   * Standard rules:        "required" | "type" | "enum" | "exclusive" |
+   *                        "format:uuid" | "format:date-time" | "format:semver"
+   *
+   * Kanecta UI rules:      "kanecta-ui:component-type"    — item.type must be "component"
+   *                        "kanecta-ui:non-root-id"        — item.id must not be the root UUID
+   *                        "kanecta-ui:root-parent"        — item.parentId must be root UUID
+   *                        "kanecta-ui:files-required"     — meta.files must be present
+   *                        "kanecta-ui:body-required"      — meta.files.body must be set
+   *                        "kanecta-ui:body-path"          — meta.files.body must start with src/
+   *                        "kanecta-ui:payload-required"   — payload must be present
+   *                        "kanecta-ui:props-required"     — payload.props must be an array
+   *                        "kanecta-ui:layer"              — manifest layer must be "ui"
+   *                        "kanecta-ui:duplicate-id"       — manifest item IDs must be unique
+   *                        "kanecta-ui:component-name"     — package name must match @kanecta/component-*
+   *                        "kanecta-ui:private"            — package must be private
+   *                        "kanecta-ui:main-src"           — main must point into src/
+   *                        "kanecta-ui:no-dependencies"    — dependencies block is forbidden
+   *                        "kanecta-ui:peer-deps-required" — peerDependencies must be present
+   *                        "kanecta-ui:react-peer"         — react must be a peer dependency
+   *                        "kanecta-ui:peer-range"         — peer ranges must use >= not ^
+   */
+  rule: string;
+}
+
+export interface ValidationResult {
+  valid: boolean;
+  errors: ValidationError[];
+}
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -10,10 +45,10 @@ const COMPONENT_FOLDER_RE = /^kanecta-component-[a-z][a-z0-9-]*$/;
 const ROOT_UUID  = '00000000-0000-0000-0000-000000000000';
 const VISIBILITY = new Set(['private', 'organisation', 'public']);
 
-function isUUID(v)    { return typeof v === 'string' && UUID_RE.test(v); }
-function isISO8601(v) { return typeof v === 'string' && ISO8601_RE.test(v); }
-function isSemver(v)  { return typeof v === 'string' && SEMVER_RE.test(v); }
-function e(path, message, rule) { return { path, message, rule }; }
+function isUUID(v: unknown): boolean    { return typeof v === 'string' && UUID_RE.test(v); }
+function isISO8601(v: unknown): boolean { return typeof v === 'string' && ISO8601_RE.test(v); }
+function isSemver(v: unknown): boolean  { return typeof v === 'string' && SEMVER_RE.test(v); }
+function e(path: string, message: string, rule: string): ValidationError { return { path, message, rule }; }
 
 // ─── validateComponentItem ───────────────────────────────────────────────────
 
@@ -29,20 +64,19 @@ function e(path, message, rule) { return { path, message, rule }; }
  *  - meta.files.body must point to the component source entry
  *  - payload.props must be an array
  *  - payload.dependencies must be an array of strings if present
- *
- * @param {unknown} json
- * @returns {{ valid: boolean, errors: Array<{path:string, message:string, rule:string}> }}
  */
-function validateComponentItem(json) {
-  const errors = [];
+export function validateComponentItem(json: unknown): ValidationResult {
+  const errors: ValidationError[] = [];
 
   if (typeof json !== 'object' || json === null || Array.isArray(json)) {
     return { valid: false, errors: [e('', 'kanecta.item.json must be a non-null object', 'type')] };
   }
 
+  const root = json as any;
+
   // ── item section ──────────────────────────────────────────────────────────
 
-  const item = json.item;
+  const item = root.item;
   if (!item || typeof item !== 'object') {
     errors.push(e('item', 'Required section "item" is missing', 'required'));
   } else {
@@ -71,7 +105,7 @@ function validateComponentItem(json) {
 
   // ── meta section ──────────────────────────────────────────────────────────
 
-  const meta = json.meta;
+  const meta = root.meta;
   if (!meta || typeof meta !== 'object') {
     errors.push(e('meta', 'Required section "meta" is missing', 'required'));
   } else {
@@ -111,7 +145,7 @@ function validateComponentItem(json) {
       if (!Array.isArray(meta.tags)) {
         errors.push(e('meta.tags', 'meta.tags must be an array of strings', 'type'));
       } else {
-        meta.tags.forEach((t, i) => {
+        meta.tags.forEach((t: any, i: number) => {
           if (typeof t !== 'string') errors.push(e(`meta.tags[${i}]`, 'Each tag must be a string', 'type'));
         });
       }
@@ -120,17 +154,17 @@ function validateComponentItem(json) {
 
   // ── payload section ───────────────────────────────────────────────────────
 
-  if (json.payload == null) {
+  if (root.payload == null) {
     errors.push(e('payload', 'payload is required for component items', 'kanecta-ui:payload-required'));
-  } else if (typeof json.payload !== 'object' || Array.isArray(json.payload)) {
+  } else if (typeof root.payload !== 'object' || Array.isArray(root.payload)) {
     errors.push(e('payload', 'payload must be a non-null object', 'type'));
   } else {
-    const payload = json.payload;
+    const payload = root.payload;
 
     if (!Array.isArray(payload.props)) {
       errors.push(e('payload.props', 'payload.props must be an array (may be empty)', 'kanecta-ui:props-required'));
     } else {
-      payload.props.forEach((p, i) => {
+      payload.props.forEach((p: any, i: number) => {
         if (!p.name) errors.push(e(`payload.props[${i}].name`, 'Each prop must have a name', 'required'));
         const hasType = !!p.type;
         const hasTypeId = !!p.typeId;
@@ -149,7 +183,7 @@ function validateComponentItem(json) {
       if (!Array.isArray(payload.dependencies)) {
         errors.push(e('payload.dependencies', 'payload.dependencies must be an array of strings', 'type'));
       } else {
-        payload.dependencies.forEach((d, i) => {
+        payload.dependencies.forEach((d: any, i: number) => {
           if (typeof d !== 'string') {
             errors.push(e(`payload.dependencies[${i}]`, 'Each dependency must be a string (npm package name)', 'type'));
           }
@@ -176,35 +210,34 @@ function validateComponentItem(json) {
  *  - layer must be "ui"
  *  - items must be an array
  *  - Each item must have a UUID id, a string type, and a string file path
- *
- * @param {unknown} json
- * @returns {{ valid: boolean, errors: Array<{path:string, message:string, rule:string}> }}
  */
-function validateManifest(json) {
-  const errors = [];
+export function validateManifest(json: unknown): ValidationResult {
+  const errors: ValidationError[] = [];
 
   if (typeof json !== 'object' || json === null || Array.isArray(json)) {
     return { valid: false, errors: [e('', 'kanecta.manifest.json must be a non-null object', 'type')] };
   }
 
-  if (!json.schemaVersion) {
+  const root = json as any;
+
+  if (!root.schemaVersion) {
     errors.push(e('schemaVersion', 'schemaVersion is required', 'required'));
-  } else if (!isSemver(json.schemaVersion)) {
-    errors.push(e('schemaVersion', `schemaVersion must be a semver string (e.g. "1.4.0"), got "${json.schemaVersion}"`, 'format:semver'));
+  } else if (!isSemver(root.schemaVersion)) {
+    errors.push(e('schemaVersion', `schemaVersion must be a semver string (e.g. "1.4.0"), got "${root.schemaVersion}"`, 'format:semver'));
   }
 
-  if (!json.package || typeof json.package !== 'string') {
+  if (!root.package || typeof root.package !== 'string') {
     errors.push(e('package', 'package must be a non-empty string (the app package name)', 'required'));
   }
 
-  if (json.layer !== 'ui') {
-    errors.push(e('layer', `layer must be "ui" for UI app manifests, got "${json.layer}"`, 'kanecta-ui:layer'));
+  if (root.layer !== 'ui') {
+    errors.push(e('layer', `layer must be "ui" for UI app manifests, got "${root.layer}"`, 'kanecta-ui:layer'));
   }
 
-  if (!Array.isArray(json.items)) {
+  if (!Array.isArray(root.items)) {
     errors.push(e('items', 'items must be an array', 'required'));
   } else {
-    json.items.forEach((item, i) => {
+    root.items.forEach((item: any, i: number) => {
       const base = `items[${i}]`;
       if (typeof item !== 'object' || item === null) {
         errors.push(e(base, 'Each manifest item must be an object', 'type'));
@@ -227,8 +260,8 @@ function validateManifest(json) {
     });
 
     // Detect duplicate IDs
-    const seen = new Map();
-    json.items.forEach((item, i) => {
+    const seen = new Map<any, number>();
+    root.items.forEach((item: any, i: number) => {
       if (!item || !item.id) return;
       if (seen.has(item.id)) {
         errors.push(e(`items[${i}].id`, `Duplicate item ID "${item.id}" — each component must appear once`, 'kanecta-ui:duplicate-id'));
@@ -252,38 +285,37 @@ function validateManifest(json) {
  *  - no "dependencies" block (only peerDependencies allowed)
  *  - peerDependency version ranges use >= not ^
  *  - react is listed as a peer dependency
- *
- * @param {unknown} pkg
- * @returns {{ valid: boolean, errors: Array<{path:string, message:string, rule:string}> }}
  */
-function validateComponentPackage(pkg) {
-  const errors = [];
+export function validateComponentPackage(pkg: unknown): ValidationResult {
+  const errors: ValidationError[] = [];
 
   if (typeof pkg !== 'object' || pkg === null || Array.isArray(pkg)) {
     return { valid: false, errors: [e('', 'package.json must be a non-null object', 'type')] };
   }
 
-  if (!pkg.name || typeof pkg.name !== 'string') {
+  const p = pkg as any;
+
+  if (!p.name || typeof p.name !== 'string') {
     errors.push(e('name', 'name is required', 'required'));
-  } else if (!COMPONENT_NAME_RE.test(pkg.name)) {
-    errors.push(e('name', `name must match @kanecta/component-<slug>, got "${pkg.name}"`, 'kanecta-ui:component-name'));
+  } else if (!COMPONENT_NAME_RE.test(p.name)) {
+    errors.push(e('name', `name must match @kanecta/component-<slug>, got "${p.name}"`, 'kanecta-ui:component-name'));
   }
 
-  if (pkg.private !== true) {
+  if (p.private !== true) {
     errors.push(e('private', 'private must be true — component packages are workspace-only and must not be independently published', 'kanecta-ui:private'));
   }
 
-  if (!pkg.main || typeof pkg.main !== 'string') {
+  if (!p.main || typeof p.main !== 'string') {
     errors.push(e('main', 'main is required', 'required'));
-  } else if (!pkg.main.startsWith('src/')) {
-    errors.push(e('main', `main must point into src/ (e.g. "src/index.ts"), got "${pkg.main}" — no build step; TypeScript sources are consumed directly`, 'kanecta-ui:main-src'));
+  } else if (!p.main.startsWith('src/')) {
+    errors.push(e('main', `main must point into src/ (e.g. "src/index.ts"), got "${p.main}" — no build step; TypeScript sources are consumed directly`, 'kanecta-ui:main-src'));
   }
 
-  if (pkg.dependencies && Object.keys(pkg.dependencies).length > 0) {
+  if (p.dependencies && Object.keys(p.dependencies).length > 0) {
     errors.push(e('dependencies', '"dependencies" must not be present in component packages — use peerDependencies for runtime deps and devDependencies for type-only or build tools', 'kanecta-ui:no-dependencies'));
   }
 
-  const peers = pkg.peerDependencies;
+  const peers = p.peerDependencies;
   if (!peers || typeof peers !== 'object') {
     errors.push(e('peerDependencies', 'peerDependencies is required — at minimum react must be listed', 'kanecta-ui:peer-deps-required'));
   } else {
@@ -291,7 +323,7 @@ function validateComponentPackage(pkg) {
       errors.push(e('peerDependencies.react', 'react must be listed as a peer dependency', 'kanecta-ui:react-peer'));
     }
 
-    for (const [dep, range] of Object.entries(peers)) {
+    for (const [dep, range] of Object.entries(peers) as [string, any][]) {
       if (dep === '@kanecta/component-core' || dep.startsWith('@kanecta/component-')) continue; // workspace refs use *
       if (range === '*') continue;
 
@@ -307,7 +339,3 @@ function validateComponentPackage(pkg) {
 
   return { valid: errors.length === 0, errors };
 }
-
-// ─── exports ─────────────────────────────────────────────────────────────────
-
-module.exports = { validateComponentItem, validateManifest, validateComponentPackage };

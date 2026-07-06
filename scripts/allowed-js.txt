@@ -43,7 +43,3 @@ kanecta-ui/kanecta-apps/kanecta-app-studio-vscode-plugin/extension.js
 kanecta-ui/kanecta-apps/kanecta-app-studio-windows/main.cjs
 kanecta-ui/kanecta-apps/kanecta-app-studio/eslint.config.js
 kanecta-ui/kanecta-apps/kanecta-app-studio/src/server.cjs
-kanecta-ui/kanecta-ui-specification/1.4.0/kanecta-ui-validator/index.js
-kanecta-ui/kanecta-ui-specification/1.4.0/kanecta-ui-validator/index.mjs
-kanecta-ui/kanecta-ui-specification/index.js
-kanecta-ui/kanecta-ui-specification/index.mjs
