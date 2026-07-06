@@ -1,4 +1,4 @@
-import './WorkspaceIndicator.css';
+import './WorkspaceIndicator.scss';
 
 export interface WorkspaceIndicatorProps {
   colour: string;

@@ -5,7 +5,7 @@ import SyncIcon from '@mui/icons-material/Sync';
 import type { TypeItem } from '@kanecta/component-type-list';
 import { TypeList } from '@kanecta/component-type-list';
 import { SyncTypesDialog } from './SyncTypesDialog';
-import './TypesView.css';
+import './TypesView.scss';
 
 export interface SystemTypeItem {
   folderId: string;

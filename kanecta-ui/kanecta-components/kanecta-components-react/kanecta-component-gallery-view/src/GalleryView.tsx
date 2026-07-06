@@ -5,7 +5,7 @@ import { ConfidenceBadge } from '@kanecta/component-confidence-badge';
 import { TypeBadge } from '@kanecta/component-type-badge';
 import { TagChip } from '@kanecta/component-tag-chip';
 import type { ConfidenceLevel } from '@kanecta/component-confidence-badge';
-import './GalleryView.css';
+import './GalleryView.scss';
 
 export interface GalleryItem {
   id: string;

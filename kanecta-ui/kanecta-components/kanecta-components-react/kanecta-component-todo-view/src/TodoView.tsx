@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Checkbox } from '@mui/material';
 import { useDataSource } from '@kanecta/component-core';
 import type { KanectaItem } from '@kanecta/component-core';
-import './TodoView.css';
+import './TodoView.scss';
 
 export interface TodoViewProps {
   itemId: string | null;

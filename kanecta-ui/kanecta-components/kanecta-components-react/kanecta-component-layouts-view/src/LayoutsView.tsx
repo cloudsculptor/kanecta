@@ -7,7 +7,7 @@ import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import SplitscreenIcon from '@mui/icons-material/Splitscreen';
 import type { PaneNode, LeafNode, SplitNode, LayoutTab, LayoutData, AvailableView } from './types';
-import './LayoutsView.css';
+import './LayoutsView.scss';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

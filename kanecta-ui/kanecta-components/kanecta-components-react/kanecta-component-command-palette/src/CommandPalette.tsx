@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import SearchIcon from '@mui/icons-material/Search';
 import ArticleIcon from '@mui/icons-material/Article';
-import './CommandPalette.css';
+import './CommandPalette.scss';
 
 export interface PaletteItem {
   id: string;

@@ -3,7 +3,7 @@ import { AgGridReact } from 'ag-grid-react';
 import { AllCommunityModule, themeQuartz, type ColDef } from 'ag-grid-community';
 import { useQuery } from '@tanstack/react-query';
 import { TypeList, type TypeItem } from '@kanecta/component-type-list';
-import './TableView.css';
+import './TableView.scss';
 
 const theme = themeQuartz;
 

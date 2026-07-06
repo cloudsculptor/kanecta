@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { IconButton, Tooltip } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import './HistoryView.css';
+import './HistoryView.scss';
 
 export interface HistoryEntry {
   id: string;

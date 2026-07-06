@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { WorkspaceIndicator } from '@kanecta/component-workspace-indicator';
 import type { MissionWorkspace, MissionActivityEvent, MissionItem, WorkspaceStatus } from './types';
-import './WorkspaceColumn.css';
+import './WorkspaceColumn.scss';
 
 function deriveStatus(items: MissionItem[], errorFlag: boolean): WorkspaceStatus {
   if (errorFlag) return 'red';

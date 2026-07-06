@@ -20,7 +20,7 @@ import type { FilterState } from '@kanecta/component-core';
 import { FilterBar } from '@kanecta/component-filter-bar';
 import { TypeBadge } from '@kanecta/component-type-badge';
 import { TagChip } from '@kanecta/component-tag-chip';
-import './BoardView.css';
+import './BoardView.scss';
 
 export interface BoardItem {
   id: string;

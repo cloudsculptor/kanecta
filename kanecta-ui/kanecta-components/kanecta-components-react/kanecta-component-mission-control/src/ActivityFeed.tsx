@@ -1,6 +1,6 @@
 import { WorkspaceIndicator } from '@kanecta/component-workspace-indicator';
 import type { MissionWorkspace, MissionActivityEvent } from './types';
-import './ActivityFeed.css';
+import './ActivityFeed.scss';
 
 function formatRelative(isoString: string): string {
   const diffMs = Date.now() - new Date(isoString).getTime();

@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import ForceGraph2D, { type ForceGraphMethods, type NodeObject } from 'react-force-graph-2d';
 import { useQuery } from '@tanstack/react-query';
-import './GraphView.css';
+import './GraphView.scss';
 
 // ── Public types ─────────────────────────────────────────────────────────────
 

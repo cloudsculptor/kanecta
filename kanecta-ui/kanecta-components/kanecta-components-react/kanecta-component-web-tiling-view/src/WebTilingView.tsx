@@ -9,7 +9,7 @@ import SplitscreenIcon from '@mui/icons-material/Splitscreen';
 import CloseIcon from '@mui/icons-material/Close';
 import HomeIcon from '@mui/icons-material/Home';
 import type { WebPaneNode, WebLeafNode, WebSplitNode, QuickLink } from './types';
-import './WebTilingView.css';
+import './WebTilingView.scss';
 
 function uid() { return crypto.randomUUID(); }
 

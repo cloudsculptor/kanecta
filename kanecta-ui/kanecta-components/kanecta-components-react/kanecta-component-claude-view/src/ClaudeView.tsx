@@ -3,7 +3,7 @@ import { IconButton, Tooltip, CircularProgress } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import StopIcon from '@mui/icons-material/Stop';
 import ReactMarkdown from 'react-markdown';
-import './ClaudeView.css';
+import './ClaudeView.scss';
 
 // ── Local event types (mirror of api-client shapes) ──────────────────────────
 

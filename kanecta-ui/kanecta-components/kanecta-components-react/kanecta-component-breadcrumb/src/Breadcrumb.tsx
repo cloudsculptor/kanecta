@@ -1,5 +1,5 @@
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import './Breadcrumb.css';
+import './Breadcrumb.scss';
 
 export interface BreadcrumbItem {
   id: string;

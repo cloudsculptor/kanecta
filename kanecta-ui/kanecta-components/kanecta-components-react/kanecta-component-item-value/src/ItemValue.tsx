@@ -1,4 +1,4 @@
-import './ItemValue.css';
+import './ItemValue.scss';
 
 interface ResolvableItem {
   id: string;

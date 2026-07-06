@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ConfidenceBadge, type ConfidenceLevel } from '@kanecta/component-confidence-badge';
 import { TypeBadge } from '@kanecta/component-type-badge';
 import type { ConflictPair, MissionWorkspace } from './types';
-import './ConflictList.css';
+import './ConflictList.scss';
 
 interface ConflictListProps {
   conflicts: ConflictPair[];

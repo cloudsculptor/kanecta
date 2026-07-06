@@ -1,4 +1,4 @@
-import './TypeBadge.css';
+import './TypeBadge.scss';
 
 export interface TypeBadgeProps {
   type: string;

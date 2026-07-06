@@ -3,7 +3,7 @@ import Slider from '@mui/material/Slider';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Checkbox from '@mui/material/Checkbox';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import './CombinatorView.css';
+import './CombinatorView.scss';
 
 export interface CombinatorItem {
   id: string;

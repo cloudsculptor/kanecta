@@ -1,5 +1,5 @@
 import type { SortState } from '@kanecta/component-core';
-import './SortBar.css';
+import './SortBar.scss';
 
 export type { SortState };
 
