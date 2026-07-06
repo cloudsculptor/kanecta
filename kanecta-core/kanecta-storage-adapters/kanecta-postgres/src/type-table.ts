@@ -1,5 +1,3 @@
-'use strict';
-
 // Suggests per-type table DDL for a Kanecta custom type, from its jsonSchema.
 //
 // IMPORTANT: this is NOT what the adapter runs at type-creation time. Per
@@ -24,18 +22,18 @@ const UUID_HEX_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 
 // Raw UUIDs aren't valid unquoted SQL identifiers (they start with a digit and
 // contain hyphens) — replace hyphens with underscores and prefix with "obj_".
-function tableNameForType(typeId) {
+function tableNameForType(typeId: string): string {
   if (!UUID_HEX_RE.test(typeId)) throw new Error(`Not a UUID: ${typeId}`);
   return `obj_${typeId.replace(/-/g, '_')}`;
 }
 
-function quoteIdent(name) {
+function quoteIdent(name: string): string {
   return `"${name.replace(/"/g, '""')}"`;
 }
 
 // Maps a primitive JSON Schema property definition to a SQL column type.
 // Returns null if the schema isn't a primitive (caller decides what to do).
-function scalarSqlType(schema) {
+function scalarSqlType(schema: any): string | null {
   switch (schema.type) {
     case 'string':
       switch (schema.format) {
@@ -54,10 +52,10 @@ function scalarSqlType(schema) {
 // Plans the columns for a type's table from its jsonSchema.properties.
 // Returns [{ name, sqlType, references }] — `references` is set ('items') for
 // typeId-reference columns, which need an FK constraint.
-function planColumns(properties) {
-  const columns = [];
+function planColumns(properties: any): any[] {
+  const columns: any[] = [];
 
-  for (const [propName, propSchema] of Object.entries(properties ?? {})) {
+  for (const [propName, propSchema] of Object.entries<any>(properties ?? {})) {
     if (propSchema.type === 'string' && propSchema.format === 'uuid' && propSchema.typeId) {
       columns.push({ name: propName, sqlType: 'UUID', references: 'items' });
       continue;
@@ -87,7 +85,7 @@ function planColumns(properties) {
 }
 
 // Generates the single CREATE TABLE statement for a type's table.
-function generateCreateTableSQL(typeId, jsonSchema) {
+function generateCreateTableSQL(typeId: string, jsonSchema: any): string[] {
   const tableName = tableNameForType(typeId);
   const columns = planColumns(jsonSchema?.properties);
 
@@ -108,4 +106,4 @@ function generateCreateTableSQL(typeId, jsonSchema) {
   return [`CREATE TABLE ${quoteIdent(tableName)} (\n${lines.join(',\n')}\n)`];
 }
 
-module.exports = { tableNameForType, generateCreateTableSQL, planColumns, scalarSqlType };
+export { tableNameForType, generateCreateTableSQL, planColumns, scalarSqlType };

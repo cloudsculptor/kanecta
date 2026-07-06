@@ -1,5 +1,3 @@
-'use strict';
-
 // SyncEngine integration tests — real Docker Postgres + real sqlite-fs filesystem.
 //
 // Requires:
@@ -10,15 +8,15 @@
 // data_root UUID differs from the Postgres data_root UUID. Only ROOT_ID
 // ('00000000-0000-0000-0000-000000000000') is guaranteed to exist in both.
 
-const crypto  = require('crypto');
-const fs      = require('fs');
-const os      = require('os');
-const path    = require('path');
-const { Pool } = require('pg');
+import * as crypto from 'crypto';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import { Pool } from 'pg';
 
-const { PostgresAdapter, ROOT_ID } = require('../src/adapter');
-const { SqliteFsAdapter }          = require('@kanecta/sqlite-fs');
-const { SyncEngine }               = require('@kanecta/lib');
+import { PostgresAdapter, ROOT_ID } from '../src/adapter';
+import { SqliteFsAdapter } from '@kanecta/sqlite-fs';
+import { SyncEngine } from '@kanecta/lib';
 
 const CONNECTION_STRING =
   process.env.KANECTA_TEST_PG_URL || 'postgres://kanecta:kanecta@localhost:45432/kanecta';

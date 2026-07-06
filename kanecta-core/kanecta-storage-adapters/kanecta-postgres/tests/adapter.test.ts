@@ -1,5 +1,3 @@
-'use strict';
-
 // Integration tests against a real Postgres instance.
 //
 // Uses a per-run schema (search_path-scoped) so the kanecta database and its
@@ -10,10 +8,10 @@
 //
 // Or set KANECTA_TEST_PG_URL to point at any Postgres with pgvector enabled.
 
-const crypto = require('crypto');
-const { Pool } = require('pg');
-const { PostgresAdapter, ROOT_ID } = require('../src/adapter');
-const { reciprocalRankFusion } = require('../src/embeddings');
+import * as crypto from 'crypto';
+import { Pool } from 'pg';
+import { PostgresAdapter, ROOT_ID } from '../src/adapter';
+import { reciprocalRankFusion } from '../src/embeddings';
 
 const CONNECTION_STRING =
   process.env.KANECTA_TEST_PG_URL || 'postgres://kanecta:kanecta@localhost:45432/kanecta';

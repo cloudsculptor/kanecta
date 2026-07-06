@@ -1,13 +1,11 @@
-'use strict';
-
 // Idempotent external-ingestion primitives on the Postgres adapter — the peer of
 // the filesystem adapter's create(source fields) + bySource(). Backs deterministic
 // importers (e.g. @kanecta/transcript-import) whose upsert is
 // bySource() ? update() : create(). Integration test against a real Postgres.
 
-const crypto = require('crypto');
-const { Pool } = require('pg');
-const { PostgresAdapter } = require('../src/adapter');
+import * as crypto from 'crypto';
+import { Pool } from 'pg';
+import { PostgresAdapter } from '../src/adapter';
 
 const CONNECTION_STRING =
   process.env.KANECTA_TEST_PG_URL || 'postgres://kanecta:kanecta@localhost:45432/kanecta';

@@ -1,5 +1,3 @@
-'use strict';
-
 // Postgres branching tests — run against a real Postgres instance.
 //
 //   docker compose -f docker-compose.test.yml up -d
@@ -7,9 +5,9 @@
 //
 // Every describe block gets its own schema so failures are fully isolated.
 
-const crypto = require('crypto');
-const { Pool } = require('pg');
-const { PostgresAdapter, ROOT_ID } = require('../src/adapter');
+import * as crypto from 'crypto';
+import { Pool } from 'pg';
+import { PostgresAdapter, ROOT_ID } from '../src/adapter';
 
 const CONNECTION_STRING =
   process.env.KANECTA_TEST_PG_URL || 'postgres://kanecta:kanecta@localhost:45432/kanecta';

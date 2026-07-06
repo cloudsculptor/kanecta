@@ -1,5 +1,3 @@
-'use strict';
-
 // PostgresAdapter — implements the Kanecta adapter interface against PostgreSQL.
 // API is identical to FilesystemAdapter (same method names, same return shapes)
 // but every method is async. Callers must await all calls.
@@ -8,14 +6,17 @@
 //   const adapter = await PostgresAdapter.init(pool, owner);   // fresh DB
 //   const adapter = await PostgresAdapter.open(pool);           // existing DB
 
-const crypto = require('crypto');
-const { version: specVersion } = require('@kanecta/specification');
-const { createEmbeddingProvider, reciprocalRankFusion } = require('./embeddings');
+import * as crypto from 'crypto';
+import * as fs from 'fs';
+import * as path from 'path';
+import { version as specVersion } from '@kanecta/specification';
+import { Pool } from 'pg';
+import { createEmbeddingProvider, reciprocalRankFusion } from './embeddings';
 
 const ROOT_ID         = '00000000-0000-0000-0000-000000000000';
 const DEFAULT_LICENSE = 'bb3bf137-d8a9-4264-9fb7-ac373b1d4739';
 const WELL_KNOWN_TYPES = new Set(['root']);
-const WELL_KNOWN_ORDER = [];
+const WELL_KNOWN_ORDER: string[] = [];
 const UUID_RE  = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const LINK_RE  = /\[\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]\]/gi;
 
@@ -48,7 +49,10 @@ const PRIMITIVE_TYPES = BUILT_IN_TYPES;
 const VALID_REL_TYPES = BUILT_IN_REL_TYPES;
 
 class UnknownTypeError extends Error {
-  constructor(typeName) {
+  code: string;
+  typeName: string;
+
+  constructor(typeName: string) {
     super(`unknown type "${typeName}" — not a registered type definition`);
     this.name = 'UnknownTypeError';
     this.code = 'UNKNOWN_TYPE';
@@ -58,7 +62,7 @@ class UnknownTypeError extends Error {
 
 // ─── Row → item shape ─────────────────────────────────────────────────────────
 
-function rowToItem(row) {
+function rowToItem(row: any): any {
   if (!row) return null;
   return {
     id:           row.id,
@@ -91,23 +95,29 @@ function rowToItem(row) {
   };
 }
 
-function parseLinks(value) {
+function parseLinks(value: any): string[] {
   if (!value || typeof value !== 'string') return [];
-  const links = new Set();
+  const links = new Set<string>();
   let m;
   const re = new RegExp(LINK_RE.source, 'gi');
   while ((m = re.exec(value)) !== null) links.add(m[1]);
   return [...links];
 }
 
-function objTableName(typeId) {
+function objTableName(typeId: string): string {
   return `obj_${typeId.replace(/-/g, '_')}`;
 }
 
 // ─── Adapter ──────────────────────────────────────────────────────────────────
 
 class PostgresAdapter {
-  constructor(pool, { embeddings = null } = {}) {
+  _pool: Pool;
+  _config: any;
+  _relTypesCache: string[] | null;
+  _embeddingProvider: any;
+  _embeddingsEnabled: boolean;
+
+  constructor(pool: Pool, { embeddings = null }: any = {}) {
     this._pool              = pool;
     this._config            = null;
     this._relTypesCache     = null;
@@ -117,7 +127,7 @@ class PostgresAdapter {
 
   // ─── Lifecycle ──────────────────────────────────────────────────────────────
 
-  static async init(pool, owner, { embeddings = null } = {}) {
+  static async init(pool: Pool, owner: any, { embeddings = null }: any = {}) {
     const adapter = new PostgresAdapter(pool, { embeddings });
     await adapter._migrate();
     await adapter._ensureConfig(owner);
@@ -127,7 +137,7 @@ class PostgresAdapter {
     return adapter;
   }
 
-  static async open(pool, { embeddings = null } = {}) {
+  static async open(pool: Pool, { embeddings = null }: any = {}) {
     const adapter = new PostgresAdapter(pool, { embeddings });
     const cfg = await adapter._loadConfig();
     if (!cfg) throw new Error('Not a Kanecta database: config missing or empty');
@@ -149,8 +159,6 @@ class PostgresAdapter {
   // ─── Migrations ─────────────────────────────────────────────────────────────
 
   async _migrate() {
-    const fs   = require('fs');
-    const path = require('path');
     const dir  = path.join(__dirname, '..', 'migrations');
     const files = fs.readdirSync(dir).filter(f => f.endsWith('.sql')).sort();
 
@@ -187,7 +195,7 @@ class PostgresAdapter {
     }
   }
 
-  async _ensureConfig(owner) {
+  async _ensureConfig(owner: any) {
     await this._pool.query(
       `INSERT INTO config (key, value) VALUES ('owner', $1), ('spec_version', '1.4.0')
        ON CONFLICT (key) DO NOTHING`,
@@ -215,8 +223,8 @@ class PostgresAdapter {
     }
   }
 
-  async addRelTypes(names) {
-    const invalid = names.filter(n => !/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(n));
+  async addRelTypes(names: any) {
+    const invalid = names.filter((n: any) => !/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(n));
     if (invalid.length)
       throw new Error(`Invalid relationship type name(s): ${invalid.join(', ')} — must be lowercase kebab-case starting with a letter`);
     for (const name of names) {
@@ -233,7 +241,7 @@ class PostgresAdapter {
     const existing = await this.get(ROOT_ID);
     if (!existing) await this._createWellKnownNode(ROOT_ID, ROOT_ID, 'root', 0);
     const children = await this.children(ROOT_ID);
-    const existingTypes = new Set(children.map(c => c.type));
+    const existingTypes = new Set(children.map((c: any) => c.type));
     for (let i = 0; i < WELL_KNOWN_ORDER.length; i++) {
       const type = WELL_KNOWN_ORDER[i];
       if (!existingTypes.has(type)) {
@@ -242,7 +250,7 @@ class PostgresAdapter {
     }
   }
 
-  async _createWellKnownNode(id, parentId, type, sortOrder) {
+  async _createWellKnownNode(id: any, parentId: any, type: any, sortOrder: any) {
     const now    = new Date();
     const owner  = this.config.owner;
     const value  = type;
@@ -267,20 +275,20 @@ class PostgresAdapter {
 
   async getRoot()     { return this._getByType('root'); }
 
-  async _getByType(type) {
+  async _getByType(type: any) {
     const { rows } = await this._pool.query(
       'SELECT * FROM items WHERE type = $1 LIMIT 1', [type],
     );
     return rowToItem(rows[0] ?? null);
   }
 
-  _assertEditable(item, id) {
+  _assertEditable(item: any, id: any) {
     if (!item) throw new Error(`Item not found: ${id}`);
     if (WELL_KNOWN_TYPES.has(item.type) || item.id === ROOT_ID)
       throw new Error(`Item '${id}' (type: ${item.type}) is a reserved root node and cannot be modified`);
   }
 
-  _assertDeletable(item, id) {
+  _assertDeletable(item: any, id: any) {
     if (!item) throw new Error(`Item not found: ${id}`);
     if (WELL_KNOWN_TYPES.has(item.type) || item.id === ROOT_ID)
       throw new Error(`Item '${id}' (type: ${item.type}) is a reserved root node and cannot be deleted`);
@@ -288,18 +296,18 @@ class PostgresAdapter {
 
   // ─── Materialized path ───────────────────────────────────────────────────────
 
-  async _getPath(id) {
+  async _getPath(id: any) {
     if (!id) return null;
     const { rows } = await this._pool.query('SELECT path FROM items WHERE id = $1', [id]);
     return rows[0]?.path ?? null;
   }
 
-  _pathDepth(path) {
+  _pathDepth(path: any) {
     if (!path) return 0;
     return (path.match(/\//g) || []).length;
   }
 
-  async _cascadePathUpdate(id, newPath) {
+  async _cascadePathUpdate(id: any, newPath: any) {
     const oldPath = await this._getPath(id);
     await this._pool.query('UPDATE items SET path = $1 WHERE id = $2', [newPath, id]);
     if (oldPath) {
@@ -320,7 +328,7 @@ class PostgresAdapter {
 
   // ─── History ────────────────────────────────────────────────────────────────
 
-  async _snapshot(idOrItem, changeType, changedBy, now) {
+  async _snapshot(idOrItem: any, changeType: any, changedBy: any, now?: any) {
     const item = typeof idOrItem === 'string' ? await this.get(idOrItem) : idOrItem;
     if (!item) return;
     await this._pool.query(
@@ -332,12 +340,12 @@ class PostgresAdapter {
 
   // ─── Item CRUD ───────────────────────────────────────────────────────────────
 
-  async get(id) {
+  async get(id: any) {
     const { rows } = await this._pool.query('SELECT * FROM items WHERE id = $1', [id]);
     return rowToItem(rows[0] ?? null);
   }
 
-  async _typeDefExists(typeId) {
+  async _typeDefExists(typeId: any) {
     if (!typeId) return false;
     const { rows } = await this._pool.query(
       `SELECT 1 FROM items WHERE id = $1 AND type = 'type' LIMIT 1`, [typeId],
@@ -345,10 +353,10 @@ class PostgresAdapter {
     return rows.length > 0;
   }
 
-  _guardTypeIdRef(typeId, strict) {
+  _guardTypeIdRef(typeId: any, strict: any) {
     const effectiveStrict = strict !== undefined ? !!strict : !!this.config.strictTypeIds;
     if (effectiveStrict) {
-      const err = new Error(`unknown typeId "${typeId}" — no registered type definition`);
+      const err: any = new Error(`unknown typeId "${typeId}" — no registered type definition`);
       err.name = 'UnknownTypeError';
       err.code = 'UNKNOWN_TYPE';
       err.typeId = typeId;
@@ -364,11 +372,11 @@ class PostgresAdapter {
     expiresAt = null, connectorId = null, materialized = null, cachedAt = null,
     sourceSystem = null, sourceExternalId = null,
     strict,
-  } = {}) {
+  }: any = {}) {
     if (WELL_KNOWN_TYPES.has(type))
       throw new Error(`Type '${type}' is well-known and cannot be created via create()`);
 
-    let typeWarning = null;
+    let typeWarning: any = null;
     if (type === 'object' && typeId && !(await this._typeDefExists(typeId))) {
       typeWarning = this._guardTypeIdRef(typeId, strict);
     }
@@ -384,7 +392,7 @@ class PostgresAdapter {
 
     if (sortOrder == null) {
       const siblings = await this.children(parentId);
-      sortOrder = siblings.length === 0 ? 0 : Math.max(...siblings.map(s => s.sortOrder)) + 1;
+      sortOrder = siblings.length === 0 ? 0 : Math.max(...siblings.map((s: any) => s.sortOrder)) + 1;
     }
 
     // Compute materialized path
@@ -428,13 +436,13 @@ class PostgresAdapter {
     return item;
   }
 
-  async update(id, changes, actor, { strict } = {}) {
+  async update(id: any, changes: any, actor?: any, { strict }: any = {}) {
     const current = await this.get(id);
     this._assertEditable(current, id);
 
     const newType   = 'type'   in changes ? changes.type   : current.type;
     const newTypeId = 'typeId' in changes ? changes.typeId : current.typeId;
-    let typeWarning = null;
+    let typeWarning: any = null;
     if (newType === 'object' && newTypeId && newTypeId !== current.typeId
         && !(await this._typeDefExists(newTypeId))) {
       typeWarning = this._guardTypeIdRef(newTypeId, strict);
@@ -444,11 +452,11 @@ class PostgresAdapter {
     const now = new Date();
     await this._snapshot(current, 'update', actor, now);
 
-    const sets   = [];
-    const params = [];
+    const sets:   any[] = [];
+    const params: any[] = [];
     let   p      = 1;
 
-    const maybeSet = (col, val) => { sets.push(`${col} = $${p++}`); params.push(val); };
+    const maybeSet = (col: any, val: any) => { sets.push(`${col} = $${p++}`); params.push(val); };
 
     if ('value' in changes) {
       const oldLinks = parseLinks(current.value);
@@ -504,7 +512,7 @@ class PostgresAdapter {
     return result;
   }
 
-  async deleteWarnings(id) {
+  async deleteWarnings(id: any) {
     const { rows: linkRows } = await this._pool.query(
       'SELECT COUNT(*) FROM links WHERE target_id = $1', [id],
     );
@@ -519,7 +527,7 @@ class PostgresAdapter {
     return warnings;
   }
 
-  async delete(id, actor) {
+  async delete(id: any, actor?: any) {
     const item = await this.get(id);
     this._assertDeletable(item, id);
     actor = actor || this.config.owner;
@@ -536,7 +544,7 @@ class PostgresAdapter {
 
   // ─── Soft delete / restore ───────────────────────────────────────────────────
 
-  async softDelete(id, actor) {
+  async softDelete(id: any, actor?: any) {
     const item = await this.get(id);
     if (!item) throw new Error(`Item not found: ${id}`);
     this._assertDeletable(item, id);
@@ -550,7 +558,7 @@ class PostgresAdapter {
     return this.get(id);
   }
 
-  async restore(id, actor) {
+  async restore(id: any, actor?: any) {
     const item = await this.get(id);
     if (!item) throw new Error(`Item not found: ${id}`);
     actor = actor || this.config.owner;
@@ -565,27 +573,27 @@ class PostgresAdapter {
 
   // ─── Aliases ─────────────────────────────────────────────────────────────────
 
-  async resolveAlias(alias) {
+  async resolveAlias(alias: any) {
     const { rows } = await this._pool.query(
       'SELECT target_id FROM aliases WHERE alias = $1', [alias.toLowerCase()],
     );
     return rows[0]?.target_id ?? null;
   }
 
-  async resolve(idOrAlias) {
+  async resolve(idOrAlias: any) {
     if (UUID_RE.test(idOrAlias)) return this.get(idOrAlias);
     const id = await this.resolveAlias(idOrAlias);
     return id ? this.get(id) : null;
   }
 
-  async setAlias(alias, id) {
+  async setAlias(alias: any, id: any) {
     await this._pool.query(
       'INSERT INTO aliases (alias, target_id) VALUES ($1,$2) ON CONFLICT (alias) DO UPDATE SET target_id = $2',
       [alias.toLowerCase(), id],
     );
   }
 
-  async removeAlias(alias) {
+  async removeAlias(alias: any) {
     await this._pool.query('DELETE FROM aliases WHERE alias = $1', [alias.toLowerCase()]);
   }
 
@@ -596,7 +604,7 @@ class PostgresAdapter {
 
   // ─── Annotations ─────────────────────────────────────────────────────────────
 
-  async annotate(targetId, { author, content, parentAnnotationId = null } = {}) {
+  async annotate(targetId: any, { author, content, parentAnnotationId = null }: any = {}) {
     const id  = crypto.randomUUID();
     const now = new Date();
     await this._pool.query(
@@ -607,7 +615,7 @@ class PostgresAdapter {
     return { id, targetId, author: author || this.config.owner, content, createdAt: now.toISOString(), parentAnnotationId };
   }
 
-  async annotations(targetId) {
+  async annotations(targetId: any) {
     const { rows } = await this._pool.query(
       `SELECT * FROM annotations WHERE target_id = $1 ORDER BY created_at, id`,
       [targetId],
@@ -624,7 +632,7 @@ class PostgresAdapter {
 
   // ─── Relationships ────────────────────────────────────────────────────────────
 
-  async relate(sourceId, type, targetId, { createdBy, note = null } = {}) {
+  async relate(sourceId: any, type: any, targetId: any, { createdBy, note = null }: any = {}) {
     const validTypes = this._relTypesCache ?? BUILT_IN_REL_TYPES;
     if (!validTypes.includes(type))
       throw new Error(`Invalid relationship type: ${type}. Valid: ${validTypes.join(', ')}`);
@@ -639,7 +647,7 @@ class PostgresAdapter {
     return { id, sourceId, targetId, type, createdAt: now.toISOString(), createdBy: actor, note };
   }
 
-  async relationships(id) {
+  async relationships(id: any) {
     const { rows: out } = await this._pool.query(
       `SELECT * FROM relationships WHERE source_id = $1 ORDER BY created_at`, [id],
     );
@@ -652,7 +660,7 @@ class PostgresAdapter {
     };
   }
 
-  async backlinks(id) {
+  async backlinks(id: any) {
     const { rows } = await this._pool.query(
       'SELECT source_id FROM links WHERE target_id = $1', [id],
     );
@@ -669,7 +677,7 @@ class PostgresAdapter {
 
   // ─── History ─────────────────────────────────────────────────────────────────
 
-  async history(id) {
+  async history(id: any) {
     const { rows } = await this._pool.query(
       `SELECT * FROM history WHERE item_id = $1 ORDER BY snapshot_at`, [id],
     );
@@ -683,7 +691,7 @@ class PostgresAdapter {
 
   // ─── Tree / navigation ───────────────────────────────────────────────────────
 
-  async children(parentId, aspect = undefined) {
+  async children(parentId: any, aspect: any = undefined) {
     if (aspect === undefined) {
       // No aspect filter: return all children (aspect IS NULL)
       const { rows } = await this._pool.query(
@@ -711,21 +719,21 @@ class PostgresAdapter {
     return rows.map(rowToItem);
   }
 
-  async ancestors(id) {
+  async ancestors(id: any) {
     const { rows } = await this._pool.query('SELECT path FROM items WHERE id = $1', [id]);
     if (!rows.length || !rows[0].path) return [];
     const segments    = rows[0].path.split('/');
     const ancestorIds = segments.slice(0, -1);
     if (!ancestorIds.length) return [];
-    const placeholders = ancestorIds.map((_, i) => `$${i + 1}`).join(', ');
+    const placeholders = ancestorIds.map((_: any, i: number) => `$${i + 1}`).join(', ');
     const { rows: aRows } = await this._pool.query(
       `SELECT * FROM items WHERE id IN (${placeholders})`, ancestorIds,
     );
     const byId = new Map(aRows.map(r => [r.id, rowToItem(r)]));
-    return ancestorIds.map(aid => byId.get(aid)).filter(Boolean);
+    return ancestorIds.map((aid: any) => byId.get(aid)).filter(Boolean);
   }
 
-  async subtreeCount(rootId) {
+  async subtreeCount(rootId: any) {
     const { rows } = await this._pool.query('SELECT path FROM items WHERE id = $1', [rootId]);
     if (!rows.length || !rows[0].path) return 0;
     const rootPath = rows[0].path;
@@ -736,7 +744,7 @@ class PostgresAdapter {
     return parseInt(cnt[0].n) || 0;
   }
 
-  async tree(rootId, maxDepth = Infinity) {
+  async tree(rootId: any, maxDepth: any = Infinity) {
     if (!rootId) {
       rootId = ROOT_ID;
     }
@@ -776,7 +784,7 @@ class PostgresAdapter {
     const pathMap = new Map(rows.map(r => [r.id, r.path]));
 
     // Build parent→children map and DFS-traverse for deterministic order.
-    const byParent = new Map();
+    const byParent = new Map<any, any>();
     for (const item of items) {
       if (item.id === item.parentId) continue; // root is self-parented — never nest it under itself
       const pid = item.parentId;
@@ -784,12 +792,12 @@ class PostgresAdapter {
       byParent.get(pid).push(item);
     }
     for (const children of byParent.values()) {
-      children.sort((a, b) => a.sortOrder - b.sortOrder);
+      children.sort((a: any, b: any) => a.sortOrder - b.sortOrder);
     }
 
     const itemById = new Map(items.map(item => [item.id, item]));
-    const result   = [];
-    const visit    = (id, depth) => {
+    const result: any[] = [];
+    const visit    = (id: any, depth: any) => {
       const item = itemById.get(id);
       if (item) result.push({ item, depth });
       for (const child of (byParent.get(id) || [])) visit(child.id, depth + 1);
@@ -798,7 +806,7 @@ class PostgresAdapter {
     return result;
   }
 
-  async _treeSlow(rootId, maxDepth = Infinity) {
+  async _treeSlow(rootId: any, maxDepth: any = Infinity) {
     const depthLimit = Number.isFinite(maxDepth) ? maxDepth : 100;
     const { rows } = await this._pool.query(
       `WITH RECURSIVE subtree AS (
@@ -817,14 +825,14 @@ class PostgresAdapter {
 
   // ─── Queries ──────────────────────────────────────────────────────────────────
 
-  async byTag(tag) {
+  async byTag(tag: any) {
     const { rows } = await this._pool.query(
       'SELECT id FROM items WHERE $1 = ANY(tags)', [tag],
     );
     return rows.map(r => r.id);
   }
 
-  async byType(typeId) {
+  async byType(typeId: any) {
     const { rows } = await this._pool.query(
       'SELECT id FROM items WHERE type_id = $1', [typeId],
     );
@@ -836,7 +844,7 @@ class PostgresAdapter {
   // primitive for ingestion — the Postgres peer of the filesystem adapter's
   // bySource: upsert = bySource() ? update() : create(). Returns the read-model
   // item or null.
-  async bySource(sourceSystem, sourceExternalId) {
+  async bySource(sourceSystem: any, sourceExternalId: any) {
     if (!sourceSystem || !sourceExternalId) return null;
     const { rows } = await this._pool.query(
       'SELECT * FROM items WHERE source_system = $1 AND source_external_id = $2 LIMIT 1',
@@ -850,7 +858,7 @@ class PostgresAdapter {
     return rows.map(rowToItem);
   }
 
-  async resolveTypeId(name) {
+  async resolveTypeId(name: any) {
     if (!name) return { unknown: true };
     if (BUILT_IN_TYPES.has(name)) return { primitive: true };
     const { rows } = await this._pool.query(
@@ -863,15 +871,15 @@ class PostgresAdapter {
   async query({
     type, where, rootId, sort, limit,
     strictTypes, includeDeleted, expiredOnly, excludeExpired,
-  } = {}) {
+  }: any = {}) {
     const conditions = [];
     const params     = [];
     let   p          = 1;
-    let   typeWarning = null;
+    let   typeWarning: any = null;
 
     if (type) {
       const resolved = await this.resolveTypeId(type);
-      if (resolved.unknown) {
+      if ((resolved as any).unknown) {
         if (strictTypes) throw new UnknownTypeError(type);
         typeWarning = `unknown type "${type}" — not a registered type definition; run \`kanecta doctor\``;
       }
@@ -926,14 +934,14 @@ class PostgresAdapter {
 
     // where clause: in-JS filtering on objectData fields
     if (where && Object.keys(where).length) {
-      const withData = await Promise.all(items.map(async item => {
+      const withData = await Promise.all(items.map(async (item: any) => {
         if (item.type !== 'object' || !item.typeId) return { ...item, objectData: null };
         const objectData = await this.readObjectJson(item.id, item.typeId);
         return { ...item, objectData };
       }));
-      items = withData.filter(item => {
+      items = withData.filter((item: any) => {
         if (!item.objectData) return false;
-        for (const [field, predicate] of Object.entries(where)) {
+        for (const [field, predicate] of Object.entries<any>(where)) {
           const fv = item.objectData[field];
           const op = predicate?.op ?? '=';
           const ev = predicate?.value ?? predicate;
@@ -951,7 +959,7 @@ class PostgresAdapter {
     if (sort?.field) {
       const { field, dir = 'asc' } = sort;
       const desc = dir.toLowerCase() === 'desc';
-      items.sort((a, b) => {
+      items.sort((a: any, b: any) => {
         const va = a[field] ?? a.objectData?.[field] ?? null;
         const vb = b[field] ?? b.objectData?.[field] ?? null;
         if (va === null) return desc ? -1 : 1;
@@ -971,7 +979,7 @@ class PostgresAdapter {
 
   // ─── Full-text search ─────────────────────────────────────────────────────────
 
-  async search(query, { rootId = null, limit = 10 } = {}) {
+  async search(query: any, { rootId = null, limit = 10 }: any = {}) {
     const { rows } = await this._pool.query(
       `WITH RECURSIVE subtree AS (
          SELECT id FROM items WHERE id = $2
@@ -992,7 +1000,7 @@ class PostgresAdapter {
 
   // ─── Object data (obj_* tables) ───────────────────────────────────────────────
 
-  async readObjectJson(id, typeId) {
+  async readObjectJson(id: any, typeId?: any) {
     if (!typeId) {
       const item = await this.get(id);
       typeId = item?.typeId;
@@ -1011,7 +1019,7 @@ class PostgresAdapter {
     } catch { return null; }
   }
 
-  async writeObjectJson(id, typeId, data) {
+  async writeObjectJson(id: any, typeId?: any, data?: any) {
     // Support both the adapter form (id, typeId, data) and the Datastore facade's
     // (id, data): when `data` is omitted the second arg IS the payload, and the
     // typeId is looked up from the item (mirrors readObjectJson). Without this,
@@ -1024,7 +1032,7 @@ class PostgresAdapter {
     }
     if (!typeId) return;
     const table        = objTableName(typeId);
-    const camelToSnake = s => s.replace(/[A-Z]/g, c => '_' + c.toLowerCase());
+    const camelToSnake = (s: string) => s.replace(/[A-Z]/g, c => '_' + c.toLowerCase());
     const entries      = Object.entries(data).map(([k, v]) => [camelToSnake(k), v]);
     const cols         = entries.map(([k]) => `"${k}"`).join(', ');
     const vals         = entries.map(([, v]) => v);
@@ -1036,14 +1044,14 @@ class PostgresAdapter {
          ON CONFLICT (item_id) DO UPDATE SET ${sets}`,
         [id, ...vals],
       );
-    } catch (e) {
+    } catch (e: any) {
       console.warn(`writeObjectJson: table ${table} not found for type ${typeId}:`, e.message);
     }
   }
 
   // ─── Function data ───────────────────────────────────────────────────────────
 
-  async readFunctionJson(id) {
+  async readFunctionJson(id: any) {
     const { rows } = await this._pool.query('SELECT * FROM functions WHERE item_id = $1', [id]);
     const fn = rows[0];
     if (!fn) return null;
@@ -1063,22 +1071,22 @@ class PostgresAdapter {
       ),
     ]);
 
-    const result = {};
+    const result: any = {};
     result.runtime = fn.runtime ?? 'typescript';
     if (fn.description != null)    result.description = fn.description;
     if (fn.is_async)               result.async = true;
     if (fn.is_ai)                  result.ai = true;
     if (fn.skill_id)               result.skill = fn.skill_id;
     if (typeParamRows.length) {
-      result.typeParameters = typeParamRows.map(r => {
-        const tp = { name: r.name };
+      result.typeParameters = typeParamRows.map((r: any) => {
+        const tp: any = { name: r.name };
         if (r.constraint_expr != null) tp.constraint = r.constraint_expr;
         if (r.default_type != null)    tp.default = r.default_type;
         return tp;
       });
     }
-    result.parameters = paramRows.map(r => {
-      const p = { name: r.name };
+    result.parameters = paramRows.map((r: any) => {
+      const p: any = { name: r.name };
       if (r.type != null)          p.type = r.type;
       if (r.type_id != null)       p.typeId = r.type_id;
       if (r.optional)              p.optional = true;
@@ -1090,7 +1098,7 @@ class PostgresAdapter {
     if (fn.return_type != null)    result.returnType = fn.return_type;
     if (fn.return_type_id != null) result.returnTypeId = fn.return_type_id;
     if (throwRows.length) {
-      result.throws = throwRows.map(r => ({
+      result.throws = throwRows.map((r: any) => ({
         type: r.type,
         ...(r.description != null ? { description: r.description } : {}),
       }));
@@ -1103,7 +1111,7 @@ class PostgresAdapter {
     return result;
   }
 
-  async writeFunctionJson(id, data) {
+  async writeFunctionJson(id: any, data: any) {
     const {
       runtime = 'typescript',
       description = null, async: isAsync = false, ai = false, skill = null,
@@ -1158,7 +1166,7 @@ class PostgresAdapter {
   // ─── Connector queries ────────────────────────────────────────────────────────
 
   // All stub items (materialized=false) managed by a specific connector.
-  async listStubs(connectorId) {
+  async listStubs(connectorId: any) {
     const { rows } = await this._pool.query(
       `SELECT * FROM items
        WHERE connector_id = $1 AND materialized = false AND deleted_at IS NULL`,
@@ -1169,7 +1177,7 @@ class PostgresAdapter {
 
   // All connector-managed items whose cached_at is older than beforeAt.
   // Used by ConnectorEngine to drive scheduled refresh.
-  async listDueForRefresh(beforeAt) {
+  async listDueForRefresh(beforeAt: any) {
     const { rows } = await this._pool.query(
       `SELECT * FROM items
        WHERE connector_id IS NOT NULL AND cached_at < $1 AND deleted_at IS NULL`,
@@ -1180,7 +1188,7 @@ class PostgresAdapter {
 
   // ─── Time data ───────────────────────────────────────────────────────────────
 
-  async getDocument(id) {
+  async getDocument(id: any) {
     const flat = await this.get(id);
     if (!flat) return null;
     const payload = (['object', 'type'].includes(flat.type))
@@ -1209,27 +1217,27 @@ class PostgresAdapter {
     };
   }
 
-  async readTimeJson(id) {
+  async readTimeJson(id: any) {
     const { rows } = await this._pool.query('SELECT time_data FROM items WHERE id = $1', [id]);
     return rows[0]?.time_data ?? null;
   }
 
-  async writeTimeJson(id, data) {
+  async writeTimeJson(id: any, data: any) {
     await this._pool.query(
       'UPDATE items SET time_data = $1 WHERE id = $2', [data, id],
     );
   }
 
-  async deleteTimeJson(id) {
+  async deleteTimeJson(id: any) {
     await this._pool.query('UPDATE items SET time_data = NULL WHERE id = $1', [id]);
   }
 
-  async readScheduleJson(id) {
+  async readScheduleJson(id: any) {
     const { rows } = await this._pool.query('SELECT schedule_data FROM items WHERE id = $1', [id]);
     return rows[0]?.schedule_data ?? null;
   }
 
-  async writeScheduleJson(id, data) {
+  async writeScheduleJson(id: any, data: any) {
     await this._pool.query(
       'UPDATE items SET schedule_data = $1 WHERE id = $2', [data, id],
     );
@@ -1241,13 +1249,13 @@ class PostgresAdapter {
   // built-in-types/types/document.json and identical across all installations.
   static get DOCUMENT_TYPE_UUID() { return 'b4e2f1c3-a0d5-4e6f-8b9c-d7f2e1a3b5c0'; }
 
-  async createDocument(targetId, name, {
+  async createDocument(targetId: any, name: any, {
     expandState = null,
     roleMap = null,
     isOrgDefault = false,
     baseDocumentId = null,
     owner, visibility = 'private',
-  } = {}) {
+  }: any = {}) {
     if (!targetId) throw new Error('createDocument: targetId is required');
     if (!name)     throw new Error('createDocument: name is required');
     const item = await this.create({
@@ -1269,14 +1277,14 @@ class PostgresAdapter {
     return item;
   }
 
-  async readDocumentPayload(id) {
+  async readDocumentPayload(id: any) {
     const { rows } = await this._pool.query(
       'SELECT payload FROM documents WHERE item_id = $1', [id],
     );
     return rows[0]?.payload ?? null;
   }
 
-  async writeDocumentPayload(id, payload) {
+  async writeDocumentPayload(id: any, payload: any) {
     await this._pool.query(
       `INSERT INTO documents (item_id, payload) VALUES ($1, $2)
        ON CONFLICT (item_id) DO UPDATE SET payload = EXCLUDED.payload`,
@@ -1284,7 +1292,7 @@ class PostgresAdapter {
     );
   }
 
-  async listDocuments(targetId) {
+  async listDocuments(targetId: any) {
     const { rows } = await this._pool.query(`
       SELECT i.*
       FROM items i
@@ -1298,17 +1306,17 @@ class PostgresAdapter {
   }
 
   // Active schedule items whose next fire time is at or before beforeAt.
-  async listDueSchedules(beforeAt) {
+  async listDueSchedules(beforeAt: any) {
     const { rows } = await this._pool.query(
       "SELECT * FROM items WHERE type = 'schedule' AND status = 'active' AND due_at <= $1 AND deleted_at IS NULL",
       [beforeAt],
     );
-    return rows.map(r => this.rowToItem(r));
+    return rows.map(r => (this as any).rowToItem(r));
   }
 
   // ─── Type definitions ─────────────────────────────────────────────────────────
 
-  async createType(value, { schema, createdBy, id: explicitId } = {}) {
+  async createType(value: any, { schema, createdBy, id: explicitId }: any = {}) {
     const id    = explicitId || crypto.randomUUID();
     const now   = new Date();
     const owner = this.config.owner;
@@ -1384,7 +1392,7 @@ class PostgresAdapter {
     return { metadata, schema: resolvedSchema };
   }
 
-  async readTypeJson(id) {
+  async readTypeJson(id: any) {
     const { rows } = await this._pool.query('SELECT * FROM types WHERE item_id = $1', [id]);
     const t = rows[0];
     if (!t) return null;
@@ -1405,7 +1413,7 @@ class PostgresAdapter {
     return { meta, jsonSchema: t.json_schema, sqlSchema: t.sql_schema ?? [] };
   }
 
-  async writeTypeJson(id, data) {
+  async writeTypeJson(id: any, data: any) {
     const meta = data.meta ?? {};
     await this._pool.query(
       `UPDATE types SET
@@ -1424,7 +1432,7 @@ class PostgresAdapter {
     );
   }
 
-  async _attachObjectSearchTrigger(tableName) {
+  async _attachObjectSearchTrigger(tableName: any) {
     await this._pool.query(`DROP TRIGGER IF EXISTS trg_object_search_vector ON "${tableName}"`);
     await this._pool.query(
       `CREATE TRIGGER trg_object_search_vector
@@ -1458,7 +1466,7 @@ class PostgresAdapter {
     return provider;
   }
 
-  async semanticSearch(query, { rootId = null, limit = 10 } = {}) {
+  async semanticSearch(query: any, { rootId = null, limit = 10 }: any = {}) {
     const provider = this._requireEmbeddingsEnabled();
     const [queryEmbedding] = await provider.embed([query]);
     const vectorLiteral = `[${queryEmbedding.join(',')}]`;
@@ -1479,7 +1487,7 @@ class PostgresAdapter {
     return rows.map(rowToItem);
   }
 
-  async hybridSearch(query, { rootId = null, limit = 10 } = {}) {
+  async hybridSearch(query: any, { rootId = null, limit = 10 }: any = {}) {
     if (!this.embeddingsEnabled) return this.search(query, { rootId, limit });
     const fanOut = Math.max(limit * 2, 20);
     const [ftsResults, vectorResults] = await Promise.all([
@@ -1520,7 +1528,7 @@ class PostgresAdapter {
     );
   }
 
-  async _embeddingContent(item) {
+  async _embeddingContent(item: any) {
     const parts = [];
     if (item.value) parts.push(String(item.value));
     if (item.type === 'object' && item.typeId) {
@@ -1534,7 +1542,7 @@ class PostgresAdapter {
     return parts.join('\n');
   }
 
-  async embedItem(id) {
+  async embedItem(id: any) {
     const provider = this._requireEmbeddingProvider();
     const item = await this.get(id);
     if (!item) return false;
@@ -1557,7 +1565,7 @@ class PostgresAdapter {
     return true;
   }
 
-  async processPendingEmbeddings({ limit = 50 } = {}) {
+  async processPendingEmbeddings({ limit = 50 }: any = {}) {
     this._requireEmbeddingProvider();
     const { rows } = await this._pool.query(
       'SELECT item_id FROM pending_embeddings ORDER BY queued_at LIMIT $1', [limit],
@@ -1567,7 +1575,7 @@ class PostgresAdapter {
       try {
         if (await this.embedItem(item_id)) embedded++; else skipped++;
         await this._pool.query('DELETE FROM pending_embeddings WHERE item_id = $1', [item_id]);
-      } catch (e) {
+      } catch (e: any) {
         failed++;
         console.warn(`processPendingEmbeddings: failed to embed ${item_id}:`, e.message);
       }
@@ -1594,9 +1602,9 @@ class PostgresAdapter {
 
   // ─── Integrity checks ──────────────────────────────────────────────────────
 
-  async checkIntegrity({ checks } = {}) {
+  async checkIntegrity({ checks }: any = {}) {
     const wanted  = Array.isArray(checks) && checks.length ? new Set(checks) : null;
-    const run     = name => !wanted || wanted.has(name);
+    const run     = (name: any) => !wanted || wanted.has(name);
     const findings = [];
 
     if (run('orphan-type-id')) {
@@ -1654,7 +1662,7 @@ class PostgresAdapter {
 
   // ─── Branching ──────────────────────────────────────────────────────────────
 
-  async createBranch(name) {
+  async createBranch(name: any) {
     if (!name || typeof name !== 'string' || !name.trim()) throw new Error('branch name is required');
     name = name.trim();
     if (name === 'main') throw new Error('Cannot create a branch named "main"');
@@ -1680,7 +1688,7 @@ class PostgresAdapter {
     }));
   }
 
-  async getBranch(name) {
+  async getBranch(name: any) {
     const { rows } = await this._pool.query(
       'SELECT id, name, base_branch, created_at, merged_at, deleted_at FROM branches WHERE name = $1 AND deleted_at IS NULL',
       [name],
@@ -1692,7 +1700,7 @@ class PostgresAdapter {
 
   // Write an array of change entries to branch_changes. Each entry: { itemId, changeType, section, data }.
   // Callers pass the full five-section breakdown.
-  async applyBranchChanges(branchId, changes) {
+  async applyBranchChanges(branchId: any, changes: any) {
     if (!changes?.length) return;
     const client = await this._pool.connect();
     try {
@@ -1715,7 +1723,7 @@ class PostgresAdapter {
     }
   }
 
-  async getBranchChanges(branchId) {
+  async getBranchChanges(branchId: any) {
     const { rows } = await this._pool.query(
       'SELECT item_id, change_type, section, data, changed_at FROM branch_changes WHERE branch_id = $1 ORDER BY item_id, section',
       [branchId],
@@ -1728,7 +1736,7 @@ class PostgresAdapter {
 
   // Pre-flight scan: returns the blast radius for all items in a branch.
   // Blocks merge when any reference item with blockDeletion=true targets a deleted item.
-  async preFlightScan(branchId) {
+  async preFlightScan(branchId: any) {
     // Collect the set of deleted item IDs on this branch
     const { rows: delRows } = await this._pool.query(
       "SELECT DISTINCT item_id FROM branch_changes WHERE branch_id = $1 AND change_type = 'delete'",
@@ -1748,8 +1756,8 @@ class PostgresAdapter {
     const changedIds = [...new Set([...adds, ...edits, ...deletes])];
 
     // Blast radius: items that reference any of the changed IDs
-    let structuralRefs = [];
-    let blockingRefs   = [];
+    let structuralRefs: any[] = [];
+    let blockingRefs: any[]   = [];
     if (changedIds.length) {
       const { rows: refRows } = await this._pool.query(
         'SELECT source_item_id, target_item_id, reference_type, field_name FROM item_references WHERE target_item_id = ANY($1)',
@@ -1784,7 +1792,7 @@ class PostgresAdapter {
   }
 
   // Atomically merge all branch_changes into main tables, then mark branch merged.
-  async mergeBranch(branchId) {
+  async mergeBranch(branchId: any) {
     const { rows: branchRows } = await this._pool.query(
       'SELECT id, name FROM branches WHERE id = $1 AND deleted_at IS NULL AND merged_at IS NULL',
       [branchId],
@@ -1794,7 +1802,7 @@ class PostgresAdapter {
     const changeRows = await this.getBranchChanges(branchId);
 
     // Group by item
-    const byItem = new Map();
+    const byItem = new Map<any, any>();
     for (const r of changeRows) {
       if (!byItem.has(r.itemId)) byItem.set(r.itemId, { changeType: r.changeType, sections: {} });
       const entry = byItem.get(r.itemId);
@@ -1898,7 +1906,7 @@ class PostgresAdapter {
     return { merged: byItem.size, branchName: branchRows[0].name };
   }
 
-  async deleteBranch(name) {
+  async deleteBranch(name: any) {
     if (!name || name === 'main') throw new Error('Cannot delete the main branch');
     const { rows } = await this._pool.query('SELECT id FROM branches WHERE name = $1 AND deleted_at IS NULL', [name]);
     if (!rows.length) throw new Error(`Branch "${name}" not found`);
@@ -1907,7 +1915,7 @@ class PostgresAdapter {
   }
 }
 
-module.exports = {
+export {
   PostgresAdapter, UnknownTypeError,
   PRIMITIVE_TYPES, BUILT_IN_TYPES, ROOT_ID,
   WELL_KNOWN_TYPES, VALID_REL_TYPES, UUID_RE,

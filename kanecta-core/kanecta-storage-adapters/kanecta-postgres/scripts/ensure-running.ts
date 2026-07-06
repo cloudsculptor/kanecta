@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-'use strict';
 
 // Ensures the local Postgres dev container (see ../docker-compose.yml) is up
 // and accepting connections. Safe to call repeatedly — does nothing if the
@@ -9,10 +8,10 @@
 // Usage as a module:   const { ensureRunning } = require('./scripts/ensure-running');
 //                      await ensureRunning();
 
-const fs = require('fs');
-const path = require('path');
-const { execFileSync } = require('child_process');
-const { Client } = require('pg');
+import * as fs from 'fs';
+import * as path from 'path';
+import { execFileSync } from 'child_process';
+import { Client } from 'pg';
 
 const COMPOSE_DIR = path.join(__dirname, '..');
 const CONTAINER = 'kanecta-postgres';
@@ -33,7 +32,7 @@ const CONNECTION = {
 
 const CONNECTION_STRING = `postgres://${CONNECTION.user}:${CONNECTION.password}@${CONNECTION.host}:${CONNECTION.port}/${CONNECTION.database}`;
 
-function dockerAvailable() {
+function dockerAvailable(): boolean {
   try {
     execFileSync('docker', ['info'], { stdio: 'ignore' });
     return true;
@@ -42,7 +41,7 @@ function dockerAvailable() {
   }
 }
 
-function containerRunning() {
+function containerRunning(): boolean {
   try {
     const out = execFileSync(
       'docker', ['compose', 'ps', '--status', 'running', '--format', '{{.Name}}'],
@@ -54,11 +53,11 @@ function containerRunning() {
   }
 }
 
-function composeUp() {
+function composeUp(): void {
   execFileSync('docker', ['compose', 'up', '-d'], { cwd: COMPOSE_DIR, stdio: 'inherit' });
 }
 
-async function canConnect() {
+async function canConnect(): Promise<boolean> {
   const client = new Client(CONNECTION);
   try {
     await client.connect();
@@ -71,11 +70,11 @@ async function canConnect() {
   }
 }
 
-function sleep(ms) {
+function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitUntilReady(timeoutMs = 30_000, intervalMs = 500) {
+async function waitUntilReady(timeoutMs = 30_000, intervalMs = 500): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (await canConnect()) return true;
@@ -86,7 +85,7 @@ async function waitUntilReady(timeoutMs = 30_000, intervalMs = 500) {
 
 // Ensures the container is up and Postgres is accepting connections.
 // Returns connection details on success, throws on failure.
-async function ensureRunning({ log = () => {} } = {}) {
+async function ensureRunning({ log = () => {} }: any = {}): Promise<any> {
   if (!dockerAvailable()) {
     throw new Error(
       'Docker is not available. Install Docker (or Docker Desktop) and ensure the daemon is running, ' +
@@ -113,12 +112,12 @@ async function ensureRunning({ log = () => {} } = {}) {
 }
 
 if (require.main === module) {
-  ensureRunning({ log: (msg) => console.log(msg) })
+  ensureRunning({ log: (msg: any) => console.log(msg) })
     .then(() => process.exit(0))
-    .catch((err) => {
+    .catch((err: any) => {
       console.error(`\n✗ ${err.message}\n`);
       process.exit(1);
     });
 }
 
-module.exports = { ensureRunning, CONNECTION, CONNECTION_STRING };
+export { ensureRunning, CONNECTION, CONNECTION_STRING };
