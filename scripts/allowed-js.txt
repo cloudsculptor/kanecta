@@ -7,7 +7,6 @@
 # MIGRATION RATCHET: convert each to .ts and DELETE its line. Goal: zero.
 kanecta-core/kanecta-ai-adapters/kanecta-claude-bridge/src/index.js
 kanecta-core/kanecta-ai/index.js
-kanecta-core/kanecta-api-client/index.js
 kanecta-core/kanecta-api/src/app.js
 kanecta-core/kanecta-api/src/middleware/auth.js
 kanecta-core/kanecta-api/src/server.js
