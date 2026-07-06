@@ -1,13 +1,13 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S node --import tsx
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const net = require('net');
-const readline = require('readline');
-const { execSync, spawn } = require('child_process');
-const { Datastore, getConfigPath } = require('@kanecta/lib');
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import net from 'net';
+import * as readline from 'readline';
+import { execSync, spawn } from 'child_process';
+import { Datastore, getConfigPath } from '@kanecta/lib';
 
 const HOME = os.homedir();
 const XDG_CONFIG = process.env.XDG_CONFIG_HOME || path.join(HOME, '.config');
@@ -23,8 +23,8 @@ const POINTER_LOCATIONS = [
 
 const NAME_RE = /^[a-zA-Z0-9-]+$/;
 
-function checkPointerFileFormat(data, sourceFile) {
-  const errors = [];
+function checkPointerFileFormat(data: any, sourceFile: string) {
+  const errors: string[] = [];
   // Accept current (workingSets/defaultWorkingSet) and legacy (workspaces/defaultWorkspace) keys.
   if (!data.workspaces && data.workingSets) data.workspaces = data.workingSets;
   if (!data.defaultWorkspace && data.defaultWorkingSet) data.defaultWorkspace = data.defaultWorkingSet;
@@ -35,7 +35,7 @@ function checkPointerFileFormat(data, sourceFile) {
   else if (Object.keys(data.workspaces).length === 0)
     errors.push('"workspaces" must have at least one entry');
   else {
-    for (const [name, ws] of Object.entries(data.workspaces)) {
+    for (const [name, ws] of Object.entries(data.workspaces) as [string, any][]) {
       if (typeof ws !== 'object' || ws === null || Array.isArray(ws))
         errors.push(`"workspaces.${name}" must be an object`);
       else if (typeof ws.local !== 'string')
@@ -51,8 +51,8 @@ function checkPointerFileFormat(data, sourceFile) {
   console.log(`  ✓ config format OK (${data.specVersion}; ${Object.keys(data.workspaces).length} workspace(s))`);
 }
 
-function checkPortFree(port) {
-  return new Promise((resolve, reject) => {
+function checkPortFree(port: number) {
+  return new Promise<boolean>((resolve, reject) => {
     const server = net.createServer();
     server.unref();
     server.on('error', () => resolve(false));
@@ -60,7 +60,7 @@ function checkPortFree(port) {
   });
 }
 
-function expandHome(p) {
+function expandHome(p: string) {
   return p.replace(/^~/, HOME);
 }
 
@@ -69,7 +69,7 @@ function expandHome(p) {
 // shape. Runs automatically the first time the old shape is detected — backs up
 // both old files (with a `.pre-workspace-refactor` suffix) and removes cloud.json
 // (its contents now live inside the matching workspace's `cloud` block).
-function migrateOldConfig(file, oldData) {
+function migrateOldConfig(file: string, oldData: any) {
   console.log(`\n  → Migrating ${file} to the workspace-based config format...`);
 
   const cloudFile = path.join(XDG_CONFIG, 'kanecta', 'cloud.json');
@@ -79,9 +79,9 @@ function migrateOldConfig(file, oldData) {
   fs.copyFileSync(file, backupConfigFile);
   console.log(`    backed up ${file} → ${backupConfigFile}`);
 
-  const workspaces = {};
-  const usedNames = new Set();
-  const uniqueName = (base) => {
+  const workspaces: Record<string, any> = {};
+  const usedNames = new Set<string>();
+  const uniqueName = (base: string) => {
     let name = base, n = 2;
     while (usedNames.has(name)) name = `${base}-${n++}`;
     usedNames.add(name);
@@ -153,7 +153,7 @@ function migrateOldConfig(file, oldData) {
 
 // Normalises a workspace entry from either config format into:
 //   { localPath, branch, remotes }
-function normaliseWorkspace(ws) {
+function normaliseWorkspace(ws: any) {
   if (!ws) return null;
   // 1.4.0 format: { local, remotes?, branch? }
   if (ws.local !== undefined) {
@@ -167,7 +167,7 @@ function normaliseWorkspace(ws) {
   return null;
 }
 
-function readPointer(file) {
+function readPointer(file: string): any {
   try {
     const data = JSON.parse(fs.readFileSync(file, 'utf8'));
     // Accept current (workingSets/defaultWorkingSet) and legacy (workspaces/defaultWorkspace) keys.
@@ -189,23 +189,23 @@ function readPointer(file) {
 // Convert the wizard's internal `workspace` shape into a 1.4.0 working-set entry.
 // Filesystem → { local, defaultBranch } (schema-valid). Cloud keeps the legacy
 // { mode:'CLOUD', cloud } shape, which Datastore.openWorkingSet still accepts.
-function toWorkingSet(workspace) {
+function toWorkingSet(workspace: any) {
   if (workspace.mode === 'FILESYSTEM') return { local: workspace.datastore, defaultBranch: 'main' };
   if (workspace.mode === 'CLOUD')      return { mode: 'CLOUD', cloud: workspace.cloud, defaultBranch: 'main' };
   return { ...workspace, defaultBranch: workspace.defaultBranch || workspace.branch || 'main' };
 }
 
-function writePointer(name, workspace, apiPort, studioPort, systemItemsDir) {
+function writePointer(name: string, workspace: any, apiPort: number, studioPort: number, systemItemsDir?: string) {
   const file = POINTER_LOCATIONS[0];
   const isNew = !fs.existsSync(file);
   fs.mkdirSync(path.dirname(file), { recursive: true });
 
   // Load existing config in the canonical 1.4.0 shape (tolerating legacy keys).
-  let raw = {};
+  let raw: any = {};
   try { raw = JSON.parse(fs.readFileSync(file, 'utf8')); } catch {}
   const workingSets = raw.workingSets || raw.workspaces || {};
 
-  const data = {
+  const data: any = {
     specVersion: raw.specVersion || '1.4.0',
     defaultWorkingSet: name,
     workingSets,
@@ -239,7 +239,7 @@ function resolveFromPointers() {
   return null;
 }
 
-function checkSpecVersion(datastorePath, branch = 'main') {
+function checkSpecVersion(datastorePath: string, branch = 'main') {
   const rootPkg = JSON.parse(
     fs.readFileSync(path.join(__dirname, '../../package.json'), 'utf8'),
   );
@@ -275,7 +275,7 @@ function checkSpecVersion(datastorePath, branch = 'main') {
   }
 }
 
-function pathCompleter(line) {
+function pathCompleter(line: string) {
   try {
     const expanded = line.replace(/^~/, HOME);
     const trailingSlash = expanded.endsWith('/');
@@ -295,11 +295,11 @@ function pathCompleter(line) {
   }
 }
 
-function ask(rl, question) {
+function ask(rl: readline.Interface, question: string): Promise<string> {
   return new Promise((resolve) => rl.question(question, (a) => resolve(a.trim())));
 }
 
-async function pickWorkspace(names) {
+async function pickWorkspace(names: string[]) {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   console.log('\nMultiple workspaces found. Which one would you like to use?\n');
   names.forEach((n, i) => console.log(`  ${i + 1}. ${n}`));
@@ -314,7 +314,7 @@ async function pickWorkspace(names) {
   return names[idx];
 }
 
-async function wizard() {
+async function wizard(): Promise<any> {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout, completer: pathCompleter });
 
   console.log('\n┌──────────────────────────────────────────┐');
@@ -335,7 +335,7 @@ async function wizard() {
   let datastorePath;
   let zipPath = null;
   let owner = null;
-  let cloudConfig = null;
+  let cloudConfig: any = null;
   let isNewCloudDb = false;
   let mode; // 'create-sqlite' | 'create' | 'existing' | 'zip' | 'cloud'
 
@@ -541,7 +541,7 @@ async function wizard() {
   return { name: workspaceName, workspace, apiPort, studioPort, systemItemsDir };
 }
 
-async function syncSystemItems(datastorePath, systemItemsDir) {
+async function syncSystemItems(datastorePath: string, systemItemsDir?: string) {
   if (!systemItemsDir) {
     console.log('\n  system items check: skipped (systemItemsDir not configured)');
     return;
@@ -563,7 +563,7 @@ async function syncSystemItems(datastorePath, systemItemsDir) {
   console.log('\n  system items check...');
 
   // Scan systemItemsDir — 2+2+UUID sharding
-  const allSystemItems = [];
+  const allSystemItems: any[] = [];
   for (const shard1 of fs.readdirSync(systemItemsDir)) {
     const shard1Path = path.join(systemItemsDir, shard1);
     if (!fs.statSync(shard1Path).isDirectory()) continue;
@@ -655,13 +655,13 @@ async function syncSystemItems(datastorePath, systemItemsDir) {
 // `workspaceName` is null when launched via an explicit env override (no named
 // working set involved); `datastorePath` is null for pure-cloud working sets.
 // `configFile` is the config.json the API/Studio should resolve from.
-async function launch(workspaceName, datastorePath, apiPort, studioPort, systemItemsDir, branch, configFile) {
+async function launch(workspaceName: string | null, datastorePath: string | null, apiPort: number, studioPort: number, systemItemsDir: string | undefined, branch: string | null, configFile: string) {
   const [apiFree, studioFree] = await Promise.all([
     checkPortFree(apiPort),
     checkPortFree(studioPort),
   ]);
 
-  function portError(label, port, configKey) {
+  function portError(label: string, port: number, configKey: string) {
     console.error(`\n  ✗ ${label} port ${port} is already in use. Free the port or update ${configKey} in your config.\n`);
     console.error(`  To kill the process using port ${port}:\n`);
     console.error(`    Linux / macOS (bash)   fuser -k ${port}/tcp`);
