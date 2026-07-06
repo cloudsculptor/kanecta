@@ -2,12 +2,13 @@
   "name": "@kanecta/ai",
   "version": "1.4.0",
   "description": "Kanecta AI layer — exposes Claude integration to kanecta-api via kanecta-claude-bridge",
-  "main": "index.js",
+  "main": "index.ts",
   "files": [
-    "index.js"
+    "index.ts"
   ],
   "scripts": {
-    "test": "echo \"No tests yet\""
+    "test": "echo \"No tests yet\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@kanecta/claude-bridge": "*"
