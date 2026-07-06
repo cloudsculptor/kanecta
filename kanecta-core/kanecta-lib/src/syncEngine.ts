@@ -20,7 +20,7 @@ class SyncEngine {
   // diff() — return the local branch diff without touching the remote.
   // Returns { adds[], edits[], deletes[], branchName } where each element
   // is an item object from the local branch overlay.
-  static async diff(localAdapter, branchName) {
+  static async diff(localAdapter: any, branchName: any) {
     if (typeof localAdapter.branchDiff !== 'function') {
       throw new Error('localAdapter does not implement branchDiff()');
     }
@@ -36,7 +36,7 @@ class SyncEngine {
   //
   // Idempotent: if the remote branch already exists, the existing branch is
   // used (changes are upserted).
-  static async push(localAdapter, remoteAdapter, branchName) {
+  static async push(localAdapter: any, remoteAdapter: any, branchName: any) {
     if (typeof localAdapter.branchDiff !== 'function') {
       throw new Error('localAdapter does not implement branchDiff()');
     }
@@ -54,7 +54,7 @@ class SyncEngine {
     // Read local branch overlay: full item.json docs for each changed item
     const { adds, edits, deletes } = await localAdapter.branchDiff(branchName);
 
-    const changes = [];
+    const changes: any[] = [];
 
     // branchDiff returns { id, after: <flatItem>, doc: <fiveSectionDoc> } for adds/edits
     // and { id, before: <flatItem> } for deletes.
@@ -78,7 +78,7 @@ class SyncEngine {
 
   // preFlightScan() — run blast-radius analysis on the remote before merge.
   // Returns the full scan result from the remote adapter.
-  static async preFlightScan(remoteAdapter, branchName) {
+  static async preFlightScan(remoteAdapter: any, branchName: any) {
     if (typeof remoteAdapter.preFlightScan !== 'function') {
       throw new Error('remoteAdapter does not implement preFlightScan()');
     }
@@ -94,7 +94,7 @@ class SyncEngine {
   // `force: true` is passed.
   //
   // Returns { merged: number, branchName } from the remote adapter.
-  static async merge(remoteAdapter, branchName, { force = false } = {}) {
+  static async merge(remoteAdapter: any, branchName: any, { force = false }: any = {}) {
     if (typeof remoteAdapter.mergeBranch !== 'function') {
       throw new Error('remoteAdapter does not implement mergeBranch()');
     }
@@ -106,7 +106,7 @@ class SyncEngine {
     if (!force) {
       const scan = await remoteAdapter.preFlightScan(remoteBranch.id);
       if (scan.blocked) {
-        const ids = scan.blockingRefs.map(r => r.referenceItemId).join(', ');
+        const ids = scan.blockingRefs.map((r: any) => r.referenceItemId).join(', ');
         throw new Error(`Merge blocked: ${scan.blockingRefs.length} reference item(s) with blockDeletion=true target deleted items: ${ids}`);
       }
     }
@@ -117,7 +117,7 @@ class SyncEngine {
   // fullSync() — convenience: diff → push → preFlightScan → merge in one call.
   // If the scan is blocked, throws without merging (unless force: true).
   // Returns { diff, push: pushResult, scan, merge: mergeResult }.
-  static async fullSync(localAdapter, remoteAdapter, branchName, { force = false } = {}) {
+  static async fullSync(localAdapter: any, remoteAdapter: any, branchName: any, { force = false }: any = {}) {
     const diffResult = await SyncEngine.diff(localAdapter, branchName);
     const pushResult = await SyncEngine.push(localAdapter, remoteAdapter, branchName);
     const scan       = await SyncEngine.preFlightScan(remoteAdapter, branchName);
@@ -135,7 +135,7 @@ class SyncEngine {
 // `doc` is the raw five-section item.json: { item, meta, search, payload, time }.
 // Falls back to building from `after` (flat item) when `doc` is absent.
 // Also accepts a plain flat item (no wrapping) for compatibility with unit-test mocks.
-function _entryToChanges(entry, changeType) {
+function _entryToChanges(entry: any, changeType: any) {
   if (!entry) return [];
   // If the entry IS a flat item (has value/type at top level, no doc/after wrapper),
   // normalise it into the entry shape.
@@ -145,7 +145,7 @@ function _entryToChanges(entry, changeType) {
   const itemId = entry.id;
   if (!itemId) return [];
 
-  const changes = [];
+  const changes: any[] = [];
 
   if (entry.doc) {
     // Use the five-section doc directly — each present section becomes one change record.
@@ -170,7 +170,7 @@ function _entryToChanges(entry, changeType) {
         sortOrder: item.sortOrder ?? 0,
       },
     });
-    const meta = {};
+    const meta: any = {};
     for (const k of ['specVersion','owner','license','visibility','confidence','status','tags',
                       'createdAt','modifiedAt','createdBy','modifiedBy',
                       'expiresAt','deletedAt','connectorId','materialized',
@@ -186,4 +186,4 @@ function _entryToChanges(entry, changeType) {
   return changes;
 }
 
-module.exports = { SyncEngine };
+export { SyncEngine };

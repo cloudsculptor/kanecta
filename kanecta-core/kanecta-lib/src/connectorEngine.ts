@@ -20,7 +20,10 @@
 // because all engine calls use await, which is a no-op on sync return values.
 
 class ConnectorEngine {
-  constructor(adapter, runOperation) {
+  _adapter: any;
+  _runOperation: any;
+
+  constructor(adapter: any, runOperation: any) {
     this._adapter = adapter;
     this._runOperation = runOperation;
   }
@@ -28,7 +31,7 @@ class ConnectorEngine {
   // ─── Internal helpers ────────────────────────────────────────────────────────
 
   // Load a connector item and return its objectData (connectorPayload).
-  async _loadConnector(connectorId) {
+  async _loadConnector(connectorId: any) {
     const item = await this._adapter.get(connectorId);
     if (!item) throw new Error(`Connector item not found: ${connectorId}`);
     const payload = await this._adapter.readObjectJson(connectorId);
@@ -40,7 +43,7 @@ class ConnectorEngine {
   // $VAR_NAME  → process.env.VAR_NAME (returns the value or null)
   // $SECRET:…  → throws (secret-manager references not yet supported in 1.4.0)
   // other      → returned as-is (allows string literals in tests / simple setups)
-  _resolveAuth(connector) {
+  _resolveAuth(connector: any) {
     const ref = connector.authConfigRef;
     if (!ref) return null;
     if (typeof ref === 'string' && ref.startsWith('$SECRET:')) {
@@ -53,7 +56,7 @@ class ConnectorEngine {
   }
 
   // Validate that an operation reference is well-formed.
-  _validateOperation(op, name) {
+  _validateOperation(op: any, name: any) {
     if (!op) throw new Error(`Connector is missing required operation: ${name}`);
     if (!op.type || !['function', 'pipeline'].includes(op.type)) {
       throw new Error(`Connector operation "${name}" has invalid type: "${op.type}". Must be "function" or "pipeline".`);
@@ -67,7 +70,7 @@ class ConnectorEngine {
   // The item must be a stub: materialized === false and connectorId set.
   // On success: objectData is written, materialized → true, cachedAt → now.
   // Returns the updated item shape (without re-fetching from the adapter).
-  async materializeStub(itemId) {
+  async materializeStub(itemId: any) {
     const item = await this._adapter.get(itemId);
     if (!item) throw new Error(`Item not found: ${itemId}`);
     if (item.materialized !== false) {
@@ -97,7 +100,7 @@ class ConnectorEngine {
 
   // Get an item, automatically materializing it if it is a stub.
   // Returns null if the item does not exist.
-  async getOrMaterialize(itemId) {
+  async getOrMaterialize(itemId: any) {
     const item = await this._adapter.get(itemId);
     if (!item) return null;
     if (item.materialized === false && item.connectorId) {
@@ -108,7 +111,7 @@ class ConnectorEngine {
 
   // Re-fetch a connector-managed item (already materialized or stub) by
   // invoking the connector's fetch operation and updating objectData + cachedAt.
-  async _refreshItem(item) {
+  async _refreshItem(item: any) {
     if (!item.connectorId) throw new Error(`Item ${item.id} has no connectorId`);
     const connector = await this._loadConnector(item.connectorId);
     this._validateOperation(connector.fetch, 'fetch');
@@ -129,7 +132,7 @@ class ConnectorEngine {
   // Refresh all connector-managed items whose cachedAt is before beforeAt.
   // Failures are non-fatal: logged as warnings, counted in result.
   // Returns { refreshed, failed }.
-  async refreshStaleItems({ beforeAt = new Date().toISOString() } = {}) {
+  async refreshStaleItems({ beforeAt = new Date().toISOString() }: any = {}) {
     const stale = await this._adapter.listDueForRefresh(beforeAt);
     let refreshed = 0;
     let failed = 0;
@@ -137,7 +140,7 @@ class ConnectorEngine {
       try {
         await this._refreshItem(item);
         refreshed++;
-      } catch (err) {
+      } catch (err: any) {
         failed++;
         console.warn(`[ConnectorEngine] Failed to refresh ${item.id}: ${err.message}`);
       }
@@ -149,7 +152,7 @@ class ConnectorEngine {
   // No-ops (returns false) when the item has no connector or writeBack is disabled.
   // Throws if writeBack is true but no push operation is configured.
   // On success updates cachedAt and returns true.
-  async queueWriteBack(itemId) {
+  async queueWriteBack(itemId: any) {
     const item = await this._adapter.get(itemId);
     if (!item?.connectorId) return false;
 
@@ -175,9 +178,9 @@ class ConnectorEngine {
   }
 
   // List all stub items managed by the given connector.
-  async listStubs(connectorId) {
+  async listStubs(connectorId: any) {
     return this._adapter.listStubs(connectorId);
   }
 }
 
-module.exports = { ConnectorEngine };
+export { ConnectorEngine };

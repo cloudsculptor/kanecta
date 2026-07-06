@@ -1,6 +1,6 @@
 'use strict';
 
-const { exportMarkdown, _roleToMarkdown } = require('../src/exportMarkdown');
+import { exportMarkdown, _roleToMarkdown } from '../src/exportMarkdown.ts';
 
 // ─── _roleToMarkdown unit tests ────────────────────────────────────────────────
 

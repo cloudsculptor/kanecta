@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S node --import tsx
 'use strict';
 
 /**
@@ -16,13 +16,13 @@
  * registry, the store layout and the resolution contract are identical.
  */
 
-const path = require('path');
-const fs = require('fs');
-const { syncFromSource, storePath } = require('../src/componentStore');
+import path from 'path';
+import fs from 'fs';
+import { syncFromSource, storePath } from '../src/componentStore.ts';
 
-function parseArgs(argv) {
-  const flags = { force: false };
-  const positional = [];
+function parseArgs(argv: any) {
+  const flags: any = { force: false };
+  const positional: any[] = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--force') flags.force = true;

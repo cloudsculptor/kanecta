@@ -1,14 +1,14 @@
 'use strict';
 
-const os = require('os');
-const path = require('path');
-const fs = require('fs');
-const {
+import os from 'os';
+import path from 'path';
+import fs from 'fs';
+import {
   resolveComponentStore,
-} = require('../src/appConfig');
-const {
+} from '../src/appConfig.ts';
+import {
   storePath, packageDir, isInstalled, installFromDir, syncFromSource, listInstalled, readComponentItem,
-} = require('../src/componentStore');
+} from '../src/componentStore.ts';
 
 let tmp;
 let store;

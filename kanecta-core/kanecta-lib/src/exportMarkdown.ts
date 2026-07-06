@@ -24,7 +24,7 @@
 // document root, not a body paragraph. Typical usage assigns depth 0 a 'title' role
 // or leaves targetId un-rendered by not setting byDepth['0'].
 
-async function exportMarkdown(adapter, documentId) {
+async function exportMarkdown(adapter: any, documentId: any) {
   const docItem = await _get(adapter, documentId);
   if (!docItem || docItem.type !== 'document') {
     throw new Error(`Item ${documentId} is not a document`);
@@ -39,16 +39,16 @@ async function exportMarkdown(adapter, documentId) {
   const { byDepth = {}, byType = {} } = roleMap;
   const { defaultDepth = Infinity, exceptions = {} } = expandState;
 
-  const lines = [];
+  const lines: any[] = [];
 
-  function resolveRole(item, depth) {
+  function resolveRole(item: any, depth: any) {
     return (item.typeId && byType[item.typeId])
       || byType[item.type]
       || byDepth[String(depth)]
       || 'body';
   }
 
-  async function traverse(itemId, depth, inheritedMaxDepth) {
+  async function traverse(itemId: any, depth: any, inheritedMaxDepth: any) {
     // Check if this item is suppressed by an exception
     if (itemId in exceptions && exceptions[itemId] === false) return;
 
@@ -81,7 +81,7 @@ async function exportMarkdown(adapter, documentId) {
   return lines.join('\n\n');
 }
 
-function _roleToMarkdown(role, text) {
+function _roleToMarkdown(role: any, text: any) {
   switch (role) {
     case 'title':      return `# ${text}`;
     case 'heading':    return `## ${text}`;
@@ -97,16 +97,16 @@ function _roleToMarkdown(role, text) {
 
 // Adapters may be sync (sqlite-fs) or async (Postgres) — normalise with Promise.resolve.
 
-async function _get(adapter, id) {
+async function _get(adapter: any, id: any) {
   return Promise.resolve(adapter.get(id));
 }
 
-async function _children(adapter, id) {
+async function _children(adapter: any, id: any) {
   const result = await Promise.resolve(adapter.children(id));
   return result ?? [];
 }
 
-async function _readPayload(adapter, id) {
+async function _readPayload(adapter: any, id: any) {
   if (typeof adapter.readDocumentPayload === 'function') {
     return Promise.resolve(adapter.readDocumentPayload(id));
   }
@@ -117,4 +117,4 @@ async function _readPayload(adapter, id) {
   return null;
 }
 
-module.exports = { exportMarkdown, _roleToMarkdown };
+export { exportMarkdown, _roleToMarkdown };

@@ -9,26 +9,26 @@
 // reading what is installed. Consuming apps read the store to include components
 // at runtime; they never read the component source directory directly.
 
-const fs = require('fs');
-const path = require('path');
-const { resolveComponentStore } = require('./appConfig');
+import fs from 'fs';
+import path from 'path';
+import { resolveComponentStore } from './appConfig.ts';
 
 /** Absolute path of the store (config/env/platform-default via appConfig). */
-function storePath(config) {
+function storePath(config?: any): any {
   return resolveComponentStore(config);
 }
 
 /** Directory for one package@version inside the store. Scoped names nest naturally. */
-function packageDir(store, name, version) {
+function packageDir(store: string, name: string, version: string): string {
   return path.join(store, `${name}@${version}`);
 }
 
-function readJson(file) {
+function readJson(file: string): any {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 
 /** Is this package@version already materialised in the store? */
-function isInstalled(name, version, { store = storePath() } = {}) {
+function isInstalled(name: string, version: string, { store = storePath() }: any = {}): boolean {
   return fs.existsSync(path.join(packageDir(store, name, version), 'package.json'));
 }
 
@@ -38,7 +38,7 @@ function isInstalled(name, version, { store = storePath() } = {}) {
  * skips an already-installed package unless `force`. Returns
  * { name, version, dir, installed }.
  */
-function installFromDir(srcDir, { store = storePath(), force = false } = {}) {
+function installFromDir(srcDir: string, { store = storePath(), force = false }: any = {}): any {
   const pkg = readJson(path.join(srcDir, 'package.json'));
   const { name, version } = pkg;
   if (!name || !version) throw new Error(`package.json missing name/version in ${srcDir}`);
@@ -53,7 +53,7 @@ function installFromDir(srcDir, { store = storePath(), force = false } = {}) {
   fs.rmSync(dir, { recursive: true, force: true });
   fs.cpSync(srcDir, dir, {
     recursive: true,
-    filter: (src) => {
+    filter: (src: string) => {
       const base = path.basename(src);
       return base !== 'node_modules' && base !== '.git' && base !== 'dist' && base !== 'storybook-static';
     },
@@ -66,8 +66,8 @@ function installFromDir(srcDir, { store = storePath(), force = false } = {}) {
  * component package is any immediate subdirectory containing BOTH a package.json
  * and a kanecta.item.json. Returns an array of installFromDir results.
  */
-function syncFromSource(sourceRoot, { store = storePath(), force = false } = {}) {
-  const results = [];
+function syncFromSource(sourceRoot: string, { store = storePath(), force = false }: any = {}): any[] {
+  const results: any[] = [];
   let entries;
   try { entries = fs.readdirSync(sourceRoot, { withFileTypes: true }); } catch { return results; }
   for (const e of entries) {
@@ -81,9 +81,9 @@ function syncFromSource(sourceRoot, { store = storePath(), force = false } = {})
 }
 
 /** List installed packages: [{ name, version, dir }]. */
-function listInstalled({ store = storePath() } = {}) {
-  const out = [];
-  const walk = (dir, prefix) => {
+function listInstalled({ store = storePath() }: any = {}): any[] {
+  const out: any[] = [];
+  const walk = (dir: string, prefix: string) => {
     let entries;
     try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
     for (const e of entries) {
@@ -103,12 +103,12 @@ function listInstalled({ store = storePath() } = {}) {
 }
 
 /** Read a package's kanecta.item.json from the store (or null). */
-function readComponentItem(name, version, { store = storePath() } = {}) {
+function readComponentItem(name: string, version: string, { store = storePath() }: any = {}): any {
   const file = path.join(packageDir(store, name, version), 'kanecta.item.json');
   try { return readJson(file); } catch { return null; }
 }
 
-module.exports = {
+export {
   storePath,
   packageDir,
   isInstalled,

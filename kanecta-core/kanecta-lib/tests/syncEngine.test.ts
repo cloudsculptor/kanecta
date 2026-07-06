@@ -1,6 +1,7 @@
 'use strict';
 
-const { SyncEngine } = require('../src/syncEngine');
+import { vi } from 'vitest';
+import { SyncEngine } from '../src/syncEngine.ts';
 
 // ─── Mock factories ─────────────────────────────────────────────────────────
 
@@ -39,7 +40,7 @@ function toDeleteEntry(item) {
 // `diff` shape: { adds: BranchDiffEntry[], edits: BranchDiffEntry[], deletes: BranchDiffEntry[] }
 function mockLocal({ diff = { adds: [], edits: [], deletes: [] } } = {}) {
   return {
-    branchDiff: jest.fn().mockResolvedValue(diff),
+    branchDiff: vi.fn().mockResolvedValue(diff),
   };
 }
 
@@ -52,12 +53,12 @@ function mockRemote({
   mergeResult   = { merged: 0, branchName: 'test' },
 } = {}) {
   return {
-    getBranch:           jest.fn().mockResolvedValue(branch),
-    createBranch:        jest.fn().mockResolvedValue(createdBranch ?? { id: 'br-001', name: 'test', baseBranch: 'main', createdAt: new Date().toISOString() }),
-    applyBranchChanges:  jest.fn().mockResolvedValue(undefined),
-    getBranchChanges:    jest.fn().mockResolvedValue(changes),
-    preFlightScan:       jest.fn().mockResolvedValue(scan),
-    mergeBranch:         jest.fn().mockResolvedValue(mergeResult),
+    getBranch:           vi.fn().mockResolvedValue(branch),
+    createBranch:        vi.fn().mockResolvedValue(createdBranch ?? { id: 'br-001', name: 'test', baseBranch: 'main', createdAt: new Date().toISOString() }),
+    applyBranchChanges:  vi.fn().mockResolvedValue(undefined),
+    getBranchChanges:    vi.fn().mockResolvedValue(changes),
+    preFlightScan:       vi.fn().mockResolvedValue(scan),
+    mergeBranch:         vi.fn().mockResolvedValue(mergeResult),
   };
 }
 
@@ -106,7 +107,7 @@ describe('SyncEngine.diff()', () => {
   });
 
   test('propagates errors from branchDiff', async () => {
-    const local = { branchDiff: jest.fn().mockRejectedValue(new Error('disk error')) };
+    const local = { branchDiff: vi.fn().mockRejectedValue(new Error('disk error')) };
     await expect(SyncEngine.diff(local, 'x')).rejects.toThrow('disk error');
   });
 });
@@ -221,7 +222,7 @@ describe('SyncEngine.push()', () => {
 
   test('throws if remote adapter lacks applyBranchChanges', async () => {
     const local  = mockLocal();
-    const remote = { getBranch: jest.fn().mockResolvedValue(null), createBranch: jest.fn().mockResolvedValue({ id: 'x', name: 'x' }) };
+    const remote = { getBranch: vi.fn().mockResolvedValue(null), createBranch: vi.fn().mockResolvedValue({ id: 'x', name: 'x' }) };
     await expect(SyncEngine.push(local, remote, 'x')).rejects.toThrow(/applyBranchChanges/);
   });
 });
@@ -251,7 +252,7 @@ describe('SyncEngine.preFlightScan()', () => {
   });
 
   test('throws if remote adapter lacks preFlightScan', async () => {
-    const bad = { getBranch: jest.fn().mockResolvedValue({ id: 'x' }) };
+    const bad = { getBranch: vi.fn().mockResolvedValue({ id: 'x' }) };
     await expect(SyncEngine.preFlightScan(bad, 'x')).rejects.toThrow(/preFlightScan/);
   });
 });
@@ -299,8 +300,8 @@ describe('SyncEngine.merge()', () => {
 
   test('throws if remote adapter lacks mergeBranch', async () => {
     const bad = {
-      getBranch:     jest.fn().mockResolvedValue({ id: 'x' }),
-      preFlightScan: jest.fn().mockResolvedValue({ blocked: false, blockingRefs: [] }),
+      getBranch:     vi.fn().mockResolvedValue({ id: 'x' }),
+      preFlightScan: vi.fn().mockResolvedValue({ blocked: false, blockingRefs: [] }),
     };
     await expect(SyncEngine.merge(bad, 'x')).rejects.toThrow(/mergeBranch/);
   });

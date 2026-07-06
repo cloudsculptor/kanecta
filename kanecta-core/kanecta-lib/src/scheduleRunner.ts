@@ -18,12 +18,12 @@
 // Dependency injection for cron parsing lets tests run without the real
 // cron-parser library by passing a mock via the third constructor argument.
 
-const { CronExpressionParser } = require('cron-parser');
+import { CronExpressionParser } from 'cron-parser';
 
 const MAX_ERROR_LENGTH = 2000;
 
-function defaultNextFireAt(cronExpression, timezone, after) {
-  const opts = { currentDate: new Date(after) };
+function defaultNextFireAt(cronExpression: any, timezone: any, after: any) {
+  const opts: any = { currentDate: new Date(after) };
   if (timezone) opts.tz = timezone;
   const interval = CronExpressionParser.parse(cronExpression, opts);
   const next = interval.next();
@@ -31,7 +31,11 @@ function defaultNextFireAt(cronExpression, timezone, after) {
 }
 
 class ScheduleRunner {
-  constructor(adapter, runOperation, { nextFireAt = defaultNextFireAt } = {}) {
+  _adapter: any;
+  _runOp: any;
+  _nextFireAt: any;
+
+  constructor(adapter: any, runOperation: any, { nextFireAt = defaultNextFireAt }: any = {}) {
     this._adapter    = adapter;
     this._runOp      = runOperation;
     this._nextFireAt = nextFireAt;
@@ -39,7 +43,7 @@ class ScheduleRunner {
 
   // Fire all active schedules due by `now` (defaults to current UTC time).
   // Returns { fired, failed }.
-  async tick(now = new Date().toISOString()) {
+  async tick(now: any = new Date().toISOString()) {
     const due = await this._adapter.listDueSchedules(now);
     let fired  = 0;
     let failed = 0;
@@ -47,7 +51,7 @@ class ScheduleRunner {
       try {
         await this._fireSchedule(item, now);
         fired++;
-      } catch (err) {
+      } catch (err: any) {
         failed++;
         console.warn(`[ScheduleRunner] Failed to fire schedule ${item.id}: ${err.message}`);
       }
@@ -56,7 +60,7 @@ class ScheduleRunner {
   }
 
   // Execute one schedule item and advance its next fire time.
-  async _fireSchedule(item, now) {
+  async _fireSchedule(item: any, now: any) {
     const schedule = await this._adapter.readScheduleJson(item.id);
     if (!schedule) throw new Error(`Schedule payload missing on item: ${item.id}`);
 
@@ -68,15 +72,15 @@ class ScheduleRunner {
     }
 
     let lastResult = 'ok';
-    let lastError  = null;
-    let runError   = null;
+    let lastError: any  = null;
+    let runError: any   = null;
 
     try {
       await this._runOp(
         { type: actionType, id: actionId },
         { scheduleId: item.id, targetItemId: targetItemId ?? null, firedAt: now, ...(params ?? {}) },
       );
-    } catch (err) {
+    } catch (err: any) {
       lastResult = 'error';
       lastError  = String(err.message ?? err).slice(0, MAX_ERROR_LENGTH);
       runError   = err;
@@ -105,4 +109,4 @@ class ScheduleRunner {
   }
 }
 
-module.exports = { ScheduleRunner };
+export { ScheduleRunner };

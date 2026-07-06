@@ -1,9 +1,9 @@
 'use strict';
 
-const os = require('os');
-const path = require('path');
-const fs = require('fs');
-const { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, TYPES_NODE } = require('../src/index');
+import os from 'os';
+import path from 'path';
+import fs from 'fs';
+import { Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, TYPES_NODE } from '../src/index.ts';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

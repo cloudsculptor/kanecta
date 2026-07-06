@@ -12,9 +12,9 @@
  * Usage: node scripts/migrate-1.3.0.js <datastore-root> [<datastore-root> ...]
  */
 
-const fs = require('fs');
-const path = require('path');
-const { Datastore, DEFAULT_LICENSE } = require('../src/index');
+import fs from 'fs';
+import path from 'path';
+import { Datastore, DEFAULT_LICENSE } from '../src/index.ts';
 
 const roots = process.argv.slice(2);
 if (!roots.length) {
@@ -22,9 +22,9 @@ if (!roots.length) {
   process.exit(1);
 }
 
-function walkMetadataFiles(dataDir) {
-  const files = [];
-  const walk = (dir) => {
+function walkMetadataFiles(dataDir: any) {
+  const files: any[] = [];
+  const walk = (dir: any) => {
     let entries;
     try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
     for (const e of entries) {
@@ -37,7 +37,7 @@ function walkMetadataFiles(dataDir) {
 }
 
 for (const root of roots) {
-  const resolved = path.resolve(root.replace(/^~/, process.env.HOME));
+  const resolved = path.resolve(root.replace(/^~/, process.env.HOME as string));
   console.log(`\n── Migrating: ${resolved}`);
 
   if (!Datastore.isDatastore(resolved)) {

@@ -18,11 +18,11 @@
 // Secrets live in a `.env` file beside config.json (never in config.json). String
 // values beginning with `$` are resolved from the environment at read time.
 
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 
-function expandHome(p) {
+function expandHome(p: any): any {
   if (!p || typeof p !== 'string') return p;
   if (p === '~') return os.homedir();
   if (p.startsWith('~/') || p.startsWith('~\\')) return path.join(os.homedir(), p.slice(2));
@@ -51,7 +51,7 @@ function getConfigPath() {
 
 // Minimal `.env` parser — KEY=VALUE per line, `#` comments, optional quotes.
 // Loaded into process.env without overwriting values already set there.
-function loadDotEnv(dir) {
+function loadDotEnv(dir: string): void {
   const envPath = path.join(dir, '.env');
   let raw;
   try {
@@ -80,7 +80,7 @@ function loadDotEnv(dir) {
 // Resolve a single `$VAR` reference from the environment. Non-`$` strings and
 // non-strings pass through unchanged. An unset `$VAR` resolves to '' (with a
 // warning) so connection attempts fail loudly rather than using a literal.
-function resolveEnvRef(value) {
+function resolveEnvRef(value: any): any {
   if (typeof value !== 'string' || !value.startsWith('$')) return value;
   const name = value.slice(1);
   if (!(name in process.env)) {
@@ -91,10 +91,10 @@ function resolveEnvRef(value) {
 }
 
 // Walk an object/array tree resolving every `$VAR` string leaf.
-function deepResolveEnv(node) {
+function deepResolveEnv(node: any): any {
   if (Array.isArray(node)) return node.map(deepResolveEnv);
   if (node && typeof node === 'object') {
-    const out = {};
+    const out: any = {};
     for (const [k, v] of Object.entries(node)) out[k] = deepResolveEnv(v);
     return out;
   }
@@ -105,7 +105,7 @@ let warnedLegacyKeys = false;
 
 // Map legacy 1.3.x/early-1.4.0 keys onto the current working-set vocabulary so
 // configs written before the rename keep working. Emits a one-time deprecation.
-function normalizeLegacyKeys(config) {
+function normalizeLegacyKeys(config: any): any {
   if (!config || typeof config !== 'object') return config;
   let usedLegacy = false;
   if (!config.workingSets && config.workspaces) {
@@ -147,7 +147,7 @@ function readAppConfig() {
 // MCP/API/CLI args) sit above it so concurrent consumers (e.g. MCP and API) stay
 // independent without clobbering each other.
 
-function getStatePath() {
+function getStatePath(): string {
   return path.join(path.dirname(getConfigPath()), 'state.json');
 }
 
@@ -159,21 +159,21 @@ function readState() {
   }
 }
 
-function writeState(state) {
+function writeState(state: any): void {
   const statePath = getStatePath();
   fs.mkdirSync(path.dirname(statePath), { recursive: true });
   fs.writeFileSync(statePath, JSON.stringify(state, null, 2) + '\n');
 }
 
 // Persist the active working set (the HEAD). Used by Studio/CLI "switch".
-function setActiveWorkingSet(name) {
+function setActiveWorkingSet(name: string): void {
   const state = readState();
   state.activeWorkingSet = name;
   writeState(state);
 }
 
 // Persist the active branch for a working set.
-function setActiveBranch(workingSetName, branch) {
+function setActiveBranch(workingSetName: string, branch: string): void {
   const state = readState();
   state.activeBranch = state.activeBranch || {};
   state.activeBranch[workingSetName] = branch;
@@ -182,7 +182,7 @@ function setActiveBranch(workingSetName, branch) {
 
 // Resolve the active branch for a working set. Precedence: explicit override →
 // KANECTA_BRANCH → state.activeBranch[ws] → config defaultBranch → 'main'.
-function resolveBranch(workingSetName, override) {
+function resolveBranch(workingSetName: string, override?: any): any {
   if (override) return override;
   if (process.env.KANECTA_BRANCH) return process.env.KANECTA_BRANCH;
   const state = readState();
@@ -199,7 +199,7 @@ function resolveBranch(workingSetName, override) {
 // → state.activeWorkingSet → config.defaultWorkingSet → the sole working set if
 // there is exactly one. Throws a clear, actionable error otherwise.
 // Returns { name, workingSet }.
-function resolveWorkingSet(name) {
+function resolveWorkingSet(name?: any): any {
   const config = readAppConfig();
   const sets = config?.workingSets ?? {};
   const names = Object.keys(sets);
@@ -230,7 +230,7 @@ function resolveWorkingSet(name) {
 // Local filesystem datastore path for a working set, supporting the 1.4.0 shapes
 // (`local` as a string, or `{ type: 'filesystem', path }`) and the legacy
 // `datastore` field. Returns null when there is no local filesystem datastore.
-function workingSetLocalPath(workingSet) {
+function workingSetLocalPath(workingSet: any): any {
   if (!workingSet) return null;
   const { local } = workingSet;
   if (typeof local === 'string') return expandHome(local);
@@ -248,9 +248,9 @@ function workingSetLocalPath(workingSet) {
 // Idempotent. Unlike normalizeLegacyKeys (read-time, in-memory), this produces the
 // canonical on-disk shape for writing back via a migration. Leaves any 1.3.x
 // mode/datastore/cloud fields untouched (openWorkingSet still understands them).
-function migrateConfigShape(config) {
+function migrateConfigShape(config: any): any {
   if (!config || typeof config !== 'object') return config;
-  const out = { ...config };
+  const out: any = { ...config };
   if (!out.workingSets && out.workspaces) out.workingSets = out.workspaces;
   delete out.workspaces;
   if (!out.defaultWorkingSet && (out.defaultWorkspace || out.default)) {
@@ -259,9 +259,9 @@ function migrateConfigShape(config) {
   delete out.defaultWorkspace;
   delete out.default;
   if (out.workingSets && typeof out.workingSets === 'object') {
-    const migrated = {};
-    for (const [name, ws] of Object.entries(out.workingSets)) {
-      const nw = ws && typeof ws === 'object' ? { ...ws } : ws;
+    const migrated: any = {};
+    for (const [name, ws] of Object.entries<any>(out.workingSets)) {
+      const nw: any = ws && typeof ws === 'object' ? { ...ws } : ws;
       if (nw && typeof nw === 'object' && nw.branch && !nw.defaultBranch) {
         nw.defaultBranch = nw.branch;
         delete nw.branch;
@@ -281,7 +281,7 @@ function migrateConfigShape(config) {
 //   1. KANECTA_COMPONENT_STORE env var, else
 //   2. config.json `componentStore`, else
 //   3. platform default.
-function resolveComponentStore(config) {
+function resolveComponentStore(config?: any): any {
   const env = process.env.KANECTA_COMPONENT_STORE;
   if (env) return expandHome(env);
 
@@ -299,7 +299,7 @@ function resolveComponentStore(config) {
   return path.join(xdgCache, 'kanecta', 'components');
 }
 
-module.exports = {
+export {
   expandHome,
   getConfigPath,
   readAppConfig,

@@ -1,10 +1,10 @@
 'use strict';
 
-const os = require('os');
-const path = require('path');
-const fs = require('fs');
+import os from 'os';
+import path from 'path';
+import fs from 'fs';
 
-const appConfig = require('../src/appConfig');
+import * as appConfig from '../src/appConfig.ts';
 
 // Each test points KANECTA_CONFIG at a throwaway directory and restores the
 // environment afterwards so the resolver's discovery is fully isolated.

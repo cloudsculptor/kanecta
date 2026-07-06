@@ -1,14 +1,10 @@
 'use strict';
 
-'use strict';
-
-module.exports = {
-  ...require('./datastore'),
-  ...require('./appConfig'),
-  ...require('./componentStore'),
-  ...require('./generateFunctionCode'),
-  ...require('./connectorEngine'),
-  ...require('./scheduleRunner'),
-  ...require('./syncEngine'),
-  ...require('./exportMarkdown'),
-};
+export * from './datastore.ts';
+export * from './appConfig.ts';
+export * from './componentStore.ts';
+export * from './generateFunctionCode.ts';
+export * from './connectorEngine.ts';
+export * from './scheduleRunner.ts';
+export * from './syncEngine.ts';
+export * from './exportMarkdown.ts';

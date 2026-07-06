@@ -1,16 +1,16 @@
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const {
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import {
   generateFunctionScaffold,
   getRuntimeDir,
   computeBundleHash,
   toCamelCase,
   toPythonName,
   VALID_RUNTIME_RE,
-} = require('../src/generateFunctionCode');
+} from '../src/generateFunctionCode.ts';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

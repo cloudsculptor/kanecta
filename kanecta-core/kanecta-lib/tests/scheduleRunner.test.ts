@@ -1,11 +1,11 @@
 'use strict';
 
-const os   = require('os');
-const path = require('path');
-const fs   = require('fs');
+import os from 'os';
+import path from 'path';
+import fs from 'fs';
 
-const { SqliteFsAdapter } = require('../../kanecta-storage-adapters/kanecta-sqlite-fs/src/adapter');
-const { ScheduleRunner }  = require('../src/scheduleRunner');
+import { SqliteFsAdapter } from '../../kanecta-storage-adapters/kanecta-sqlite-fs/src/adapter.ts';
+import { ScheduleRunner } from '../src/scheduleRunner.ts';
 
 // ─── Setup ─────────────────────────────────────────────────────────────────────
 

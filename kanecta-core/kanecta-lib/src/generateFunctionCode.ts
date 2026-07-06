@@ -1,8 +1,8 @@
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
 
 const VALID_RUNTIME_RE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 const HASH_EXCLUDE_DIRS = new Set(['node_modules', 'dist', '__pycache__', '.mypy_cache', '.pytest_cache', '.venv', 'venv']);
@@ -10,29 +10,29 @@ const HASH_EXCLUDE_FILES = new Set(['.build-hash']);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function slugify(name) {
+function slugify(name: any) {
   return name
-    .replace(/([A-Z])/g, (_, c) => `-${c.toLowerCase()}`)
+    .replace(/([A-Z])/g, (_: any, c: any) => `-${c.toLowerCase()}`)
     .toLowerCase()
     .replace(/[^a-z0-9-]/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '') || 'function';
 }
 
-function toCamelCase(name) {
+function toCamelCase(name: any) {
   return name
-    .replace(/[-_\s]+(.)/g, (_, c) => c.toUpperCase())
-    .replace(/^[A-Z]/, (c) => c.toLowerCase())
+    .replace(/[-_\s]+(.)/g, (_: any, c: any) => c.toUpperCase())
+    .replace(/^[A-Z]/, (c: any) => c.toLowerCase())
     .replace(/[^a-zA-Z0-9_$]/g, '_') || 'fn';
 }
 
-function toPythonName(name) {
+function toPythonName(name: any) {
   return toCamelCase(name)
     .replace(/[^a-zA-Z0-9_]/g, '_')
     .replace(/^(\d)/, '_$1');
 }
 
-function writeIfAbsent(filePath, content) {
+function writeIfAbsent(filePath: any, content: any) {
   if (!fs.existsSync(filePath)) {
     fs.writeFileSync(filePath, content, 'utf8');
   }
@@ -42,7 +42,7 @@ function writeIfAbsent(filePath, content) {
 
 // Returns the per-runtime scaffold directory for a function item.
 // Structure: <itemDir>/.function/<runtime>/
-function getRuntimeDir(itemDir, runtime) {
+function getRuntimeDir(itemDir: any, runtime: any) {
   return path.join(itemDir, '.function', runtime ?? 'typescript');
 }
 
@@ -53,9 +53,9 @@ function getRuntimeDir(itemDir, runtime) {
 //           .venv/, venv/, .build-hash
 // Returns "sha256:<hex>".
 
-function computeBundleHash(runtimeDir) {
+function computeBundleHash(runtimeDir: any) {
   const hash = crypto.createHash('sha256');
-  function walk(dir) {
+  function walk(dir: any) {
     const entries = fs.readdirSync(dir, { withFileTypes: true })
       .sort((a, b) => a.name.localeCompare(b.name));
     for (const e of entries) {
@@ -77,7 +77,7 @@ function computeBundleHash(runtimeDir) {
 
 // ─── JSON Schema → TypeScript ─────────────────────────────────────────────────
 
-function schemaPropToTs(prop) {
+function schemaPropToTs(prop: any): any {
   if (!prop) return 'unknown';
   const t = prop.type;
   if (t === 'string') return 'string';
@@ -93,11 +93,11 @@ function schemaPropToTs(prop) {
   return 'unknown';
 }
 
-function generateInterface(name, jsonSchema) {
-  const props = jsonSchema.properties || {};
+function generateInterface(name: any, jsonSchema: any) {
+  const props: any = jsonSchema.properties || {};
   const required = new Set(jsonSchema.required || []);
   const lines = [`interface ${name} {`];
-  for (const [key, prop] of Object.entries(props)) {
+  for (const [key, prop] of Object.entries<any>(props)) {
     if (prop.description) lines.push(`  /** ${prop.description} */`);
     const opt = required.has(key) ? '' : '?';
     lines.push(`  ${key}${opt}: ${schemaPropToTs(prop)};`);
@@ -108,17 +108,17 @@ function generateInterface(name, jsonSchema) {
 
 // ─── JSON Schema → Python type hints ─────────────────────────────────────────
 
-const PY_PRIM_MAP = {
+const PY_PRIM_MAP: any = {
   string: 'str', number: 'float', integer: 'int',
   boolean: 'bool', null: 'None', object: 'dict[str, Any]', void: 'None',
 };
 
-function primTypeToPy(type) {
+function primTypeToPy(type: any) {
   if (!type) return null;
   return PY_PRIM_MAP[type] ?? null;
 }
 
-function schemaPropToPy(prop) {
+function schemaPropToPy(prop: any): any {
   if (!prop) return 'Any';
   const t = prop.type;
   if (t === 'string') return 'str';
@@ -133,7 +133,7 @@ function schemaPropToPy(prop) {
 
 // ─── Type resolution ──────────────────────────────────────────────────────────
 
-function readTypeDef(root, typeId) {
+function readTypeDef(root: any, typeId: any) {
   const s = typeId.replace(/-/g, '');
   const typePath = path.join(root, '.kanecta', 'types', s.slice(0, 2), s.slice(2, 4), typeId, 'type.json');
   try {
@@ -143,7 +143,7 @@ function readTypeDef(root, typeId) {
   }
 }
 
-function interfaceName(typeDef, typeId) {
+function interfaceName(typeDef: any, typeId: any) {
   const title = typeDef?.jsonSchema?.title;
   if (title) return title.replace(/\s+/g, '');
   return `KType_${typeId.slice(0, 8)}`;
@@ -151,8 +151,8 @@ function interfaceName(typeDef, typeId) {
 
 // ─── index.ts builder ────────────────────────────────────────────────────────
 
-function buildIndexTs(fnName, fnData, typeIdMap) {
-  const lines = [];
+function buildIndexTs(fnName: any, fnData: any, typeIdMap: any) {
+  const lines: any[] = [];
 
   lines.push('// AUTO-GENERATED — do not edit the function signature.');
   lines.push('// This file is regenerated from function.json on each save.');
@@ -188,7 +188,7 @@ function buildIndexTs(fnName, fnData, typeIdMap) {
     }
   }
 
-  const jsdocLines = [];
+  const jsdocLines: any[] = [];
   if (fnData.description) jsdocLines.push(` * ${fnData.description}`);
   for (const p of fnData.parameters ?? []) {
     if (p.description) jsdocLines.push(` * @param ${p.name} - ${p.description}`);
@@ -204,7 +204,7 @@ function buildIndexTs(fnName, fnData, typeIdMap) {
     lines.push(' */');
   }
 
-  const typeParams = (fnData.typeParameters ?? []).map((tp) => {
+  const typeParams = (fnData.typeParameters ?? []).map((tp: any) => {
     let s = tp.name;
     if (tp.constraint) s += ` extends ${tp.constraint}`;
     if (tp.default) s += ` = ${tp.default}`;
@@ -212,7 +212,7 @@ function buildIndexTs(fnName, fnData, typeIdMap) {
   });
   const typeParamsStr = typeParams.length ? `<${typeParams.join(', ')}>` : '';
 
-  const paramStrs = (fnData.parameters ?? []).map((p) => {
+  const paramStrs = (fnData.parameters ?? []).map((p: any) => {
     const tsType = p.typeId
       ? (typeIdMap.get(p.typeId)?.name ?? 'unknown')
       : (p.type ?? 'unknown');
@@ -257,13 +257,13 @@ function buildIndexTs(fnName, fnData, typeIdMap) {
 
 // ─── TypeScript scaffold ──────────────────────────────────────────────────────
 
-function generateTypescriptScaffold(runtimeDir, itemName, fnData, root) {
+function generateTypescriptScaffold(runtimeDir: any, itemName: any, fnData: any, root: any) {
   fs.mkdirSync(runtimeDir, { recursive: true });
 
   const repoRoot = path.resolve(__dirname, '../../..');
   const usesKanecta = fnData.includeKanectaSdk !== false;
   const extraDeps = fnData.dependencies ?? [];
-  const dependencies = {};
+  const dependencies: any = {};
   if (usesKanecta) {
     const localLibPath = path.join(repoRoot, 'kanecta-lib');
     const localUtilsPath = path.join(repoRoot, 'kanecta-storage-adapters', 'kanecta-datastore-utils');
@@ -338,11 +338,11 @@ function generateTypescriptScaffold(runtimeDir, itemName, fnData, root) {
 
 // ─── main.py builder ─────────────────────────────────────────────────────────
 
-function buildMainPy(fnName, fnData) {
+function buildMainPy(fnName: any, fnData: any) {
   const params = fnData.parameters ?? [];
 
   let needsAny = false;
-  const paramAnnotations = params.map((p) => {
+  const paramAnnotations = params.map((p: any) => {
     let annotation = '';
     if (p.type) {
       const pyType = primTypeToPy(p.type);
@@ -364,7 +364,7 @@ function buildMainPy(fnName, fnData) {
   if (returnType && returnType.includes('Any')) needsAny = true;
   const returnAnnotation = returnType ? ` -> ${returnType}` : '';
 
-  const lines = [];
+  const lines: any[] = [];
   lines.push('# AUTO-GENERATED — do not edit the function signature.');
   lines.push('# This file is regenerated from function.json on each save.');
   lines.push('# Only edit the body of the function below.');
@@ -378,7 +378,7 @@ function buildMainPy(fnName, fnData) {
   const sig = `def ${fnName}(${paramAnnotations.join(', ')})${returnAnnotation}:`;
   lines.push(sig);
 
-  const docParts = [];
+  const docParts: any[] = [];
   if (fnData.description) docParts.push(fnData.description);
   for (const p of params) {
     if (p.description) docParts.push(`\n    :param ${p.name}: ${p.description}`);
@@ -405,12 +405,12 @@ function buildMainPy(fnName, fnData) {
 
 // ─── Python scaffold ──────────────────────────────────────────────────────────
 
-function generatePythonScaffold(runtimeDir, itemName, fnData) {
+function generatePythonScaffold(runtimeDir: any, itemName: any, fnData: any) {
   fs.mkdirSync(runtimeDir, { recursive: true });
 
   const usesKanecta = fnData.includeKanectaSdk !== false;
   const extraDeps = fnData.dependencies ?? [];
-  const reqs = [];
+  const reqs: any[] = [];
   if (usesKanecta) reqs.push('# kanecta-sdk  # TODO: Python SDK not yet available');
   for (const dep of extraDeps) reqs.push(dep);
   fs.writeFileSync(
@@ -429,7 +429,7 @@ function generatePythonScaffold(runtimeDir, itemName, fnData) {
 // Generates (or regenerates) the scaffold for a function item.
 // runtimeDir is created at <itemDir>/.function/<runtime>/.
 // Returns the runtimeDir path so callers can hash it.
-function generateFunctionScaffold(itemDir, itemName, fnData, root) {
+function generateFunctionScaffold(itemDir: any, itemName: any, fnData: any, root?: any) {
   const runtime = fnData.runtime ?? 'typescript';
   if (!VALID_RUNTIME_RE.test(runtime)) {
     throw new Error(`Invalid runtime name: "${runtime}". Must be lowercase letters, hyphens, digits.`);
@@ -443,7 +443,7 @@ function generateFunctionScaffold(itemDir, itemName, fnData, root) {
   return runtimeDir;
 }
 
-module.exports = {
+export {
   generateFunctionScaffold,
   getRuntimeDir,
   computeBundleHash,
