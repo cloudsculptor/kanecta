@@ -39,7 +39,6 @@
     "kanecta-ui/kanecta-apps/kanecta-app-studio-windows",
     "kanecta-ui/kanecta-apps/kanecta-app-studio-mac",
     "kanecta-ui/kanecta-apps/kanecta-app-studio-vscode-plugin",
-    "kanecta-ui/kanecta-apps/kanecta-app-claude",
     "kanecta-ui/kanecta-components/kanecta-components-react/kanecta-component-core",
     "kanecta-ui/kanecta-components/kanecta-components-react/kanecta-component-todo-view",
     "kanecta-ui/kanecta-components/kanecta-components-react/kanecta-component-tree-view",

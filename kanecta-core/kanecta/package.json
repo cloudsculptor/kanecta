@@ -9,9 +9,6 @@
     "@kanecta/cli": "^1.0.0",
     "@kanecta/studio": "^1.4.0"
   },
-  "optionalDependencies": {
-    "@kanecta/claude": "^1.0.0"
-  },
   "publishConfig": {
     "access": "public"
   },
