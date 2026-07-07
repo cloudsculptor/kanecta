@@ -1311,7 +1311,7 @@ class PostgresAdapter {
       "SELECT * FROM items WHERE type = 'schedule' AND status = 'active' AND due_at <= $1 AND deleted_at IS NULL",
       [beforeAt],
     );
-    return rows.map(r => (this as any).rowToItem(r));
+    return rows.map(rowToItem);
   }
 
   // ─── Type definitions ─────────────────────────────────────────────────────────
