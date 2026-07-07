@@ -37,7 +37,7 @@ export function MissionControl({
 
   return (
     <div className="MissionControl">
-      <div className="MissionControl-columns">
+      <div className="MissionControl__columns">
         {workspaces.map((ws) => (
           <WorkspaceColumn
             key={ws.id}
@@ -49,8 +49,8 @@ export function MissionControl({
           />
         ))}
       </div>
-      <aside className="MissionControl-sidebar">
-        <div className="MissionControl-sidebar-title">Activity</div>
+      <aside className="MissionControl__sidebar">
+        <div className="MissionControl__sidebar-title">Activity</div>
         <ActivityFeed
           activityLog={activityLog}
           workspaces={workspaces}
