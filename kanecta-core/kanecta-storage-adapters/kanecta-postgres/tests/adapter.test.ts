@@ -1343,4 +1343,17 @@ describe('semantic / hybrid search', () => {
     const results = await pausedAdapter.hybridSearch('paused-mode embedding probe', { limit: 10 });
     expect(results.map(r => r.id)).toContain(item.id);
   });
+
+  test('listDueSchedules returns active schedules due at/before the cutoff (regression: rowToItem)', async () => {
+    const due    = await adapter.create({ type: 'schedule', status: 'active', value: 'due',    dueAt: '2020-01-01T00:00:00.000Z' });
+    const notYet = await adapter.create({ type: 'schedule', status: 'active', value: 'notYet', dueAt: '2999-01-01T00:00:00.000Z' });
+    const paused = await adapter.create({ type: 'schedule', status: 'paused', value: 'paused', dueAt: '2020-01-01T00:00:00.000Z' });
+
+    // Previously threw `this.rowToItem is not a function` whenever rows came back.
+    const ids = (await adapter.listDueSchedules('2025-01-01T00:00:00.000Z')).map((r) => r.id);
+
+    expect(ids).toContain(due.id);
+    expect(ids).not.toContain(notYet.id);   // future due date
+    expect(ids).not.toContain(paused.id);   // not active
+  });
 });
