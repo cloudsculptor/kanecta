@@ -98,7 +98,9 @@ export const PanelFullVisualBaseline: Story = {
     await expect(body.getByText('Available working sets')).toBeInTheDocument();
 
     // Active working set name + branches heading.
-    await expect(body.getByText('Kanecta Internal')).toBeInTheDocument();
+    // Rendered in both the collapsed name and the panel's active-set row, so
+    // assert at least one occurrence rather than a single unique match.
+    await expect(body.getAllByText('Kanecta Internal').length).toBeGreaterThan(0);
     await expect(body.getByText('Branches')).toBeInTheDocument();
 
     // Branch list must include the active branch indicator (⎇ glyph).

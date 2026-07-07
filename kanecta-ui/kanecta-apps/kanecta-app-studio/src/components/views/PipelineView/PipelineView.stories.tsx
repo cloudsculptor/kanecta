@@ -52,7 +52,9 @@ export const Running: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText('Inspect live pipeline data')).toBeInTheDocument();
-    await expect(canvas.getByText('3/5 phases')).toBeInTheDocument();
+    // Rendered inline as `${name} · ${done}/${total} phases`; the RUNNING mock
+    // has 2 of 5 phases complete, so match "2/5 phases" as a substring.
+    await expect(canvas.getByText('2/5 phases', { exact: false })).toBeInTheDocument();
   },
 };
 

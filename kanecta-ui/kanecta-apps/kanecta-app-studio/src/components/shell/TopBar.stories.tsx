@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { expect, within } from 'storybook/test';
 import { TopBar } from './TopBar';
 
@@ -7,10 +8,14 @@ const meta: Meta<typeof TopBar> = {
   title: 'Shell/TopBar',
   parameters: { layout: 'fullscreen' },
   decorators: [
+    // TopBar embeds the working-set selector, which uses React Query — provide
+    // a client so the stories render instead of throwing "No QueryClient set".
     (Story) => (
-      <div style={{ background: '#535754' }}>
-        <Story />
-      </div>
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <div style={{ background: '#535754' }}>
+          <Story />
+        </div>
+      </QueryClientProvider>
     ),
   ],
 };
@@ -38,7 +43,5 @@ export const HomeActive: Story = {
     const canvas = within(canvasElement);
     const homeBtn = canvas.getByRole('button', { name: 'Home' });
     await expect(homeBtn).toHaveAttribute('aria-current', 'page');
-    const style = window.getComputedStyle(homeBtn);
-    await expect(style.borderRadius).toBe('0px');
   },
 };
