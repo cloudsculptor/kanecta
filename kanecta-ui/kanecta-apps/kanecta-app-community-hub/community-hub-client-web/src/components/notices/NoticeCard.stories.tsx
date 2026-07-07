@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { within, expect } from "storybook/test";
 import NoticeCard from "./NoticeCard";
 import type { Notice } from "../../api/notices";
 
@@ -63,4 +64,43 @@ export const AnonymousSubmitter: Story = {
 export const Mobile: Story = {
   args: { notice: BASE },
   parameters: { viewport: { defaultViewport: "mobile2" } },
+};
+
+// ── Behaviour tests (play functions) ─────────────────────────────────────────
+// NoticeCard has no callbacks — these pin what it renders from its data.
+
+/** Heading, body and submitter name all render. */
+export const RendersNoticeContent: Story = {
+  args: { notice: BASE },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Road closure — Fitzherbert Street")).toBeInTheDocument();
+    await expect(canvas.getByText(/Fitzherbert Street will be closed/)).toBeInTheDocument();
+    await expect(canvas.getByText(/Featherston Town Team/)).toBeInTheDocument();
+  },
+};
+
+/** With no submitter name, the card falls back to "Community member". */
+export const AnonymousShowsFallback: Story = {
+  args: { notice: { ...BASE, submitted_by_name: null } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText(/Community member/)).toBeInTheDocument();
+  },
+};
+
+/** A URL in the body is turned into an anchor pointing at that URL. */
+export const LinkifiesUrlInBody: Story = {
+  args: {
+    notice: {
+      ...BASE,
+      heading: "Consultation open",
+      body: "Read the draft plan at https://southwairarapa.govt.nz/reserve",
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const link = canvas.getByRole("link", { name: "https://southwairarapa.govt.nz/reserve" });
+    await expect(link).toHaveAttribute("href", "https://southwairarapa.govt.nz/reserve");
+  },
 };

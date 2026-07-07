@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { MemoryRouter } from "react-router-dom";
+import { within, userEvent, expect, fn } from "storybook/test";
 import MobileMessageItem from "./MobileMessageItem";
 import type { MessageFile, Reaction } from "../../api/discussions";
 
@@ -149,4 +150,95 @@ export const WithActionSheetOpen: Story = {
   },
   args: { currentUserId: "user-1" },
   name: "Action sheet (long press) — static preview",
+};
+
+// ── Behaviour tests (play functions) ─────────────────────────────────────────
+// Pin the reliably-reachable interactive contract of the mobile message row.
+// The action sheet (Edit/Delete/quick-react) is opened by a 500ms LONG-PRESS on a
+// real touch device — that gesture (touch events + timer) can't be driven reliably
+// with userEvent, so those paths are covered by the static-preview story above and
+// intentionally NOT asserted here. Tap-to-open-replies, the reply link, reactions,
+// and the render-only states (deleted/edited/mention) are all directly reachable.
+
+/** Author name and message text render. */
+export const RendersAuthorAndText: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Aroha Tane")).toBeInTheDocument();
+    await expect(canvas.getByText(/what's the plan for Saturday/)).toBeInTheDocument();
+  },
+};
+
+/** Tapping the message body opens the thread via onOpenReplies (with the message). */
+export const TapOpensReplies: Story = {
+  args: { onOpenReplies: fn() },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    // Author name node bubbles the click to the row's onClick (not a stopPropagation zone).
+    await userEvent.click(canvas.getByText("Aroha Tane"));
+    await expect(args.onOpenReplies).toHaveBeenCalledWith(args.message);
+  },
+};
+
+/** The reply link (pluralised) opens the thread via onOpenReplies. */
+export const ReplyLinkOpensThread: Story = {
+  args: { message: { ...base, reply_count: 4 }, onOpenReplies: fn() },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("4 replies")).toBeInTheDocument();
+    await userEvent.click(canvas.getByText("4 replies"));
+    await expect(args.onOpenReplies).toHaveBeenCalled();
+  },
+};
+
+/** A single reply is not pluralised. */
+export const ReplyLinkSingular: Story = {
+  args: { message: { ...base, reply_count: 1 } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("1 reply")).toBeInTheDocument();
+  },
+};
+
+/** Clicking a reaction you already made removes it (onUnreact); a new one adds it (onReact). */
+export const ReactionToggles: Story = {
+  args: { reactions, onReact: fn(), onUnreact: fn() },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    // 👍 includes user-1 (default currentUserId) → tapping removes it.
+    await userEvent.click(canvas.getByRole("button", { name: /👍/ }));
+    await expect(args.onUnreact).toHaveBeenCalledWith("m1", "👍");
+    // ❤️ does not include user-1 → tapping adds it.
+    await userEvent.click(canvas.getByRole("button", { name: /❤️/ }));
+    await expect(args.onReact).toHaveBeenCalledWith("m1", "❤️");
+  },
+};
+
+/** A deleted message shows a tombstone and hides the author. */
+export const DeletedShowsTombstone: Story = {
+  args: { message: { ...base, deleted_at: new Date().toISOString(), content: "" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("This message was deleted")).toBeInTheDocument();
+    await expect(canvas.queryByText("Aroha Tane")).not.toBeInTheDocument();
+  },
+};
+
+/** An edited message shows the "(edited)" marker. */
+export const EditedShowsMarker: Story = {
+  args: { message: { ...base, edited_at: new Date().toISOString() } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("(edited)")).toBeInTheDocument();
+  },
+};
+
+/** An @mention renders as a pill showing the display name, never the user id. */
+export const MentionRendersAsPill: Story = {
+  args: { message: { ...base, content: "cheers @[Mike Robinson](user-9)" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("@Mike Robinson")).toBeInTheDocument();
+    await expect(canvas.queryByText(/user-9/)).not.toBeInTheDocument();
+  },
 };

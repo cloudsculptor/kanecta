@@ -1,11 +1,14 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { within, userEvent, expect, fn } from "storybook/test";
 import AttachmentBar, { type PendingFile } from "./AttachmentBar";
 
 const meta: Meta<typeof AttachmentBar> = {
   title: "Discussions/AttachmentBar",
   component: AttachmentBar,
   decorators: [(Story) => <div style={{ padding: 20, maxWidth: 600, border: "1px solid #e5e4e7", borderRadius: 8 }}><Story /></div>],
-  args: { onRemove: (id) => console.log("remove", id) },
+  // onRemove is a fn() spy so behaviour stories can assert it fires with the
+  // removed file's tempId. Storybook resets it before each story's play.
+  args: { onRemove: fn() },
 };
 export default meta;
 type Story = StoryObj<typeof AttachmentBar>;
@@ -78,5 +81,63 @@ export const ManyFiles: Story = {
       { ...readyPdf, tempId: "t7", name: "budget-2025.pdf" },
       { ...uploading, tempId: "t8", name: "video.mp4", mime_type: "video/mp4" },
     ],
+  },
+};
+
+// ── Behaviour tests (play functions) ─────────────────────────────────────────
+// Pin: file names render, per-file remove button fires onRemove with the right
+// tempId, and the uploading / error status labels render. Text matches the
+// component's exact strings (note "Uploading…" uses a real ellipsis char).
+
+/** Each pending file renders its name. */
+export const RendersFileNames: Story = {
+  args: { files: [readyImage, readyPdf, readyDoc] },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("photo.jpg")).toBeInTheDocument();
+    await expect(canvas.getByText("agenda.pdf")).toBeInTheDocument();
+    await expect(canvas.getByText("minutes-2024-11.docx")).toBeInTheDocument();
+  },
+};
+
+/** Clicking a file's remove button calls onRemove with that file's tempId. */
+export const RemoveFiresCallback: Story = {
+  args: { files: [readyPdf] },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByTitle("Remove"));
+    await expect(args.onRemove).toHaveBeenCalledWith("t3");
+  },
+};
+
+/** With several files, each row has its own remove button targeting its tempId. */
+export const RemovePerFile: Story = {
+  args: { files: [readyImage, readyPdf, readyDoc] },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    const removeButtons = canvas.getAllByRole("button", { name: "Remove attachment" });
+    await expect(removeButtons).toHaveLength(3);
+    await userEvent.click(removeButtons[1]);
+    await expect(args.onRemove).toHaveBeenCalledWith("t3");
+  },
+};
+
+/** An uploading file shows the "Uploading…" status label. */
+export const ShowsUploadingStatus: Story = {
+  args: { files: [uploading] },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Uploading…")).toBeInTheDocument();
+  },
+};
+
+/** An errored file shows its error message and still offers a remove button. */
+export const ShowsErrorAndRemovable: Story = {
+  args: { files: [errorFile] },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Upload failed")).toBeInTheDocument();
+    await userEvent.click(canvas.getByTitle("Remove"));
+    await expect(args.onRemove).toHaveBeenCalledWith("t5");
   },
 };

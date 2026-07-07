@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { within, userEvent, expect } from "storybook/test";
 import MessageItem from "./MessageItem";
 import MentionInput from "./MentionInput";
 import type { Message, Reaction } from "../../api/discussions";
@@ -181,4 +182,85 @@ export const ModeratorView: Story = {
 /** A reply contains an image attachment — verifies the image renders inside a thread panel. */
 export const ReplyWithAttachment: Story = {
   args: { initialReplies: repliesWithAttachment },
+};
+
+// ── Behaviour tests (play functions) ─────────────────────────────────────────
+// Pin the thread panel's rendered contract: the parent message, its replies,
+// the header controls, the reply composer, and reaction toggling.
+
+/** The parent message and every reply render their text. */
+export const RendersParentAndReplies: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("What's the plan for the weekend market?")).toBeInTheDocument();
+    await expect(canvas.getByText("I can bring the trestle tables.")).toBeInTheDocument();
+    await expect(canvas.getByText("Happy to help with setup from 8am.")).toBeInTheDocument();
+  },
+};
+
+/** Header shows the "Thread" label plus Back and Close controls, and the reply composer is present. */
+export const RendersHeaderAndComposer: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Thread")).toBeInTheDocument();
+    // Query by aria-label directly — these buttons wrap an SVG, which can
+    // disturb accessible-name computation for a role+name query.
+    await expect(canvas.getByLabelText("Back")).toBeInTheDocument();
+    await expect(canvas.getByLabelText("Close thread")).toBeInTheDocument();
+    await expect(canvas.getByPlaceholderText("Reply…")).toBeInTheDocument();
+    await expect(canvas.getByRole("button", { name: "Send message" })).toBeInTheDocument();
+  },
+};
+
+/** With no replies seeded, only the parent renders — no reply bodies appear. */
+export const EmptyRepliesShowsOnlyParent: Story = {
+  args: { initialReplies: [] },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("What's the plan for the weekend market?")).toBeInTheDocument();
+    await expect(canvas.queryByText("I can bring the trestle tables.")).not.toBeInTheDocument();
+  },
+};
+
+/** Reactions seeded on the parent and a reply render with their emoji and count. */
+export const ReactionsRenderFromProps: Story = {
+  args: { initialReactions: seedReactions },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("button", { name: "👍 3" })).toBeInTheDocument();
+    await expect(canvas.getByRole("button", { name: "❤️ 1" })).toBeInTheDocument();
+    await expect(canvas.getByRole("button", { name: "🙌 2" })).toBeInTheDocument();
+  },
+};
+
+/** Clicking a reaction the current user already made removes their vote — the count drops by one. */
+export const OwnReactionUnreactsAndDecrements: Story = {
+  args: { initialReactions: seedReactions },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "👍 3" }));
+    await expect(canvas.getByRole("button", { name: "👍 2" })).toBeInTheDocument();
+  },
+};
+
+/** Clicking a reaction the current user has not made adds their vote — the count rises by one. */
+export const NewReactionReactsAndIncrements: Story = {
+  args: { initialReactions: seedReactions },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // currentUser (user-1) is not in the ❤️ voters, so clicking adds a vote.
+    await userEvent.click(canvas.getByRole("button", { name: "❤️ 1" }));
+    await expect(canvas.getByRole("button", { name: "❤️ 2" })).toBeInTheDocument();
+  },
+};
+
+/** A moderator hovering a reply gets a Delete control on that message. */
+export const ModeratorSeesDeleteOnHover: Story = {
+  args: { currentUserId: "user-2", canModerate: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const reply = canvas.getByText("Happy to help with setup from 8am.").closest(".discussions-message") as HTMLElement;
+    await userEvent.hover(reply);
+    await expect(within(reply).getByTitle("Delete")).toBeInTheDocument();
+  },
 };
