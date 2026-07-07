@@ -1783,4 +1783,16 @@ describe('listDueForRefresh', () => {
   it('returns empty array when nothing is stale', () => {
     expect(ds.listDueForRefresh('2000-01-01T00:00:00Z')).toEqual([]);
   });
+
+  it('listDueSchedules returns active schedules due at/before the cutoff', () => {
+    const due    = ds.create({ type: 'schedule', status: 'active', value: 'due',    dueAt: '2020-01-01T00:00:00.000Z' });
+    const notYet = ds.create({ type: 'schedule', status: 'active', value: 'notYet', dueAt: '2999-01-01T00:00:00.000Z' });
+    const paused = ds.create({ type: 'schedule', status: 'paused', value: 'paused', dueAt: '2020-01-01T00:00:00.000Z' });
+
+    const ids = ds.listDueSchedules('2025-01-01T00:00:00.000Z').map((r: any) => r.id);
+
+    expect(ids).toContain(due.id);
+    expect(ids).not.toContain(notYet.id);   // future due date
+    expect(ids).not.toContain(paused.id);   // not active
+  });
 });
