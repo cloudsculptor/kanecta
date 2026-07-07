@@ -68,7 +68,16 @@ const noticesHandlers = [
 const meta: Meta<typeof NoticeBoard> = {
   title: "Pages/NoticeBoard",
   component: NoticeBoard,
-  decorators: [(Story) => <StoryWrapper role="public"><Story /></StoryWrapper>],
+  decorators: [
+    // Single wrapper, role driven by `parameters.role` so per-story overrides
+    // don't nest a second <MemoryRouter> (which throws "cannot render a Router
+    // inside another Router").
+    (Story, ctx) => (
+      <StoryWrapper role={(ctx.parameters.role as "public" | "team") ?? "public"}>
+        <Story />
+      </StoryWrapper>
+    ),
+  ],
 };
 export default meta;
 
@@ -90,14 +99,13 @@ export const PublicEmpty: Story = {
 
 /** Logged-in user with verified email — form unlocked, own submissions visible. */
 export const LoggedInWithMyNotices: Story = {
-  decorators: [(Story) => <StoryWrapper role="team"><Story /></StoryWrapper>],
-  parameters: { msw: { handlers: noticesHandlers } },
+  parameters: { role: "team", msw: { handlers: noticesHandlers } },
 };
 
 /** Logged-in user with no prior submissions. */
 export const LoggedInEmpty: Story = {
-  decorators: [(Story) => <StoryWrapper role="team"><Story /></StoryWrapper>],
   parameters: {
+    role: "team",
     msw: {
       handlers: [
         http.get("/api/notices", () => HttpResponse.json([])),

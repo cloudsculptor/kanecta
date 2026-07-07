@@ -122,29 +122,29 @@ export const ModeratorWithAttachment: Story = {
 /** Long press reveals the action sheet — shown statically here in the open state. */
 export const WithActionSheetOpen: Story = {
   render: (args) => {
+    // No <MemoryRouter> here — the meta decorator already provides one; nesting
+    // a second router throws "cannot render a Router inside another Router".
     return (
-      <MemoryRouter>
-        <div style={{ padding: 16, maxWidth: 390, background: "#fff", position: "relative" }}>
-          <MobileMessageItem {...args} />
-          {/* Sheet rendered outside the component for static preview */}
-          <div style={{ position: "fixed", inset: 0, pointerEvents: "none" }}>
-            <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)" }} />
-            <div className="dm-msg-sheet" style={{ pointerEvents: "auto" }}>
-              <div className="dm-msg-sheet__handle" />
-              <div className="dm-msg-sheet__reactions">
-                {["👍","❤️","😂","😮","😢","🙏"].map((e) => (
-                  <button key={e} className="dm-msg-sheet__emoji">{e}</button>
-                ))}
-              </div>
-              <div className="dm-msg-sheet__divider" />
-              <button className="dm-msg-sheet__action">Edit</button>
-              <button className="dm-msg-sheet__action dm-msg-sheet__action--danger">Delete</button>
-              <div className="dm-msg-sheet__divider" />
-              <button className="dm-msg-sheet__action dm-msg-sheet__action--cancel">Cancel</button>
+      <div style={{ padding: 16, maxWidth: 390, background: "#fff", position: "relative" }}>
+        <MobileMessageItem {...args} />
+        {/* Sheet rendered outside the component for static preview */}
+        <div style={{ position: "fixed", inset: 0, pointerEvents: "none" }}>
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)" }} />
+          <div className="dm-msg-sheet" style={{ pointerEvents: "auto" }}>
+            <div className="dm-msg-sheet__handle" />
+            <div className="dm-msg-sheet__reactions">
+              {["👍","❤️","😂","😮","😢","🙏"].map((e) => (
+                <button key={e} className="dm-msg-sheet__emoji">{e}</button>
+              ))}
             </div>
+            <div className="dm-msg-sheet__divider" />
+            <button className="dm-msg-sheet__action">Edit</button>
+            <button className="dm-msg-sheet__action dm-msg-sheet__action--danger">Delete</button>
+            <div className="dm-msg-sheet__divider" />
+            <button className="dm-msg-sheet__action dm-msg-sheet__action--cancel">Cancel</button>
           </div>
         </div>
-      </MemoryRouter>
+      </div>
     );
   },
   args: { currentUserId: "user-1" },
