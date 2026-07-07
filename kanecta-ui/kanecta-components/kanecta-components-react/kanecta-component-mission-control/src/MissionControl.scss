@@ -2,32 +2,32 @@
   display: flex;
   height: 100%;
   overflow: hidden;
-}
 
-.MissionControl-columns {
-  flex: 1;
-  display: flex;
-  gap: 16px;
-  padding: 20px;
-  overflow-x: auto;
-  align-items: flex-start;
-}
+  &__columns {
+    flex: 1;
+    display: flex;
+    gap: 16px;
+    padding: 20px;
+    overflow-x: auto;
+    align-items: flex-start;
+  }
 
-.MissionControl-sidebar {
-  width: 280px;
-  min-width: 240px;
-  border-left: 1px solid var(--mui-palette-divider);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
+  &__sidebar {
+    width: 280px;
+    min-width: 240px;
+    border-left: 1px solid var(--mui-palette-divider);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
 
-.MissionControl-sidebar-title {
-  padding: 12px 12px 8px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--mui-palette-text-secondary);
-  border-bottom: 1px solid var(--mui-palette-divider);
+  &__sidebar-title {
+    padding: 12px 12px 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--mui-palette-text-secondary);
+    border-bottom: 1px solid var(--mui-palette-divider);
+  }
 }

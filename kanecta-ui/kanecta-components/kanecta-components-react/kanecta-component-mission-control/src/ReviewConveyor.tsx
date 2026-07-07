@@ -82,47 +82,47 @@ export function ReviewConveyor({
 
   return (
     <div className="ReviewConveyor" role="main" aria-label="Review conveyor">
-      <div className="ReviewConveyor-header">
-        <span className="ReviewConveyor-progress">
+      <div className="ReviewConveyor__header">
+        <span className="ReviewConveyor__progress">
           {conveyorIndex + 1} / {reviewQueue.length} — {remaining} remaining
         </span>
-        <button className="ReviewConveyor-close" onClick={onClose} aria-label="Close review">×</button>
+        <button className="ReviewConveyor__close" onClick={onClose} aria-label="Close review">×</button>
       </div>
 
       {!current ? (
-        <div className="ReviewConveyor-done">
+        <div className="ReviewConveyor__done">
           <p>All items reviewed.</p>
           <button onClick={onClose}>Close</button>
         </div>
       ) : (
         <>
-          <div className="ReviewConveyor-card">
-            <div className="ReviewConveyor-card-badges">
+          <div className="ReviewConveyor__card">
+            <div className="ReviewConveyor__card-badges">
               <TypeBadge type={current.type} />
               <ConfidenceBadge confidence={(current.confidence ?? null) as ConfidenceLevel | null} />
             </div>
-            <p className="ReviewConveyor-card-value">{current.value}</p>
+            <p className="ReviewConveyor__card-value">{current.value}</p>
             {current.tags.length > 0 && (
-              <div className="ReviewConveyor-card-tags">
+              <div className="ReviewConveyor__card-tags">
                 {current.tags.map((tag) => <TagChip key={tag} tag={tag} />)}
               </div>
             )}
-            <p className="ReviewConveyor-card-meta">
+            <p className="ReviewConveyor__card-meta">
               Created {new Date(current.createdAt ?? '').toLocaleDateString()}
             </p>
           </div>
 
-          <div className="ReviewConveyor-actions">
-            <button className="ReviewConveyor-action ReviewConveyor-action--approve" onClick={handleApprove} title="Approve — set confidence to high (A)">
+          <div className="ReviewConveyor__actions">
+            <button className="ReviewConveyor__action ReviewConveyor__action--approve" onClick={handleApprove} title="Approve — set confidence to high (A)">
               Approve <kbd>A</kbd>
             </button>
-            <button className="ReviewConveyor-action ReviewConveyor-action--skip" onClick={handleSkip} title="Skip without action (→)">
+            <button className="ReviewConveyor__action ReviewConveyor__action--skip" onClick={handleSkip} title="Skip without action (→)">
               Skip <kbd>→</kbd>
             </button>
-            <button className="ReviewConveyor-action ReviewConveyor-action--next" onClick={handleNextNoAction} title="Mark seen, no action (N)">
+            <button className="ReviewConveyor__action ReviewConveyor__action--next" onClick={handleNextNoAction} title="Mark seen, no action (N)">
               Next <kbd>N</kbd>
             </button>
-            <button className="ReviewConveyor-action ReviewConveyor-action--delete" onClick={handleDelete} title="Delete item (D)">
+            <button className="ReviewConveyor__action ReviewConveyor__action--delete" onClick={handleDelete} title="Delete item (D)">
               Delete <kbd>D</kbd>
             </button>
           </div>

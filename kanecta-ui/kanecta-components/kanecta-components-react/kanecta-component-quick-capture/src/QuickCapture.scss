@@ -6,54 +6,54 @@
   align-items: flex-start;
   justify-content: center;
   padding-top: 15vh;
-}
 
-.QuickCapture-backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.3);
-}
+  &__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.3);
+  }
 
-.QuickCapture-dialog {
-  position: relative;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
-  width: 560px;
-  max-width: 90vw;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
+  &__dialog {
+    position: relative;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+    width: 560px;
+    max-width: 90vw;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
 
-.QuickCapture-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
+  &__label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
 
-.QuickCapture-input {
-  width: 100%;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  padding: 10px 12px;
-  font-size: 0.95rem;
-  background: var(--color-surface-raised);
-  color: var(--color-text);
-  outline: none;
-  box-sizing: border-box;
-}
+  &__input {
+    width: 100%;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 0.95rem;
+    background: var(--color-surface-raised);
+    color: var(--color-text);
+    outline: none;
+    box-sizing: border-box;
 
-.QuickCapture-input:focus {
-  border-color: var(--color-primary);
-}
+    &:focus {
+      border-color: var(--color-primary);
+    }
+  }
 
-.QuickCapture-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
+  &__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
 }

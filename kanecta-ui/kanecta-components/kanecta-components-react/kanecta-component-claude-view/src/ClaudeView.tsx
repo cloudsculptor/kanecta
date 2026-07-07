@@ -159,41 +159,41 @@ export function ClaudeView({ createSession, streamUrl, cancelSession }: ClaudeVi
     switch (msg.kind) {
       case 'user':
         return (
-          <div key={i} className="ClaudeView-msg ClaudeView-msg--user">
-            <span className="ClaudeView-msg-label">You</span>
-            <div className="ClaudeView-msg-bubble">{msg.text}</div>
+          <div key={i} className="ClaudeView__msg ClaudeView__msg--user">
+            <span className="ClaudeView__msg-label">You</span>
+            <div className="ClaudeView__msg-bubble">{msg.text}</div>
           </div>
         );
       case 'assistant':
         return (
-          <div key={i} className="ClaudeView-msg ClaudeView-msg--assistant">
-            <span className="ClaudeView-msg-label">Claude</span>
-            <div className="ClaudeView-msg-bubble ClaudeView-msg-bubble--markdown">
+          <div key={i} className="ClaudeView__msg ClaudeView__msg--assistant">
+            <span className="ClaudeView__msg-label">Claude</span>
+            <div className="ClaudeView__msg-bubble ClaudeView__msg-bubble--markdown">
               <ReactMarkdown>{msg.text}</ReactMarkdown>
             </div>
           </div>
         );
       case 'tool_ran':
         return (
-          <div key={i} className="ClaudeView-msg ClaudeView-msg--tool">
-            <span className="ClaudeView-msg-label">Tool — {msg.name}</span>
-            <div className="ClaudeView-msg-bubble">
+          <div key={i} className="ClaudeView__msg ClaudeView__msg--tool">
+            <span className="ClaudeView__msg-label">Tool — {msg.name}</span>
+            <div className="ClaudeView__msg-bubble">
               <pre>{JSON.stringify(msg.input, null, 2)}</pre>
             </div>
           </div>
         );
       case 'tool_result':
         return (
-          <div key={i} className="ClaudeView-msg ClaudeView-msg--tool">
-            <span className="ClaudeView-msg-label">Tool result</span>
-            <div className="ClaudeView-msg-bubble">{msg.text}</div>
+          <div key={i} className="ClaudeView__msg ClaudeView__msg--tool">
+            <span className="ClaudeView__msg-label">Tool result</span>
+            <div className="ClaudeView__msg-bubble">{msg.text}</div>
           </div>
         );
       case 'stderr':
         return (
-          <div key={i} className="ClaudeView-msg ClaudeView-msg--stderr">
-            <span className="ClaudeView-msg-label">stderr</span>
-            <div className="ClaudeView-msg-bubble">{msg.text}</div>
+          <div key={i} className="ClaudeView__msg ClaudeView__msg--stderr">
+            <span className="ClaudeView__msg-label">stderr</span>
+            <div className="ClaudeView__msg-bubble">{msg.text}</div>
           </div>
         );
     }
@@ -201,17 +201,17 @@ export function ClaudeView({ createSession, streamUrl, cancelSession }: ClaudeVi
 
   return (
     <div className="ClaudeView">
-      <div className="ClaudeView-header">
+      <div className="ClaudeView__header">
         <ClaudeLogo size={20} />
         <h2>Claude CLI</h2>
         {running && (
           <>
-            <span className="ClaudeView-header-status">
+            <span className="ClaudeView__header-status">
               <CircularProgress size={12} sx={{ mr: 0.5 }} />
               Running…
             </span>
             <Tooltip title="Cancel session">
-              <IconButton size="small" className="ClaudeView-header-cancel" onClick={() => void handleCancel()}>
+              <IconButton size="small" className="ClaudeView__header-cancel" onClick={() => void handleCancel()}>
                 <StopIcon fontSize="small" />
               </IconButton>
             </Tooltip>
@@ -220,19 +220,19 @@ export function ClaudeView({ createSession, streamUrl, cancelSession }: ClaudeVi
       </div>
 
       {feed.length === 0 && !running ? (
-        <div className="ClaudeView-empty">
+        <div className="ClaudeView__empty">
           <ClaudeLogo size={48} />
           <p>Send a prompt to start a Claude session.</p>
           <p style={{ fontSize: '0.75rem' }}>Runs via your local Claude CLI using your Pro subscription.</p>
         </div>
       ) : (
-        <div className="ClaudeView-messages">
+        <div className="ClaudeView__messages">
           {feed.map(renderMessage)}
           <div ref={bottomRef} />
         </div>
       )}
 
-      <div className="ClaudeView-input">
+      <div className="ClaudeView__input">
         <textarea
           value={prompt}
           onChange={handleTextareaChange}

@@ -7,72 +7,72 @@
   border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
   flex-wrap: wrap;
-}
 
-.FilterBar-search {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  padding: 4px 8px;
-  min-width: 180px;
-}
+  &__search {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 4px 8px;
+    min-width: 180px;
 
-.FilterBar-search:focus-within {
-  border-color: var(--color-primary);
-}
+    &:focus-within {
+      border-color: var(--color-primary);
+    }
+  }
 
-.FilterBar-search-input {
-  border: none;
-  outline: none;
-  background: transparent;
-  font-size: 0.8rem;
-  color: var(--color-text);
-  width: 120px;
-}
+  &__search-input {
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 0.8rem;
+    color: var(--color-text);
+    width: 120px;
 
-.FilterBar-search-input::placeholder {
-  color: var(--color-text-muted);
-}
+    &::placeholder {
+      color: var(--color-text-muted);
+    }
+  }
 
-.FilterBar-select {
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  padding: 4px 8px;
-  font-size: 0.8rem;
-  background: var(--color-surface);
-  color: var(--color-text);
-  outline: none;
-  cursor: pointer;
-}
+  &__select {
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 0.8rem;
+    background: var(--color-surface);
+    color: var(--color-text);
+    outline: none;
+    cursor: pointer;
 
-.FilterBar-select:focus {
-  border-color: var(--color-primary);
-}
+    &:focus {
+      border-color: var(--color-primary);
+    }
+  }
 
-.FilterBar-clear {
-  border: none;
-  background: none;
-  padding: 4px 8px;
-  font-size: 0.8rem;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  border-radius: 4px;
-}
+  &__clear {
+    border: none;
+    background: none;
+    padding: 4px 8px;
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    border-radius: 4px;
 
-.FilterBar-clear:hover {
-  background: var(--color-hover);
-  color: var(--color-text);
-}
+    &:hover {
+      background: var(--color-hover);
+      color: var(--color-text);
+    }
+  }
 
-.FilterBar-spacer {
-  flex: 1;
-}
+  &__spacer {
+    flex: 1;
+  }
 
-.FilterBar-count {
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-  white-space: nowrap;
+  &__count {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+  }
 }

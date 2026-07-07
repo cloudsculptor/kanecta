@@ -104,47 +104,47 @@ export function CombinatorView({
 
   return (
     <div className="CombinatorView">
-      <div className="CombinatorView-left">
-        <div className="CombinatorView-box CombinatorView-box--inputs">
-          <span className="CombinatorView-box-label">Inputs</span>
-          <div className="CombinatorView-input-list">
+      <div className="CombinatorView__left">
+        <div className="CombinatorView__box CombinatorView__box--inputs">
+          <span className="CombinatorView__box-label">Inputs</span>
+          <div className="CombinatorView__input-list">
             {inputs.map((item) => {
               const Icon = getTypeIcon?.(item.type);
               return (
-                <div key={item.id} className="CombinatorView-input-row">
-                  {Icon && <Icon className="CombinatorView-input-icon" />}
-                  <span className="CombinatorView-input-name">{item.value}</span>
-                  <span className="CombinatorView-input-id">{item.id}</span>
-                  <button className="CombinatorView-input-remove" onClick={() => handleRemoveInput(item.id)} aria-label="Remove">✕</button>
+                <div key={item.id} className="CombinatorView__input-row">
+                  {Icon && <Icon className="CombinatorView__input-icon" />}
+                  <span className="CombinatorView__input-name">{item.value}</span>
+                  <span className="CombinatorView__input-id">{item.id}</span>
+                  <button className="CombinatorView__input-remove" onClick={() => handleRemoveInput(item.id)} aria-label="Remove">✕</button>
                 </div>
               );
             })}
           </div>
-          <div className="CombinatorView-input-add">
+          <div className="CombinatorView__input-add">
             <input
-              className="CombinatorView-input-field"
+              className="CombinatorView__input-field"
               placeholder="Paste UUID and press Enter…"
               value={uuidInput}
               onChange={(e) => { setUuidInput(e.target.value); setInputError(null); }}
               onKeyDown={(e) => void handleAddInput(e)}
             />
-            {inputError && <span className="CombinatorView-input-error">{inputError}</span>}
+            {inputError && <span className="CombinatorView__input-error">{inputError}</span>}
           </div>
         </div>
 
-        <div className="CombinatorView-box CombinatorView-box--goal">
-          <span className="CombinatorView-box-label">Goal</span>
+        <div className="CombinatorView__box CombinatorView__box--goal">
+          <span className="CombinatorView__box-label">Goal</span>
           <textarea
-            className="CombinatorView-textarea"
+            className="CombinatorView__textarea"
             value={goalText}
             onChange={(e) => setGoalText(e.target.value)}
           />
         </div>
 
-        <div className="CombinatorView-controls">
-          <span className="CombinatorView-control-label">Prompt verbosity</span>
+        <div className="CombinatorView__controls">
+          <span className="CombinatorView__control-label">Prompt verbosity</span>
           <Slider value={verbosity} onChange={(_, v) => setVerbosity(v as number)} size="small" />
-          <div className="CombinatorView-checkboxes">
+          <div className="CombinatorView__checkboxes">
             <FormControlLabel
               control={<Checkbox size="small" checked={includeInputs} onChange={(e) => setIncludeInputs(e.target.checked)} />}
               label="Include inputs"
@@ -160,42 +160,42 @@ export function CombinatorView({
           </div>
         </div>
 
-        <div className="CombinatorView-box CombinatorView-box--prompt">
-          <div className="CombinatorView-prompt-header">
-            <span className="CombinatorView-box-label">AI prompt</span>
-            <button className="CombinatorView-copy-btn" onClick={handleCopy} aria-label="Copy prompt">
+        <div className="CombinatorView__box CombinatorView__box--prompt">
+          <div className="CombinatorView__prompt-header">
+            <span className="CombinatorView__box-label">AI prompt</span>
+            <button className="CombinatorView__copy-btn" onClick={handleCopy} aria-label="Copy prompt">
               <ContentCopyIcon fontSize="small" />
               {copied ? 'Copied!' : 'Copy'}
             </button>
           </div>
-          <pre className="CombinatorView-prompt-text">{prompt}</pre>
+          <pre className="CombinatorView__prompt-text">{prompt}</pre>
         </div>
       </div>
 
-      <div className="CombinatorView-divider" />
+      <div className="CombinatorView__divider" />
 
-      <div className="CombinatorView-right">
+      <div className="CombinatorView__right">
         {starredPanel && (
           <>
-            <div className="CombinatorView-section">{starredPanel}</div>
-            <div className="CombinatorView-section-divider" />
+            <div className="CombinatorView__section">{starredPanel}</div>
+            <div className="CombinatorView__section-divider" />
           </>
         )}
         {clipboardHistoryPanel && (
           <>
-            <div className="CombinatorView-section">
-              <div className="CombinatorView-section-inner">
-                <h2 className="CombinatorView-heading">Clipboard History</h2>
+            <div className="CombinatorView__section">
+              <div className="CombinatorView__section-inner">
+                <h2 className="CombinatorView__heading">Clipboard History</h2>
                 {clipboardHistoryPanel}
               </div>
             </div>
-            <div className="CombinatorView-section-divider" />
+            <div className="CombinatorView__section-divider" />
           </>
         )}
         {navigationHistoryPanel && (
-          <div className="CombinatorView-section">
-            <div className="CombinatorView-section-inner">
-              <h2 className="CombinatorView-heading">Navigation History</h2>
+          <div className="CombinatorView__section">
+            <div className="CombinatorView__section-inner">
+              <h2 className="CombinatorView__heading">Navigation History</h2>
               {navigationHistoryPanel}
             </div>
           </div>

@@ -25,10 +25,10 @@ export function FilterBar({
 
   return (
     <div className="FilterBar">
-      <div className="FilterBar-search">
+      <div className="FilterBar__search">
         <SearchIcon sx={{ fontSize: 14, color: 'var(--color-text-muted)' }} />
         <input
-          className="FilterBar-search-input"
+          className="FilterBar__search-input"
           placeholder="Search…"
           value={filter.search ?? ''}
           onChange={(e) => onChange({ ...filter, search: e.target.value || undefined })}
@@ -37,7 +37,7 @@ export function FilterBar({
       </div>
 
       <select
-        className="FilterBar-select"
+        className="FilterBar__select"
         value={filter.type ?? ''}
         onChange={(e) => onChange({ ...filter, type: e.target.value || undefined })}
         aria-label="Filter by type"
@@ -49,7 +49,7 @@ export function FilterBar({
       </select>
 
       <select
-        className="FilterBar-select"
+        className="FilterBar__select"
         value={filter.confidence ?? ''}
         onChange={(e) => onChange({ ...filter, confidence: e.target.value || undefined })}
         aria-label="Filter by confidence"
@@ -62,7 +62,7 @@ export function FilterBar({
 
       {hasFilter && (
         <button
-          className="FilterBar-clear"
+          className="FilterBar__clear"
           onClick={() => onChange({})}
           aria-label="Clear filters"
         >
@@ -70,8 +70,8 @@ export function FilterBar({
         </button>
       )}
 
-      <div className="FilterBar-spacer" />
-      <span className="FilterBar-count">
+      <div className="FilterBar__spacer" />
+      <span className="FilterBar__count">
         {filteredCount === totalCount
           ? `${totalCount} items`
           : `${filteredCount} of ${totalCount}`}

@@ -3,269 +3,269 @@
   flex-direction: row;
   height: 100%;
   overflow: hidden;
-}
 
-.CombinatorView-left {
-  width: 70%;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 40px;
-  padding: 100px;
-  overflow-y: auto;
-  overflow-x: hidden;
-}
+  &__left {
+    width: 70%;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+    padding: 100px;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
 
-.CombinatorView-box {
-  display: flex;
-  flex-direction: column;
-  border: 2px dashed var(--color-border);
-  border-radius: 12px;
-  padding: 16px;
-  min-height: 0;
-}
+  &__box {
+    display: flex;
+    flex-direction: column;
+    border: 2px dashed var(--color-border);
+    border-radius: 12px;
+    padding: 16px;
+    min-height: 0;
 
-.CombinatorView-box--inputs { flex: 6; min-height: 400px; }
-.CombinatorView-box--goal   { flex: 2; min-height: 300px; }
-.CombinatorView-box--prompt { flex: 2; min-height: 500px; }
+    &--inputs { flex: 6; min-height: 400px; }
+    &--goal   { flex: 2; min-height: 300px; }
+    &--prompt { flex: 2; min-height: 500px; }
+  }
 
-.CombinatorView-box-label {
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-text-muted);
-  margin-bottom: 8px;
-  flex-shrink: 0;
-}
+  &__box-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-muted);
+    margin-bottom: 8px;
+    flex-shrink: 0;
+  }
 
-.CombinatorView-input-list {
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 8px;
-}
+  &__input-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
 
-.CombinatorView-input-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 6px;
-  border-radius: 6px;
-}
+  &__input-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    border-radius: 6px;
 
-.CombinatorView-input-row:hover {
-  background: var(--color-hover);
-}
+    &:hover {
+      background: var(--color-hover);
+    }
+  }
 
-.CombinatorView-input-icon {
-  font-size: 20px !important;
-  width: 20px !important;
-  height: 20px !important;
-  color: var(--color-text-muted);
-  flex-shrink: 0;
-}
+  &__input-icon {
+    font-size: 20px !important;
+    width: 20px !important;
+    height: 20px !important;
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+  }
 
-.CombinatorView-input-name {
-  flex: 1;
-  font-size: 0.8rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+  &__input-name {
+    flex: 1;
+    font-size: 0.8rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 
-.CombinatorView-input-id {
-  font-size: 0.65rem;
-  color: var(--color-text-muted);
-  font-family: monospace;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 140px;
-}
+  &__input-id {
+    font-size: 0.65rem;
+    color: var(--color-text-muted);
+    font-family: monospace;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 140px;
+  }
 
-.CombinatorView-input-remove {
-  border: none;
-  background: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  font-size: 0.7rem;
-  padding: 0 2px;
-  opacity: 0;
-  flex-shrink: 0;
-}
+  &__input-remove {
+    border: none;
+    background: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    font-size: 0.7rem;
+    padding: 0 2px;
+    opacity: 0;
+    flex-shrink: 0;
 
-.CombinatorView-input-row:hover .CombinatorView-input-remove {
-  opacity: 0.6;
-}
+    &:hover {
+      opacity: 1 !important;
+    }
+  }
 
-.CombinatorView-input-remove:hover {
-  opacity: 1 !important;
-}
+  &__input-row:hover &__input-remove {
+    opacity: 0.6;
+  }
 
-.CombinatorView-input-add {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
+  &__input-add {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
 
-.CombinatorView-input-field {
-  width: 100%;
-  padding: 6px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-size: 0.8rem;
-  font-family: inherit;
-  outline: none;
-  box-sizing: border-box;
-}
+  &__input-field {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-size: 0.8rem;
+    font-family: inherit;
+    outline: none;
+    box-sizing: border-box;
 
-.CombinatorView-input-field:focus {
-  border-color: var(--color-primary, #1976d2);
-}
+    &:focus {
+      border-color: var(--color-primary, #1976d2);
+    }
 
-.CombinatorView-input-field::placeholder {
-  color: var(--color-text-muted);
-  opacity: 0.5;
-}
+    &::placeholder {
+      color: var(--color-text-muted);
+      opacity: 0.5;
+    }
+  }
 
-.CombinatorView-input-error {
-  font-size: 0.72rem;
-  color: #f44336;
-}
+  &__input-error {
+    font-size: 0.72rem;
+    color: #f44336;
+  }
 
-.CombinatorView-controls {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 0 4px;
-}
+  &__controls {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0 4px;
+  }
 
-.CombinatorView-control-label {
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-text-muted);
-}
+  &__control-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-muted);
+  }
 
-.CombinatorView-checkboxes {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
+  &__checkboxes {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
 
-.CombinatorView-checkboxes .MuiFormControlLabel-label {
-  font-size: 0.8rem;
-}
+    .MuiFormControlLabel-label {
+      font-size: 0.8rem;
+    }
+  }
 
-.CombinatorView-prompt-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-shrink: 0;
-  margin-bottom: 8px;
-}
+  &__prompt-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    margin-bottom: 8px;
+  }
 
-.CombinatorView-prompt-header .CombinatorView-box-label {
-  margin-bottom: 0;
-}
+  &__prompt-header &__box-label {
+    margin-bottom: 0;
+  }
 
-.CombinatorView-copy-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  background: none;
-  color: var(--color-text-muted);
-  font-size: 0.75rem;
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
-}
+  &__copy-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    background: none;
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
 
-.CombinatorView-copy-btn:hover {
-  color: var(--color-text);
-  border-color: var(--color-text-muted);
-}
+    &:hover {
+      color: var(--color-text);
+      border-color: var(--color-text-muted);
+    }
+  }
 
-.CombinatorView-prompt-text {
-  flex: 1;
-  overflow-y: auto;
-  margin: 0;
-  font-family: monospace;
-  font-size: 0.8rem;
-  line-height: 1.6;
-  color: var(--color-text);
-  white-space: pre-wrap;
-  word-break: break-word;
-  user-select: text;
-}
+  &__prompt-text {
+    flex: 1;
+    overflow-y: auto;
+    margin: 0;
+    font-family: monospace;
+    font-size: 0.8rem;
+    line-height: 1.6;
+    color: var(--color-text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    user-select: text;
+  }
 
-.CombinatorView-textarea {
-  flex: 1;
-  resize: none;
-  border: none;
-  outline: none;
-  background: transparent;
-  color: var(--color-text);
-  font-size: 0.875rem;
-  font-family: inherit;
-  line-height: 1.5;
-  min-height: 0;
-}
+  &__textarea {
+    flex: 1;
+    resize: none;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--color-text);
+    font-size: 0.875rem;
+    font-family: inherit;
+    line-height: 1.5;
+    min-height: 0;
 
-.CombinatorView-textarea::placeholder {
-  color: var(--color-text-muted);
-  opacity: 0.5;
-}
+    &::placeholder {
+      color: var(--color-text-muted);
+      opacity: 0.5;
+    }
+  }
 
-.CombinatorView-divider {
-  width: 1px;
-  background: var(--color-border);
-  flex-shrink: 0;
-}
+  &__divider {
+    width: 1px;
+    background: var(--color-border);
+    flex-shrink: 0;
+  }
 
-.CombinatorView-right {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
+  &__right {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
 
-.CombinatorView-section {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
+  &__section {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
 
-.CombinatorView-section-divider {
-  height: 1px;
-  background: var(--color-border);
-  flex-shrink: 0;
-}
+  &__section-divider {
+    height: 1px;
+    background: var(--color-border);
+    flex-shrink: 0;
+  }
 
-.CombinatorView-section-inner {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 20px 16px;
-  overflow: hidden;
-}
+  &__section-inner {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 20px 16px;
+    overflow: hidden;
+  }
 
-.CombinatorView-heading {
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-text-muted);
-  margin: 0 0 12px 0;
-  flex-shrink: 0;
+  &__heading {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-muted);
+    margin: 0 0 12px 0;
+    flex-shrink: 0;
+  }
 }

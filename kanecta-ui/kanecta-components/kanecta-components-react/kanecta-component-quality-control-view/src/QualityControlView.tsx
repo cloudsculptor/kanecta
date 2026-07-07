@@ -17,10 +17,10 @@ export interface QualityControlViewProps {
 
 export function QualityControlView({ stats, isLoading, error, typeIcons = {} }: QualityControlViewProps) {
   if (isLoading) {
-    return <div className="QualityControlView"><div className="QualityControlView-state">Loading…</div></div>;
+    return <div className="QualityControlView"><div className="QualityControlView__state">Loading…</div></div>;
   }
   if (error || !stats) {
-    return <div className="QualityControlView"><div className="QualityControlView-state">Failed to load stats</div></div>;
+    return <div className="QualityControlView"><div className="QualityControlView__state">Failed to load stats</div></div>;
   }
 
   const { total, typedCount, structured, unstructured } = stats;
@@ -30,18 +30,18 @@ export function QualityControlView({ stats, isLoading, error, typeIcons = {} }: 
 
   return (
     <div className="QualityControlView">
-      <div className="QualityControlView-col QualityControlView-col--overview">
-        <div className="QualityControlView-label">Data quality</div>
-        <div className="QualityControlView-percentage">{percentage}%</div>
-        <div className="QualityControlView-fraction">{typedCount} / {total}</div>
+      <div className="QualityControlView__col QualityControlView__col--overview">
+        <div className="QualityControlView__label">Data quality</div>
+        <div className="QualityControlView__percentage">{percentage}%</div>
+        <div className="QualityControlView__fraction">{typedCount} / {total}</div>
       </div>
 
-      <div className="QualityControlView-col">
-        <div className="QualityControlView-col-heading">Primitive <span className="QualityControlView-col-count">{unstructuredTotal}</span></div>
+      <div className="QualityControlView__col">
+        <div className="QualityControlView__col-heading">Primitive <span className="QualityControlView__col-count">{unstructuredTotal}</span></div>
         {unstructured.length === 0
-          ? <div className="QualityControlView-empty">None</div>
+          ? <div className="QualityControlView__empty">None</div>
           : (
-            <table className="QualityControlView-table">
+            <table className="QualityControlView__table">
               <thead>
                 <tr><th>Type</th><th>Count</th></tr>
               </thead>
@@ -51,8 +51,8 @@ export function QualityControlView({ stats, isLoading, error, typeIcons = {} }: 
                   return (
                     <tr key={type}>
                       <td>
-                        <span className="QualityControlView-type-cell">
-                          {Icon && <Icon className="QualityControlView-type-icon" />}
+                        <span className="QualityControlView__type-cell">
+                          {Icon && <Icon className="QualityControlView__type-icon" />}
                           {type}
                         </span>
                       </td>
@@ -66,12 +66,12 @@ export function QualityControlView({ stats, isLoading, error, typeIcons = {} }: 
         }
       </div>
 
-      <div className="QualityControlView-col">
-        <div className="QualityControlView-col-heading">Structured <span className="QualityControlView-col-count">{structuredTotal}</span></div>
+      <div className="QualityControlView__col">
+        <div className="QualityControlView__col-heading">Structured <span className="QualityControlView__col-count">{structuredTotal}</span></div>
         {structured.length === 0
-          ? <div className="QualityControlView-empty">None</div>
+          ? <div className="QualityControlView__empty">None</div>
           : (
-            <table className="QualityControlView-table">
+            <table className="QualityControlView__table">
               <thead>
                 <tr><th>Type</th><th>Count</th></tr>
               </thead>
@@ -81,10 +81,10 @@ export function QualityControlView({ stats, isLoading, error, typeIcons = {} }: 
                   return (
                     <tr key={typeId}>
                       <td>
-                        <span className="QualityControlView-type-cell">
+                        <span className="QualityControlView__type-cell">
                           {icon
-                            ? <DynamicIcon name={icon} className="QualityControlView-type-icon" />
-                            : FallbackIcon ? <FallbackIcon className="QualityControlView-type-icon" /> : null
+                            ? <DynamicIcon name={icon} className="QualityControlView__type-icon" />
+                            : FallbackIcon ? <FallbackIcon className="QualityControlView__type-icon" /> : null
                           }
                           {name}
                         </span>

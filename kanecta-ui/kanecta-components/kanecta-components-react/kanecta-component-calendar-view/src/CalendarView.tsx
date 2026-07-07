@@ -81,7 +81,7 @@ export function CalendarView({
 
   return (
     <div className="CalendarView" data-testid={panelId ? `calendar-view-${panelId}` : undefined}>
-      <div className="CalendarView-controls">
+      <div className="CalendarView__controls">
         <FilterBar
           filter={filter}
           onChange={onFilterChange}
@@ -91,20 +91,20 @@ export function CalendarView({
           confidenceLevels={confidenceLevels}
         />
       </div>
-      <div className="CalendarView-nav">
-        <button className="CalendarView-nav-btn" onClick={() => navigate(-1)} aria-label="Previous month">‹</button>
-        <span className="CalendarView-nav-title">{monthName}</span>
-        <button className="CalendarView-nav-btn" onClick={() => navigate(1)} aria-label="Next month">›</button>
+      <div className="CalendarView__nav">
+        <button className="CalendarView__nav-btn" onClick={() => navigate(-1)} aria-label="Previous month">‹</button>
+        <span className="CalendarView__nav-title">{monthName}</span>
+        <button className="CalendarView__nav-btn" onClick={() => navigate(1)} aria-label="Next month">›</button>
         <button
-          className="CalendarView-nav-btn"
+          className="CalendarView__nav-btn"
           onClick={() => { setYear(today.getFullYear()); setMonth(today.getMonth()); }}
         >
           Today
         </button>
       </div>
-      <div className="CalendarView-grid">
+      <div className="CalendarView__grid">
         {DOW.map((d) => (
-          <div key={d} className="CalendarView-day-header">{d}</div>
+          <div key={d} className="CalendarView__day-header">{d}</div>
         ))}
         {cells.map((cell, i) => {
           const isToday = cell.currentMonth &&
@@ -114,17 +114,17 @@ export function CalendarView({
             <div
               key={i}
               className={[
-                'CalendarView-day',
-                !cell.currentMonth ? 'CalendarView-day--other-month' : '',
-                isToday ? 'CalendarView-day--today' : '',
+                'CalendarView__day',
+                !cell.currentMonth ? 'CalendarView__day--other-month' : '',
+                isToday ? 'CalendarView__day--today' : '',
               ].filter(Boolean).join(' ')}
             >
-              <div className="CalendarView-day-num">{cell.day}</div>
-              <div className="CalendarView-day-items">
+              <div className="CalendarView__day-num">{cell.day}</div>
+              <div className="CalendarView__day-items">
                 {dayItems.slice(0, 3).map((item) => (
                   <div
                     key={item.id}
-                    className="CalendarView-day-chip"
+                    className="CalendarView__day-chip"
                     onClick={() => onSelectItem?.(item.id)}
                     title={item.value}
                   >
@@ -132,7 +132,7 @@ export function CalendarView({
                   </div>
                 ))}
                 {dayItems.length > 3 && (
-                  <div className="CalendarView-day-more">+{dayItems.length - 3} more</div>
+                  <div className="CalendarView__day-more">+{dayItems.length - 3} more</div>
                 )}
               </div>
             </div>

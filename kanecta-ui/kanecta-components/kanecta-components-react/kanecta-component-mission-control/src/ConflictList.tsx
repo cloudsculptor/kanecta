@@ -46,41 +46,41 @@ function ConflictCard({ conflict, workspaces, onDeleteItem, onResolved, queryKey
   const dismiss = () => onResolved?.(conflict.id);
 
   return (
-    <div className="ConflictList-card">
-      <div className="ConflictList-card-header">
-        <span className="ConflictList-card-reason">{conflict.reason.replace(/-/g, ' ')}</span>
-        <span className="ConflictList-card-sim">{Math.round(conflict.similarity * 100)}% similar</span>
+    <div className="ConflictList__card">
+      <div className="ConflictList__card-header">
+        <span className="ConflictList__card-reason">{conflict.reason.replace(/-/g, ' ')}</span>
+        <span className="ConflictList__card-sim">{Math.round(conflict.similarity * 100)}% similar</span>
       </div>
 
-      <div className="ConflictList-card-sides">
+      <div className="ConflictList__card-sides">
         {[
           { item: conflict.itemA, ws: wsA, keepFn: () => keepA.mutate() },
           { item: conflict.itemB, ws: wsB, keepFn: () => keepB.mutate() },
         ].map(({ item, ws, keepFn }, idx) => (
-          <div key={idx} className="ConflictList-card-side">
+          <div key={idx} className="ConflictList__card-side">
             {ws && (
-              <div className="ConflictList-card-ws" style={{ borderColor: ws.colour, color: ws.colour }}>
+              <div className="ConflictList__card-ws" style={{ borderColor: ws.colour, color: ws.colour }}>
                 {ws.name}
               </div>
             )}
-            <div className="ConflictList-card-badges">
+            <div className="ConflictList__card-badges">
               <TypeBadge type={item.type} />
               <ConfidenceBadge confidence={(item.confidence ?? null) as ConfidenceLevel | null} />
             </div>
-            <p className="ConflictList-card-value">{item.value}</p>
-            <button className="ConflictList-card-keep" onClick={keepFn}>Keep this</button>
+            <p className="ConflictList__card-value">{item.value}</p>
+            <button className="ConflictList__card-keep" onClick={keepFn}>Keep this</button>
           </div>
         ))}
       </div>
 
-      <button className="ConflictList-card-dismiss" onClick={dismiss}>Dismiss</button>
+      <button className="ConflictList__card-dismiss" onClick={dismiss}>Dismiss</button>
     </div>
   );
 }
 
 export function ConflictList({ conflicts, workspaces, onDeleteItem, onResolved, queryKeyPrefix }: ConflictListProps) {
   if (conflicts.length === 0) {
-    return <div className="ConflictList-empty">No conflicts detected</div>;
+    return <div className="ConflictList__empty">No conflicts detected</div>;
   }
 
   return (

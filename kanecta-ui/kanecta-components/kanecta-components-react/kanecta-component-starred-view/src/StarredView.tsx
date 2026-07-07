@@ -45,42 +45,42 @@ export function StarredView({ onFetch, onUnstar, onNavigate, getTypeIcon }: Star
 
   return (
     <div className="StarredView">
-      <h2 className="StarredView-heading">Starred</h2>
-      {isLoading && <div className="StarredView-empty">Loading…</div>}
-      {error && <div className="StarredView-empty">Failed to load</div>}
+      <h2 className="StarredView__heading">Starred</h2>
+      {isLoading && <div className="StarredView__empty">Loading…</div>}
+      {error && <div className="StarredView__empty">Failed to load</div>}
       {!isLoading && !error && entries.length === 0 && (
-        <div className="StarredView-empty">No starred items yet.</div>
+        <div className="StarredView__empty">No starred items yet.</div>
       )}
       {!isLoading && !error && entries.length > 0 && (
-        <div className="StarredView-list">
+        <div className="StarredView__list">
           {entries.map((entry, i) => {
             const Icon = getTypeIcon?.(entry.type);
             return (
-              <div key={i} className="StarredView-entry">
-                {Icon && <Icon className="StarredView-type-icon" />}
+              <div key={i} className="StarredView__entry">
+                {Icon && <Icon className="StarredView__type-icon" />}
                 <a
                   href={`/#/tree/${entry.id}`}
-                  className="StarredView-entry-name"
+                  className="StarredView__entry-name"
                   onClick={(e) => onNavigate(e, entry.id)}
                 >
                   {entry.name}
                 </a>
                 <Tooltip title="Copy UUID">
-                  <IconButton size="small" className="StarredView-action" onClick={() => handleCopy(entry.id)}>
+                  <IconButton size="small" className="StarredView__action" onClick={() => handleCopy(entry.id)}>
                     <ContentCopyIcon />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Unstar">
                   <IconButton
                     size="small"
-                    className="StarredView-action StarredView-action--star"
+                    className="StarredView__action StarredView__action--star"
                     onClick={() => void handleUnstar(entry.id)}
                     disabled={removingId === entry.id}
                   >
                     <StarIcon />
                   </IconButton>
                 </Tooltip>
-                <span className="StarredView-entry-time">{new Date(entry.timestamp).toLocaleString()}</span>
+                <span className="StarredView__entry-time">{new Date(entry.timestamp).toLocaleString()}</span>
               </div>
             );
           })}
