@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-'use strict';
 
 /**
  * @kanecta/studio launcher
@@ -15,16 +14,16 @@
  *   5. Forwards SIGINT/SIGTERM to child processes and exits cleanly.
  */
 
-const path = require('path');
-const fs = require('fs');
-const net = require('net');
-const http = require('http');
-const os = require('os');
-const { spawn } = require('child_process');
+import * as path from 'node:path';
+import * as fs from 'node:fs';
+import * as net from 'node:net';
+import * as http from 'node:http';
+import * as os from 'node:os';
+import { spawn, type ChildProcess } from 'node:child_process';
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
-function findFreePort(preferred) {
+function findFreePort(preferred: number): Promise<number> {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
     server.unref();
@@ -33,18 +32,18 @@ function findFreePort(preferred) {
       s2.unref();
       s2.on('error', reject);
       s2.listen(0, '127.0.0.1', () => {
-        const { port } = s2.address();
+        const { port } = s2.address() as net.AddressInfo;
         s2.close(() => resolve(port));
       });
     });
     server.listen(preferred, '127.0.0.1', () => {
-      const { port } = server.address();
+      const { port } = server.address() as net.AddressInfo;
       server.close(() => resolve(port));
     });
   });
 }
 
-function waitForPort(port, timeoutMs = 15_000) {
+function waitForPort(port: number, timeoutMs = 15_000): Promise<void> {
   const start = Date.now();
   return new Promise((resolve, reject) => {
     function attempt() {
@@ -63,7 +62,7 @@ function waitForPort(port, timeoutMs = 15_000) {
   });
 }
 
-function openBrowser(url) {
+function openBrowser(url: string): void {
   const { platform } = process;
   const cmd = platform === 'darwin' ? 'open'
     : platform === 'win32' ? 'start'
@@ -71,7 +70,7 @@ function openBrowser(url) {
   spawn(cmd, [url], { stdio: 'ignore', detached: true }).unref();
 }
 
-function resolvePackageEntry(pkgName) {
+function resolvePackageEntry(pkgName: string): string | null {
   try {
     return require.resolve(pkgName);
   } catch {
@@ -80,8 +79,8 @@ function resolvePackageEntry(pkgName) {
 }
 
 // Proxy a request to the API server, stripping the /api prefix.
-function proxyToApi(req, res, targetPort) {
-  const targetPath = req.url.replace(/^\/api/, '') || '/';
+function proxyToApi(req: http.IncomingMessage, res: http.ServerResponse, targetPort: number): void {
+  const targetPath = (req.url ?? '').replace(/^\/api/, '') || '/';
   const proxyReq = http.request(
     {
       hostname: '127.0.0.1',
@@ -91,7 +90,7 @@ function proxyToApi(req, res, targetPort) {
       headers: { ...req.headers, host: `127.0.0.1:${targetPort}` },
     },
     (proxyRes) => {
-      res.writeHead(proxyRes.statusCode, proxyRes.headers);
+      res.writeHead(proxyRes.statusCode ?? 502, proxyRes.headers);
       proxyRes.pipe(res, { end: true });
     },
   );
@@ -103,14 +102,14 @@ function proxyToApi(req, res, targetPort) {
 
 // ── main ───────────────────────────────────────────────────────────────────
 
-async function main() {
+async function main(): Promise<void> {
   const [apiPort, uiPort] = await Promise.all([
     findFreePort(3000),
     findFreePort(5173),
   ]);
 
-  const childProcs = [];
-  let uiServer = null;
+  const childProcs: ChildProcess[] = [];
+  let uiServer: http.Server | null = null;
 
   function cleanup() {
     for (const child of childProcs) {
@@ -174,7 +173,7 @@ async function main() {
       process.stderr.write(`kanecta studio: UI server error: ${err.message}\n`);
       cleanup();
     });
-    await new Promise((resolve) => uiServer.listen(uiPort, '127.0.0.1', resolve));
+    await new Promise<void>((resolve) => uiServer!.listen(uiPort, '127.0.0.1', resolve));
   } else {
     // Dev: spawn vite. KANECTA_API_URL (no VITE_ prefix) sets the vite proxy target
     // without baking the URL into the client bundle.
@@ -208,7 +207,8 @@ async function main() {
   openBrowser(url);
 }
 
-main().catch((err) => {
-  process.stderr.write(`kanecta studio: ${err.message}\n`);
+main().catch((err: unknown) => {
+  const message = err instanceof Error ? err.message : String(err);
+  process.stderr.write(`kanecta studio: ${message}\n`);
   process.exit(1);
 });

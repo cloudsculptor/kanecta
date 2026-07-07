@@ -10,12 +10,17 @@
   },
   "homepage": "https://github.com/cloudsculptor/kanecta",
   "scripts": {
+    "build": "esbuild main.ts --platform=node --format=cjs --target=node20 --outfile=main.cjs",
+    "prestart": "npm run build",
     "start": "electron .",
+    "predist": "npm run build",
     "dist": "electron-builder --mac zip"
   },
   "devDependencies": {
+    "@types/node": "^26.1.0",
     "electron": "43.0.0",
-    "electron-builder": "^26.15.3"
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.1"
   },
   "license": "MIT",
   "build": {

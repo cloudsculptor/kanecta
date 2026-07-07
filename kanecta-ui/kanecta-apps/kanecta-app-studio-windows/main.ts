@@ -1,9 +1,15 @@
-'use strict';
+import { app, BrowserWindow, dialog } from 'electron';
+import * as path from 'node:path';
+import * as os from 'node:os';
+import * as fs from 'node:fs';
 
-const { app, BrowserWindow, dialog } = require('electron');
-const path = require('path');
-const os = require('os');
-const fs = require('fs');
+/** Parsed shape of ~/.config/kanecta/config.json (only the fields we read). */
+interface RemoteSpec { url?: string }
+interface WorkspaceSpec { mode?: string; remote?: RemoteSpec }
+interface KanectaConfig {
+  default?: string;
+  workspaces?: Record<string, WorkspaceSpec>;
+}
 
 const CONFIG_PATH = path.join(
   process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'),
@@ -11,15 +17,15 @@ const CONFIG_PATH = path.join(
   'config.json',
 );
 
-function readConfig() {
-  return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+function readConfig(): KanectaConfig {
+  return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')) as KanectaConfig;
 }
 
 // Find the configured remote Studio URL: a workspace with mode "REMOTE"
 // and a remote.url, preferring the default workspace if it qualifies.
-function findRemoteUrl(config) {
+function findRemoteUrl(config: KanectaConfig): string | null {
   const workspaces = config.workspaces || {};
-  const ordered = [config.default, ...Object.keys(workspaces)].filter(Boolean);
+  const ordered = [config.default, ...Object.keys(workspaces)].filter(Boolean) as string[];
   for (const name of ordered) {
     const workspace = workspaces[name];
     if (workspace?.mode === 'REMOTE' && workspace.remote?.url) {
@@ -29,17 +35,17 @@ function findRemoteUrl(config) {
   return null;
 }
 
-function showConfigError(message) {
+function showConfigError(message: string): void {
   dialog.showErrorBox('Kanecta Studio', message);
   app.quit();
 }
 
-function createWindow(url) {
+function createWindow(url: string): void {
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
     title: 'Kanecta Studio',
-    icon: path.join(__dirname, 'build', 'icon.png'),
+    icon: path.join(__dirname, 'build', 'icon.ico'),
     webPreferences: {
       contextIsolation: true,
       sandbox: true,
@@ -49,11 +55,12 @@ function createWindow(url) {
 }
 
 app.whenReady().then(() => {
-  let config;
+  let config: KanectaConfig;
   try {
     config = readConfig();
   } catch (err) {
-    showConfigError(`Could not read ${CONFIG_PATH}:\n${err.message}`);
+    const message = err instanceof Error ? err.message : String(err);
+    showConfigError(`Could not read ${CONFIG_PATH}:\n${message}`);
     return;
   }
 

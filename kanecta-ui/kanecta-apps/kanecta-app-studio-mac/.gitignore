@@ -1,0 +1,8 @@
+node_modules
+
+# Build artifact — bundled from main.ts by `npm run build` (esbuild).
+# Electron loads this .cjs directly; the .ts source is the truth.
+main.cjs
+
+# electron-builder output
+dist
