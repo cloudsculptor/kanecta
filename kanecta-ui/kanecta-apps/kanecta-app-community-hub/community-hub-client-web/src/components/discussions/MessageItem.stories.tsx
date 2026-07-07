@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { MemoryRouter } from "react-router-dom";
+import { within, userEvent, expect, fn } from "storybook/test";
 import MessageItem from "./MessageItem";
 import type { MessageFile } from "../../api/discussions";
 
@@ -25,16 +26,16 @@ const base = {
   files: [] as MessageFile[],
 };
 
-const noop = async () => {};
-
 const meta: Meta<typeof MessageItem> = {
   title: "Discussions/MessageItem",
   component: MessageItem,
   decorators: [(Story) => <MemoryRouter><div style={{ padding: 20, maxWidth: 600 }}><Story /></div></MemoryRouter>],
+  // Callbacks are fn() spies so behaviour stories can assert they fire. Storybook
+  // resets them before each story's play, so sharing them here is safe.
   args: {
     message: base, reactions: [], currentUserId: "user-1",
-    canModerate: false, onEdit: noop, onDelete: noop,
-    onReact: noop, onUnreact: noop, onOpenReplies: noop,
+    canModerate: false, onEdit: fn(), onDelete: fn(),
+    onReact: fn(), onUnreact: fn(), onOpenReplies: fn(),
   },
 };
 export default meta;
@@ -166,4 +167,124 @@ export const ThreeMonthsOld: Story = {
 
 export const TwoYearsOld: Story = {
   args: { message: { ...base, created_at: daysAgo(730) } },
+};
+
+// ── Behaviour tests (play functions) ─────────────────────────────────────────
+// Pin the interactive contract of a message: what renders and which callbacks
+// fire on which action. This is the behaviour that must survive the migration.
+
+/** Author name and message text render. */
+export const RendersAuthorAndText: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Jane Smith")).toBeInTheDocument();
+    await expect(canvas.getByText(/what's the plan for the weekend market/)).toBeInTheDocument();
+  },
+};
+
+/** A deleted message shows a tombstone and hides the author. */
+export const DeletedShowsTombstone: Story = {
+  args: { message: { ...base, deleted_at: new Date().toISOString(), content: "" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("This message was deleted")).toBeInTheDocument();
+    await expect(canvas.queryByText("Jane Smith")).not.toBeInTheDocument();
+  },
+};
+
+/** An @mention renders as a pill showing the display name, never the user id. */
+export const MentionRendersAsPill: Story = {
+  args: { message: { ...base, content: "cheers @[Aroha Tane](user-9)" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("@Aroha Tane")).toBeInTheDocument();
+    await expect(canvas.queryByText(/user-9/)).not.toBeInTheDocument();
+  },
+};
+
+/** Reply link (singular) opens the thread via onOpenReplies. */
+export const ReplyLinkOpensThread: Story = {
+  args: { message: { ...base, reply_count: 1 } },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByText("1 reply"));
+    await expect(args.onOpenReplies).toHaveBeenCalled();
+  },
+};
+
+/** Reply link pluralises for more than one reply. */
+export const ReplyLinkPluralises: Story = {
+  args: { message: { ...base, reply_count: 4 } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("4 replies")).toBeInTheDocument();
+  },
+};
+
+/** Clicking a reaction you made removes it (onUnreact); a new one adds it (onReact). */
+export const ReactionToggles: Story = {
+  args: {
+    reactions: [
+      { emoji: "👍", count: "3", user_ids: ["user-1", "user-2", "user-3"], user_names: ["Jane", "Mike", "Aroha"] },
+      { emoji: "❤️", count: "1", user_ids: ["user-2"], user_names: ["Mike"] },
+    ],
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: /👍/ }));
+    await expect(args.onUnreact).toHaveBeenCalledWith("m1", "👍");
+    await userEvent.click(canvas.getByRole("button", { name: /❤️/ }));
+    await expect(args.onReact).toHaveBeenCalledWith("m1", "❤️");
+  },
+};
+
+/** The owner can edit: hover → Edit → change text → Save calls onEdit with the trimmed value. */
+export const OwnerCanEdit: Story = {
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    const msg = canvasElement.querySelector(".discussions-message") as HTMLElement;
+    await userEvent.hover(msg);
+    await userEvent.click(canvas.getByTitle("Edit"));
+    const box = canvas.getByRole("textbox");
+    await userEvent.clear(box);
+    await userEvent.type(box, "Updated plan for Saturday");
+    await userEvent.click(canvas.getByText("Save"));
+    await expect(args.onEdit).toHaveBeenCalledWith("m1", "Updated plan for Saturday");
+  },
+};
+
+/** The owner can delete: hover → Delete calls onDelete. */
+export const OwnerCanDelete: Story = {
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    const msg = canvasElement.querySelector(".discussions-message") as HTMLElement;
+    await userEvent.hover(msg);
+    await userEvent.click(canvas.getByTitle("Delete"));
+    await expect(args.onDelete).toHaveBeenCalledWith("m1");
+  },
+};
+
+/** A non-owner without moderation sees no edit or delete controls. */
+export const NonOwnerHasNoEditOrDelete: Story = {
+  args: { currentUserId: "user-2" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const msg = canvasElement.querySelector(".discussions-message") as HTMLElement;
+    await userEvent.hover(msg);
+    await expect(canvas.queryByTitle("Edit")).not.toBeInTheDocument();
+    await expect(canvas.queryByTitle("Delete")).not.toBeInTheDocument();
+  },
+};
+
+/** A moderator viewing someone else's message can delete it but not edit it. */
+export const ModeratorCanDeleteOthers: Story = {
+  args: { currentUserId: "user-2", canModerate: true },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    const msg = canvasElement.querySelector(".discussions-message") as HTMLElement;
+    await userEvent.hover(msg);
+    await expect(canvas.queryByTitle("Edit")).not.toBeInTheDocument();
+    await userEvent.click(canvas.getByTitle("Delete"));
+    await expect(args.onDelete).toHaveBeenCalledWith("m1");
+  },
 };
