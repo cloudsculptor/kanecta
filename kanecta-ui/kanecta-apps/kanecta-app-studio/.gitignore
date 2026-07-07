@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Build artifact — the `kanecta studio` launcher, bundled from src/server.ts
+# by `npm run build:server` (esbuild). Consumers load this .cjs via the
+# "./server" export; src/server.ts is the truth.
+src/server.cjs
+
 plan.md
 
 # Playwright

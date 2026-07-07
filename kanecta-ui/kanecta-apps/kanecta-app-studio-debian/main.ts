@@ -1,9 +1,17 @@
-'use strict';
+import { app, BrowserWindow, dialog } from 'electron';
+import * as path from 'node:path';
+import * as os from 'node:os';
+import * as fs from 'node:fs';
 
-const { app, BrowserWindow, dialog } = require('electron');
-const path = require('path');
-const os = require('os');
-const fs = require('fs');
+/** Parsed shape of ~/.config/kanecta/config.json (only the fields we read). */
+interface RemoteSpec { url?: string }
+interface WorkspaceSpec { mode?: string; remote?: RemoteSpec }
+interface KanectaConfig {
+  studioUrl?: string;
+  default?: string;
+  defaultWorkspace?: string;
+  workspaces?: Record<string, WorkspaceSpec>;
+}
 
 const CONFIG_PATH = path.join(
   process.env.KANECTA_CONFIG
@@ -14,8 +22,8 @@ const CONFIG_PATH = path.join(
 
 const DEV_DEFAULT_URL = 'http://localhost:9743';
 
-function readConfigSafe() {
-  try { return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')); }
+function readConfigSafe(): KanectaConfig | null {
+  try { return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')) as KanectaConfig; }
   catch { return null; }
 }
 
@@ -25,7 +33,7 @@ function readConfigSafe() {
 //   2. config.studioUrl                  — an explicit URL in config.json.
 //   3. legacy REMOTE workspace remote.url — back-compat with the old format.
 //   4. http://localhost:9743             — zero-config dev default.
-function resolveStudioUrl() {
+function resolveStudioUrl(): string {
   if (process.env.KANECTA_STUDIO_URL) return process.env.KANECTA_STUDIO_URL;
 
   const config = readConfigSafe();
@@ -34,7 +42,7 @@ function resolveStudioUrl() {
 
     // Legacy: first workspace with mode REMOTE + remote.url (default first).
     const workspaces = config.workspaces || {};
-    const ordered = [config.default, config.defaultWorkspace, ...Object.keys(workspaces)].filter(Boolean);
+    const ordered = [config.default, config.defaultWorkspace, ...Object.keys(workspaces)].filter(Boolean) as string[];
     for (const name of ordered) {
       const ws = workspaces[name];
       if (ws?.mode === 'REMOTE' && ws.remote?.url) return ws.remote.url;
@@ -44,7 +52,7 @@ function resolveStudioUrl() {
   return DEV_DEFAULT_URL;
 }
 
-function createWindow(url) {
+function createWindow(url: string): void {
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -72,7 +80,7 @@ function createWindow(url) {
   loadWithRetry(win, url, 0);
 }
 
-function loadWithRetry(win, url, attempt) {
+function loadWithRetry(win: BrowserWindow, url: string, attempt: number): void {
   if (win.isDestroyed()) return;
   win.loadURL(url).catch(() => {
     if (attempt < 60) {

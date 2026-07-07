@@ -22,5 +22,7 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "//": "server.ts is the `kanecta studio` launcher — a Node script bundled separately by esbuild (build:server). It is not part of the browser app graph and must not be typechecked against the DOM/vite-client config here.",
+  "exclude": ["src/server.ts"]
 }

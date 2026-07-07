@@ -6,19 +6,16 @@
 #
 # MIGRATION RATCHET: convert each to .ts and DELETE its line. Goal: zero.
 #
-# The JS→TS cut-over migrated all 91 remaining source/test/script files across
-# kanecta-core and the tooling to TypeScript + vitest (see
-# ts-migration-execution-plan.md). The 5 files below are the ONLY ones left:
-# host-mandated entry points where the repo's "run under tsx, no build step"
-# model does NOT apply, because the host (Electron main process, VS Code
-# extension host, or an externally-launched Node process) loads the entry
-# directly and cannot type-strip .ts. Migrating them properly needs an esbuild
-# bundle step per package (main.ts -> bundled .cjs) plus updates to the Electron
-# electron-builder / vsce packaging — changes that cannot be verified on this
-# machine (cross-platform desktop builds, vsce packaging, external launcher).
-# They are left as .cjs/.js pending that supervised, build-verified pass.
-kanecta-ui/kanecta-apps/kanecta-app-studio-debian/main.cjs
-kanecta-ui/kanecta-apps/kanecta-app-studio-mac/main.cjs
-kanecta-ui/kanecta-apps/kanecta-app-studio-windows/main.cjs
-kanecta-ui/kanecta-apps/kanecta-app-studio-vscode-plugin/extension.js
-kanecta-ui/kanecta-apps/kanecta-app-studio/src/server.cjs
+# ✅ RATCHET AT ZERO. The JS→TS cut-over migrated every source/test/script file
+# across kanecta-core and the tooling to TypeScript + vitest, and the final five
+# host-mandated entry points now build from TypeScript via esbuild:
+#   * 3 Electron mains  (kanecta-app-studio-{debian,mac,windows}/main.ts)
+#   * VS Code extension (kanecta-app-studio-vscode-plugin/extension.ts)
+#   * Studio launcher   (kanecta-app-studio/src/server.ts)
+# Each of those has a `build` (or `build:server`) script that esbuild-bundles the
+# .ts source to the .cjs/.js artifact the host loads directly; the built artifact
+# is git-ignored (so it never re-enters this ratchet) and produced on demand by
+# the package's start/dist/package scripts. See each package's package.json.
+#
+# Keep this file (the gate reads it): any NEW entry below is a regression to
+# justify in review, not a default. There should be none.

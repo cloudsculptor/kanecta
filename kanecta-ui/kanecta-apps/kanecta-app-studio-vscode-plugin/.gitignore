@@ -1,0 +1,9 @@
+node_modules
+
+# Build artifact — bundled from extension.ts by `npm run build` (esbuild).
+# The host (VS Code) loads this .js directly; the .ts source is the truth.
+extension.js
+
+# vsce package output
+dist
+*.vsix

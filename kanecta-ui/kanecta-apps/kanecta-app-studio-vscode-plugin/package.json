@@ -33,11 +33,16 @@
     ]
   },
   "scripts": {
+    "build": "esbuild extension.ts --bundle --platform=node --format=cjs --target=node20 --external:vscode --outfile=extension.js",
+    "vscode:prepublish": "npm run build",
+    "prepackage": "npm run build",
     "package": "vsce package --out dist --no-dependencies"
   },
   "devDependencies": {
+    "@types/node": "^26.1.0",
     "@types/vscode": "^1.125.0",
-    "@vscode/vsce": "^3.0.0"
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.28.1"
   },
   "license": "MIT"
 }
