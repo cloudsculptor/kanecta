@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { http, HttpResponse } from "msw";
+import { within, expect } from "storybook/test";
 import { StoryWrapper } from "../stories/MockProviders";
 import Approvals from "./Approvals";
 import type { Event } from "../api/events";
@@ -132,5 +133,61 @@ export const Mobile: Story = {
   parameters: {
     viewport: { defaultViewport: "mobile2" },
     msw: { handlers: baseHandlers },
+  },
+};
+
+// ── Behaviour tests (play functions) ─────────────────────────────────────────
+// The moderator guard only redirects once Keycloak is `initialized`; in stories
+// it stays uninitialised, so the queues load and render from the mocked APIs.
+
+/** All three pending queues render their mocked items. */
+export const PendingQueuesRender: Story = {
+  parameters: { msw: { handlers: baseHandlers } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // Suggestion content (from /api/suggestions).
+    await expect(await canvas.findByText(/community tool library/)).toBeInTheDocument();
+    // Pending event title (from /api/events/pending).
+    await expect(canvas.getByText("Wairarapa Wine & Food Festival")).toBeInTheDocument();
+    // Pending notice heading (from /api/notices/pending).
+    await expect(canvas.getByText("Road closure — Fitzherbert Street")).toBeInTheDocument();
+  },
+};
+
+/** Empty queues show each section's empty-state message. */
+export const EmptyQueuesShowMessages: Story = {
+  parameters: {
+    msw: {
+      handlers: [
+        http.get("/api/events/pending", () => HttpResponse.json([])),
+        http.get("/api/suggestions", () => HttpResponse.json([])),
+        http.get("/api/notices/pending", () => HttpResponse.json([])),
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(await canvas.findByText("No suggestions yet.")).toBeInTheDocument();
+    await expect(canvas.getByText("No events pending review.")).toBeInTheDocument();
+    await expect(canvas.getByText("No notices pending review.")).toBeInTheDocument();
+  },
+};
+
+/** A 500 on the events queue surfaces its load-error alert. */
+export const EventsLoadErrorShowsAlert: Story = {
+  parameters: {
+    msw: {
+      handlers: [
+        http.get("/api/events/pending", () => HttpResponse.json({ error: "Server error" }, { status: 500 })),
+        http.get("/api/suggestions", () => HttpResponse.json([])),
+        http.get("/api/notices/pending", () => HttpResponse.json([])),
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      await canvas.findByText("Could not load pending events. Please try again later.")
+    ).toBeInTheDocument();
   },
 };

@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { http, HttpResponse } from "msw";
+import { within, expect } from "storybook/test";
 import { StoryWrapper } from "../stories/MockProviders";
 import SuggestionsArchive from "./SuggestionsArchive";
 
@@ -70,5 +71,50 @@ export const Mobile: Story = {
   parameters: {
     viewport: { defaultViewport: "mobile2" },
     msw: { handlers: [http.get("/api/suggestions/archived", () => HttpResponse.json(ARCHIVED))] },
+  },
+};
+
+// ── Behaviour tests (play functions) ─────────────────────────────────────────
+// The moderator guard only redirects once Keycloak is `initialized`; in stories
+// it stays uninitialised, so the archive loads and renders from the mocked API.
+
+/** Archived suggestions render their content and attribution. */
+export const ArchivedSuggestionsRender: Story = {
+  parameters: {
+    msw: { handlers: [http.get("/api/suggestions/archived", () => HttpResponse.json(ARCHIVED))] },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(await canvas.findByText(/community tool library/)).toBeInTheDocument();
+    await expect(canvas.getByText(/local tradespeople/)).toBeInTheDocument();
+    await expect(canvas.getByText(/community ride-sharing board/)).toBeInTheDocument();
+  },
+};
+
+/** An empty archive shows the "nothing archived yet" message. */
+export const EmptyShowsMessage: Story = {
+  parameters: {
+    msw: { handlers: [http.get("/api/suggestions/archived", () => HttpResponse.json([]))] },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      await canvas.findByText("No suggestions have been archived yet.")
+    ).toBeInTheDocument();
+  },
+};
+
+/** A 500 surfaces the load-error alert. */
+export const LoadErrorShowsAlert: Story = {
+  parameters: {
+    msw: {
+      handlers: [http.get("/api/suggestions/archived", () => HttpResponse.json({ error: "Server error" }, { status: 500 }))],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      await canvas.findByText("Could not load archived suggestions. Please try again later.")
+    ).toBeInTheDocument();
   },
 };
