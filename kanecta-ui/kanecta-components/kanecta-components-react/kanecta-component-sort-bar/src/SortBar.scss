@@ -8,34 +8,34 @@
   border-bottom: 1px solid var(--color-border);
   background: var(--color-surface-raised);
   flex-shrink: 0;
-}
 
-.SortBar-label {
-  white-space: nowrap;
-}
+  &__label {
+    white-space: nowrap;
+  }
 
-.SortBar-select {
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  padding: 2px 6px;
-  font-size: 0.75rem;
-  background: var(--color-surface);
-  color: var(--color-text);
-  outline: none;
-  cursor: pointer;
-}
+  &__select {
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 0.75rem;
+    background: var(--color-surface);
+    color: var(--color-text);
+    outline: none;
+    cursor: pointer;
+  }
 
-.SortBar-dir {
-  border: none;
-  background: none;
-  padding: 2px 6px;
-  cursor: pointer;
-  border-radius: 4px;
-  color: var(--color-text-secondary);
-  font-size: 0.75rem;
-}
+  &__dir {
+    border: none;
+    background: none;
+    padding: 2px 6px;
+    cursor: pointer;
+    border-radius: 4px;
+    color: var(--color-text-secondary);
+    font-size: 0.75rem;
 
-.SortBar-dir:hover {
-  background: var(--color-hover);
-  color: var(--color-text);
+    &:hover {
+      background: var(--color-hover);
+      color: var(--color-text);
+    }
+  }
 }

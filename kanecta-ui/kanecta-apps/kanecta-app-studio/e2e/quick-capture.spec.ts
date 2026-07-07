@@ -53,7 +53,7 @@ test.describe('QuickCapture', () => {
     });
 
     test('closes when the backdrop is clicked', async ({ page }) => {
-      await page.locator('.QuickCapture-backdrop').click();
+      await page.locator('.QuickCapture__backdrop').click();
       await expect(page.getByRole('dialog', { name: 'Quick capture' })).not.toBeVisible();
     });
   });
@@ -61,14 +61,14 @@ test.describe('QuickCapture', () => {
   test.describe('submitting', () => {
     test('Capture button is disabled when input is empty', async ({ page }) => {
       await page.getByRole('button', { name: 'Capture' }).first().click();
-      const captureSubmitBtn = page.locator('.QuickCapture-footer').getByRole('button', { name: 'Capture' });
+      const captureSubmitBtn = page.locator('.QuickCapture__footer').getByRole('button', { name: 'Capture' });
       await expect(captureSubmitBtn).toBeDisabled();
     });
 
     test('Capture button is enabled when input has text', async ({ page }) => {
       await page.getByRole('button', { name: 'Capture' }).click();
       await page.getByRole('textbox', { name: 'Item value' }).fill('My new idea');
-      const captureSubmitBtn = page.locator('.QuickCapture-footer').getByRole('button', { name: 'Capture' });
+      const captureSubmitBtn = page.locator('.QuickCapture__footer').getByRole('button', { name: 'Capture' });
       await expect(captureSubmitBtn).toBeEnabled();
     });
 
@@ -88,7 +88,7 @@ test.describe('QuickCapture', () => {
 
       await page.getByRole('button', { name: 'Capture' }).click();
       await page.getByRole('textbox', { name: 'Item value' }).fill('My new idea');
-      await page.locator('.QuickCapture-footer').getByRole('button', { name: 'Capture' }).click();
+      await page.locator('.QuickCapture__footer').getByRole('button', { name: 'Capture' }).click();
 
       await expect(page.getByRole('dialog', { name: 'Quick capture' })).not.toBeVisible();
       expect(capturedBody).toMatchObject({ value: 'My new idea', type: 'text' });
@@ -139,7 +139,7 @@ test.describe('QuickCapture', () => {
       // First capture
       await page.getByRole('button', { name: 'Capture' }).click();
       await page.getByRole('textbox', { name: 'Item value' }).fill('First capture');
-      await page.locator('.QuickCapture-footer').getByRole('button', { name: 'Capture' }).click();
+      await page.locator('.QuickCapture__footer').getByRole('button', { name: 'Capture' }).click();
       await expect(page.getByRole('dialog', { name: 'Quick capture' })).not.toBeVisible();
 
       // Re-open

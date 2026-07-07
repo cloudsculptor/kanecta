@@ -20,7 +20,7 @@ function CopyUuidButton({ id }: { id: string }) {
   };
   return (
     <Tooltip title={copied ? 'Copied!' : 'Copy UUID'}>
-      <IconButton size="small" className="HistoryView-copy" onClick={handleCopy}>
+      <IconButton size="small" className="HistoryView__copy" onClick={handleCopy}>
         <ContentCopyIcon />
       </IconButton>
     </Tooltip>
@@ -42,26 +42,26 @@ export function HistoryList({ queryKey, fetcher, emptyMessage, onNavigate, getTy
     refetchInterval: 5000,
   });
 
-  if (isLoading) return <div className="HistoryView-empty">Loading…</div>;
-  if (error) return <div className="HistoryView-empty">Failed to load</div>;
-  if (!entries.length) return <div className="HistoryView-empty">{emptyMessage}</div>;
+  if (isLoading) return <div className="HistoryView__empty">Loading…</div>;
+  if (error) return <div className="HistoryView__empty">Failed to load</div>;
+  if (!entries.length) return <div className="HistoryView__empty">{emptyMessage}</div>;
 
   return (
-    <div className="HistoryView-list">
+    <div className="HistoryView__list">
       {entries.map((entry, i) => {
         const Icon = getTypeIcon?.(entry.type);
         return (
-          <div key={i} className="HistoryView-entry">
-            {Icon && <Icon className="HistoryView-type-icon" />}
+          <div key={i} className="HistoryView__entry">
+            {Icon && <Icon className="HistoryView__type-icon" />}
             <a
               href={`/#/tree/${entry.id}`}
-              className="HistoryView-entry-name"
+              className="HistoryView__entry-name"
               onClick={(e) => onNavigate(e, entry.id)}
             >
               {entry.name}
             </a>
             <CopyUuidButton id={entry.id} />
-            <span className="HistoryView-entry-time">{new Date(entry.timestamp).toLocaleString()}</span>
+            <span className="HistoryView__entry-time">{new Date(entry.timestamp).toLocaleString()}</span>
           </div>
         );
       })}
@@ -79,8 +79,8 @@ export interface HistoryViewProps {
 export function HistoryView({ onFetchClipboard, onFetchViewed, onNavigate, getTypeIcon }: HistoryViewProps) {
   return (
     <div className="HistoryView">
-      <div className="HistoryView-column">
-        <h2 className="HistoryView-heading">Clipboard History</h2>
+      <div className="HistoryView__column">
+        <h2 className="HistoryView__heading">Clipboard History</h2>
         <HistoryList
           queryKey="breadcrumb-clipboard"
           fetcher={onFetchClipboard}
@@ -89,9 +89,9 @@ export function HistoryView({ onFetchClipboard, onFetchViewed, onNavigate, getTy
           getTypeIcon={getTypeIcon}
         />
       </div>
-      <div className="HistoryView-divider" />
-      <div className="HistoryView-column">
-        <h2 className="HistoryView-heading">Navigation History</h2>
+      <div className="HistoryView__divider" />
+      <div className="HistoryView__column">
+        <h2 className="HistoryView__heading">Navigation History</h2>
         <HistoryList
           queryKey="breadcrumb-viewed"
           fetcher={onFetchViewed}

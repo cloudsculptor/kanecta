@@ -108,7 +108,7 @@ export function TableView({
 
   return (
     <div className="TableView">
-      <div className="TableView-sidebar">
+      <div className="TableView__sidebar">
         <TypeList
           types={types}
           countByTypeId={countByTypeId}
@@ -118,15 +118,15 @@ export function TableView({
           onCreateItem={(t) => void onCreateItem(t)}
         />
       </div>
-      <div className="TableView-grid">
+      <div className="TableView__grid">
         {!selectedType && (
-          <div className="TableView-empty">Select a type to view its items</div>
+          <div className="TableView__empty">Select a type to view its items</div>
         )}
         {selectedType && !!schema && columnDefs.length === 0 && (
-          <div className="TableView-empty">No schema fields defined for this type</div>
+          <div className="TableView__empty">No schema fields defined for this type</div>
         )}
         {selectedType && columnDefs.length > 0 && typeItems.length === 0 && (
-          <div className="TableView-empty">No items of this type</div>
+          <div className="TableView__empty">No items of this type</div>
         )}
         {selectedType && columnDefs.length > 0 && typeItems.length > 0 && (
           <AgGridReact

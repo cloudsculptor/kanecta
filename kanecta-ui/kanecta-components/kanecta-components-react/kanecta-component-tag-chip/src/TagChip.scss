@@ -9,20 +9,20 @@
   color: var(--color-tag-text);
   white-space: nowrap;
   font-weight: 500;
-}
 
-.TagChip-remove {
-  display: inline-flex;
-  align-items: center;
-  cursor: pointer;
-  border: none;
-  background: none;
-  padding: 0;
-  color: inherit;
-  opacity: 0.6;
-  line-height: 1;
-}
+  &__remove {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 0;
+    color: inherit;
+    opacity: 0.6;
+    line-height: 1;
 
-.TagChip-remove:hover {
-  opacity: 1;
+    &:hover {
+      opacity: 1;
+    }
+  }
 }

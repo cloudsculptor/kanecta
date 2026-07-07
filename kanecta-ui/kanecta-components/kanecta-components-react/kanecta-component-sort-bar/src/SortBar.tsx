@@ -19,9 +19,9 @@ export interface SortBarProps {
 export function SortBar({ sort, onChange }: SortBarProps) {
   return (
     <div className="SortBar">
-      <span className="SortBar-label">Sort by</span>
+      <span className="SortBar__label">Sort by</span>
       <select
-        className="SortBar-select"
+        className="SortBar__select"
         value={sort.field}
         onChange={(e) => onChange({ ...sort, field: e.target.value as SortState['field'] })}
         aria-label="Sort field"
@@ -31,7 +31,7 @@ export function SortBar({ sort, onChange }: SortBarProps) {
         ))}
       </select>
       <button
-        className="SortBar-dir"
+        className="SortBar__dir"
         onClick={() => onChange({ ...sort, direction: sort.direction === 'asc' ? 'desc' : 'asc' })}
         aria-label={`Sort direction: ${sort.direction}`}
       >

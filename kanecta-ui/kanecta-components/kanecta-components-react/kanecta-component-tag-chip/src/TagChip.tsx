@@ -10,7 +10,7 @@ export function TagChip({ tag, onRemove }: TagChipProps) {
     <span className="TagChip">
       #{tag}
       {onRemove && (
-        <button className="TagChip-remove" onClick={onRemove} aria-label={`Remove tag ${tag}`}>
+        <button className="TagChip__remove" onClick={onRemove} aria-label={`Remove tag ${tag}`}>
           ×
         </button>
       )}

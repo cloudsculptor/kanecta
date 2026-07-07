@@ -38,12 +38,12 @@ export function QuickCapture({ open, onClose, onSubmit }: QuickCaptureProps) {
 
   return (
     <div className="QuickCapture" role="dialog" aria-modal aria-label="Quick capture">
-      <div className="QuickCapture-backdrop" onClick={onClose} />
-      <div className="QuickCapture-dialog">
-        <span className="QuickCapture-label">Quick capture</span>
+      <div className="QuickCapture__backdrop" onClick={onClose} />
+      <div className="QuickCapture__dialog">
+        <span className="QuickCapture__label">Quick capture</span>
         <input
           ref={inputRef}
-          className="QuickCapture-input"
+          className="QuickCapture__input"
           placeholder="Capture a note, task, idea…"
           value={value}
           onChange={(e) => setValue(e.target.value)}
@@ -52,7 +52,7 @@ export function QuickCapture({ open, onClose, onSubmit }: QuickCaptureProps) {
           }}
           aria-label="Item value"
         />
-        <div className="QuickCapture-footer">
+        <div className="QuickCapture__footer">
           <Button size="small" onClick={onClose}>Cancel</Button>
           <Button size="small" variant="contained" onClick={handleSubmit} disabled={!value.trim()}>
             Capture

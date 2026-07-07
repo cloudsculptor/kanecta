@@ -3,16 +3,16 @@
   flex-direction: column;
   height: 100%;
   padding: 24px;
-}
 
-.FunctionsView-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: var(--color-text-muted);
-}
+  &__empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--color-text-muted);
+  }
 
-.FunctionsView-empty-label {
-  font-size: 0.875rem;
+  &__empty-label {
+    font-size: 0.875rem;
+  }
 }
