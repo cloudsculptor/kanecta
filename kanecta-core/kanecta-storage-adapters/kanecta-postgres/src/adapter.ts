@@ -438,7 +438,20 @@ class PostgresAdapter {
 
   async update(id: any, changes: any, actor?: any, { strict }: any = {}) {
     const current = await this.get(id);
-    this._assertEditable(current, id);
+    if (!current) throw new Error(`Item not found: ${id}`);
+    // The root node is renamable — its `value` (and other descriptive fields)
+    // may be edited so a datastore can be given a meaningful name — but its
+    // structural fields stay locked so it remains the self-parented type:'root'
+    // anchor. It still can't be deleted (softDelete keeps _assertEditable). Every
+    // other reserved node (the types container) stays fully immutable.
+    if (current.id === ROOT_ID) {
+      const LOCKED_ROOT_FIELDS = ['type', 'typeId', 'parentId', 'sortOrder', 'aspect'];
+      for (const f of LOCKED_ROOT_FIELDS)
+        if (f in changes && changes[f] !== current[f])
+          throw new Error(`The root node's '${f}' cannot be changed`);
+    } else {
+      this._assertEditable(current, id);
+    }
 
     const newType   = 'type'   in changes ? changes.type   : current.type;
     const newTypeId = 'typeId' in changes ? changes.typeId : current.typeId;

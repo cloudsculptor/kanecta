@@ -596,6 +596,27 @@ describe('update', () => {
     expect(() => ds.update(types.id, { value: 'x' })).toThrow(/reserved root node/);
   });
 
+  it('allows renaming the root node value', () => {
+    const updated = ds.update(ROOT_ID, { value: 'My Knowledge Base' });
+    expect(updated.value).toBe('My Knowledge Base');
+    expect(ds.getRoot().value).toBe('My Knowledge Base');
+    // still the structural anchor
+    expect(ds.getRoot().type).toBe('root');
+    expect(ds.getRoot().id).toBe(ROOT_ID);
+  });
+
+  it('locks the root node structural fields', () => {
+    expect(() => ds.update(ROOT_ID, { type: 'text' })).toThrow(/root node's 'type'/);
+    expect(() => ds.update(ROOT_ID, { parentId: ds.create({ value: 'p' }).id })).toThrow(/root node's 'parentId'/);
+    expect(() => ds.update(ROOT_ID, { typeId: '22222222-2222-2222-2222-222222222222' })).toThrow(/root node's 'typeId'/);
+    expect(() => ds.update(ROOT_ID, { sortOrder: 5 })).toThrow(/root node's 'sortOrder'/);
+  });
+
+  it('root remains non-deletable after becoming renamable', () => {
+    expect(() => ds.softDelete(ROOT_ID)).toThrow(/reserved root node/);
+    expect(() => ds.delete(ROOT_ID)).toThrow(/reserved root node/);
+  });
+
   // ── parentId change cascades materialized path ─────────────────────────────
 
   it('cascades path update when parentId changes', () => {
