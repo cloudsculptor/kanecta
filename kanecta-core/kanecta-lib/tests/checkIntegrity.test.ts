@@ -374,6 +374,24 @@ describe('typedef-children-well-formed', () => {
   });
 });
 
+describe('nullable-timestamps-valid', () => {
+  test('a bad expiresAt fails', async () => {
+    const ds = tmpDs();
+    const it = await ds.create({ value: 'x', type: 'text' });
+    await ds.update(it.id, { expiresAt: 'not-a-date' });
+    const rep = await report(ds, { checks: ['nullable-timestamps-valid'] });
+    expect(byId(rep, 'nullable-timestamps-valid').status).toBe('fail');
+  });
+
+  test('a valid ISO dueAt and null fields pass', async () => {
+    const ds = tmpDs();
+    const it = await ds.create({ value: 'x', type: 'text' });
+    await ds.update(it.id, { dueAt: '2026-07-08T00:00:00.000Z' });
+    const rep = await report(ds, { checks: ['nullable-timestamps-valid'] });
+    expect(byId(rep, 'nullable-timestamps-valid').status).toBe('pass');
+  });
+});
+
 describe('typedef-ref-keywords-exclusive', () => {
   test('a property carrying both typeId and x-kanecta-itemType fails', async () => {
     const ds = tmpDs();

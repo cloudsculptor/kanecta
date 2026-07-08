@@ -702,6 +702,26 @@ const CHECKS: IntegrityCheckDef[] = [
     },
   },
 
+  {
+    id: 'nullable-timestamps-valid', group: 'metadata',
+    title: 'Optional timestamps (deletedAt, cachedAt, expiresAt, completedAt, dueAt) are ISO-8601 or null',
+    specRef: 'specification.adoc §meta timestamps (L365–408); the time-related nullable meta fields',
+    async run(ctx) {
+      const fields = ['deletedAt', 'cachedAt', 'expiresAt', 'completedAt', 'dueAt'] as const;
+      const findings: Finding[] = [];
+      for (const it of ctx.items) {
+        for (const field of fields) {
+          const v = it[field];
+          if (v != null && !(typeof v === 'string' && ISO_RE.test(v))) {
+            findings.push(err(`item ${it.id} ${field} "${v}" is not an ISO-8601 datetime`, it.id,
+              `set ${field} to an ISO-8601 datetime or null`));
+          }
+        }
+      }
+      return findings;
+    },
+  },
+
   // ── storage-specific (Postgres) — recorded here, skipped on filesystem ────────
   {
     id: 'obj-table-matches-sqlschema', group: 'storage',
