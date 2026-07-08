@@ -10,6 +10,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { version as specVersion } from '@kanecta/specification';
+import { deriveSqlSchema, deriveIndexDdl } from '@kanecta/schema-compiler';
 import { Pool } from 'pg';
 import { createEmbeddingProvider, reciprocalRankFusion } from './embeddings.ts';
 
@@ -106,6 +107,15 @@ function parseLinks(value: any): string[] {
 
 function objTableName(typeId: string): string {
   return `obj_${typeId.replace(/-/g, '_')}`;
+}
+
+// The schema-compiler emits plain DDL (no guards); the adapter owns idempotency.
+// Add `IF NOT EXISTS` to both table and index creation so _ensureProjection can
+// run on every object write.
+function guardDdl(stmt: string): string {
+  return stmt
+    .replace(/^CREATE TABLE /i, 'CREATE TABLE IF NOT EXISTS ')
+    .replace(/^CREATE (UNIQUE )?INDEX /i, (_m, u) => `CREATE ${u || ''}INDEX IF NOT EXISTS `);
 }
 
 // ─── Adapter ──────────────────────────────────────────────────────────────────
@@ -424,8 +434,18 @@ class PostgresAdapter {
       );
     }
 
-    if (objectData && type === 'object' && typeId) {
-      await this.writeObjectJson(id, typeId, objectData);
+    // Per-type table projection: the first live instance of a type materialises
+    // its obj_<typeId> table, and every instance holds a row there (one row per
+    // live item). ensureProjection is a no-op for an orphan typeId (no def).
+    if (type === 'object' && typeId) {
+      const projected = await this._ensureProjection(typeId);
+      if (projected) {
+        if (objectData) await this.writeObjectJson(id, typeId, objectData);
+        else await this._pool.query(
+          `INSERT INTO "${objTableName(typeId)}" (item_id) VALUES ($1) ON CONFLICT (item_id) DO NOTHING`,
+          [id],
+        );
+      }
     }
 
     const item = await this.get(id);
@@ -518,6 +538,25 @@ class PostgresAdapter {
       );
     }
 
+    // Per-type projection: reconcile membership when the item's type/typeId
+    // changes. The items row is already updated above, so N(T) on the old type
+    // no longer counts this item. A pure soft-delete (deletedAt only) leaves
+    // type/typeId unchanged and keeps the obj_ row (pg's payload store).
+    const prevObj = current.type === 'object' && current.typeId;
+    const nextObj = newType === 'object' && newTypeId;
+    if (prevObj && (!nextObj || current.typeId !== newTypeId)) {
+      try { await this._pool.query(`DELETE FROM "${objTableName(current.typeId)}" WHERE item_id = $1`, [id]); }
+      catch { /* old table already absent */ }
+      await this._dropProjectionIfEmpty(current.typeId);
+    }
+    if (nextObj && (!prevObj || current.typeId !== newTypeId)) {
+      const projected = await this._ensureProjection(newTypeId);
+      if (projected) await this._pool.query(
+        `INSERT INTO "${objTableName(newTypeId)}" (item_id) VALUES ($1) ON CONFLICT (item_id) DO NOTHING`,
+        [id],
+      );
+    }
+
     const result = await this.get(id);
     if (typeWarning && result) {
       Object.defineProperty(result, 'warning', { value: typeWarning, enumerable: false, configurable: true });
@@ -552,6 +591,9 @@ class PostgresAdapter {
     // them before removing the item.
     await this._pool.query('DELETE FROM links WHERE source_id = $1 OR target_id = $1', [id]);
     await this._pool.query('DELETE FROM items WHERE id = $1', [id]);
+    // The obj_ row cascaded away with the items row (FK ON DELETE CASCADE). Drop
+    // the type table if this hard delete removed the last remaining instance.
+    if (item.type === 'object' && item.typeId) await this._dropProjectionIfEmpty(item.typeId);
     return { warnings };
   }
 
@@ -1021,13 +1063,21 @@ class PostgresAdapter {
     if (!typeId) return null;
     const table = objTableName(typeId);
     try {
-      const { rows } = await this._pool.query(
+      const result = await this._pool.query(
         `SELECT * FROM "${table}" WHERE item_id = $1`, [id],
       );
-      if (!rows[0]) return null;
-      const { item_id, ...rest } = rows[0]; // eslint-disable-line no-unused-vars
+      if (!result.rows[0]) return null;
+      // The compiler maps jsonSchema `integer` to BIGINT, which node-pg returns
+      // as a string; coerce those columns back to numbers so the payload keeps
+      // its JS types. (int4/float8/bool/arrays already come back correctly.)
+      const oidByCol: Record<string, number> = {};
+      for (const f of result.fields) oidByCol[f.name] = (f as any).dataTypeID;
+      const { item_id, ...rest } = result.rows[0]; // eslint-disable-line no-unused-vars
       return Object.fromEntries(
-        Object.entries(rest).map(([k, v]) => [k.replace(/_([a-z])/g, (_, c) => c.toUpperCase()), v]),
+        Object.entries(rest).map(([k, v]) => {
+          const val = (typeof v === 'string' && oidByCol[k] === 20) ? Number(v) : v;
+          return [k.replace(/_([a-z])/g, (_, c) => c.toUpperCase()), val];
+        }),
       );
     } catch { return null; }
   }
@@ -1359,8 +1409,13 @@ class PostgresAdapter {
       },
     };
 
-    const meta      = resolvedSchema.meta ?? {};
-    const tableName = resolvedSchema.sqlSchema?.length ? objTableName(id) : null;
+    const meta = resolvedSchema.meta ?? {};
+    // `table_name` is documentary — the name the projection WILL use. The
+    // physical `obj_<typeId>` table is NOT created here: a fresh type has zero
+    // instances (N(T)=0), so per the spec invariant it projects no table. The
+    // table is materialised lazily on the first live object instance
+    // (_ensureProjection) and dropped on hard-delete of the last.
+    const tableName = objTableName(id);
 
     await this._pool.query(
       `INSERT INTO types (
@@ -1368,20 +1423,21 @@ class PostgresAdapter {
          meta_icon, meta_description, meta_details, meta_keywords, meta_tags,
          meta_primary_field, meta_ai_instructions_claude,
          meta_functions_consumed_by, meta_functions_produced_by,
-         json_schema, sql_schema, sync, superseded_by, implements, extends
+         json_schema, sql_schema, sync, superseded_by, implements, extends, indexes
        ) VALUES (
          $1, $2,
          $3, $4, $5, $6, $7,
          $8, $9,
          $10, $11,
-         $12, $13, $14, $15, $16, $17
+         $12, $13, $14, $15, $16, $17, $18
        )
        ON CONFLICT (item_id) DO UPDATE SET
          table_name = $2,
          meta_icon = $3, meta_description = $4, meta_details = $5, meta_keywords = $6, meta_tags = $7,
          meta_primary_field = $8, meta_ai_instructions_claude = $9,
          meta_functions_consumed_by = $10, meta_functions_produced_by = $11,
-         json_schema = $12, sql_schema = $13, sync = $14, superseded_by = $15, implements = $16, extends = $17`,
+         json_schema = $12, sql_schema = $13, sync = $14, superseded_by = $15, implements = $16, extends = $17,
+         indexes = $18`,
       [
         id, tableName,
         meta.icon ?? null, meta.description ?? '', meta.details ?? null, meta.keywords ?? null, meta.tags ?? null,
@@ -1389,16 +1445,9 @@ class PostgresAdapter {
         meta.functions?.consumedBy ?? [], meta.functions?.producedBy ?? [],
         JSON.stringify(resolvedSchema.jsonSchema), resolvedSchema.sqlSchema ?? [],
         meta.sync ?? [], meta.supersededBy ?? [], meta.implements ?? [], meta.extends ?? [],
+        JSON.stringify(resolvedSchema.indexes ?? []),
       ],
     );
-
-    if (resolvedSchema.sqlSchema?.length) {
-      for (const ddl of resolvedSchema.sqlSchema) {
-        const createIfNotExists = ddl.replace(/^CREATE TABLE\s+/i, 'CREATE TABLE IF NOT EXISTS ');
-        await this._pool.query(createIfNotExists);
-      }
-      await this._attachObjectSearchTrigger(objTableName(id));
-    }
 
     await this._snapshot(id, 'create', actor, now);
     const metadata = await this.get(id);
@@ -1423,7 +1472,7 @@ class PostgresAdapter {
       implements: t.implements ?? [],
       extends: t.extends ?? [],
     };
-    return { meta, jsonSchema: t.json_schema, sqlSchema: t.sql_schema ?? [] };
+    return { meta, jsonSchema: t.json_schema, sqlSchema: t.sql_schema ?? [], indexes: t.indexes ?? [] };
   }
 
   async writeTypeJson(id: any, data: any) {
@@ -1433,7 +1482,7 @@ class PostgresAdapter {
          meta_icon = $2, meta_description = $3, meta_details = $4, meta_keywords = $5, meta_tags = $6,
          meta_primary_field = $7, meta_ai_instructions_claude = $8,
          meta_functions_consumed_by = $9, meta_functions_produced_by = $10,
-         json_schema = $11, sync = $12, superseded_by = $13, implements = $14, extends = $15
+         json_schema = $11, sync = $12, superseded_by = $13, implements = $14, extends = $15, indexes = $16
        WHERE item_id = $1`,
       [
         id,
@@ -1441,6 +1490,7 @@ class PostgresAdapter {
         meta.primaryField ?? null, meta.skills?.claude ?? null,
         meta.functions?.consumedBy ?? [], meta.functions?.producedBy ?? [],
         JSON.stringify(data.jsonSchema), meta.sync ?? [], meta.supersededBy ?? [], meta.implements ?? [], meta.extends ?? [],
+        JSON.stringify(data.indexes ?? []),
       ],
     );
   }
@@ -1452,6 +1502,54 @@ class PostgresAdapter {
          AFTER INSERT OR UPDATE OR DELETE ON "${tableName}"
          FOR EACH ROW EXECUTE FUNCTION kanecta_update_object_search_vector()`,
     );
+  }
+
+  // ─── Per-type table projection ────────────────────────────────────────────
+
+  // Materialise `obj_<typeId>` (columns + declared indexes) if absent, derived
+  // from the type's jsonSchema by @kanecta/schema-compiler, and attach the FTS
+  // trigger. Idempotent (IF NOT EXISTS). Returns false when the type has no
+  // stored definition (an orphan typeId) so callers skip the row write. A
+  // malformed index declaration is skipped with a warning, never blocking the
+  // instance write.
+  async _ensureProjection(typeId: any): Promise<boolean> {
+    const def = await this.readTypeJson(typeId);
+    if (!def || !def.jsonSchema) return false;   // orphan / schemaless type
+    for (const stmt of deriveSqlSchema(def.jsonSchema, { typeId, dialect: 'postgres' }))
+      await this._pool.query(guardDdl(stmt));
+    try {
+      for (const stmt of deriveIndexDdl(def.jsonSchema, def.indexes, { typeId, dialect: 'postgres' }))
+        await this._pool.query(guardDdl(stmt));
+    } catch (e: any) {
+      console.warn(`[postgres] skipping indexes for type ${typeId}: ${e?.message ?? e}`);
+    }
+    await this._attachObjectSearchTrigger(objTableName(typeId));
+    return true;
+  }
+
+  // Drop the type table when no non-hard-deleted instances remain. Unlike
+  // sqlite-fs — where item.json + items_payload are the source of truth — the
+  // Postgres obj_ table IS the payload store, so a soft-deleted instance's row
+  // must persist there (a hard drop would lose the payload and break restore).
+  // Hence N counts every remaining items row of the type (live OR soft-deleted);
+  // the table is dropped only once the last one is hard-deleted / reassigned.
+  async _dropProjectionIfEmpty(typeId: any) {
+    const { rows } = await this._pool.query(
+      "SELECT COUNT(*)::int AS n FROM items WHERE type = 'object' AND type_id = $1",
+      [typeId],
+    );
+    if (!rows[0] || rows[0].n === 0)
+      await this._pool.query(`DROP TABLE IF EXISTS "${objTableName(typeId)}"`);
+  }
+
+  // Every materialised per-type table in the current schema. Used by integrity
+  // checks; mirrors the sqlite-fs handle surface.
+  async listProjectedRelations() {
+    const { rows } = await this._pool.query(
+      `SELECT table_name FROM information_schema.tables
+        WHERE table_schema = current_schema() AND table_name LIKE 'obj\\_%'`,
+    );
+    return rows.map((r: any) => r.table_name);
   }
 
   // ─── Semantic / hybrid search (pgvector) ─────────────────────────────────────

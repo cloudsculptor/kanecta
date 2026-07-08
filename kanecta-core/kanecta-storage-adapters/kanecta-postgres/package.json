@@ -31,6 +31,7 @@
     "access": "public"
   },
   "dependencies": {
+    "@kanecta/schema-compiler": "^1.4.0",
     "@kanecta/specification": "^1.4.0"
   },
   "peerDependencies": {

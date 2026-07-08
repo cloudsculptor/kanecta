@@ -873,12 +873,17 @@ describe('type definitions', () => {
     expect(schema.jsonSchema.title).toBe('Widget');
   });
 
-  test('createType creates the obj_<typeId> table', async () => {
+  test('createType does NOT create the obj_<typeId> table (N=0); the first instance does', async () => {
     const id        = crypto.randomUUID();
     const tableName = `obj_${id.replace(/-/g, '_')}`;
     await adapter.createType('Gadget', { schema: makeTypeSchema(tableName, 'Gadget'), id });
-    const { rows } = await pool.query(`SELECT to_regclass($1) AS reg`, [tableName]);
-    expect(rows[0].reg).toBe(tableName);
+    // A fresh type has no instances, so per the projection invariant no table exists yet.
+    const before = await pool.query(`SELECT to_regclass($1) AS reg`, [tableName]);
+    expect(before.rows[0].reg).toBeNull();
+    // The first live object instance materialises it.
+    await adapter.create({ type: 'object', typeId: id, value: 'gadget-1', objectData: { label: 'g' } });
+    const after = await pool.query(`SELECT to_regclass($1) AS reg`, [tableName]);
+    expect(after.rows[0].reg).toBe(tableName);
   });
 
   test('readTypeJson returns stored schema', async () => {
@@ -964,6 +969,108 @@ describe('objectData round-trip', () => {
     const item = await adapter.create({ value: 'obj-3arg', type: 'object', typeId });
     await adapter.writeObjectJson(item.id, typeId, { label: 'explicit', rank: 9 });
     expect(await adapter.readObjectJson(item.id, typeId)).toMatchObject({ label: 'explicit', rank: 9 });
+  });
+});
+
+// ─── per-type table projection ──────────────────────────────────────────────
+
+describe('per-type table projection', () => {
+  // Person type: scalar, integer, boolean, string-array, plus a declared index.
+  async function definePerson() {
+    const id = crypto.randomUUID();
+    await adapter.createType('Person', {
+      id,
+      schema: {
+        meta: { icon: 'Person' },
+        jsonSchema: {
+          type: 'object',
+          properties: {
+            fullName: { type: 'string' },
+            age:      { type: 'integer' },
+            active:   { type: 'boolean' },
+            tags:     { type: 'array', items: { type: 'string' } },
+          },
+        },
+        indexes: [{ fields: ['fullName'] }],
+      },
+    });
+    return { id, table: `obj_${id.replace(/-/g, '_')}` };
+  }
+  const regclass = async (t) => (await pool.query('SELECT to_regclass($1) AS reg', [t])).rows[0].reg;
+  const rowCount = async (t) => (await pool.query(`SELECT COUNT(*)::int AS n FROM "${t}"`)).rows[0].n;
+
+  test('a type with no instances projects no table', async () => {
+    const { table } = await definePerson();
+    expect(await regclass(table)).toBeNull();
+    expect(await adapter.listProjectedRelations()).not.toContain(table);
+  });
+
+  test('the first instance materialises the table; a declared index is created', async () => {
+    const { id, table } = await definePerson();
+    await adapter.create({ type: 'object', typeId: id, value: 'Ada', objectData: { fullName: 'Ada' } });
+    expect(await regclass(table)).toBe(table);
+    expect(await adapter.listProjectedRelations()).toContain(table);
+    const { rows } = await pool.query(
+      `SELECT indexname FROM pg_indexes WHERE schemaname = current_schema() AND tablename = $1`, [table]);
+    expect(rows.map(r => r.indexname)).toContain(`idx_${table}_full_name`);
+  });
+
+  test('integer fields round-trip as JS numbers (BIGINT coercion), booleans and arrays map correctly', async () => {
+    const { id } = await definePerson();
+    const p = await adapter.create({ type: 'object', typeId: id, value: 'Ada',
+      objectData: { fullName: 'Ada', age: 36, active: true, tags: ['math', 'cs'] } });
+    const payload = await adapter.readObjectJson(p.id, id);
+    expect(payload).toMatchObject({ fullName: 'Ada', age: 36, active: true, tags: ['math', 'cs'] });
+    expect(typeof payload.age).toBe('number');
+  });
+
+  test('an object instance with no payload still gets a row', async () => {
+    const { id, table } = await definePerson();
+    await adapter.create({ type: 'object', typeId: id, value: 'blank' });
+    expect(await rowCount(table)).toBe(1);
+  });
+
+  test('deleting a non-last instance leaves the table; deleting the last drops it', async () => {
+    const { id, table } = await definePerson();
+    const p1 = await adapter.create({ type: 'object', typeId: id, value: 'Ada',   objectData: { fullName: 'Ada' } });
+    const p2 = await adapter.create({ type: 'object', typeId: id, value: 'Grace', objectData: { fullName: 'Grace' } });
+    await adapter.delete(p1.id);
+    expect(await regclass(table)).toBe(table);
+    expect(await rowCount(table)).toBe(1);
+    await adapter.delete(p2.id);
+    expect(await regclass(table)).toBeNull();
+  });
+
+  test('soft-delete of the last instance KEEPS the table and its row (pg payload store); restore works', async () => {
+    const { id, table } = await definePerson();
+    const p = await adapter.create({ type: 'object', typeId: id, value: 'Ada', objectData: { fullName: 'Ada', age: 36 } });
+    await adapter.softDelete(p.id);
+    // The row must persist — the obj_ table IS the payload store, so restore can recover it.
+    expect(await regclass(table)).toBe(table);
+    expect(await rowCount(table)).toBe(1);
+    await adapter.restore(p.id);
+    expect(await adapter.readObjectJson(p.id, id)).toMatchObject({ fullName: 'Ada', age: 36 });
+  });
+
+  test('reassigning an item\'s typeId drops the emptied old table and projects into the new one', async () => {
+    const { id: personId, table: personTable } = await definePerson();
+    const robotId = crypto.randomUUID();
+    const robotTable = `obj_${robotId.replace(/-/g, '_')}`;
+    await adapter.createType('Robot', {
+      id: robotId,
+      schema: { meta: { icon: 'SmartToy' }, jsonSchema: { type: 'object', properties: { model: { type: 'string' } } } },
+    });
+    const p = await adapter.create({ type: 'object', typeId: personId, value: 'Ada', objectData: { fullName: 'Ada' } });
+    expect(await regclass(personTable)).toBe(personTable);
+    await adapter.update(p.id, { typeId: robotId }, OWNER);
+    expect(await regclass(personTable)).toBeNull();          // emptied → dropped
+    expect(await adapter.listProjectedRelations()).toContain(robotTable);
+  });
+
+  test('non-object items never project a table', async () => {
+    const before = await adapter.listProjectedRelations();
+    await adapter.create({ value: 'plain text', type: 'text' });
+    expect(await adapter.listProjectedRelations()).toEqual(before);
   });
 });
 
@@ -1166,16 +1273,16 @@ describe('loadAll', () => {
 
 // ─── createType: obj_<typeId> table + search trigger ──────────────────────────
 
-test('createType attaches FTS trigger to new obj_* table', async () => {
+test('the first instance materialises the obj_* table with the FTS trigger', async () => {
   const id        = crypto.randomUUID();
   const tableName = `obj_${id.replace(/-/g, '_')}`;
   await adapter.createType('Doohickey', {
     schema: {
       meta: {}, jsonSchema: { type: 'object', properties: { label: { type: 'string' } }, required: [], additionalProperties: false },
-      sqlSchema: [`CREATE TABLE "${tableName}" (item_id UUID NOT NULL, "label" TEXT, CONSTRAINT "pk_${tableName}" PRIMARY KEY (item_id), CONSTRAINT "fk_${tableName}_item" FOREIGN KEY (item_id) REFERENCES items(id))`],
     },
     id,
   });
+  await adapter.create({ type: 'object', typeId: id, value: 'doohickey-1', objectData: { label: 'd' } });
   const { rows } = await pool.query(
     `SELECT 1 FROM pg_trigger WHERE tgname = 'trg_object_search_vector' AND tgrelid = $1::regclass`,
     [tableName],
