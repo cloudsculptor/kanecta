@@ -80,6 +80,32 @@
     color: var(--color-text-muted);
   }
 
+  &__overlong {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    margin-top: 16px;
+    color: var(--color-text-muted);
+
+    &--warn {
+      color: var(--color-danger, #b42318);
+    }
+  }
+
+  &__overlong-count {
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__overlong-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
   &__empty {
     font-size: 0.85rem;
     color: var(--color-text-muted);

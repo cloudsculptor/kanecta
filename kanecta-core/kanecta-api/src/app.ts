@@ -4,7 +4,7 @@ import {
   Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE,
   readAppConfig, resolveWorkingSet, resolveBranch, workingSetLocalPath,
   setActiveWorkingSet, setActiveBranch,
-  checkIntegrity, checkIntegrityStream,
+  checkIntegrity, checkIntegrityStream, isValueOverLong,
 } from '@kanecta/lib';
 import * as claude from '@kanecta/ai';
 import { generateFunctionScaffold, getRuntimeDir, computeBundleHash, toCamelCase, toPythonName, VALID_RUNTIME_RE } from '@kanecta/lib';
@@ -668,8 +668,10 @@ app.get('/items/stats', async (req, res) => {
   const structuredMap: Record<string, any> = {};
   const unstructuredMap: Record<string, any> = {};
   let total = 0;
+  let overLongValues = 0;
 
   for (const item of await ds.loadAll()) {
+    if (isValueOverLong(item)) overLongValues++;
     const raw = item.type;
     if (!raw || ROOT_TYPES.has(raw)) continue;
     total++;
@@ -696,7 +698,7 @@ app.get('/items/stats', async (req, res) => {
     .map(([type, count]) => ({ type, count }));
   const typedCount = structured.reduce((s, r) => s + r.count, 0);
 
-  res.json({ total, typedCount, structured, unstructured });
+  res.json({ total, typedCount, structured, unstructured, overLongValues });
 });
 
 // GET /items/root — get the root item

@@ -284,6 +284,8 @@ export interface ItemStats {
   typedCount: number;
   structured: Array<{ typeId: string; name: string; icon: string | null; count: number }>;
   unstructured: Array<{ type: string; count: number }>;
+  /** Count of items whose `value` exceeds the spec maximum length (255 chars). */
+  overLongValues?: number;
 }
 
 export interface BulkCreateResult {

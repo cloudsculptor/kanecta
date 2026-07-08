@@ -6,6 +6,8 @@ export interface QualityControlStats {
   typedCount: number;
   unstructured: { type: string; count: number }[];
   structured: { typeId: string; name: string; icon?: string | null; count: number }[];
+  /** Count of items whose `value` exceeds the spec maximum length (255 chars). */
+  overLongValues?: number;
 }
 
 export interface QualityControlViewProps {
@@ -23,7 +25,7 @@ export function QualityControlView({ stats, isLoading, error, typeIcons = {} }: 
     return <div className="QualityControlView"><div className="QualityControlView__state">Failed to load stats</div></div>;
   }
 
-  const { total, typedCount, structured, unstructured } = stats;
+  const { total, typedCount, structured, unstructured, overLongValues } = stats;
   const percentage = total > 0 ? Math.round((typedCount / total) * 100) : 0;
   const unstructuredTotal = unstructured.reduce((s, r) => s + r.count, 0);
   const structuredTotal   = structured.reduce((s, r) => s + r.count, 0);
@@ -34,6 +36,19 @@ export function QualityControlView({ stats, isLoading, error, typeIcons = {} }: 
         <div className="QualityControlView__label">Data quality</div>
         <div className="QualityControlView__percentage">{percentage}%</div>
         <div className="QualityControlView__fraction">{typedCount} / {total}</div>
+        {overLongValues != null && (
+          <div
+            className={
+              'QualityControlView__overlong' +
+              (overLongValues > 0 ? ' QualityControlView__overlong--warn' : '')
+            }
+          >
+            <span className="QualityControlView__overlong-count">{overLongValues}</span>
+            <span className="QualityControlView__overlong-label">
+              {overLongValues === 1 ? 'value' : 'values'} over 255 chars
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="QualityControlView__col">

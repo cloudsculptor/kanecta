@@ -17,6 +17,7 @@ import {
   resolveBranch,
   workingSetLocalPath,
   checkIntegrity,
+  isValueOverLong,
 } from '@kanecta/lib';
 import * as kanectaSpec from '@kanecta/specification';
 
@@ -1688,7 +1689,9 @@ async function dispatch(name: string, args: any): Promise<any> {
       const structuredMap: Record<string, any> = {};
       const unstructuredMap: Record<string, number> = {};
       let total = 0;
+      let overLongValues = 0;
       for (const item of await ds.loadAll()) {
+        if (isValueOverLong(item)) overLongValues++;
         const raw = item.type;
         if (!raw || ROOT_TYPES.has(raw)) continue;
         total++;
@@ -1709,7 +1712,7 @@ async function dispatch(name: string, args: any): Promise<any> {
       const unstructured = Object.entries(unstructuredMap).sort((a, b) => b[1] - a[1]).map(([type, count]) => ({ type, count }));
       const typedCount   = structured.reduce((s, r) => s + r.count, 0);
       const percentage   = total > 0 ? Math.round((typedCount / total) * 100) : 0;
-      return { total, typedCount, percentage, structured, unstructured };
+      return { total, typedCount, percentage, structured, unstructured, overLongValues };
     }
 
     case 'kanecta_check_integrity': {
