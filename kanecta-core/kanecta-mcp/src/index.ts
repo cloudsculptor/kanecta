@@ -16,6 +16,7 @@ import {
   resolveWorkingSet,
   resolveBranch,
   workingSetLocalPath,
+  checkIntegrity,
 } from '@kanecta/lib';
 import * as kanectaSpec from '@kanecta/specification';
 
@@ -984,6 +985,17 @@ const TOOLS: any[] = [
     description: 'Return data-quality statistics for the datastore: total item count, typed/structured count, per-type breakdown for structured objects, and per-type breakdown for unstructured primitives. Built-in structured types (pipeline, pipeline-run, agent) appear in the structured list. Root system types are excluded. Use this to get the same data shown in the QualityControlView.',
     inputSchema: { type: 'object', properties: {} },
   },
+  {
+    name: 'kanecta_check_integrity',
+    description: 'Run a spec-derived structural integrity check over the datastore and return the collected report ({ checks, summary }). Each check is one 1.4.0-spec invariant — UUID validity/uniqueness, parentId resolution, object-payload validation against type jsonSchema, type/function definition well-formedness, reference/alias/relationship resolution, inline-link resolution, and metadata enums. Use before a risky migration or to diagnose a corrupted datastore. summary.ok is false when any check reports an error.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        checks: { type: 'array', items: { type: 'string' }, description: 'Optional: restrict to these check ids.' },
+        groups: { type: 'array', items: { type: 'string' }, description: 'Optional: restrict to these groups (structure, tree, identity, schema, references, metadata, storage).' },
+      },
+    },
+  },
 ];
 
 // Every tool accepts optional `workingSet` and `branch` selectors, injected here so
@@ -1698,6 +1710,14 @@ async function dispatch(name: string, args: any): Promise<any> {
       const typedCount   = structured.reduce((s, r) => s + r.count, 0);
       const percentage   = total > 0 ? Math.round((typedCount / total) * 100) : 0;
       return { total, typedCount, percentage, structured, unstructured };
+    }
+
+    case 'kanecta_check_integrity': {
+      const opts: any = {};
+      if (Array.isArray(args.checks) && args.checks.length) opts.checks = args.checks;
+      if (Array.isArray(args.groups) && args.groups.length) opts.groups = args.groups;
+      // stdio JSON-RPC can't stream, so return the collected report.
+      return checkIntegrity(ds, opts);
     }
 
     case 'kanecta_create_type': {
