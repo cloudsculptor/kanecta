@@ -7,6 +7,7 @@ import readline from 'readline';
 import {
   Datastore, VALID_TYPES, VALID_CONFIDENCES,
   readAppConfig, resolveWorkingSet, resolveBranch,
+  checkIntegrity, checkIntegrityStream,
 } from '@kanecta/lib';
 
 // ─── Help text ────────────────────────────────────────────────────────────────
@@ -134,6 +135,12 @@ COMMANDS
     Exits non-zero if any error-severity finding is present (CI-usable).
     Checks: orphan-type-id (object nodes whose typeId has no type definition).
 
+  integrity [--check <id>]... [--group <name>]... [--json]
+    Spec-derived structural integrity check. Streams each check as it completes
+    (✓ pass / ✗ fail / ○ skip), then a summary. Validates object payloads, type
+    and function definitions, references, aliases and metadata against the 1.4.0
+    spec. Exits non-zero if any check errored (CI-usable).
+
 ITEM TYPES
   string      Short text value
   number      Numeric value
@@ -201,7 +208,7 @@ function parseArgs(argv: string[]) {
           flags[key] = true;
         } else {
           // Repeatable flags: tag, add-tag, remove-tag
-          const repeatableFlags = ['tag', 'add-tag', 'remove-tag', 'check'];
+          const repeatableFlags = ['tag', 'add-tag', 'remove-tag', 'check', 'group'];
           if (repeatableFlags.includes(key)) {
             if (!flags[key]) flags[key] = [];
             flags[key].push(next);
@@ -762,6 +769,57 @@ async function cmdDoctor(positional: string[], flags: Flags) {
   process.exitCode = findings.some((f: any) => f.severity === 'error') ? 1 : 0;
 }
 
+function asArray(v: any): string[] | undefined {
+  if (v == null) return undefined;
+  return Array.isArray(v) ? v : [v];
+}
+
+// `kanecta integrity` — spec-derived structural integrity check. Streams each
+// check as it completes (✓ pass / ✗ fail / ○ skip), then prints a summary and
+// exits non-zero if any check errored.
+async function cmdIntegrity(positional: string[], flags: Flags) {
+  const ds = await openDatastore(flags);
+  const opts: any = {};
+  const checks = asArray(flags['check']);
+  const groups = asArray(flags['group']);
+  if (checks) opts.checks = checks;
+  if (groups) opts.groups = groups;
+
+  if (flags['json']) {
+    const report = await checkIntegrity(ds, opts);
+    console.log(JSON.stringify(report, null, 2));
+    process.exitCode = report.summary.ok ? 0 : 1;
+    return;
+  }
+
+  const mark = { pass: '✓', fail: '✗', skip: '○' } as const;
+  let summary: any;
+  for await (const ev of checkIntegrityStream(ds, opts)) {
+    if (ev.type === 'manifest') {
+      console.log(`Running ${ev.total} integrity check(s)…\n`);
+    } else if (ev.type === 'result') {
+      const r = ev.result;
+      if (r.status === 'skip') {
+        console.log(`  ${mark.skip} ${r.title} — skipped (${r.skipped})`);
+      } else if (r.status === 'pass') {
+        console.log(`  ${mark.pass} ${r.title}`);
+      } else {
+        console.log(`  ${mark.fail} ${r.title} (${r.count})`);
+        for (const f of r.findings) {
+          console.log(`      [${f.severity}] ${f.message}`);
+          if (f.fix) console.log(`             fix: ${f.fix}`);
+        }
+      }
+    } else if (ev.type === 'done') {
+      summary = ev.summary;
+    }
+  }
+  console.log(
+    `\n${summary.passed} passed, ${summary.failed} failed, ${summary.skipped} skipped — ` +
+    `${summary.errorCount} error(s), ${summary.warnCount} warning(s).`);
+  process.exitCode = summary.ok ? 0 : 1;
+}
+
 // ─── Dispatch ─────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -801,6 +859,7 @@ async function main() {
     case 'by-type':        await cmdByType(rest, flags); break;
     case 'rebuild-indexes': await cmdRebuildIndexes(rest, flags); break;
     case 'doctor':         await cmdDoctor(rest, flags); break;
+    case 'integrity':      await cmdIntegrity(rest, flags); break;
     default:
       die(`Unknown command: ${cmd}\nRun \`kanecta --help\` for usage.`);
   }
