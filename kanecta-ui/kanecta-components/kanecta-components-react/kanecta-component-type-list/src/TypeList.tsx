@@ -47,16 +47,17 @@ export function TypeList<T extends TypeItem = TypeItem>({
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [menuType, setMenuType] = useState<T | null>(null);
 
-  const filtered = filter.trim()
-    ? types.filter((t) => {
-        const q = filter.toLowerCase();
-        return (
-          t.value.toLowerCase().includes(q) ||
-          (t.description ?? '').toLowerCase().includes(q) ||
-          (t.keywords ?? '').toLowerCase().includes(q) ||
-          (t.tags ?? '').toLowerCase().includes(q)
-        );
-      })
+  const q = filter.trim().toLowerCase();
+  const filtered = q
+    ? types.filter((t) =>
+        // Every field is guarded — a type with a null/absent `value` (or any
+        // other field) must not crash the filter. Previously t.value.toLowerCase()
+        // threw when value was missing, taking down the whole view.
+        (t.value ?? '').toLowerCase().includes(q) ||
+        (t.description ?? '').toLowerCase().includes(q) ||
+        (t.keywords ?? '').toLowerCase().includes(q) ||
+        (t.tags ?? '').toLowerCase().includes(q),
+      )
     : types;
 
   const openMenu = (e: React.MouseEvent<HTMLButtonElement>, t: T) => {
