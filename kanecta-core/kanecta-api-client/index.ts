@@ -528,6 +528,65 @@ export interface ClaudeApi {
   cancelSession(id: string): Promise<{ ok: boolean }>;
 }
 
+// ─── Integrity check ──────────────────────────────────────────────────────────
+
+export type IntegrityStatus = 'pass' | 'fail' | 'skip';
+
+export interface IntegrityFinding {
+  severity: 'error' | 'warn';
+  message: string;
+  nodeId?: string;
+  fix?: string;
+  [extra: string]: unknown;
+}
+
+export interface IntegrityCheckResult {
+  id: string;
+  title: string;
+  group: string;
+  specRef: string;
+  status: IntegrityStatus;
+  findings: IntegrityFinding[];
+  count: number;
+  skipped?: string;
+}
+
+export interface IntegritySummary {
+  total: number;
+  passed: number;
+  failed: number;
+  skipped: number;
+  errorCount: number;
+  warnCount: number;
+  ok: boolean;
+}
+
+export interface IntegrityReport {
+  checks: IntegrityCheckResult[];
+  summary: IntegritySummary;
+}
+
+/** Progressive SSE events from the streaming endpoint. */
+export type IntegrityEvent =
+  | { type: 'manifest'; total: number; checks: Array<Pick<IntegrityCheckResult, 'id' | 'title' | 'group' | 'specRef'>> }
+  | { type: 'result'; index: number; result: IntegrityCheckResult }
+  | { type: 'done'; summary: IntegritySummary }
+  | { type: 'error'; error: string };
+
+export interface IntegrityQuery {
+  checks?: string[];
+  groups?: string[];
+}
+
+export interface IntegrityApi {
+  /** Run the full check and return the collected report. */
+  report(query?: IntegrityQuery): Promise<IntegrityReport>;
+  /** URL suitable for `new EventSource(url)` — streams IntegrityEvent SSE. */
+  streamUrl(query?: IntegrityQuery): string;
+  /** Raw fetch Response with an event-stream body (carries the auth header). */
+  stream(query?: IntegrityQuery): Promise<Response>;
+}
+
 export interface WorkingSetBranch {
   name: string;
   active: boolean;
@@ -845,6 +904,29 @@ export class KanectaApiClient {
       respond: (id, approved) =>
         c._fetch('POST', `/claude/sessions/${id}/respond`, { approved }),
       cancelSession: (id) => c._fetch('DELETE', `/claude/sessions/${id}`),
+    };
+  }
+
+  // ─── Integrity check ─────────────────────────────────────────────────────────
+
+  get integrity(): IntegrityApi {
+    const c = this;
+    const qs = (query?: IntegrityQuery) => {
+      const p = new URLSearchParams();
+      if (query?.checks?.length) p.set('checks', query.checks.join(','));
+      if (query?.groups?.length) p.set('groups', query.groups.join(','));
+      const s = p.toString();
+      return s ? `?${s}` : '';
+    };
+    return {
+      report: (query) => c._fetch('GET', `/integrity${qs(query)}`),
+      streamUrl: (query) => `${c._base}/integrity/stream${qs(query)}`,
+      stream: async (query) => {
+        const headers: Record<string, string> = { Accept: 'text/event-stream' };
+        const token = await c._resolveToken();
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        return fetch(`${c._base}/integrity/stream${qs(query)}`, { headers });
+      },
     };
   }
 

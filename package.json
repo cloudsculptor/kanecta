@@ -62,6 +62,7 @@
     "kanecta-ui/kanecta-components/kanecta-components-react/kanecta-component-calendar-view",
     "kanecta-ui/kanecta-components/kanecta-components-react/kanecta-component-board-view",
     "kanecta-ui/kanecta-components/kanecta-components-react/kanecta-component-quality-control-view",
+    "kanecta-ui/kanecta-components/kanecta-components-react/kanecta-component-integrity-view",
     "kanecta-ui/kanecta-components/kanecta-components-react/kanecta-component-ai-instructions-view",
     "kanecta-ui/kanecta-components/kanecta-components-react/kanecta-component-home-view",
     "kanecta-ui/kanecta-components/kanecta-components-react/kanecta-component-history-view",

@@ -10,6 +10,7 @@ import { GraphViewMeta } from '../components/views/GraphView/GraphView';
 import { CombinatorViewMeta } from '../components/views/CombinatorView/CombinatorView';
 import { MissionControlMeta } from '../components/views/MissionControl/MissionControl';
 import { QualityControlViewMeta } from '../components/views/QualityControlView/QualityControlView';
+import { IntegrityViewMeta } from '../components/views/IntegrityView/IntegrityView';
 import { HistoryViewMeta } from '../components/views/HistoryView/HistoryView';
 import { StarredViewMeta } from '../components/views/StarredView/StarredView';
 import { DigestViewMeta } from '../components/views/MissionControl/DigestView';
@@ -24,7 +25,7 @@ import { HomeViewMeta } from '../components/views/HomeView/HomeView';
 const ALL_METAS: ViewMeta[] = [
   TreeViewMeta, TableViewMeta, TypesViewMeta, BoardViewMeta, GalleryViewMeta,
   ListViewMeta, CalendarViewMeta, GraphViewMeta, CombinatorViewMeta,
-  MissionControlMeta, QualityControlViewMeta, HistoryViewMeta, StarredViewMeta,
+  MissionControlMeta, QualityControlViewMeta, IntegrityViewMeta, HistoryViewMeta, StarredViewMeta,
   DigestViewMeta, AIInstructionsViewMeta, ClaudeViewMeta, PullRequestsViewMeta,
   PipelineViewMeta, FramesViewMeta, SettingsViewMeta, HomeViewMeta,
 ];

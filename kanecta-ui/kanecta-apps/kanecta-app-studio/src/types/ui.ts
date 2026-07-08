@@ -27,6 +27,7 @@ export type ViewType =
   | 'home'
   | 'functions'
   | 'todo'
+  | 'integrity'
   | 'layouts';
 
 export interface PanelConfig {

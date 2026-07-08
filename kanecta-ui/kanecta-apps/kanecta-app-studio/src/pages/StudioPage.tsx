@@ -14,6 +14,7 @@ import { GraphView } from '../components/views/GraphView/GraphView';
 import { CombinatorView } from '../components/views/CombinatorView/CombinatorView';
 import { MissionControl } from '../components/views/MissionControl/MissionControl';
 import { QualityControlView } from '../components/views/QualityControlView/QualityControlView';
+import { IntegrityView } from '../components/views/IntegrityView/IntegrityView';
 import { HistoryView } from '../components/views/HistoryView/HistoryView';
 import { TypesView } from '../components/views/TemplatesView/TypesView';
 import { StarredView } from '../components/views/StarredView/StarredView';
@@ -122,6 +123,7 @@ function StudioInner() {
       case 'combinator': return <CombinatorView />;
       case 'mission-control': return <MissionControl />;
       case 'quality-control': return <QualityControlView />;
+      case 'integrity': return <IntegrityView />;
       case 'history': return <HistoryView />;
       case 'starred': return <StarredView />;
       case 'digest': return <DigestView />;

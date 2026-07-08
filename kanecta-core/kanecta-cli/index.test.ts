@@ -922,6 +922,36 @@ test('cli: doctor --check orphan-type-id selects the check and finds the orphan'
   assert.match(out, /no type definition/);
 });
 
+// ─── integrity (spec-derived structural check) ────────────────────────────────
+
+test('cli: integrity streams ticks and exits zero on a clean store', async () => {
+  const ds = tmpDs();
+  await ds.create({ value: 'hello', type: 'string' });
+  const out = cli(ds, 'integrity');
+  assert.match(out, /Running \d+ integrity check\(s\)/);
+  assert.match(out, /✓ Every item id is a valid UUID/);
+  assert.match(out, /0 error\(s\)/);
+});
+
+test('cli: integrity flags a dangling typeId and exits non-zero', async () => {
+  const ds = tmpDs();
+  await ds.create({ type: 'object', typeId: 'deadbeef-0000-4000-8000-000000000000', objectData: {} });
+  const out = cliErr(ds, 'integrity', '--check', 'typeid-resolves'); // exits 1
+  assert.match(out, /✗ Every object typeId resolves to a type item/);
+  assert.match(out, /no type definition/);
+  assert.match(out, /1 failed/);
+});
+
+test('cli: integrity --json emits the full report', async () => {
+  const ds = tmpDs();
+  await ds.create({ value: 'hello', type: 'string' });
+  const out = cli(ds, 'integrity', '--json', '--group', 'structure');
+  const report = JSON.parse(out);
+  assert.ok(Array.isArray(report.checks));
+  assert.ok(report.checks.every((c) => c.group === 'structure'));
+  assert.equal(report.summary.ok, true);
+});
+
 test('cli: unknown command exits non-zero with helpful message', () => {
   const ds = tmpDs();
   const err = cliErr(ds, 'frobnicate');

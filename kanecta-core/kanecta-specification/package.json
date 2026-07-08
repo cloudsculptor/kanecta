@@ -21,7 +21,8 @@
   ],
   "scripts": {
     "build:spec": "asciidoctor 1.4.0/specification.adoc -o 1.4.0/specification.html",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
   },
   "devDependencies": {
     "asciidoctor": "^4.0.1"

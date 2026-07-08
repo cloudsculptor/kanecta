@@ -13,6 +13,7 @@ import { settingsApi } from './settings';
 import { systemItemsApi } from './systemItems';
 import { skillsApi } from './skills';
 import { claudeApi } from './claude';
+import { integrityApi } from './integrity';
 import { viewApi } from './view';
 import { layoutsApi } from './layouts';
 import { workingSetsApi } from './workingSets';
@@ -64,6 +65,7 @@ export function createApi(baseUrl: string) {
     starred: starredApi(client),
     skills: skillsApi(client),
     claude: claudeApi(client),
+    integrity: integrityApi(client),
     settings: settingsApi(client),
     systemItems: systemItemsApi(client),
     view: viewApi(client),
