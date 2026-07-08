@@ -113,9 +113,9 @@ async function main(): Promise<void> {
 
   function cleanup() {
     for (const child of childProcs) {
-      try { child.kill(); } catch {}
+      try { child.kill(); } catch { /* already exited */ }
     }
-    if (uiServer) try { uiServer.close(); } catch {}
+    if (uiServer) try { uiServer.close(); } catch { /* not listening */ }
     process.exit(0);
   }
   process.on('SIGINT', cleanup);
@@ -160,6 +160,8 @@ async function main(): Promise<void> {
       process.stderr.write('kanecta studio: sirv not found. Try reinstalling: npm install -g kanecta\n');
       cleanup(); return;
     }
+    // Bundled to CJS by esbuild (build:server), so require is intentional here.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const sirvHandler = require('sirv')(distDir, { single: true, brotli: false });
 
     uiServer = http.createServer((req, res) => {

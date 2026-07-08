@@ -60,7 +60,7 @@
     "@kanecta/component-tree-view": "*",
     "@kanecta/component-type-badge": "*",
     "@kanecta/component-web-tiling-view": "*",
-    "@kanecta/specification": "^1.2.0",
+    "@kanecta/specification": "^1.4.0",
     "@monaco-editor/react": "^4.7.0",
     "@mui/icons-material": "^9.1.1",
     "@mui/material": "^9.0.1",
