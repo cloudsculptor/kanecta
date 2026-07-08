@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
+import { expect, within } from 'storybook/test';
 import { QualityControlView } from './QualityControlView';
 
 const wrap = (Story: React.ComponentType) => (
@@ -19,6 +20,7 @@ type Story = StoryObj<typeof QualityControlView>;
 const SAMPLE_STATS = {
   total: 42,
   typedCount: 27,
+  overLongValues: 3,
   unstructured: [
     { type: 'text',     count: 8 },
     { type: 'string',   count: 5 },
@@ -34,6 +36,33 @@ const SAMPLE_STATS = {
 
 export const Default: Story = {
   args: { stats: SAMPLE_STATS },
+};
+
+export const OverLongValues: Story = {
+  args: { stats: { ...SAMPLE_STATS, overLongValues: 3 } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText('3')).toBeInTheDocument();
+    await expect(canvas.getByText('values over 255 chars')).toBeInTheDocument();
+  },
+};
+
+export const OneOverLongValue: Story = {
+  args: { stats: { ...SAMPLE_STATS, overLongValues: 1 } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // singular label
+    await expect(canvas.getByText('value over 255 chars')).toBeInTheDocument();
+  },
+};
+
+export const NoOverLongValues: Story = {
+  args: { stats: { ...SAMPLE_STATS, overLongValues: 0 } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText('values over 255 chars')).toBeInTheDocument();
+    await expect(canvas.getByText('0')).toBeInTheDocument();
+  },
 };
 
 export const Loading: Story = {

@@ -126,6 +126,17 @@ const warn = (message: string, nodeId?: string, fix?: string, extra: Record<stri
   ({ severity: 'warn', message, ...(nodeId ? { nodeId } : {}), ...(fix ? { fix } : {}), ...extra });
 
 const isUuid = (v: unknown): v is string => typeof v === 'string' && UUID_RE.test(v);
+
+/**
+ * Maximum length of an item's `value` per the spec (item.value ≤ 255 chars).
+ * Exported so quality/stats surfaces count over-long values with the same
+ * definition the `value-length` integrity check enforces — never reinvent it.
+ */
+export const VALUE_MAX_LENGTH = 255;
+
+/** True when an item's value exceeds the spec maximum length. */
+export const isValueOverLong = (item: { value?: unknown }): boolean =>
+  typeof item.value === 'string' && item.value.length > VALUE_MAX_LENGTH;
 const ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
 const INLINE_LINK_RE = /\[\[\[?([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\]?\]\]/g;
 const VISIBILITY = new Set(['private', 'organisation', 'public']);
@@ -335,12 +346,12 @@ const CHECKS: IntegrityCheckDef[] = [
   },
   {
     id: 'value-length', group: 'identity',
-    title: 'Item value is at most 255 characters',
+    title: `Item value is at most ${VALUE_MAX_LENGTH} characters`,
     specRef: 'specification.adoc §item section (value ≤ 255 chars)',
     async run(ctx) {
       return ctx.items
-        .filter((it) => typeof it.value === 'string' && it.value.length > 255)
-        .map((it) => err(`item ${it.id} value is ${it.value.length} chars (max 255)`, it.id,
+        .filter(isValueOverLong)
+        .map((it) => err(`item ${it.id} value is ${it.value.length} chars (max ${VALUE_MAX_LENGTH})`, it.id,
           'shorten value; move long text into a text/markdown child or payload field'));
     },
   },

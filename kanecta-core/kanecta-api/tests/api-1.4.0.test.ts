@@ -43,6 +43,32 @@ async function createItem(opts = {}) {
   return await ds.create({ type: 'string', ...opts });
 }
 
+// ─── GET /items/stats: over-long value figure ────────────────────────────────
+
+describe('GET /items/stats: overLongValues', () => {
+  it('reports zero over-long values on a clean datastore', async () => {
+    await createItem({ value: 'short' });
+    const res = await request(app).get('/items/stats');
+    expect(res.status).toBe(200);
+    expect(res.body.overLongValues).toBe(0);
+  });
+
+  it('counts items whose value exceeds 255 characters', async () => {
+    await createItem({ value: 'ok' });
+    await createItem({ value: 'x'.repeat(256) });
+    await createItem({ value: 'y'.repeat(300) });
+    const res = await request(app).get('/items/stats');
+    expect(res.status).toBe(200);
+    expect(res.body.overLongValues).toBe(2);
+  });
+
+  it('treats exactly 255 characters as within limit', async () => {
+    await createItem({ value: 'z'.repeat(255) });
+    const res = await request(app).get('/items/stats');
+    expect(res.body.overLongValues).toBe(0);
+  });
+});
+
 // ─── PUT /items/:id: 1.4.0 meta fields ───────────────────────────────────────
 
 describe('PUT /items/:id: 1.4.0 meta fields', () => {

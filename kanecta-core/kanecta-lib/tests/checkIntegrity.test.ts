@@ -7,6 +7,7 @@ import { afterEach, describe, expect, test } from 'vitest';
 import {
   Datastore, TYPES_NODE,
   checkIntegrity, checkIntegrityStream, INTEGRITY_CHECKS,
+  VALUE_MAX_LENGTH, isValueOverLong,
 } from '../src/index.ts';
 
 const dsRoots: string[] = [];
@@ -126,6 +127,14 @@ describe('corrupted datastores', () => {
     await ds.create({ value: 'x'.repeat(300), type: 'text' });
     const rep = await report(ds, { checks: ['value-length'] });
     expect(byId(rep, 'value-length').status).toBe('fail');
+  });
+
+  test('isValueOverLong shares the value-length threshold', () => {
+    expect(VALUE_MAX_LENGTH).toBe(255);
+    expect(isValueOverLong({ value: 'x'.repeat(255) })).toBe(false);
+    expect(isValueOverLong({ value: 'x'.repeat(256) })).toBe(true);
+    expect(isValueOverLong({ value: 42 })).toBe(false);
+    expect(isValueOverLong({})).toBe(false);
   });
 
   test('dangling alias fails alias-targets-resolve', async () => {
