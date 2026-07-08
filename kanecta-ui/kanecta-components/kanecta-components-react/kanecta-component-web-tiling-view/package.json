@@ -5,7 +5,7 @@
   "main": "src/index.ts",
   "description": "A tiling window manager of web panes (Kanecta + any website). Electron-only — each pane is a <webview>.",
   "peerDependencies": {
-    "@mui/icons-material": "^9.1.1",
+    "@mui/icons-material": "^9.2.0",
     "react": ">=19"
   }
 }
