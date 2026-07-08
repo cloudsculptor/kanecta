@@ -4,6 +4,7 @@ import {
   Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE,
   readAppConfig, resolveWorkingSet, resolveBranch, workingSetLocalPath,
   setActiveWorkingSet, setActiveBranch,
+  checkIntegrity, checkIntegrityStream,
 } from '@kanecta/lib';
 import * as claude from '@kanecta/ai';
 import { generateFunctionScaffold, getRuntimeDir, computeBundleHash, toCamelCase, toPythonName, VALID_RUNTIME_RE } from '@kanecta/lib';
@@ -2041,6 +2042,57 @@ app.delete('/claude/sessions/:id', async (req, res) => {
   const ok = claude.cancelSession(req.params.id);
   if (!ok) return res.status(404).json({ error: 'Session not found' });
   res.json({ ok: true });
+});
+
+// ─── Integrity check ──────────────────────────────────────────────────────────
+
+// Parse ?checks=a,b&groups=x,y into checkIntegrity options.
+function integrityOpts(query: any) {
+  const opts: any = {};
+  const csv = (v: any) => (typeof v === 'string' ? v.split(',').map((s) => s.trim()).filter(Boolean) : undefined);
+  const checks = csv(query.checks);
+  const groups = csv(query.groups);
+  if (checks?.length) opts.checks = checks;
+  if (groups?.length) opts.groups = groups;
+  return opts;
+}
+
+// Full report as one JSON response.
+app.get('/integrity', async (req, res) => {
+  const ds = await openDatastore(res, req);
+  if (!ds) return;
+  try {
+    const report = await checkIntegrity(ds, integrityOpts(req.query));
+    res.json(report);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Progressive results as Server-Sent Events — one `manifest` event, one `result`
+// per check as it completes, then `done`. Mirrors /claude/sessions/:id/stream.
+app.get('/integrity/stream', async (req, res) => {
+  const ds = await openDatastore(res, req);
+  if (!ds) return; // openDatastore already sent a 503
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  let closed = false;
+  req.on('close', () => { closed = true; });
+
+  try {
+    for await (const event of checkIntegrityStream(ds, integrityOpts(req.query))) {
+      if (closed) break;
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+    }
+  } catch (err: any) {
+    if (!closed) res.write(`data: ${JSON.stringify({ type: 'error', error: err.message })}\n\n`);
+  } finally {
+    if (!closed) res.end();
+  }
 });
 
 export default app;
