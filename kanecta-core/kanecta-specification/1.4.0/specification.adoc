@@ -134,7 +134,7 @@ Datastore configuration (owner, spec version, history and activity mode) lives i
 ****
 **1. Do you want item history and/or activity tracking?**
 
-Both are opt-in and independent — you can enable either one, both, or neither. Set `itemHistory` and `activity` in the root node payload (see <<rootPayload>>). If you have no need for a built-in audit trail or event log, set both to `"NONE"` and the adapter will never write history or activity items.
+Both are *on by default* (defaulting to `"EXTERNAL"` placement) and independent — you can configure either one separately. Set `itemHistory` and `activity` in the root node payload (see <<rootPayload>>). If you have no need for a built-in audit trail or event log, set the corresponding field to `"NONE"` and the adapter will never write history or activity items.
 
 **2. Already using version control? You may not need item history at all.**
 
@@ -1493,11 +1493,12 @@ The shared package that all Kanecta component packages peer-depend on. Exports:
 * `DataSource` interface — the TypeScript contract; implement this to provide a data source
 * `createMockDataSource(items: KanectaItem[])` — in-memory mock implementation for stories and tests
 
+[#typePayload]
 === typePayload
 
 link:../built-in-types/types/type.json[Seed item^]
 
-For `type: "type"`. Defines a custom Kanecta type. Four top-level keys: `meta`, `jsonSchema`, `sqlSchema`, `constraints`.
+For `type: "type"`. Defines a custom Kanecta type. Five top-level keys: `meta`, `jsonSchema`, `sqlSchema`, `indexes`, `constraints`. Of these, `jsonSchema` and `indexes` are the *authored inputs* that drive storage — `sqlSchema` is compiler-derived from both (see <<sqlSchema-rules>>).
 
 [source,json]
 ----
@@ -1517,7 +1518,8 @@ For `type: "type"`. Defines a custom Kanecta type. Four top-level keys: `meta`, 
     "supersededBy": [],
     "implements": [],
     "extends": [],
-    "immutable": false
+    "immutable": false,
+    "projectTo": ["table"]
   },
   "jsonSchema": {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -1535,6 +1537,11 @@ For `type: "type"`. Defines a custom Kanecta type. Four top-level keys: `meta`, 
   },
   "sqlSchema": [
     "CREATE TABLE \"obj_f1e2d3c4_...\" ( item_id UUID NOT NULL, ... )"
+  ],
+  "indexes": [
+    { "fields": ["managerId"] },
+    { "fields": ["name"], "unique": true, "caseInsensitive": true },
+    { "fields": ["teamId", "born"], "where": "born IS NOT NULL" }
   ],
   "constraints": {
     "value": {
@@ -1614,6 +1621,9 @@ For `type: "type"`. Defines a custom Kanecta type. Four top-level keys: `meta`, 
 | `immutable`
 | When true, the type's contract is sealed. See <<type-lifecycle>>.
 
+| `projectTo`
+| Ordered array of projection targets for instances of this type. Declares which derived surfaces the adapter maintains for the type, on top of the guaranteed per-type table. Default `["table"]`. `"table"` is *always present and mandatory* — the per-type materialised relation is projected for every type with at least one live instance regardless of this field (see <<cqrs-projections>>); listing it is documentary. `"graph"` is *purely additive*: it requests that instances of this type also be projected into the Apache AGE graph as vertices, and `relationship`/`relationship-type` instances as edges (see <<graph-projection>>). The graph is never a replacement for the table — anything projected to the graph is *also* in its ordinary per-type table with no special treatment; the graph is only an extra traversal index derived from that same table data. On adapters with no graph surface (e.g. the filesystem adapter, which has no AGE), `"graph"` is a no-op. The projection engine is generic — targets fall out of this declaration, not from hardcoded per-type rules; the built-in `relationship`/`relationship-type` type definitions declare `["table", "graph"]` for exactly this reason.
+
 | `hash`
 | SHA-256 over `jsonSchema` + `sqlSchema` + `primaryField`. Computed and set when `immutable` is true.
 |===
@@ -1647,9 +1657,10 @@ Two Kanecta-specific JSON Schema extension keywords declare that a UUID field mu
 
 Both keywords also drive Postgres FK generation (see `sqlSchema` rules below) — the adapter adds `REFERENCES items(id)` for any UUID property that carries either keyword, so referential integrity is enforced at the DB layer regardless of the application-level enforcement setting.
 
+[#sqlSchema-rules]
 ==== sqlSchema rules
 
-`sqlSchema` is *not hand-authored* — it is *derived* from `jsonSchema` by the schema compiler (`@kanecta/schema-compiler`). `jsonSchema` is the single source of truth; the compiler emits the `CREATE TABLE` DDL for whichever backend a datastore uses, so the SQL can never drift from the schema and ontology-generated types (which ship only a `jsonSchema`) get storage for free. The stored `sqlSchema`, when present, is a derived cache of the compiled DDL, not an authored input. A changed shape is a new type.
+`sqlSchema` is *not hand-authored* — it is *derived* from `jsonSchema` (and, for index DDL, from `indexes`) by the schema compiler (`@kanecta/schema-compiler`). `jsonSchema` and `indexes` are the single source of truth; the compiler emits the `CREATE TABLE` and `CREATE INDEX` DDL for whichever backend a datastore uses, so the SQL can never drift from the schema and ontology-generated types (which ship only a `jsonSchema`) get storage for free. The stored `sqlSchema`, when present, is a derived cache of the compiled DDL, not an authored input. A changed shape is a new type.
 
 The *canonical* schema is portable to *any ANSI SQL database*: only scalar column types — no JSON columns, no array columns (both are engine-specific). Each adapter then derives a physical form that preserves the same logical shape:
 
@@ -1674,6 +1685,42 @@ NOTE: *Derived for every backend, including filesystem-only types* — a type's 
 ===== Text fields are never offloaded
 
 A `string` payload field is a `CLOB`/`TEXT` column of *any size* — never split out to object storage. Large text stays in the database so it remains full-text searchable (an offloaded value could not be in the FTS index) and so a `string` field has one uniform storage rule regardless of length; the SQL engine's own large-object handling (Postgres TOAST, etc.) manages the physical bytes. Text fields are included in the FTS corpus by default; a type opts specific fields out via `meta.searchFields` (see <<jsonSchema-rules>> `meta` and Search, below). *Object storage (S3) is used only for actual files* — content stored as the built-in `file` type (see Files and Sidecars) — never for a type's text fields.
+
+[#indexes]
+==== indexes
+
+`indexes` is an optional top-level key — an *authored input*, peer to `sqlSchema`, that declares the secondary indexes to build on a type's per-type table (see <<cqrs-projections>>). Like `jsonSchema` it is authored; like `sqlSchema` it drives DDL. The schema compiler reads `indexes` and emits the corresponding `CREATE INDEX` statements into the derived `sqlSchema` for the target dialect, so a type's indexes — like its columns — can never drift from its definition and are recreated automatically whenever the per-type table is (re)projected. Absent or empty = no secondary indexes (the table still has its `item_id` primary key and the FK to `items`).
+
+Kanecta deliberately keeps *indexes* separate from `constraints`: a `constraints` entry changes what writes are *accepted* (validation/enforcement), whereas an `indexes` entry only changes query *performance* and never rejects a write. A `unique` index is the one overlap — it is declared here (as a storage-level uniqueness index) and, being enforced by the database, also has constraint force. Uniqueness that must hold logically regardless of backend belongs in `constraints`; uniqueness realised as a physical index belongs here.
+
+Each entry is an object:
+
+[cols="1,1,2", options="header"]
+|===
+| Field | Required | Description
+
+| `fields`
+| yes
+| Ordered array of one or more `jsonSchema` property names (camelCase, as authored) to index. Compound indexes list fields in priority order. Each name is mapped to its snake_case column by the compiler; a name that is not a property of the type's `jsonSchema` is a compile error.
+
+| `unique`
+| no
+| When `true`, emit a unique index — the database rejects a second row with the same value(s) across `fields`. Default `false`. A unique index has constraint force at the storage layer (see note above).
+
+| `caseInsensitive`
+| no
+| When `true`, index a case-folded expression rather than the raw column (Postgres: `lower(col)`; SQLite: `COLLATE NOCASE`), so lookups and any `unique` guarantee are case-insensitive. Only valid when every field in `fields` is a text column. Default `false`.
+
+| `where`
+| no
+| A partial-index predicate (a boolean SQL expression over the type's own columns) restricting which rows the index covers — e.g. `"deleted_at IS NULL"` or `"status = 'open'"`. Emitted as a Postgres partial index (`... WHERE <predicate>`) or a SQLite partial index (supported since 3.8). Omit for a full index. The predicate is dialect-portable SQL over this table's columns only; it is authored using snake_case column names.
+
+| `name`
+| no
+| Optional explicit index name. When absent the compiler derives a stable deterministic name from the table name + fields + flags (so the same declaration always yields the same index name and rebuilds are idempotent).
+|===
+
+The FK-backed reference columns (`typeId`/`x-kanecta-itemType`, see <<jsonSchema-rules>>) are *not* auto-indexed — declare an `indexes` entry for a reference field you traverse or filter on. The compiler is the single place that turns these declarations into per-dialect DDL, alongside `deriveSqlSchema`; adding a dialect adds an emitter, not new authored fields.
 
 ==== constraints
 
@@ -2126,8 +2173,8 @@ For `type: "root"`. The root node's payload is the authoritative configuration r
 {
   "owner": "personal",
   "specVersion": "1.4.0",
-  "itemHistory": "ITEM",
-  "activity": "ITEM",
+  "itemHistory": "EXTERNAL",
+  "activity": "EXTERNAL",
   "entryPoint": "uuid-of-view-item"
 }
 ----
@@ -2148,11 +2195,11 @@ For `type: "root"`. The root node's payload is the authoritative configuration r
 
 | `itemHistory`
 | yes
-| Controls whether `item_history` items are written when items are created or updated. `"NONE"` — no history is written; read operations behave as if item_history does not exist. `"ITEM"` — an `item_history` item is written for every create and update, stored in the datastore as a first-class item. `"EXTERNAL"` — history is delegated to an external system (e.g. Git commit history); the adapter does not write `item_history` items but the external system provides the equivalent record. Default `"ITEM"`.
+| Controls whether `item_history` items are written when items are created or updated. `"NONE"` — no history is written; read operations behave as if item_history does not exist. `"ITEM"` — an `item_history` item is written for every create and update, stored *inside* `items/` as a first-class item. `"EXTERNAL"` — history items are written but routed to a sibling `item-history/` directory (filesystem) / dedicated table (Postgres), keeping the main items store lean; the external directory is still queried as part of the one logical items store. Default `"EXTERNAL"` — history is on by default with external placement. Set `"NONE"` to opt out entirely (recommended when a version control system such as Git already owns the change history; see <<directory-structure>>).
 
 | `activity`
 | yes
-| Controls whether `activity` items are written for workspace events. `"NONE"` — no activity is recorded. `"ITEM"` — an `activity` item is written for each significant workspace event (item viewed, search performed, sync completed). `"EXTERNAL"` — activity events are forwarded to an external system (analytics, audit log) rather than written as items. Default `"ITEM"`.
+| Controls whether `activity` items are written for workspace events. `"NONE"` — no activity is recorded. `"ITEM"` — an `activity` item is written for each significant workspace event (item viewed, search performed, sync completed), stored *inside* `items/`. `"EXTERNAL"` — activity items are written but routed to a sibling `activity/` directory (filesystem) / dedicated table (Postgres), keeping the main items store lean. Default `"EXTERNAL"` — activity is on by default with external placement. Set `"NONE"` to opt out entirely.
 
 | `entryPoint`
 | no
@@ -2445,9 +2492,9 @@ For `type: "item_history"`. Records a single event in an item's lifecycle.
 
 [IMPORTANT]
 ====
-*`item_history` is optional.* Enable it by setting `rootPayload.itemHistory` to `"ITEM"` or `"EXTERNAL"`. When set to `"NONE"` (the default), the system is fully functional — no core feature requires history.
+*`item_history` is on by default, and optional.* It defaults to `"EXTERNAL"` (history written to a sibling `item-history/` directory); set `rootPayload.itemHistory` to `"ITEM"` to store history inside `items/`, or to `"NONE"` to disable it. When set to `"NONE"` the system is fully functional — no core feature requires history.
 
-*Using version control?* If your datastore is managed by Git or another VCS, leave `itemHistory: "NONE"` — your VCS already provides a complete, tamper-evident history of every change. See <<directory-structure>> for the full reasoning.
+*Using version control?* If your datastore is managed by Git or another VCS, set `itemHistory: "NONE"` — your VCS already provides a complete, tamper-evident history of every change, so Kanecta's history would duplicate it with no added value. This is the main reason to override the `"EXTERNAL"` default. See <<directory-structure>> for the full reasoning.
 
 *Storage routing:* in high-volume workspaces, the adapter may route `item_history` items to a dedicated `item-history/` directory (filesystem) or a separate `items_history` table (Postgres) to avoid bloating the main items store. The schema is *identical* to the main items store — same structure, same rules. It is still conceptually one items store; the adapter routes by type. Controlled by `rootPayload.itemHistory: "EXTERNAL"`. This is a deployment decision, not a data model change.
 ====
@@ -2562,7 +2609,7 @@ For `type: "activity"`. Records a discrete workspace event — not a snapshot of
 
 [IMPORTANT]
 ====
-*`activity` is optional.* Enable it by setting `rootPayload.activity` to `"ITEM"` or `"EXTERNAL"`. When set to `"NONE"` (the default), the system is fully functional — no core feature requires activity.
+*`activity` is on by default, and optional.* It defaults to `"EXTERNAL"` (activity written to a sibling `activity/` directory); set `rootPayload.activity` to `"ITEM"` to store activity inside `items/`, or to `"NONE"` to disable it. When set to `"NONE"` the system is fully functional — no core feature requires activity.
 
 *Activity can grow extremely large.* A single popular item can generate millions of activity events (e.g. one event per view, per like, per comment on a high-traffic piece of content). Think carefully before enabling activity on any workspace that handles social-scale interaction.
 
@@ -4762,9 +4809,9 @@ The five `item.json` sections map directly to database tables, enabling efficien
 | `corpus_hash`, FTS index, vector column
 
 | `payload`
-| `items_payload`
+| `items_payload` + per-type `obj_<typeId>`
 | `id` (FK → items)
-| `data JSONB` (or type-specific columns per object type)
+| `data JSONB` on `items_payload` (the write-side store), *plus* a per-type projected table `obj_<typeId>` with type-specific scalar columns for every type with ≥1 live instance (see below)
 
 | `time`
 | `items_time`
@@ -4776,13 +4823,20 @@ TIP: *Postgres* — `items` also carries a denormalised `children UUID[]` column
 
 TIP: *SQLite* — no native array columns. `children` cache uses a JSON `TEXT` column or a separate `item_children(parent_id, child_id)` table. `schema_version` is a simple one-row `key/value` table.
 
+=== Per-type projected tables (always a table, both adapters)
+
+The `payload` section has two representations. `items_payload` is the *write-side* store — one JSON row per item, portable and generic. On top of it, every user type with at least one live instance also has a *read-side* per-type table `obj_<typeId>` holding one row per live instance with real scalar columns, foreign keys, and secondary indexes derived from the type definition. This per-type table is a *materialised TABLE in both the Postgres and the filesystem (SQLite) adapter* — never a view — and its existence tracks *item existence*, not the type definition: it is created when the first instance of the type is written and dropped when the last live instance is hard-deleted. See <<cqrs-projections>> for the full invariant, lifecycle, and the derivation of columns/indexes from `jsonSchema` + `indexes`. The filesystem adapter historically stored all object payloads in a single generic `items_payload(item_id, payload JSON)` table; under this rule it additionally maintains the per-type `obj_<typeId>` tables as derived projections, rebuildable from the `item.json` source of truth.
+
+[#item-history-and-activity]
 === item_history and activity
 
 `item_history` and `activity` are *items*, not separate tables. They follow the universal parentId rule — instances live under their respective synthetic type items (`item_history` and `activity`), bootstrapped at datastore init. They are queried like any other item: `SELECT * FROM items WHERE type = 'item_history' AND payload->>'targetId' = $id ORDER BY meta->>'createdAt' DESC`.
 
 See `itemHistoryPayload` and `activityPayload` in the Payload Definitions section for the full field specification.
 
-TIP: *Postgres* — because `item_history` and `activity` items are write-heavy and never updated, the adapter may maintain a dedicated derived index table (`payload_item_history`, `payload_activity`) with queryable columns extracted from payload. These are strictly derived — always rebuildable from `items`. The `items` table remains the source of truth.
+`item_history` and `activity` are *exempt from the generic per-type `obj_<typeId>` projection* (see <<cqrs-projections>>) — they are the one behavioural special case. Instead of a generic per-type table they use their own dedicated, append-only derived tables (`payload_item_history`, `payload_activity`). The reasons are their distinct semantics: they are write-heavy, append-only (never updated), and — under `EXTERNAL` placement — physically separated from `items/` into sibling `item-history/` and `activity/` directories (filesystem) or dedicated tables (Postgres), so routing them through the generic engine would add no value and lose their append-only optimisation.
+
+TIP: *Postgres* — because `item_history` and `activity` items are write-heavy and never updated, the adapter maintains these dedicated derived index tables (`payload_item_history`, `payload_activity`) with queryable columns extracted from payload. These are strictly derived — always rebuildable from `items`. The `items` table remains the source of truth.
 
 == Business Rules
 
@@ -5267,15 +5321,26 @@ Each changed item is classified before committing:
 
 Conflicts (same item changed on both branches since branching) must be resolved before the transaction commits. The Studio sync view (planned for 1.4.0) is the UI surface for merge operations — it shows the diff and lets the user accept, reject, or resolve each change.
 
+[#cqrs-projections]
 === CQRS projections
 
-For query-intensive types — such as a `customer` type with millions of instances — Kanecta supports materialised *projections*: dedicated SQL tables built from item content and optimised for that type's query patterns. A customer projection is a real SQL table with proper columns and indexes, not a generic `items_payload` JSONB scan.
+Every user type projects a materialised per-type SQL *table* — a real relation with proper columns and indexes, not a generic `items_payload` JSONB scan. For a `customer` type with millions of instances, the `obj_<typeId>` table is what queries hit; the JSON payload store is the write-side representation and the per-type table is the read-side projection derived from it. This is the standard CQRS split: one authoritative write model, purpose-built read models derived from it.
+
+*Guaranteed lifecycle (adapter invariant).* This projection is *not optional* and is *not* limited to query-intensive types. For every user type `T` (a `type` item with id `typeId`), let `N(T)` be the number of live (non-tombstoned) instances — items with `type = "object"` and `typeId = T`. Then:
+
+* A per-type relation named `obj_<typeId>` (hyphens in the UUID rendered as underscores) exists *if and only if* `N(T) >= 1`.
+* It is *a real materialised TABLE* — never a view — in *both* the Postgres adapter and the filesystem (SQLite) adapter. (Earlier drafts allowed a SQLite view; that is superseded. Because types declare `indexes` and SQLite cannot index a view, an indexed type needs a table anyway, so both adapters use a table uniformly.)
+* It is *created when the first instance is written* and *dropped only when the last live instance is hard-deleted*. A soft-deleted last instance (a set `deletedAt`) keeps the relation, so restore does not have to recreate it. An `update` that moves the last instance off type `T` (changes its `typeId`) drops `T`'s relation and ensures the new type's.
+* Its columns, foreign keys, and secondary indexes come *entirely from the type definition* — `deriveSqlSchema(T.jsonSchema)` for columns/FKs and the type's `indexes` declaration for secondary indexes (see <<sqlSchema-rules>>, <<indexes>>). There are *no hardcoded per-type special cases* in the adapters: the built-in relational/metadata types (`alias`, `relationship`, `relationship-type`, `grant`, …) are ordinary types whose definitions declare their own columns and indexes and are projected by the same generic engine.
+* Types with `N(T) = 0` project no relation; a type that is defined but never instantiated has no table. Primitive types never project a relation.
+
+The one exception is `item_history` and `activity` — see <<item-history-and-activity>>. These are append-only and use their own dedicated derived tables (`payload_item_history`, `payload_activity`) rather than the generic `obj_<typeId>` projection; they are exempt from this per-type-table rule.
 
 Projections are:
 
 * Maintained on the *main branch only*
-* Updated incrementally after each merge via a projection update job
-* Strictly derived — always rebuildable from `items` + `items_payload`
+* Created and dropped inline with the write, under the adapter's existing write lock, guarded by `IF NOT EXISTS` / `IF EXISTS`; concurrent creation of the first two instances races safely on the same guard
+* Strictly derived — always rebuildable from the item source of truth (`item.json` files on the filesystem adapter; the `items` table plus payload on Postgres)
 
 Branches do not maintain their own projections. The bounded set of changes in a branch is queried directly from `branch_changes` + main tables during review. Production-scale query performance against branch state is not required — PR review is about understanding what changed, not running full production queries.
 
@@ -5339,9 +5404,11 @@ AGE Cypher query → set of UUIDs → Kanecta items table → full rich data
 
 === Mapping
 
-Every non-relationship item becomes an AGE vertex. Relationship items become AGE edges. Vertex label is `Item` for all; `type` property carries the Kanecta type. Edge type mirrors the relationship type's value (uppercased, hyphens to underscores). Only traversal-relevant properties are stored in AGE — full item data stays in Postgres.
+Graph membership is *declarative and additive*, driven by the type definition's `meta.projectTo` (see <<typePayload>> `projectTo`), not hardcoded per type. The graph is never a store or a replacement for a type's per-type table — it is an *extra* traversal index derived from the same relational data. Anything projected to the graph is *also* present in its ordinary `obj_<typeId>` table with no special treatment; dropping the graph loses only Cypher traversal, never data. A type projects into AGE exactly when its definition declares `"graph"` in `projectTo`. The built-in `relationship` and `relationship-type` definitions declare `["table", "graph"]` — which is why relationship items become edges — and ordinary object types opt in the same way when their traversal matters.
 
-Items with `layer: "system"` or `"app"` are excluded by default. All graph queries scope to `layer = "user"` unless explicitly broadened. History items, annotation items, alias items, and node items are not mirrored — they are metadata and tree structure, not graph edges.
+A type declaring `"graph"` contributes AGE vertices for its instances (label `Item`; the `type` property carries the Kanecta type); the `relationship` type additionally contributes AGE *edges*, with edge type mirroring the relationship type's value (uppercased, hyphens to underscores). Only traversal-relevant properties are stored in AGE — full item data stays in Postgres.
+
+Items with `layer: "system"` or `"app"` are excluded by default regardless of `projectTo`. All graph queries scope to `layer = "user"` unless explicitly broadened. History items, annotation items, alias items, and node items are not mirrored — they are metadata and tree structure, not graph edges (and their definitions do not declare `"graph"`). On adapters without an AGE surface — notably the filesystem adapter — `"graph"` in `projectTo` is a no-op: the per-type table is still projected (it is mandatory), but no graph is built.
 
 === Sync
 

@@ -50,6 +50,24 @@ export interface DeriveOptions {
   dialect?: DialectName;
 }
 
+/**
+ * A declared secondary index on a type's per-type table (spec: typePayload
+ * `indexes`). Authored input, peer to `jsonSchema`; the compiler turns it into
+ * `CREATE INDEX` DDL per dialect. See `deriveIndexDdl`.
+ */
+export interface IndexDecl {
+  /** One or more jsonSchema property names (camelCase). Compound = ordered. */
+  fields: string[];
+  /** Emit a UNIQUE index (has constraint force at the storage layer). */
+  unique?: boolean;
+  /** Index a case-folded expression (Postgres/ansi lower(); SQLite COLLATE NOCASE). */
+  caseInsensitive?: boolean;
+  /** Partial-index predicate over this table's own (snake_case) columns. */
+  where?: string;
+  /** Explicit index name; when absent a deterministic name is derived. */
+  name?: string;
+}
+
 export const DIALECTS: Record<DialectName, Dialect> = {
   postgres: {
     string: 'TEXT',
@@ -153,4 +171,93 @@ export function deriveSqlSchema(jsonSchema: JsonSchema, opts: DeriveOptions = {}
 
   const objTable = `CREATE TABLE ${q(table)} (\n${columns.join(',\n')}\n)`;
   return [objTable, ...childTables];
+}
+
+/** Deterministic, stable index name: idx_<table>_<f1>_<f2>[_uq][_ci]. */
+function indexName(table: string, idx: IndexDecl): string {
+  if (idx.name) return idx.name;
+  const parts = ['idx', table, ...idx.fields.map(snake)];
+  if (idx.unique) parts.push('uq');
+  if (idx.caseInsensitive) parts.push('ci');
+  return parts.join('_');
+}
+
+/**
+ * Derive `CREATE INDEX` DDL for a type's declared `indexes`. Returns one
+ * statement per declaration, ordered as given. Like `deriveSqlSchema`, the DDL
+ * is plain (no `IF NOT EXISTS`) — the adapters wrap creation with their own
+ * guards under the write lock.
+ *
+ * Every field must be a property of `jsonSchema` (else a compile error).
+ * `caseInsensitive` requires every field to be a text column. `dialect`
+ * defaults to 'postgres'.
+ */
+export function deriveIndexDdl(
+  jsonSchema: JsonSchema,
+  indexes: IndexDecl[] | undefined,
+  opts: DeriveOptions = {},
+): string[] {
+  const { typeId, dialect = 'postgres' } = opts;
+  if (!typeId) throw new Error('deriveIndexDdl: typeId is required');
+  const d = DIALECTS[dialect];
+  if (!d) throw new Error(`deriveIndexDdl: unknown dialect "${dialect}"`);
+  if (!indexes || indexes.length === 0) return [];
+
+  const table = objTableName(typeId);
+  const props = (jsonSchema && jsonSchema.properties) || {};
+
+  return indexes.map((idx) => {
+    if (!idx.fields || idx.fields.length === 0) {
+      throw new Error('deriveIndexDdl: an index entry must declare at least one field');
+    }
+    for (const f of idx.fields) {
+      if (!Object.prototype.hasOwnProperty.call(props, f)) {
+        throw new Error(
+          `deriveIndexDdl: index field "${f}" is not a property of the type's jsonSchema`,
+        );
+      }
+    }
+    if (idx.caseInsensitive) {
+      for (const f of idx.fields) {
+        const prop = props[f];
+        const t = prop && prop.type;
+        // Text = a string scalar or an array of strings; refs/ints/etc. cannot fold case.
+        const isText = !isRef(prop) && (t === 'string' || t === 'array' || t === undefined);
+        if (!isText) {
+          throw new Error(
+            `deriveIndexDdl: caseInsensitive index requires text columns; field "${f}" is not text`,
+          );
+        }
+      }
+    }
+
+    const cols = idx.fields.map((f) => {
+      const col = snake(f);
+      if (idx.caseInsensitive) {
+        return dialect === 'sqlite' ? `${q(col)} COLLATE NOCASE` : `lower(${q(col)})`;
+      }
+      return q(col);
+    });
+
+    const unique = idx.unique ? 'UNIQUE ' : '';
+    let stmt = `CREATE ${unique}INDEX ${q(indexName(table, idx))} ON ${q(table)} (${cols.join(', ')})`;
+    if (idx.where && idx.where.trim()) stmt += ` WHERE ${idx.where.trim()}`;
+    return stmt;
+  });
+}
+
+/**
+ * Full derived DDL for a type: the object table(s) from `jsonSchema` followed by
+ * the `CREATE INDEX` statements from `indexes`. This is the complete `sqlSchema`
+ * an adapter materialises for a per-type projection.
+ */
+export function deriveFullSchema(
+  jsonSchema: JsonSchema,
+  opts: DeriveOptions & { indexes?: IndexDecl[] } = {},
+): string[] {
+  const { indexes, ...deriveOpts } = opts;
+  return [
+    ...deriveSqlSchema(jsonSchema, deriveOpts),
+    ...deriveIndexDdl(jsonSchema, indexes, deriveOpts),
+  ];
 }
