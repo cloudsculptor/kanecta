@@ -49,6 +49,7 @@
     "@kanecta/component-graph-view": "*",
     "@kanecta/component-history-view": "*",
     "@kanecta/component-home-view": "*",
+    "@kanecta/component-integrity-view": "*",
     "@kanecta/component-list-view": "*",
     "@kanecta/component-quality-control-view": "*",
     "@kanecta/component-sort-bar": "*",

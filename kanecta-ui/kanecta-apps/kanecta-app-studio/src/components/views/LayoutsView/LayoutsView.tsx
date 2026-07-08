@@ -35,6 +35,7 @@ import { GraphView } from '../GraphView/GraphView';
 import { CombinatorView } from '../CombinatorView/CombinatorView';
 import { MissionControl } from '../MissionControl/MissionControl';
 import { QualityControlView } from '../QualityControlView/QualityControlView';
+import { IntegrityView } from '../IntegrityView/IntegrityView';
 import { HistoryView } from '../HistoryView/HistoryView';
 import { TypesView } from '../TemplatesView/TypesView';
 import { StarredView } from '../StarredView/StarredView';
@@ -118,6 +119,7 @@ function renderPaneView(viewType: string, paneId: string): ReactNode {
     case 'combinator':      return <CombinatorView />;
     case 'mission-control': return <MissionControl />;
     case 'quality-control': return <QualityControlView />;
+    case 'integrity': return <IntegrityView />;
     case 'history':         return <HistoryView />;
     case 'starred':         return <StarredView />;
     case 'ai-instructions': return <AIInstructionsView />;

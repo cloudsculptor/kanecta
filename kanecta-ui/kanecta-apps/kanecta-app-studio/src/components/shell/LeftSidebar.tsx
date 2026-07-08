@@ -25,6 +25,7 @@ function ClaudeIcon() {
   );
 }
 import FactCheckIcon from '@mui/icons-material/FactCheck';
+import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
 import HistoryIcon from '@mui/icons-material/History';
 import StarIcon from '@mui/icons-material/Star';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -51,6 +52,7 @@ const NAV_ITEMS: NavEntry[] = [
   { view: 'starred', label: 'Starred', icon: <StarIcon fontSize="small" /> },
   { view: 'graph', label: 'Graph', icon: <BubbleChartIcon fontSize="small" /> },
   { view: 'quality-control', label: 'Quality Control', icon: <FactCheckIcon fontSize="small" /> },
+  { view: 'integrity', label: 'Integrity', icon: <HealthAndSafetyIcon fontSize="small" /> },
   { divider: true },
   { view: 'list', label: 'List', icon: <ViewListIcon fontSize="small" /> },
   { view: 'board', label: 'Board', icon: <ViewKanbanIcon fontSize="small" /> },

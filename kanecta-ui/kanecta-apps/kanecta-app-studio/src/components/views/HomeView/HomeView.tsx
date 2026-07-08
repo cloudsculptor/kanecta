@@ -6,6 +6,7 @@ import BubbleChartIcon from '@mui/icons-material/BubbleChart';
 import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
 import DateRangeIcon from '@mui/icons-material/DateRange';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
+import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
 import FlightIcon from '@mui/icons-material/Flight';
 import GridViewIcon from '@mui/icons-material/GridView';
 import HistoryIcon from '@mui/icons-material/History';
@@ -42,6 +43,7 @@ const NAV_ITEMS = [
   { id: 'starred',         label: 'Starred',    icon: <StarIcon />,               disabled: false },
   { id: 'graph',           label: 'Graph',      icon: <BubbleChartIcon />,        disabled: false },
   { id: 'quality-control', label: 'Quality',    icon: <FactCheckIcon />,          disabled: false },
+  { id: 'integrity',       label: 'Integrity',  icon: <HealthAndSafetyIcon />,    disabled: false },
   { id: 'list',            label: 'List',       icon: <ViewListIcon />,           disabled: false },
   { id: 'board',           label: 'Board',      icon: <ViewKanbanIcon />,         disabled: false },
   { id: 'gallery',         label: 'Gallery',    icon: <GridViewIcon />,           disabled: false },
