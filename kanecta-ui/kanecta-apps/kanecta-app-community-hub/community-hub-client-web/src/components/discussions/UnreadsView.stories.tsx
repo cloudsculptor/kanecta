@@ -1,7 +1,9 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { MemoryRouter } from "react-router-dom";
+import { within, userEvent, expect, waitFor, fn } from "storybook/test";
 import type { UnreadThread, Message } from "../../api/discussions";
+import UnreadsView from "./UnreadsView";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -242,4 +244,87 @@ export const Mixed: Story = {
 export const AllCaughtUp: Story = {
   render: () => <MockUnreadsView initialUnreads={[]} />,
   name: "All caught up — empty state",
+};
+
+// ── Behaviour tests (play functions) ─────────────────────────────────────────
+// The real UnreadsView fetches its data via api.reads.list() on mount, so the
+// populated-list stories above drive a MockUnreadsView that reproduces the exact
+// DOM and the mark-read state transitions locally. The play tests below pin that
+// UI contract. Because the mock owns its state internally, there are no callback
+// props to spy on here — we assert the resulting DOM instead. The real
+// component's onMarkRead / onJumpToThread contract can't be exercised without a
+// network fixture; the RealComponentEmptyState story covers the real component's
+// mount → fetch → empty path directly.
+
+/** Header, thread names and message text all render for new top-level messages. */
+export const RendersUnreadContent: Story = {
+  render: () => <MockUnreadsView initialUnreads={UNREADS_TOP_LEVEL} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("heading", { name: "All Unreads" })).toBeInTheDocument();
+    await expect(canvas.getByText("Morning everyone! Hope you all have a great day.")).toBeInTheDocument();
+    await expect(canvas.getByText("Has anyone tried the new AI tools?")).toBeInTheDocument();
+    // One "Mark as Read" button per unread thread.
+    await expect(canvas.getAllByRole("button", { name: "Mark as Read" })).toHaveLength(2);
+  },
+};
+
+/** "Mark all as read" clears the whole list and shows the caught-up empty state. */
+export const MarkAllAsReadClearsList: Story = {
+  render: () => <MockUnreadsView initialUnreads={UNREADS_TOP_LEVEL} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Mark all as read" }));
+    await expect(await canvas.findByText("You're all caught up!")).toBeInTheDocument();
+    await expect(canvas.queryByText("Morning everyone! Hope you all have a great day.")).not.toBeInTheDocument();
+  },
+};
+
+/** Marking one thread read removes only that thread, leaving the others. */
+export const MarkThreadRemovesOnlyThatThread: Story = {
+  render: () => <MockUnreadsView initialUnreads={UNREADS_TOP_LEVEL} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const markButtons = canvas.getAllByRole("button", { name: "Mark as Read" });
+    await userEvent.click(markButtons[0]); // #general
+    await waitFor(() =>
+      expect(canvas.queryByText("Morning everyone! Hope you all have a great day.")).not.toBeInTheDocument(),
+    );
+    // #community-ai is untouched.
+    await expect(canvas.getByText("Has anyone tried the new AI tools?")).toBeInTheDocument();
+  },
+};
+
+/**
+ * Replies-only thread: the parent predates last_read_at so it renders muted as
+ * an "original message" context header, with the new replies shown beneath it.
+ */
+export const RepliesOnlyShowsContextParent: Story = {
+  render: () => <MockUnreadsView initialUnreads={UNREADS_REPLIES_ONLY} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("original message")).toBeInTheDocument();
+    await expect(canvas.getByText("So gorgeous! Did you swim?")).toBeInTheDocument();
+    await expect(canvas.getByText("Beautiful day for it 🏊")).toBeInTheDocument();
+  },
+};
+
+/**
+ * The REAL UnreadsView: on mount it calls api.reads.list(), which has no backend
+ * in Storybook and rejects, so the component settles on its empty state. This
+ * exercises the real mount → fetch → render path and the real prop wiring
+ * (onMarkRead / onJumpToThread supplied as spies, never invoked in this path).
+ */
+export const RealComponentEmptyState: Story = {
+  render: () => (
+    <UnreadsView onMarkRead={fn()} onJumpToThread={fn()} />
+  ),
+  name: "Real component — empty state after fetch",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      await canvas.findByText("You're all caught up!", {}, { timeout: 5000 }),
+    ).toBeInTheDocument();
+    await expect(canvas.getByRole("heading", { name: "All Unreads" })).toBeInTheDocument();
+  },
 };

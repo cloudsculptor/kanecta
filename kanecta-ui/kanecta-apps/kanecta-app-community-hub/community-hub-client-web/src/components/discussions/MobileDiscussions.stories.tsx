@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { MemoryRouter } from "react-router-dom";
+import { within, userEvent, expect, fn } from "storybook/test";
 import type { Message } from "../../api/discussions";
 
 // ── Minimal mock components matching the real layout ──────────────────────────
@@ -266,4 +267,109 @@ export const DeepLinkedMessageView: Story = {
     </div>
   ),
   name: "Deep-linked — message view opened via URL hash",
+};
+
+// ── Behaviour tests (play functions) ─────────────────────────────────────────
+// There is no standalone MobileDiscussions component to import — the mobile view is
+// a socket/api-driven composition assembled inside Discussions.tsx. This file models
+// that view with the network-free Mock* components above, so these stories pin the
+// rendered regions and the tap → navigation callbacks of that mocked surface (the
+// slide transitions between panes are the only part left to the interactive story).
+
+/** Thread list renders its regions: title, All Unreads with unread badge, and each thread name. */
+export const ThreadListRenders: Story = {
+  render: () => <MockThreadList onSelect={fn()} onShowUnreads={fn()} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Discussions")).toBeInTheDocument();
+    await expect(canvas.getByText("All Unreads")).toBeInTheDocument();
+    // Two threads carry has_unread → badge shows "2".
+    await expect(canvas.getByText("2")).toBeInTheDocument();
+    await expect(canvas.getByText("general")).toBeInTheDocument();
+    await expect(canvas.getByText("events")).toBeInTheDocument();
+  },
+  name: "Thread list — renders regions and unread badge",
+};
+
+/** With no unreads the badge element is absent. */
+export const ThreadListNoBadge: Story = {
+  render: () => <MockThreadList threads={THREADS.map((t) => ({ ...t, has_unread: false }))} onSelect={fn()} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("All Unreads")).toBeInTheDocument();
+    await expect(canvasElement.querySelector(".dm-nav-item__badge")).toBeNull();
+  },
+  name: "Thread list — no unread badge",
+};
+
+// Distinct fn() spy per story so a call in one play can never bleed into another;
+// each is mockClear()'d at the top of its own play for good measure.
+const onSelectSpy = fn();
+const onShowUnreadsSpy = fn();
+const msgOnReplySpy = fn();
+const msgOnBackSpy = fn();
+const replyOnBackSpy = fn();
+
+/** Tapping a thread fires onSelect with that thread's id. */
+export const TapThreadFiresOnSelect: Story = {
+  render: () => <MockThreadList onSelect={onSelectSpy} />,
+  play: async ({ canvasElement }) => {
+    onSelectSpy.mockClear();
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByText("events"));
+    await expect(onSelectSpy).toHaveBeenCalledWith("t2");
+  },
+  name: "Tap thread → onSelect(threadId)",
+};
+
+/** Tapping the All Unreads nav item fires onShowUnreads. */
+export const TapAllUnreadsFiresCallback: Story = {
+  render: () => <MockThreadList onSelect={fn()} onShowUnreads={onShowUnreadsSpy} />,
+  play: async ({ canvasElement }) => {
+    onShowUnreadsSpy.mockClear();
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByText("All Unreads"));
+    await expect(onShowUnreadsSpy).toHaveBeenCalled();
+  },
+  name: "Tap All Unreads → onShowUnreads",
+};
+
+/** Message view renders the thread header and messages; tapping the reply count fires onReply. */
+export const MessageViewReplyFires: Story = {
+  render: () => <MockMessageView threadName="general" onBack={fn()} onReply={msgOnReplySpy} />,
+  play: async ({ canvasElement }) => {
+    msgOnReplySpy.mockClear();
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("#general")).toBeInTheDocument();
+    await expect(canvas.getByText("Aroha Tane")).toBeInTheDocument();
+    await userEvent.click(canvas.getByText("2 replies"));
+    await expect(msgOnReplySpy).toHaveBeenCalled();
+  },
+  name: "Message view — reply count → onReply",
+};
+
+/** Message view back control fires onBack. */
+export const MessageViewBackFires: Story = {
+  render: () => <MockMessageView threadName="general" onBack={msgOnBackSpy} onReply={fn()} />,
+  play: async ({ canvasElement }) => {
+    msgOnBackSpy.mockClear();
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByText("Threads"));
+    await expect(msgOnBackSpy).toHaveBeenCalled();
+  },
+  name: "Message view — back → onBack",
+};
+
+/** Reply view renders the parent message and its back control fires onBack. */
+export const ReplyViewBackFires: Story = {
+  render: () => <MockReplyView onBack={replyOnBackSpy} />,
+  play: async ({ canvasElement }) => {
+    replyOnBackSpy.mockClear();
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Aroha Tane")).toBeInTheDocument();
+    await expect(canvas.getByText("Morning everyone! Hope you all have a great day.")).toBeInTheDocument();
+    await userEvent.click(canvas.getByText("Back"));
+    await expect(replyOnBackSpy).toHaveBeenCalled();
+  },
+  name: "Reply view — back → onBack",
 };

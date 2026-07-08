@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { http, HttpResponse } from "msw";
+import { within, expect } from "storybook/test";
 import { StoryWrapper } from "../stories/MockProviders";
 import Events from "./Events";
 import type { Event } from "../api/events";
@@ -115,5 +116,47 @@ export const Mobile: Story = {
   parameters: {
     viewport: { defaultViewport: "mobile2" },
     msw: { handlers: [http.get("/api/events", () => HttpResponse.json(SAMPLE_EVENTS))] },
+  },
+};
+
+// ── Behaviour tests (play functions) ─────────────────────────────────────────
+// Assert the mocked /api/events response renders event cards. The area filter
+// defaults to ["Featherston"], so only the two Featherston events show; the
+// Martinborough event is filtered out until its area chip is selected.
+
+/** Featherston events render; the Martinborough event is filtered out by default. */
+export const EventCardsRenderFiltered: Story = {
+  parameters: { msw: { handlers: [http.get("/api/events", () => HttpResponse.json(SAMPLE_EVENTS))] } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(await canvas.findByText("Featherston Community Market")).toBeInTheDocument();
+    await expect(canvas.getByText("Featherston Booktown Festival")).toBeInTheDocument();
+    // Martinborough Fair is in the fixture but excluded by the default area filter.
+    await expect(canvas.queryByText("Martinborough Fair")).not.toBeInTheDocument();
+  },
+};
+
+/** With no events, the SAMPLE placeholder card is shown. */
+export const EmptyShowsSampleCard: Story = {
+  parameters: { msw: { handlers: [http.get("/api/events", () => HttpResponse.json([]))] } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(await canvas.findByText("Community Working Bee")).toBeInTheDocument();
+    await expect(canvas.getByText("SAMPLE")).toBeInTheDocument();
+  },
+};
+
+/** A 500 from /api/events surfaces the load-error alert. */
+export const LoadErrorShowsAlert: Story = {
+  parameters: {
+    msw: {
+      handlers: [http.get("/api/events", () => HttpResponse.json({ error: "Server error" }, { status: 500 }))],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      await canvas.findByText("Could not load events. Please try again later.")
+    ).toBeInTheDocument();
   },
 };

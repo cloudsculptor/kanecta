@@ -77,6 +77,15 @@ export default defineConfig({
           }]
         }
       }
+    }, {
+      // Plain Node unit tests for pure functions (dates, mention parsing, etc.).
+      // No browser — fast and deterministic. Files: src/**/*.test.ts(x).
+      extends: true,
+      test: {
+        name: 'unit',
+        environment: 'node',
+        include: ['src/**/*.test.{ts,tsx}'],
+      },
     }]
   }
 });

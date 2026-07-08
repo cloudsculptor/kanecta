@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { within, screen, userEvent, expect, fn, waitFor } from "storybook/test";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -60,7 +61,9 @@ const meta: Meta<typeof ThreadOptionsMenu> = {
     thread: ownThread,
     currentUserId: "user-1",
     canModerate: false,
-    onArchived: () => { console.log("archived"); },
+    // fn() spy so behaviour stories can assert it fires. Storybook resets it
+    // before each story's play, so sharing it here is safe.
+    onArchived: fn(),
   },
 };
 export default meta;
@@ -163,4 +166,71 @@ export const UnauthorizedDialog: Story = {
       </Dialog>
     </>
   ),
+};
+
+// ── Behaviour tests (play functions) ─────────────────────────────────────────
+// The ellipsis trigger renders in the story canvas; the MUI Menu and Dialog
+// portal to document.body, so those are queried via `screen`. The confirm
+// dialog's Archive button hits the real API (no backend in Storybook), so
+// these stories stop at the dialog UI and don't assert the archive outcome.
+
+/** Clicking the ellipsis opens the options menu with an "Archive thread" item. */
+export const OpensOptionsMenu: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByTitle("Thread options"));
+    await expect(await screen.findByText("Archive thread")).toBeInTheDocument();
+  },
+};
+
+/** The thread creator gets the archive confirmation dialog naming their thread. */
+export const CreatorSeesArchiveConfirm: Story = {
+  args: { thread: ownThread, currentUserId: "user-1", canModerate: false },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByTitle("Thread options"));
+    await userEvent.click(await screen.findByText("Archive thread"));
+    await expect(await screen.findByText("Archive #General?")).toBeInTheDocument();
+    await expect(screen.getByText("This will hide the thread from the list. All messages will be preserved.")).toBeInTheDocument();
+    await expect(screen.getByRole("button", { name: "Archive" })).toBeInTheDocument();
+  },
+};
+
+/** A moderator viewing someone else's thread also gets the confirmation dialog. */
+export const ModeratorSeesArchiveConfirm: Story = {
+  args: { thread: othersThread, currentUserId: "user-1", canModerate: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByTitle("Thread options"));
+    await userEvent.click(await screen.findByText("Archive thread"));
+    await expect(await screen.findByText("Archive #Announcements?")).toBeInTheDocument();
+    await expect(screen.getByRole("button", { name: "Archive" })).toBeInTheDocument();
+  },
+};
+
+/** A non-creator, non-moderator gets the rejection dialog naming the creator, with no Archive button. */
+export const UnauthorizedSeesRejection: Story = {
+  args: { thread: othersThread, currentUserId: "user-1", canModerate: false },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByTitle("Thread options"));
+    await userEvent.click(await screen.findByText("Archive thread"));
+    await expect(await screen.findByText("Cannot archive thread")).toBeInTheDocument();
+    await expect(screen.getByText("Mike Robinson")).toBeInTheDocument();
+    await expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
+    await expect(screen.queryByRole("button", { name: "Archive" })).not.toBeInTheDocument();
+  },
+};
+
+/** Cancelling the confirmation dialog closes it. */
+export const CancelClosesConfirm: Story = {
+  args: { thread: ownThread, currentUserId: "user-1", canModerate: false },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByTitle("Thread options"));
+    await userEvent.click(await screen.findByText("Archive thread"));
+    await expect(await screen.findByText("Archive #General?")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByText("Archive #General?")).not.toBeInTheDocument());
+  },
 };

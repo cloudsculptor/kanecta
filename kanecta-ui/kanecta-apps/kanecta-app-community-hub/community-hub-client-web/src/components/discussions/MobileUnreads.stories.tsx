@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { MemoryRouter } from "react-router-dom";
+import { within, userEvent, expect } from "storybook/test";
 import type { UnreadThread, Message } from "../../api/discussions";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -173,4 +174,60 @@ export const NewRepliesOnly: Story = {
 export const AllCaughtUp: Story = {
   render: () => <MockMobileUnreads initialUnreads={[]} />,
   name: "All caught up — empty state",
+};
+
+// ── Behaviour tests (play functions) ─────────────────────────────────────────
+// The real MobileUnreads populates itself from api.reads.list() (a live network
+// call with no injectable prop for the data), so its unread content can't be
+// rendered without a backend. These stories drive the network-free MockMobileUnreads
+// harness above — which mirrors the real component's markup and mark-read logic —
+// to pin the rendered contract and the tap-to-mark-read interaction.
+
+/** New top-level messages render their authors, text, and per-thread "Mark as Read". */
+export const RendersUnreadMessages: Story = {
+  render: () => <MockMobileUnreads initialUnreads={UNREADS_TOP_LEVEL} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("All Unreads")).toBeInTheDocument();
+    await expect(canvas.getByText("Aroha Tane")).toBeInTheDocument();
+    await expect(canvas.getByText("Morning everyone! Hope you all have a great day.")).toBeInTheDocument();
+    await expect(canvas.getByText("Mike Robinson")).toBeInTheDocument();
+    await expect(canvas.getByText("Mark as Read")).toBeInTheDocument();
+  },
+  name: "Renders unread messages",
+};
+
+/** Tapping "Mark as Read" clears that thread; with none left the empty state shows. */
+export const MarkAsReadClearsThread: Story = {
+  render: () => <MockMobileUnreads initialUnreads={UNREADS_TOP_LEVEL} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByText("Mark as Read"));
+    await expect(canvas.getByText("You're all caught up!")).toBeInTheDocument();
+    await expect(canvas.queryByText("Mark as Read")).not.toBeInTheDocument();
+  },
+  name: "Mark as Read clears the thread",
+};
+
+/** Replies-only thread: the parent shows muted as "original message" context above its replies. */
+export const RepliesShownWithContext: Story = {
+  render: () => <MockMobileUnreads initialUnreads={UNREADS_REPLIES_ONLY} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("original message")).toBeInTheDocument();
+    await expect(canvas.getByText("Richard Thomas")).toBeInTheDocument();
+    await expect(canvas.getByText("So gorgeous! Did you swim?")).toBeInTheDocument();
+  },
+  name: "Replies shown with parent context",
+};
+
+/** Empty state renders the caught-up message and no thread controls. */
+export const EmptyStateRenders: Story = {
+  render: () => <MockMobileUnreads initialUnreads={[]} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("You're all caught up!")).toBeInTheDocument();
+    await expect(canvas.queryByText("Mark as Read")).not.toBeInTheDocument();
+  },
+  name: "Empty state renders",
 };

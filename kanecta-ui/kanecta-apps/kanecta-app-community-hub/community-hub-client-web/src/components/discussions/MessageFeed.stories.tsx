@@ -148,7 +148,8 @@ function ReplyCountDemo() {
       <p style={{ fontSize: 13, color: "#888", marginBottom: 12 }}>
         Click <strong>Simulate reply</strong> — the reply count below the message should update instantly.
       </p>
-      <MemoryRouter>
+      <>
+        {/* No <MemoryRouter> here — the meta decorator already provides one. */}
         <div style={{ border: "1px solid #e5e4e7", borderRadius: 8, padding: "12px 16px" }}>
           {messages.map((m) => (
             <MessageItem
@@ -171,7 +172,7 @@ function ReplyCountDemo() {
         >
           Simulate reply (+1)
         </button>
-      </MemoryRouter>
+      </>
     </div>
   );
 }

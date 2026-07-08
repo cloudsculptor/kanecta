@@ -11,7 +11,10 @@
     "format:check": "prettier --check .",
     "preview": "vite preview",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.0",
@@ -62,6 +65,7 @@
     "eslint-plugin-storybook": "^10.3.6",
     "globals": "^17.4.0",
     "msw": "^2.14.4",
+    "msw-storybook-addon": "^2.0.7",
     "playwright": "^1.59.1",
     "prettier": "3.8.2",
     "sass": "1.99.0",
@@ -70,5 +74,10 @@
     "typescript-eslint": "^8.58.0",
     "vite": "^8.0.4",
     "vitest": "^4.1.5"
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
   }
 }

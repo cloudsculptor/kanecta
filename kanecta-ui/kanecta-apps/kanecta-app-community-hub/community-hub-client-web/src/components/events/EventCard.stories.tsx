@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { MemoryRouter } from "react-router-dom";
+import { within, userEvent, expect, fn } from "storybook/test";
 import EventCard from "./EventCard";
 import type { Event } from "../../api/events";
 
@@ -115,6 +116,62 @@ export const WithModeratorDelete: Story = {
   args: {
     event: BASE,
     past: false,
-    onDelete: async () => { await new Promise((r) => setTimeout(r, 1000)); },
+    onDelete: fn(),
+  },
+};
+
+// ── Behaviour tests (play functions) ─────────────────────────────────────────
+
+/** The card renders its title, date, description, address link and contact links. */
+export const RendersEventDetails: Story = {
+  args: { event: BASE, past: false },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Featherston Community Market")).toBeInTheDocument();
+    await expect(canvas.getByText(/Monthly community market/)).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("link", { name: "Featherston Domain, Featherston 5710" })
+    ).toBeInTheDocument();
+    await expect(canvas.getByRole("link", { name: "example.com/market" })).toBeInTheDocument();
+    await expect(canvas.getByRole("link", { name: "market@example.com" })).toHaveAttribute(
+      "href",
+      "mailto:market@example.com"
+    );
+  },
+};
+
+/** Without an onDelete handler, the options menu is not rendered. */
+export const NoMenuWithoutOnDelete: Story = {
+  args: { event: BASE, past: false },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.queryByRole("button", { name: "Event options" })).not.toBeInTheDocument();
+  },
+};
+
+/** Delete requires a two-step confirm before onDelete fires. */
+export const DeleteConfirmFlow: Story = {
+  args: { event: BASE, past: false, onDelete: fn() },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Event options" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Delete" }));
+    // First click only arms the confirm — nothing deleted yet.
+    await expect(args.onDelete).not.toHaveBeenCalled();
+    await userEvent.click(canvas.getByRole("button", { name: "Confirm delete" }));
+    await expect(args.onDelete).toHaveBeenCalled();
+  },
+};
+
+/** Cancelling the confirm step keeps the event and fires nothing. */
+export const DeleteCancelKeepsEvent: Story = {
+  args: { event: BASE, past: false, onDelete: fn() },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Event options" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Delete" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Cancel" }));
+    await expect(canvas.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+    await expect(args.onDelete).not.toHaveBeenCalled();
   },
 };
