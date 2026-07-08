@@ -1279,65 +1279,6 @@ async function handleRecent(args: any, ds: any) {
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function typesDir(datastorePath: any) {
-  return path.join(datastorePath, '.kanecta', 'types');
-}
-
-function typeShardPath(datastorePath: any, id: any) {
-  return path.join(typesDir(datastorePath), id.slice(0, 2), id.slice(2, 4), id);
-}
-
-function handleListTypes(datastorePath: any) {
-  const dir = typesDir(datastorePath);
-  if (!fs.existsSync(dir)) return { types: [] };
-  const results: any[] = [];
-  for (const s1 of fs.readdirSync(dir)) {
-    const p1 = path.join(dir, s1);
-    if (!fs.statSync(p1).isDirectory()) continue;
-    for (const s2 of fs.readdirSync(p1)) {
-      const p2 = path.join(p1, s2);
-      if (!fs.statSync(p2).isDirectory()) continue;
-      for (const id of fs.readdirSync(p2)) {
-        const metaPath = path.join(p2, id, 'metadata.json');
-        if (!fs.existsSync(metaPath)) continue;
-        try {
-          const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-          const typePath = path.join(p2, id, 'type.json');
-          if (fs.existsSync(typePath)) {
-            const typeDef = JSON.parse(fs.readFileSync(typePath, 'utf8'));
-            if (typeDef.meta) {
-              meta.icon = typeDef.meta.icon ?? null;
-              meta.description = typeDef.meta.description ?? null;
-              meta.details = typeDef.meta.details ?? null;
-              meta.keywords = typeDef.meta.keywords ?? null;
-              meta.tags = typeDef.meta.tags ?? null;
-              meta.primaryField = typeDef.meta.primaryField ?? null;
-              meta['ai-instructions'] = typeDef.meta['ai-instructions'] ?? null;
-            }
-          }
-          results.push(meta);
-        } catch (_) {
-          /* skip malformed */
-        }
-      }
-    }
-  }
-  results.sort((a, b) => (a.value || '').localeCompare(b.value || ''));
-  return { types: results };
-}
-
-function handleGetTypeSchema(datastorePath: any, id: any) {
-  if (!UUID_RE.test(id)) return { error: 'Invalid UUID format' };
-  const schemaPath = path.join(typeShardPath(datastorePath, id), 'type.json');
-  if (!fs.existsSync(schemaPath))
-    return { error: `Type schema not found: ${id}` };
-  try {
-    return JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
-  } catch (err: any) {
-    return { error: err.message };
-  }
-}
-
 const typeFileSpec: any = (kanectaSpec as any).type;
 
 function validateTypeSchema(schema: any) {
@@ -1368,21 +1309,6 @@ function validateTypeSchema(schema: any) {
   if (!js.properties || typeof js.properties !== 'object')
     return 'jsonSchema.properties is required';
   return null;
-}
-
-function handleUpdateTypeSchema(datastorePath: any, id: any, schema: any) {
-  if (!UUID_RE.test(id)) return { error: 'Invalid UUID format' };
-  const validationError = validateTypeSchema(schema);
-  if (validationError) return { error: validationError };
-  const schemaPath = path.join(typeShardPath(datastorePath, id), 'type.json');
-  if (!fs.existsSync(schemaPath))
-    return { error: `Type schema not found: ${id}` };
-  try {
-    fs.writeFileSync(schemaPath, JSON.stringify(schema, null, 2));
-    return schema;
-  } catch (err: any) {
-    return { error: err.message };
-  }
 }
 
 // ─── MCP protocol ─────────────────────────────────────────────────────────────
@@ -1725,24 +1651,43 @@ async function dispatch(name: string, args: any): Promise<any> {
       return { ...metadata, schema };
     }
 
-    case 'kanecta_list_types':
-      if (!datastorePath)
-        return { error: 'kanecta_list_types requires filesystem mode' };
-      return handleListTypes(datastorePath);
+    case 'kanecta_list_types': {
+      // 1.4.0: type definitions are items (type = 'type') under the types node,
+      // read via the datastore — NOT the pre-1.4.0 `.kanecta/types` directory,
+      // which no longer exists (returned an empty list). Works in every mode.
+      const defs = await ds.listTypeDefs();
+      const types = await Promise.all(defs.map(async (def: any) => {
+        const typeDef = await ds.readTypeJson(def.id).catch(() => null);
+        const meta = typeDef?.meta ?? {};
+        return {
+          id: def.id,
+          value: def.value,
+          icon: meta.icon ?? null,
+          description: meta.description ?? null,
+          details: meta.details ?? null,
+          keywords: meta.keywords ?? null,
+          tags: meta.tags ?? null,
+          primaryField: meta.primaryField ?? null,
+          'ai-instructions': meta['ai-instructions'] ?? null,
+        };
+      }));
+      types.sort((a, b) => (a.value || '').localeCompare(b.value || ''));
+      return { types };
+    }
 
     case 'kanecta_get_type_schema': {
       if (!UUID_RE.test(args.id)) return { error: 'Invalid UUID format' };
-      if (datastorePath) return handleGetTypeSchema(datastorePath, args.id);
       const schema = await ds.readTypeJson(args.id);
-      if (!schema) return { error: `Type not found: ${args.id}` };
+      if (!schema) return { error: `Type schema not found: ${args.id}` };
       return schema;
     }
 
     case 'kanecta_update_type_schema': {
       if (!UUID_RE.test(args.id)) return { error: 'Invalid UUID format' };
-      if (datastorePath) return handleUpdateTypeSchema(datastorePath, args.id, args.schema);
+      const validationError = validateTypeSchema(args.schema);
+      if (validationError) return { error: validationError };
       const existing = await ds.readTypeJson(args.id);
-      if (!existing) return { error: `Type not found: ${args.id}` };
+      if (!existing) return { error: `Type schema not found: ${args.id}` };
       await ds.writeTypeJson(args.id, args.schema);
       return args.schema;
     }
