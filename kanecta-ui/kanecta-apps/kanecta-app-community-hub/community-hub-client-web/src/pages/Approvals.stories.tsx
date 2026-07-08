@@ -147,10 +147,10 @@ export const PendingQueuesRender: Story = {
     const canvas = within(canvasElement);
     // Suggestion content (from /api/suggestions).
     await expect(await canvas.findByText(/community tool library/)).toBeInTheDocument();
-    // Pending event title (from /api/events/pending).
-    await expect(canvas.getByText("Wairarapa Wine & Food Festival")).toBeInTheDocument();
-    // Pending notice heading (from /api/notices/pending).
-    await expect(canvas.getByText("Road closure — Fitzherbert Street")).toBeInTheDocument();
+    // Pending event title (from /api/events/pending) — separate fetch, so wait for it.
+    await expect(await canvas.findByText("Wairarapa Wine & Food Festival")).toBeInTheDocument();
+    // Pending notice heading (from /api/notices/pending) — separate fetch, so wait for it.
+    await expect(await canvas.findByText("Road closure — Fitzherbert Street")).toBeInTheDocument();
   },
 };
 
