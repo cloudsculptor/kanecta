@@ -11,6 +11,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@kanecta/schema-compiler": "^1.4.0",
     "@kanecta/specification": "^1.4.0",
     "better-sqlite3": "^12.11.1"
   },
