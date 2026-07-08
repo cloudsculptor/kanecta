@@ -283,6 +283,11 @@ const TOOLS: any[] = [
           type: 'string',
           description: `Item type (${VALID_TYPES.join(', ')})`,
         },
+        typeId: {
+          type: 'string',
+          description:
+            'Type-definition UUID for typed objects (type: "object"). Identifies which custom type the object conforms to; required to give an object a type.',
+        },
         parentId: {
           type: 'string',
           description: 'Parent UUID — omit for root',
