@@ -578,6 +578,130 @@ const CHECKS: IntegrityCheckDef[] = [
     },
   },
 
+  // ── references & links (continued) ───────────────────────────────────────────
+  {
+    id: 'symlink-target-resolves', group: 'references',
+    title: 'Every symlink resolves to an existing item',
+    specRef: 'specification.adoc §Trees and Collections (symlink item.value is the target UUID)',
+    async run(ctx) {
+      const findings: Finding[] = [];
+      for (const it of ctx.items) {
+        if (it.type !== 'symlink') continue;
+        if (!isUuid(it.value)) {
+          findings.push(err(`symlink ${it.id} value "${it.value}" is not a target UUID`, it.id,
+            'a symlink item.value must be the UUID of the target item'));
+          continue;
+        }
+        if (!(await ctx.has(it.value))) {
+          findings.push(err(`symlink ${it.id} points at ${it.value}, which does not exist`, it.id,
+            'repoint or remove the dangling symlink', { target: it.value }));
+        }
+      }
+      return findings;
+    },
+  },
+  {
+    id: 'connectorid-resolves', group: 'references',
+    title: 'Every meta.connectorId resolves to an existing item',
+    specRef: 'specification.adoc §meta.connectorId (UUID of the managing connector)',
+    async run(ctx) {
+      const findings: Finding[] = [];
+      for (const it of ctx.items) {
+        if (it.connectorId == null) continue;
+        if (!(await ctx.has(it.connectorId))) {
+          findings.push(err(`item ${it.id} has connectorId ${it.connectorId}, which does not exist`, it.id,
+            'clear meta.connectorId or restore the missing connector', { connectorId: it.connectorId }));
+        }
+      }
+      return findings;
+    },
+  },
+
+  // ── metadata (continued) ─────────────────────────────────────────────────────
+  {
+    id: 'materialized-stub-consistency', group: 'metadata',
+    title: 'Unmaterialized stubs carry a connectorId',
+    specRef: 'specification.adoc §meta.materialized (stub ⇒ connectorId set; partial index WHERE materialized=false AND connector_id IS NOT NULL)',
+    async run(ctx) {
+      return ctx.items
+        .filter((it) => it.materialized === false && it.connectorId == null)
+        .map((it) => err(`item ${it.id} is an unmaterialized stub (materialized=false) but has no connectorId`, it.id,
+          'a stub must reference the connector that will materialize it, or be marked materialized'));
+    },
+  },
+
+  // ── type-definition well-formedness (continued) — user types only ─────────────
+  {
+    id: 'typedef-defaultenforce-valid', group: 'schema',
+    title: 'Type constraints.defaultEnforce is reject, warn, or none',
+    specRef: 'specification.adoc §constraints.defaultEnforce (L1755)',
+    async run(ctx) {
+      const allowed = new Set(['reject', 'warn', 'none']);
+      const findings: Finding[] = [];
+      for (const t of ctx.typeDefs) {
+        const item = await safe(() => ctx.ds.get(t.id), null);
+        if (item && (item.layer === 'system' || item.layer === 'core')) continue;
+        const typeJson = await ctx.getType(t.id);
+        const de = typeJson?.constraints?.defaultEnforce;
+        if (de !== undefined && !allowed.has(de)) {
+          findings.push(err(`type "${t.value}" constraints.defaultEnforce is "${de}"`, t.id,
+            'set defaultEnforce to one of: reject, warn, none'));
+        }
+      }
+      return findings;
+    },
+  },
+  {
+    id: 'typedef-children-well-formed', group: 'schema',
+    title: 'Type constraints.children entries use a valid semantics (and enforce)',
+    specRef: 'specification.adoc §constraints.children (semantics ∈ single|optional|list|set|map; L1703–1755)',
+    async run(ctx) {
+      const semantics = new Set(['single', 'optional', 'list', 'set', 'map']);
+      const enforce = new Set(['reject', 'warn', 'none']);
+      const findings: Finding[] = [];
+      for (const t of ctx.typeDefs) {
+        const item = await safe(() => ctx.ds.get(t.id), null);
+        if (item && (item.layer === 'system' || item.layer === 'core')) continue;
+        const typeJson = await ctx.getType(t.id);
+        const children = typeJson?.constraints?.children;
+        if (!Array.isArray(children)) continue;
+        children.forEach((c: any, i: number) => {
+          if (c?.semantics !== undefined && !semantics.has(c.semantics)) {
+            findings.push(err(`type "${t.value}" constraints.children[${i}].semantics is "${c.semantics}"`, t.id,
+              `set semantics to one of: ${[...semantics].join(', ')}`));
+          }
+          if (c?.enforce !== undefined && !enforce.has(c.enforce)) {
+            findings.push(err(`type "${t.value}" constraints.children[${i}].enforce is "${c.enforce}"`, t.id,
+              `set enforce to one of: ${[...enforce].join(', ')}`));
+          }
+        });
+      }
+      return findings;
+    },
+  },
+  {
+    id: 'typedef-ref-keywords-exclusive', group: 'schema',
+    title: 'A schema property cannot carry both typeId and x-kanecta-itemType',
+    specRef: 'specification.adoc §Reference-enforcement keywords (typeId vs x-kanecta-itemType, L1635–1648)',
+    async run(ctx) {
+      const findings: Finding[] = [];
+      for (const t of ctx.typeDefs) {
+        const item = await safe(() => ctx.ds.get(t.id), null);
+        if (item && (item.layer === 'system' || item.layer === 'core')) continue;
+        const typeJson = await ctx.getType(t.id);
+        const props = typeJson?.jsonSchema?.properties;
+        if (!props || typeof props !== 'object') continue;
+        for (const [name, def] of Object.entries(props as Record<string, any>)) {
+          if (def && def.typeId !== undefined && def['x-kanecta-itemType'] !== undefined) {
+            findings.push(err(`type "${t.value}" property "${name}" carries both typeId and x-kanecta-itemType`, t.id,
+              'a UUID-reference property may declare only one target-type keyword'));
+          }
+        }
+      }
+      return findings;
+    },
+  },
+
   // ── storage-specific (Postgres) — recorded here, skipped on filesystem ────────
   {
     id: 'obj-table-matches-sqlschema', group: 'storage',

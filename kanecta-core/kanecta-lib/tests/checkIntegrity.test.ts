@@ -254,3 +254,154 @@ describe('corrupted datastores', () => {
     expect(rep.summary.total).toBe(INTEGRITY_CHECKS.length);
   });
 });
+
+// ─── extended coverage (catalogue batch 2) ──────────────────────────────────────
+
+// Build a user-authored type (layer null) with a custom payload so the typedef
+// checks (which skip system/core built-ins) actually run against it.
+async function makeUserType(ds: any, value: string, payloadExtra: Record<string, unknown>) {
+  const { metadata } = await ds.createType(value, { icon: 'Star' });
+  const base = {
+    meta: { icon: 'Star', description: 'x', primaryField: 'name' },
+    jsonSchema: {
+      $schema: 'http://json-schema.org/draft-07/schema#', $id: '', title: value,
+      type: 'object', properties: {}, required: [], additionalProperties: false,
+    },
+  };
+  await ds.writeTypeJson(metadata.id, { ...base, ...payloadExtra });
+  return metadata.id;
+}
+
+describe('symlink-target-resolves', () => {
+  test('dangling symlink fails', async () => {
+    const ds = tmpDs();
+    await ds.create({ type: 'symlink', value: RANDOM_UUID });
+    const rep = await report(ds, { checks: ['symlink-target-resolves'] });
+    expect(byId(rep, 'symlink-target-resolves').status).toBe('fail');
+  });
+
+  test('symlink pointing at a real item passes', async () => {
+    const ds = tmpDs();
+    const target = await ds.create({ value: 'target', type: 'text' });
+    await ds.create({ type: 'symlink', value: target.id });
+    const rep = await report(ds, { checks: ['symlink-target-resolves'] });
+    expect(byId(rep, 'symlink-target-resolves').status).toBe('pass');
+  });
+
+  test('symlink whose value is not a UUID fails', async () => {
+    const ds = tmpDs();
+    await ds.create({ type: 'symlink', value: 'not-a-uuid' });
+    const rep = await report(ds, { checks: ['symlink-target-resolves'] });
+    expect(byId(rep, 'symlink-target-resolves').status).toBe('fail');
+  });
+});
+
+describe('connectorid-resolves', () => {
+  test('dangling connectorId fails', async () => {
+    const ds = tmpDs();
+    const it = await ds.create({ value: 'stub', type: 'text' });
+    await ds.update(it.id, { connectorId: RANDOM_UUID });
+    const rep = await report(ds, { checks: ['connectorid-resolves'] });
+    expect(byId(rep, 'connectorid-resolves').status).toBe('fail');
+  });
+
+  test('resolving connectorId passes', async () => {
+    const ds = tmpDs();
+    const conn = await ds.create({ value: 'jira', type: 'text' });
+    const it = await ds.create({ value: 'stub', type: 'text' });
+    await ds.update(it.id, { connectorId: conn.id });
+    const rep = await report(ds, { checks: ['connectorid-resolves'] });
+    expect(byId(rep, 'connectorid-resolves').status).toBe('pass');
+  });
+});
+
+describe('materialized-stub-consistency', () => {
+  test('stub (materialized=false) without a connectorId fails', async () => {
+    const ds = tmpDs();
+    const it = await ds.create({ value: 'stub', type: 'text' });
+    await ds.update(it.id, { materialized: false });
+    const rep = await report(ds, { checks: ['materialized-stub-consistency'] });
+    expect(byId(rep, 'materialized-stub-consistency').status).toBe('fail');
+  });
+
+  test('stub with a connectorId passes', async () => {
+    const ds = tmpDs();
+    const conn = await ds.create({ value: 'jira', type: 'text' });
+    const it = await ds.create({ value: 'stub', type: 'text' });
+    await ds.update(it.id, { materialized: false, connectorId: conn.id });
+    const rep = await report(ds, { checks: ['materialized-stub-consistency'] });
+    expect(byId(rep, 'materialized-stub-consistency').status).toBe('pass');
+  });
+
+  test('a fully materialized item (materialized=true) is unaffected', async () => {
+    const ds = tmpDs();
+    const it = await ds.create({ value: 'native', type: 'text' });
+    await ds.update(it.id, { materialized: true });
+    const rep = await report(ds, { checks: ['materialized-stub-consistency'] });
+    expect(byId(rep, 'materialized-stub-consistency').status).toBe('pass');
+  });
+});
+
+describe('typedef-defaultenforce-valid', () => {
+  test('invalid defaultEnforce fails', async () => {
+    const ds = tmpDs();
+    await makeUserType(ds, 'widget', { constraints: { defaultEnforce: 'bogus' } });
+    const rep = await report(ds, { checks: ['typedef-defaultenforce-valid'] });
+    expect(byId(rep, 'typedef-defaultenforce-valid').status).toBe('fail');
+  });
+
+  test('valid defaultEnforce passes', async () => {
+    const ds = tmpDs();
+    await makeUserType(ds, 'widget', { constraints: { defaultEnforce: 'warn' } });
+    const rep = await report(ds, { checks: ['typedef-defaultenforce-valid'] });
+    expect(byId(rep, 'typedef-defaultenforce-valid').status).toBe('pass');
+  });
+});
+
+describe('typedef-children-well-formed', () => {
+  test('invalid child semantics fails', async () => {
+    const ds = tmpDs();
+    await makeUserType(ds, 'widget', { constraints: { children: [{ semantics: 'nope' }] } });
+    const rep = await report(ds, { checks: ['typedef-children-well-formed'] });
+    expect(byId(rep, 'typedef-children-well-formed').status).toBe('fail');
+  });
+
+  test('valid child semantics + enforce passes', async () => {
+    const ds = tmpDs();
+    await makeUserType(ds, 'widget', { constraints: { children: [{ semantics: 'list', enforce: 'reject' }] } });
+    const rep = await report(ds, { checks: ['typedef-children-well-formed'] });
+    expect(byId(rep, 'typedef-children-well-formed').status).toBe('pass');
+  });
+});
+
+describe('typedef-ref-keywords-exclusive', () => {
+  test('a property carrying both typeId and x-kanecta-itemType fails', async () => {
+    const ds = tmpDs();
+    await makeUserType(ds, 'widget', {
+      jsonSchema: {
+        $schema: 'http://json-schema.org/draft-07/schema#', $id: '', title: 'widget',
+        type: 'object', additionalProperties: false, required: [],
+        properties: {
+          managerId: { type: 'string', format: 'uuid', typeId: RANDOM_UUID, 'x-kanecta-itemType': 'person' },
+        },
+      },
+    });
+    const rep = await report(ds, { checks: ['typedef-ref-keywords-exclusive'] });
+    expect(byId(rep, 'typedef-ref-keywords-exclusive').status).toBe('fail');
+  });
+
+  test('a property with only one reference keyword passes', async () => {
+    const ds = tmpDs();
+    await makeUserType(ds, 'widget', {
+      jsonSchema: {
+        $schema: 'http://json-schema.org/draft-07/schema#', $id: '', title: 'widget',
+        type: 'object', additionalProperties: false, required: [],
+        properties: {
+          managerId: { type: 'string', format: 'uuid', typeId: RANDOM_UUID },
+        },
+      },
+    });
+    const rep = await report(ds, { checks: ['typedef-ref-keywords-exclusive'] });
+    expect(byId(rep, 'typedef-ref-keywords-exclusive').status).toBe('pass');
+  });
+});
