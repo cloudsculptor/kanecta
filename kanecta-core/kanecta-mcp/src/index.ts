@@ -1,4 +1,4 @@
-#!/usr/bin/env -S node --import tsx
+#!/usr/bin/env -S tsx
 
 import os from 'os';
 import fs from 'fs';

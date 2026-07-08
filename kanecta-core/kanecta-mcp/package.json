@@ -7,7 +7,7 @@
     "kanecta-mcp": "src/index.ts"
   },
   "scripts": {
-    "start": "node --import tsx src/index.ts",
+    "start": "tsx src/index.ts",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "release": "bash scripts/release.sh",
@@ -23,7 +23,8 @@
   },
   "dependencies": {
     "@kanecta/lib": "^1.0.0",
-    "@kanecta/specification": "^1.2.0"
+    "@kanecta/specification": "^1.2.0",
+    "tsx": "^4.23.0"
   },
   "publishConfig": {
     "access": "public"
