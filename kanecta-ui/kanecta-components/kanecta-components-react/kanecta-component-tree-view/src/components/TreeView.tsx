@@ -432,8 +432,12 @@ export function TreeView({
   const handleEdit = useCallback(
     async (item: KanectaItem, value: string) => {
       await updateMutation.mutateAsync({ id: item.id, value });
+      // updateMutation.onSuccess only invalidates ['item', id]; the tree renders
+      // from ['tree-children', parentId], so refetch that list too or the edit
+      // visually reverts until an unrelated refetch. See Bug F fix #1.
+      invalidate(item.parentId ?? null);
     },
-    [updateMutation],
+    [updateMutation, invalidate],
   );
 
   const handleAddChild = useCallback(
