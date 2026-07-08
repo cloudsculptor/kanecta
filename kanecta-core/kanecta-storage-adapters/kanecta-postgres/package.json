@@ -31,7 +31,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@kanecta/specification": "^1.2.0"
+    "@kanecta/specification": "^1.4.0"
   },
   "peerDependencies": {
     "pg": ">=8.0.0"
