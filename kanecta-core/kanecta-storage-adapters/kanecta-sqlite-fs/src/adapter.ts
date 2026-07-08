@@ -3,6 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 import Database from 'better-sqlite3';
 import * as spec from '@kanecta/specification';
+import { deriveSqlSchema, deriveIndexDdl, objTableName } from '@kanecta/schema-compiler';
 import { WriteGuard } from './write-integrity.ts';
 
 // Minimal structural type for the better-sqlite3 handle (the package ships no
@@ -42,6 +43,25 @@ const ROOT_ID    = '00000000-0000-0000-0000-000000000000';
 const TYPES_NODE = '11111111-1111-1111-1111-111111111111';
 const WELL_KNOWN_TYPES = new Set(['root', 'types']);
 const WELL_KNOWN_ORDER = [];
+
+// ─── Per-type table projection ──────────────────────────────────────────────
+// Every user type with ≥1 live object instance is materialised as a real table
+// `obj_<typeId>` whose columns/indexes are DERIVED from the type's jsonSchema by
+// @kanecta/schema-compiler (never hand-authored). The table is created on the
+// first live instance and dropped on hard-delete of the last, holding one row
+// per live (non-soft-deleted) instance. The item.json in items/ stays the source
+// of truth, so a full rebuild reconstructs the exact set of obj_ tables.
+
+// camelCase → snake_case, IDENTICAL to the schema-compiler's column mapping so
+// the columns we write line up with the DDL it emits.
+const snakeCol = (k: string): string => k.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase());
+
+// The compiler emits plain DDL (no guards); the adapter owns idempotency under
+// the write lock. Add `IF NOT EXISTS` to both table and index creation.
+const guardDdl = (stmt: string): string =>
+  stmt
+    .replace(/^CREATE TABLE /i, 'CREATE TABLE IF NOT EXISTS ')
+    .replace(/^CREATE (UNIQUE )?INDEX /i, (_m, u) => `CREATE ${u || ''}INDEX IF NOT EXISTS `);
 
 const VALID_TYPES = [
   'string', 'number', 'text', 'heading', 'file', 'symlink', 'url', 'image', 'function',
@@ -769,6 +789,13 @@ class SqliteFsAdapter {
     // is the source of truth; these rows are pure projections rebuilt by scanning
     // items/ (so _rebuildFromFs repopulates them for free).
     this._indexMetadataDoc(db, doc);
+
+    // Per-type table projection: a live object instance materialises its type's
+    // table and holds one row there. Runs on create AND full/sparse rebuild
+    // (both route through here); soft-deleted instances are skipped so a rebuild
+    // reconstructs exactly the live-row set.
+    if (item.type === 'object' && item.typeId && !meta.deletedAt)
+      this._projectObjectRow(db, id, item.typeId, payload ?? {});
   }
 
   // Project an alias/relationship/annotation item.json into its derived lookup
@@ -793,6 +820,80 @@ class SqliteFsAdapter {
       // 'ITEM' mode: history events live in items/ and are picked up here.
       this._indexHistoryDoc(db, doc);
     }
+  }
+
+  // ─── Per-type table projection ────────────────────────────────────────────
+
+  // Create the `obj_<typeId>` table (and its declared indexes) if absent.
+  // Idempotent (IF NOT EXISTS) and cheap to call on every object write. DDL is
+  // derived from the type's jsonSchema; a malformed index declaration is skipped
+  // with a warning rather than blocking the instance write.
+  _ensureProjection(db: SqlDatabase, typeId: any, jsonSchema: any, indexes: any) {
+    for (const stmt of deriveSqlSchema(jsonSchema, { typeId, dialect: 'sqlite' }))
+      db.exec(guardDdl(stmt));
+    try {
+      for (const stmt of deriveIndexDdl(jsonSchema, indexes, { typeId, dialect: 'sqlite' }))
+        db.exec(guardDdl(stmt));
+    } catch (e: any) {
+      console.warn(`[sqlite-fs] skipping indexes for type ${typeId}: ${e?.message ?? e}`);
+    }
+  }
+
+  // Ensure the type's table exists and upsert this live instance's row into it.
+  // No-op when the referenced type has no stored jsonSchema (unknown typeId).
+  _projectObjectRow(db: SqlDatabase, id: any, typeId: any, payload: any) {
+    const typeDef    = this.readTypeJson(typeId);
+    const jsonSchema = typeDef?.jsonSchema;
+    if (!jsonSchema) return;   // unknown / schemaless type — nothing to project
+
+    this._ensureProjection(db, typeId, jsonSchema, typeDef.indexes);
+
+    const props = jsonSchema.properties || {};
+    const cols  = ['item_id'];
+    const vals: any[] = [id];
+    for (const [name, prop] of Object.entries<any>(props)) {
+      cols.push(snakeCol(name));
+      let v = payload ? payload[name] : undefined;
+      if (v === undefined) v = null;
+      if (v !== null) {
+        if (prop && prop.type === 'array')        v = JSON.stringify(v);
+        else if (prop && prop.type === 'boolean') v = v ? 1 : 0;
+        else if (typeof v === 'object')           v = JSON.stringify(v);
+      }
+      vals.push(v);
+    }
+    const table = objTableName(typeId);
+    const colList = cols.map((c) => `"${c}"`).join(', ');
+    const placeholders = cols.map(() => '?').join(', ');
+    db.prepare(`INSERT OR REPLACE INTO "${table}" (${colList}) VALUES (${placeholders})`).run(...vals);
+  }
+
+  // Remove an instance's row from its type table (guarded — the table may not
+  // exist). Keeps the table itself; dropping is a separate, hard-delete concern.
+  _unprojectObjectRow(db: SqlDatabase, typeId: any, id: any) {
+    try { db.prepare(`DELETE FROM "${objTableName(typeId)}" WHERE item_id = ?`).run(id); }
+    catch { /* table absent — nothing to remove */ }
+  }
+
+  // Drop the type table when it has no remaining live (non-soft-deleted)
+  // instances. Called only on hard-delete / typeId reassignment — soft-delete
+  // keeps the table so a restore can repopulate it.
+  _dropProjectionIfEmpty(db: SqlDatabase, typeId: any) {
+    const row = db.prepare(
+      `SELECT COUNT(*) AS n FROM items i
+         LEFT JOIN items_meta m ON m.item_id = i.id
+        WHERE i.type = 'object' AND i.type_id = ? AND m.deleted_at IS NULL`,
+    ).get(typeId);
+    if (!row || row.n === 0) db.exec(`DROP TABLE IF EXISTS "${objTableName(typeId)}"`);
+  }
+
+  // Every materialised per-type table. Used by integrity checks and mirrors the
+  // Postgres adapter's handle surface.
+  listProjectedRelations() {
+    return this._openDb()
+      .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'obj\\_%' ESCAPE '\\'`)
+      .all()
+      .map((r: any) => r.name);
   }
 
   // Write a metadata item (alias/relationship/annotation) as a real item.json in
@@ -1510,6 +1611,24 @@ class SqliteFsAdapter {
         const newPath    = parentPath != null ? `${parentPath}/${id}` : id;
         this._cascadePathUpdate(db, id, newPath);
       }
+
+      // Per-type table projection: reconcile membership when the item's type,
+      // typeId, or live/soft-deleted state changes. `updated` is already written
+      // to items above, so N(T) counts see the new type_id.
+      const prevObj  = current.type === 'object' && current.typeId;
+      const nextObj  = updated.type === 'object' && updated.typeId;
+      const nextLive = nextObj && !updated.deletedAt;
+      if (prevObj && (!nextObj || current.typeId !== updated.typeId)) {
+        // Left the previous type entirely (type changed or reassigned typeId).
+        this._unprojectObjectRow(db, current.typeId, id);
+        this._dropProjectionIfEmpty(db, current.typeId);
+      }
+      if (nextLive) {
+        this._projectObjectRow(db, id, updated.typeId, existingDoc?.payload ?? {});
+      } else if (nextObj && prevObj && current.typeId === updated.typeId) {
+        // Soft-deleted in place (same type): drop the row, keep the table.
+        this._unprojectObjectRow(db, updated.typeId, id);
+      }
       })();
     });
 
@@ -1565,6 +1684,12 @@ class SqliteFsAdapter {
         db.prepare('DELETE FROM items_search WHERE item_id = ?').run(id);
         db.prepare('DELETE FROM items_time   WHERE item_id = ?').run(id);
         db.prepare('DELETE FROM items        WHERE id = ?').run(id);
+        // The obj_ row cascaded away with the items row (FK ON DELETE CASCADE).
+        // On a full-branch hard delete, drop the type table if this was the last
+        // live instance. Sparse tombstones mask an upstream item ("not gone") so
+        // they keep the table.
+        if (!sparse && item.type === 'object' && item.typeId)
+          this._dropProjectionIfEmpty(db, item.typeId);
       })();
     });
 
@@ -1599,6 +1724,10 @@ class SqliteFsAdapter {
         this._snapshot(db, item, 'soft-delete', actor, now);
         db.prepare('UPDATE items_meta SET deleted_at = ?, modified_at = ?, modified_by = ? WHERE item_id = ?')
           .run(now.toISOString(), now.toISOString(), actor, id);
+        // No longer live: drop its type-table row but keep the table (a restore
+        // can repopulate it).
+        if (item.type === 'object' && item.typeId)
+          this._unprojectObjectRow(db, item.typeId, id);
       })();
     });
 
@@ -1623,6 +1752,9 @@ class SqliteFsAdapter {
         this._snapshot(db, item, 'restore', actor, now);
         db.prepare('UPDATE items_meta SET deleted_at = NULL, modified_at = ?, modified_by = ? WHERE item_id = ?')
           .run(now.toISOString(), actor, id);
+        // Live again: recreate the table if it was dropped and re-add the row.
+        if (item.type === 'object' && item.typeId)
+          this._projectObjectRow(db, id, item.typeId, existingDoc?.payload ?? {});
       })();
     });
 
@@ -1648,6 +1780,9 @@ class SqliteFsAdapter {
       const row = db.prepare('SELECT item_id FROM items_payload WHERE item_id = ?').get(id);
       if (row) db.prepare('UPDATE items_payload SET payload = ? WHERE item_id = ?').run(JSON.stringify(data), id);
       else     db.prepare('INSERT INTO items_payload (item_id, payload) VALUES (?, ?)').run(id, JSON.stringify(data));
+      // Refresh the per-type table row so its columns track the new payload.
+      if (doc.item?.type === 'object' && doc.item?.typeId && !doc.meta?.deletedAt)
+        this._projectObjectRow(db, id, doc.item.typeId, data ?? {});
       this._mem.delete(id);
     });
   }
@@ -2387,6 +2522,12 @@ class SqliteFsAdapter {
   rebuildIndexes() {
     const db = this._openDb();
     db.transaction(() => {
+      // Per-type tables are derived; drop them all and let the rebuild recreate
+      // exactly those with ≥1 live instance (via _insertIndexTx → _projectObjectRow).
+      for (const r of db.prepare(
+        `SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'obj\\_%' ESCAPE '\\'`,
+      ).all())
+        db.exec(`DROP TABLE IF EXISTS "${r.name}"`);
       db.prepare('DELETE FROM items_time').run();
       db.prepare('DELETE FROM items_search').run();
       db.prepare('DELETE FROM items_payload').run();
