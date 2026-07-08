@@ -49,13 +49,29 @@ This installs dependencies, initialises the datastore, and patches `~/.claude.js
 Claude Code reads MCP config from **`~/.claude.json`** (not `~/.claude/settings.json`).
 You need entries in **both** the global `mcpServers` key and the project-level key — the project-level entry overrides the global one for that directory.
 
+The entry point is a TypeScript file (`src/index.ts`) run through [`tsx`](https://tsx.is).
+Launch it with `node --import <tsx loader>` so `tsx` resolves **relative to the
+package**, not relative to whatever directory Claude Code happens to launch from.
+Resolve the loader path once with:
+
+```bash
+# run from inside kanecta-mcp/ — prints e.g. /path/to/kanecta/node_modules/tsx/dist/loader.mjs
+node -e "console.log(require.resolve('tsx'))"
+```
+
+Then paste that absolute path into the config:
+
 ```json
 {
   "mcpServers": {
     "kanecta": {
       "type": "stdio",
       "command": "/home/<user>/.nvm/versions/node/<version>/bin/node",
-      "args": ["/path/to/kanecta/kanecta-mcp/src/index.js"],
+      "args": [
+        "--import",
+        "/path/to/kanecta/node_modules/tsx/dist/loader.mjs",
+        "/path/to/kanecta/kanecta-core/kanecta-mcp/src/index.ts"
+      ],
       "env": {
         "KANECTA_CONFIG": "/home/<user>/.config/kanecta"
       }
@@ -67,7 +83,11 @@ You need entries in **both** the global `mcpServers` key and the project-level k
         "kanecta": {
           "type": "stdio",
           "command": "/home/<user>/.nvm/versions/node/<version>/bin/node",
-          "args": ["/path/to/kanecta/kanecta-mcp/src/index.js"],
+          "args": [
+            "--import",
+            "/path/to/kanecta/node_modules/tsx/dist/loader.mjs",
+            "/path/to/kanecta/kanecta-core/kanecta-mcp/src/index.ts"
+          ],
           "env": {
             "KANECTA_CONFIG": "/home/<user>/.config/kanecta"
           }
@@ -77,6 +97,11 @@ You need entries in **both** the global `mcpServers` key and the project-level k
   }
 }
 ```
+
+Both the loader and the entry point are given as **absolute paths**, so the server
+starts correctly no matter which directory Claude Code launches it from. (The older
+`node --import tsx …` form is not safe here — a bare `tsx` specifier resolves against
+the process's working directory, which Claude Code does not set to the package.)
 
 **nvm note:** Claude Code launches MCP servers without a login shell, so `node` on PATH won't resolve via nvm. Use the full absolute path (`which node` to find it).
 
