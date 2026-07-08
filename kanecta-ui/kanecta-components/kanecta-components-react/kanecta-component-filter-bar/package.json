@@ -10,7 +10,7 @@
   },
   "peerDependencies": {
     "@kanecta/component-core": "*",
-    "@mui/icons-material": "^9.1.1",
+    "@mui/icons-material": "^9.2.0",
     "@mui/material": ">=9",
     "react": ">=19"
   },
