@@ -1,13 +1,13 @@
 {
   "name": "@kanecta/datastore-utils",
   "version": "1.4.0",
-  "description": "Kanecta major datastore operations \u2014 create, open, copy, merge",
+  "description": "Kanecta major datastore operations — create, open, copy, merge",
   "main": "src/index.ts",
   "files": [
     "src/"
   ],
   "scripts": {
-    "test": "echo \"No standalone tests \u2014 tested via integration\" && exit 0",
+    "test": "echo \"No standalone tests — tested via integration\" && exit 0",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "keywords": [
@@ -26,7 +26,7 @@
     "@kanecta/sqlite-fs": "^1.4.0"
   },
   "peerDependencies": {
-    "@aws-sdk/client-s3": "^3.1078.0",
+    "@aws-sdk/client-s3": "^3.1081.0",
     "@kanecta/cloud": "^1.0.0",
     "@kanecta/database": "^1.4.0",
     "@kanecta/s3": "^1.0.0",

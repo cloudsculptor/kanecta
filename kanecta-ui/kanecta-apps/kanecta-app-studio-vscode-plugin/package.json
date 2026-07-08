@@ -39,7 +39,7 @@
     "package": "vsce package --out dist --no-dependencies"
   },
   "devDependencies": {
-    "@types/node": "^26.1.0",
+    "@types/node": "^26.1.1",
     "@types/vscode": "^1.125.0",
     "@vscode/vsce": "^3.0.0",
     "esbuild": "^0.28.1"
