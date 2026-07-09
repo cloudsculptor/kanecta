@@ -64,13 +64,23 @@ Output object keys are the **wire** field names (camelCase); the DataSource spea
   `sql-query.ts`, for the reactions map / counts / finance rollups.
 - **G4 authz** — `../authz/`: grant/visibility/owner/ReBAC decisions; wired into
   the executor as `ctx.authorize` (read gate).
+- **graphql-js wiring** — [`http.ts`](http.ts): `buildGraphqlEngine(model, ds)`
+  feeds `emitSDL` → `buildSchema` and attaches a resolver to each root query field
+  that converts the resolve-info selection set to the engine's `Selection` and
+  calls the Executor. Nested fields resolve via graphql-js's default resolver over
+  the executor's wire-shaped objects, so aliases + fragments are handled for free.
+  `loadTypeItems` adapts datastore `type` items to buildSchemaModel input.
+  **`POST /graphql`** is mounted in `app.ts` (Postgres-backed working sets only;
+  a 501 otherwise); the engine is cached per pool. Adds the `graphql` dependency.
 
 ## Deferred (needs the runner / an owner decision)
 - **`runComputed`** — computed fields (replyCount, hasUnread) run a
   function/formula/query item via the runner; `PgDataSource.runComputed` is not
-  wired yet (throws). Select non-computed fields until it is.
-- **graphql-js wiring** — feed `emitSDL` output to `buildSchema`, map resolvers
-  from `resolverPlan`, expose a `/graphql` route. Adds the `graphql` dependency.
+  wired yet (throws). Selecting a computed field surfaces a GraphQL error until it
+  is wired; every non-computed field resolves normally.
+- **`/graphql` per-item authz** — the route computes principals but does not yet
+  set `context.authorize` (needs a Postgres AuthzSource); it is behind the same
+  auth wall as the REST routes but does not enforce per-item grants yet.
 - **Adapter-based seeding + backfill** — seed the `ch-*` manifest via the real
   Postgres adapter and backfill nonprod data (see `../../manifests/community-hub/`).
 - **DataLoader batching** — the `PgDataSource` loads per-field; batch to kill N+1.

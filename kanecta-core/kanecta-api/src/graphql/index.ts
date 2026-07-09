@@ -36,6 +36,8 @@ export { Executor, ExecutionError } from './execute.ts';
 export type { DataSource, StoredRow, ExecContext, Selection } from './execute.ts';
 export { PgDataSource } from './pg-datasource.ts';
 export type { SqlClient, PgDataSourceOptions } from './pg-datasource.ts';
+export { buildGraphqlEngine, selectionFromInfo, graphqlHandler, loadTypeItems } from './http.ts';
+export type { GraphqlEngine, GraphqlHandlerOptions } from './http.ts';
 export { mapProperty, scalarGraphqlType, filterInputFor, CUSTOM_SCALARS } from './scalars.ts';
 export { graphqlTypeName, singularQueryField, listQueryField, pluralize } from './naming.ts';
 export { applyNamingStrategy, camelToSnake, snakeToCamel } from './naming-strategy.ts';
