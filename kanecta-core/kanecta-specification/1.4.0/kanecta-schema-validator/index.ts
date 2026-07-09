@@ -66,8 +66,11 @@ function computeContractHash(typeJson: any): string {
  * Business rules enforced on top of structural checks:
  *  - Every property in jsonSchema.properties must have an "x-id" (stable UUID).
  *  - Types must be flat: no nested objects, no arrays-of-objects, no $ref.
- *  - sqlSchema must be a non-empty array of SQL DDL strings.
  *  - meta.description is required.
+ *
+ * `sqlSchema` is NOT required: since the schema-compiler derives it from
+ * `jsonSchema` (see @kanecta/schema-compiler `deriveSqlSchema`), a type may be
+ * authored without one. When present it is still shape-checked below.
  */
 export function validateType(typeJsonInput: unknown): ValidationResult {
   const errors: ValidationError[] = [];
@@ -77,7 +80,7 @@ export function validateType(typeJsonInput: unknown): ValidationResult {
   }
   const typeJson: any = typeJsonInput;
 
-  for (const f of ['meta', 'jsonSchema', 'sqlSchema']) {
+  for (const f of ['meta', 'jsonSchema']) {
     if (typeJson[f] == null) errors.push(e(f, `Required field "${f}" is missing`, 'required'));
   }
 

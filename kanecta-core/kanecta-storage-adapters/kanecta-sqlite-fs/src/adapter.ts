@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import Database from 'better-sqlite3';
 import * as spec from '@kanecta/specification';
 import { deriveSqlSchema, deriveIndexDdl, objTableName } from '@kanecta/schema-compiler';
+import { validateItem } from '@kanecta/specification/validator';
 import { WriteGuard } from './write-integrity.ts';
 
 // Minimal structural type for the better-sqlite3 handle (the package ships no
@@ -1414,6 +1415,12 @@ class SqliteFsAdapter {
     if (type === 'object' && typeId && this._getTypeName(typeId) === null)
       typeWarning = this._guardTypeIdRef(typeId, strict);
 
+    // Enforce the type's jsonSchema on a supplied payload before persisting.
+    // A shell create (objectData omitted) is not validated here — it will be
+    // validated when the payload is written via writeObjectJson.
+    if (type === 'object' && typeId && objectData != null)
+      this._validateObjectPayload(typeId, objectData);
+
     const resolvedPayload = (type === 'object' && typeId) ? (objectData ?? {}) : null;
 
     const item: any = {
@@ -1770,9 +1777,31 @@ class SqliteFsAdapter {
     return doc.payload ?? null;
   }
 
+  // Validate a typed object's payload against its type's jsonSchema before it is
+  // persisted. Skips silently when there is no payload or no resolvable jsonSchema
+  // (nothing to validate against). Throws a PayloadValidationError on a schema
+  // violation so invalid typed objects never reach items_payload.
+  _validateObjectPayload(typeId: any, data: any) {
+    if (!typeId || data == null) return;
+    const typeJson = this.readTypeJson(typeId);
+    if (!typeJson || typeof typeJson.jsonSchema !== 'object') return;
+    const result = validateItem(data, typeJson);
+    if (!result.valid) {
+      const err: any = new Error(
+        `Object payload failed validation for type ${typeId}: ` +
+        result.errors.map((e: any) => `${e.path || '(root)'}: ${e.message}`).join('; '),
+      );
+      err.name = 'PayloadValidationError';
+      err.code = 'INVALID_PAYLOAD';
+      err.validationErrors = result.errors;
+      throw err;
+    }
+  }
+
   writeObjectJson(id: any, data: any) {
     const doc = this._readItemJson(id);
     if (!doc) throw new Error(`Item not found: ${id}`);
+    this._validateObjectPayload(doc.item?.typeId, data);
     doc.payload = data;
     const db = this._openDb();
     this._withWrite([{ id, store: 'items' }], () => {

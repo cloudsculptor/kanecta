@@ -10,6 +10,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { version as specVersion } from '@kanecta/specification';
+import { validateItem } from '@kanecta/specification/validator';
 import { deriveSqlSchema, deriveIndexDdl } from '@kanecta/schema-compiler';
 import { Pool } from 'pg';
 import { createEmbeddingProvider, reciprocalRankFusion } from './embeddings.ts';
@@ -396,6 +397,12 @@ class PostgresAdapter {
     let typeWarning: any = null;
     if (type === 'object' && typeId && !(await this._typeDefExists(typeId))) {
       typeWarning = this._guardTypeIdRef(typeId, strict);
+    }
+
+    // Validate a supplied payload up-front, before the item row is inserted, so a
+    // schema violation can never leave a dangling item with no (or invalid) payload.
+    if (type === 'object' && typeId && objectData != null) {
+      await this._validateObjectPayload(typeId, objectData);
     }
 
     if (parentId == null) {
@@ -1101,6 +1108,27 @@ class PostgresAdapter {
     } catch { return null; }
   }
 
+  // Validate a typed object's payload against its type's jsonSchema before it is
+  // persisted. Skips silently when the type has no resolvable jsonSchema (nothing
+  // to validate against). Throws a PayloadValidationError on a schema violation so
+  // invalid typed objects never reach the obj_<typeId> table.
+  async _validateObjectPayload(typeId: any, data: any) {
+    if (!typeId || data == null) return;
+    const typeJson = await this.readTypeJson(typeId);
+    if (!typeJson || typeof typeJson.jsonSchema !== 'object') return;
+    const result = validateItem(data, typeJson);
+    if (!result.valid) {
+      const err: any = new Error(
+        `Object payload failed validation for type ${typeId}: ` +
+        result.errors.map((e: any) => `${e.path || '(root)'}: ${e.message}`).join('; '),
+      );
+      err.name = 'PayloadValidationError';
+      err.code = 'INVALID_PAYLOAD';
+      err.validationErrors = result.errors;
+      throw err;
+    }
+  }
+
   async writeObjectJson(id: any, typeId?: any, data?: any) {
     // Support both the adapter form (id, typeId, data) and the Datastore facade's
     // (id, data): when `data` is omitted the second arg IS the payload, and the
@@ -1113,6 +1141,7 @@ class PostgresAdapter {
       typeId = item?.typeId;
     }
     if (!typeId) return;
+    await this._validateObjectPayload(typeId, data);
     const table        = objTableName(typeId);
     const camelToSnake = (s: string) => s.replace(/[A-Z]/g, c => '_' + c.toLowerCase());
     const entries      = Object.entries(data).map(([k, v]) => [camelToSnake(k), v]);

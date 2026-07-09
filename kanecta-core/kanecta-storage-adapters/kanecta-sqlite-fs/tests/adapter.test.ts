@@ -520,6 +520,61 @@ describe('get', () => {
   });
 });
 
+// ─── object payload validation (validateItem enforcement) ───────────────────────
+
+describe('object payload validation', () => {
+  function makeBugType() {
+    const { metadata } = ds.createType('ValidatedBug', {
+      schema: {
+        meta: { icon: '🐞', description: 'a bug', details: '', keywords: '', tags: '', 'ai-instructions': { claude: '' } },
+        jsonSchema: {
+          '$schema': 'http://json-schema.org/draft-07/schema#', '$id': '', title: 'ValidatedBug',
+          type: 'object',
+          properties: { severity: { type: 'string' }, count: { type: 'integer' } },
+          required: ['severity'], additionalProperties: false,
+        },
+      },
+    });
+    return metadata.id;
+  }
+
+  it('create() accepts a payload that satisfies the type schema', () => {
+    const typeId = makeBugType();
+    const item = ds.create({ value: 'b', type: 'object', typeId, objectData: { severity: 'P1', count: 3 } });
+    expect(ds.readObjectJson(item.id)).toEqual({ severity: 'P1', count: 3 });
+  });
+
+  it('create() rejects a payload with a wrong field type', () => {
+    const typeId = makeBugType();
+    expect(() => ds.create({ value: 'b', type: 'object', typeId, objectData: { severity: 123 } }))
+      .toThrow(/failed validation/i);
+  });
+
+  it('create() rejects a payload missing a required field', () => {
+    const typeId = makeBugType();
+    expect(() => ds.create({ value: 'b', type: 'object', typeId, objectData: { count: 1 } }))
+      .toThrow(/failed validation/i);
+  });
+
+  it('create() allows a shell object with no payload (validated later on write)', () => {
+    const typeId = makeBugType();
+    expect(() => ds.create({ value: 'b', type: 'object', typeId })).not.toThrow();
+  });
+
+  it('writeObjectJson() rejects an invalid payload', () => {
+    const typeId = makeBugType();
+    const item = ds.create({ value: 'b', type: 'object', typeId, objectData: { severity: 'P1' } });
+    expect(() => ds.writeObjectJson(item.id, { severity: 'P2', count: 'lots' })).toThrow(/failed validation/i);
+  });
+
+  it('writeObjectJson() accepts a valid payload', () => {
+    const typeId = makeBugType();
+    const item = ds.create({ value: 'b', type: 'object', typeId, objectData: { severity: 'P1' } });
+    expect(() => ds.writeObjectJson(item.id, { severity: 'P2', count: 5 })).not.toThrow();
+    expect(ds.readObjectJson(item.id)).toEqual({ severity: 'P2', count: 5 });
+  });
+});
+
 // ─── update ────────────────────────────────────────────────────────────────────
 
 describe('update', () => {

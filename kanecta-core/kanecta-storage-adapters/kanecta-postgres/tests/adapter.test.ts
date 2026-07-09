@@ -975,6 +975,70 @@ describe('objectData round-trip', () => {
   });
 });
 
+// ─── object payload validation (validateItem enforcement) ───────────────────────
+
+describe('object payload validation', () => {
+  let typeId, tableName;
+
+  beforeAll(async () => {
+    typeId    = crypto.randomUUID();
+    tableName = `obj_${typeId.replace(/-/g, '_')}`;
+    await adapter.createType('ValidatedBug', {
+      schema: {
+        meta: {},
+        jsonSchema: {
+          type: 'object',
+          properties: { severity: { type: 'string' }, count: { type: 'integer' } },
+          required: ['severity'], additionalProperties: false,
+        },
+        sqlSchema: [
+          `CREATE TABLE "${tableName}" (
+             item_id UUID NOT NULL, "severity" TEXT, "count" INTEGER,
+             CONSTRAINT "pk_${tableName}" PRIMARY KEY (item_id),
+             CONSTRAINT "fk_${tableName}_item" FOREIGN KEY (item_id) REFERENCES items(id)
+           )`,
+        ],
+      },
+      id: typeId,
+    });
+  });
+
+  test('create() accepts a payload that satisfies the type schema', async () => {
+    const item = await adapter.create({ value: 'ok', type: 'object', typeId, objectData: { severity: 'P1', count: 3 } });
+    expect(await adapter.readObjectJson(item.id, typeId)).toMatchObject({ severity: 'P1', count: 3 });
+  });
+
+  test('create() rejects a payload with a wrong field type', async () => {
+    await expect(adapter.create({ value: 'bad-type', type: 'object', typeId, objectData: { severity: 123 } }))
+      .rejects.toThrow(/failed validation/i);
+  });
+
+  test('create() rejects a payload missing a required field', async () => {
+    await expect(adapter.create({ value: 'bad-req', type: 'object', typeId, objectData: { count: 1 } }))
+      .rejects.toThrow(/failed validation/i);
+  });
+
+  test('a rejected create() leaves no dangling item row', async () => {
+    const before = await pool.query(`SELECT count(*)::int AS n FROM items WHERE value = $1`, ['no-dangle']);
+    await expect(adapter.create({ value: 'no-dangle', type: 'object', typeId, objectData: { severity: 5 } }))
+      .rejects.toThrow(/failed validation/i);
+    const after = await pool.query(`SELECT count(*)::int AS n FROM items WHERE value = $1`, ['no-dangle']);
+    expect(after.rows[0].n).toBe(before.rows[0].n);
+  });
+
+  test('writeObjectJson() rejects an invalid payload (facade form)', async () => {
+    const item = await adapter.create({ value: 'shell', type: 'object', typeId, objectData: { severity: 'P1' } });
+    await expect(adapter.writeObjectJson(item.id, { severity: 'P2', count: 'lots' }))
+      .rejects.toThrow(/failed validation/i);
+  });
+
+  test('writeObjectJson() accepts a valid payload', async () => {
+    const item = await adapter.create({ value: 'shell2', type: 'object', typeId, objectData: { severity: 'P1' } });
+    await adapter.writeObjectJson(item.id, { severity: 'P2', count: 5 });
+    expect(await adapter.readObjectJson(item.id, typeId)).toMatchObject({ severity: 'P2', count: 5 });
+  });
+});
+
 // ─── per-type table projection ──────────────────────────────────────────────
 
 describe('per-type table projection', () => {
