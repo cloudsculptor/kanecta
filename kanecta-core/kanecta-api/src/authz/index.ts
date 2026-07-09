@@ -12,8 +12,8 @@
 // database. A Postgres AuthzSource later backs it with the `payload_grant`
 // derived table + the container chain.
 //
-// DESIGN DEFAULTS (flagged for owner confirmation — reasonable, and make
-// "admin superuser" / "owner-implicit write" from the mapping doc actually work):
+// DESIGN DEFAULTS (owner-confirmed 2026-07-10 — these make "admin superuser" /
+// "owner-implicit write" from the mapping doc actually work):
 //   * Permission implication: admin ⊇ {read,write,subscribe}; write ⊇ read;
 //     subscribe ⊇ read. A grant of a stronger permission satisfies a weaker need.
 //   * Owner is implicitly granted read/write/subscribe on their item — but NOT
