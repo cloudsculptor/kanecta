@@ -31,6 +31,9 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
+  // Tear down the AGE graph (a global namespace, not inside SCHEMA) if one was
+  // created. No-op when AGE isn't installed.
+  try { await adapter?.dropGraphProjection?.(); } catch { /* ignore */ }
   if (pool) await pool.end();
   if (adminPool) {
     await adminPool.query(`DROP SCHEMA IF EXISTS "${SCHEMA}" CASCADE`);
@@ -1462,5 +1465,76 @@ describe('semantic / hybrid search', () => {
     expect(ids).toContain(due.id);
     expect(ids).not.toContain(notYet.id);   // future due date
     expect(ids).not.toContain(paused.id);   // not active
+  });
+});
+
+// ─── Graph projection (Apache AGE) ──────────────────────────────────────────────
+//
+// Gated on KANECTA_TEST_AGE=1 because the projection needs the Apache AGE
+// extension, which the default test Postgres (and CI) does not have. Run with:
+//
+//   KANECTA_TEST_AGE=1 KANECTA_TEST_PG_URL=postgres://kanecta:kanecta@localhost:45434/kanecta npm test
+//
+// (localhost:45434 is a postgres:18 image with both pgvector and AGE installed.)
+const AGE_ENABLED = process.env.KANECTA_TEST_AGE === '1';
+
+describe.skipIf(!AGE_ENABLED)('graph projection (AGE)', () => {
+  test('AGE is detected as enabled', async () => {
+    // Force a probe via any graph op.
+    await adapter.countProjectedGraphEdges();
+    expect(adapter.graphEnabled).toBe(true);
+  });
+
+  test('relate() projects an edge; graphNeighbors traverses it', async () => {
+    const a = await adapter.create({ value: 'g-a' });
+    const b = await adapter.create({ value: 'g-b' });
+    await adapter.relate(a.id, 'depends-on', b.id);
+
+    const out = await adapter.graphNeighbors(a.id, { direction: 'out' });
+    expect(out).toContain(b.id);
+
+    const inn = await adapter.graphNeighbors(b.id, { direction: 'in' });
+    expect(inn).toContain(a.id);
+
+    // Wrong direction / wrong type find nothing.
+    expect(await adapter.graphNeighbors(a.id, { direction: 'in' })).not.toContain(b.id);
+    expect(await adapter.graphNeighbors(a.id, { direction: 'out', relType: 'blocks' })).not.toContain(b.id);
+  });
+
+  test('graphNeighbors can filter by relationship type', async () => {
+    const a = await adapter.create({ value: 'g-f-a' });
+    const b = await adapter.create({ value: 'g-f-b' });
+    const c = await adapter.create({ value: 'g-f-c' });
+    await adapter.relate(a.id, 'depends-on', b.id);
+    await adapter.relate(a.id, 'blocks', c.id);
+
+    const dep = await adapter.graphNeighbors(a.id, { relType: 'depends-on' });
+    expect(dep).toContain(b.id);
+    expect(dep).not.toContain(c.id);
+  });
+
+  test('unrelate() retracts the edge', async () => {
+    const a = await adapter.create({ value: 'g-u-a' });
+    const b = await adapter.create({ value: 'g-u-b' });
+    const rel = await adapter.relate(a.id, 'relates-to', b.id);
+    expect(await adapter.graphNeighbors(a.id)).toContain(b.id);
+
+    const removed = await adapter.unrelate(rel.id);
+    expect(removed).toBe(true);
+    expect(await adapter.graphNeighbors(a.id)).not.toContain(b.id);
+  });
+
+  test('rebuildGraphProjection reconstructs edges from the relationships table', async () => {
+    const a = await adapter.create({ value: 'g-r-a' });
+    const b = await adapter.create({ value: 'g-r-b' });
+    await adapter.relate(a.id, 'enables', b.id);
+
+    const summary = await adapter.rebuildGraphProjection();
+    expect(summary.rebuilt).toBe(true);
+    // Every relationships-table row is mirrored as exactly one edge.
+    const { rows } = await pool.query('SELECT count(*)::int AS n FROM relationships');
+    expect(await adapter.countProjectedGraphEdges()).toBe(rows[0].n);
+    // The rebuilt graph still answers traversals.
+    expect(await adapter.graphNeighbors(a.id, { relType: 'enables' })).toContain(b.id);
   });
 });

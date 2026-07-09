@@ -126,6 +126,12 @@ class PostgresAdapter {
   _relTypesCache: string[] | null;
   _embeddingProvider: any;
   _embeddingsEnabled: boolean;
+  // Apache AGE graph projection (lazy, capability-gated). `undefined` = unprobed;
+  // once probed, `_ageAvailable` is a boolean and `_graphName` / `_graphReady`
+  // are populated. All graph work no-ops when AGE is not installed.
+  _ageAvailable?: boolean;
+  _graphName?: string;
+  _graphReady: boolean;
 
   constructor(pool: Pool, { embeddings = null }: any = {}) {
     this._pool              = pool;
@@ -133,6 +139,7 @@ class PostgresAdapter {
     this._relTypesCache     = null;
     this._embeddingProvider = createEmbeddingProvider(embeddings);
     this._embeddingsEnabled = embeddings?.enabled !== false;
+    this._graphReady        = false;
   }
 
   // ─── Lifecycle ──────────────────────────────────────────────────────────────
@@ -699,7 +706,19 @@ class PostgresAdapter {
        VALUES ($1,$2,$3,$4,$5,$6,$7)`,
       [id, sourceId, targetId, type, now, actor, note],
     );
+    // Additive graph projection: mirror the relationship as an AGE edge when the
+    // graph is enabled. Never let a graph error fail the (authoritative) SQL write.
+    await this._projectRelationshipToGraph({ id, sourceId, targetId, type });
     return { id, sourceId, targetId, type, createdAt: now.toISOString(), createdBy: actor, note };
+  }
+
+  // Remove a relationship by id (and its mirrored AGE edge, if any). Returns
+  // true if a row was deleted. There is no cascade from item delete, so this is
+  // the supported way to retract a relationship.
+  async unrelate(id: any) {
+    const { rowCount } = await this._pool.query('DELETE FROM relationships WHERE id = $1', [id]);
+    await this._unprojectRelationshipFromGraph(id);
+    return (rowCount ?? 0) > 0;
   }
 
   async relationships(id: any) {
@@ -1550,6 +1569,206 @@ class PostgresAdapter {
         WHERE table_schema = current_schema() AND table_name LIKE 'obj\\_%'`,
     );
     return rows.map((r: any) => r.table_name);
+  }
+
+  // ─── Graph projection (Apache AGE) ───────────────────────────────────────────
+  // Strictly ADDITIVE to the per-type table projection. When the Apache AGE
+  // extension is available, relationships are mirrored into an AGE property graph
+  // as edges between `Item` vertices, giving a traversal index (spec §"Graph
+  // Projection (Apache AGE)"). Edge label = the relationship type upper-cased with
+  // hyphens → underscores (`depends-on` → `DEPENDS_ON`); vertices carry the item's
+  // `id` and `type`. Absent AGE, every method here is a silent no-op, so the
+  // default (AGE-less) Postgres deployment is completely unaffected.
+  //
+  // MVP scope: vertices are created lazily for relationship endpoints only (an
+  // isolated item adds nothing to a traversal index); full item↔vertex mirroring
+  // and DB-trigger sync (spec) are left as follow-ups. Edges are keyed by the
+  // relationship id so they can be retracted individually.
+
+  // True once AGE has been probed and found installed on this database.
+  get graphEnabled() { return this._ageAvailable === true; }
+
+  // Escape a value for interpolation into a Cypher single-quoted string. Ids are
+  // validated UUIDs and types are kebab-case, so this is defence-in-depth.
+  _cypherLiteral(v: any) { return String(v).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+
+  // Cypher edge label from a relationship type (`depends-on` → `DEPENDS_ON`).
+  _edgeLabel(type: any) {
+    const t = String(type);
+    if (!/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(t))
+      throw new Error(`Cannot project relationship type "${type}" to a graph edge label`);
+    return t.toUpperCase().replace(/-/g, '_');
+  }
+
+  // Probe (once, cached) whether AGE is installed, creating the extension if the
+  // package is available. Returns false — never throws — when AGE is absent.
+  async _ensureAgeExtension() {
+    if (this._ageAvailable !== undefined) return this._ageAvailable;
+    try {
+      const { rows } = await this._pool.query(
+        `SELECT 1 FROM pg_available_extensions WHERE name = 'age'`,
+      );
+      if (!rows.length) { this._ageAvailable = false; return false; }
+      await this._pool.query(`CREATE EXTENSION IF NOT EXISTS age`);
+      this._ageAvailable = true;
+    } catch {
+      this._ageAvailable = false;
+    }
+    return this._ageAvailable;
+  }
+
+  // The AGE graph is a global namespace, so derive its name from the adapter's
+  // current schema to keep concurrent datastores (and per-run test schemas) from
+  // colliding. `public` → `kg_public`.
+  async _resolveGraphName() {
+    if (this._graphName) return this._graphName;
+    const { rows } = await this._pool.query(`SELECT current_schema() AS s`);
+    const schema = (rows[0]?.s || 'public').replace(/[^a-zA-Z0-9_]/g, '_');
+    this._graphName = `kg_${schema}`.slice(0, 63);
+    return this._graphName;
+  }
+
+  // Run graph work on a DEDICATED connection: AGE needs `LOAD 'age'` and an
+  // ag_catalog search_path, both of which are session state — running them on a
+  // pooled connection would poison it for the adapter's schema-scoped queries. We
+  // RESET on release so the connection returns to the pool clean.
+  async _withGraphClient(fn: (client: any) => Promise<any>) {
+    const client = await this._pool.connect();
+    try {
+      await client.query(`LOAD 'age'`);
+      await client.query(`SET search_path = ag_catalog, "$user", public`);
+      return await fn(client);
+    } finally {
+      try { await client.query('RESET search_path'); } catch { /* connection closing */ }
+      client.release();
+    }
+  }
+
+  // Ensure the AGE extension + graph exist. Returns false when AGE is unavailable.
+  async _ensureGraph() {
+    if (!(await this._ensureAgeExtension())) return false;
+    if (this._graphReady) return true;
+    const name = await this._resolveGraphName();
+    const { rows } = await this._pool.query(
+      `SELECT 1 FROM ag_catalog.ag_graph WHERE name = $1`, [name],
+    );
+    if (!rows.length) {
+      await this._withGraphClient(c => c.query(`SELECT create_graph('${this._cypherLiteral(name)}')`));
+    }
+    this._graphReady = true;
+    return true;
+  }
+
+  // Run a Cypher statement against the graph and return the raw agtype rows.
+  async _cypher(cypher: string, columns = 'result agtype') {
+    const name = await this._resolveGraphName();
+    return this._withGraphClient(async (c) => {
+      const { rows } = await c.query(
+        `SELECT * FROM ag_catalog.cypher('${this._cypherLiteral(name)}', $graph$ ${cypher} $graph$) AS (${columns})`,
+      );
+      return rows;
+    });
+  }
+
+  async _projectRelationshipToGraph(rel: { id: any; sourceId: any; targetId: any; type: any }) {
+    try {
+      if (!(await this._ensureGraph())) return;
+      // Look up endpoint types on the pooled (schema-scoped) connection BEFORE
+      // entering the graph client, whose search_path can't see the items table.
+      const { rows } = await this._pool.query(
+        `SELECT id, type FROM items WHERE id = ANY($1::uuid[])`, [[rel.sourceId, rel.targetId]],
+      );
+      const typeOf = new Map(rows.map((r: any) => [r.id, r.type]));
+      const src = this._cypherLiteral(rel.sourceId);
+      const tgt = this._cypherLiteral(rel.targetId);
+      const relId = this._cypherLiteral(rel.id);
+      const label = this._edgeLabel(rel.type);
+      const srcType = this._cypherLiteral(typeOf.get(rel.sourceId) ?? '');
+      const tgtType = this._cypherLiteral(typeOf.get(rel.targetId) ?? '');
+      await this._cypher(
+        `MERGE (a:Item {id: '${src}'}) SET a.type = '${srcType}'
+         MERGE (b:Item {id: '${tgt}'}) SET b.type = '${tgtType}'
+         MERGE (a)-[e:${label} {id: '${relId}'}]->(b)
+         RETURN e`,
+      );
+    } catch (e: any) {
+      console.warn(`[postgres] graph projection failed for relationship ${rel.id}: ${e?.message ?? e}`);
+    }
+  }
+
+  async _unprojectRelationshipFromGraph(relId: any) {
+    try {
+      if (!(await this._ensureGraph())) return;
+      await this._cypher(
+        `MATCH ()-[e {id: '${this._cypherLiteral(relId)}'}]->() DELETE e RETURN 1`,
+      );
+    } catch (e: any) {
+      console.warn(`[postgres] graph unprojection failed for relationship ${relId}: ${e?.message ?? e}`);
+    }
+  }
+
+  // Traverse the graph from an item. `direction`: 'out' (default) | 'in' | 'both';
+  // optional `relType` filters by edge label. Returns the neighbour item ids.
+  // No-op (empty array) when AGE is unavailable.
+  async graphNeighbors(id: any, { direction = 'out', relType = null }: any = {}) {
+    if (!(await this._ensureGraph())) return [];
+    const label = relType ? `:${this._edgeLabel(relType)}` : '';
+    const pattern =
+      direction === 'in'   ? `<-[e${label}]-`
+    : direction === 'both' ? `-[e${label}]-`
+    :                        `-[e${label}]->`;
+    const rows = await this._cypher(
+      `MATCH (a:Item {id: '${this._cypherLiteral(id)}'})${pattern}(b:Item)
+       RETURN DISTINCT b.id`,
+      'id agtype',
+    );
+    // agtype string values arrive JSON-quoted (e.g. "\"<uuid>\"").
+    return rows.map((r: any) => { try { return JSON.parse(r.id); } catch { return r.id; } });
+  }
+
+  // Count edges currently in the graph (0 when AGE is unavailable). Useful for
+  // integrity checks and tests.
+  async countProjectedGraphEdges() {
+    if (!(await this._ensureGraph())) return 0;
+    const rows = await this._cypher(`MATCH ()-[e]->() RETURN count(e)`, 'n agtype');
+    const raw = rows[0]?.n;
+    const n = typeof raw === 'string' ? parseInt(raw, 10) : Number(raw);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  // Drop and rebuild the whole graph from the relationships table — the
+  // authoritative source. Returns a summary; no-op when AGE is unavailable.
+  async rebuildGraphProjection() {
+    if (!(await this._ensureAgeExtension())) return { rebuilt: false, reason: 'AGE unavailable', edges: 0 };
+    const name = await this._resolveGraphName();
+    const { rows: exists } = await this._pool.query(
+      `SELECT 1 FROM ag_catalog.ag_graph WHERE name = $1`, [name],
+    );
+    if (exists.length) {
+      await this._withGraphClient(c => c.query(`SELECT drop_graph('${this._cypherLiteral(name)}', true)`));
+    }
+    this._graphReady = false;
+    await this._ensureGraph();
+    const { rows } = await this._pool.query(
+      `SELECT id, source_id, target_id, type FROM relationships`,
+    );
+    for (const r of rows) {
+      await this._projectRelationshipToGraph({ id: r.id, sourceId: r.source_id, targetId: r.target_id, type: r.type });
+    }
+    return { rebuilt: true, edges: rows.length };
+  }
+
+  // Drop the graph entirely (used for teardown). No-op when AGE is unavailable.
+  async dropGraphProjection() {
+    if (!(await this._ensureAgeExtension())) return;
+    const name = await this._resolveGraphName();
+    const { rows } = await this._pool.query(
+      `SELECT 1 FROM ag_catalog.ag_graph WHERE name = $1`, [name],
+    );
+    if (rows.length) {
+      await this._withGraphClient(c => c.query(`SELECT drop_graph('${this._cypherLiteral(name)}', true)`));
+    }
+    this._graphReady = false;
   }
 
   // ─── Semantic / hybrid search (pgvector) ─────────────────────────────────────
