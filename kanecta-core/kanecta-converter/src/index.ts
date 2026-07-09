@@ -23,6 +23,8 @@ export { scaffoldEndpoint, scaffoldEndpoints, pathParams } from './endpoint-scaf
 export type { SourceEndpoint, ScaffoldResult, ScaffoldSummary, EndpointClass, HttpMethod } from './endpoint-scaffold.ts';
 export { planBackfill } from './backfill.ts';
 export type { BackfillOptions, BackfillPlan, ItemUpsert, RelationshipEdge } from './backfill.ts';
+export { applyBackfillPlan, camelToSnake } from './backfill-executor.ts';
+export type { BackfillPool, BackfillPoolClient, Queryable, ApplyBackfillOptions, ApplyBackfillResult } from './backfill-executor.ts';
 export {
   readPgCatalog,
   buildSourceTables,

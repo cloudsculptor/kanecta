@@ -9,9 +9,14 @@ declare module 'pg' {
     rowCount: number;
     [key: string]: any;
   }
+  export interface PoolClient {
+    query(text: string, params?: any[]): Promise<QueryResult>;
+    release(): void;
+  }
   export class Pool {
     constructor(config?: any);
     query(text: string, params?: any[]): Promise<QueryResult>;
+    connect(): Promise<PoolClient>;
     end(): Promise<void>;
   }
   const _default: { Pool: typeof Pool };
