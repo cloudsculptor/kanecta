@@ -19,6 +19,7 @@
     "jwks-rsa": "^4.1.0"
   },
   "devDependencies": {
+    "@kanecta/schema-compiler": "*",
     "jest": "^30.4.2",
     "supertest": "^7.0.0"
   },

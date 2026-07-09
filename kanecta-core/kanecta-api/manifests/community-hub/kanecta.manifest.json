@@ -1,0 +1,27 @@
+{
+  "name": "community-hub",
+  "specVersion": "1.4.0",
+  "description": "community-hub type/container manifest for the kanecta-api cutover (G5). Authored inputs — the seeder derives each type's sqlSchema via @kanecta/schema-compiler and creates the container hierarchy. Fields are camelCase; DB columns become snake_case automatically.",
+  "container": {
+    "id": "0c8a7b10-1111-4a00-8000-000000000001",
+    "value": "Discussions",
+    "note": "Domain container (authz cascades role grants down it — see community-hub-authz-mapping). Domain type items and instances nest under it via parentId."
+  },
+  "types": [
+    "ch-thread.type.json",
+    "ch-message.type.json",
+    "ch-file.type.json"
+  ],
+  "functions": {
+    "note": "Computed fields reference function/formula/query items by UUID (authored separately, not in this slice):",
+    "0c8a7b10-1111-4a00-8000-000000000201": "ch-thread.hasUnread (perViewer): latestMessageAt > this viewer's thread read timestamp",
+    "0c8a7b10-1111-4a00-8000-000000000202": "ch-thread.isNotificationsEnabled (perViewer): a subscription item exists for (viewer, thread)",
+    "0c8a7b10-1111-4a00-8000-000000000203": "ch-message.replyCount (shared): count of child ch-message items"
+  },
+  "todo": [
+    "Remaining domains (finances, events, notices, pages, suggestions, trust) — author their type files the same way.",
+    "Reactions: mutable current-state ch-reaction items (one per active (user,message,emoji)); reactions map via G2 aggregation.",
+    "Thread reads / notification subscriptions: native subscription items + a small per-(user,thread) read-state item.",
+    "Finalise UUIDs (currently deterministic placeholders) before seeding."
+  ]
+}

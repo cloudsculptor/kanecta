@@ -1,0 +1,52 @@
+{
+  "item": {
+    "id": "0c8a7b10-1111-4a00-8000-000000000102",
+    "parentId": "0c8a7b10-1111-4a00-8000-000000000001",
+    "type": "type",
+    "typeId": null,
+    "value": "ch-message",
+    "sortOrder": 2
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-07-09T00:00:00.000Z",
+    "modifiedAt": "2026-07-09T00:00:00.000Z",
+    "visibility": "public",
+    "tags": ["community-hub", "discussions"]
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "icon": "ChatBubble",
+      "description": "A message or reply in a discussion thread.",
+      "details": "Tree containment: a top-level message has parentId = its thread; a reply has parentId = its parent message (one level, per the contract). Soft-deleted by setting deletedAt and blanking content. replyCount is the child-message count.",
+      "primaryField": "content"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$id": "https://kanecta.org/types/ch-message",
+      "title": "ChMessage",
+      "type": "object",
+      "x-graphql": {
+        "name": "ChMessage",
+        "fields": {
+          "replies": { "kind": "containment", "type": "ChMessage", "list": true },
+          "replyCount": { "kind": "computed", "type": "Int", "backedBy": "0c8a7b10-1111-4a00-8000-000000000203" },
+          "files": { "kind": "reference", "type": "ChFile", "list": true, "relationshipType": "attaches" }
+        }
+      },
+      "properties": {
+        "threadId": { "x-id": "0c8a7b10-1111-4a00-8000-0000000b0001", "type": "string", "format": "uuid", "typeId": "0c8a7b10-1111-4a00-8000-000000000101", "description": "The containing thread." },
+        "userId": { "x-id": "0c8a7b10-1111-4a00-8000-0000000b0002", "type": "string", "description": "Keycloak sub of the author." },
+        "userName": { "x-id": "0c8a7b10-1111-4a00-8000-0000000b0003", "type": "string", "description": "Denormalised author display name." },
+        "content": { "x-id": "0c8a7b10-1111-4a00-8000-0000000b0004", "type": "string", "description": "Message body. Blanked to '' on soft delete." },
+        "createdAt": { "x-id": "0c8a7b10-1111-4a00-8000-0000000b0005", "type": "string", "format": "date-time" },
+        "editedAt": { "x-id": "0c8a7b10-1111-4a00-8000-0000000b0006", "type": "string", "format": "date-time", "description": "Set when the author edits the message." },
+        "deletedAt": { "x-id": "0c8a7b10-1111-4a00-8000-0000000b0007", "type": "string", "format": "date-time", "description": "Soft-delete marker. Stored, not exposed.", "x-graphql": { "expose": false } }
+      },
+      "required": ["threadId", "content"]
+    }
+  }
+}

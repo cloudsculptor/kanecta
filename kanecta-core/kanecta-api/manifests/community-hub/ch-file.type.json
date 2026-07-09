@@ -1,0 +1,44 @@
+{
+  "item": {
+    "id": "0c8a7b10-1111-4a00-8000-000000000103",
+    "parentId": "0c8a7b10-1111-4a00-8000-000000000001",
+    "type": "type",
+    "typeId": null,
+    "value": "ch-file",
+    "sortOrder": 3
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-07-09T00:00:00.000Z",
+    "modifiedAt": "2026-07-09T00:00:00.000Z",
+    "visibility": "public",
+    "tags": ["community-hub", "discussions"]
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "icon": "AttachFile",
+      "description": "A file attached to a message.",
+      "details": "Attached to a ch-message via an 'attaches' relationship carrying showPreview. The binary lives in object storage (S3) keyed by storageKey; url is derived at read time. Mirrors community-hub's files + discussions_message_files.",
+      "primaryField": "name"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$id": "https://kanecta.org/types/ch-file",
+      "title": "ChFile",
+      "type": "object",
+      "x-graphql": { "name": "ChFile" },
+      "properties": {
+        "name": { "x-id": "0c8a7b10-1111-4a00-8000-0000000c0001", "type": "string" },
+        "mimeType": { "x-id": "0c8a7b10-1111-4a00-8000-0000000c0002", "type": "string" },
+        "sizeBytes": { "x-id": "0c8a7b10-1111-4a00-8000-0000000c0003", "type": "integer" },
+        "storageKey": { "x-id": "0c8a7b10-1111-4a00-8000-0000000c0004", "type": "string", "description": "S3/Spaces object key. url is derived from this at read time." },
+        "uploadedById": { "x-id": "0c8a7b10-1111-4a00-8000-0000000c0005", "type": "string" },
+        "uploadedByName": { "x-id": "0c8a7b10-1111-4a00-8000-0000000c0006", "type": "string" }
+      },
+      "required": ["name", "mimeType"]
+    }
+  }
+}
