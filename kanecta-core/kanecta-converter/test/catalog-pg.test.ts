@@ -10,7 +10,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { buildSourceTables, readPgCatalog, introspect } from '../src/index.ts';
+import { buildSourceTables, readPgCatalog, introspect, compareSchemas } from '../src/index.ts';
 import type { CatalogRows } from '../src/index.ts';
 
 // ─── Pure mapper ───────────────────────────────────────────────────────────────
@@ -84,6 +84,35 @@ test('buildSourceTables skips expression-index members (null column)', () => {
   assert.equal(t.indexes, undefined);
 });
 
+test('buildSourceTables attaches enum labels; introspect emits an enum constraint (faithful)', () => {
+  const rows: CatalogRows = {
+    columns: [
+      { table_name: 'events', column_name: 'id', sql_type: 'uuid', nullable: false, column_default: 'gen_random_uuid()' },
+      { table_name: 'events', column_name: 'status', sql_type: 'event_status', nullable: false, column_default: "'pending'::event_status" },
+    ],
+    primaryKeys: [{ table_name: 'events', column_name: 'id' }],
+    foreignKeys: [],
+    indexes: [],
+    enums: [
+      { table_name: 'events', column_name: 'status', label: 'pending' },
+      { table_name: 'events', column_name: 'status', label: 'approved' },
+      { table_name: 'events', column_name: 'status', label: 'rejected' },
+    ],
+  };
+  const [events] = buildSourceTables(rows);
+  assert.deepEqual(events.columns.find((c) => c.name === 'status')!.enumValues, ['pending', 'approved', 'rejected']);
+
+  const { typeItem, report } = introspect(events);
+  assert.deepEqual(typeItem.payload.jsonSchema.properties.status.enum, ['pending', 'approved', 'rejected']);
+  assert.equal(typeItem.payload.jsonSchema.properties.status.type, 'string');
+  assert.ok(report.seams.some((s) => s.kind === 'enum-to-constraint'));
+
+  // The enum column is a known-nuance (enum → text + constraint), not a divergence.
+  const fidelity = compareSchemas(events, typeItem);
+  assert.equal(fidelity.verdict, 'faithful');
+  assert.ok(fidelity.columns.some((c) => c.source === 'status' && c.status === 'known-nuance'));
+});
+
 // ─── Live integration (gated) ──────────────────────────────────────────────────
 
 const PG_URL = process.env.KANECTA_TEST_PG_URL;
@@ -96,12 +125,14 @@ test('readPgCatalog reads a real schema and feeds introspect', { skip: !PG_URL }
   try {
     await pool.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
     await pool.query(`CREATE SCHEMA ${schema}`);
+    await pool.query(`CREATE TYPE ${schema}.thread_status AS ENUM ('open', 'archived')`);
     await pool.query(`CREATE TABLE ${schema}.authors (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text NOT NULL)`);
     await pool.query(`
       CREATE TABLE ${schema}.threads (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         name text NOT NULL,
         author_id uuid REFERENCES ${schema}.authors(id),
+        status ${schema}.thread_status NOT NULL DEFAULT 'open',
         created_at timestamptz,
         sort_order integer
       )`);
@@ -113,6 +144,7 @@ test('readPgCatalog reads a real schema and feeds introspect', { skip: !PG_URL }
     const threads = tables.find((t) => t.name === 'threads')!;
     assert.deepEqual(threads.primaryKey, ['id']);
     assert.equal(threads.columns.find((c) => c.name === 'id')!.sqlType, 'uuid');
+    assert.deepEqual(threads.columns.find((c) => c.name === 'status')!.enumValues, ['open', 'archived']);
     assert.match(threads.columns.find((c) => c.name === 'created_at')!.sqlType, /timestamp/);
     assert.deepEqual(threads.foreignKeys, [{ column: 'author_id', references: { table: 'authors', column: 'id' } }]);
     assert.ok(threads.indexes!.some((i) => i.unique && i.columns.join(',') === 'sort_order,name'));

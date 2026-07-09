@@ -122,7 +122,14 @@ export function introspect(table: SourceTable, opts: IntrospectOptions = {}): In
     const js = jsonSchemaForType(col.sqlType);
     const prop: any = { 'x-id': deterministicUuid(`${typeValue}:${col.name}`), type: js.type };
     if (js.format) prop.format = js.format;
-    if (js.note === 'json-column') seams.push({ kind: 'json-column', detail: `Column "${col.name}" is JSON — stored as text; consider decomposing into a child type.` });
+    // Enum-typed column: carry the allowed labels as a JSON-Schema enum so the
+    // projection keeps the same domain constraint the DB enum enforced (the type
+    // is a string enum — the enum type name itself was "unmapped", so skip that note).
+    if (col.enumValues?.length) {
+      prop.type = 'string';
+      prop.enum = [...col.enumValues];
+      seams.push({ kind: 'enum-to-constraint', detail: `Column "${col.name}" is a DB enum (${col.enumValues.length} values) → string + JSON-Schema enum constraint.` });
+    } else if (js.note === 'json-column') seams.push({ kind: 'json-column', detail: `Column "${col.name}" is JSON — stored as text; consider decomposing into a child type.` });
     else if (js.note) notes.push(js.note);
 
     // FK column → a typeId reference (Seam 3).

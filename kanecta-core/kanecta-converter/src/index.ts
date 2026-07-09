@@ -19,6 +19,7 @@ export {
   PRIMARY_KEYS_SQL,
   FOREIGN_KEYS_SQL,
   INDEXES_SQL,
+  ENUMS_SQL,
 } from './catalog-pg.ts';
 export type {
   SqlClient,
@@ -27,6 +28,7 @@ export type {
   CatalogPkRow,
   CatalogFkRow,
   CatalogIndexRow,
+  CatalogEnumRow,
   ReadPgCatalogOptions,
 } from './catalog-pg.ts';
 export type {

@@ -15,6 +15,10 @@ export interface SourceColumn {
   /** Column default expression, e.g. "gen_random_uuid()", "now()". Used to flag
    *  non-deterministic seed UUIDs (Gap D). */
   default?: string | null;
+  /** For an enum-typed column: the allowed labels, in declaration order. When
+   *  present, introspect emits a JSON-Schema `enum` constraint so the projection
+   *  carries the same domain constraint the DB enum enforced. */
+  enumValues?: string[];
 }
 
 /** A foreign key on a source table. */
@@ -54,7 +58,8 @@ export type SeamKind =
   | 'envelope-overlap'
   | 'index-transcribed'
   | 'non-deterministic-seed-uuid'
-  | 'json-column';
+  | 'json-column'
+  | 'enum-to-constraint';
 
 export interface Seam {
   kind: SeamKind;

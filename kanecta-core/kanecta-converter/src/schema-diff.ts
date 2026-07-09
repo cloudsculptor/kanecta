@@ -135,6 +135,11 @@ export function compareSchemas(source: SourceTable, typeItem: any, opts: Compare
     } else if ((srcFam === 'datetime' || srcFam === 'date' || srcFam === 'time') && projFam === 'text') {
       comparisons.push({ source: col.name, projected: projName, status: 'known-nuance', detail: `${srcFam} → text (compiler stores ISO string)` });
       deltas.push(`${col.name}: ${srcFam} → TEXT (known compiler nuance)`);
+    } else if (col.enumValues?.length && projFam === 'text') {
+      // A DB enum projects to a string carrying a JSON-Schema enum constraint —
+      // the same domain constraint, text-backed. Expected, not a divergence.
+      comparisons.push({ source: col.name, projected: projName, status: 'known-nuance', detail: `enum(${col.enumValues.length}) → text + enum constraint` });
+      deltas.push(`${col.name}: enum → TEXT with enum constraint (Seam)`);
     } else {
       comparisons.push({ source: col.name, projected: projName, status: 'type-mismatch', detail: `${srcFam} ≠ ${projFam}` });
       divergences.push(`${col.name}: type mismatch ${srcFam} ≠ ${projFam}`);
