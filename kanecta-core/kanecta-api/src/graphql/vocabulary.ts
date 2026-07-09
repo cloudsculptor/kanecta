@@ -39,8 +39,10 @@
 //     }
 //   }
 
+import type { NamingStrategy } from './naming-strategy.ts';
+
 /** How a computed field's per-viewer-ness is declared. Per-viewer fields (e.g.
- *  `has_unread`, `is_notifications_enabled`) depend on the requesting principal
+ *  `hasUnread`, `isNotificationsEnabled`) depend on the requesting principal
  *  and cannot be cached across viewers. */
 export type ComputedScope = 'shared' | 'perViewer';
 
@@ -63,19 +65,35 @@ export interface XGraphqlType {
   /** Override for the list root query field name (default: a naive plural of
    *  `queryName`, e.g. "chThreads"). */
   listQueryName?: string;
+  /** Wire-name strategy for THIS type's fields, applied to the canonical
+   *  camelCase field names (a per-field `x-graphql.name` still wins). Use
+   *  'snake' when the type must speak a snake_case contract. Defaults to the
+   *  build-level strategy, then 'preserve'. */
+  fieldNaming?: NamingStrategy;
+  /** Database-column strategy for THIS type's fields (a per-field
+   *  `x-graphql.column` still wins). Defaults to the build-level strategy, then
+   *  'snake' — DB columns are snake_case while the API stays camelCase. */
+  columnNaming?: NamingStrategy;
 }
 
 /** Per-property `x-graphql` block, living at
  *  `payload.jsonSchema.properties.<field>["x-graphql"]`. Refines how a stored
  *  column is projected into GraphQL. */
 export interface XGraphqlProperty {
-  /** GraphQL field name. Defaults to the jsonSchema property name VERBATIM —
-   *  snake_case is preserved on purpose (the community-hub consumer contract is
-   *  snake_case and must match byte-for-byte; GraphQL permits snake_case). */
+  /** Force an exact wire field name, bypassing the naming strategy entirely —
+   *  the equivalent of Jackson's `@JsonProperty("...")`. Canonical type fields
+   *  are camelCase; set this only when a field must carry a specific external
+   *  name the strategy would not produce. Default: the strategy applied to the
+   *  canonical (camelCase) property name. */
   name?: string;
   /** Hide this column from GraphQL while keeping it in storage. Default true
    *  (exposed). */
   expose?: boolean;
+  /** Force an exact database column name, bypassing the column naming strategy.
+   *  Canonical fields are camelCase and columns default to snake_case
+   *  (createdByUserId → created_by_user_id); set this only when a column must
+   *  carry a specific name. */
+  column?: string;
   /** Override the derived GraphQL scalar (e.g. force "DateTime" or "ID"). When
    *  absent the scalar is inferred from the property's JSON-Schema type/format. */
   type?: string;

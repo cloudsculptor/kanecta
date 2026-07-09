@@ -34,6 +34,8 @@ export { compileSelect, compileWhere, compileOrderBy, QueryCompileError } from '
 export type { CompiledQuery, SelectArgs } from './sql-query.ts';
 export { mapProperty, scalarGraphqlType, filterInputFor, CUSTOM_SCALARS } from './scalars.ts';
 export { graphqlTypeName, singularQueryField, listQueryField, pluralize } from './naming.ts';
+export { applyNamingStrategy, camelToSnake, snakeToCamel } from './naming-strategy.ts';
+export type { NamingStrategy } from './naming-strategy.ts';
 export type {
   XGraphqlType,
   XGraphqlProperty,

@@ -1,10 +1,10 @@
 // Tests for the G1 where/sort/pagination → SQL compiler. Pure: assert the
-// emitted SQL text and bound parameters; no database.
+// emitted SQL text and bound parameters; no database. Field names are canonical
+// camelCase (the columns are camelCase too — snake_case is only a wire concern).
 
 import { describe, it, expect } from 'vitest';
 import { buildSchemaModel } from '../../src/graphql/model.ts';
-import { compileSelect, compileOrderBy, QueryCompileError } from '../../src/graphql/sql-query.ts';
-import { compileWhere } from '../../src/graphql/sql-query.ts';
+import { compileSelect, compileOrderBy, compileWhere, QueryCompileError } from '../../src/graphql/sql-query.ts';
 import { allTypes } from './fixtures.ts';
 
 const model = buildSchemaModel(allTypes);
@@ -23,6 +23,8 @@ function columnsFor(type: typeof chThread) {
   }
   return map as any;
 }
+
+const mkP = () => ({ values: [] as unknown[], next(v: unknown) { this.values.push(v); return `$${this.values.length}`; } });
 
 describe('compileSelect', () => {
   it('emits a parameterised SELECT over the type table with default paging', () => {
@@ -48,8 +50,8 @@ describe('compileSelect', () => {
     expect(q.params).toEqual([500, 0]);
   });
 
-  it('composes ORDER BY from the sort arg', () => {
-    const q = compileSelect(chThread, { sort: [{ field: 'sort_order', direction: 'ASC', nulls: 'LAST' }, { field: 'name', direction: 'ASC' }] });
+  it('composes ORDER BY from the sort arg (camelCase field → snake_case column)', () => {
+    const q = compileSelect(chThread, { sort: [{ field: 'sortOrder', direction: 'ASC', nulls: 'LAST' }, { field: 'name', direction: 'ASC' }] });
     expect(q.sql).toContain('ORDER BY "sort_order" ASC NULLS LAST, "name" ASC');
   });
 
@@ -63,54 +65,54 @@ describe('compileWhere operators', () => {
   const cols = columnsFor(chThread);
 
   it('supports equality and inequality', () => {
-    const p: any = { values: [], next(v: unknown) { this.values.push(v); return `$${this.values.length}`; } };
-    const clause = compileWhere({ name: { eq: 'x' }, created_by_name: { ne: 'y' } }, cols, p);
+    const p: any = mkP();
+    const clause = compileWhere({ name: { eq: 'x' }, createdByName: { ne: 'y' } }, cols, p);
     expect(clause).toBe('"name" = $1 AND "created_by_name" <> $2');
     expect(p.values).toEqual(['x', 'y']);
   });
 
   it('supports numeric range operators', () => {
-    const p: any = { values: [], next(v: unknown) { this.values.push(v); return `$${this.values.length}`; } };
-    const clause = compileWhere({ sort_order: { gte: 1, lt: 10 } }, cols, p);
+    const p: any = mkP();
+    const clause = compileWhere({ sortOrder: { gte: 1, lt: 10 } }, cols, p);
     expect(clause).toBe('"sort_order" >= $1 AND "sort_order" < $2');
     expect(p.values).toEqual([1, 10]);
   });
 
   it('supports datetime comparisons', () => {
-    const p: any = { values: [], next(v: unknown) { this.values.push(v); return `$${this.values.length}`; } };
-    const clause = compileWhere({ created_at: { gt: '2026-01-01T00:00:00Z' } }, cols, p);
+    const p: any = mkP();
+    const clause = compileWhere({ createdAt: { gt: '2026-01-01T00:00:00Z' } }, cols, p);
     expect(clause).toBe('"created_at" > $1');
   });
 
   it('supports IN with an array param', () => {
-    const p: any = { values: [], next(v: unknown) { this.values.push(v); return `$${this.values.length}`; } };
+    const p: any = mkP();
     const clause = compileWhere({ name: { in: ['a', 'b'] } }, cols, p);
     expect(clause).toBe('"name" = ANY($1)');
     expect(p.values).toEqual([['a', 'b']]);
   });
 
   it('escapes LIKE metacharacters for contains/startsWith', () => {
-    const p: any = { values: [], next(v: unknown) { this.values.push(v); return `$${this.values.length}`; } };
+    const p: any = mkP();
     const clause = compileWhere({ name: { contains: '50%_off' } }, cols, p);
     expect(clause).toBe('"name" ILIKE $1');
     expect(p.values).toEqual(['%50\\%\\_off%']);
   });
 
   it('supports isNull true/false', () => {
-    const p: any = { values: [], next(v: unknown) { this.values.push(v); return `$${this.values.length}`; } };
+    const p: any = mkP();
     expect(compileWhere({ description: { isNull: true } }, cols, p)).toBe('"description" IS NULL');
     expect(compileWhere({ description: { isNull: false } }, cols, p)).toBe('"description" IS NOT NULL');
   });
 
   it('compiles and/or/not combinators', () => {
-    const p: any = { values: [], next(v: unknown) { this.values.push(v); return `$${this.values.length}`; } };
+    const p: any = mkP();
     const clause = compileWhere({ or: [{ name: { eq: 'a' } }, { and: [{ name: { eq: 'b' } }, { not: { description: { isNull: true } } }] }] }, cols, p);
     expect(clause).toBe('(("name" = $1) OR ((("name" = $2) AND (NOT ("description" IS NULL)))))');
     expect(p.values).toEqual(['a', 'b']);
   });
 
   it('maps the id field to item_id', () => {
-    const p: any = { values: [], next(v: unknown) { this.values.push(v); return `$${this.values.length}`; } };
+    const p: any = mkP();
     const clause = compileWhere({ id: { eq: 'uuid-1' } }, cols, p);
     expect(clause).toBe('"item_id" = $1');
   });
@@ -118,7 +120,6 @@ describe('compileWhere operators', () => {
 
 describe('compileWhere safety (injection boundary)', () => {
   const cols = columnsFor(chThread);
-  const mkP = () => ({ values: [] as unknown[], next(v: unknown) { this.values.push(v); return `$${this.values.length}`; } });
 
   it('rejects unknown fields (not in the allow-list)', () => {
     expect(() => compileWhere({ 'name; DROP TABLE items': { eq: 'x' } }, cols, mkP() as any)).toThrow(QueryCompileError);
@@ -132,12 +133,12 @@ describe('compileWhere safety (injection boundary)', () => {
     // gt is not valid on a text field.
     expect(() => compileWhere({ name: { gt: 'x' } }, cols, mkP() as any)).toThrow(QueryCompileError);
     // contains is not valid on an int field.
-    expect(() => compileWhere({ sort_order: { contains: 'x' } }, cols, mkP() as any)).toThrow(QueryCompileError);
+    expect(() => compileWhere({ sortOrder: { contains: 'x' } }, cols, mkP() as any)).toThrow(QueryCompileError);
   });
 
-  it('rejects non-filterable (non-scalar) fields like messages/has_unread', () => {
+  it('rejects non-filterable (non-scalar) fields like messages/hasUnread', () => {
     expect(() => compileWhere({ messages: { eq: 'x' } }, cols, mkP() as any)).toThrow(QueryCompileError);
-    expect(() => compileWhere({ has_unread: { eq: true } }, cols, mkP() as any)).toThrow(QueryCompileError);
+    expect(() => compileWhere({ hasUnread: { eq: true } }, cols, mkP() as any)).toThrow(QueryCompileError);
   });
 });
 
@@ -152,7 +153,7 @@ describe('compileOrderBy', () => {
     expect(() => compileOrderBy([{ field: 'nope' }], cols)).toThrow(QueryCompileError);
   });
 
-  it('rejects non-sortable fields (reply_count is computed)', () => {
-    expect(() => compileOrderBy([{ field: 'reply_count' }], cols)).toThrow(QueryCompileError);
+  it('rejects non-sortable fields (replyCount is computed)', () => {
+    expect(() => compileOrderBy([{ field: 'replyCount' }], cols)).toThrow(QueryCompileError);
   });
 });
