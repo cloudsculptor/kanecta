@@ -1,0 +1,45 @@
+// Inline rich-node content rendered in place of a text label for media item
+// types (image / file / grid). BEM block = the component filename.
+.NodeContent {
+  &-image {
+    display: inline-block;
+    max-height: var(--tree-node-image-max-height, 120px);
+    max-width: 100%;
+    border-radius: var(--radius-sm, 4px);
+    object-fit: contain;
+    vertical-align: middle;
+  }
+
+  &-file {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+  }
+
+  &-file-icon {
+    color: var(--color-text-muted, #888);
+    flex: 0 0 auto;
+  }
+
+  &-file-download {
+    display: inline-flex;
+    align-items: center;
+    color: var(--color-primary, #1976d2);
+    text-decoration: none;
+
+    &:hover {
+      color: var(--color-primary-dark, #115293);
+    }
+  }
+
+  &-grid {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+  }
+
+  &-grid-icon {
+    color: var(--color-text-muted, #888);
+    flex: 0 0 auto;
+  }
+}

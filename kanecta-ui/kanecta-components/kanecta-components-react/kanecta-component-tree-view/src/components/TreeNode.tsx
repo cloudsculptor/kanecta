@@ -33,7 +33,7 @@ import { TreeNodeEditor } from './TreeNodeEditor';
 import { EditFunctionDialog } from './EditFunctionDialog';
 import { RunFunctionDialog } from './RunFunctionDialog';
 import { FunctionLinksButton } from './FunctionLinksButton';
-import { ItemValue } from './ItemValue';
+import { NodeContent } from './NodeContent';
 import { DynamicIcon } from './DynamicIcon';
 import { useItemLookup } from '../hooks/useItemLookup';
 import { useTreeViewContext } from '../context';
@@ -370,7 +370,7 @@ const allConversionsDestructive = item.type === 'function';
           <span
             className="TreeNode-label"
           >
-            <ItemValue value={item.value} resolveId={resolveId} onNavigate={onNavigateToId} />
+            <NodeContent item={item} resolveId={resolveId} onNavigate={onNavigateToId} />
           </span>
         )}
 
