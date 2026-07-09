@@ -146,6 +146,24 @@ async function safe<T>(fn: () => T | Promise<T>, fallback: T): Promise<T> {
   try { return await fn(); } catch { return fallback; }
 }
 
+/**
+ * The id of a built-in/user type item by its name (its `value`). Built-in
+ * structured types (reference, view, cell, grid, …) are seeded type items, so an
+ * instance is an `object` whose `typeId` equals the type item's id. Returns
+ * undefined when the type is not registered — the caller then reports nothing
+ * (there can be no instances of an unregistered type).
+ */
+function typeIdByName(ctx: IntegrityContext, name: string): string | undefined {
+  return ctx.typeDefs.find((t) => t.value === name)?.id;
+}
+
+/** All object instances of a named type (empty when the type is not registered). */
+function objectsOfType(ctx: IntegrityContext, name: string): any[] {
+  const typeId = typeIdByName(ctx, name);
+  if (!typeId) return [];
+  return ctx.items.filter((it) => it.type === 'object' && it.typeId === typeId);
+}
+
 // ─── The check catalogue (checks-as-data) ─────────────────────────────────────
 //
 // Grouped: structure → tree → identity → schema → references → metadata →
@@ -727,6 +745,84 @@ const CHECKS: IntegrityCheckDef[] = [
             findings.push(err(`item ${it.id} ${field} "${v}" is not an ISO-8601 datetime`, it.id,
               `set ${field} to an ISO-8601 datetime or null`));
           }
+        }
+      }
+      return findings;
+    },
+  },
+
+  // ── built-in reference-type resolution (payload targets) ─────────────────────
+  {
+    id: 'reference-target-resolves', group: 'references',
+    title: 'Every reference object points at an existing item',
+    specRef: 'specification.adoc §referencePayload (targetId resolves, L2189)',
+    async run(ctx) {
+      const findings: Finding[] = [];
+      for (const it of objectsOfType(ctx, 'reference')) {
+        const payload = await safe(() => ctx.ds.readObjectJson(it.id), null);
+        const target = payload?.targetId;
+        if (target == null) continue;
+        if (!(await ctx.has(target))) {
+          findings.push(err(`reference ${it.id} targets ${target}, which does not exist`, it.id,
+            'remove the dangling reference or restore the target', { targetId: target }));
+        }
+      }
+      return findings;
+    },
+  },
+  {
+    id: 'subscription-target-resolves', group: 'references',
+    title: 'Every subscription object points at an existing item',
+    specRef: 'specification.adoc §subscriptionPayload (targetId resolves, L2254)',
+    async run(ctx) {
+      const findings: Finding[] = [];
+      for (const it of objectsOfType(ctx, 'subscription')) {
+        const payload = await safe(() => ctx.ds.readObjectJson(it.id), null);
+        const target = payload?.targetId;
+        if (target == null) continue;
+        if (!(await ctx.has(target))) {
+          findings.push(err(`subscription ${it.id} targets ${target}, which does not exist`, it.id,
+            'remove the dangling subscription or restore the target', { targetId: target }));
+        }
+      }
+      return findings;
+    },
+  },
+  {
+    id: 'view-refs-resolve', group: 'references',
+    title: 'View objects reference existing item, component, and context',
+    specRef: 'specification.adoc §viewPayload (itemId/componentId/contextId resolve, L2037–2047)',
+    async run(ctx) {
+      const findings: Finding[] = [];
+      for (const it of objectsOfType(ctx, 'view')) {
+        const payload = await safe(() => ctx.ds.readObjectJson(it.id), null);
+        if (!payload) continue;
+        for (const field of ['itemId', 'componentId', 'contextId'] as const) {
+          const ref = payload[field];
+          if (ref == null) continue;
+          if (!(await ctx.has(ref))) {
+            findings.push(err(`view ${it.id} ${field} ${ref} does not exist`, it.id,
+              'repoint or clear the dangling view reference', { field, ref }));
+          }
+        }
+      }
+      return findings;
+    },
+  },
+  {
+    id: 'cell-parent-is-grid', group: 'tree',
+    title: 'Every grid cell is parented under a grid',
+    specRef: 'specification.adoc §cellPayload NOTE (cell.parentId → a grid item, L2839)',
+    async run(ctx) {
+      const gridTypeId = typeIdByName(ctx, 'grid');
+      const byId = new Map(ctx.items.map((it) => [it.id, it]));
+      const findings: Finding[] = [];
+      for (const it of objectsOfType(ctx, 'cell')) {
+        const parent = byId.get(it.parentId) ?? await safe(() => ctx.ds.get(it.parentId), null);
+        const parentIsGrid = !!parent && parent.type === 'object' && parent.typeId === gridTypeId;
+        if (!parentIsGrid) {
+          findings.push(err(`cell ${it.id} is parented under ${it.parentId}, which is not a grid`, it.id,
+            'parent grid cells under a grid item', { parentId: it.parentId }));
         }
       }
       return findings;

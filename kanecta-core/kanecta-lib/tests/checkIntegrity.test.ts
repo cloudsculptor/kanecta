@@ -176,23 +176,38 @@ describe('corrupted datastores', () => {
 
   test('object payload that violates its type schema fails object-payload-valid', async () => {
     const ds = tmpDs();
-    // Define a type with a required numeric field.
+    // Object writes are now schema-validated, so a payload can only become invalid
+    // AT REST after the type's schema is tightened. Write a valid payload under a
+    // lenient schema, then narrow `size` to a required number so it no longer fits.
     const type = await ds.create({ value: 'Widget', type: 'type', parentId: TYPES_NODE });
-    await ds.writeTypeJson(type.id, {
+    const lenient = {
       meta: { description: 'a widget', icon: 'Widgets', primaryField: 'name' },
       jsonSchema: {
         $schema: 'http://json-schema.org/draft-07/schema#',
         type: 'object',
-        required: ['size'],
+        required: [],
         properties: {
           name: { type: 'string', 'x-id': '11111111-1111-4111-8111-111111111111' },
-          size: { type: 'number', 'x-id': '22222222-2222-4222-8222-222222222222' },
+          size: { type: 'string', 'x-id': '22222222-2222-4222-8222-222222222222' },
         },
       },
       sqlSchema: ['CREATE TABLE obj_widget (item_id UUID PRIMARY KEY)'],
-    });
+    };
+    await ds.writeTypeJson(type.id, lenient);
     const obj = await ds.create({ value: 'w1', type: 'object', typeId: type.id, parentId: type.id });
-    await ds.writeObjectJson(obj.id, { name: 'w1', size: 'not-a-number' });
+    await ds.writeObjectJson(obj.id, { name: 'w1', size: 'small' });   // valid under lenient schema
+    // Tighten the schema: size must now be a required number.
+    await ds.writeTypeJson(type.id, {
+      ...lenient,
+      jsonSchema: {
+        ...lenient.jsonSchema,
+        required: ['size'],
+        properties: {
+          ...lenient.jsonSchema.properties,
+          size: { type: 'number', 'x-id': '22222222-2222-4222-8222-222222222222' },
+        },
+      },
+    });
     const rep = await report(ds, { checks: ['object-payload-valid'] });
     const r = byId(rep, 'object-payload-valid');
     expect(r.status).toBe('fail');
@@ -430,5 +445,75 @@ describe('typedef-ref-keywords-exclusive', () => {
     });
     const rep = await report(ds, { checks: ['typedef-ref-keywords-exclusive'] });
     expect(byId(rep, 'typedef-ref-keywords-exclusive').status).toBe('pass');
+  });
+});
+
+// ─── built-in reference-type resolution ─────────────────────────────────────────
+
+describe('reference-type payload resolution', () => {
+  async function typeId(ds: any, name: string) {
+    const t = (await ds.listTypeDefs()).find((d: any) => d.value === name);
+    if (!t) throw new Error(`built-in type "${name}" is not seeded`);
+    return t.id;
+  }
+
+  test('dangling reference target fails reference-target-resolves', async () => {
+    const ds = tmpDs();
+    await ds.create({ type: 'object', typeId: await typeId(ds, 'reference'), value: 'ref',
+      objectData: { targetId: RANDOM_UUID, kind: 'link' } });
+    const rep = await report(ds, { checks: ['reference-target-resolves'] });
+    const r = byId(rep, 'reference-target-resolves');
+    expect(r.status).toBe('fail');
+    expect(r.findings.some((f: any) => f.targetId === RANDOM_UUID)).toBe(true);
+  });
+
+  test('resolvable reference target passes', async () => {
+    const ds = tmpDs();
+    const target = await ds.create({ value: 'target', type: 'note' });
+    await ds.create({ type: 'object', typeId: await typeId(ds, 'reference'), value: 'ref',
+      objectData: { targetId: target.id, kind: 'link' } });
+    expect(byId(await report(ds, { checks: ['reference-target-resolves'] }), 'reference-target-resolves').status).toBe('pass');
+  });
+
+  test('dangling subscription target fails subscription-target-resolves', async () => {
+    const ds = tmpDs();
+    await ds.create({ type: 'object', typeId: await typeId(ds, 'subscription'), value: 'sub',
+      objectData: { targetId: RANDOM_UUID, channel: { type: 'webhook' }, events: ['created'] } });
+    expect(byId(await report(ds, { checks: ['subscription-target-resolves'] }), 'subscription-target-resolves').status).toBe('fail');
+  });
+
+  test('dangling view reference fails view-refs-resolve', async () => {
+    const ds = tmpDs();
+    await ds.create({ type: 'object', typeId: await typeId(ds, 'view'), value: 'v',
+      objectData: { itemId: RANDOM_UUID, componentId: RANDOM_UUID, contextId: RANDOM_UUID } });
+    const r = byId(await report(ds, { checks: ['view-refs-resolve'] }), 'view-refs-resolve');
+    expect(r.status).toBe('fail');
+    expect(r.findings.some((f: any) => f.field === 'itemId')).toBe(true);
+  });
+
+  test('view with resolvable references passes', async () => {
+    const ds = tmpDs();
+    const t = await ds.create({ value: 'shown', type: 'note' });
+    await ds.create({ type: 'object', typeId: await typeId(ds, 'view'), value: 'v',
+      objectData: { itemId: t.id, componentId: t.id, contextId: t.id } });
+    expect(byId(await report(ds, { checks: ['view-refs-resolve'] }), 'view-refs-resolve').status).toBe('pass');
+  });
+
+  test('cell under a non-grid parent fails cell-parent-is-grid', async () => {
+    const ds = tmpDs();
+    const note = await ds.create({ value: 'not a grid', type: 'note' });
+    await ds.create({ type: 'object', typeId: await typeId(ds, 'cell'), value: 'c', parentId: note.id,
+      objectData: { row: 0, column: 'A' } });
+    const r = byId(await report(ds, { checks: ['cell-parent-is-grid'] }), 'cell-parent-is-grid');
+    expect(r.status).toBe('fail');
+  });
+
+  test('cell under a grid passes cell-parent-is-grid', async () => {
+    const ds = tmpDs();
+    // A grid has no required payload fields — create it as a shell object.
+    const grid = await ds.create({ type: 'object', typeId: await typeId(ds, 'grid'), value: 'g' });
+    await ds.create({ type: 'object', typeId: await typeId(ds, 'cell'), value: 'c', parentId: grid.id,
+      objectData: { row: 0, column: 'A' } });
+    expect(byId(await report(ds, { checks: ['cell-parent-is-grid'] }), 'cell-parent-is-grid').status).toBe('pass');
   });
 });
