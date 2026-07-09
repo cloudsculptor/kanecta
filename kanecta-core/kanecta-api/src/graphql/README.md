@@ -55,10 +55,22 @@ Output object keys are the **wire** field names (camelCase); the DataSource spea
 - `fieldNaming: 'snake'` exists only for a *foreign* compat surface (e.g. a
   transient legacy-REST shadow-diff projection); the canonical surface is camelCase.
 
-## Deferred (needs a live datastore / an awake owner)
-- **A Postgres `DataSource`** — backs `getById`/`query`/`children`/`related`/
-  `runComputed` with SQL over `items` + `obj_<type>` and the runner. Pairs with
-  per-item ReBAC (G4 authz) and DataLoader batching (N+1).
+## Built since (verified on real Postgres)
+- **`pg-datasource.ts`** — `PgDataSource`: the executor's DataSource over SQL
+  (`getById`/`query` via `compileSelect`/`children`/`related`). Verified end-to-end
+  against a real database (`tests/graphql/pg-datasource.integration.test.ts`,
+  gated on `KANECTA_TEST_PG_URL`).
+- **G2 aggregations** — `compileAggregate` (count/group-by/sum/avg/min/max) in
+  `sql-query.ts`, for the reactions map / counts / finance rollups.
+- **G4 authz** — `../authz/`: grant/visibility/owner/ReBAC decisions; wired into
+  the executor as `ctx.authorize` (read gate).
+
+## Deferred (needs the runner / an owner decision)
+- **`runComputed`** — computed fields (replyCount, hasUnread) run a
+  function/formula/query item via the runner; `PgDataSource.runComputed` is not
+  wired yet (throws). Select non-computed fields until it is.
 - **graphql-js wiring** — feed `emitSDL` output to `buildSchema`, map resolvers
   from `resolverPlan`, expose a `/graphql` route. Adds the `graphql` dependency.
-- **The `ch-*` type manifest (G5)** — see `../../manifests/community-hub/`.
+- **Adapter-based seeding + backfill** — seed the `ch-*` manifest via the real
+  Postgres adapter and backfill nonprod data (see `../../manifests/community-hub/`).
+- **DataLoader batching** — the `PgDataSource` loads per-field; batch to kill N+1.
