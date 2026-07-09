@@ -10,7 +10,8 @@ import * as claude from '@kanecta/ai';
 import { generateFunctionScaffold, getRuntimeDir, computeBundleHash, toCamelCase, toPythonName, VALID_RUNTIME_RE } from '@kanecta/lib';
 import { requireAuth } from './middleware/auth.ts';
 import { buildSchemaModel, buildGraphqlEngine, loadTypeItems, buildComputedMap, PgDataSource, type GraphqlEngine } from './graphql/index.ts';
-import { principalsFromToken } from './authz/index.ts';
+import { principalsFromToken, can } from './authz/index.ts';
+import { PgAuthzSource } from './authz/pg-authz-source.ts';
 import { spawnSync, spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
@@ -2141,11 +2142,22 @@ app.post('/graphql', async (req, res) => {
       _gqlEngineByPool.set(pool, cached);
     }
     const principals = req.user ? principalsFromToken({ sub: req.user.id, roles: req.user.roles }) : [];
+    // Per-item read gate (opt-in via KANECTA_GRAPHQL_AUTHZ=on). Enforces the
+    // visibility (public/organisation) + owner layers via PgAuthzSource; the
+    // grant-cascade layer awaits the payload_grant derived table. Default OFF so it
+    // is not enabled before backfilled items carry correct visibility (they default
+    // to 'private'). inOrganisation: a single-tenant community treats any
+    // authenticated viewer as in-org.
+    let authorize: ((id: string) => Promise<boolean>) | undefined;
+    if (process.env.KANECTA_GRAPHQL_AUTHZ === 'on') {
+      const authz = new PgAuthzSource(pool);
+      authorize = (id: string) => can(authz, principals, id, 'read', { inOrganisation: !!req.user });
+    }
     const result = await cached.engine.execute({
       source: query,
       variableValues: variables,
       operationName,
-      context: { viewer: req.user?.id, principals },
+      context: { viewer: req.user?.id, principals, ...(authorize ? { authorize } : {}) },
     });
     res.status(200).json(result); // GraphQL-over-HTTP: 200 even with field errors
   } catch (err: any) {

@@ -88,9 +88,14 @@ Output object keys are the **wire** field names (camelCase); the DataSource spea
 ## Deferred (needs the runner / an owner decision)
 - **formula `dsl` (formulajs) + `function`-item computed** — the last-resort ladder
   rungs; declarative-first covers `query` + `template` today.
-- **`/graphql` per-item authz** — the route computes principals but does not yet
-  set `context.authorize` (needs a Postgres AuthzSource); it is behind the same
-  auth wall as the REST routes but does not enforce per-item grants yet.
+- **`/graphql` per-item authz** — `PgAuthzSource` (../authz/pg-authz-source.ts)
+  backs the G4 engine's **visibility + owner** layers over the items table, wired as
+  the route's `context.authorize` **opt-in via `KANECTA_GRAPHQL_AUTHZ=on`** (default
+  off, since backfilled items default to `visibility:'private'`). The GRANT-CASCADE
+  layer (role/team etc., RBAC→ReBAC) still needs the `grant`-item storage + the
+  `payload_grant` derived table — until then grantsFor returns [] (non-public,
+  non-owner items are denied, a safe direction). Enabling it needs: correct
+  visibility on backfilled data, and the grant layer.
 - **Adapter-based seeding + backfill** — seed the `ch-*` manifest via the real
   Postgres adapter and backfill nonprod data (see `../../manifests/community-hub/`).
 - **DataLoader batching** — the `PgDataSource` loads per-field; batch to kill N+1.
