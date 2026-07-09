@@ -1,0 +1,33 @@
+{
+  "name": "@kanecta/converter",
+  "version": "1.4.0",
+  "description": "The Kanecta Converter — deterministic tooling to move a standard web app (normalised DB + per-resource REST API) onto a Kanecta backend. See kanecta-converter-specification/.",
+  "main": "src/index.ts",
+  "type": "module",
+  "files": [
+    "src/"
+  ],
+  "scripts": {
+    "test": "node --import tsx --test test/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@kanecta/schema-compiler": "*",
+    "tsx": "^4.23.0"
+  },
+  "keywords": [
+    "kanecta",
+    "converter",
+    "migration",
+    "postgres",
+    "graphql"
+  ],
+  "author": "Kanecta",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,796 @@
+= Kanecta Converter — Specification
+:toc: left
+:toclevels: 3
+:sectnums:
+:sectnumlevels: 3
+:icons: font
+:source-highlighter: highlight.js
+
+_Version 1.4.0 (this refines Kanecta 1.4.0 — there is no 1.5.0). Status: living
+draft — deliberately verbose. We are capturing all our thinking and learning
+about the reusable conversion process here, in the main repo, rather than in
+one-off plans. Optimise later._
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+== What this is
+
+The **Kanecta Converter** is the reusable, largely-deterministic process — and the
+`@kanecta/converter` code module that automates it — for moving a *standard web
+app* onto a Kanecta backend.
+
+A "standard web app" is the overwhelmingly common shape:
+
+* a **normalised relational database** storing the data, with primary keys,
+  foreign keys, and indexes;
+* a **per-resource REST API** with many bespoke routes (`/api/events`,
+  `/api/messages`, `/api/finances`, …);
+* a **response-shaping layer** — queries that join/aggregate rows and code that
+  squishes them into the exact JSON each endpoint returns;
+* a **frontend** with functions/clients that fetch those endpoints.
+
+community-hub is a textbook instance of this shape, which is why we use it as the
+**reference implementation**. But nothing about the *process* is community-hub
+specific. If Kanecta is what we believe it is — a system able to subsume a
+normalised database *and* a standard API — then converting existing apps to
+Kanecta is a massive, repeatable market, and this converter is the on-ramp.
+
+**Scope of this document:** the *reusable* methodology, patterns, gaps, mappings,
+and verification. App-specific facts (table names, UUIDs, hostnames, per-app
+schedules) stay in the one-off plans; where a one-off is a good illustration it is
+cited here as an example only.
+
+== First principles
+
+**Delete the bespoke API — don't reproduce it.** The naive ask ("rip out the
+domain API, drop in kanecta-api") cannot happen as-is; the real work is to make
+Kanecta a platform that can back a production web app, using the app as the
+forcing function. Conventional resource-oriented REST is **rejected outright**: a
+per-resource route API (`api/discussions`, `api/finances`, `api/car`,
+`api/truck`) is exactly the thing this exercise exists to delete. It appears
+nowhere in the target design.
+
+**Everything becomes an item.** The app's screens, queries, permissions, and
+derived values are expressed as *data* — type items, `view`/`query` items, `grant`
+items, `function` items — over one uniform surface. The only hand-written code is
+a single generic engine (a schema-driven planner/executor), written once, that is
+domain-agnostic.
+
+**GraphQL over items is THE surface** (decided on technical merit). Kanecta is a
+typed knowledge graph, so a graph query language is on-the-nose: clients compose
+the exact shapes they need (no predefining a view per screen); subscriptions unify
+realtime onto the same schema; per-field resolvers pair with per-item ReBAC; and
+the schema is **generated from the type registry** (`jsonSchema` → GraphQL types),
+so there are **zero new endpoints per app**.
+
+**Kanecta subsumes normalised-DB + standard-API.** The at-rest storage is a
+normalised, columnar, indexed relational projection (per type). The serving layer
+is a uniform GraphQL surface plus data-defined views/queries/functions. If a
+conversion needs something the platform can't yet express, that is a **gap in
+Kanecta** to close (this document enumerates the ones we already know), not a
+reason to fall back to bespoke code.
+
+**North-star:** Kanecta as the uniform, self-describing, all-data GraphQL backend
+for AI-built custom frontends. Because the schema is generated and views/queries
+are themselves data, an AI can compose an app in layers (a data query + a
+presentation view, both reusable items) with nothing hidden in a codebase to
+reverse-engineer — the app *is* the data.
+
+== Kanecta must subsume every relational feature — anything it can't, is a gap
+
+The stance is absolute: Kanecta is meant to subsume a normalised database *and* a
+standard API. So a conversion is not "map what fits and give up on the rest" —
+**every relational feature must have a Kanecta expression, and any feature we hit
+that doesn't yet have one is a named gap in Kanecta to close**, not a reason to
+fall back to bespoke code. We enumerate the gaps we already know (see "Platform
+gaps any conversion forces"); when a new one appears (a stored procedure, an exotic
+constraint, a feature we haven't encountered), it joins the list and gets built.
+
+Known mappings from relational features to Kanecta expressions:
+
+[cols="1,3", options="header"]
+|===
+| Relational feature | Kanecta expression
+
+| Table | a `type` item → its `obj_<type>` table
+| Column + scalar type | a `jsonSchema` property (portable scalars)
+| Primary key | the item `id` (surfaced as `item_id` on `obj_`)
+| Foreign key | `parentId` (containment) or a `relationship`/reference item; the column FKs to `items(id)`
+| Index (incl. unique / partial / composite / case-insensitive) | the type's authored `indexes` field → compiled `CREATE INDEX`
+| Unique constraint | a `unique` entry in `indexes` (also the surrogate-key mechanism for composite PKs)
+| CHECK constraint | the type's `constraints` (`constraints.value`)
+| Enum | a `jsonSchema` `enum`, or a reference to a small type
+| View | a **`sql-view` item** (compat surface + declarative read model) — see below
+| Materialised view | a **`materialized-view` item** (DB-computed, cached read model)
+| Stored procedure / server-side function | a **`function`/`formula` item** run by the runner (the last rung of the ladder), or a platform primitive if it's hot enough
+| Trigger / write-time side-effect | a `function` bound to a write, or a native reaction (`subscription`/`activity`) — *a partially-open gap; capture write-side-effects explicitly*
+| Sequence / autoincrement | a surrogate UUID `item_id` (or a counter item where a monotonic value is genuinely needed)
+| Full-text search | native `items_search` + the FTS index
+| Transaction | the datastore's atomic write path
+| Row/version history | native `item_history`
+| Materialised aggregate | a maintained counter item / a `materialized-view` item (never store a `GROUP BY`-able rollup as rows by default)
+|===
+
+Triggers and complex stored procedures are where the ladder's last rung and the
+"named gap" stance meet: reproduce the behaviour as a `function` item now, and if
+the pattern is common enough (write-hooks, computed maintenance), promote it to a
+platform primitive later. The point is that *nothing* forces bespoke app-server or
+frontend code — worst case it is a soft-coded item plus a line on the punch-list.
+
+== The invariant (the single most important rule)
+
+[quote]
+____
+Everything becomes an item — **declarative where it can** (view/query/GraphQL),
+**soft-coded `function` where it must** — but **never hardcoded app-server or
+frontend TypeScript**.
+____
+
+This is the line that makes Kanecta *Kanecta* rather than "a nicer backend." The
+moment logic lives as items — not compiled into a server or a bundle — the system
+stops being software-you-deploy and becomes data-that-describes-itself. That is
+what makes an app convertible, inspectable, and composable by an AI.
+
+=== The escalation ladder
+
+For any place where the served shape differs from the stored shape, reach in this
+order and stop at the first rung that works:
+
+. **GraphQL selection** — compose the shape from the generated schema (most
+  reshaping is field selection + nesting).
+. **`view` / `query` items** — declarative data: a persisted query (join / filter
+  / aggregate) or a presentation view. Still pure data.
+. **`function` / `formula` items** — *soft-coded* logic stored in the item body,
+  run by the runner. **Last resort**, for genuine computation the declarative
+  rungs can't express.
+
+A Kanecta `function` is **code-as-data**: stored, versioned, addressable,
+runner-executed, discoverable — *not* a resolver hardcoded into `app.ts` or baked
+into the frontend bundle. Logic still lives in Kanecta as an item, swappable
+without a redeploy.
+
+=== The discipline
+
+Prefer the declarative rungs. Treat `function` as genuinely last-resort — not
+because functions are bad, but because a `query`/`view` is **inspectable and
+optimisable** (the planner can see into it, an AI can compose it), whereas a
+`function` is **opaque to the planner**. Overreaching for functions just relocates
+scattered logic from source files into item bodies — better, but not the win.
+Escalate to a function only when the logic truly isn't expressible as data.
+
+== The four gates (the conversion methodology)
+
+Conversion proceeds through four **stop-and-be-correct checkpoints**. Each gate
+reaches a working, verifiable state; each is proven by a diff, not an assertion.
+The governing discipline: **mirror exactly first, optimise never-until-later.** A
+faithful projection is checkable; a "cleverly improved" one is not. Do not re-model
+to idiomatic Kanecta on the first cut — get it running, *then* optimise.
+
+[cols="1,3,3", options="header"]
+|===
+| Gate | State reached | The check that proves it
+
+| **1 — Storage**
+| The app's data lives in Kanecta and projects to tables of *identical shape*
+  (names differ). The *unchanged* old API could read it.
+| **Schema-DDL fidelity diff** (live table DDL ↔ projected `obj_` DDL), plus the
+  **compatibility-VIEW acceptance test** (below).
+
+| **2 — Endpoints**
+| Each old endpoint is reproduced from Kanecta items (views / queries / functions),
+  not code, serving the same JSON.
+| **Response shadow-diff**: same request → byte-identical JSON.
+
+| **3 — Unified API**
+| The hundreds of bespoke routes are replaced by the one uniform Kanecta / GraphQL
+  surface, serving the same responses.
+| Same responses, now through one endpoint.
+
+| **4 — Frontend**
+| The frontend's data-access layer is swapped to the unified API; the rest of the
+  app is untouched. Optimise from here.
+| The app behaves identically; the frontend may still expose N local
+  functions/clients that map onto the one backend surface.
+|===
+
+The frontend is **not** deep-rewritten. Only the layer that reaches out to the
+backend changes. Components keep their exact behaviour; the per-domain
+`src/api/*` modules dissolve into a single uniform item/GraphQL client (or use
+`view` items).
+
+=== Gate 1 acceptance: "the old API could read it" (a fidelity *test*, not a
+delivery mechanism)
+
+The strongest possible evidence that a projection is faithful is to run the
+**completely untouched** old app against the Kanecta storage and watch its own
+test suite pass. We achieve this with auto-generated **compatibility SQL VIEWs**
+(see the next section). This is deliberately a *test*: the end-state still deletes
+the old API and serves via GraphQL+views. The two ideas coexist — "faithful enough
+that the old API nearly could" (proof) → "serve via GraphQL" (reality). It would
+not be literally zero-change anyway, because of the `id → item_id` rename and the
+composite-PK tables (see "The seams").
+
+== Compatibility SQL VIEWs
+
+A SQL **view** is a saved `SELECT` that behaves like a table: you query it by name
+exactly like a real table, but under the hood it runs a query against the real
+tables. Nothing is copied — it is a live window onto the data, shaped however you
+define it. `CREATE VIEW` is **core ANSI SQL (SQL-92)** and works on every backend
+Kanecta projects to (PostgreSQL, SQLite, MySQL, SQL Server, Oracle, …), which
+matters because the storage model is portable to any ANSI SQL database. (Writing
+*through* a view varies by engine; Gate 1 needs only **reads**, which are
+universal.)
+
+=== As a Gate-1 mechanism
+
+After Gate 1, the app's `events` no longer live in a table called `events`; they
+live in `obj_<uuid>` with the primary-key column named `item_id`, and some fields
+reassembled from the item envelope. The old API still runs
+`SELECT * FROM events WHERE id = $1`. A generated view bridges it, mechanically:
+
+[source,sql]
+----
+CREATE VIEW events AS
+  SELECT o.item_id      AS id,             -- Seam 1: PK column renamed back
+         o.area, o.lat, o.lng, o.status,   -- domain columns, as-is
+         i.sort_order,                     -- Seam 4: from items (native)
+         i.created_at,                     -- Seam 4: from items (native)
+         i.deleted_at   AS archived_at     -- Seam 4: native soft-delete → old name
+  FROM   obj_<uuid> o
+  JOIN   items i ON i.id = o.item_id;
+----
+
+Now the untouched old code reads `events` and gets exactly its old shape. The view
+is generated deterministically from the table→type mapping, so it is another
+converter tool, not hand-work. **The fidelity target is therefore "the *view*
+matches the old table," not "the raw `obj_` table matches the old table"** — which
+dissolves most of the seams into cosmetic view-mapping (see "The seams").
+
+=== As a long-term platform feature: the `sql-view` (and `materialized-view`) item
+
+This generalises well beyond the migration. It is distinct from the existing
+`view`/`query` items (which are persisted *GraphQL/presentation* views at the API
+layer): a **`sql-view` item is a storage-layer projection** — just as a `type`
+item projects to a table, a `sql-view` item projects to a real `CREATE VIEW`.
+What it buys:
+
+. **A SQL-native compatibility surface for the entire SQL ecosystem.** Any tool
+  that speaks SQL — BI/reporting (Metabase, Tableau), a spreadsheet over ODBC,
+  another app, a legacy service — can read Kanecta through named views with
+  familiar shapes, *without* GraphQL. Directly on-mission for "replace all other
+  software": SQL consumers get SQL.
+. **Declarative, DB-computed read models, including *materialised* views.** A
+  `sql-view` item can define a join/aggregate over `obj_` tables (thread +
+  `reply_count` + latest message) as a view, or a **materialised** view the
+  database caches and refreshes on write. This is an *optimisation path for
+  computed fields* — the DB maintains `reply_count` instead of the runner
+  computing it per request. It sits on the **declarative rung** of the ladder,
+  above `function`, and the planner/DB can optimise it.
+. **It's just more "everything is items."** A `SELECT` stored as data — versioned,
+  inspectable, deployed by the adapter, portable across backends.
+
+CAUTION: **Authz boundary.** A SQL view **bypasses GraphQL's per-field grant
+checks** — a SQL consumer reading a view is not gated by Kanecta authz. So
+`sql-view` access is a *different trust boundary* (DB-level roles / trusted-
+internal consumers), and any implementation must say so explicitly. For the
+migration compat views this is internal-only, so it is fine; as a public feature
+it needs the DB-role access story.
+
+_(A `sql-view` / `materialized-view` item type is a future Kanecta platform
+feature and would be spec-gated. Recorded here because it emerged directly from the
+converter work.)_
+
+== The projection model (types → tables)
+
+=== An object is two rows, not one
+
+In a normal app, one thread is one row in one table. In Kanecta every object is
+split across a **shared identity/bookkeeping row** (same columns for all types)
+and a **type-specific row** for the domain fields:
+
+* `items` (+ `items_meta`, `items_search`, `items_payload`, `items_time`) — the
+  five item sections mapping 1:1 to five tables. `item`/`meta` always present;
+  `search`/`payload`/`time` are sparse. The `item` section = id / parentId / type
+  / typeId / value / sortOrder; `meta` = owner / visibility / tags / timestamps /
+  layer / source keys.
+* `obj_<typeId>` — the type's own columnar payload, keyed `item_id UUID PRIMARY
+  KEY REFERENCES items(id)`. On **Postgres** the `obj_<typeId>` table *is* the
+  payload store. On **filesystem** the payload is an inline JSON blob validated
+  against the same schema. Same declared shape, two physical forms.
+
+The two rows join 1:1 on the item id. This split is the source of all the "seams."
+
+=== `sqlSchema` is derived, `indexes` are authored
+
+`@kanecta/schema-compiler`'s `deriveSqlSchema(jsonSchema, {typeId, dialect})`
+emits per-backend DDL (Postgres native arrays / SQLite JSON text / portable ANSI
+decomposed child value-tables). The type author does **not** hand-write
+`sqlSchema` — deriving it means the schema and the storage can never drift, and
+ontology-generated types (shipping only a `jsonSchema`) get storage for free.
+Secondary indexes *are* authored, in the type's `indexes` field, and compiled to
+`CREATE INDEX` DDL by `deriveIndexDdl` alongside `deriveSqlSchema`.
+
+=== camelCase fields → snake_case columns (automatic)
+
+Type items are authored in standard JSON **camelCase** (`createdByUserId`); that is
+the canonical name and GraphQL/JSON expose it as-is. Two automatic translations,
+each of a different kind:
+
+[cols="1,2,2,2", options="header"]
+|===
+| Axis | Rule | Overridable? | Example
+| Wire name (GraphQL/JSON) | preserve camelCase | yes (`x-graphql.name`, per-type `fieldNaming`, build default) | `createdByUserId`
+| DB column (`obj_<type>`) | **always snake_case** | **no** | `created_by_user_id`
+|===
+
+There is **no per-field custom column name** (considered, then dropped to keep it
+uniform). This is already in the 1.4.0 spec (§sqlSchema rules) and derived by
+`@kanecta/schema-compiler` for every adapter; the GraphQL engine computes its
+`backing.column` with the same rule so columns always agree. Type *names* are
+PascalCased (`ch-thread` → `ChThread`).
+
+=== Flat types & decomposition
+
+A type is **flat — exactly one level deep**. Fields must be scalars, scalar
+arrays, or a **reference to another type** — never an inline nested object.
+`createType` is blocked if the type declares object fields with no `sqlSchema`, or
+is more than one level deep; deeper shapes **auto-decompose** into a parent + one
+or more independent child types. This is not only a portability rule (deep JSON ↔
+SQL impedance); decomposition **surfaces real reusable entities**: `Person >
+Address > {street, city, postcode}` becomes two independent types with
+`Person.address` a reference — so an Address can exist without a Person, a Person
+can change address, and Addresses converge on one shared shape.
+
+=== Field-storage rules
+
+* **Scalars / small fixed groups** → columns (a fixed group flattens to prefixed
+  columns, e.g. `tokens_input`/`tokens_output`).
+* **Text** → always `TEXT`/`CLOB`, any size, FTS-indexed, **never offloaded**.
+  Object storage (S3) is only for `file`-type user content; offloaded text
+  couldn't be in the FTS index.
+* **Scalar arrays** = multi-valued fields — the array is preserved in the read
+  model (a child value-table on ANSI, `text[]` on Postgres, JSON on SQLite).
+* **Object arrays** = child items of their own type.
+* **Variable maps** (keys differ per row, e.g. tool inputs) = children of the
+  built-in `property` (EAV) type — two scalar text columns `name` + `value`.
+  Portable, queryable, works for unknown keys.
+
+=== Two-layer portability rule
+
+The *canonical/logical* schema must run on **any ANSI SQL database** — only
+portable scalars (`VARCHAR`/`CHAR`/`CLOB`, `INTEGER`/`BIGINT`/`NUMERIC`/`FLOAT`,
+`DATE`/`TIME`/`TIMESTAMP`, a boolean surrogate); **no `JSON`/`JSONB`, no array
+columns**. The *physical* implementation of an adapter MAY optimise (Postgres
+`JSONB` for a decomposed map, `text[]` for a repeating group, TOAST, partial
+indexes) purely as a performance layer over the same logical object. A plain ANSI
+DB gets the portable form; Postgres gets the fast form; both are the same logical
+object.
+
+=== The seams (where "exact mirror" meets Kanecta's shape)
+
+Of the differences between a source table and its projection, three are cosmetic
+(a compatibility VIEW maps them), one is real, and one is just effort:
+
+[cols="1,3,2", options="header"]
+|===
+| Seam | What happens | Real delta?
+
+| **1 — `id` → `item_id`**
+| The PK column is named `item_id` in `obj_` (and `id` in `items`); the *value* is
+  unchanged (for a UUID-PK table, the row's UUID *becomes* the item id).
+| Cosmetic — view renames it back.
+
+| **2 — Composite / serial PK**
+| A table with no single meaningful PK (e.g. reactions keyed `(message_id,
+  user_id, emoji)`) cannot be 1:1, because every Kanecta object needs one
+  `item_id` UUID (for relationships, grants, history). It becomes one item with a
+  **surrogate `item_id`** plus a **composite `UNIQUE` index** reproducing the old
+  guarantee.
+| **YES — the one genuine structural delta.** Report it; don't hide it. (One extra
+  column; composite PK → UNIQUE index.)
+
+| **3 — FK → `items(id)`**
+| A reference column (`thread_id REFERENCES discussions_threads(id)`) becomes
+  `REFERENCES items(id)`. Value + relationship unchanged; referential integrity
+  preserved; the "must be a *thread*" narrowing moves from the FK to Kanecta's
+  write-time validation (`typeId` / `x-kanecta-itemType`).
+| Cosmetic — target table differs, semantics preserved.
+
+| **4 — Envelope overlap**
+| `id`, `created_at`, `created_by`, `sort_order`, soft-delete already live natively
+  on `items`/`items_meta`. Per field, choose: **native** (clean, obj_ diverges) or
+  **duplicate into obj_** (mirror, redundant). Resolution: don't duplicate — the
+  compatibility VIEW **reassembles** the old shape by joining obj_ + items(+meta).
+| A choice, dissolved by the view. Watch for genuinely-distinct source columns
+  (e.g. a ledger `sort_order` that drives intra-date order) that must be kept.
+
+| **5 — Indexes are authored**
+| The compiler only builds indexes a type declares in `indexes`. To match
+  index-for-index, transcribe each existing index → an `indexes` entry.
+| No delta, just effort — and **automatable** (read the source table's indexes,
+  emit one entry each).
+|===
+
+**Punch line:** the fidelity target is the *view* matching the old table; the only
+genuine "can't be identical" is Seam 2, which the converter names out loud.
+
+== Native-primitive-first mapping
+
+**Map a source table to a native Kanecta primitive first; use a custom `object`
+type only when nothing native fits.** The discussions domain is the canonical
+worked example.
+
+[cols="1,3", options="header"]
+|===
+| Source construct | Native mapping
+
+| A domain entity/table (the default) | a custom `object` type → its `obj_<type>` table
+| A parent/child FK relationship | **tree containment** via `parentId` (child count = `reply_count`); e.g. reply `parentId` = parent message, gallery image under event
+| A non-containment link | a `relationship` / reference item (page→licence; message→file carrying `show_preview`; trust endorsement so a "chain walk" is a reverse-reference traversal)
+| A binary blob | the built-in **`file`** type + a link, stored via the S3 adapter (never a new per-case type for bytes)
+| A per-(user, X) notification subscription | the built-in **`subscription`** type — *and* the native **`subscribe`** permission (see Authz)
+| Row/version history | native **`item_history`** *iff* it snapshots full content + carries an action label; else explicit version items
+| An append-only audit/event log | the **`activity`** type (opt-in; not used where audit isn't wanted)
+| A variable/arbitrary key-value bag | children of the built-in **`property`** (EAV) type
+|===
+
+=== Mutable-state vs event-log: the reactions example
+
+Reactions are modelled as **mutable current-state (Model A), NOT an `activity`
+log**: one item per active `(user, message, emoji)`; insert on react, delete on
+un-react; the reactions map is a `GROUP BY emoji COUNT` + reactor arrays (a G2
+aggregation), **not stored**. Storage is O(current), bounded, no fold. A key
+insight: **social scale is foreseen but does not change the model — "the scale
+knee is the *response contract*, not the model."** So the platform reaction
+projection must offer *both* the full reactor-array shape (fine at town scale) and
+a `{count, reacted_by_me, sample_of_N}` shape (for social scale), over the same
+store; and a per-`(message,emoji)` counter can be maintained later so reads don't
+`GROUP BY` huge row sets. Per-(user,thread) read state is a tiny mutable
+`thread-read` item (also *not* activity — mutable "latest read" with high churn).
+
+=== Identity & denormalised snapshots
+
+Users are **not** a table — identity stays in the IdP (Keycloak). `*_by_id` = the
+IdP subject (`sub`), stored as `owner` or a field. `*_by_name` snapshots are **kept
+as denormalised fields** on each item (the app already relies on it; avoids a
+per-row IdP round-trip). Graph walks (trust chains) are **recursive
+reverse-reference traversals** an app-shim performs (cycle-guarded, depth-capped);
+the platform direction is an AGE graph projection (items↔vertices,
+relationships↔edges).
+
+== Bridging table → endpoint (views / queries / functions)
+
+The gap between the *table shape* and what each *endpoint serves* (joins,
+aggregates, reshapes) is closed with **data, not code**, using the escalation
+ladder:
+
+* **Views are data.** A `view` = an item holding a persisted GraphQL query — the
+  shape of every screen lives in an item, never in loose TypeScript, validated
+  against the generated schema at write time.
+* **Multiple specialised view types** separate *what data* from *how shown*: a
+  data-shape view (a stored `query`) vs presentation views (`view` binds data →
+  `componentId` + `contextId`; specialise as tree / grid / cards). One data query
+  → many renderings, no re-spec. Great for AI: compose in layers. (Spec-gated: new
+  view types / `viewPayload` changes need approval.)
+* **Computed fields are data too.** Derived fields (`has_unread`, reactions map,
+  `reply_count`) are backed by `function` / `formula` / `query` items run by the
+  runner — not hand-written per-view resolvers. A per-viewer computed field
+  (`has_unread`) carries `scope:"perViewer"` (value depends on the requesting
+  principal; not shared-cacheable).
+* **The only code is the generic engine** — a schema-driven executor with a generic
+  resolver (scalar→column, relationship→relationship items, containment→children,
+  computed→the referenced function/query item). An earlier per-view TypeScript
+  "resolver layer" was **retracted** for putting view logic in loose code.
+
+_(Historical note: an early design used a content-negotiated single endpoint where
+the `Accept` header selected a projection. It was superseded by the uniform GraphQL
+surface — selection sets do the projection. The one exception is **binary bytes**,
+which travel over a uniform item-bytes endpoint (`/items/:id/file/:role`) because
+GraphQL can't stream binary — still uniform over items, not per-domain.)_
+
+== The `x-graphql` vocabulary (how a type declares its GraphQL surface, as data)
+
+The converter emits, and the engine reads, an additive `x-graphql` vocabulary
+that lives **inside a type item's existing `payload.jsonSchema`** — a JSON-Schema
+extension keyword (same `x-` convention as the spec's existing `x-id`). It needs
+**zero spec change**: unknown JSON-Schema keywords are ignored by validators, and
+`typePayload.jsonSchema` sets no `additionalProperties:false` at the schema root or
+per-property. (Preferred over a `payload.meta.graphql` block, which *would* need a
+spec change since `meta` is `additionalProperties:false`.)
+
+* **Root-level `x-graphql`:** `name` (default PascalCase of `item.value`), `expose`
+  (default true; false = storage-only), `queryName`, `listQueryName`, and `fields`
+  for non-column fields.
+* **Per-property `x-graphql`:** e.g. `{ "expose": false }` on `archivedAt` =
+  stored but hidden from GraphQL.
+
+[cols="1,2,2,2", options="header"]
+|===
+| Field kind | Declared where | GraphQL result | Backing the executor plans
+
+| scalar column | `properties.<f>` primitive | `String`/`Int`/`Float`/`Boolean`/`DateTime`/`ID` (non-null if `required`) | read `obj_<type>.<f>`
+| array-of-primitives | `properties.<f>` `type:"array"` | `[Inner!]` | array column
+| FK reference | `properties.<f>` `format:uuid` + `typeId` | the target object type | resolve the UUID column → item
+| identity | implicit | `id: ID!` | item envelope (`item.id`)
+| containment | `x-graphql.fields.<f>` `kind:"containment"` | `[Target!]!` / `Target` | children by `parentId`, narrowed to target type
+| relationship | `x-graphql.fields.<f>` `kind:"reference"` (+ `relationshipType`) | `[Target!]` / `Target` | traverse `relationship` items
+| computed | `x-graphql.fields.<f>` `kind:"computed"` (+ `backedBy`, `scope`) | any type | run the `function`/`formula`/`query` item
+|===
+
+Scalars: `String`, `Int`, `Float`, `Boolean`, `ID`, plus custom `DateTime`
+(ISO-8601, serialised as the stored string — *identity*, so byte-compatible) and
+`JSON`. The scalar map **mirrors the Postgres column planner** so each GraphQL
+scalar field reads one column of the matching SQL type. Per exposed type the engine
+generates an object type, a `<T>Where` input (`and`/`or`/`not` + a per-scalar
+filter on each column), a `<T>Sort` input + `<T>SortField` enum, and root query
+fields (`chThread(id: ID!)`, `chThreads(where, sort, limit=50, offset=0)`). That is
+**G1 expressed as data — zero new endpoints per app.**
+
+== Authorization: RBAC → ReBAC / grants
+
+A standard app uses **RBAC** (global roles checked per route; owner-scoped edits; a
+verification gate; some anonymous reads). Kanecta has **no role primitive** —
+access is decided per item from `grant` items, `meta.visibility`, and `meta.owner`.
+
+**Key fact: ReBAC is a strict superset of RBAC** — a role is a grant addressed to a
+"role principal" — so Kanecta expresses 100% of an RBAC app's needs.
+
+=== The reusable recipe (locked)
+
+. **Build native grant + visibility + owner enforcement** — the real platform
+  authz, not a throwaway per-route role shim. The app is the forcing function;
+  every future app inherits it.
+. **Roles stay in the IdP; translate roles → grant-principals at request time.**
+  Expand the token's realm roles into namespace-path principals (`role/team`,
+  `role/moderator`, …); grants target those. **No mirroring** of role membership
+  into Kanecta — the IdP stays the role authority.
+. **Domain-wide capabilities via container-per-domain** (chosen over type-scoped
+  grants). Create a container item per domain; domain items nest under it via
+  `parentId`; role grants **cascade** down the container. Intuitive "folder +
+  inherited permissions," works for any app.
+. **Anonymous public reads → `visibility:"public"`** (the fast no-join path).
+. **Owner-scoped edits → `meta.owner`** + owner-implicit write.
+. **`email_verified` → a token-claim check at the edge** — it is authn, not a
+  grant; don't force it into the grant model.
+. **Notifications → the native `subscribe` permission.**
+
+**Enforcement flow per request:** (1) validate the IdP JWT; (2) build the principal
+set = `<sub>` + `role/<each realm role>`; (3) allow if `visibility:public` (reads)
+OR `meta.owner == sub` OR a `grant` matches any principal with the needed
+permission, walking `cascade` up the container chain; ReBAC `{itemId, relation}`
+principals resolve via relationship traversal; (4) `email_verified` gate = a
+token-claim check at the edge.
+
+**Baked defaults (flag if wrong):** `admin ⊇ write ⊇ read`; `subscribe ⊇ read`;
+owner-implicit read/write/subscribe (but **not** admin). A Postgres `payload_grant`
+derived table gives O(1) resolution; a `visibility` column on `items` is the fast
+no-join path.
+
+**Alignment win to look for:** if the app's API already authenticates with the same
+IdP mechanism Kanecta uses (e.g. both Keycloak RS256/JWKS), tokens "just work" —
+only *authorization* has to be built.
+
+== Platform gaps any conversion forces
+
+Every standard-app conversion forces the same platform gaps. Two families.
+
+=== Capability gaps (the platform must gain these)
+
+[cols="1,4", options="header"]
+|===
+| Gap | What it is / what closes it
+
+| **G1** | No HTTP query/filter/sort/pagination (in-proc `query()` scanned all rows in JS, limit-only, no offset/count). *The single biggest data-layer gap.* Closed by `compileSelect` — where/sort/limit/offset → parameterised SQL with pushdown on `obj_*` + a count; expressed as the generated `<T>Where`/`<T>Sort` inputs.
+| **G2** | No aggregations (count/group-by/sum). Needed for the reactions map, finance reports, `reply_count`, unread rollups. Closed by `compileAggregate` — SQL group-by pushdown on `obj_*`.
+| **G3** | No content-negotiation / projection to exact shapes (was one special case). Closed by the GraphQL engine + selection sets + the generic executor owning the wire projection.
+| **G4** | No authz enforcement (`requireRole` never called; grants never read). Closed by the native grant/visibility/owner/ReBAC decision engine.
+| **G5** | No app-manifest type seeding (Postgres didn't even seed core built-in types). Closed by (a) Postgres seeds core built-ins; (b) a "seed app manifest into datastore on init" mechanism; (c) a UUID/namespacing policy. Ship app types as a manifest (`package:"<app>"`, `layer:"app"`).
+| **G6** | Remote-only working set not first-class (a hosted webapp is exactly "Postgres, no local FS"). Closed by wiring `local:{type:'postgres'}` cleanly through the working-set facade → cloud adapter; a remote-only working-set class (no branches, direct-to-origin). *G5 + G6 unblock everything.*
+| **G7** | Model-portability seam (columns on pg vs JSON blob on fs; `where`/`sort`/search differ). Standardise the prod app on the Postgres columnar path; treat filesystem as dev/offline only.
+| **G8** | Desktop/FS coupling (routes that 503 without a local path). Avoid or provide cloud equivalents; rip out desktop/FS-coupled routes aggressively.
+|===
+
+=== Zero-loss backfill hazards (surfaced by an independent read-only audit)
+
+[cols="1,1,4", options="header"]
+|===
+| Gap | Severity | The hazard / the fix
+
+| **C** | HIGH | Composite/serial-PK idempotency. A `sourceExternalId:"<table>:<pk>"` key breaks on tables with composite/serial PKs → re-runs duplicate rows. Fix: a *composite* `sourceExternalId` per join/pref table; key serial tables on the unique tuple, not the serial id.
+| **D** | HIGH | Preserve existing UUIDs that are FK targets. Seed rows minted with `gen_random_uuid()` in prod are non-deterministic and may be FK targets (e.g. `pages.licence_id`). Shipping them as fresh manifest seeds mints new UUIDs and breaks every link. Fix: **import the existing prod UUIDs, don't re-mint.** (Contrast: a *hardcoded* seed UUID is safe to seed.)
+| **E** | MED | Anonymous reads vs a global `requireAuth`. Public routes silently start demanding login. Fix: `visibility:"public"`.
+| **B** | MED | Column completeness. A mechanical backfill can silently drop columns. Fix: enumerate every column per type.
+| **F** | MED | Inconsistent soft-delete conventions (`deleted_at` / `archived_at` / content-blanking). Fix: an explicit per-table rule → a Kanecta soft-delete / `status` field.
+| **A** | — | A missing base migration — some tables have no `CREATE` in the repo; their columns live only in prod. Rule: **dump the live schema first; never trust the repo migrations.**
+|===
+
+The two must-fix-before-backfill items are **Gap C** (composite/serial-PK
+identity) and **Gap D** (preserve FK-target UUIDs).
+
+== Subsystems that are NOT pure item-CRUD
+
+Per subsystem, decide: platform primitive, app-layer service *over* Kanecta, or
+external.
+
+[cols="1,2,2", options="header"]
+|===
+| Subsystem | How handled | Notes
+
+| Aggregations (reactions map, reports, counts, unreads) | short term: app-shim over `query()`; medium term: **SQL group-by pushdown** (G2) | both need the pg columnar path; JS folds are "fine at town scale — measure"
+| Per-user computed fields (`has_unread`) | a `computed` field, `scope:"perViewer"`, joining reads/subs for the requesting `sub`; backed by a function/query item | needs efficient `query(where user=…)` (G1)
+| Graph walks / trust chains | app-shim recursive reverse-reference traversal (cycle-guarded, depth-capped) | platform direction: AGE graph projection
+| Versioning / history | native `item_history` iff full-content + action label; else version items | `_snapshot` stores full item JSON + changeType
+| Real-time (sockets) | cutover: an app-layer socket service that watches Kanecta writes and re-emits the exact events | platform direction: **GraphQL subscriptions** / a change-feed primitive; reproduce the exact event payloads
+| Push delivery | stays app-layer (VAPID/FCM keys, fan-out); devices/prefs stored as items | fire-and-forget; never blocks the response
+| Admin proxies (IdP `/users`, role writes) | stays an app-layer proxy to the IdP Admin API | Kanecta doesn't own identity
+| File bytes (S3) | `file` type + S3 adapter; reproduce upload / authenticated download / tokenised-zip | blobs already in S3 → backfill points `file` items at existing keys (don't re-upload); in-memory token maps break multi-instance
+|===
+
+== Data migration / backfill (zero-loss)
+
+The backfill is a **deterministic, idempotent importer** (the same primitive as
+`@kanecta/transcript-import`; machine-generated append-only data bypasses the human
+branch→PR→merge cycle).
+
+* **Idempotency:** each source row → an item keyed `sourceSystem:"<app>"` +
+  `sourceExternalId:"<table>:<pk>"`; re-runs upsert (`bySource() ? update() :
+  create()`); a grown source appends only new rows. `(sourceSystem,
+  sourceExternalId)` is columns + a partial unique index.
+* **Composite keys (Gap C):** composite `sourceExternalId` for join/pref tables;
+  key serial tables on the unique tuple.
+* **Preserve UUIDs (Gap D):** import original/prod UUIDs so links stay stable.
+* **Relationships:** table FKs become `parentId` (containment) or
+  `relationship`/reference items — decide per link.
+* **Files:** create `file` items pointing at existing S3 keys (don't re-upload).
+* **Ordering by dependency** (example shape): seeds → files → pages/history →
+  events → notices → finances → suggestions → threads → messages → replies →
+  reactions/reads/subs → trust → devices/prefs.
+* **Additive / never-delete:** the backfill never deletes source; the old DB is
+  read-only-after-freeze and retained; rollback is config-only.
+* **Reverse-engineer the live schema first** — dump the live DDL + a data snapshot;
+  never assume the repo migrations are complete.
+
+== Verification discipline
+
+The zero-loss claim is proven by layered checks, not assertion.
+
+* **Schema-DDL fidelity diff** — derive each type's DDL via the compiler and
+  confirm columns/indexes/relationships agree with the source table (allowing the
+  known, intentional seam deltas). (Integrity check #121 `obj-table-matches-
+  sqlschema`.)
+* **The compatibility-VIEW acceptance test** — generate compat views, point the
+  *untouched* old app at them, run its own test suite. Green = Gate 1 proven by
+  execution.
+* **Per-table row-count parity** and **per-type item counts.**
+* **Response shadow-diff (byte-for-byte JSON)** — run the Kanecta-backed API on a
+  staging host, point a copy of the app at it, and diff every endpoint's response
+  against the source for the exact shapes the frontend destructures (the trickiest:
+  aggregation maps, per-user rollups, nested image/file shapes, reports, graph
+  walks).
+* **Projection integrity checks** (cloud-only): #122 each `obj_` row ↔ a
+  non-hard-deleted item; #122b a relation exists ⇔ ≥1 live item. Respect the
+  **adapter divergence**: sqlite-fs holds one `obj_` row per *live* item; Postgres
+  *keeps* soft-deleted rows (obj_ IS the payload store) — so define checks as
+  "row ↔ non-hard-deleted item," not "live item."
+* **Rendered-page / functional checks** — a rendered page matches; a graph walk
+  returns the same order.
+
+== Naming
+
+API / JSON / GraphQL = **camelCase**; DB columns = **snake_case**; auto-translated;
+already in the 1.4.0 spec (§sqlSchema rules) and derived by
+`@kanecta/schema-compiler` for every adapter. No custom column names. The wire axis
+is independently overridable; the DB-column axis is not. Type names are PascalCased.
+
+== Deployment & cutover strategy
+
+* **Single-branch Postgres + S3 datastore; NO PR/branch/merge flow.** A `main`
+  branch that never changes is fine → the working-set/branch/merge machinery is out
+  of scope for a converted app. `rootPayload`: `itemHistory:"EXTERNAL"`,
+  `activity:"EXTERNAL"` where those are handled externally.
+* **Wholesale, phased, reversible cutover** (not big-bang mid-migration):
+  (1) stand up Kanecta in cloud alongside prod (own Postgres, same IdP realm, S3),
+  not serving traffic; (2) idempotent backfill + verify; (3) shadow/dual-run reads
+  + byte-diff; (4) freeze + final delta backfill; (5) flip the reverse-proxy
+  `/api/` (+ `/socket.io/`) upstream — the frontend is unchanged, same-origin;
+  (6) watch + one-flip rollback; (7) decommission after a clean window.
+* **Scale sets the strategy:** a small/idle app needs **no double-write, no CDC** —
+  converge via idempotent backfill → shadow-diff → announced window → freeze →
+  delta → flip. (For a large/busy app, add dual-write or CDC here — the gates are
+  the same; only the convergence mechanism changes.)
+* **Rehearse in a full nonprod replica.** Three DBs: prod (old fmt, read-only,
+  untouched); nonprod-old (a refreshable `pg_dump`/`pg_restore` replica, safe to
+  hammer); nonprod-Kanecta (the new item-model backfill target). The prod cutover
+  becomes a replay of a known-good nonprod run.
+* **Refines 1.4.0 — no 1.5.0.** An additive layer over the unchanged core item
+  model. Spec changes are approval-gated; the `x-graphql` vocabulary is designed to
+  need **zero** spec change.
+
+== The converter toolset (`@kanecta/converter`)
+
+The process is realised as a set of composable, mostly-deterministic tools. Build
+each one *from* a real conversion (community-hub) before generalising it — do not
+generalise ahead of the first real conversion.
+
+[cols="1,2,2,1", options="header"]
+|===
+| Tool | Input → output | Gate | Determinism
+
+| **introspect** | live DB schema (DDL: columns/types/PK/FK/indexes) → Kanecta `type` items (jsonSchema + `indexes` + `x-graphql`), a domain-container plan, and a table→type mapping | 1 | deterministic
+| **schema-diff** | source table DDL ↔ compiler-derived `obj_` DDL, with a known-delta allow-list (name, `id`→`item_id`, FK→`items`, composite-PK surrogate) → a per-table fidelity report | 1 | deterministic
+| **compat-views** | table→type mapping → `CREATE VIEW <oldname> …` SQL that reassembles the old shape from obj_ + items(+meta) | 1 | deterministic
+| **backfill** | source rows → idempotent item upserts (`sourceSystem`/`sourceExternalId`; composite keys; preserved UUIDs; FK→parentId/relationship) | 1 | deterministic
+| **endpoint-scaffold** | a route's SQL/handler + sample responses → `query`/`view`/`function` items reproducing its shape | 2 | mostly — flags non-data endpoints
+| **response-diff** | old endpoint ↔ Kanecta-served response → byte-for-byte JSON diff | 2/3 | deterministic
+|===
+
+== The determinism boundary (automate the ~80%, flag the ~20%)
+
+The honest promise: **automate the mechanical ~80% of a conversion, and produce a
+precise punch-list of the ~20% that needs a human.** That punch-list is the
+product's value — it turns a scary rewrite into a bounded checklist.
+
+* **Deterministic:** the schema projection (Gate 1) — table → type items → obj_
+  tables; the DDL diff; the compat views; the idempotent backfill of the data
+  rows; simple read endpoints (a `SELECT … WHERE` → a `query` item).
+* **Needs judgment (→ a `function` item + a punch-list line):** writes with
+  side-effects (bump a timestamp, attach files, emit sockets, notify); integrations
+  that aren't data (IdP admin proxy, push, external calls); bespoke business logic;
+  the composite-PK surrogate delta; the envelope-overlap per-field decisions.
+
+The converter never *fakes* the hard 20% as a view; it detects "this isn't pure
+data," routes it to a `function`/app-shim, and records it.
+
+== Type-creation workflow & tiering
+
+* **Propose / review / reuse.** On deriving a type, auto-generate the sqlSchema +
+  auto-decompose, then **show the proposal** to accept or redirect, and **search
+  existing types for similar shapes** (offer them with object counts) to steer
+  toward reuse of popular formats — encouraging convergence on shared schemas.
+* **Three-tier placement.** A type referenced by **core logic** → a CORE type
+  (seeded into every datastore; `property` is core). Referenced by
+  **app/component logic** → an APP type (manifested in the referencing component,
+  stable UUIDs; e.g. the `ch-*` app types). Referenced by **no hardcoded logic** →
+  the opt-in `kanecta-types` generic library (Person, Address, … from public
+  ontologies, with deterministic UUIDv5-from-source-URI so reuse/interop works
+  across installations).
+
+== Toolchain licensing constraints
+
+graphql-js / Yoga / Mercurius / Pothos / DataLoader are MIT; the GraphQL spec is
+OWFa — MIT-compatible. **Avoid Apollo Router/Federation (ELv2).** GraphQL cost
+mitigations: N+1 → DataLoader batching; caching → persisted queries / GET-APQ.
+Docs/visualisation = GraphQL introspection (GraphiQL, graphql-voyager), which
+documents a graph far better than a route list.
+
+== Cross-backend nuances (appendix)
+
+* **BIGINT/NUMERIC-as-string.** node-pg returns `BIGINT`/`NUMERIC` as JS *strings*;
+  filesystem returns numbers. Either coerce in the pg read model or document it —
+  and note the frontend often *already expects strings* (money amounts, reaction
+  `count`), which a byte-for-byte cutover must preserve.
+* **Uniform write-path validator.** Validation ("conforms to the type's jsonSchema;
+  flat; no extra keys") is backend-agnostic → one shared validator on every object
+  write. A lenient filesystem would let you write data that can't reach canonical
+  Postgres, silently breaking portability. Reuse `@kanecta/specification`'s
+  `kanecta-schema-validator`; relax the check that `validateType` *requires*
+  `sqlSchema` (it is now derived).
+
+== Reference implementation: community-hub
+
+community-hub is the first, reference conversion. Its app-specific details — the
+table inventory, `ch-*` type names, specific UUIDs, roles, hostnames, and the
+per-app schedule — live in the one-off plans (`community-hub-cutover-sprint.md`,
+`community-hub-connector-cutover.md`, `community-hub-discussions-contract.md`,
+`community-hub-authz-mapping.md`, `community-hub-x-graphql-vocabulary.md`). This
+document holds only what generalises.
+
+Two reusable heuristics worth stating explicitly:
+
+* **Sequence by forcing-function.** The hardest slice (realtime + aggregation +
+  per-user computed + files) either goes *last* (mechanical slices first to build
+  confidence) or *first* (to force every platform gap up front). Both are valid;
+  pick per risk appetite.
+* **Aggregation is a projection, not stored** — never materialise a
+  `GROUP BY`-able rollup as rows unless a maintained counter is explicitly added as
+  an optimisation.
