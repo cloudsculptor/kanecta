@@ -10,7 +10,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Pool } from 'pg';
 import { deriveSqlSchema } from '@kanecta/schema-compiler';
-import { buildSchemaModel, PgDataSource, Executor, type Selection } from '../../src/graphql/index.ts';
+import { buildSchemaModel, PgDataSource, Executor, compileAggregate, type Selection } from '../../src/graphql/index.ts';
 import chThread from '../../manifests/community-hub/ch-thread.type.json' with { type: 'json' };
 import chMessage from '../../manifests/community-hub/ch-message.type.json' with { type: 'json' };
 import chFile from '../../manifests/community-hub/ch-file.type.json' with { type: 'json' };
@@ -106,6 +106,14 @@ run('engine ↔ Postgres (real)', () => {
     expect(asc.map((r) => r.id)).toEqual([M1, M2]);
     const desc = await exec.resolveList('ChMessage', { sort: [{ field: 'createdAt', direction: 'DESC' }], limit: 1 }, { id: true });
     expect(desc.map((r) => r.id)).toEqual([M2]);
+  });
+
+  it('G2: compileAggregate group-by count runs against real Postgres', async () => {
+    const message = model.types.find((t) => t.name === 'ChMessage')!;
+    const { sql, params } = compileAggregate(message, { groupBy: ['threadId'], aggregates: [{ fn: 'count', alias: 'n' }] });
+    const { rows } = await pool.query(sql, params as unknown[]);
+    // Both M1 and M2 carry thread_id = T1 → one group of 2.
+    expect(rows).toEqual([{ thread_id: T1, n: '2' }]); // pg returns bigint as string
   });
 
   it('applies the authz read gate against real rows', async () => {

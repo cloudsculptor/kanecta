@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { buildSchemaModel } from '../../src/graphql/model.ts';
-import { compileSelect, compileOrderBy, compileWhere, QueryCompileError } from '../../src/graphql/sql-query.ts';
+import { compileSelect, compileOrderBy, compileWhere, compileAggregate, QueryCompileError } from '../../src/graphql/sql-query.ts';
 import { allTypes } from './fixtures.ts';
 
 const model = buildSchemaModel(allTypes);
@@ -139,6 +139,42 @@ describe('compileWhere safety (injection boundary)', () => {
   it('rejects non-filterable (non-scalar) fields like messages/hasUnread', () => {
     expect(() => compileWhere({ messages: { eq: 'x' } }, cols, mkP() as any)).toThrow(QueryCompileError);
     expect(() => compileWhere({ hasUnread: { eq: true } }, cols, mkP() as any)).toThrow(QueryCompileError);
+  });
+});
+
+describe('compileAggregate (G2)', () => {
+  it('compiles a global COUNT(*)', () => {
+    const q = compileAggregate(chMessage, { aggregates: [{ fn: 'count', alias: 'total' }] });
+    expect(q.sql).toBe('SELECT count(*)::bigint AS "total" FROM "obj_aaaaaaaa_0000_4000_8000_000000000002"');
+    expect(q.params).toEqual([]);
+  });
+
+  it('compiles a GROUP BY count — the reactions-map / per-thread-count shape', () => {
+    const q = compileAggregate(chMessage, { groupBy: ['threadId'], aggregates: [{ fn: 'count', alias: 'n' }] });
+    // threadId (wire) → thread_id (column).
+    expect(q.sql).toBe('SELECT "thread_id", count(*)::bigint AS "n" FROM "obj_aaaaaaaa_0000_4000_8000_000000000002" GROUP BY "thread_id"');
+  });
+
+  it('supports where + multiple aggregates', () => {
+    const q = compileAggregate(chThread, {
+      where: { sortOrder: { gte: 1 } },
+      groupBy: ['createdByUserId'],
+      aggregates: [{ fn: 'count', alias: 'threads' }, { fn: 'max', field: 'latestMessageAt', alias: 'newest' }],
+    });
+    expect(q.sql).toBe('SELECT "created_by_user_id", count(*)::bigint AS "threads", max("latest_message_at") AS "newest" FROM "obj_aaaaaaaa_0000_4000_8000_000000000001" WHERE "sort_order" >= $1 GROUP BY "created_by_user_id"');
+    expect(q.params).toEqual([1]);
+  });
+
+  it('rejects sum/avg on non-numeric columns and unknown fields', () => {
+    expect(() => compileAggregate(chThread, { aggregates: [{ fn: 'sum', field: 'name', alias: 'x' }] })).toThrow(QueryCompileError);
+    expect(() => compileAggregate(chThread, { groupBy: ['nope'], aggregates: [{ fn: 'count', alias: 'n' }] })).toThrow(QueryCompileError);
+    expect(() => compileAggregate(chThread, { aggregates: [{ fn: 'count', alias: '1bad' }] })).toThrow(QueryCompileError);
+  });
+
+  it('sum/avg work on numeric columns', () => {
+    const q = compileAggregate(chThread, { aggregates: [{ fn: 'sum', field: 'sortOrder', alias: 's' }, { fn: 'avg', field: 'sortOrder', alias: 'a' }] });
+    expect(q.sql).toContain('sum("sort_order") AS "s"');
+    expect(q.sql).toContain('avg("sort_order") AS "a"');
   });
 });
 

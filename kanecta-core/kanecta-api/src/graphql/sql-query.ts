@@ -75,6 +75,12 @@ function filterableColumn(f: FieldModel): Column | null {
   if (f.backing.kind === 'scalarColumn' && !f.backing.list) {
     return { column: f.backing.column, kind: kindOfScalar(f.namedType) };
   }
+  // FK-column references are real UUID columns — filterable/sortable/groupable
+  // (e.g. filter messages by thread_id). Relationship-item references have no
+  // column and are excluded.
+  if (f.backing.kind === 'reference' && !f.backing.list && f.backing.column) {
+    return { column: f.backing.column, kind: 'id' };
+  }
   return null;
 }
 
@@ -215,6 +221,88 @@ function compileFieldFilter(col: Column, filter: unknown, params: Params): strin
 
   if (!parts.length) return 'TRUE';
   return parts.join(' AND ');
+}
+
+// ─── G2: aggregations (count / group-by / sum / avg / min / max) ─────────────
+//
+// Powers the reactions map (GROUP BY emoji COUNT(*) over ch-reaction rows),
+// reply/file counts, and finance report rollups — SQL pushdown group-by on the
+// obj_<type> columns, not a JS scan. Same allow-list + parameterised-where
+// discipline as compileSelect.
+
+export type AggregateFn = 'count' | 'sum' | 'avg' | 'min' | 'max';
+
+export interface AggregateSpec {
+  fn: AggregateFn;
+  /** Field to aggregate. Optional (and ignored) for `count` → COUNT(*). */
+  field?: string;
+  /** Output column alias (must be a valid identifier). */
+  alias: string;
+}
+
+export interface AggregateArgs {
+  where?: unknown;
+  /** Fields to GROUP BY (each becomes an output column, snake_case). */
+  groupBy?: string[];
+  aggregates: AggregateSpec[];
+}
+
+const AGG_ALLOWED_KINDS: Record<AggregateFn, ColumnKind[] | null> = {
+  count: null, // any kind (or none, for COUNT(*))
+  sum: ['int', 'float'],
+  avg: ['int', 'float'],
+  min: ['int', 'float', 'datetime', 'text', 'id'],
+  max: ['int', 'float', 'datetime', 'text', 'id'],
+};
+
+function isValidAlias(name: string): boolean {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(name);
+}
+
+/** Compile an aggregation query over one type into parameterised SQL. */
+export function compileAggregate(type: ObjectTypeModel, args: AggregateArgs): { sql: string; params: unknown[] } {
+  const columns = columnsFor(type);
+  const table = quoteIdent(type.tableName);
+  if (!args.aggregates?.length) throw new QueryCompileError('aggregate query needs at least one aggregate');
+
+  const params = new Params();
+  const whereClause = args.where ? compileWhere(args.where, columns, params) : '';
+  const where = whereClause ? ` WHERE ${whereClause}` : '';
+
+  // GROUP BY columns (validated against the allow-list).
+  const groupCols: string[] = [];
+  for (const field of args.groupBy ?? []) {
+    const col = columns.get(field);
+    if (!col) throw new QueryCompileError(`Unknown or non-groupable field: ${field}`);
+    groupCols.push(quoteIdent(col.column));
+  }
+
+  // Aggregate expressions.
+  const selectParts = [...groupCols];
+  const seenAlias = new Set<string>();
+  for (const agg of args.aggregates) {
+    if (!isValidAlias(agg.alias)) throw new QueryCompileError(`Invalid aggregate alias: ${agg.alias}`);
+    if (seenAlias.has(agg.alias)) throw new QueryCompileError(`Duplicate aggregate alias: ${agg.alias}`);
+    seenAlias.add(agg.alias);
+
+    const allowed = AGG_ALLOWED_KINDS[agg.fn];
+    if (allowed === undefined) throw new QueryCompileError(`Unknown aggregate function: ${agg.fn}`);
+
+    if (agg.fn === 'count' && !agg.field) {
+      selectParts.push(`count(*)::bigint AS ${quoteIdent(agg.alias)}`);
+      continue;
+    }
+    const col = agg.field ? columns.get(agg.field) : undefined;
+    if (!col) throw new QueryCompileError(`Unknown or non-aggregatable field: ${agg.field}`);
+    if (allowed && !allowed.includes(col.kind)) {
+      throw new QueryCompileError(`Aggregate "${agg.fn}" is not valid for ${col.kind} field "${agg.field}"`);
+    }
+    selectParts.push(`${agg.fn}(${quoteIdent(col.column)}) AS ${quoteIdent(agg.alias)}`);
+  }
+
+  const groupBy = groupCols.length ? ` GROUP BY ${groupCols.join(', ')}` : '';
+  const sql = `SELECT ${selectParts.join(', ')} FROM ${table}${where}${groupBy}`;
+  return { sql, params: params.values };
 }
 
 /** Compile a validated ORDER BY clause (empty string when no sort). */

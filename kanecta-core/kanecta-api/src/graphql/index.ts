@@ -30,8 +30,8 @@ export type {
   BuildOptions,
 } from './model.ts';
 export { emitSDL } from './sdl.ts';
-export { compileSelect, compileWhere, compileOrderBy, QueryCompileError } from './sql-query.ts';
-export type { CompiledQuery, SelectArgs } from './sql-query.ts';
+export { compileSelect, compileWhere, compileOrderBy, compileAggregate, QueryCompileError } from './sql-query.ts';
+export type { CompiledQuery, SelectArgs, AggregateArgs, AggregateSpec, AggregateFn } from './sql-query.ts';
 export { Executor, ExecutionError } from './execute.ts';
 export type { DataSource, StoredRow, ExecContext, Selection } from './execute.ts';
 export { PgDataSource } from './pg-datasource.ts';

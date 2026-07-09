@@ -67,8 +67,12 @@ function scalarFilterFields(type: ObjectTypeModel): { field: FieldModel; filterI
   for (const f of type.fields) {
     const isScalarCol = f.backing.kind === 'scalarColumn' && !f.backing.list;
     const isId = f.backing.kind === 'identity' && f.backing.field === 'id';
-    if (!isScalarCol && !isId) continue;
-    const filterInput = filterInputFor(f.namedType);
+    // FK-column references filter/sort on their UUID column (an IDFilter),
+    // matching the SQL compiler's allow-list. Relationship references have no
+    // column and are not filterable.
+    const isFkRef = f.backing.kind === 'reference' && !f.backing.list && f.backing.column != null;
+    if (!isScalarCol && !isId && !isFkRef) continue;
+    const filterInput = isFkRef ? 'IDFilter' : filterInputFor(f.namedType);
     if (filterInput) out.push({ field: f, filterInput });
   }
   return out;
