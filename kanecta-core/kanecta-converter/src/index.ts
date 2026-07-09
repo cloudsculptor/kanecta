@@ -6,6 +6,8 @@
 // backfill, endpoint-scaffold, response-diff) build on the same parsed-source model.
 
 export { introspect, snakeToCamel, snakeToPascal, deterministicUuid } from './introspect.ts';
+export { generateCompatView } from './compat-views.ts';
+export type { CompatViewOptions } from './compat-views.ts';
 export type {
   SourceTable,
   SourceColumn,

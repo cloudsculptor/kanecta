@@ -2130,6 +2130,65 @@ A view item UUID is a stable, shareable reference to "this item, rendered this w
 
 `item.value` on the view item is the human label for the bookmark (e.g. `"Alice's dashboard"`, `"Sprint board — compact"`). Null means no label — the view is functional but unnamed.
 
+=== sqlViewPayload (design captured 2026-07-10 — not yet implemented)
+
+NOTE: This is a captured design, not yet implemented in the adapters. It is
+recorded in the canonical spec so the idea is not lost; the fuller treatment,
+including its role as a conversion-fidelity mechanism, lives in the Kanecta
+Converter specification (`kanecta-converter/kanecta-converter-specification`).
+
+A **`sql-view` item** is a *storage-layer* projection: exactly as a `type` item
+projects to a physical `obj_<typeId>` table, a `sql-view` item projects to a real
+database `CREATE VIEW`. It holds a `SELECT` (over `obj_*`/`items` tables or other
+views) as data, and the adapter materialises the corresponding `CREATE VIEW` (or
+`CREATE MATERIALIZED VIEW`) when the item is written — versioned, inspectable,
+deployed like any other item, and portable because `CREATE VIEW` is core ANSI SQL
+(SQL-92) supported by every relational backend.
+
+IMPORTANT: This is a *different* concept from `view`/`query` items, which are
+**API-layer** persisted GraphQL/presentation views. `sql-view` is at the
+**database layer**: it produces an actual SQL relation that SQL clients query by
+name. The two coexist.
+
+Why it exists (three motivations):
+
+* **A SQL-native compatibility surface for the entire SQL ecosystem.** Any tool
+  that speaks SQL — BI/reporting (Metabase, Tableau), a spreadsheet over ODBC,
+  another application, a legacy service, or the *unmodified* API of an app being
+  converted to Kanecta — can read Kanecta through named views with familiar
+  shapes, **without going through GraphQL**. This is on-mission for Kanecta
+  subsuming other software: you do not force every consumer onto GraphQL; SQL
+  consumers get SQL. (In the converter this is the Gate-1 fidelity mechanism —
+  generated compat views let the untouched old app read the projected storage,
+  e.g. `CREATE VIEW events AS SELECT o.item_id AS id, o.* , i.created_at … FROM
+  obj_<uuid> o JOIN items i ON i.id = o.item_id`.)
+* **Declarative, DB-computed read models — including *materialised* views.** A
+  `sql-view` item can define a join/aggregate over `obj_` tables (a thread with
+  `reply_count` and its latest message) as a plain view, or a **materialised**
+  view the database caches and refreshes on write. This is an *optimisation path
+  for computed fields*: instead of the runner computing `reply_count` per request,
+  the database maintains it. On the "declarative-first, soft-coded-function-last"
+  ladder it sits on the declarative rung — above a `function` item — and the query
+  planner / DB engine can optimise it.
+* **It is simply more "everything is items."** A `SELECT` stored as data,
+  versioned, inspectable, adapter-deployed, portable across backends.
+
+CAUTION: **Authorization trust boundary.** A SQL view **bypasses GraphQL's
+per-field grant checks** — a SQL consumer reading a view is not gated by Kanecta's
+`grant`/`visibility`/`owner` authz. Therefore `sql-view` access is a *different
+trust boundary*: it must be restricted to DB-level roles / trusted-internal
+consumers, or (as a public feature) gated by a database-role access story that the
+implementation defines explicitly. For internal conversion compatibility views
+this is acceptable (internal-only); a `sql-view` must never be assumed to inherit
+item-level authz.
+
+Payload sketch (to be finalised on implementation): a portable `SELECT` expression
+(or a structured, dialect-compiled definition, mirroring how `sqlSchema` is derived
+per backend rather than authored raw); a `materialized` boolean; a refresh policy
+for the materialised case (on-write / scheduled); and the trust-boundary
+declaration. Writes are read-only through the view unless an `INSTEAD OF` trigger
+strategy is defined (out of scope for the read-only compatibility use).
+
 === contextPayload
 
 link:../built-in-types/types/context.json[Seed item^]

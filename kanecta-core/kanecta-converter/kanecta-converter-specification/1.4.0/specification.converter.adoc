@@ -277,8 +277,10 @@ migration compat views this is internal-only, so it is fine; as a public feature
 it needs the DB-role access story.
 
 _(A `sql-view` / `materialized-view` item type is a future Kanecta platform
-feature and would be spec-gated. Recorded here because it emerged directly from the
-converter work.)_
+feature and would be spec-gated. It is **also captured in the main Kanecta spec**
+as `sqlViewPayload` — `kanecta-specification/1.4.0/specification.adoc` — because it
+is a platform capability, not merely a converter concern. The `compat-views` tool
+in `@kanecta/converter` implements the throwaway Gate-1 form today.)_
 
 == The projection model (types → tables)
 
@@ -413,6 +415,30 @@ Of the differences between a source table and its projection, three are cosmetic
 
 **Punch line:** the fidelity target is the *view* matching the old table; the only
 genuine "can't be identical" is Seam 2, which the converter names out loud.
+
+=== Findings & known fidelity nuances (discovered while building)
+
+Real gaps found while implementing the tools — each is a "name it, don't hide it"
+delta, and some are Kanecta gaps to close:
+
+* **`date-time` columns project to `TEXT`, not `TIMESTAMPTZ`.**
+  `@kanecta/schema-compiler` maps a `string`+`format:date-time` property to `TEXT`
+  (ISO-8601-string storage — consistent with the `DateTime` GraphQL scalar being
+  the stored string), **not** to a native `TIMESTAMPTZ`. So a source timestamp
+  column's projection is `TEXT`. `kanecta-postgres/src/type-table.ts` (a
+  suggestion-only planner) disagrees and emits `TIMESTAMPTZ`; the compiler is
+  authoritative per the spec. This is a real fidelity nuance vs a source
+  `TIMESTAMPTZ` column and arguably a **compiler gap** (map `date-time` →
+  `TIMESTAMPTZ` on Postgres) — the `introspect` report surfaces it per type.
+* **Numeric/`BIGINT` read as strings on Postgres** (node-pg), as numbers on the
+  filesystem adapter. A cross-backend read-model difference; often the source app
+  already expects strings (money, counts) which a byte-for-byte cutover preserves.
+* **The single genuine structural delta remains Seam 2** (composite/serial-PK →
+  surrogate `item_id` + `UNIQUE`); everything else is cosmetic or automatable.
+
+More generally: **any relational feature we hit that Kanecta cannot yet express is
+a named gap to add** (see "Kanecta must subsume every relational feature"). The
+converter's job is to *report* the delta precisely, never to silently diverge.
 
 == Native-primitive-first mapping
 
