@@ -32,6 +32,8 @@ export type {
 export { emitSDL } from './sdl.ts';
 export { compileSelect, compileWhere, compileOrderBy, QueryCompileError } from './sql-query.ts';
 export type { CompiledQuery, SelectArgs } from './sql-query.ts';
+export { Executor, ExecutionError } from './execute.ts';
+export type { DataSource, StoredRow, ExecContext, Selection } from './execute.ts';
 export { mapProperty, scalarGraphqlType, filterInputFor, CUSTOM_SCALARS } from './scalars.ts';
 export { graphqlTypeName, singularQueryField, listQueryField, pluralize } from './naming.ts';
 export { applyNamingStrategy, camelToSnake, snakeToCamel } from './naming-strategy.ts';
