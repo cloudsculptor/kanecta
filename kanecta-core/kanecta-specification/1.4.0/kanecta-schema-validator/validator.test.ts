@@ -67,10 +67,16 @@ describe('validateType', () => {
     expectRule(validateType(input as any), 'type', '');
   });
 
-  test.each(['meta', 'jsonSchema', 'sqlSchema'])('missing %s → required', (field) => {
+  test.each(['meta', 'jsonSchema'])('missing %s → required', (field) => {
     const t = goodType();
     delete t[field];
     expectRule(validateType(t), 'required', field);
+  });
+
+  test('missing sqlSchema is valid (it is derived from jsonSchema, not required)', () => {
+    const t = goodType();
+    delete t.sqlSchema;
+    expectValid(validateType(t));
   });
 
   test('missing meta.description → required', () => {
