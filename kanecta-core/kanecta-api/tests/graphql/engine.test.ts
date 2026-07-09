@@ -176,31 +176,13 @@ describe('field naming strategy (auto-translation + override)', () => {
     expect(names).not.toContain('created_by_user_id');
   });
 
-  it('a per-field x-graphql.column override forces an exact DB column', () => {
-    const withCol = {
-      ...chThreadType,
-      payload: {
-        ...chThreadType.payload,
-        jsonSchema: {
-          ...chThreadType.payload.jsonSchema,
-          properties: {
-            ...chThreadType.payload.jsonSchema.properties,
-            createdByUserId: { 'x-id': 'x4', type: 'string', 'x-graphql': { column: 'author_uuid' } },
-          },
-        },
-      },
-    };
-    const model = buildSchemaModel([withCol]);
-    const field = model.types[0].fields.find((f) => f.name === 'createdByUserId')!;
-    expect(field.name).toBe('createdByUserId'); // API name unchanged
-    expect(field.backing).toEqual({ kind: 'scalarColumn', column: 'author_uuid', list: false }); // exact column
-  });
-
-  it('wire name and DB column are independent axes', () => {
-    // snake wire + snake column, but they are computed separately.
-    const model = buildSchemaModel([chThreadType], { fieldNaming: 'snake', columnNaming: 'snake' });
+  it('DB columns stay snake_case regardless of the wire strategy', () => {
+    // Even when the wire surface is snake_case, the column is computed from the
+    // canonical name, always snake — the two are independent and the column is
+    // never configurable.
+    const model = buildSchemaModel([chThreadType], { fieldNaming: 'snake' });
     const f = model.types[0].fields.find((f) => f.name === 'created_by_user_id')!;
-    expect(f.backing).toMatchObject({ column: 'created_by_user_id' });
+    expect(f.backing).toEqual({ kind: 'scalarColumn', column: 'created_by_user_id', list: false });
   });
 
   it('camelToSnake handles the domain field names', () => {

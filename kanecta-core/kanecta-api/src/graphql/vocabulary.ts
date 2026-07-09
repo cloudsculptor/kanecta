@@ -67,13 +67,11 @@ export interface XGraphqlType {
   listQueryName?: string;
   /** Wire-name strategy for THIS type's fields, applied to the canonical
    *  camelCase field names (a per-field `x-graphql.name` still wins). Use
-   *  'snake' when the type must speak a snake_case contract. Defaults to the
-   *  build-level strategy, then 'preserve'. */
+   *  'snake' when the type must speak a foreign snake_case contract (e.g. a
+   *  transient legacy-REST compat projection during cutover). Defaults to the
+   *  build-level strategy, then 'preserve' — the canonical surface is camelCase.
+   *  Note: DB columns are ALWAYS snake_case (see the spec, not configurable). */
   fieldNaming?: NamingStrategy;
-  /** Database-column strategy for THIS type's fields (a per-field
-   *  `x-graphql.column` still wins). Defaults to the build-level strategy, then
-   *  'snake' — DB columns are snake_case while the API stays camelCase. */
-  columnNaming?: NamingStrategy;
 }
 
 /** Per-property `x-graphql` block, living at
@@ -89,11 +87,6 @@ export interface XGraphqlProperty {
   /** Hide this column from GraphQL while keeping it in storage. Default true
    *  (exposed). */
   expose?: boolean;
-  /** Force an exact database column name, bypassing the column naming strategy.
-   *  Canonical fields are camelCase and columns default to snake_case
-   *  (createdByUserId → created_by_user_id); set this only when a column must
-   *  carry a specific name. */
-  column?: string;
   /** Override the derived GraphQL scalar (e.g. force "DateTime" or "ID"). When
    *  absent the scalar is inferred from the property's JSON-Schema type/format. */
   type?: string;

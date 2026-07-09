@@ -134,12 +134,9 @@ export interface BuildOptions {
   /** Default wire-name strategy applied to every type's canonical camelCase
    *  field names (a type's `x-graphql.fieldNaming` and a field's
    *  `x-graphql.name` override it). Defaults to 'preserve' — GraphQL keeps the
-   *  canonical camelCase. Set 'snake' to emit a snake_case-contract surface. */
+   *  canonical camelCase. Set 'snake' only for a foreign snake_case compat
+   *  surface. DB columns are always snake_case regardless. */
   fieldNaming?: NamingStrategy;
-  /** Default database-column strategy (overridden by a type's
-   *  `x-graphql.columnNaming` and a field's `x-graphql.column`). Defaults to
-   *  'snake' — the API is camelCase, the obj_<type> columns are snake_case. */
-  columnNaming?: NamingStrategy;
 }
 
 // obj_<uuid-with-hyphens-replaced-by-underscores> — mirrors the postgres adapter.
@@ -201,12 +198,11 @@ export function buildSchemaModel(typeItems: any[], options: BuildOptions = {}): 
     const jsonSchema = t.payload?.jsonSchema ?? {};
     const properties: Record<string, any> = jsonSchema.properties ?? {};
     const required: string[] = jsonSchema.required ?? [];
-    // Naming cascade: per-field override > per-type strategy > build default.
     // Canonical field names are camelCase. The WIRE strategy produces the GraphQL
-    // field name (default 'preserve' → camelCase). The COLUMN strategy produces
-    // the obj_<type> column name (default 'snake' → snake_case DB columns).
+    // field name (per-field `x-graphql.name` > per-type `fieldNaming` > build
+    // default > 'preserve' → camelCase). DB columns are ALWAYS snake_case (spec:
+    // "camelCase property names become snake_case columns") — not configurable.
     const strategy: NamingStrategy = xg.fieldNaming ?? options.fieldNaming ?? 'preserve';
-    const columnStrategy: NamingStrategy = xg.columnNaming ?? options.columnNaming ?? 'snake';
 
     const fields: FieldModel[] = [];
     const seenFieldNames = new Set<string>();
@@ -228,7 +224,8 @@ export function buildSchemaModel(typeItems: any[], options: BuildOptions = {}): 
       if (px.expose === false) continue;
 
       const fieldName = px.name ?? applyNamingStrategy(propName, strategy);
-      const column = px.column ?? applyNamingStrategy(propName, columnStrategy);
+      // DB column: always snake_case, matching @kanecta/schema-compiler + adapters.
+      const column = applyNamingStrategy(propName, 'snake');
       if (!isValidGraphqlName(fieldName)) {
         diagnostics.push({
           level: 'error',
