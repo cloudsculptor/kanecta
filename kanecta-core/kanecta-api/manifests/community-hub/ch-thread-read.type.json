@@ -1,0 +1,42 @@
+{
+  "item": {
+    "id": "0c8a7b10-1111-4a00-8000-000000000103",
+    "parentId": "0c8a7b10-1111-4a00-8000-000000000001",
+    "type": "type",
+    "typeId": null,
+    "value": "ch-thread-read",
+    "sortOrder": 4
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-07-10T00:00:00.000Z",
+    "modifiedAt": "2026-07-10T00:00:00.000Z",
+    "visibility": "public",
+    "tags": ["community-hub", "discussions"]
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "icon": "MarkChatRead",
+      "description": "A viewer's read-state for a thread.",
+      "details": "Mutable per-(user, thread) 'latest read' state (the contract's recommended model — it is state, not an append-only event). One item per (userId, threadId). Powers the ch-thread.hasUnread computed field: hasUnread = thread.latestMessageAt > this row's lastReadAt.",
+      "primaryField": "userId"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$id": "https://kanecta.org/types/ch-thread-read",
+      "title": "ChThreadRead",
+      "type": "object",
+      "x-graphql": { "expose": false },
+      "properties": {
+        "userId": { "x-id": "0c8a7b10-1111-4a00-8000-0000000c0001", "type": "string", "description": "Keycloak sub of the reader." },
+        "threadId": { "x-id": "0c8a7b10-1111-4a00-8000-0000000c0002", "type": "string", "format": "uuid", "typeId": "0c8a7b10-1111-4a00-8000-000000000101", "description": "The ch-thread this read-state belongs to." },
+        "lastReadAt": { "x-id": "0c8a7b10-1111-4a00-8000-0000000c0003", "type": "string", "format": "date-time", "description": "Timestamp the viewer last read the thread." }
+      },
+      "required": ["userId", "threadId"]
+    },
+    "indexes": [{ "fields": ["userId", "threadId"], "unique": true }]
+  }
+}
