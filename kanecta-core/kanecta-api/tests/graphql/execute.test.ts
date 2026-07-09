@@ -128,6 +128,39 @@ describe('Executor.resolveList', () => {
   });
 });
 
+describe('Executor authz gate', () => {
+  const exec = new Executor(model, makeDb());
+  // Deny reads of message M2 and file F1.
+  const denied = new Set(['M2', 'F1']);
+  const ctx = { viewer: 'u-alice', authorize: (id: string) => !denied.has(id) };
+
+  it('filters denied children out of a containment list', async () => {
+    // M1 has reply M2 (denied). replies should come back empty.
+    const result = await exec.resolveById('ChMessage', 'M1', { id: true, replies: { id: true } }, ctx);
+    expect(result).toEqual({ id: 'M1', replies: [] });
+  });
+
+  it('filters denied targets out of a relationship list', async () => {
+    // M1 attaches F1 (denied) → files empty.
+    const result = await exec.resolveById('ChMessage', 'M1', { id: true, files: { id: true } }, ctx);
+    expect(result).toEqual({ id: 'M1', files: [] });
+  });
+
+  it('returns null for a denied root object', async () => {
+    expect(await exec.resolveById('ChMessage', 'M2', { id: true }, ctx)).toBeNull();
+  });
+
+  it('drops denied rows from a list query', async () => {
+    const rows = await exec.resolveList('ChMessage', {}, { id: true }, ctx);
+    expect(rows.map((r) => r.id)).toEqual(['M1']); // M2 filtered
+  });
+
+  it('allows everything when no authorize hook is set', async () => {
+    const rows = await exec.resolveList('ChMessage', {}, { id: true }, {});
+    expect(rows.map((r) => r.id)).toEqual(['M1', 'M2']);
+  });
+});
+
 describe('Executor errors', () => {
   const exec = new Executor(model, makeDb());
 

@@ -30,9 +30,14 @@ export interface StoredRow {
 }
 
 /** Context threaded through resolution — carries the requesting principal (for
- *  per-viewer computed fields and, later, authz) and anything else per-request. */
+ *  per-viewer computed fields) and an optional read gate. */
 export interface ExecContext {
   viewer?: string;
+  /** Optional per-item read authorization. When present, every object the
+   *  resolver would return (root, list rows, and nested reference/containment
+   *  objects) is checked; denied objects become null (single) or are filtered
+   *  out (list). Wire a G4 authz `can(source, principals, id, 'read')` here. */
+  authorize?: (id: string, typeName: string) => boolean | Promise<boolean>;
   [key: string]: unknown;
 }
 
@@ -97,17 +102,32 @@ export class Executor {
     }
   }
 
-  /** Resolve a single object of `typeName` by id under `selection`. */
+  /** Resolve a single object of `typeName` by id under `selection`. Returns null
+   *  if absent or not readable by the context's authorize gate. */
   async resolveById(typeName: string, id: string, selection: Selection, ctx: ExecContext = {}): Promise<Record<string, unknown> | null> {
     const row = await this.ds.getById(typeName, id, ctx);
-    if (!row) return null;
+    if (!row || !(await this.authorized(row, typeName, ctx))) return null;
     return this.projectRow(typeName, row, selection, ctx);
   }
 
-  /** Resolve a list of `typeName` under G1 args + `selection`. */
+  /** Resolve a list of `typeName` under G1 args + `selection`. Rows the context's
+   *  authorize gate denies are filtered out. */
   async resolveList(typeName: string, args: SelectArgs, selection: Selection, ctx: ExecContext = {}): Promise<Record<string, unknown>[]> {
     const rows = await this.ds.query(typeName, args, ctx);
-    return Promise.all(rows.map((r) => this.projectRow(typeName, r, selection, ctx)));
+    const allowed = await this.gate(rows, typeName, ctx);
+    return Promise.all(allowed.map((r) => this.projectRow(typeName, r, selection, ctx)));
+  }
+
+  // Read gate — true when no authorize hook, else the hook's verdict.
+  private async authorized(row: StoredRow, typeName: string, ctx: ExecContext): Promise<boolean> {
+    return !ctx.authorize || (await ctx.authorize(row.id, typeName));
+  }
+
+  private async gate(rows: StoredRow[], typeName: string, ctx: ExecContext): Promise<StoredRow[]> {
+    if (!ctx.authorize) return rows;
+    const out: StoredRow[] = [];
+    for (const r of rows) if (await this.authorized(r, typeName, ctx)) out.push(r);
+    return out;
   }
 
   // Project one stored row into the wire shape dictated by the selection.
@@ -137,7 +157,11 @@ export class Executor {
         const childSel = subSelection(sub, field);
         if (b.relationshipType !== undefined || b.column === undefined) {
           // Relationship-item traversal.
-          const targets = await this.ds.related(row.id, b.relationshipType, b.direction ?? 'outgoing', b.targetTypeName, ctx);
+          const targets = await this.gate(
+            await this.ds.related(row.id, b.relationshipType, b.direction ?? 'outgoing', b.targetTypeName, ctx),
+            b.targetTypeName,
+            ctx,
+          );
           if (b.list) return Promise.all(targets.map((t) => this.projectRow(b.targetTypeName, t, childSel, ctx)));
           return targets[0] ? this.projectRow(b.targetTypeName, targets[0], childSel, ctx) : null;
         }
@@ -145,12 +169,17 @@ export class Executor {
         const targetId = row.columns[b.column];
         if (targetId == null) return null;
         const target = await this.ds.getById(b.targetTypeName, String(targetId), ctx);
-        return target ? this.projectRow(b.targetTypeName, target, childSel, ctx) : null;
+        if (!target || !(await this.authorized(target, b.targetTypeName, ctx))) return null;
+        return this.projectRow(b.targetTypeName, target, childSel, ctx);
       }
 
       case 'containment': {
         const childSel = subSelection(sub, field);
-        const kids = await this.ds.children(row.id, b.targetTypeName, { includeDeleted: b.includeDeleted }, ctx);
+        const kids = await this.gate(
+          await this.ds.children(row.id, b.targetTypeName, { includeDeleted: b.includeDeleted }, ctx),
+          b.targetTypeName,
+          ctx,
+        );
         if (b.list) return Promise.all(kids.map((k) => this.projectRow(b.targetTypeName, k, childSel, ctx)));
         return kids[0] ? this.projectRow(b.targetTypeName, kids[0], childSel, ctx) : null;
       }
