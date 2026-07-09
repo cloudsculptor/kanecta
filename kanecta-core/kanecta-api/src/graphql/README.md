@@ -73,11 +73,21 @@ Output object keys are the **wire** field names (camelCase); the DataSource spea
   **`POST /graphql`** is mounted in `app.ts` (Postgres-backed working sets only;
   a 501 otherwise); the engine is cached per pool. Adds the `graphql` dependency.
 
+## runComputed (built — declarative-first)
+- [`computed.ts`](computed.ts) runs a computed field's backing `query`/`formula`
+  item. `query` language `sql`: the expression's `{{params.name}}` placeholders bind
+  from the row + viewer (`self`/`id`→item id, `viewer`→ctx.viewer, `<name>`→column)
+  as **parameterised** SQL (injection-safe); a scalar field takes the first column,
+  a list field the rows. `formula` level `template`: `{name}` substitution. Other
+  levels/languages (`dsl`/`function`, `kanecta`/`graph`) throw a clear "not wired
+  yet". `buildComputedMap(model, loadPayload)` resolves each field's backing item to
+  a spec; `PgDataSource` takes the map (`opts.computed`) and `app.ts` builds it from
+  the datastore's query/formula items. A selected computed field with no wired
+  backing throws the same honest error as before.
+
 ## Deferred (needs the runner / an owner decision)
-- **`runComputed`** — computed fields (replyCount, hasUnread) run a
-  function/formula/query item via the runner; `PgDataSource.runComputed` is not
-  wired yet (throws). Selecting a computed field surfaces a GraphQL error until it
-  is wired; every non-computed field resolves normally.
+- **formula `dsl` (formulajs) + `function`-item computed** — the last-resort ladder
+  rungs; declarative-first covers `query` + `template` today.
 - **`/graphql` per-item authz** — the route computes principals but does not yet
   set `context.authorize` (needs a Postgres AuthzSource); it is behind the same
   auth wall as the REST routes but does not enforce per-item grants yet.

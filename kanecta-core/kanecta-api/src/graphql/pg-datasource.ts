@@ -13,8 +13,9 @@
 // `SqlClient`, so this module doesn't import `pg`.
 
 import { compileSelect, type SelectArgs } from './sql-query.ts';
-import type { DataSource, StoredRow } from './execute.ts';
+import type { DataSource, StoredRow, ExecContext } from './execute.ts';
 import type { SchemaModel, ObjectTypeModel } from './model.ts';
+import { runComputedSpec, ComputedError, type ComputedSpec } from './computed.ts';
 
 /** Minimal pg-Pool-shaped client, so we don't hard-depend on `pg`. */
 export interface SqlClient {
@@ -26,6 +27,10 @@ export interface PgDataSourceOptions {
   itemsTable?: string;
   /** The relationships table (default 'relationships'), with source_id/target_id/type. */
   relationshipsTable?: string;
+  /** Computed-field runner map: a computed field's `backedBy` id → its resolved
+   *  `query`/`formula` spec (see buildComputedMap). Absent → runComputed throws
+   *  (the pre-runner behaviour) only when a computed field is actually selected. */
+  computed?: Map<string, ComputedSpec>;
 }
 
 function q(ident: string): string {
@@ -38,6 +43,7 @@ export class PgDataSource implements DataSource {
   private readonly modelByType = new Map<string, ObjectTypeModel>();
   private readonly items: string;
   private readonly rels: string;
+  private readonly computed: Map<string, ComputedSpec>;
 
   constructor(private readonly client: SqlClient, model: SchemaModel, opts: PgDataSourceOptions = {}) {
     for (const t of model.types) {
@@ -46,6 +52,7 @@ export class PgDataSource implements DataSource {
     }
     this.items = opts.itemsTable ?? 'items';
     this.rels = opts.relationshipsTable ?? 'relationships';
+    this.computed = opts.computed ?? new Map();
   }
 
   private tableFor(typeName: string): string {
@@ -117,9 +124,19 @@ export class PgDataSource implements DataSource {
     return ids.map((i) => byId.get(i)).filter((r): r is StoredRow => r != null);
   }
 
-  runComputed(): never {
-    // Computed fields run a function/formula/query item via the runner, which is
-    // not yet wired into this DataSource. Select non-computed fields for now.
-    throw new Error('PgDataSource.runComputed: computed-field execution (runner) is not wired yet');
+  // Computed fields run their backing `query`/`formula` item (declarative-first).
+  // The spec is looked up from the `computed` map (built by buildComputedMap from
+  // the datastore's query/formula items); a selected computed field with no wired
+  // backing throws the same honest error as before.
+  async runComputed(
+    backedBy: string,
+    _scope: 'shared' | 'perViewer',
+    args: { row: StoredRow; typeName: string; ctx: ExecContext },
+  ): Promise<unknown> {
+    const spec = this.computed.get(backedBy);
+    if (!spec) {
+      throw new ComputedError(`PgDataSource.runComputed: no backing query/formula wired for computed field ${backedBy}`);
+    }
+    return runComputedSpec(spec, { row: args.row, ctx: args.ctx, client: this.client });
   }
 }

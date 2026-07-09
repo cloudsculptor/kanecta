@@ -38,6 +38,11 @@ export { PgDataSource } from './pg-datasource.ts';
 export type { SqlClient, PgDataSourceOptions } from './pg-datasource.ts';
 export { buildGraphqlEngine, selectionFromInfo, graphqlHandler, loadTypeItems } from './http.ts';
 export type { GraphqlEngine, GraphqlHandlerOptions } from './http.ts';
+export {
+  runComputedSpec, bindComputedSql, renderTemplate, resolveBinding,
+  computedSpecFromPayload, collectComputedBackings, buildComputedMap, ComputedError,
+} from './computed.ts';
+export type { ComputedSpec, ComputedQuerySpec, ComputedFormulaSpec } from './computed.ts';
 export { mapProperty, scalarGraphqlType, filterInputFor, CUSTOM_SCALARS } from './scalars.ts';
 export { graphqlTypeName, singularQueryField, listQueryField, pluralize } from './naming.ts';
 export { applyNamingStrategy, camelToSnake, snakeToCamel } from './naming-strategy.ts';

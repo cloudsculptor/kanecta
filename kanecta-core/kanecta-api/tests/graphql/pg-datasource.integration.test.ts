@@ -121,4 +121,21 @@ run('engine ↔ Postgres (real)', () => {
     const rows = await exec.resolveList('ChMessage', {}, { id: true }, { authorize: (id) => !denied.has(id) });
     expect(rows.map((r) => r.id)).toEqual([M1]);
   });
+
+  it('runComputed: a declarative query-backed replyCount runs end-to-end', async () => {
+    // The ch-message manifest declares replyCount computed with this backing id.
+    const REPLY_COUNT_FN = '0c8a7b10-1111-4a00-8000-000000000203';
+    const computed = new Map<string, any>([[REPLY_COUNT_FN, {
+      kind: 'query', language: 'sql', scalar: true,
+      // A reply is a message whose item.parent_id is this message (one-level tree).
+      expression: `SELECT count(*)::int AS n FROM items WHERE parent_id = {{params.self}} AND type_id = '${chMessage.item.id}'`,
+    }]]);
+    const cds = new PgDataSource(pool, model, { computed });
+    const cexec = new Executor(model, cds);
+    // M1 has one reply (M2); M2 has none.
+    const m1 = await cexec.resolveById('ChMessage', M1, { id: true, replyCount: true } as Selection);
+    expect(m1).toEqual({ id: M1, replyCount: 1 });
+    const m2 = await cexec.resolveById('ChMessage', M2, { id: true, replyCount: true } as Selection);
+    expect(m2).toEqual({ id: M2, replyCount: 0 });
+  });
 });

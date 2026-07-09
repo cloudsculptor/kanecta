@@ -9,7 +9,7 @@ import {
 import * as claude from '@kanecta/ai';
 import { generateFunctionScaffold, getRuntimeDir, computeBundleHash, toCamelCase, toPythonName, VALID_RUNTIME_RE } from '@kanecta/lib';
 import { requireAuth } from './middleware/auth.ts';
-import { buildSchemaModel, buildGraphqlEngine, loadTypeItems, PgDataSource, type GraphqlEngine } from './graphql/index.ts';
+import { buildSchemaModel, buildGraphqlEngine, loadTypeItems, buildComputedMap, PgDataSource, type GraphqlEngine } from './graphql/index.ts';
 import { principalsFromToken } from './authz/index.ts';
 import { spawnSync, spawn } from 'child_process';
 import path from 'path';
@@ -2133,7 +2133,11 @@ app.post('/graphql', async (req, res) => {
     let cached = _gqlEngineByPool.get(pool);
     if (!cached || cached.sig !== sig) {
       const model = buildSchemaModel(typeItems);
-      cached = { sig, engine: buildGraphqlEngine(model, new PgDataSource(pool, model)) };
+      // Resolve each computed field's backing query/formula item so computed
+      // fields (replyCount, hasUnread) run declaratively; unresolved backings just
+      // throw when that field is selected (the honest pre-runner behaviour).
+      const { map: computed } = await buildComputedMap(model, (id: string) => ds.readObjectJson(id));
+      cached = { sig, engine: buildGraphqlEngine(model, new PgDataSource(pool, model, { computed })) };
       _gqlEngineByPool.set(pool, cached);
     }
     const principals = req.user ? principalsFromToken({ sub: req.user.id, roles: req.user.roles }) : [];
