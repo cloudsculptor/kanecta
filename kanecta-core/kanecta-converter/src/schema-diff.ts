@@ -140,6 +140,13 @@ export function compareSchemas(source: SourceTable, typeItem: any, opts: Compare
       // the same domain constraint, text-backed. Expected, not a divergence.
       comparisons.push({ source: col.name, projected: projName, status: 'known-nuance', detail: `enum(${col.enumValues.length}) → text + enum constraint` });
       deltas.push(`${col.name}: enum → TEXT with enum constraint (Seam)`);
+    } else if (srcFam === 'json' && projFam === 'text') {
+      // A JSON/JSONB column projects to an intact TEXT field (never decomposed).
+      // The JSON round-trips byte-for-byte and — because every obj_<type> column
+      // feeds the generic tsvector trigger — its text is in the FTS corpus. This
+      // is the deliberate policy (see the json-column seam), not a divergence.
+      comparisons.push({ source: col.name, projected: projName, status: 'known-nuance', detail: `json → text (intact JSON, full-text searchable)` });
+      deltas.push(`${col.name}: JSON → TEXT (intact, FTS-indexed — Seam)`);
     } else {
       comparisons.push({ source: col.name, projected: projName, status: 'type-mismatch', detail: `${srcFam} ≠ ${projFam}` });
       divergences.push(`${col.name}: type mismatch ${srcFam} ≠ ${projFam}`);

@@ -53,6 +53,25 @@ test('composite-PK projection is FAITHFUL; the surrogate UNIQUE index is extra, 
   assert.ok(report.indexes.extraInProjection.length >= 1);
 });
 
+test('a JSON/JSONB column → intact TEXT is FAITHFUL (known-nuance, never a divergence)', () => {
+  const pages: SourceTable = {
+    name: 'pages',
+    primaryKey: ['id'],
+    columns: [
+      { name: 'id', sqlType: 'uuid', nullable: false },
+      { name: 'content_json', sqlType: 'jsonb', nullable: false },
+    ],
+  };
+  const { typeItem, report: intro } = introspect(pages);
+  // introspect keeps it as one intact text field (never decomposed) and flags it.
+  assert.equal(typeItem.payload.jsonSchema.properties.contentJson.type, 'string');
+  assert.ok(intro.seams.some((s) => s.kind === 'json-column' && /never decomposed/.test(s.detail)));
+  const report = compareSchemas(pages, typeItem);
+  assert.equal(report.verdict, 'faithful');
+  assert.equal(report.columns.find((c) => c.source === 'content_json')!.status, 'known-nuance');
+  assert.deepEqual(report.divergences, []);
+});
+
 test('a DROPPED column is flagged as a divergence (fidelity loss)', () => {
   const { typeItem } = introspect(threads);
   delete typeItem.payload.jsonSchema.properties.name; // simulate a hand-modified type

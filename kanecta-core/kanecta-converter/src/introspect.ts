@@ -129,7 +129,7 @@ export function introspect(table: SourceTable, opts: IntrospectOptions = {}): In
       prop.type = 'string';
       prop.enum = [...col.enumValues];
       seams.push({ kind: 'enum-to-constraint', detail: `Column "${col.name}" is a DB enum (${col.enumValues.length} values) → string + JSON-Schema enum constraint.` });
-    } else if (js.note === 'json-column') seams.push({ kind: 'json-column', detail: `Column "${col.name}" is JSON — stored as text; consider decomposing into a child type.` });
+    } else if (js.note === 'json-column') seams.push({ kind: 'json-column', detail: `Column "${col.name}" is JSON — kept as one intact text field (never decomposed); the JSON round-trips byte-for-byte and its text is in the FTS corpus (every obj_ column feeds the tsvector trigger).` });
     else if (js.note) notes.push(js.note);
 
     // FK column → a typeId reference (Seam 3).
