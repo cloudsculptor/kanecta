@@ -12,6 +12,8 @@ export { generateCompatView } from './compat-views.ts';
 export type { CompatViewOptions } from './compat-views.ts';
 export { compareSchemas, sourceFamily } from './schema-diff.ts';
 export type { FidelityReport, ColumnComparison, ColumnStatus, TypeFamily, CompareOptions } from './schema-diff.ts';
+export { diffResponses } from './response-diff.ts';
+export type { ResponseDiffOptions, ResponseDiffReport, ResponseDiffEntry, ResponseDiffKind } from './response-diff.ts';
 export {
   readPgCatalog,
   buildSourceTables,
