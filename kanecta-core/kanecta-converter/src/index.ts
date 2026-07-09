@@ -8,6 +8,8 @@
 export { introspect, snakeToCamel, snakeToPascal, deterministicUuid } from './introspect.ts';
 export { generateCompatView } from './compat-views.ts';
 export type { CompatViewOptions } from './compat-views.ts';
+export { compareSchemas, sourceFamily } from './schema-diff.ts';
+export type { FidelityReport, ColumnComparison, ColumnStatus, TypeFamily, CompareOptions } from './schema-diff.ts';
 export type {
   SourceTable,
   SourceColumn,

@@ -28,9 +28,9 @@ checkable; a "cleverly improved" one is not.
 
 | Tool | Input → output | Gate | Status |
 |---|---|---|---|
-| `introspect` | a source table's schema → a Kanecta `type` item + a seams/fidelity report | 1 | ✅ initial |
-| `schema-diff` | source DDL ↔ compiler-derived `obj_` DDL → a per-table fidelity report | 1 | planned |
-| `compat-views` | table→type mapping → `CREATE VIEW` SQL that reassembles the old shape | 1 | planned |
+| `introspect` | a source table's schema → a Kanecta `type` item + a seams/fidelity report | 1 | ✅ |
+| `schema-diff` | source table ↔ its Kanecta projection → a fidelity report (known deltas vs real divergences) | 1 | ✅ |
+| `compat-views` | source table + type → `CREATE VIEW` SQL that reassembles the old shape | 1 | ✅ |
 | `backfill` | source rows → idempotent item upserts | 1 | planned |
 | `endpoint-scaffold` | a route → `query`/`view`/`function` items | 2 | planned |
 | `response-diff` | old endpoint ↔ Kanecta-served response → byte diff | 2/3 | planned |
