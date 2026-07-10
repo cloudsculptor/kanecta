@@ -21,6 +21,7 @@
     { "id": "c0f603f1-a3ac-4a7d-b9ac-983822c7304f", "type": "file",                    "file": "built-in-types/types/file.json" },
     { "id": "d605ed1b-2c53-44a0-b4ac-3a307b61e82a", "type": "formula",                 "file": "built-in-types/types/formula.json" },
     { "id": "3672b0ca-e81f-44b0-92e8-1b3253cbf38a", "type": "function",                "file": "built-in-types/types/function.json" },
+    { "id": "5362e7c4-e860-4483-98cc-276addcd3463", "type": "function-throw",          "file": "built-in-types/types/function-throw.json" },
     { "id": "89138971-cd16-4c7a-b4cd-669711bfab75", "type": "grant",                   "file": "built-in-types/types/grant.json" },
     { "id": "35b535ad-520d-4570-9a71-b49514e9ae67", "type": "grid",                    "file": "built-in-types/types/grid.json" },
     { "id": "f94eaf19-b880-403f-8d93-bed168308efe", "type": "group-chat-config",       "file": "built-in-types/types/group-chat-config.json" },
@@ -41,6 +42,7 @@
     { "id": "15861dd7-e54c-4209-bceb-bdd65de4f472", "type": "relationship-type",       "file": "built-in-types/types/relationship-type.json" },
     { "id": "cf066390-a599-4dbe-bc20-491de885cb18", "type": "subscription",            "file": "built-in-types/types/subscription.json" },
     { "id": "abbd7b52-92aa-4fca-b458-d9c4e1a60061", "type": "type",                    "file": "built-in-types/types/type.json" },
+    { "id": "3d993652-42df-4bd2-b4ad-c0c23a7c83f0", "type": "type-parameter",          "file": "built-in-types/types/type-parameter.json" },
     { "id": "cfba24ea-be40-46ba-b4db-e15a55af4392", "type": "view",                    "file": "built-in-types/types/view.json" }
   ]
 }

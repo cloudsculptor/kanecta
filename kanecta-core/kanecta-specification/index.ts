@@ -24,6 +24,7 @@ import tEvalRun from './1.4.0/built-in-types/types/eval-run.json' with { type: '
 import tFile from './1.4.0/built-in-types/types/file.json' with { type: 'json' };
 import tFormula from './1.4.0/built-in-types/types/formula.json' with { type: 'json' };
 import tFunction from './1.4.0/built-in-types/types/function.json' with { type: 'json' };
+import tFunctionThrow from './1.4.0/built-in-types/types/function-throw.json' with { type: 'json' };
 import tGrant from './1.4.0/built-in-types/types/grant.json' with { type: 'json' };
 import tGrid from './1.4.0/built-in-types/types/grid.json' with { type: 'json' };
 import tGroupChatConfig from './1.4.0/built-in-types/types/group-chat-config.json' with { type: 'json' };
@@ -44,6 +45,7 @@ import tRelationship from './1.4.0/built-in-types/types/relationship.json' with 
 import tRelationshipType from './1.4.0/built-in-types/types/relationship-type.json' with { type: 'json' };
 import tSubscription from './1.4.0/built-in-types/types/subscription.json' with { type: 'json' };
 import tType from './1.4.0/built-in-types/types/type.json' with { type: 'json' };
+import tTypeParameter from './1.4.0/built-in-types/types/type-parameter.json' with { type: 'json' };
 import tView from './1.4.0/built-in-types/types/view.json' with { type: 'json' };
 
 export const version: string = pkg.version;
@@ -58,7 +60,8 @@ export { builtInTypeManifest };
 export const builtInTypeItems: object[] = [
   tAction, tActivity, tAgent, tAlias, tAnnotation, tAspectType, tCell, tChannel,
   tClaudeApiConfig, tClaudeCodeConfig, tComponent, tContext, tDocument, tEval, tEvalRun, tFile,
-  tFormula, tFunction, tGrant, tGrid, tGroupChatConfig, tHttpConfig, tItemHistory, tKanectaFunctionConfig,
-  tLicence, tObject, tParameter, tPipeline, tPipelineRun, tProperty, tPythonConfig, tQuery,
-  tQueryParam, tReference, tRelationship, tRelationshipType, tSubscription, tType, tView,
+  tFormula, tFunction, tFunctionThrow, tGrant, tGrid, tGroupChatConfig, tHttpConfig, tItemHistory,
+  tKanectaFunctionConfig, tLicence, tObject, tParameter, tPipeline, tPipelineRun, tProperty, tPythonConfig,
+  tQuery, tQueryParam, tReference, tRelationship, tRelationshipType, tSubscription, tType, tTypeParameter,
+  tView,
 ];

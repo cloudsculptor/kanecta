@@ -41,14 +41,14 @@ const BUILT_IN_TYPES = new Set([
   // Primitive value types
   'string', 'number', 'text', 'heading', 'url', 'image', 'markdown',
   // Structured built-in types
-  'object', 'file', 'function', 'runner', 'symlink',
+  'object', 'file', 'function', 'function-throw', 'runner', 'symlink',
   'action', 'activity', 'agent', 'alias', 'annotation', 'aspect-type',
   'cell', 'channel', 'component', 'connector', 'context', 'eval', 'eval-run',
   'claude-api-config', 'claude-code-config', 'python-config',
   'kanecta-function-config', 'group-chat-config', 'http-config',
   'document', 'formula', 'grant', 'grid', 'item_history', 'licence', 'pipeline', 'pipeline-run',
-  'parameter', 'query', 'query-param', 'reference', 'relationship', 'relationship-type', 'subscription',
-  'tree', 'node', 'view', 'type',
+  'parameter', 'property', 'query', 'query-param', 'reference', 'relationship', 'relationship-type',
+  'subscription', 'type-parameter', 'tree', 'node', 'view', 'type',
   // Well-known root types
   'root',
 ]);
@@ -90,7 +90,10 @@ const PROJECTED_BUILT_IN_TYPES = new Set<string>([
   // query.params is normalised to query-param children (array-of-objects rule).
   'query', 'query-param',
   // component.props -> parameter children; bundleHash -> property children.
-  'component', 'parameter',
+  'component', 'parameter', 'property',
+  // function.parameters -> parameter children; typeParameters -> type-parameter
+  // children; throws -> function-throw children; bundleHash -> property children.
+  'function', 'type-parameter', 'function-throw',
 ]);
 
 // The obj_<typeId> the given item projects to, or null if it doesn't project.
@@ -1330,63 +1333,83 @@ class PostgresAdapter {
 
   // ─── Function data ───────────────────────────────────────────────────────────
 
+  // A function's payload is projected exactly like any other type (the four-table
+  // law): scalars live on obj_<function-type>; its parameters / generic type
+  // parameters / declared throws are `parameter` / `type-parameter` /
+  // `function-throw` children (ordered by item.sortOrder); its bundleHash open
+  // map is `property` children (item.value = runtime name, payload.value = hash).
+  // readFunctionJson / writeFunctionJson keep their original signatures — they are
+  // the sole reader/writer of the whole nested payload — but the four bespoke
+  // `function*` tables are gone.
   async readFunctionJson(id: any) {
-    const { rows } = await this._pool.query('SELECT * FROM functions WHERE item_id = $1', [id]);
-    const fn = rows[0];
-    if (!fn) return null;
+    const scalars: any = await this.readObjectJson(id, BUILT_IN_TYPE_ID_BY_NAME['function']);
 
-    const [{ rows: typeParamRows }, { rows: paramRows }, { rows: throwRows }] = await Promise.all([
-      this._pool.query(
-        `SELECT name, constraint_expr, default_type FROM function_type_parameters
-         WHERE function_id = $1 ORDER BY sort_order`, [id],
-      ),
-      this._pool.query(
-        `SELECT name, type, type_id, optional, rest, default_value, description FROM function_parameters
-         WHERE function_id = $1 ORDER BY sort_order`, [id],
-      ),
-      this._pool.query(
-        `SELECT type, description FROM function_throws
-         WHERE function_id = $1 ORDER BY sort_order`, [id],
-      ),
-    ]);
+    const { rows: kids } = await this._pool.query(
+      `SELECT id, value, type FROM items
+        WHERE parent_id = $1 AND deleted_at IS NULL
+          AND type = ANY($2) ORDER BY sort_order`,
+      [id, ['parameter', 'type-parameter', 'function-throw', 'property']],
+    );
+
+    const parameters: any[]     = [];
+    const typeParameters: any[] = [];
+    const throws: any[]         = [];
+    const bundleHash: Record<string, any> = {};
+    let   hasBundleHash = false;
+
+    for (const k of kids) {
+      if (k.type === 'parameter') {
+        const p = (await this.readObjectJson(k.id, BUILT_IN_TYPE_ID_BY_NAME['parameter'])) ?? {};
+        const out: any = { name: p.name };
+        if (p.type != null)         out.type = p.type;
+        if (p.typeId != null)       out.typeId = p.typeId;
+        if (p.functionId != null)   out.functionId = p.functionId;
+        if (p.optional)             out.optional = true;
+        if (p.rest)                 out.rest = true;
+        if (p.defaultValue != null) out.defaultValue = p.defaultValue;
+        if (p.description != null)  out.description = p.description;
+        parameters.push(out);
+      } else if (k.type === 'type-parameter') {
+        const tp = (await this.readObjectJson(k.id, BUILT_IN_TYPE_ID_BY_NAME['type-parameter'])) ?? {};
+        const out: any = { name: tp.name };
+        if (tp.constraint != null)  out.constraint = tp.constraint;
+        if (tp.defaultType != null) out.default = tp.defaultType;
+        typeParameters.push(out);
+      } else if (k.type === 'function-throw') {
+        const t = (await this.readObjectJson(k.id, BUILT_IN_TYPE_ID_BY_NAME['function-throw'])) ?? {};
+        const out: any = { type: t.type };
+        if (t.description != null)  out.description = t.description;
+        throws.push(out);
+      } else if (k.type === 'property') {
+        const pr = (await this.readObjectJson(k.id, BUILT_IN_TYPE_ID_BY_NAME['property'])) ?? {};
+        bundleHash[k.value] = pr.value;
+        hasBundleHash = true;
+      }
+    }
+
+    // "Not set" = never written: no scalar values AND no children. create() lands
+    // an all-null obj_<function> row for a bare function item; that must still read
+    // as null until writeFunctionJson populates it.
+    const hasScalars = scalars && Object.values(scalars).some(v => v != null);
+    if (!hasScalars && !parameters.length && !typeParameters.length && !throws.length && !hasBundleHash)
+      return null;
 
     const result: any = {};
-    result.runtime = fn.runtime ?? 'typescript';
-    if (fn.description != null)    result.description = fn.description;
-    if (fn.is_async)               result.async = true;
-    if (fn.is_ai)                  result.ai = true;
-    if (fn.skill_id)               result.skill = fn.skill_id;
-    if (typeParamRows.length) {
-      result.typeParameters = typeParamRows.map((r: any) => {
-        const tp: any = { name: r.name };
-        if (r.constraint_expr != null) tp.constraint = r.constraint_expr;
-        if (r.default_type != null)    tp.default = r.default_type;
-        return tp;
-      });
-    }
-    result.parameters = paramRows.map((r: any) => {
-      const p: any = { name: r.name };
-      if (r.type != null)          p.type = r.type;
-      if (r.type_id != null)       p.typeId = r.type_id;
-      if (r.optional)              p.optional = true;
-      if (r.rest)                  p.rest = true;
-      if (r.default_value != null) p.defaultValue = r.default_value;
-      if (r.description != null)   p.description = r.description;
-      return p;
-    });
-    if (fn.return_type != null)    result.returnType = fn.return_type;
-    if (fn.return_type_id != null) result.returnTypeId = fn.return_type_id;
-    if (throwRows.length) {
-      result.throws = throwRows.map((r: any) => ({
-        type: r.type,
-        ...(r.description != null ? { description: r.description } : {}),
-      }));
-    }
-    if (fn.deprecated_notice != null) result.deprecated = fn.deprecated_notice;
-    if (fn.body != null)               result.body = fn.body;
-    if (!fn.include_kanecta_sdk)       result.includeKanectaSdk = false;
-    if (fn.dependencies?.length)       result.dependencies = fn.dependencies;
-    if (fn.bundle_hash != null)        result.bundleHash = fn.bundle_hash;
+    result.runtime = scalars?.runtime ?? 'typescript';
+    if (scalars?.description != null)         result.description = scalars.description;
+    if (scalars?.async)                       result.async = true;
+    if (scalars?.ai)                          result.ai = true;
+    if (scalars?.skillId != null)             result.skill = scalars.skillId;
+    if (typeParameters.length)                result.typeParameters = typeParameters;
+    result.parameters = parameters;
+    if (scalars?.returnType != null)          result.returnType = scalars.returnType;
+    if (scalars?.returnTypeId != null)        result.returnTypeId = scalars.returnTypeId;
+    if (throws.length)                        result.throws = throws;
+    if (scalars?.deprecated != null)          result.deprecated = scalars.deprecated;
+    if (scalars?.body != null)                result.body = scalars.body;
+    if (scalars?.includeKanectaSdk === false) result.includeKanectaSdk = false;
+    if (scalars?.dependencies?.length)        result.dependencies = scalars.dependencies;
+    if (hasBundleHash)                        result.bundleHash = bundleHash;
     return result;
   }
 
@@ -1399,46 +1422,67 @@ class PostgresAdapter {
       dependencies = [], bundleHash = null,
     } = data;
 
-    await this._pool.query(
-      `INSERT INTO functions (
-         item_id, runtime, description, is_async, is_ai, skill_id, return_type, return_type_id,
-         deprecated_notice, body, include_kanecta_sdk, dependencies, bundle_hash
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
-       ON CONFLICT (item_id) DO UPDATE SET
-         runtime = $2, description = $3, is_async = $4, is_ai = $5, skill_id = $6,
-         return_type = $7, return_type_id = $8, deprecated_notice = $9,
-         body = $10, include_kanecta_sdk = $11, dependencies = $12, bundle_hash = $13`,
-      [id, runtime, description, isAsync, ai, skill, returnType, returnTypeId,
-       deprecated, body, includeKanectaSdk, dependencies,
-       bundleHash ? JSON.stringify(bundleHash) : null],
+    const functionTypeId = BUILT_IN_TYPE_ID_BY_NAME['function'];
+    await this._ensureProjection(functionTypeId);
+    await this.writeObjectJson(id, functionTypeId, {
+      runtime, description,
+      async: isAsync, ai,
+      skillId: skill,
+      returnType, returnTypeId,
+      deprecated, body, includeKanectaSdk,
+      dependencies,
+    });
+
+    await this._replaceFunctionChildren(id, { parameters, typeParameters, throws, bundleHash });
+  }
+
+  // Regenerate the function's typed children wholesale from `data`. Existing
+  // parameter / type-parameter / function-throw / property children are hard-
+  // deleted (their obj_ rows cascade) and re-created in order. Each child is a
+  // real item with its own obj_<childType> projection — the array-of-objects and
+  // open-map fields are normalised into children, never inline columns.
+  async _replaceFunctionChildren(id: any, { parameters, typeParameters, throws, bundleHash }: any) {
+    const { rows: existing } = await this._pool.query(
+      `SELECT id FROM items WHERE parent_id = $1
+         AND type = ANY($2)`,
+      [id, ['parameter', 'type-parameter', 'function-throw', 'property']],
     );
+    for (const r of existing) await this.delete(r.id);
 
-    await Promise.all([
-      this._pool.query('DELETE FROM function_type_parameters WHERE function_id = $1', [id]),
-      this._pool.query('DELETE FROM function_parameters WHERE function_id = $1', [id]),
-      this._pool.query('DELETE FROM function_throws WHERE function_id = $1', [id]),
-    ]);
+    const owner = this.config.owner;
+    const mk = async (type: string, value: any, i: number, objectData: any) =>
+      this.create({ parentId: id, type, value, sortOrder: i, owner, objectData });
 
-    for (const [i, tp] of typeParameters.entries()) {
-      await this._pool.query(
-        `INSERT INTO function_type_parameters (id, function_id, sort_order, name, constraint_expr, default_type)
-         VALUES ($1,$2,$3,$4,$5,$6)`,
-        [crypto.randomUUID(), id, i, tp.name, tp.constraint ?? null, tp.default ?? null],
-      );
+    for (const [i, p] of parameters.entries()) {
+      await mk('parameter', p.name ?? null, i, {
+        name: p.name,
+        type: p.type ?? null,
+        typeId: p.typeId ?? null,
+        functionId: p.functionId ?? null,
+        optional: p.optional ?? null,
+        rest: p.rest ?? null,
+        defaultValue: p.defaultValue ?? null,
+        description: p.description ?? null,
+      });
     }
-    for (const [i, param] of parameters.entries()) {
-      await this._pool.query(
-        `INSERT INTO function_parameters (id, function_id, sort_order, name, type, type_id, optional, rest, default_value, description)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-        [crypto.randomUUID(), id, i, param.name, param.type ?? null, param.typeId ?? null, param.optional ?? false, param.rest ?? false, param.defaultValue ?? null, param.description ?? null],
-      );
+    for (const [i, tp] of typeParameters.entries()) {
+      await mk('type-parameter', tp.name ?? null, i, {
+        name: tp.name,
+        constraint: tp.constraint ?? null,
+        defaultType: tp.default ?? null,
+      });
     }
     for (const [i, t] of throws.entries()) {
-      await this._pool.query(
-        `INSERT INTO function_throws (id, function_id, sort_order, type, description)
-         VALUES ($1,$2,$3,$4,$5)`,
-        [crypto.randomUUID(), id, i, t.type, t.description ?? null],
-      );
+      await mk('function-throw', t.type ?? null, i, {
+        type: t.type,
+        description: t.description ?? null,
+      });
+    }
+    if (bundleHash && typeof bundleHash === 'object') {
+      let i = 0;
+      for (const [rt, hash] of Object.entries(bundleHash)) {
+        await mk('property', rt, i++, { value: hash });
+      }
     }
   }
 

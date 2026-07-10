@@ -1059,6 +1059,8 @@ For `type: "function"`. The function name lives in `item.value`.
 
 A function item describes the *contract* of a function — its name, parameters, return type, and runtime. The implementation lives in a deployment bundle on disk and in cloud storage. The adapter generates a type-safe interface from the contract and enforces that the implementation satisfies it before saving.
 
+The scalar contract is stored on the function item's payload; per the flat one-level rule its `parameters`, `typeParameters`, `throws`, and `bundleHash` are *children* of the function item, never inline arrays/objects. The read/write payload the adapter exposes reassembles them:
+
 [source,json]
 ----
 {
@@ -1066,27 +1068,29 @@ A function item describes the *contract* of a function — its name, parameters,
   "description": "Fetch a user by ID.",
   "async": true,
   "ai": false,
-  "parameters": [
+  "parameters": [                                    // <-- `parameter` children
     { "name": "id", "type": "string", "description": "User UUID." }
   ],
   "returnTypeId": "f1e2d3c4-...",
-  "throws": [{ "type": "Error", "description": "If the user is not found." }],
+  "throws": [{ "type": "Error", "description": "..." }],  // <-- `function-throw` children
   "dependencies": ["axios@^1.0.0"],
-  "bundleHash": {
+  "bundleHash": {                                    // <-- `property` children
     "typescript": "sha256:a3f1c9..."
   }
 }
 ----
 
-*Parameters* use the shared `parameterOrProp` definition — exactly one of:
+*Parameters* are `parameter` children of the function item (ordered by `item.sortOrder`), using the shared `parameter` type — the same type a component's props use. Each carries exactly one of:
 
 * `type` — A primitive type name in the target runtime's type system. For TypeScript: `string`, `number`, `boolean`, `Promise<T>`, etc. For other runtimes, use that runtime's native type name. Prefer `typeId` for object-typed parameters because `typeId` is runtime-neutral.
 * `typeId` — UUID of a Kanecta type item. Runtime-neutral — the adapter maps the type's `jsonSchema` to the appropriate type declaration for the target runtime.
 * `functionId` — UUID of a Kanecta function item (for callback/higher-order function parameters).
 
+*Type parameters* (generics, TypeScript only) are `type-parameter` children; *throws* are `function-throw` children — both ordered by `item.sortOrder`.
+
 *Return type* uses the same split: `returnType` (primitive string) or `returnTypeId` (object type UUID). One must be present.
 
-TIP: *Postgres* — parameters and throws are *not* hand-written tables. They are either compiler-emitted value-tables of the function projection (`obj_<function-type>_parameters` / `obj_<function-type>_throws`, per the `sqlSchema` array rule) or child items — ordered by `sort_order`, each enforcing `type` XOR `type_id` XOR `function_id`. `dependencies` is a native `TEXT[]` column. `bundleHash` is stored as a `JSONB` column.
+TIP: *Postgres* — the function projects to `obj_<function-type>` exactly like every other type (the four-table law). Its scalar columns are `runtime`, `description`, `async`, `ai`, `skill_id`, `return_type`, `return_type_id`, `deprecated`, `body`, `include_kanecta_sdk`, and a native `TEXT[]` `dependencies`. Parameters, type parameters, throws, and bundleHash are child items (`obj_<parameter>` / `obj_<type-parameter>` / `obj_<function-throw>` / `obj_<property>`), not bespoke tables. `readFunctionJson` / `writeFunctionJson` reassemble the nested payload from the projection plus its ordered children.
 
 *Runtime*
 
@@ -1121,7 +1125,7 @@ Each function item has a deployment bundle: a directory tree containing everythi
 
 The entire `.function/` directory (all runtime subdirectories) is zipped and stored as a file blob referenced from the function item via `meta.files`. `node_modules/` is excluded from the zip — it is a derived artifact, not source. On execution, the adapter checks whether `node_modules/` exists and whether the hash of `package-lock.json` matches a locally cached value; if either check fails, it runs `npm install` before invoking `main()`. This keeps bundle sizes small while ensuring deterministic dependency resolution.
 
-`bundleHash` in the function item payload is an open object keyed by runtime name. Each value is the SHA-256 hash of the source files for that runtime's subdirectory (excluding `node_modules/`). The adapter compares this hash against the locally unpacked bundle before executing — a mismatch means the local bundle is stale and must be re-fetched and re-unpacked. Runtimes not present in `bundleHash` have no cloud bundle yet.
+`bundleHash` in the function item payload is an open map keyed by runtime name. Each value is the SHA-256 hash of the source files for that runtime's subdirectory (excluding `node_modules/`). Per the flat one-level rule this open map is stored as `property` children of the function item (`item.value` = runtime name, `payload.value` = hash), not an inline object — the same mechanism a component uses for its per-target bundle hashes. The adapter compares this hash against the locally unpacked bundle before executing — a mismatch means the local bundle is stale and must be re-fetched and re-unpacked. Runtimes not present in `bundleHash` have no cloud bundle yet.
 
 [source,json]
 ----

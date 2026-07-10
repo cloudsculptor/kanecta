@@ -57,7 +57,9 @@
     "group-chat-config",
     "http-config",
     "query-param",
-    "parameter"
+    "parameter",
+    "function-throw",
+    "type-parameter"
   ],
   "wellKnown": [
     "root",
