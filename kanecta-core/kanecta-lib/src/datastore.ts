@@ -138,10 +138,6 @@ class Datastore {
   listDocuments(targetId: any)                    { return this._adapter.listDocuments(targetId); }
   readDocumentPayload(id: any)                    { return this._adapter.readDocumentPayload(id); }
   writeDocumentPayload(id: any, payload: any)          { return this._adapter.writeDocumentPayload(id, payload); }
-  // Generic built-in payloads (grant/query/formula/subscription/...). Optional on
-  // an adapter; falls back to null so callers work across adapters.
-  async readItemPayload(id: any)                  { return this._adapter.readItemPayload ? this._adapter.readItemPayload(id) : null; }
-  async writeItemPayload(id: any, payload: any)        { return this._adapter.writeItemPayload ? this._adapter.writeItemPayload(id, payload) : undefined; }
   async readObjectJson(id: any)                   { return this._adapter.readObjectJson(id); }
   async writeObjectJson(id: any, data: any)            { return this._adapter.writeObjectJson(id, data); }
   async readFunctionJson(id: any)                 { return this._adapter.readFunctionJson(id); }

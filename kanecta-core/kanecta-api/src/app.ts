@@ -2137,12 +2137,11 @@ app.post('/graphql', async (req, res) => {
       // Resolve each computed field's backing query/formula item so computed
       // fields (replyCount, hasUnread) run declaratively; unresolved backings just
       // throw when that field is selected (the honest pre-runner behaviour).
-      // Built-in `query`/`formula` items store their payload in the generic
-      // item_payloads store (readItemPayload); object types fall back to obj_.
-      const { map: computed } = await buildComputedMap(
-        model,
-        async (id: string) => (await ds.readItemPayload(id)) ?? (await ds.readObjectJson(id)),
-      );
+      // Backing items are read from their per-type projected table via readObjectJson
+      // (spec §cqrs-projections) — never a generic JSON store. NB: built-in `query`/
+      // `formula` types are not auto-projected to obj_ yet in this adapter (built-ins
+      // treated as primitive), so these resolve once that per-type projection lands.
+      const { map: computed } = await buildComputedMap(model, (id: string) => ds.readObjectJson(id));
       cached = { sig, engine: buildGraphqlEngine(model, new PgDataSource(pool, model, { computed })) };
       _gqlEngineByPool.set(pool, cached);
     }

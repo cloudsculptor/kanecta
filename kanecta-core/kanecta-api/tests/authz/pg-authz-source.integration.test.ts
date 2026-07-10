@@ -6,7 +6,11 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Pool } from 'pg';
 import { can } from '../../src/authz/index.ts';
-import { PgAuthzSource } from '../../src/authz/pg-authz-source.ts';
+import { PgAuthzSource, GRANT_TYPE_ID } from '../../src/authz/pg-authz-source.ts';
+
+// The grant type's own per-type projected table (spec §cqrs-projections). Grants
+// are typed COLUMNS here — never a generic JSON payload store.
+const GRANT_OBJ = `obj_${GRANT_TYPE_ID.replace(/-/g, '_')}`;
 
 const PG_URL = process.env.KANECTA_TEST_PG_URL;
 const SCHEMA = 'kanecta_pg_authz_test';
@@ -39,19 +43,23 @@ run('PgAuthzSource (real Postgres) — visibility + owner + grants', () => {
     await pool.query(`CREATE TABLE items (
       id uuid PRIMARY KEY, parent_id uuid, type varchar(50) NOT NULL DEFAULT 'object',
       owner varchar(255), visibility varchar(20), deleted_at timestamptz)`);
-    await pool.query(`CREATE TABLE item_payloads (item_id uuid PRIMARY KEY, payload jsonb NOT NULL)`);
-    await pool.query(`CREATE INDEX ON item_payloads ((payload->>'governedItemId'))`);
+    // The grant type's per-type projected table — typed columns from grant.jsonSchema
+    // (governed_item_id / principal / permissions / cascade), exactly as the adapter
+    // would materialise it. NOT a generic JSON store.
+    await pool.query(`CREATE TABLE "${GRANT_OBJ}" (
+      item_id uuid PRIMARY KEY, governed_item_id uuid, principal text, permissions text[], cascade boolean)`);
+    await pool.query(`CREATE INDEX ON "${GRANT_OBJ}" (governed_item_id)`);
 
     await pool.query(`INSERT INTO items (id, parent_id, owner, visibility) VALUES
       ($1,NULL,'u-alice','public'), ($2,NULL,'u-alice','private'), ($3,NULL,'u-alice','organisation'),
       ($4,NULL,'u-alice','private'), ($5,$4,'u-alice','private'), ($6,NULL,'u-alice','private')`,
       [PUB, PRIV, ORG, CONT, CHILD, OUTSIDE]);
 
-    // grant items (type='grant') + their payloads in item_payloads.
+    // grant items (type='grant') + their projected rows in obj_<grant-type>.
     const grant = (id: string, gov: string, principal: string, perms: string[], cascade: boolean) => [
       pool.query(`INSERT INTO items (id, parent_id, type, owner, visibility) VALUES ($1,NULL,'grant','u-alice','private')`, [id]),
-      pool.query(`INSERT INTO item_payloads (item_id, payload) VALUES ($1,$2)`,
-        [id, JSON.stringify({ governedItemId: gov, principal, permissions: perms, cascade })]),
+      pool.query(`INSERT INTO "${GRANT_OBJ}" (item_id, governed_item_id, principal, permissions, cascade) VALUES ($1,$2,$3,$4,$5)`,
+        [id, gov, principal, perms, cascade]),
     ];
     await Promise.all([
       ...grant(G_DIRECT, PRIV, 'u-bob', ['read'], false),

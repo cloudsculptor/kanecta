@@ -1403,26 +1403,6 @@ class PostgresAdapter {
     );
   }
 
-  // ─── Generic built-in payloads (grant, query, formula, subscription, ...) ────
-  // The domain-agnostic payload store (item_payloads). Object types keep using
-  // obj_<typeId>; this is for structured built-in types whose payload is a small
-  // JSON object referenced by UUID.
-
-  async readItemPayload(id: any) {
-    const { rows } = await this._pool.query(
-      'SELECT payload FROM item_payloads WHERE item_id = $1', [id],
-    );
-    return rows[0]?.payload ?? null;
-  }
-
-  async writeItemPayload(id: any, payload: any) {
-    await this._pool.query(
-      `INSERT INTO item_payloads (item_id, payload) VALUES ($1, $2)
-       ON CONFLICT (item_id) DO UPDATE SET payload = EXCLUDED.payload`,
-      [id, JSON.stringify(payload)],
-    );
-  }
-
   async listDocuments(targetId: any) {
     const { rows } = await this._pool.query(`
       SELECT i.*

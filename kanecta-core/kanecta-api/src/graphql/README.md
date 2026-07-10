@@ -91,13 +91,16 @@ Output object keys are the **wire** field names (camelCase); the DataSource spea
 - **`/graphql` per-item authz** — `PgAuthzSource` (../authz/pg-authz-source.ts)
   backs the G4 engine's **visibility + owner + grant** layers over the items table,
   wired as the route's `context.authorize` **opt-in via `KANECTA_GRAPHQL_AUTHZ=on`**
-  (default off, since backfilled items default to `visibility:'private'` and no
-  grants are seeded yet). Grants are generic `grant` items read from `item_payloads`
-  by `governedItemId`; the engine's ancestor walk applies **cascade** (a role grant
-  on a container flows to everything inside). Remaining: ReBAC group principals
-  (`{itemId, relation}`) need holdsRelation wiring; the O(1) `payload_grant` derived
-  table is a later perf optimization. Enabling the gate needs correct visibility +
-  grant items on the data (a seeder).
+  (default off). Grants are ordinary `grant` items read from the grant type's OWN
+  per-type projected table `obj_<grant-type-uuid>` (typed columns governed_item_id /
+  principal / permissions / cascade) — **never a generic JSON store** (spec
+  §cqrs-projections). The engine's ancestor walk applies **cascade** (a role grant on
+  a container flows to everything inside). BLOCKED on: this adapter does not yet
+  auto-project built-in structured types (grant/query) to obj_ (they are treated as
+  primitive) — so obj_<grant-type> isn't materialised until that projection lands +
+  a seeder writes grants; grantsFor returns [] until then. Also: ReBAC group
+  principals need holdsRelation; the O(1) payload_grant derived table is a later perf
+  pass.
 - **Adapter-based seeding + backfill** — seed the `ch-*` manifest via the real
   Postgres adapter and backfill nonprod data (see `../../manifests/community-hub/`).
 - **DataLoader batching** — the `PgDataSource` loads per-field; batch to kill N+1.
