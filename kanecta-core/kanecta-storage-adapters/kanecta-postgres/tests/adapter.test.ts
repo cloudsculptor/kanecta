@@ -1254,6 +1254,90 @@ describe('functionData round-trip', () => {
   });
 });
 
+// ─── documentData round-trip ──────────────────────────────────────────────────
+// Characterization tests for the document read/write CONTRACT (not the underlying
+// documents table). These pin createDocument / readDocumentPayload /
+// writeDocumentPayload / listDocuments behaviour so the pending documents-table →
+// obj_<document-type> cutover (plans/uniform-projection-modernisation.md #3) can be
+// proven to preserve the signatures. Written before the cutover, they must stay
+// green through it.
+describe('documentData round-trip', () => {
+  test('createDocument creates a document item under the document type node', async () => {
+    const target = await adapter.create({ value: 'target', type: 'note' });
+    const doc = await adapter.createDocument(target.id, 'My Doc', { owner: OWNER });
+    expect(doc.type).toBe('document');
+    expect(doc.parentId).toBe(PostgresAdapter.DOCUMENT_TYPE_UUID);
+    expect(doc.value).toBe('My Doc');
+  });
+
+  test('readDocumentPayload round-trips the created payload with defaults applied', async () => {
+    const target = await adapter.create({ value: 'target-defaults', type: 'note' });
+    const doc = await adapter.createDocument(target.id, 'Defaults Doc', { owner: OWNER });
+    const payload = await adapter.readDocumentPayload(doc.id);
+    expect(payload.targetId).toBe(target.id);
+    expect(payload.name).toBe('Defaults Doc');
+    expect(payload.expandState).toEqual({ defaultDepth: 2, exceptions: {} });
+    expect(payload.roleMap).toEqual({
+      byDepth: { '1': 'heading', '2': 'subheading', '3': 'body' }, byType: {},
+    });
+    expect(payload.isOrgDefault).toBe(false);
+    expect(payload.baseDocumentId).toBeNull();
+  });
+
+  test('createDocument honours explicit expandState / roleMap / isOrgDefault / baseDocumentId', async () => {
+    const target = await adapter.create({ value: 'target-explicit', type: 'note' });
+    const base = await adapter.create({ value: 'base-doc', type: 'note' });
+    const expandState = { defaultDepth: 4, exceptions: { [base.id]: 1 } };
+    const roleMap = { byDepth: { '1': 'body' }, byType: { [target.id]: 'heading' } };
+    const doc = await adapter.createDocument(target.id, 'Explicit Doc', {
+      owner: OWNER, expandState, roleMap, isOrgDefault: true, baseDocumentId: base.id,
+    });
+    const payload = await adapter.readDocumentPayload(doc.id);
+    expect(payload.expandState).toEqual(expandState);
+    expect(payload.roleMap).toEqual(roleMap);
+    expect(payload.isOrgDefault).toBe(true);
+    expect(payload.baseDocumentId).toBe(base.id);
+  });
+
+  test('readDocumentPayload returns null when the item has no document payload', async () => {
+    const item = await adapter.create({ value: 'not-a-doc', type: 'note' });
+    expect(await adapter.readDocumentPayload(item.id)).toBeNull();
+  });
+
+  test('writeDocumentPayload upserts — a second write replaces the payload', async () => {
+    const target = await adapter.create({ value: 'target-upsert', type: 'note' });
+    const doc = await adapter.createDocument(target.id, 'Upsert Doc', { owner: OWNER });
+    const next = {
+      targetId: target.id, name: 'Renamed', isOrgDefault: true, baseDocumentId: null,
+      expandState: { defaultDepth: 1, exceptions: {} },
+      roleMap: { byDepth: {}, byType: {} },
+    };
+    await adapter.writeDocumentPayload(doc.id, next);
+    expect(await adapter.readDocumentPayload(doc.id)).toEqual(next);
+  });
+
+  test('listDocuments returns only documents for the given target, excluding soft-deleted', async () => {
+    const targetA = await adapter.create({ value: 'target-A', type: 'note' });
+    const targetB = await adapter.create({ value: 'target-B', type: 'note' });
+    const d1 = await adapter.createDocument(targetA.id, 'A-1', { owner: OWNER });
+    const d2 = await adapter.createDocument(targetA.id, 'A-2', { owner: OWNER });
+    await adapter.createDocument(targetB.id, 'B-1', { owner: OWNER });
+
+    const forA = await adapter.listDocuments(targetA.id);
+    expect(forA.map((d: any) => d.id).sort()).toEqual([d1.id, d2.id].sort());
+
+    await adapter.softDelete(d2.id);
+    const afterDelete = await adapter.listDocuments(targetA.id);
+    expect(afterDelete.map((d: any) => d.id)).toEqual([d1.id]);
+  });
+
+  test('createDocument requires targetId and name', async () => {
+    await expect(adapter.createDocument(null, 'x', { owner: OWNER })).rejects.toThrow(/targetId/);
+    const target = await adapter.create({ value: 'target-noname', type: 'note' });
+    await expect(adapter.createDocument(target.id, null, { owner: OWNER })).rejects.toThrow(/name/);
+  });
+});
+
 // ─── rebuildIndexes / checkIntegrity / rebuildPaths ───────────────────────────
 
 describe('rebuildIndexes', () => {
