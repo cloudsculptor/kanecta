@@ -16,12 +16,9 @@ import tCell from './1.4.0/built-in-types/types/cell.json' with { type: 'json' }
 import tChannel from './1.4.0/built-in-types/types/channel.json' with { type: 'json' };
 import tClaudeApiConfig from './1.4.0/built-in-types/types/claude-api-config.json' with { type: 'json' };
 import tClaudeCodeConfig from './1.4.0/built-in-types/types/claude-code-config.json' with { type: 'json' };
-import tPythonConfig from './1.4.0/built-in-types/types/python-config.json' with { type: 'json' };
-import tKanectaFunctionConfig from './1.4.0/built-in-types/types/kanecta-function-config.json' with { type: 'json' };
-import tGroupChatConfig from './1.4.0/built-in-types/types/group-chat-config.json' with { type: 'json' };
-import tHttpConfig from './1.4.0/built-in-types/types/http-config.json' with { type: 'json' };
 import tComponent from './1.4.0/built-in-types/types/component.json' with { type: 'json' };
 import tContext from './1.4.0/built-in-types/types/context.json' with { type: 'json' };
+import tDocument from './1.4.0/built-in-types/types/document.json' with { type: 'json' };
 import tEval from './1.4.0/built-in-types/types/eval.json' with { type: 'json' };
 import tEvalRun from './1.4.0/built-in-types/types/eval-run.json' with { type: 'json' };
 import tFile from './1.4.0/built-in-types/types/file.json' with { type: 'json' };
@@ -29,12 +26,18 @@ import tFormula from './1.4.0/built-in-types/types/formula.json' with { type: 'j
 import tFunction from './1.4.0/built-in-types/types/function.json' with { type: 'json' };
 import tGrant from './1.4.0/built-in-types/types/grant.json' with { type: 'json' };
 import tGrid from './1.4.0/built-in-types/types/grid.json' with { type: 'json' };
+import tGroupChatConfig from './1.4.0/built-in-types/types/group-chat-config.json' with { type: 'json' };
+import tHttpConfig from './1.4.0/built-in-types/types/http-config.json' with { type: 'json' };
 import tItemHistory from './1.4.0/built-in-types/types/item_history.json' with { type: 'json' };
+import tKanectaFunctionConfig from './1.4.0/built-in-types/types/kanecta-function-config.json' with { type: 'json' };
 import tLicence from './1.4.0/built-in-types/types/licence.json' with { type: 'json' };
 import tObject from './1.4.0/built-in-types/types/object.json' with { type: 'json' };
 import tPipeline from './1.4.0/built-in-types/types/pipeline.json' with { type: 'json' };
 import tPipelineRun from './1.4.0/built-in-types/types/pipeline-run.json' with { type: 'json' };
+import tProperty from './1.4.0/built-in-types/types/property.json' with { type: 'json' };
+import tPythonConfig from './1.4.0/built-in-types/types/python-config.json' with { type: 'json' };
 import tQuery from './1.4.0/built-in-types/types/query.json' with { type: 'json' };
+import tQueryParam from './1.4.0/built-in-types/types/query-param.json' with { type: 'json' };
 import tReference from './1.4.0/built-in-types/types/reference.json' with { type: 'json' };
 import tRelationship from './1.4.0/built-in-types/types/relationship.json' with { type: 'json' };
 import tRelationshipType from './1.4.0/built-in-types/types/relationship-type.json' with { type: 'json' };
@@ -52,9 +55,9 @@ export const wellKnownTypes: readonly string[] = types.wellKnown;
 
 export { builtInTypeManifest };
 export const builtInTypeItems: object[] = [
-  tAction, tActivity, tAgent, tAlias, tAnnotation, tAspectType, tCell, tChannel, tComponent,
-  tContext, tEval, tEvalRun, tFile, tFormula, tFunction, tGrant, tGrid, tItemHistory,
-  tLicence, tObject, tPipeline, tPipelineRun, tQuery, tReference, tRelationship,
-  tRelationshipType, tSubscription, tType, tView,
-  tClaudeApiConfig, tClaudeCodeConfig, tPythonConfig, tKanectaFunctionConfig, tGroupChatConfig, tHttpConfig,
+  tAction, tActivity, tAgent, tAlias, tAnnotation, tAspectType, tCell, tChannel,
+  tClaudeApiConfig, tClaudeCodeConfig, tComponent, tContext, tDocument, tEval, tEvalRun, tFile,
+  tFormula, tFunction, tGrant, tGrid, tGroupChatConfig, tHttpConfig, tItemHistory, tKanectaFunctionConfig,
+  tLicence, tObject, tPipeline, tPipelineRun, tProperty, tPythonConfig, tQuery, tQueryParam,
+  tReference, tRelationship, tRelationshipType, tSubscription, tType, tView,
 ];

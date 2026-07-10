@@ -47,7 +47,7 @@ const BUILT_IN_TYPES = new Set([
   'claude-api-config', 'claude-code-config', 'python-config',
   'kanecta-function-config', 'group-chat-config', 'http-config',
   'document', 'formula', 'grant', 'grid', 'item_history', 'licence', 'pipeline', 'pipeline-run',
-  'query', 'reference', 'relationship', 'relationship-type', 'subscription',
+  'query', 'query-param', 'reference', 'relationship', 'relationship-type', 'subscription',
   'tree', 'node', 'view', 'type',
   // Well-known root types
   'root',
@@ -82,15 +82,13 @@ const BUILT_IN_TYPE_ID_BY_NAME: Record<string, string> = Object.fromEntries(
 // listed here keeps its legacy storage untouched, so the switch is staged and
 // reversible. `grant`/`query` lead: grant's read side (PgAuthzSource) already
 // targets obj_<grant-type>, and neither has a conflicting dedicated table.
-// NB: `query` is intentionally absent — its `params` field is an array of typed
-// objects (parameter definitions) which, per the flat one-level rule, must be
-// child items rather than a column. The strict compiler rejects it until the
-// array-of-objects -> child-items normalisation engine exists.
 const PROJECTED_BUILT_IN_TYPES = new Set<string>([
   'grant', 'reference', 'file', 'formula', 'context', 'cell', 'view',
   'channel', 'subscription', 'aspect-type', 'agent', 'action',
   'claude-api-config', 'claude-code-config', 'python-config',
   'kanecta-function-config', 'group-chat-config', 'http-config',
+  // query.params is normalised to query-param children (array-of-objects rule).
+  'query', 'query-param',
 ]);
 
 // The obj_<typeId> the given item projects to, or null if it doesn't project.

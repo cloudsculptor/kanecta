@@ -2791,9 +2791,9 @@ Two classes of query:
 | yes
 | The query body. May contain `{{params.name}}` placeholders substituted at execution time. SQL placeholders are injected as parameterised values — never string-interpolated — to prevent injection attacks.
 
-| `params`
+| parameters
 | no
-| Named parameters that make this query reusable. Each entry has `name` (string), `type` (`"string"` \| `"number"` \| `"boolean"` \| `"uuid"` \| `"date"`), optional `description`, and optional `default`. Studio generates an input form from this definition when a user runs the query interactively. Null means the query is fixed with no parameters.
+| Named parameters that make the query reusable are `query-param` *children* of the query item — an array of objects is never an inline field (the flat one-level rule). Each `query-param` has `name`, `type` (`"string"` \| `"number"` \| `"boolean"` \| `"uuid"` \| `"date"`), optional `description`, and optional `defaultValue`. Studio generates an input form from the query's `query-param` children.
 
 | `returnType`
 | no

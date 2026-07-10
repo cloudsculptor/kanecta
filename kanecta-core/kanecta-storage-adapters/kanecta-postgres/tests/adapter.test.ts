@@ -1675,13 +1675,29 @@ describe('structured built-in projection', () => {
   });
 });
 
-// query is NOT in PROJECTED_BUILT_IN_TYPES: its `params` field is an array of
-// objects (parameter definitions), which per the flat one-level rule must be
-// child items, not a column. The strict compiler now rejects it. Re-enable once
-// the array-of-objects -> child-items normalisation engine lands (then params
-// becomes child items and query projects cleanly).
-describe.skip('structured built-in projection (query) — pending params normalisation', () => {
-  test('a query instance projects once params is normalised to child items', () => {});
+describe('structured built-in projection (query + query-param children)', () => {
+  const QUERY_TYPE_ID = '1c23396d-c3a0-4f51-9307-a1aecd1f44fa';
+  const QUERY_PARAM_TYPE_ID = '82a025d4-a862-434a-9e56-68657814af0f';
+  test('a query projects (no inline params); its params are query-param children', async () => {
+    const q = await adapter.create({
+      type: 'query', value: 'tasks-by-assignee',
+      objectData: { language: 'kanecta', expression: 'type:task assignee:{{params.assignee}}' },
+    });
+    expect(q.typeId).toBe(QUERY_TYPE_ID);
+    const p = await adapter.readObjectJson(q.id, QUERY_TYPE_ID);
+    expect(p.expression).toBe('type:task assignee:{{params.assignee}}');
+    expect('params' in p).toBe(false);   // normalised out — params are children
+
+    const param = await adapter.create({
+      type: 'query-param', value: 'assignee', parentId: q.id,
+      objectData: { name: 'assignee', type: 'string', description: 'Who the task is assigned to' },
+    });
+    expect(param.typeId).toBe(QUERY_PARAM_TYPE_ID);
+    expect(param.parentId).toBe(q.id);
+    const pp = await adapter.readObjectJson(param.id, QUERY_PARAM_TYPE_ID);
+    expect(pp.name).toBe('assignee');
+    expect(pp.type).toBe('string');
+  });
 });
 
 // ─── Schema-change guard (fail-closed migration protection) ──────────────────────
