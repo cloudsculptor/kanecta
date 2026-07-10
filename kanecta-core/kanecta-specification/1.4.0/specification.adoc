@@ -5383,6 +5383,78 @@ Conflicts (same item changed on both branches since branching) must be resolved 
 [#cqrs-projections]
 === CQRS projections
 
+==== The four-table law (the shape of a Kanecta database)
+
+Everything is an item. A conformant Kanecta datastore therefore contains only *four
+kinds of relation*, and nothing else:
+
+1. *`items`* — the single spine table. *Every* item has its envelope row here — a
+   `customer`, a `type`, a `relationship`, a `grant`, a `query`, a `config` setting,
+   a `branch`. There is no per-kind item table; "everything is an item" is literal.
+
+2. *`obj_<typeId>`* — the read-side projection of *every* type, without exception:
+   user-defined types, the built-in structured types (`grant`, `query`, `function`,
+   `document`, `alias`, `annotation`, `file`, `licence`, `relationship`,
+   `relationship-type`, and the `type` type itself), and manifest-packaged types.
+   One materialised table per type with at least one live instance, whose typed
+   columns, foreign keys, indexes, triggers, and views are derived *entirely* from
+   the type definition by the schema compiler (see <<sqlSchema-rules>>). No type is
+   ever given a hand-written table.
+
+3. *`item_history` and `activity`* — the two append-only exempt logs (see the
+   exception below). These are the *only* built-in types that do not use the generic
+   `obj_` projection, justified solely by their append-only, write-heavy,
+   externalisable semantics.
+
+4. *`perf_<name>`* — performance-only derived structures: rebuildable, never a source
+   of truth, and *self-declaring by the `perf_` prefix*. The full-text index, the
+   graph traversal projection (AGE), the UUID-dependency index, the backlink index,
+   and a grant-resolution index are all `perf_` relations. Dropping and rebuilding
+   any `perf_` relation from `items` + `obj_` changes no data. A structure that
+   exists only to make reads fast is legitimate *if and only if* it carries this
+   prefix and this property.
+
+Plus exactly *one* irreducible bootstrap that is not a table at all: the hardcoded
+schema constant for the `type` type, needed to project `obj_<type-type>` — you
+cannot derive the derivation rules from themselves, so a single seed schema is
+unavoidable. Everything else, including the type registry, follows the uniform rule.
+
+*Any relation that is not one of these four kinds is a specification violation.* A
+bespoke per-type table (`functions`, `documents`, `aliases`, `annotations`,
+`item_grants`, `files`, `licences`, `types`, `rel_types`, `relationships`, `config`,
+`branches`, …) is prohibited: each names an item type whose payload MUST project to
+`obj_<typeId>` like any other. A generic JSON payload table used as a read/query
+surface is prohibited (see the anti-pattern block below).
+
+==== No hand-coded DDL the compiler could emit
+
+The historical reason bespoke tables existed is that the schema compiler could not
+yet *soft-code* a database feature a type needed — a trigger to maintain a search
+vector, a computed column, a view, a stored procedure, a foreign key, a partial
+index — so an adapter author hand-wrote a table instead. That is a *compiler gap to
+close, never a licence to hand-write DDL*. The schema compiler
+(`@kanecta/schema-compiler`) is the single authority that turns a type definition
+into physical DDL, and its vocabulary MUST be able to express every database feature
+any type requires:
+
+* columns + scalar types (from `jsonSchema`) — *done*
+* foreign keys / relationships (`typeId` / `x-kanecta-itemType` reference columns →
+  `REFERENCES items(id)`) — *done*
+* secondary and partial indexes (`indexes`) — *done*
+* constraints (`constraints`) — *done*
+* views (the `sql-view` item / `sqlViewPayload`) — *done*
+* graph projection (`projectTo: ["graph"]`) — *done*
+* *triggers, stored procedures/functions, and computed columns* — the remaining gap;
+  these must become declarable in the type definition and emitted by the compiler.
+
+The rule is absolute: *if a type needs a database feature, it is declared in the type
+definition and emitted by the compiler — never hand-written as a special table or as
+bespoke DDL inside an adapter.* Extending the compiler's vocabulary is the *only*
+sanctioned way to add support for a new database capability. An adapter that
+hand-writes DDL the compiler could emit is non-conformant.
+
+==== The per-type projection
+
 Every type — *user-created, built-in, and manifest-packaged, without exception* (save the single `item_history`/`activity` case below) — projects a materialised per-type SQL *table*: a real relation with proper typed columns, foreign keys, and indexes. This is *never* a generic JSON/key-value payload store (an `items_payload` / `item_payloads` JSONB scan) used as the read or query surface. For a `customer` type with millions of instances, the `obj_<typeId>` table is what queries hit; where an adapter keeps a generic JSON payload store at all, that store is *only* the write-side representation, and the per-type table is the *mandatory* read-side projection derived from it. This is the standard CQRS split: one authoritative write model, purpose-built read models derived from it. **Storing a type's instances only in — or reading/querying them from — a generic JSON payload table is a prohibited anti-pattern, for every type, built-in types included.**
 
 *Guaranteed lifecycle (adapter invariant).* This projection is *not optional*, is *not* limited to query-intensive types, and — critically — is *not* limited to user-defined `object` types. It applies *identically* to the built-in structured types (`grant`, `query`, `alias`, `subscription`, `formula`, `document`, `reference`, …): these are *ordinary types* whose definitions declare their own columns and indexes and are projected by the same generic engine, with no hardcoded per-type special cases and no generic-JSON fallback. For every type `T` (a `type` item with id `typeId`) — user-defined *or* built-in — let `N(T)` be the number of live (non-tombstoned) instances of `T`. An instance is any item whose *resolved type* is `T`: for a user object type, `type = "object"` and `typeId = T`; for a built-in type, `item.type` equals the built-in type's name, which resolves to that type's fixed type-item UUID `T` (grants → `obj_<grant-type-uuid>`, queries → `obj_<query-type-uuid>`, and so on). Then:
