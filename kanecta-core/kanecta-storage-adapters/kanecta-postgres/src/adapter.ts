@@ -44,7 +44,7 @@ const BUILT_IN_TYPES = new Set([
   'object', 'file', 'function', 'runner', 'symlink',
   'action', 'activity', 'agent', 'alias', 'annotation', 'aspect-type',
   'cell', 'component', 'connector', 'context', 'eval', 'eval-run',
-  'document', 'formula', 'grant', 'grid', 'item_history', 'pipeline', 'pipeline-run',
+  'document', 'formula', 'grant', 'grid', 'item_history', 'licence', 'pipeline', 'pipeline-run',
   'query', 'reference', 'relationship', 'relationship-type', 'subscription',
   'tree', 'node', 'view', 'type',
   // Well-known root types

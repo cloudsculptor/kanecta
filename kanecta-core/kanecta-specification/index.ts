@@ -10,6 +10,7 @@ import tAction from './1.4.0/built-in-types/types/action.json' with { type: 'jso
 import tActivity from './1.4.0/built-in-types/types/activity.json' with { type: 'json' };
 import tAgent from './1.4.0/built-in-types/types/agent.json' with { type: 'json' };
 import tAlias from './1.4.0/built-in-types/types/alias.json' with { type: 'json' };
+import tAnnotation from './1.4.0/built-in-types/types/annotation.json' with { type: 'json' };
 import tAspectType from './1.4.0/built-in-types/types/aspect-type.json' with { type: 'json' };
 import tCell from './1.4.0/built-in-types/types/cell.json' with { type: 'json' };
 import tComponent from './1.4.0/built-in-types/types/component.json' with { type: 'json' };
@@ -22,6 +23,7 @@ import tFunction from './1.4.0/built-in-types/types/function.json' with { type: 
 import tGrant from './1.4.0/built-in-types/types/grant.json' with { type: 'json' };
 import tGrid from './1.4.0/built-in-types/types/grid.json' with { type: 'json' };
 import tItemHistory from './1.4.0/built-in-types/types/item_history.json' with { type: 'json' };
+import tLicence from './1.4.0/built-in-types/types/licence.json' with { type: 'json' };
 import tObject from './1.4.0/built-in-types/types/object.json' with { type: 'json' };
 import tPipeline from './1.4.0/built-in-types/types/pipeline.json' with { type: 'json' };
 import tPipelineRun from './1.4.0/built-in-types/types/pipeline-run.json' with { type: 'json' };
@@ -43,8 +45,8 @@ export const wellKnownTypes: readonly string[] = types.wellKnown;
 
 export { builtInTypeManifest };
 export const builtInTypeItems: object[] = [
-  tAction, tActivity, tAgent, tAlias, tAspectType, tCell, tComponent, tContext,
-  tEval, tEvalRun, tFile, tFormula, tFunction, tGrant, tGrid, tItemHistory,
-  tObject, tPipeline, tPipelineRun, tQuery, tReference, tRelationship,
+  tAction, tActivity, tAgent, tAlias, tAnnotation, tAspectType, tCell, tComponent,
+  tContext, tEval, tEvalRun, tFile, tFormula, tFunction, tGrant, tGrid, tItemHistory,
+  tLicence, tObject, tPipeline, tPipelineRun, tQuery, tReference, tRelationship,
   tRelationshipType, tSubscription, tType, tView,
 ];

@@ -1785,3 +1785,12 @@ describe('structured built-in projection (view)', () => {
     expect(view.id).not.toBe(viewed.id);            // the row's item_id is the VIEW item, distinct
   });
 });
+
+describe('annotation + licence are seeded structured types', () => {
+  test('their type definitions resolve via readTypeJson', async () => {
+    const ann = await adapter.readTypeJson('235d6155-db2a-4232-9548-8f5a66150d82');
+    expect(ann?.jsonSchema?.title).toBe('annotationPayload');
+    const lic = await adapter.readTypeJson('9798b629-06f4-495f-90e8-2d70f817466e');
+    expect(lic?.jsonSchema?.title).toBe('licencePayload');
+  });
+});
