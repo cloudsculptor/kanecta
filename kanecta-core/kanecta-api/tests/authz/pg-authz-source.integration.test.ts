@@ -5,6 +5,8 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Pool } from 'pg';
+import { deriveSqlSchema } from '@kanecta/schema-compiler';
+import tGrant from '@kanecta/specification/1.4.0/built-in-types/types/grant.json' with { type: 'json' };
 import { can } from '../../src/authz/index.ts';
 import { PgAuthzSource, GRANT_TYPE_ID } from '../../src/authz/pg-authz-source.ts';
 
@@ -43,11 +45,12 @@ run('PgAuthzSource (real Postgres) — visibility + owner + grants', () => {
     await pool.query(`CREATE TABLE items (
       id uuid PRIMARY KEY, parent_id uuid, type varchar(50) NOT NULL DEFAULT 'object',
       owner varchar(255), visibility varchar(20), deleted_at timestamptz)`);
-    // The grant type's per-type projected table — typed columns from grant.jsonSchema
-    // (governed_item_id / principal / permissions / cascade), exactly as the adapter
-    // would materialise it. NOT a generic JSON store.
-    await pool.query(`CREATE TABLE "${GRANT_OBJ}" (
-      item_id uuid PRIMARY KEY, governed_item_id uuid, principal text, permissions text[], cascade boolean)`);
+    // The grant type's per-type projected table. Built from the REAL compiler
+    // output (deriveSqlSchema over grant.jsonSchema) rather than a hand-written
+    // approximation — so this test proves decide() enforces against the exact
+    // obj_<grant-type> schema the PostgresAdapter materialises. NOT a JSON store.
+    for (const stmt of deriveSqlSchema((tGrant as any).payload.jsonSchema, { typeId: GRANT_TYPE_ID, dialect: 'postgres' }))
+      await pool.query(stmt);
     await pool.query(`CREATE INDEX ON "${GRANT_OBJ}" (governed_item_id)`);
 
     await pool.query(`INSERT INTO items (id, parent_id, owner, visibility) VALUES
@@ -55,17 +58,19 @@ run('PgAuthzSource (real Postgres) — visibility + owner + grants', () => {
       ($4,NULL,'u-alice','private'), ($5,$4,'u-alice','private'), ($6,NULL,'u-alice','private')`,
       [PUB, PRIV, ORG, CONT, CHILD, OUTSIDE]);
 
-    // grant items (type='grant') + their projected rows in obj_<grant-type>.
-    const grant = (id: string, gov: string, principal: string, perms: string[], cascade: boolean) => [
-      pool.query(`INSERT INTO items (id, parent_id, type, owner, visibility) VALUES ($1,NULL,'grant','u-alice','private')`, [id]),
-      pool.query(`INSERT INTO "${GRANT_OBJ}" (item_id, governed_item_id, principal, permissions, cascade) VALUES ($1,$2,$3,$4,$5)`,
-        [id, gov, principal, perms, cascade]),
-    ];
+    // grant items (type='grant') + their projected rows in obj_<grant-type>. The
+    // compiler-built table FKs item_id -> items(id), so the grant's items row must
+    // land before its obj_ row (each grant() keeps that order internally).
+    const grant = async (id: string, gov: string, principal: string, perms: string[], cascade: boolean) => {
+      await pool.query(`INSERT INTO items (id, parent_id, type, owner, visibility) VALUES ($1,NULL,'grant','u-alice','private')`, [id]);
+      await pool.query(`INSERT INTO "${GRANT_OBJ}" (item_id, governed_item_id, principal, permissions, cascade) VALUES ($1,$2,$3,$4,$5)`,
+        [id, gov, principal, perms, cascade]);
+    };
     await Promise.all([
-      ...grant(G_DIRECT, PRIV, 'u-bob', ['read'], false),
-      ...grant(G_TEAM, CONT, 'role/team', ['read'], true),
-      ...grant(G_MOD, CONT, 'role/moderator', ['admin'], true),
-      ...grant(G_NOCAS, CONT, 'role/x', ['read'], false),
+      grant(G_DIRECT, PRIV, 'u-bob', ['read'], false),
+      grant(G_TEAM, CONT, 'role/team', ['read'], true),
+      grant(G_MOD, CONT, 'role/moderator', ['admin'], true),
+      grant(G_NOCAS, CONT, 'role/x', ['read'], false),
     ]);
 
     authz = new PgAuthzSource(pool);
