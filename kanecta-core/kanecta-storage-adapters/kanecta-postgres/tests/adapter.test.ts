@@ -329,8 +329,13 @@ describe('update', () => {
     expect((await adapter.history(item.id)).some(e => e.changeType === 'update')).toBe(true);
   });
 
-  test('throws when editing the reserved root node', async () => {
-    await expect(adapter.update(ROOT_ID, { value: 'x' }, OWNER)).rejects.toThrow(/reserved root node/);
+  test('the reserved root node is structurally locked', async () => {
+    // The root is renamable (see the root-protection suite) but its structural
+    // fields stay locked so it remains the self-parented type:'root' anchor.
+    await expect(adapter.update(ROOT_ID, { parentId: crypto.randomUUID() }, OWNER))
+      .rejects.toThrow(/cannot be changed/);
+    await expect(adapter.update(ROOT_ID, { typeId: crypto.randomUUID() }, OWNER))
+      .rejects.toThrow(/cannot be changed/);
   });
 });
 
@@ -1321,8 +1326,13 @@ describe('well-known node protection', () => {
     }
   });
 
-  test('the root node cannot be updated or deleted', async () => {
-    await expect(adapter.update(ROOT_ID, { value: 'Org Space' }, OWNER)).rejects.toThrow(/reserved root node/);
+  test('the root node is renamable but cannot be structurally changed or deleted', async () => {
+    // A datastore can be given a meaningful name by renaming its root…
+    const renamed = await adapter.update(ROOT_ID, { value: 'Org Space' }, OWNER);
+    expect(renamed.value).toBe('Org Space');
+    // …but its structural identity is locked, and it can never be deleted.
+    await expect(adapter.update(ROOT_ID, { type: 'object', typeId: crypto.randomUUID() }, OWNER))
+      .rejects.toThrow(/cannot be changed/);
     await expect(adapter.delete(ROOT_ID, OWNER)).rejects.toThrow(/reserved root node/);
   });
 });

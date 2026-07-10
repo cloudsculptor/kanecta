@@ -9,7 +9,12 @@
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
-import { version as specVersion } from '@kanecta/specification';
+import {
+  version as specVersion,
+  primitiveTypes,
+  structuredTypes,
+  builtInTypeItems,
+} from '@kanecta/specification';
 import { validateItem } from '@kanecta/specification/validator';
 import { deriveSqlSchema, deriveIndexDdl } from '@kanecta/schema-compiler';
 import { Pool } from 'pg';
@@ -49,6 +54,42 @@ const BUILT_IN_TYPES = new Set([
 // Keep the old export name for backward compatibility.
 const PRIMITIVE_TYPES = BUILT_IN_TYPES;
 const VALID_REL_TYPES = BUILT_IN_REL_TYPES;
+
+// ─── Built-in type projection (spec §cqrs-projections: the four-table law) ─────
+// The spec splits built-ins into scalar PRIMITIVES (carried on the item row) and
+// STRUCTURED types (an ordinary type with typed columns, projected to
+// obj_<typeId> exactly like a user 'object' type). Sourced from
+// @kanecta/specification so both adapters agree on the classification.
+const PRIMITIVE_TYPE_SET       = new Set<string>(primitiveTypes as string[]);
+const STRUCTURED_BUILT_IN_TYPES = new Set<string>(structuredTypes as string[]);
+
+// The synthetic types-container node every built-in type item is parented under
+// (spec / core manifest). Mirrors sqlite-fs's TYPES_NODE.
+const TYPES_CONTAINER_ID = '11111111-1111-1111-1111-111111111111';
+
+// name → fixed type-item UUID for every seeded built-in type, from the core
+// manifest items. Lets create()/update() resolve a structured built-in
+// instance's typeId so it projects to obj_<typeId>.
+const BUILT_IN_TYPE_ID_BY_NAME: Record<string, string> = Object.fromEntries(
+  (builtInTypeItems as any[]).map(t => [t.item.value, t.item.id]),
+);
+
+// Structured built-ins whose instance payloads are ALREADY projected to
+// obj_<typeId> (the target model). This grows type-by-type as each bespoke
+// table is retired (see plans/uniform-projection-modernisation.md). A type not
+// listed here keeps its legacy storage untouched, so the switch is staged and
+// reversible. `grant`/`query` lead: grant's read side (PgAuthzSource) already
+// targets obj_<grant-type>, and neither has a conflicting dedicated table.
+const PROJECTED_BUILT_IN_TYPES = new Set<string>(['grant', 'query']);
+
+// The obj_<typeId> the given item projects to, or null if it doesn't project.
+// A user 'object' carries its typeId on the row; a projection-enabled structured
+// built-in resolves its fixed type-item UUID from the manifest.
+function projectionTypeId(type: string, typeId: any): string | null {
+  if (type === 'object') return typeId ?? null;
+  if (PROJECTED_BUILT_IN_TYPES.has(type)) return BUILT_IN_TYPE_ID_BY_NAME[type] ?? null;
+  return null;
+}
 
 class UnknownTypeError extends Error {
   code: string;
@@ -150,6 +191,7 @@ class PostgresAdapter {
     await adapter._migrate();
     await adapter._ensureConfig(owner);
     await adapter._initRoots();
+    await adapter._ensureBuiltInTypes();
     await adapter._loadRelTypes();
     if (adapter._embeddingProvider) await adapter._ensureEmbeddingTable();
     return adapter;
@@ -160,6 +202,9 @@ class PostgresAdapter {
     const cfg = await adapter._loadConfig();
     if (!cfg) throw new Error('Not a Kanecta database: config missing or empty');
     adapter._config = cfg;
+    // Idempotent backfill: seed any built-in type definitions a pre-existing
+    // datastore is missing, so open() and init() converge on the same shape.
+    await adapter._ensureBuiltInTypes();
     await adapter._loadRelTypes();
     if (adapter._embeddingProvider) await adapter._ensureEmbeddingTable();
     return adapter;
@@ -289,6 +334,72 @@ class PostgresAdapter {
     );
     await this._snapshot(id, 'create', owner, now);
     return this.get(id);
+  }
+
+  // Seed the core manifest of built-in type items (grant, query, file, …) under
+  // the synthetic types-container node, with their fixed UUIDs, from
+  // @kanecta/specification. These are ordinary type items (type='type' in items,
+  // a 1:1 row in types carrying the jsonSchema) — so readTypeJson/_ensureProjection
+  // work on a built-in exactly as on a user type. Idempotent: skips any type item
+  // already present, so it safely backfills existing datastores on open as well
+  // as seeding fresh ones at init. Writes NO obj_ tables (a type with zero
+  // instances projects nothing — the four-table invariant).
+  async _ensureBuiltInTypes() {
+    const owner = this.config.owner;
+    const now   = new Date();
+
+    // The types-container node. Parented under root; its own children are the
+    // built-in type items. Direct insert (create() forbids reserved types).
+    await this._pool.query(
+      `INSERT INTO items (id, spec_version, parent_id, path, value, type, owner, license,
+         sort_order, created_at, modified_at, created_by, modified_by)
+       VALUES ($1,$2,$3,$4,'types','types',$5,$6,0,$7,$7,$5,$5)
+       ON CONFLICT (id) DO NOTHING`,
+      [TYPES_CONTAINER_ID, specVersion, ROOT_ID,
+       `${ROOT_ID}/${TYPES_CONTAINER_ID}`, owner, DEFAULT_LICENSE, now],
+    );
+
+    for (const src of builtInTypeItems as any[]) {
+      const id      = src.item.id;
+      const value   = src.item.value;
+      const payload = src.payload ?? {};
+      if (!payload.jsonSchema) continue;             // nothing to project against
+
+      const { rows } = await this._pool.query('SELECT 1 FROM items WHERE id = $1', [id]);
+      if (rows.length) continue;                     // already seeded
+
+      const parentId = src.item.parentId ?? TYPES_CONTAINER_ID;
+      await this._pool.query(
+        `INSERT INTO items (id, spec_version, parent_id, path, value, type, owner, license,
+           sort_order, created_at, modified_at, created_by, modified_by)
+         VALUES ($1,$2,$3,$4,$5,'type',$6,$7,0,$8,$8,$6,$6)
+         ON CONFLICT (id) DO NOTHING`,
+        [id, specVersion, parentId, `${ROOT_ID}/${TYPES_CONTAINER_ID}/${id}`,
+         value, owner, DEFAULT_LICENSE, now],
+      );
+
+      const meta = payload.meta ?? {};
+      await this._pool.query(
+        `INSERT INTO types (
+           item_id, table_name,
+           meta_icon, meta_description, meta_details, meta_keywords, meta_tags,
+           meta_primary_field, meta_ai_instructions_claude,
+           meta_functions_consumed_by, meta_functions_produced_by,
+           json_schema, sql_schema, sync, superseded_by, implements, extends, indexes
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+         ON CONFLICT (item_id) DO NOTHING`,
+        [
+          id, objTableName(id),
+          meta.icon ?? null, meta.description ?? '', meta.details ?? null,
+          meta.keywords ?? null, meta.tags ?? null,
+          meta.primaryField ?? null, meta.skills?.claude ?? null,
+          meta.functions?.consumedBy ?? [], meta.functions?.producedBy ?? [],
+          JSON.stringify(payload.jsonSchema), payload.sqlSchema ?? [],
+          meta.sync ?? [], meta.supersededBy ?? [], meta.implements ?? [], meta.extends ?? [],
+          JSON.stringify(payload.indexes ?? []),
+        ],
+      );
+    }
   }
 
   async getRoot()     { return this._getByType('root'); }
