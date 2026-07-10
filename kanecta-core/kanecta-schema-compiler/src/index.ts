@@ -223,10 +223,19 @@ function isRef(prop: JsonSchemaProp | undefined): boolean {
   return Boolean(prop && (prop.typeId || prop['x-kanecta-itemType'] || prop.format === 'uuid'));
 }
 
+// JSON Schema expresses a nullable field as a type union — `type: ['boolean','null']`
+// means "boolean or null". Collapse such a union to its single non-null member so a
+// nullable scalar still maps to its real SQL type instead of degrading to TEXT.
+function baseType(prop: JsonSchemaProp | undefined): string | undefined {
+  const t = prop && prop.type;
+  if (Array.isArray(t)) return t.find((x) => x !== 'null');
+  return t as string | undefined;
+}
+
 /** Map a scalar (or ref) property to a base SQL type for a dialect. */
 function scalarType(prop: JsonSchemaProp | undefined, d: Dialect): { sql: string; ref: boolean } {
   if (isRef(prop)) return { sql: d.uuid, ref: true };
-  const t = prop && prop.type;
+  const t = baseType(prop);
   if (t === 'integer') return { sql: d.integer, ref: false };
   if (t === 'number') return { sql: d.number, ref: false };
   if (t === 'boolean') return { sql: d.boolean, ref: false };
@@ -257,7 +266,7 @@ export function deriveSqlSchema(jsonSchema: JsonSchema, opts: DeriveOptions = {}
   for (const [name, prop] of Object.entries(props)) {
     const col = snake(name);
 
-    if (prop && prop.type === 'array') {
+    if (baseType(prop) === 'array') {
       const base = scalarType(prop.items || { type: 'string' }, d);
       if (d.arrayColumn) {
         // Native array column (postgres) / JSON text (sqlite).
@@ -349,7 +358,7 @@ export function deriveIndexDdl(
     if (idx.caseInsensitive) {
       for (const f of idx.fields) {
         const prop = props[f];
-        const t = prop && prop.type;
+        const t = baseType(prop);
         // Text = a string scalar or an array of strings; refs/ints/etc. cannot fold case.
         const isText = !isRef(prop) && (t === 'string' || t === 'array' || t === undefined);
         if (!isText) {

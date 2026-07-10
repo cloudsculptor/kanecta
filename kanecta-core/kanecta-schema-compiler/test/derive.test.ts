@@ -451,3 +451,22 @@ test('deriveFullSchema with no new inputs is identical to the table + index DDL 
   ];
   assert.deepEqual(full, expected);
 });
+
+test('nullable-union scalars map to their non-null SQL type, not TEXT', () => {
+  const ddl = deriveSqlSchema({
+    properties: {
+      flag:   { type: ['boolean', 'null'] },
+      count:  { type: ['integer', 'null'] },
+      amount: { type: ['number', 'null'] },
+      label:  { type: ['string', 'null'] },
+      tags:   { type: ['array', 'null'], items: { type: 'string' } },
+    },
+  }, { typeId: TYPE_ID, dialect: 'postgres' });
+  const create = ddl.find((s) => /CREATE TABLE/.test(s)) as string;
+  assert.match(create, /"flag" BOOLEAN/);
+  assert.match(create, /"count" BIGINT/);
+  assert.match(create, /"amount" DOUBLE PRECISION/);
+  assert.match(create, /"label" TEXT/);
+  // nullable array is still recognised as an array column, not degraded to a scalar
+  assert.match(create, /"tags" TEXT\[\]/);
+});
