@@ -10,6 +10,7 @@
     { "id": "235d6155-db2a-4232-9548-8f5a66150d82", "type": "annotation",        "file": "built-in-types/types/annotation.json" },
     { "id": "45bc6fbe-aa63-41be-8566-7217a9a15ece", "type": "aspect-type",       "file": "built-in-types/types/aspect-type.json" },
     { "id": "42561614-32d6-4c01-93c8-2f6e023ad19f", "type": "cell",              "file": "built-in-types/types/cell.json" },
+    { "id": "b4e15597-5a90-4e40-bed0-dbb28a9165a9", "type": "channel",           "file": "built-in-types/types/channel.json" },
     { "id": "fab55d91-6975-422a-9398-2b16f72bc805", "type": "component",         "file": "built-in-types/types/component.json" },
     { "id": "bd48218a-1c21-4c8e-ac0e-9ea026f2cf4d", "type": "context",           "file": "built-in-types/types/context.json" },
     { "id": "2aca4d8b-ec15-4e95-9dcd-78a97b30e321", "type": "eval",              "file": "built-in-types/types/eval.json" },

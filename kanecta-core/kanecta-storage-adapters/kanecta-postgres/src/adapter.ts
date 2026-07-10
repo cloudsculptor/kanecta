@@ -43,7 +43,7 @@ const BUILT_IN_TYPES = new Set([
   // Structured built-in types
   'object', 'file', 'function', 'runner', 'symlink',
   'action', 'activity', 'agent', 'alias', 'annotation', 'aspect-type',
-  'cell', 'component', 'connector', 'context', 'eval', 'eval-run',
+  'cell', 'channel', 'component', 'connector', 'context', 'eval', 'eval-run',
   'document', 'formula', 'grant', 'grid', 'item_history', 'licence', 'pipeline', 'pipeline-run',
   'query', 'reference', 'relationship', 'relationship-type', 'subscription',
   'tree', 'node', 'view', 'type',
@@ -86,6 +86,7 @@ const BUILT_IN_TYPE_ID_BY_NAME: Record<string, string> = Object.fromEntries(
 // array-of-objects -> child-items normalisation engine exists.
 const PROJECTED_BUILT_IN_TYPES = new Set<string>([
   'grant', 'reference', 'file', 'formula', 'context', 'cell', 'view',
+  'channel', 'subscription',
 ]);
 
 // The obj_<typeId> the given item projects to, or null if it doesn't project.

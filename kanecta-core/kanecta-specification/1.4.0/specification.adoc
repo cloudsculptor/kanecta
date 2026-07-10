@@ -2352,11 +2352,7 @@ Distinct from `reference` — a subscription is about change notification, not d
 ----
 {
   "targetId": "uuid-of-watched-item",
-  "channel": {
-    "type": "webhook",
-    "url": "$WEBHOOK_URL",
-    "secret": "$WEBHOOK_SECRET"
-  },
+  "channelId": "uuid-of-the-channel-item",
   "events": ["update", "delete"],
   "filter": "event.delta['payload.status'].to = 'done'",
   "recursive": false,
@@ -2374,9 +2370,9 @@ Distinct from `reference` — a subscription is about change notification, not d
 | yes
 | UUID of the item being watched.
 
-| `channel`
+| `channelId`
 | yes
-| Notification channel. `type` determines the required fields — see channel types below.
+| UUID of the `channel` item that configures delivery (webhook / mcp / reactive). The channel is a nested concept, so per the flat one-level rule it is its own `channel` type (see `channelPayload`) referenced by UUID — never an inline object on the subscription.
 
 | `events`
 | yes
@@ -2403,7 +2399,9 @@ Distinct from `reference` — a subscription is about change notification, not d
 | Identity of who registered this subscription. Used for audit, notification routing, and filtering (e.g. `kanecta_my_subscriptions` returns only subscriptions for the current principal). Free-form string matching the adapter's identity format.
 |===
 
-==== Channel types
+==== channelPayload (the `channel` type)
+
+A `channel` is its own built-in structured type (`channelPayload`), referenced by `subscription.channelId`. Its `type` discriminator selects which additional fields apply:
 
 [cols="1,1,2", options="header"]
 |===

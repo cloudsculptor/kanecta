@@ -1787,3 +1787,27 @@ describe('annotation + licence are seeded structured types', () => {
     expect(lic?.jsonSchema?.title).toBe('licencePayload');
   });
 });
+
+describe('structured built-in projection (subscription + channel, normalised)', () => {
+  const CHANNEL_TYPE_ID = 'b4e15597-5a90-4e40-bed0-dbb28a9165a9';
+  const SUB_TYPE_ID = 'cf066390-a599-4dbe-bc20-491de885cb18';
+  test('a channel projects, and a subscription references it via channelId (no inline object)', async () => {
+    const watched = await adapter.create({ value: 'watched-item' });
+    const channel = await adapter.create({
+      type: 'channel', value: 'my-webhook',
+      objectData: { type: 'webhook', url: 'https://example.test/hook', secret: '$HOOK' },
+    });
+    expect(channel.typeId).toBe(CHANNEL_TYPE_ID);
+    expect((await adapter.readObjectJson(channel.id, CHANNEL_TYPE_ID)).url).toBe('https://example.test/hook');
+
+    const sub = await adapter.create({
+      type: 'subscription', value: 'watch',
+      objectData: { targetId: watched.id, channelId: channel.id, events: ['update', 'delete'], recursive: true },
+    });
+    expect(sub.typeId).toBe(SUB_TYPE_ID);
+    const p = await adapter.readObjectJson(sub.id, SUB_TYPE_ID);
+    expect(p.channelId).toBe(channel.id);      // normalised reference, not an inline object
+    expect(p.events).toEqual(['update', 'delete']);
+    expect(p.recursive).toBe(true);            // nullable-union boolean -> real BOOLEAN column
+  });
+});

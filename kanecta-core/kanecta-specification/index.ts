@@ -13,6 +13,7 @@ import tAlias from './1.4.0/built-in-types/types/alias.json' with { type: 'json'
 import tAnnotation from './1.4.0/built-in-types/types/annotation.json' with { type: 'json' };
 import tAspectType from './1.4.0/built-in-types/types/aspect-type.json' with { type: 'json' };
 import tCell from './1.4.0/built-in-types/types/cell.json' with { type: 'json' };
+import tChannel from './1.4.0/built-in-types/types/channel.json' with { type: 'json' };
 import tComponent from './1.4.0/built-in-types/types/component.json' with { type: 'json' };
 import tContext from './1.4.0/built-in-types/types/context.json' with { type: 'json' };
 import tEval from './1.4.0/built-in-types/types/eval.json' with { type: 'json' };
@@ -45,7 +46,7 @@ export const wellKnownTypes: readonly string[] = types.wellKnown;
 
 export { builtInTypeManifest };
 export const builtInTypeItems: object[] = [
-  tAction, tActivity, tAgent, tAlias, tAnnotation, tAspectType, tCell, tComponent,
+  tAction, tActivity, tAgent, tAlias, tAnnotation, tAspectType, tCell, tChannel, tComponent,
   tContext, tEval, tEvalRun, tFile, tFormula, tFunction, tGrant, tGrid, tItemHistory,
   tLicence, tObject, tPipeline, tPipelineRun, tQuery, tReference, tRelationship,
   tRelationshipType, tSubscription, tType, tView,

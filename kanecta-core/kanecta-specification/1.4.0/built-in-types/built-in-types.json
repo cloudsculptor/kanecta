@@ -42,6 +42,7 @@
     "action",
     "grid",
     "cell",
+    "channel",
     "item_history",
     "activity",
     "agent",
