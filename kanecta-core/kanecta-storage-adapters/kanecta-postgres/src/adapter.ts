@@ -99,6 +99,9 @@ const PROJECTED_BUILT_IN_TYPES = new Set<string>([
   // children; roleMap.byDepth/byType -> document-role-by-depth/document-role-by-type
   // children (expandState.defaultDepth is flattened onto the document scalar row).
   'document', 'document-expand-exception', 'document-role-by-depth', 'document-role-by-type',
+  // annotation: a payload-dimension type — item lives under the annotation type
+  // container, associates via payload.targetId, threads via payload.parentAnnotationId.
+  'annotation',
 ]);
 
 // The obj_<typeId> the given item projects to, or null if it doesn't project.
@@ -848,30 +851,54 @@ class PostgresAdapter {
 
   // ─── Annotations ─────────────────────────────────────────────────────────────
 
+  // An annotation is a payload-dimension item (spec §"Well-known payload dimension
+  // names"): the item lives under the annotation type-UUID container, associates with
+  // its target via payload.targetId, and threads via payload.parentAnnotationId. The
+  // author is the item's createdBy, the timestamp is createdAt, and item.value mirrors
+  // the body. annotate()/annotations() keep their signatures — they now create/read
+  // `annotation` items projected to obj_<annotation-type>; there is no `annotations` table.
   async annotate(targetId: any, { author, content, parentAnnotationId = null }: any = {}) {
-    const id  = crypto.randomUUID();
-    const now = new Date();
-    await this._pool.query(
-      `INSERT INTO annotations (id, target_id, author, content, created_at, parent_annotation_id)
-       VALUES ($1,$2,$3,$4,$5,$6)`,
-      [id, targetId, author || this.config.owner, content, now, parentAnnotationId],
-    );
-    return { id, targetId, author: author || this.config.owner, content, createdAt: now.toISOString(), parentAnnotationId };
+    const actor = author || this.config.owner;
+    const item = await this.create({
+      type: 'annotation',
+      parentId: BUILT_IN_TYPE_ID_BY_NAME['annotation'],
+      value: content,
+      owner: actor,
+      createdBy: actor,
+      objectData: { targetId, body: content, parentAnnotationId },
+    });
+    return {
+      id:                 item.id,
+      targetId,
+      author:             item.createdBy,
+      content,
+      createdAt:          item.createdAt,
+      parentAnnotationId,
+    };
   }
 
   async annotations(targetId: any) {
-    const { rows } = await this._pool.query(
-      `SELECT * FROM annotations WHERE target_id = $1 ORDER BY created_at, id`,
-      [targetId],
-    );
-    return rows.map(r => ({
-      id:                 r.id,
-      targetId:           r.target_id,
-      author:             r.author,
-      content:            r.content,
-      createdAt:          r.created_at?.toISOString(),
-      parentAnnotationId: r.parent_annotation_id,
-    }));
+    const table = objTableName(BUILT_IN_TYPE_ID_BY_NAME['annotation']);
+    try {
+      const { rows } = await this._pool.query(
+        `SELECT i.id, i.created_at, i.created_by, a.target_id, a.body, a.parent_annotation_id
+         FROM items i JOIN "${table}" a ON a.item_id = i.id
+         WHERE i.type = 'annotation' AND a.target_id = $1 AND i.deleted_at IS NULL
+         ORDER BY i.created_at, i.id`,
+        [targetId],
+      );
+      return rows.map((r: any) => ({
+        id:                 r.id,
+        targetId:           r.target_id,
+        author:             r.created_by,
+        content:            r.body,
+        createdAt:          r.created_at?.toISOString(),
+        parentAnnotationId: r.parent_annotation_id,
+      }));
+    } catch {
+      // obj_<annotation> not materialised yet (no annotations created) → none.
+      return [];
+    }
   }
 
   // ─── Relationships ────────────────────────────────────────────────────────────
@@ -1849,11 +1876,20 @@ class PostgresAdapter {
   }
 
   async _attachObjectSearchTrigger(tableName: any) {
-    await this._pool.query(`DROP TRIGGER IF EXISTS trg_object_search_vector ON "${tableName}"`);
+    // Idempotent + race-safe. The trigger always binds the same function (its body
+    // is updated via CREATE OR REPLACE FUNCTION, never by re-attaching), so there is
+    // no need to DROP+recreate. Two concurrent _ensureProjection calls for the same
+    // fresh table used to race the old `DROP IF EXISTS` + `CREATE` pair — one CREATE
+    // would hit "trigger already exists". Create-and-swallow-duplicate is atomic and
+    // safe under concurrency.
     await this._pool.query(
-      `CREATE TRIGGER trg_object_search_vector
-         AFTER INSERT OR UPDATE OR DELETE ON "${tableName}"
-         FOR EACH ROW EXECUTE FUNCTION kanecta_update_object_search_vector()`,
+      `DO $$
+       BEGIN
+         CREATE TRIGGER trg_object_search_vector
+           AFTER INSERT OR UPDATE OR DELETE ON "${tableName}"
+           FOR EACH ROW EXECUTE FUNCTION kanecta_update_object_search_vector();
+       EXCEPTION WHEN duplicate_object THEN NULL;
+       END $$`,
     );
   }
 

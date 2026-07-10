@@ -950,6 +950,10 @@ The following built-in types use a payload reference field (not the aspect patte
 | `document`
 | `"documents"`
 | `payload.targetId`
+
+| `annotation`
+| `"annotations"`
+| `payload.targetId`
 |===
 
 To query all grants governing item X, hit the grant projection: `SELECT * FROM obj_<grant-type-uuid> WHERE governed_item_id = $x`. To query all aliases for item X, hit the alias projection: `SELECT * FROM obj_<alias-type-uuid> WHERE target_id = $x`. Any accelerator on top of these is a `perf_`-prefixed rebuildable index (e.g. `perf_grant_resolution`, `perf_alias_lookup`), never a bespoke `payload_grant`/`aliases` table — such indexes are always rebuildable from items and are never the source of truth.
@@ -5107,7 +5111,7 @@ These UUIDs can never be changed without a global migration of every `parentId` 
 | `activity`          | `2033f23f-f1d6-43bb-b74e-f62e96251df7`
 | `agent`             | `e5d3fad0-5123-46cc-a827-80954f7f96b2`
 | `alias`             | `80f95b21-6c51-43b5-bdfb-35aad8991c7a`
-| `annotation`        | `8797b002-091a-4289-abf0-850d4b05a743`
+| `annotation`        | `235d6155-db2a-4232-9548-8f5a66150d82`
 | `aspect-type`       | `45bc6fbe-aa63-41be-8566-7217a9a15ece`
 | `cell`              | `42561614-32d6-4c01-93c8-2f6e023ad19f`
 | `component`         | `fab55d91-6975-422a-9398-2b16f72bc805`
@@ -5821,11 +5825,11 @@ kanecta_get_relationships(
 
 === Annotation tools
 
-Annotations are threaded comments on items, stored as `annotation` items whose `parentId` is the annotated item.
+Annotations are threaded comments on items, stored as `annotation` items. Like the other payload-dimension built-ins (see <<Well-known payload dimension names>>), an annotation item lives under the annotation type-UUID container and associates with the annotated item via `payload.targetId` — *not* as a child of the annotated item (its `parentId` is the annotation type container). The author is `item.createdBy`, the timestamp is `item.createdAt`, and `item.value` mirrors the body for display/search.
 
-`kanecta_add_annotation` — Add an annotation. `parentAnnotationId` enables threaded replies.
+`kanecta_add_annotation` — Add an annotation. `payload.parentAnnotationId` (a reference to another `annotation`) enables threaded replies; a reply carries the same `targetId` as the thread it belongs to.
 
-`kanecta_get_annotations` — Get all annotations on an item, threaded and ordered by `createdAt`.
+`kanecta_get_annotations` — Get all annotations on an item (`SELECT … FROM obj_<annotation-type> WHERE target_id = X`), reassembled into threads via `parentAnnotationId` and ordered by `createdAt`.
 
 == Bootstrap Configuration
 

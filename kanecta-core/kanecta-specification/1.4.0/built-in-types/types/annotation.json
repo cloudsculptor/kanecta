@@ -35,7 +35,7 @@
   "search": null,
   "payload": {
     "meta": {
-      "description": "A comment or note on another item, without modifying it.",
+      "description": "A comment or note on another item, without modifying it. Like the other payload-dimension built-ins (alias, reference, document, …), an annotation item lives under the annotation type-UUID container and associates with its target via payload.targetId — not as a child of the annotated item. Its author is item.createdBy and its timestamp is item.createdAt; threaded replies nest via payload.parentAnnotationId.",
       "confidence": "locked",
       "icon": "Comment"
     },
@@ -52,11 +52,18 @@
         "targetId": {
           "type": "string",
           "format": "uuid",
-          "description": "UUID of the item this annotation is about. The annotation's author is item.owner/createdBy, its timestamp is item.createdAt, and a threaded reply nests via item.parentId — none are duplicated into the payload."
+          "x-kanecta-itemType": "item",
+          "description": "UUID of the item this annotation is about. The annotation item lives under the annotation type-UUID container and associates with its target via this field (the dominant payload-dimension pattern, like alias/reference/document). Query all annotations on item X with: SELECT * FROM obj_<annotation-type> WHERE target_id = X."
         },
         "body": {
           "type": "string",
-          "description": "The annotation text."
+          "description": "The annotation text. Also mirrored to item.value for display/search."
+        },
+        "parentAnnotationId": {
+          "type": ["string", "null"],
+          "format": "uuid",
+          "x-kanecta-itemType": "annotation",
+          "description": "For a threaded reply, the UUID of the parent annotation; null for a top-level annotation. Threading lives here (not on item.parentId, which is always the annotation type-UUID container). Replies still carry the same targetId as the thread they belong to."
         }
       }
     },

@@ -88,7 +88,7 @@ const TYPE_ITEM_UUIDS = {
   alias:               '80f95b21-6c51-43b5-bdfb-35aad8991c7a',
   relationship:        '334ea5f6-6bfa-43e5-b77f-5d811642d897',
   'relationship-type': '15861dd7-e54c-4209-bceb-bdd65de4f472',
-  annotation:          '8797b002-091a-4289-abf0-850d4b05a743',
+  annotation:          '235d6155-db2a-4232-9548-8f5a66150d82',
 };
 
 // Metadata item types: real items (source of truth on disk) that back the derived
