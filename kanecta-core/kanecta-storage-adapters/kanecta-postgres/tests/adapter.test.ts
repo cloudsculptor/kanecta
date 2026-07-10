@@ -1690,3 +1690,28 @@ describe('structured built-in projection (query)', () => {
     expect(payload.expression).toBe('type:task status:open');
   });
 });
+
+// ─── Schema-change guard (fail-closed migration protection) ──────────────────────
+
+describe('schema-change guard', () => {
+  test('init throws on a fresh schema when KANECTA_ALLOW_SCHEMA_CHANGES is unset', async () => {
+    const guardSchema = `kanecta_guard_${crypto.randomBytes(4).toString('hex')}`;
+    await adminPool.query(`CREATE SCHEMA "${guardSchema}"`);
+    const gPool = new Pool({ connectionString: CONNECTION_STRING, options: `-c search_path="${guardSchema}"` });
+    const saved = process.env.KANECTA_ALLOW_SCHEMA_CHANGES;
+    try {
+      delete process.env.KANECTA_ALLOW_SCHEMA_CHANGES;
+      await expect(PostgresAdapter.init(gPool, OWNER))
+        .rejects.toThrow(/Refusing to apply .* pending schema migration/);
+      // With the flag set, the same init succeeds and applies migrations.
+      process.env.KANECTA_ALLOW_SCHEMA_CHANGES = '1';
+      const ok = await PostgresAdapter.init(gPool, OWNER);
+      expect((await ok.getRoot()).type).toBe('root');
+    } finally {
+      if (saved === undefined) delete process.env.KANECTA_ALLOW_SCHEMA_CHANGES;
+      else process.env.KANECTA_ALLOW_SCHEMA_CHANGES = saved;
+      await gPool.end();
+      await adminPool.query(`DROP SCHEMA IF EXISTS "${guardSchema}" CASCADE`);
+    }
+  });
+});

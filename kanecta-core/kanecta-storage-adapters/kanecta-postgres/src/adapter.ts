@@ -251,11 +251,35 @@ class PostgresAdapter {
 
     const { rows } = await this._pool.query('SELECT filename FROM schema_migrations');
     const applied = new Set(rows.map(r => r.filename));
-    for (const file of files) {
-      if (applied.has(file)) continue;
+    const pending = files.filter(f => !applied.has(f));
+
+    // Fail-closed schema-change guard. Applying a migration MUTATES the database
+    // (create/drop tables, alter constraints) and could destroy production data.
+    // Refuse unless explicitly authorised, so a deploy can never silently modify
+    // a prod datastore. Dev/test and any deliberate migrate opt in via
+    // KANECTA_ALLOW_SCHEMA_CHANGES=1 (after taking a backup).
+    if (pending.length && !PostgresAdapter._schemaChangesAllowed()) {
+      throw new Error(
+        `Refusing to apply ${pending.length} pending schema migration(s): this would modify ` +
+        `the database schema and may affect production data.\n` +
+        `  Pending: ${pending.join(', ')}\n` +
+        `Back up the database, then set KANECTA_ALLOW_SCHEMA_CHANGES=1 to apply.`,
+      );
+    }
+
+    for (const file of pending) {
       await this._pool.query(fs.readFileSync(path.join(dir, file), 'utf8'));
       await this._pool.query('INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING', [file]);
     }
+  }
+
+  // Whether schema-mutating operations (migrations, built-in-type seeding) are
+  // authorised on this process. Fail-closed: only KANECTA_ALLOW_SCHEMA_CHANGES=1
+  // (or 'true') opts in. Prod deploys leave it unset, so an accidental init /
+  // migrate against production fails loudly instead of silently changing it.
+  static _schemaChangesAllowed(): boolean {
+    const v = process.env.KANECTA_ALLOW_SCHEMA_CHANGES;
+    return v === '1' || v === 'true';
   }
 
   async _ensureConfig(owner: any) {
@@ -345,6 +369,13 @@ class PostgresAdapter {
   // as seeding fresh ones at init. Writes NO obj_ tables (a type with zero
   // instances projects nothing — the four-table invariant).
   async _ensureBuiltInTypes() {
+    // Seeding inserts the built-in type items + their type rows — a bootstrap
+    // mutation of the datastore. Same fail-closed guard as migrations: on an
+    // unauthorised open() (e.g. a prod app connecting) skip silently so the
+    // datastore is never modified on connect. A deliberate init/migrate with
+    // KANECTA_ALLOW_SCHEMA_CHANGES=1 seeds it.
+    if (!PostgresAdapter._schemaChangesAllowed()) return;
+
     const owner = this.config.owner;
     const now   = new Date();
 
