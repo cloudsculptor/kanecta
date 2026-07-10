@@ -283,16 +283,16 @@ describe('preFlightScan', () => {
     });
   }, 30_000);
 
-  test('preFlightScan returns structural refs for items in item_references', async () => {
+  test('preFlightScan returns structural refs for items in perf_references', async () => {
     await withAdapter(async (adapter, pool) => {
-      // Seed a real item and then an item_references row pointing to it
+      // Seed a real item and then a perf_references row pointing to it
       const parent = await createItem(adapter, { value:'parent', parentId: ROOT_ID, type: 'text' });
       const child  = await createItem(adapter, { value:'child', parentId: parent.id, type: 'text' });
 
-      // Manually seed item_references — adapter seedbeds parent ref
+      // Manually seed perf_references — adapter seedbeds parent ref
       // but we also add an inline-link ref to prove the query works
       await pool.query(
-        'INSERT INTO item_references (source_item_id, target_item_id, reference_type) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
+        'INSERT INTO perf_references (source_item_id, target_item_id, reference_type) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
         [child.id, parent.id, 'inline-link'],
       );
 

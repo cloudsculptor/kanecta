@@ -1349,7 +1349,7 @@ describe('rebuildIndexes', () => {
   test('re-populates backlinks after manual delete', async () => {
     const target = await adapter.create({ value: 'rb-target' });
     const linker = await adapter.create({ value: `[[${target.id}]]` });
-    await pool.query('DELETE FROM links WHERE source_id = $1', [linker.id]);
+    await pool.query('DELETE FROM perf_backlinks WHERE source_id = $1', [linker.id]);
     expect(await adapter.backlinks(target.id)).not.toContain(linker.id);
     await adapter.rebuildIndexes();
     expect(await adapter.backlinks(target.id)).toContain(linker.id);

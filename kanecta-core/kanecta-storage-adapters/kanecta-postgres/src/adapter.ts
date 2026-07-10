@@ -511,7 +511,7 @@ class PostgresAdapter {
     const item = typeof idOrItem === 'string' ? await this.get(idOrItem) : idOrItem;
     if (!item) return;
     await this._pool.query(
-      `INSERT INTO history (id, item_id, snapshot, snapshot_at, changed_by, change_type)
+      `INSERT INTO item_history (id, item_id, snapshot, snapshot_at, changed_by, change_type)
        VALUES ($1,$2,$3,$4,$5,$6)`,
       [crypto.randomUUID(), item.id, JSON.stringify(item), now ?? new Date(), changedBy, changeType],
     );
@@ -610,7 +610,7 @@ class PostgresAdapter {
 
     for (const link of parseLinks(value)) {
       await this._pool.query(
-        'INSERT INTO links (source_id, target_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
+        'INSERT INTO perf_backlinks (source_id, target_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
         [id, link],
       );
     }
@@ -678,9 +678,9 @@ class PostgresAdapter {
       const oldLinks = parseLinks(current.value);
       const newLinks = parseLinks(changes.value);
       for (const l of oldLinks) if (!newLinks.includes(l))
-        await this._pool.query('DELETE FROM links WHERE source_id=$1 AND target_id=$2', [id, l]);
+        await this._pool.query('DELETE FROM perf_backlinks WHERE source_id=$1 AND target_id=$2', [id, l]);
       for (const l of newLinks) if (!oldLinks.includes(l))
-        await this._pool.query('INSERT INTO links (source_id, target_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [id, l]);
+        await this._pool.query('INSERT INTO perf_backlinks (source_id, target_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [id, l]);
       maybeSet('value', changes.value);
     }
 
@@ -754,7 +754,7 @@ class PostgresAdapter {
 
   async deleteWarnings(id: any) {
     const { rows: linkRows } = await this._pool.query(
-      'SELECT COUNT(*) FROM links WHERE target_id = $1', [id],
+      'SELECT COUNT(*) FROM perf_backlinks WHERE target_id = $1', [id],
     );
     const { rows: relRows } = await this._pool.query(
       'SELECT COUNT(*) FROM relationships WHERE target_id = $1', [id],
@@ -777,7 +777,7 @@ class PostgresAdapter {
     await this._pool.query('DELETE FROM aliases WHERE target_id = $1', [id]);
     // Derived backlink rows reference items via FK in both directions — clear
     // them before removing the item.
-    await this._pool.query('DELETE FROM links WHERE source_id = $1 OR target_id = $1', [id]);
+    await this._pool.query('DELETE FROM perf_backlinks WHERE source_id = $1 OR target_id = $1', [id]);
     await this._pool.query('DELETE FROM items WHERE id = $1', [id]);
     // The obj_ row cascaded away with the items row (FK ON DELETE CASCADE). Drop
     // the type table if this hard delete removed the last remaining instance.
@@ -918,7 +918,7 @@ class PostgresAdapter {
 
   async backlinks(id: any) {
     const { rows } = await this._pool.query(
-      'SELECT source_id FROM links WHERE target_id = $1', [id],
+      'SELECT source_id FROM perf_backlinks WHERE target_id = $1', [id],
     );
     return rows.map(r => r.source_id);
   }
@@ -935,7 +935,7 @@ class PostgresAdapter {
 
   async history(id: any) {
     const { rows } = await this._pool.query(
-      `SELECT * FROM history WHERE item_id = $1 ORDER BY snapshot_at`, [id],
+      `SELECT * FROM item_history WHERE item_id = $1 ORDER BY snapshot_at`, [id],
     );
     return rows.map(r => ({
       ...r.snapshot,
@@ -2253,12 +2253,12 @@ class PostgresAdapter {
   // ─── Index maintenance ────────────────────────────────────────────────────────
 
   async rebuildIndexes() {
-    await this._pool.query('DELETE FROM links');
+    await this._pool.query('DELETE FROM perf_backlinks');
     const { rows } = await this._pool.query(`SELECT id, value FROM items WHERE value IS NOT NULL`);
     for (const row of rows) {
       for (const link of parseLinks(row.value)) {
         await this._pool.query(
-          'INSERT INTO links (source_id, target_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
+          'INSERT INTO perf_backlinks (source_id, target_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
           [row.id, link],
         );
       }
@@ -2427,7 +2427,7 @@ class PostgresAdapter {
     let blockingRefs: any[]   = [];
     if (changedIds.length) {
       const { rows: refRows } = await this._pool.query(
-        'SELECT source_item_id, target_item_id, reference_type, field_name FROM item_references WHERE target_item_id = ANY($1)',
+        'SELECT source_item_id, target_item_id, reference_type, field_name FROM perf_references WHERE target_item_id = ANY($1)',
         [changedIds],
       ).catch(() => ({ rows: [] })); // item_references may not exist on older schemas
       structuralRefs = refRows.map(r => ({
