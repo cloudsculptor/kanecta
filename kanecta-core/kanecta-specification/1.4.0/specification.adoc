@@ -5414,17 +5414,22 @@ kinds of relation*, and nothing else:
    exists only to make reads fast is legitimate *if and only if* it carries this
    prefix and this property.
 
-Plus exactly *one* irreducible bootstrap that is not a table at all: the hardcoded
-schema constant for the `type` type, needed to project `obj_<type-type>` — you
-cannot derive the derivation rules from themselves, so a single seed schema is
-unavoidable. Everything else, including the type registry, follows the uniform rule.
+There is exactly one place for bootstrapping, and it is *not a table*: the *payload
+of the root item*. The root item's payload (`rootPayload`) carries the entire
+irreducible bootstrap — the specification version and the seed metaschema for the
+`type` type (needed to project `obj_<type-type>`, since you cannot derive the
+derivation rules from themselves). There is *no `schema_version` table* and no
+bootstrap table of any kind: bootstrapping is the root item's payload, and nothing
+else. Even the version marker and the metaschema seed are data on the one item that
+is guaranteed to exist first.
 
 *Any relation that is not one of these four kinds is a specification violation.* A
-bespoke per-type table (`functions`, `documents`, `aliases`, `annotations`,
-`item_grants`, `files`, `licences`, `types`, `rel_types`, `relationships`, `config`,
-`branches`, …) is prohibited: each names an item type whose payload MUST project to
-`obj_<typeId>` like any other. A generic JSON payload table used as a read/query
-surface is prohibited (see the anti-pattern block below).
+`schema_version` (or migration-tracking) table, a bespoke per-type table
+(`functions`, `documents`, `aliases`, `annotations`, `item_grants`, `files`,
+`licences`, `types`, `rel_types`, `relationships`, `config`, `branches`, …), and a
+generic JSON payload table used as a read/query surface are all prohibited:
+bootstrapping lives in `rootPayload`, and every other datum is an item whose payload
+projects to `obj_<typeId>` like any other.
 
 ==== No hand-coded DDL the compiler could emit
 
