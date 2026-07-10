@@ -1747,3 +1747,23 @@ describe('structured built-in projection (reference, file)', () => {
     expect(payload.width).toBe(1024);
   });
 });
+
+describe('structured built-in projection (formula, context, cell)', () => {
+  const cases = [
+    { type: 'formula', id: 'd605ed1b-2c53-44a0-b4ac-3a307b61e82a',
+      data: { level: 'template', expression: 'TASK-{n}' }, check: (p: any) => expect(p.expression).toBe('TASK-{n}') },
+    { type: 'context', id: 'bd48218a-1c21-4c8e-ac0e-9ea026f2cf4d',
+      data: { runtime: 'web', display: 'detail-panel', capabilities: ['react', 'css'] },
+      check: (p: any) => { expect(p.runtime).toBe('web'); expect(p.capabilities).toEqual(['react', 'css']); } },
+    { type: 'cell', id: '42561614-32d6-4c01-93c8-2f6e023ad19f',
+      data: { row: 3, column: 'B' }, check: (p: any) => { expect(p.row).toBe(3); expect(p.column).toBe('B'); } },
+  ];
+  for (const c of cases) {
+    test(`a ${c.type} instance projects to obj_<${c.type}-type> and round-trips`, async () => {
+      const item = await adapter.create({ type: c.type, value: c.type, objectData: c.data });
+      expect(item.type).toBe(c.type);
+      expect(item.typeId).toBe(c.id);
+      c.check(await adapter.readObjectJson(item.id, c.id));
+    });
+  }
+});
