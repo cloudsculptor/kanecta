@@ -19,6 +19,9 @@ import tClaudeCodeConfig from './1.4.0/built-in-types/types/claude-code-config.j
 import tComponent from './1.4.0/built-in-types/types/component.json' with { type: 'json' };
 import tContext from './1.4.0/built-in-types/types/context.json' with { type: 'json' };
 import tDocument from './1.4.0/built-in-types/types/document.json' with { type: 'json' };
+import tDocumentExpandException from './1.4.0/built-in-types/types/document-expand-exception.json' with { type: 'json' };
+import tDocumentRoleByDepth from './1.4.0/built-in-types/types/document-role-by-depth.json' with { type: 'json' };
+import tDocumentRoleByType from './1.4.0/built-in-types/types/document-role-by-type.json' with { type: 'json' };
 import tEval from './1.4.0/built-in-types/types/eval.json' with { type: 'json' };
 import tEvalRun from './1.4.0/built-in-types/types/eval-run.json' with { type: 'json' };
 import tFile from './1.4.0/built-in-types/types/file.json' with { type: 'json' };
@@ -59,9 +62,9 @@ export const wellKnownTypes: readonly string[] = types.wellKnown;
 export { builtInTypeManifest };
 export const builtInTypeItems: object[] = [
   tAction, tActivity, tAgent, tAlias, tAnnotation, tAspectType, tCell, tChannel,
-  tClaudeApiConfig, tClaudeCodeConfig, tComponent, tContext, tDocument, tEval, tEvalRun, tFile,
-  tFormula, tFunction, tFunctionThrow, tGrant, tGrid, tGroupChatConfig, tHttpConfig, tItemHistory,
-  tKanectaFunctionConfig, tLicence, tObject, tParameter, tPipeline, tPipelineRun, tProperty, tPythonConfig,
-  tQuery, tQueryParam, tReference, tRelationship, tRelationshipType, tSubscription, tType, tTypeParameter,
-  tView,
+  tClaudeApiConfig, tClaudeCodeConfig, tComponent, tContext, tDocument, tDocumentExpandException, tDocumentRoleByDepth, tDocumentRoleByType,
+  tEval, tEvalRun, tFile, tFormula, tFunction, tFunctionThrow, tGrant, tGrid,
+  tGroupChatConfig, tHttpConfig, tItemHistory, tKanectaFunctionConfig, tLicence, tObject, tParameter, tPipeline,
+  tPipelineRun, tProperty, tPythonConfig, tQuery, tQueryParam, tReference, tRelationship, tRelationshipType,
+  tSubscription, tType, tTypeParameter, tView,
 ];

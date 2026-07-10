@@ -2483,6 +2483,8 @@ Org default vs personal:
 * When a user modifies an org-default document, the intended behaviour is fork-on-modify: a new personal document is created with `baseDocumentId` pointing at the source document and `meta.visibility: 'private'`. The org default is left untouched. The `baseDocumentId` link allows tooling to diff or sync the fork against the upstream canonical when needed.
 * `meta.visibility: 'org'` — visible to all org members. `meta.visibility: 'private'` — visible only to the owner.
 
+NOTE: *Storage* — the payload below is the logical form the adapter reads and writes; per the flat one-level rule it is stored *decomposed* on the `document` projection, never as an inline blob. The scalar fields (`targetId`, `name`, `mode`, `isOrgDefault`, `baseDocumentId`) plus `expandState.defaultDepth` (flattened to a `default_depth` column) are columns on `obj_<document-type>`. The two nested maps become child items of the document: `expandState.exceptions` → `document-expand-exception` children (`{overrideItemId, depth}`, where `depth = -1` encodes the `false`/collapse value); `roleMap.byDepth` → `document-role-by-depth` children (`{depth, role}`); `roleMap.byType` → `document-role-by-type` children (`{key, role}` — `key` is a plain string so both type-name and typeId-UUID keys round-trip losslessly). `readDocumentPayload` / `writeDocumentPayload` reassemble / decompose this shape, so consumers see the nested payload unchanged.
+
 [source,json]
 ----
 {

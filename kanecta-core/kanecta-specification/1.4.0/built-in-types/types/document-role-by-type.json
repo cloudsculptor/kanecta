@@ -1,0 +1,76 @@
+{
+  "item": {
+    "id": "31f98fd4-abc3-40e0-91cb-81b7654d28c6",
+    "parentId": "11111111-1111-1111-1111-111111111111",
+    "type": "type",
+    "typeId": null,
+    "value": "document-role-by-type",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "A type→role mapping entry within a document. A document's roleMap.byType map (item type name OR typeId UUID → role name) is stored as `document-role-by-type` children of the document item, not an inline object. The key is a plain string so both forms (type name and typeId UUID) round-trip losslessly; it is NOT a uuid reference.",
+      "confidence": "locked",
+      "icon": "Category"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "documentRoleByTypePayload",
+      "type": "object",
+      "required": [
+        "key",
+        "role"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Item type name (e.g. 'note') or a typeId UUID. UUID-keyed entries take precedence over byDepth. Stored as a plain string — not a uuid reference — so type-name keys are preserved."
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "title",
+            "heading",
+            "subheading",
+            "body",
+            "caption",
+            "list-item",
+            "code-block",
+            "ignore"
+          ],
+          "description": "Document role assigned to items of this type."
+        }
+      }
+    },
+    "sqlSchema": [
+      "-- Built-in type: adapter handles storage natively."
+    ]
+  }
+}

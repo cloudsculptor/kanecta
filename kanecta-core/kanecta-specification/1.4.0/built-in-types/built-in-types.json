@@ -59,7 +59,10 @@
     "query-param",
     "parameter",
     "function-throw",
-    "type-parameter"
+    "type-parameter",
+    "document-expand-exception",
+    "document-role-by-depth",
+    "document-role-by-type"
   ],
   "wellKnown": [
     "root",

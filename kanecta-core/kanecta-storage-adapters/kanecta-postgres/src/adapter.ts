@@ -46,7 +46,8 @@ const BUILT_IN_TYPES = new Set([
   'cell', 'channel', 'component', 'connector', 'context', 'eval', 'eval-run',
   'claude-api-config', 'claude-code-config', 'python-config',
   'kanecta-function-config', 'group-chat-config', 'http-config',
-  'document', 'formula', 'grant', 'grid', 'item_history', 'licence', 'pipeline', 'pipeline-run',
+  'document', 'document-expand-exception', 'document-role-by-depth', 'document-role-by-type',
+  'formula', 'grant', 'grid', 'item_history', 'licence', 'pipeline', 'pipeline-run',
   'parameter', 'property', 'query', 'query-param', 'reference', 'relationship', 'relationship-type',
   'subscription', 'type-parameter', 'tree', 'node', 'view', 'type',
   // Well-known root types
@@ -94,6 +95,10 @@ const PROJECTED_BUILT_IN_TYPES = new Set<string>([
   // function.parameters -> parameter children; typeParameters -> type-parameter
   // children; throws -> function-throw children; bundleHash -> property children.
   'function', 'type-parameter', 'function-throw',
+  // document scalars project; expandState.exceptions -> document-expand-exception
+  // children; roleMap.byDepth/byType -> document-role-by-depth/document-role-by-type
+  // children (expandState.defaultDepth is flattened onto the document scalar row).
+  'document', 'document-expand-exception', 'document-role-by-depth', 'document-role-by-type',
 ]);
 
 // The obj_<typeId> the given item projects to, or null if it doesn't project.
@@ -1572,7 +1577,17 @@ class PostgresAdapter {
   // built-in-types/types/document.json and identical across all installations.
   static get DOCUMENT_TYPE_UUID() { return 'b4e2f1c3-a0d5-4e6f-8b9c-d7f2e1a3b5c0'; }
 
+  // A document is projected like any other type (the four-table law): scalars live
+  // on obj_<document-type>; its two nested maps are children —
+  // expandState.exceptions → `document-expand-exception` ({itemId, depth}; depth −1
+  // encodes the source `false` = collapse), roleMap.byDepth → `document-role-by-depth`
+  // ({depth, role}), roleMap.byType → `document-role-by-type` ({key, role}).
+  // expandState.defaultDepth is flattened onto the document scalar row. createDocument /
+  // readDocumentPayload / writeDocumentPayload / listDocuments keep their signatures —
+  // read/write reassemble the nested payload — so consumers (exportMarkdown, Studio) are
+  // untouched. The `documents` JSONB table is gone (migration 031).
   async createDocument(targetId: any, name: any, {
+    mode = null,
     expandState = null,
     roleMap = null,
     isOrgDefault = false,
@@ -1588,7 +1603,7 @@ class PostgresAdapter {
       owner,
       visibility,
     });
-    const payload = {
+    const payload: any = {
       targetId,
       name,
       expandState: expandState ?? { defaultDepth: 2, exceptions: {} },
@@ -1596,36 +1611,114 @@ class PostgresAdapter {
       isOrgDefault,
       baseDocumentId: baseDocumentId ?? null,
     };
+    if (mode != null) payload.mode = mode;
     await this.writeDocumentPayload(item.id, payload);
     return item;
   }
 
   async readDocumentPayload(id: any) {
-    const { rows } = await this._pool.query(
-      'SELECT payload FROM documents WHERE item_id = $1', [id],
+    const documentTypeId = BUILT_IN_TYPE_ID_BY_NAME['document'];
+    const scalars: any = await this.readObjectJson(id, documentTypeId);
+    // targetId is required on every real document; its absence means "no document
+    // payload" (a non-document item, or the transient empty row create() leaves).
+    if (!scalars || scalars.targetId == null) return null;
+
+    const { rows: kids } = await this._pool.query(
+      `SELECT id, type FROM items
+        WHERE parent_id = $1 AND deleted_at IS NULL
+          AND type = ANY($2) ORDER BY sort_order`,
+      [id, ['document-expand-exception', 'document-role-by-depth', 'document-role-by-type']],
     );
-    return rows[0]?.payload ?? null;
+
+    const exceptions: Record<string, any> = {};
+    const byDepth: Record<string, any>    = {};
+    const byType: Record<string, any>     = {};
+    for (const k of kids) {
+      if (k.type === 'document-expand-exception') {
+        const e: any = (await this.readObjectJson(k.id, BUILT_IN_TYPE_ID_BY_NAME['document-expand-exception'])) ?? {};
+        if (e.overrideItemId != null) exceptions[e.overrideItemId] = e.depth === -1 ? false : e.depth;
+      } else if (k.type === 'document-role-by-depth') {
+        const r: any = (await this.readObjectJson(k.id, BUILT_IN_TYPE_ID_BY_NAME['document-role-by-depth'])) ?? {};
+        if (r.depth != null) byDepth[String(r.depth)] = r.role;
+      } else if (k.type === 'document-role-by-type') {
+        const r: any = (await this.readObjectJson(k.id, BUILT_IN_TYPE_ID_BY_NAME['document-role-by-type'])) ?? {};
+        if (r.key != null) byType[r.key] = r.role;
+      }
+    }
+
+    const out: any = { targetId: scalars.targetId, name: scalars.name };
+    if (scalars.mode != null) out.mode = scalars.mode;
+    out.expandState = {};
+    if (scalars.defaultDepth != null) out.expandState.defaultDepth = scalars.defaultDepth;
+    out.expandState.exceptions = exceptions;
+    out.roleMap = { byDepth, byType };
+    out.isOrgDefault = scalars.isOrgDefault ?? false;
+    out.baseDocumentId = scalars.baseDocumentId ?? null;
+    return out;
   }
 
   async writeDocumentPayload(id: any, payload: any) {
-    await this._pool.query(
-      `INSERT INTO documents (item_id, payload) VALUES ($1, $2)
-       ON CONFLICT (item_id) DO UPDATE SET payload = EXCLUDED.payload`,
-      [id, JSON.stringify(payload)],
+    const documentTypeId = BUILT_IN_TYPE_ID_BY_NAME['document'];
+    await this._ensureProjection(documentTypeId);
+    await this.writeObjectJson(id, documentTypeId, {
+      targetId: payload?.targetId ?? null,
+      name: payload?.name ?? null,
+      mode: payload?.mode ?? null,
+      defaultDepth: payload?.expandState?.defaultDepth ?? null,
+      isOrgDefault: payload?.isOrgDefault ?? null,
+      baseDocumentId: payload?.baseDocumentId ?? null,
+    });
+    await this._replaceDocumentChildren(id, payload);
+  }
+
+  // Regenerate a document's typed children wholesale from `payload` (mirrors the
+  // function child-replacement). Existing exception / role children are hard-deleted
+  // (obj_ rows cascade) and re-created in map order.
+  async _replaceDocumentChildren(id: any, payload: any) {
+    const { rows: existing } = await this._pool.query(
+      `SELECT id FROM items WHERE parent_id = $1 AND type = ANY($2)`,
+      [id, ['document-expand-exception', 'document-role-by-depth', 'document-role-by-type']],
     );
+    for (const r of existing) await this.delete(r.id);
+
+    const owner = this.config.owner;
+    const mk = async (type: string, value: any, i: number, objectData: any) =>
+      this.create({ parentId: id, type, value, sortOrder: i, owner, objectData });
+
+    let i = 0;
+    for (const [itemId, depth] of Object.entries(payload?.expandState?.exceptions ?? {})) {
+      await mk('document-expand-exception', itemId, i++, {
+        overrideItemId: itemId,
+        depth: depth === false ? -1 : depth,
+      });
+    }
+    i = 0;
+    for (const [depthStr, role] of Object.entries(payload?.roleMap?.byDepth ?? {})) {
+      await mk('document-role-by-depth', depthStr, i++, { depth: Number(depthStr), role });
+    }
+    i = 0;
+    for (const [key, role] of Object.entries(payload?.roleMap?.byType ?? {})) {
+      await mk('document-role-by-type', key, i++, { key, role });
+    }
   }
 
   async listDocuments(targetId: any) {
-    const { rows } = await this._pool.query(`
-      SELECT i.*
-      FROM items i
-      JOIN documents d ON d.item_id = i.id
-      WHERE i.type = 'document'
-        AND d.payload->>'targetId' = $1
-        AND i.deleted_at IS NULL
-      ORDER BY i.id
-    `, [targetId]);
-    return rows.map(rowToItem);
+    const table = objTableName(BUILT_IN_TYPE_ID_BY_NAME['document']);
+    try {
+      const { rows } = await this._pool.query(`
+        SELECT i.*
+        FROM items i
+        JOIN "${table}" d ON d.item_id = i.id
+        WHERE i.type = 'document'
+          AND d.target_id = $1
+          AND i.deleted_at IS NULL
+        ORDER BY i.id
+      `, [targetId]);
+      return rows.map(rowToItem);
+    } catch {
+      // obj_<document> not materialised yet (no documents created) → none to list.
+      return [];
+    }
   }
 
   // Active schedule items whose next fire time is at or before beforeAt.
