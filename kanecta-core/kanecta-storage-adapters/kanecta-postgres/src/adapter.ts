@@ -80,7 +80,7 @@ const BUILT_IN_TYPE_ID_BY_NAME: Record<string, string> = Object.fromEntries(
 // listed here keeps its legacy storage untouched, so the switch is staged and
 // reversible. `grant`/`query` lead: grant's read side (PgAuthzSource) already
 // targets obj_<grant-type>, and neither has a conflicting dedicated table.
-const PROJECTED_BUILT_IN_TYPES = new Set<string>(['grant', 'query']);
+const PROJECTED_BUILT_IN_TYPES = new Set<string>(['grant', 'query', 'reference', 'file']);
 
 // The obj_<typeId> the given item projects to, or null if it doesn't project.
 // A user 'object' carries its typeId on the row; a projection-enabled structured

@@ -1715,3 +1715,35 @@ describe('schema-change guard', () => {
     }
   });
 });
+
+describe('structured built-in projection (reference, file)', () => {
+  const REFERENCE_TYPE_ID = 'cb120719-5a23-4b4f-b614-898f79f1904f';
+  const FILE_TYPE_ID = 'c0f603f1-a3ac-4a7d-b9ac-983822c7304f';
+
+  test('a reference instance projects to obj_<reference-type> and round-trips', async () => {
+    const target = await adapter.create({ value: 'ref-target' });
+    const ref = await adapter.create({
+      type: 'reference', value: 'external-fk',
+      objectData: { targetId: target.id, kind: 'external-system', description: 'FK held in another DB', blockDeletion: true },
+    });
+    expect(ref.type).toBe('reference');
+    expect(ref.typeId).toBe(REFERENCE_TYPE_ID);
+    const payload = await adapter.readObjectJson(ref.id, REFERENCE_TYPE_ID);
+    expect(payload.targetId).toBe(target.id);
+    expect(payload.kind).toBe('external-system');
+    expect(payload.blockDeletion).toBe(true);
+  });
+
+  test('a file instance projects to obj_<file-type> (metadata; bytes live in S3/sidecar)', async () => {
+    const f = await adapter.create({
+      type: 'file', value: 'photo.jpg',
+      objectData: { mimeType: 'image/jpeg', size: 20481, width: 1024, height: 768, altText: 'A photo' },
+    });
+    expect(f.type).toBe('file');
+    expect(f.typeId).toBe(FILE_TYPE_ID);
+    const payload = await adapter.readObjectJson(f.id, FILE_TYPE_ID);
+    expect(payload.mimeType).toBe('image/jpeg');
+    expect(payload.size).toBe(20481);
+    expect(payload.width).toBe(1024);
+  });
+});
