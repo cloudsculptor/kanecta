@@ -1612,3 +1612,81 @@ describe.skipIf(!AGE_ENABLED)('graph projection (AGE)', () => {
     expect(await adapter.graphNeighbors(a.id, { relType: 'enables' })).toContain(b.id);
   });
 });
+
+// ─── Structured built-in projection (four-table law) ─────────────────────────────
+
+describe('structured built-in projection', () => {
+  const GRANT_TYPE_ID = '89138971-cd16-4c7a-b4cd-669711bfab75';
+  const grantTable = `obj_${GRANT_TYPE_ID.replace(/-/g, '_')}`;
+
+  test('the grant type definition is seeded (readTypeJson resolves its jsonSchema)', async () => {
+    const def = await adapter.readTypeJson(GRANT_TYPE_ID);
+    expect(def?.jsonSchema?.title).toBe('grantPayload');
+  });
+
+  test('a grant instance projects to obj_<grant-type> with typed columns', async () => {
+    const governed = await adapter.create({ value: 'governed-doc' });
+    const grant = await adapter.create({
+      type: 'grant',
+      value: 'grant',
+      objectData: {
+        governedItemId: governed.id,
+        principal: 'alice@example.com',
+        permissions: ['read', 'write'],
+        cascade: false,
+      },
+    });
+
+    // The instance carries the grant type's fixed UUID (the projection key) —
+    // NOT type='object'. This is the four-table law: a built-in is an ordinary
+    // type projected to obj_<typeId>.
+    expect(grant.type).toBe('grant');
+    expect(grant.typeId).toBe(GRANT_TYPE_ID);
+
+    // Payload round-trips through the projected table's typed columns.
+    const payload = await adapter.readObjectJson(grant.id, GRANT_TYPE_ID);
+    expect(payload.governedItemId).toBe(governed.id);
+    expect(payload.principal).toBe('alice@example.com');
+    expect(payload.permissions).toEqual(['read', 'write']);
+    expect(payload.cascade).toBe(false);
+
+    // The exact read contract PgAuthzSource.grantsFor() depends on: typed
+    // columns on obj_<grant-type>, joined to items, filtered by governed_item_id.
+    const { rows } = await pool.query(
+      `SELECT g.principal, g.permissions, g.cascade
+         FROM "${grantTable}" g JOIN items i ON i.id = g.item_id
+        WHERE g.governed_item_id = $1 AND i.deleted_at IS NULL`,
+      [governed.id],
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].principal).toBe('alice@example.com');
+    expect(rows[0].permissions).toEqual(['read', 'write']);
+    expect(rows[0].cascade).toBe(false);
+  });
+
+  test('an invalid grant payload is rejected before the item row is written', async () => {
+    const before = (await pool.query('SELECT count(*)::int AS n FROM items')).rows[0].n;
+    await expect(adapter.create({
+      type: 'grant', value: 'grant',
+      objectData: { governedItemId: crypto.randomUUID(), principal: 'x' }, // missing permissions
+    })).rejects.toThrow(/validation|permissions/i);
+    const after = (await pool.query('SELECT count(*)::int AS n FROM items')).rows[0].n;
+    expect(after).toBe(before);
+  });
+});
+
+describe('structured built-in projection (query)', () => {
+  const QUERY_TYPE_ID = '1c23396d-c3a0-4f51-9307-a1aecd1f44fa';
+
+  test('a query instance projects to obj_<query-type> and round-trips', async () => {
+    const q = await adapter.create({
+      type: 'query', value: 'all-open-tasks',
+      objectData: { language: 'kanecta', expression: 'type:task status:open', description: 'Open tasks' },
+    });
+    expect(q.type).toBe('query');
+    expect(q.typeId).toBe(QUERY_TYPE_ID);
+    const payload = await adapter.readObjectJson(q.id, QUERY_TYPE_ID);
+    expect(payload.language).toBe('kanecta');
+    expect(payload.expression).toBe('type:task status:open');
+  });
+});

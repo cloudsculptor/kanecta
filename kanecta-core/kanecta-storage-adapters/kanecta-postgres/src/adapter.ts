@@ -510,10 +510,16 @@ class PostgresAdapter {
       typeWarning = this._guardTypeIdRef(typeId, strict);
     }
 
+    // The projection table this item belongs to (obj_<typeId>): a user 'object'
+    // carries its typeId; a projection-enabled structured built-in (grant, query)
+    // resolves its fixed type-item UUID. null for primitives / not-yet-cut-over
+    // built-ins — they keep type_id NULL and project nothing.
+    const rowTypeId = projectionTypeId(type, typeId);
+
     // Validate a supplied payload up-front, before the item row is inserted, so a
     // schema violation can never leave a dangling item with no (or invalid) payload.
-    if (type === 'object' && typeId && objectData != null) {
-      await this._validateObjectPayload(typeId, objectData);
+    if (rowTypeId && objectData != null) {
+      await this._validateObjectPayload(rowTypeId, objectData);
     }
 
     if (parentId == null) {
@@ -543,7 +549,7 @@ class PostgresAdapter {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$14,$15,$15,$16,'private',$17,$18,$19,$20,$21,$22,$23)`,
       [
         id, specVersion, parentId, itemPath, value,
-        type, type === 'object' ? typeId : null,
+        type, rowTypeId,
         ownerVal, license ?? DEFAULT_LICENSE,
         sortOrder, confidence, status, tags,
         now, actor, dueAt, aspect,
@@ -561,13 +567,15 @@ class PostgresAdapter {
 
     // Per-type table projection: the first live instance of a type materialises
     // its obj_<typeId> table, and every instance holds a row there (one row per
-    // live item). ensureProjection is a no-op for an orphan typeId (no def).
-    if (type === 'object' && typeId) {
-      const projected = await this._ensureProjection(typeId);
+    // live item). Applies to user 'object' types AND projection-enabled
+    // structured built-ins (both resolved to rowTypeId). ensureProjection is a
+    // no-op for an orphan typeId (no def).
+    if (rowTypeId) {
+      const projected = await this._ensureProjection(rowTypeId);
       if (projected) {
-        if (objectData) await this.writeObjectJson(id, typeId, objectData);
+        if (objectData) await this.writeObjectJson(id, rowTypeId, objectData);
         else await this._pool.query(
-          `INSERT INTO "${objTableName(typeId)}" (item_id) VALUES ($1) ON CONFLICT (item_id) DO NOTHING`,
+          `INSERT INTO "${objTableName(rowTypeId)}" (item_id) VALUES ($1) ON CONFLICT (item_id) DO NOTHING`,
           [id],
         );
       }
@@ -627,7 +635,11 @@ class PostgresAdapter {
     }
 
     if ('type' in changes)        maybeSet('type',         changes.type);
-    if ('typeId' in changes)      maybeSet('type_id',      changes.typeId);
+    // Keep type_id in lockstep with the projection identity: recompute it
+    // whenever type or typeId changes so a structured built-in gains/keeps its
+    // fixed UUID and a primitive clears it (projectionTypeId encodes both).
+    if ('type' in changes || 'typeId' in changes)
+      maybeSet('type_id', projectionTypeId(newType, newTypeId));
     if ('sortOrder' in changes)   maybeSet('sort_order',   changes.sortOrder);
     if ('confidence' in changes)  maybeSet('confidence',   changes.confidence);
     if ('status' in changes)      maybeSet('status',       changes.status);
@@ -663,21 +675,22 @@ class PostgresAdapter {
       );
     }
 
-    // Per-type projection: reconcile membership when the item's type/typeId
-    // changes. The items row is already updated above, so N(T) on the old type
-    // no longer counts this item. A pure soft-delete (deletedAt only) leaves
-    // type/typeId unchanged and keeps the obj_ row (pg's payload store).
-    const prevObj = current.type === 'object' && current.typeId;
-    const nextObj = newType === 'object' && newTypeId;
-    if (prevObj && (!nextObj || current.typeId !== newTypeId)) {
-      try { await this._pool.query(`DELETE FROM "${objTableName(current.typeId)}" WHERE item_id = $1`, [id]); }
+    // Per-type projection: reconcile membership when the item's projection
+    // identity changes. Both sides resolve through projectionTypeId so user
+    // 'object' types and projection-enabled structured built-ins are handled
+    // uniformly. The items row is already updated above. A pure soft-delete
+    // (deletedAt only) leaves type/typeId unchanged and keeps the obj_ row.
+    const prevProj = projectionTypeId(current.type, current.typeId);
+    const nextProj = projectionTypeId(newType, newTypeId);
+    if (prevProj && prevProj !== nextProj) {
+      try { await this._pool.query(`DELETE FROM "${objTableName(prevProj)}" WHERE item_id = $1`, [id]); }
       catch { /* old table already absent */ }
-      await this._dropProjectionIfEmpty(current.typeId);
+      await this._dropProjectionIfEmpty(prevProj);
     }
-    if (nextObj && (!prevObj || current.typeId !== newTypeId)) {
-      const projected = await this._ensureProjection(newTypeId);
+    if (nextProj && prevProj !== nextProj) {
+      const projected = await this._ensureProjection(nextProj);
       if (projected) await this._pool.query(
-        `INSERT INTO "${objTableName(newTypeId)}" (item_id) VALUES ($1) ON CONFLICT (item_id) DO NOTHING`,
+        `INSERT INTO "${objTableName(nextProj)}" (item_id) VALUES ($1) ON CONFLICT (item_id) DO NOTHING`,
         [id],
       );
     }
@@ -718,7 +731,8 @@ class PostgresAdapter {
     await this._pool.query('DELETE FROM items WHERE id = $1', [id]);
     // The obj_ row cascaded away with the items row (FK ON DELETE CASCADE). Drop
     // the type table if this hard delete removed the last remaining instance.
-    if (item.type === 'object' && item.typeId) await this._dropProjectionIfEmpty(item.typeId);
+    // typeId is the projection key (object OR structured built-in).
+    if (item.typeId) await this._dropProjectionIfEmpty(item.typeId);
     return { warnings };
   }
 
@@ -1127,7 +1141,8 @@ class PostgresAdapter {
     // where clause: in-JS filtering on objectData fields
     if (where && Object.keys(where).length) {
       const withData = await Promise.all(items.map(async (item: any) => {
-        if (item.type !== 'object' || !item.typeId) return { ...item, objectData: null };
+        // type_id is the projection key for user objects AND structured built-ins.
+        if (!item.typeId) return { ...item, objectData: null };
         const objectData = await this.readObjectJson(item.id, item.typeId);
         return { ...item, objectData };
       }));
@@ -1693,8 +1708,11 @@ class PostgresAdapter {
   // Hence N counts every remaining items row of the type (live OR soft-deleted);
   // the table is dropped only once the last one is hard-deleted / reassigned.
   async _dropProjectionIfEmpty(typeId: any) {
+    // Count by type_id alone — the projection key. A structured built-in's
+    // instances carry type_id but type='grant'/'query'/…, so filtering on
+    // type='object' would under-count and drop a live table.
     const { rows } = await this._pool.query(
-      "SELECT COUNT(*)::int AS n FROM items WHERE type = 'object' AND type_id = $1",
+      'SELECT COUNT(*)::int AS n FROM items WHERE type_id = $1',
       [typeId],
     );
     if (!rows[0] || rows[0].n === 0)
@@ -2001,7 +2019,7 @@ class PostgresAdapter {
   async _embeddingContent(item: any) {
     const parts = [];
     if (item.value) parts.push(String(item.value));
-    if (item.type === 'object' && item.typeId) {
+    if (item.typeId) {
       const data = await this.readObjectJson(item.id, item.typeId);
       if (data) {
         for (const [field, value] of Object.entries(data)) {
