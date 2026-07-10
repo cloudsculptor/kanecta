@@ -89,13 +89,15 @@ Output object keys are the **wire** field names (camelCase); the DataSource spea
 - **formula `dsl` (formulajs) + `function`-item computed** — the last-resort ladder
   rungs; declarative-first covers `query` + `template` today.
 - **`/graphql` per-item authz** — `PgAuthzSource` (../authz/pg-authz-source.ts)
-  backs the G4 engine's **visibility + owner** layers over the items table, wired as
-  the route's `context.authorize` **opt-in via `KANECTA_GRAPHQL_AUTHZ=on`** (default
-  off, since backfilled items default to `visibility:'private'`). The GRANT-CASCADE
-  layer (role/team etc., RBAC→ReBAC) still needs the `grant`-item storage + the
-  `payload_grant` derived table — until then grantsFor returns [] (non-public,
-  non-owner items are denied, a safe direction). Enabling it needs: correct
-  visibility on backfilled data, and the grant layer.
+  backs the G4 engine's **visibility + owner + grant** layers over the items table,
+  wired as the route's `context.authorize` **opt-in via `KANECTA_GRAPHQL_AUTHZ=on`**
+  (default off, since backfilled items default to `visibility:'private'` and no
+  grants are seeded yet). Grants are generic `grant` items read from `item_payloads`
+  by `governedItemId`; the engine's ancestor walk applies **cascade** (a role grant
+  on a container flows to everything inside). Remaining: ReBAC group principals
+  (`{itemId, relation}`) need holdsRelation wiring; the O(1) `payload_grant` derived
+  table is a later perf optimization. Enabling the gate needs correct visibility +
+  grant items on the data (a seeder).
 - **Adapter-based seeding + backfill** — seed the `ch-*` manifest via the real
   Postgres adapter and backfill nonprod data (see `../../manifests/community-hub/`).
 - **DataLoader batching** — the `PgDataSource` loads per-field; batch to kill N+1.
