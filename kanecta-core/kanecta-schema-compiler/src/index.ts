@@ -28,6 +28,8 @@ export interface Dialect {
   number: string;
   boolean: string;
   uuid: string;
+  /** Column type for a genuine-JSON field (`x-kanecta-storage: "json"`). */
+  json: string;
   /** null ⇒ no array columns (decompose to a child value-table). */
   arrayColumn: ((base: string) => string) | null;
   /**
@@ -51,10 +53,17 @@ export interface Dialect {
 
 /** A single property in a flat type `jsonSchema`. */
 export interface JsonSchemaProp {
-  type?: string;
+  type?: string | string[];
   format?: string;
   typeId?: string;
   'x-kanecta-itemType'?: string;
+  /**
+   * `"json"` marks a field whose value is genuine JSON content (e.g. a stored
+   * JSON Schema document, rich-text editor state) — the one sanctioned case for a
+   * JSON column. Any OTHER object-typed field is a compile error: normalise it
+   * into its own type referenced by `typeId` (the flat one-level rule).
+   */
+  'x-kanecta-storage'?: string;
   items?: JsonSchemaProp;
 }
 
@@ -148,6 +157,7 @@ export const DIALECTS: Record<DialectName, Dialect> = {
     number: 'DOUBLE PRECISION',
     boolean: 'BOOLEAN',
     uuid: 'UUID',
+    json: 'JSONB',
     arrayColumn: (base) => `${base}[]`, // native array
     computedColumn: (sqlType, expression, stored) =>
       `${sqlType} GENERATED ALWAYS AS (${expression}) ${stored ? 'STORED' : 'VIRTUAL'}`,
@@ -177,6 +187,7 @@ export const DIALECTS: Record<DialectName, Dialect> = {
     number: 'REAL',
     boolean: 'INTEGER',
     uuid: 'TEXT',
+    json: 'TEXT', // JSON stored as text
     arrayColumn: () => 'TEXT', // JSON-encoded
     computedColumn: (sqlType, expression, stored) =>
       `${sqlType} GENERATED ALWAYS AS (${expression}) ${stored ? 'STORED' : 'VIRTUAL'}`,
@@ -205,6 +216,7 @@ export const DIALECTS: Record<DialectName, Dialect> = {
     number: 'DOUBLE PRECISION',
     boolean: 'BOOLEAN',
     uuid: 'CHAR(36)',
+    json: 'CLOB', // JSON stored as portable text
     arrayColumn: null, // no array columns — decompose to a child value-table
     computedColumn: null, // portable ANSI — no generated columns
     trigger: null, // no portable trigger form
@@ -239,6 +251,18 @@ function scalarType(prop: JsonSchemaProp | undefined, d: Dialect): { sql: string
   if (t === 'integer') return { sql: d.integer, ref: false };
   if (t === 'number') return { sql: d.number, ref: false };
   if (t === 'boolean') return { sql: d.boolean, ref: false };
+  if (t === 'object') {
+    // The ONLY sanctioned JSON column: a field whose value is genuine JSON
+    // content (a stored JSON Schema document, rich-text state), marked explicitly.
+    if (prop && prop['x-kanecta-storage'] === 'json') return { sql: d.json, ref: false };
+    // Any other object field is forbidden — a JSON column here is just avoiding
+    // normalisation. Make it its own type, referenced by typeId (flat one-level rule).
+    throw new Error(
+      'deriveSqlSchema: an object-typed field cannot be a column. Normalise it into its ' +
+      'own type referenced by typeId (the flat one-level rule), or — only if it holds ' +
+      'genuine JSON content — mark it "x-kanecta-storage": "json".',
+    );
+  }
   // string and anything unspecified fall back to the string type (portable text).
   return { sql: d.string, ref: false };
 }

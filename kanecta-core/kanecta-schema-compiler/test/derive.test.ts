@@ -470,3 +470,24 @@ test('nullable-union scalars map to their non-null SQL type, not TEXT', () => {
   // nullable array is still recognised as an array column, not degraded to a scalar
   assert.match(create, /"tags" TEXT\[\]/);
 });
+
+test('a genuine-JSON field (x-kanecta-storage:"json") maps to the dialect json type', () => {
+  const pg = deriveSqlSchema({ properties: { schema: { type: 'object', 'x-kanecta-storage': 'json' } } },
+    { typeId: TYPE_ID, dialect: 'postgres' }).find((s) => /CREATE TABLE/.test(s)) as string;
+  assert.match(pg, /"schema" JSONB/);
+  const lite = deriveSqlSchema({ properties: { schema: { type: 'object', 'x-kanecta-storage': 'json' } } },
+    { typeId: TYPE_ID, dialect: 'sqlite' }).find((s) => /CREATE TABLE/.test(s)) as string;
+  assert.match(lite, /"schema" TEXT/);
+});
+
+test('an unmarked object field is a compile error (must normalise into a child type)', () => {
+  assert.throws(
+    () => deriveSqlSchema({ properties: { channel: { type: 'object' } } }, { typeId: TYPE_ID, dialect: 'postgres' }),
+    /object-typed field cannot be a column/,
+  );
+  // nullable object union is also caught
+  assert.throws(
+    () => deriveSqlSchema({ properties: { config: { type: ['object', 'null'] } } }, { typeId: TYPE_ID, dialect: 'postgres' }),
+    /object-typed field cannot be a column/,
+  );
+});
