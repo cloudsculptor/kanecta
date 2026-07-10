@@ -81,7 +81,7 @@ const BUILT_IN_TYPE_ID_BY_NAME: Record<string, string> = Object.fromEntries(
 // reversible. `grant`/`query` lead: grant's read side (PgAuthzSource) already
 // targets obj_<grant-type>, and neither has a conflicting dedicated table.
 const PROJECTED_BUILT_IN_TYPES = new Set<string>([
-  'grant', 'query', 'reference', 'file', 'formula', 'context', 'cell',
+  'grant', 'query', 'reference', 'file', 'formula', 'context', 'cell', 'view',
 ]);
 
 // The obj_<typeId> the given item projects to, or null if it doesn't project.

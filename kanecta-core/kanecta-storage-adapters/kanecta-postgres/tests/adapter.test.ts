@@ -1767,3 +1767,21 @@ describe('structured built-in projection (formula, context, cell)', () => {
     });
   }
 });
+
+describe('structured built-in projection (view)', () => {
+  const VIEW_TYPE_ID = 'cfba24ea-be40-46ba-b4db-e15a55af4392';
+  test('a view instance projects to obj_<view-type>; viewedItemId does not collide with item_id', async () => {
+    const [viewed, comp, ctx] = await Promise.all([
+      adapter.create({ value: 'viewed' }), adapter.create({ value: 'comp' }), adapter.create({ value: 'ctx' }),
+    ]);
+    const view = await adapter.create({
+      type: 'view', value: 'compact-card',
+      objectData: { viewedItemId: viewed.id, componentId: comp.id, contextId: ctx.id },
+    });
+    expect(view.type).toBe('view');
+    expect(view.typeId).toBe(VIEW_TYPE_ID);
+    const payload = await adapter.readObjectJson(view.id, VIEW_TYPE_ID);
+    expect(payload.viewedItemId).toBe(viewed.id);   // the viewed item, stored in viewed_item_id
+    expect(view.id).not.toBe(viewed.id);            // the row's item_id is the VIEW item, distinct
+  });
+});
