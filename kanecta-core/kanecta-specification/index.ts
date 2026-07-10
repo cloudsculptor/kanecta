@@ -32,6 +32,7 @@ import tItemHistory from './1.4.0/built-in-types/types/item_history.json' with {
 import tKanectaFunctionConfig from './1.4.0/built-in-types/types/kanecta-function-config.json' with { type: 'json' };
 import tLicence from './1.4.0/built-in-types/types/licence.json' with { type: 'json' };
 import tObject from './1.4.0/built-in-types/types/object.json' with { type: 'json' };
+import tParameter from './1.4.0/built-in-types/types/parameter.json' with { type: 'json' };
 import tPipeline from './1.4.0/built-in-types/types/pipeline.json' with { type: 'json' };
 import tPipelineRun from './1.4.0/built-in-types/types/pipeline-run.json' with { type: 'json' };
 import tProperty from './1.4.0/built-in-types/types/property.json' with { type: 'json' };
@@ -58,6 +59,6 @@ export const builtInTypeItems: object[] = [
   tAction, tActivity, tAgent, tAlias, tAnnotation, tAspectType, tCell, tChannel,
   tClaudeApiConfig, tClaudeCodeConfig, tComponent, tContext, tDocument, tEval, tEvalRun, tFile,
   tFormula, tFunction, tGrant, tGrid, tGroupChatConfig, tHttpConfig, tItemHistory, tKanectaFunctionConfig,
-  tLicence, tObject, tPipeline, tPipelineRun, tProperty, tPythonConfig, tQuery, tQueryParam,
-  tReference, tRelationship, tRelationshipType, tSubscription, tType, tView,
+  tLicence, tObject, tParameter, tPipeline, tPipelineRun, tProperty, tPythonConfig, tQuery,
+  tQueryParam, tReference, tRelationship, tRelationshipType, tSubscription, tType, tView,
 ];

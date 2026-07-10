@@ -47,7 +47,7 @@ const BUILT_IN_TYPES = new Set([
   'claude-api-config', 'claude-code-config', 'python-config',
   'kanecta-function-config', 'group-chat-config', 'http-config',
   'document', 'formula', 'grant', 'grid', 'item_history', 'licence', 'pipeline', 'pipeline-run',
-  'query', 'query-param', 'reference', 'relationship', 'relationship-type', 'subscription',
+  'parameter', 'query', 'query-param', 'reference', 'relationship', 'relationship-type', 'subscription',
   'tree', 'node', 'view', 'type',
   // Well-known root types
   'root',
@@ -89,6 +89,8 @@ const PROJECTED_BUILT_IN_TYPES = new Set<string>([
   'kanecta-function-config', 'group-chat-config', 'http-config',
   // query.params is normalised to query-param children (array-of-objects rule).
   'query', 'query-param',
+  // component.props -> parameter children; bundleHash -> property children.
+  'component', 'parameter',
 ]);
 
 // The obj_<typeId> the given item projects to, or null if it doesn't project.

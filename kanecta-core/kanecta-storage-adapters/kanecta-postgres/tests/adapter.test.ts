@@ -1896,3 +1896,28 @@ describe('structured built-in projection (action, params normalised out)', () =>
     expect('params' in p).toBe(false);   // no inline params column — normalised to property children
   });
 });
+
+describe('structured built-in projection (component + parameter children)', () => {
+  const COMPONENT_TYPE_ID = 'fab55d91-6975-422a-9398-2b16f72bc805';
+  const PARAMETER_TYPE_ID = 'e19f06be-5f2c-4bef-ae1f-7885832b1a90';
+  test('component projects with no inline props/bundleHash; props are parameter children', async () => {
+    const c = await adapter.create({
+      type: 'component', value: 'PersonCard',
+      objectData: { target: 'react', description: 'Compact person card', dependencies: ['date-fns'] },
+    });
+    expect(c.typeId).toBe(COMPONENT_TYPE_ID);
+    const p = await adapter.readObjectJson(c.id, COMPONENT_TYPE_ID);
+    expect(p.target).toBe('react');
+    expect(p.dependencies).toEqual(['date-fns']);
+    expect('props' in p).toBe(false);
+    expect('bundleHash' in p).toBe(false);
+
+    const prop = await adapter.create({
+      type: 'parameter', value: 'personId', parentId: c.id, sortOrder: 0,
+      objectData: { name: 'personId', type: 'string', optional: false },
+    });
+    expect(prop.typeId).toBe(PARAMETER_TYPE_ID);
+    expect(prop.parentId).toBe(c.id);
+    expect((await adapter.readObjectJson(prop.id, PARAMETER_TYPE_ID)).name).toBe('personId');
+  });
+});

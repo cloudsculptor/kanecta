@@ -1388,14 +1388,17 @@ Component bundles follow the same model as function bundles. The entire `.compon
         [any other files or directories the author needs]
 ----
 
-`bundleHash` is an open object keyed by target name, each value the SHA-256 hash of the source files for that target's subdirectory (excluding `node_modules/`):
+`bundleHash` is an open map keyed by target name, each value the SHA-256 hash of the source files for that target's subdirectory (excluding `node_modules/`). Per the flat one-level rule this open map is stored as `property` children of the component item (`item.value` = target name, `payload.value` = hash), not an inline object:
 
 [source,json]
 ----
+// conceptual — stored as property children, one per target
 "bundleHash": {
   "react": "sha256:b7c2d1e4f8..."
 }
 ----
+
+Likewise a component's props are `parameter` children of the component item (ordered by `item.sortOrder`), using the shared `parameter` type — the same type a function's parameters use — never an inline `props` array.
 
 *`interface.ts` — adapter-generated props contract:*
 

@@ -56,7 +56,8 @@
     "kanecta-function-config",
     "group-chat-config",
     "http-config",
-    "query-param"
+    "query-param",
+    "parameter"
   ],
   "wellKnown": [
     "root",
