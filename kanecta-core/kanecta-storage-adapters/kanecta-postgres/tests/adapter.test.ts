@@ -1583,10 +1583,10 @@ describe('semantic / hybrid search', () => {
       await PostgresAdapter.init(p, OWNER);
       const emb = await PostgresAdapter.open(p, { embeddings: { provider: 'mock', dimensions: 16 } });
       const item = await emb.create({ value: 'queued for background embedding' });
-      expect((await p.query('SELECT 1 FROM pending_embeddings WHERE item_id = $1', [item.id])).rows).toHaveLength(1);
+      expect((await p.query('SELECT 1 FROM perf_embedding_queue WHERE item_id = $1', [item.id])).rows).toHaveLength(1);
       const result = await emb.processPendingEmbeddings({ limit: 100 });
       expect(result.embedded).toBeGreaterThan(0);
-      const { rows: remaining } = await p.query('SELECT 1 FROM pending_embeddings WHERE item_id = $1', [item.id]);
+      const { rows: remaining } = await p.query('SELECT 1 FROM perf_embedding_queue WHERE item_id = $1', [item.id]);
       expect(remaining).toHaveLength(0);
     } finally {
       await p.end();

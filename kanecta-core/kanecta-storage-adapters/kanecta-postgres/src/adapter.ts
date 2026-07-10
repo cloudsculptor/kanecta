@@ -1245,7 +1245,7 @@ class PostgresAdapter {
        )
        SELECT i.*, ts_rank(si.tsv, plainto_tsquery('english', $1)) AS rank
        FROM items i
-       JOIN search_index si ON si.item_id = i.id
+       JOIN perf_search si ON si.item_id = i.id
        WHERE si.tsv @@ plainto_tsquery('english', $1)
          AND ($2::uuid IS NULL OR i.id IN (SELECT id FROM subtree))
        ORDER BY rank DESC
@@ -2185,7 +2185,7 @@ class PostgresAdapter {
         ON item_embeddings USING hnsw (embedding public.vector_cosine_ops)
     `);
     await this._pool.query(
-      `INSERT INTO pending_embeddings (item_id)
+      `INSERT INTO perf_embedding_queue (item_id)
        SELECT i.id FROM items i
        WHERE NOT EXISTS (
          SELECT 1 FROM item_embeddings e WHERE e.item_id = i.id AND e.model = $1
@@ -2235,13 +2235,13 @@ class PostgresAdapter {
   async processPendingEmbeddings({ limit = 50 }: any = {}) {
     this._requireEmbeddingProvider();
     const { rows } = await this._pool.query(
-      'SELECT item_id FROM pending_embeddings ORDER BY queued_at LIMIT $1', [limit],
+      'SELECT item_id FROM perf_embedding_queue ORDER BY queued_at LIMIT $1', [limit],
     );
     let embedded = 0, skipped = 0, failed = 0;
     for (const { item_id } of rows) {
       try {
         if (await this.embedItem(item_id)) embedded++; else skipped++;
-        await this._pool.query('DELETE FROM pending_embeddings WHERE item_id = $1', [item_id]);
+        await this._pool.query('DELETE FROM perf_embedding_queue WHERE item_id = $1', [item_id]);
       } catch (e: any) {
         failed++;
         console.warn(`processPendingEmbeddings: failed to embed ${item_id}:`, e.message);
