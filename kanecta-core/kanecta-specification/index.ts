@@ -14,6 +14,12 @@ import tAnnotation from './1.4.0/built-in-types/types/annotation.json' with { ty
 import tAspectType from './1.4.0/built-in-types/types/aspect-type.json' with { type: 'json' };
 import tCell from './1.4.0/built-in-types/types/cell.json' with { type: 'json' };
 import tChannel from './1.4.0/built-in-types/types/channel.json' with { type: 'json' };
+import tClaudeApiConfig from './1.4.0/built-in-types/types/claude-api-config.json' with { type: 'json' };
+import tClaudeCodeConfig from './1.4.0/built-in-types/types/claude-code-config.json' with { type: 'json' };
+import tPythonConfig from './1.4.0/built-in-types/types/python-config.json' with { type: 'json' };
+import tKanectaFunctionConfig from './1.4.0/built-in-types/types/kanecta-function-config.json' with { type: 'json' };
+import tGroupChatConfig from './1.4.0/built-in-types/types/group-chat-config.json' with { type: 'json' };
+import tHttpConfig from './1.4.0/built-in-types/types/http-config.json' with { type: 'json' };
 import tComponent from './1.4.0/built-in-types/types/component.json' with { type: 'json' };
 import tContext from './1.4.0/built-in-types/types/context.json' with { type: 'json' };
 import tEval from './1.4.0/built-in-types/types/eval.json' with { type: 'json' };
@@ -50,4 +56,5 @@ export const builtInTypeItems: object[] = [
   tContext, tEval, tEvalRun, tFile, tFormula, tFunction, tGrant, tGrid, tItemHistory,
   tLicence, tObject, tPipeline, tPipelineRun, tQuery, tReference, tRelationship,
   tRelationshipType, tSubscription, tType, tView,
+  tClaudeApiConfig, tClaudeCodeConfig, tPythonConfig, tKanectaFunctionConfig, tGroupChatConfig, tHttpConfig,
 ];

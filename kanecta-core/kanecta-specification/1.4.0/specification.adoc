@@ -3595,11 +3595,15 @@ Two examples follow — a standard single-model agent and a group-chat agent.
   "model": "claude-sonnet-4-6",
   "systemPrompt": "You are a UI auditor. You compare screenshots of iOS and Android screens and identify visual and behavioural differences. Write findings as Kanecta items using kanecta_capture.",
   "tools": ["kanecta_capture", "kanecta_query", "kanecta_relate"],
-  "config": {
-    "max_tokens": 8096,
-    "temperature": 0
-  }
+  "configId": "<claude-api-config-item-uuid>"
 }
+----
+
+The referenced `claude-api-config` item's payload:
+
+[source,json]
+----
+{ "maxTokens": 8096, "temperature": 0 }
 ----
 
 *Group-chat agent (multi-model deliberation):*
@@ -3611,16 +3615,19 @@ Two examples follow — a standard single-model agent and a group-chat agent.
   "model": null,
   "systemPrompt": "You are a panel of UI auditors reaching a consensus verdict on findings. Challenge each other's reasoning — do not agree for the sake of agreement. A finding only reaches the output if at least two panel members endorse it with high confidence.",
   "tools": ["kanecta_add_item", "kanecta_conclude_discussion"],
-  "config": {
-    "participants": [
-      "<audit-sonnet-uuid>",
-      "<audit-opus-uuid>",
-      "<devil-advocate-uuid>"
-    ],
-    "maxTurns": 12,
-    "terminationCondition": "explicit",
-    "outputAgent": null
-  }
+  "configId": "<group-chat-config-item-uuid>"
+}
+----
+
+The referenced `group-chat-config` item's payload:
+
+[source,json]
+----
+{
+  "participants": ["<audit-sonnet-uuid>", "<audit-opus-uuid>", "<devil-advocate-uuid>"],
+  "maxTurns": 12,
+  "terminationCondition": "explicit",
+  "outputAgent": null
 }
 ----
 
@@ -3650,15 +3657,16 @@ Open string — new runtimes can be added without spec changes; the runner resol
 | no
 | Array of MCP tool names this agent can access. Restricting tools is a safety measure — a read-only analysis agent should not have `kanecta_delete`; an implementation agent should not reach production datastores. For `"group-chat"` agents, include `kanecta_conclude_discussion` if using `terminationCondition: "explicit"`. Null means all tools available in the current MCP context are accessible.
 
-| `config`
+| `configId`
 | no
-| Runtime-specific configuration. Structure is determined by the runtime adapter — the spec does not constrain it beyond the known runtimes documented here. Null means runtime defaults apply.
-For `"claude-api"`: `max_tokens`, `temperature`, `top_p`.
-For `"claude-code"`: `working_directory`, `env`.
-For `"python"`: `script_path`, `interpreter`.
-For `"kanecta-function"`: `functionId` (UUID of the function item to execute).
-For `"group-chat"`: `participants` (array of agent UUIDs, required), `maxTurns` (integer, default 10, hard cap on total turns regardless of termination condition), `terminationCondition` (`"explicit"` or `"max-turns"` — see note below), `outputAgent` (UUID of the agent that writes final items after `"max-turns"` termination; null for `"explicit"` termination where the concluding agent writes its own items).
-For `"http"`: `url` (required, string, supports `{{params.name}}` substitution), `method` (`"GET"` \| `"POST"` \| `"PUT"` \| `"PATCH"` \| `"DELETE"`, default `"GET"`), `headers` (key-value object, string values support substitution), `body` (any JSON-serialisable value, string leaves support substitution, ignored for GET/DELETE), `outputItemType` (string type name — if set, the response body is written as a Kanecta item of this type; if null, the response is stored in `phases[].output.httpResponse`), `timeoutSeconds` (integer ≥ 1, defaults to runner global HTTP timeout, typically 30s). Secret header values should be injected via runner environment variable substitution rather than stored in the agent item.
+| UUID of the runtime-specific config item. Runtime-specific configuration is normalised into a *per-runtime config type* referenced by UUID — never an inline object (the flat one-level rule; a JSON column is never used for this). The config item's type is determined by the agent's `runtime`. Null means runtime defaults apply. Each config type is flat scalars/scalar-arrays/UUID refs; the two open maps (`claude-code` env vars, `http` headers) are `property` children of the config item.
+
+* `claude-api-config` — `maxTokens`, `temperature`, `topP`.
+* `claude-code-config` — `workingDirectory` (env vars are `property` children).
+* `python-config` — `scriptPath` (required), `interpreter`.
+* `kanecta-function-config` — `functionId` (UUID ref to the function item, required).
+* `group-chat-config` — `participants` (UUID[] of agent items, required), `maxTurns` (default 10), `terminationCondition` (`"explicit"` \| `"max-turns"`), `outputAgent` (UUID ref, null for `"explicit"`).
+* `http-config` — `url` (required), `method` (default `"GET"`), `body` (text template — `{{params.name}}` substituted; not a JSON column), `outputItemType`, `timeoutSeconds`; request headers are `property` children. Secret header values come from runner env substitution, never stored inline.
 |===
 
 NOTE: `runtime: "kanecta-function"` executes a Kanecta `function` item directly via the kanecta-sdk, rather than invoking an external process. The runner provides the function with a pre-scoped sdk client that automatically tags all created items with `meta.sourceRunId` (the pipeline run UUID) and adds their UUIDs to the phase's `itemsProduced` list. This means a function-based phase can call `sdk.ai.complete()` for AI reasoning and `sdk.items.create()` for deterministic writes in the same execution unit — no MCP round-trips, no subprocess overhead. Function params are validated against pipeline params before the run starts. Because the function item is itself a versioned Kanecta item, the pipeline run record captures exactly which function version executed each phase.

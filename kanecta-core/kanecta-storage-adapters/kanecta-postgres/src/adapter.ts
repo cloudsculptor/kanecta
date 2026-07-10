@@ -44,6 +44,8 @@ const BUILT_IN_TYPES = new Set([
   'object', 'file', 'function', 'runner', 'symlink',
   'action', 'activity', 'agent', 'alias', 'annotation', 'aspect-type',
   'cell', 'channel', 'component', 'connector', 'context', 'eval', 'eval-run',
+  'claude-api-config', 'claude-code-config', 'python-config',
+  'kanecta-function-config', 'group-chat-config', 'http-config',
   'document', 'formula', 'grant', 'grid', 'item_history', 'licence', 'pipeline', 'pipeline-run',
   'query', 'reference', 'relationship', 'relationship-type', 'subscription',
   'tree', 'node', 'view', 'type',
@@ -86,7 +88,9 @@ const BUILT_IN_TYPE_ID_BY_NAME: Record<string, string> = Object.fromEntries(
 // array-of-objects -> child-items normalisation engine exists.
 const PROJECTED_BUILT_IN_TYPES = new Set<string>([
   'grant', 'reference', 'file', 'formula', 'context', 'cell', 'view',
-  'channel', 'subscription', 'aspect-type',
+  'channel', 'subscription', 'aspect-type', 'agent',
+  'claude-api-config', 'claude-code-config', 'python-config',
+  'kanecta-function-config', 'group-chat-config', 'http-config',
 ]);
 
 // The obj_<typeId> the given item projects to, or null if it doesn't project.

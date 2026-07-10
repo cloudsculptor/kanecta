@@ -1826,3 +1826,41 @@ describe('structured built-in projection (aspect-type, genuine-JSON field)', () 
     expect(p.jsonSchema).toEqual(schema);   // full JSON document round-trips through JSONB
   });
 });
+
+describe('structured built-in projection (agent + per-runtime config, normalised)', () => {
+  const AGENT_TYPE_ID = 'e5d3fad0-5123-46cc-a827-80954f7f96b2';
+  const CLAUDE_API_CFG = 'fe57b551-b0d8-4e49-b720-d858557bd571';
+  const GROUP_CHAT_CFG = 'f94eaf19-b880-403f-8d93-bed168308efe';
+
+  test('an agent references its runtime config by configId (a normalised per-runtime type)', async () => {
+    const cfg = await adapter.create({
+      type: 'claude-api-config', value: 'default-sampling',
+      objectData: { maxTokens: 4096, temperature: 0.7, topP: 0.95 },
+    });
+    expect(cfg.typeId).toBe(CLAUDE_API_CFG);
+    expect((await adapter.readObjectJson(cfg.id, CLAUDE_API_CFG)).maxTokens).toBe(4096);
+
+    const agent = await adapter.create({
+      type: 'agent', value: 'auditor',
+      objectData: { runtime: 'claude-api', model: 'claude-opus-4-8', tools: ['kanecta_query'], configId: cfg.id },
+    });
+    expect(agent.typeId).toBe(AGENT_TYPE_ID);
+    const p = await adapter.readObjectJson(agent.id, AGENT_TYPE_ID);
+    expect(p.runtime).toBe('claude-api');
+    expect(p.configId).toBe(cfg.id);           // normalised reference, not an inline config object
+    expect(p.tools).toEqual(['kanecta_query']);
+  });
+
+  test('group-chat-config normalises participants to a UUID[] of agent refs', async () => {
+    const [a1, a2] = await Promise.all([
+      adapter.create({ type: 'agent', value: 'panelist-1', objectData: { runtime: 'claude-api' } }),
+      adapter.create({ type: 'agent', value: 'panelist-2', objectData: { runtime: 'claude-api' } }),
+    ]);
+    const gc = await adapter.create({
+      type: 'group-chat-config', value: 'panel',
+      objectData: { participants: [a1.id, a2.id], maxTurns: 8, terminationCondition: 'max-turns' },
+    });
+    expect(gc.typeId).toBe(GROUP_CHAT_CFG);
+    expect((await adapter.readObjectJson(gc.id, GROUP_CHAT_CFG)).participants).toEqual([a1.id, a2.id]);
+  });
+});
