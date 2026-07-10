@@ -1649,7 +1649,9 @@ JSON Schema Draft-07 for instances. Types are *flat — exactly one level deep*.
 * UUID references to other Kanecta custom types: `{ "type": "string", "format": "uuid", "typeId": "<type-uuid>" }`
 * UUID references to built-in Kanecta types: `{ "type": "string", "format": "uuid", "x-kanecta-itemType": "<built-in-type-name>" }`
 
-No inline nested objects. A reusable nested concept must be its own standalone type, referenced via `typeId`. This keeps every type flat: its scalar fields map to one object table (plus, on ANSI backends without array columns, one small child value-table per scalar-array field — see the sqlSchema rules).
+No inline nested objects. A reusable nested concept must be its own standalone type, referenced via `typeId`. This keeps every type flat: its scalar fields map to one object table (plus, on ANSI backends without array columns, one small child value-table per scalar-array field — see the sqlSchema rules). The compiler *enforces* this: an object-typed property is a compile error, so the anti-pattern of a catch-all JSON column standing in for normalisation cannot be introduced.
+
+The *one* exception is a field whose value is genuinely a JSON *document* — a stored JSON Schema (`aspect-type.jsonSchema`, `type.jsonSchema`), rich-text editor state, or another opaque JSON payload the application round-trips as a unit and never queries by sub-field. Such a field is marked `"x-kanecta-storage": "json"` and projects to a JSON column (`JSONB` on Postgres, JSON-text elsewhere). This is *not* an escape hatch for avoiding normalisation: if the object has a known shape whose fields you would ever want to query, filter, or index, it is a nested concept and must be its own type — not a JSON column. Use `x-kanecta-storage: "json"` only when the value's *content* is inherently JSON.
 
 ===== Reference enforcement keywords
 
