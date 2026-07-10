@@ -86,7 +86,7 @@ const BUILT_IN_TYPE_ID_BY_NAME: Record<string, string> = Object.fromEntries(
 // array-of-objects -> child-items normalisation engine exists.
 const PROJECTED_BUILT_IN_TYPES = new Set<string>([
   'grant', 'reference', 'file', 'formula', 'context', 'cell', 'view',
-  'channel', 'subscription',
+  'channel', 'subscription', 'aspect-type',
 ]);
 
 // The obj_<typeId> the given item projects to, or null if it doesn't project.

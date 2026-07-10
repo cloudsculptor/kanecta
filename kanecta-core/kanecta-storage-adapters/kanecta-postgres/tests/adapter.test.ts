@@ -1811,3 +1811,18 @@ describe('structured built-in projection (subscription + channel, normalised)', 
     expect(p.recursive).toBe(true);            // nullable-union boolean -> real BOOLEAN column
   });
 });
+
+describe('structured built-in projection (aspect-type, genuine-JSON field)', () => {
+  const ASPECT_TYPE_TYPE_ID = '45bc6fbe-aa63-41be-8566-7217a9a15ece';
+  test('aspect-type projects with jsonSchema stored as a JSON column (round-trips)', async () => {
+    const schema = { type: 'object', properties: { amount: { type: 'number' } }, required: ['amount'] };
+    const at = await adapter.create({
+      type: 'aspect-type', value: 'financial-costs',
+      objectData: { jsonSchema: schema, description: 'Cost breakdown dimension' },
+    });
+    expect(at.typeId).toBe(ASPECT_TYPE_TYPE_ID);
+    const p = await adapter.readObjectJson(at.id, ASPECT_TYPE_TYPE_ID);
+    expect(p.description).toBe('Cost breakdown dimension');
+    expect(p.jsonSchema).toEqual(schema);   // full JSON document round-trips through JSONB
+  });
+});
