@@ -88,7 +88,7 @@ const BUILT_IN_TYPE_ID_BY_NAME: Record<string, string> = Object.fromEntries(
 // array-of-objects -> child-items normalisation engine exists.
 const PROJECTED_BUILT_IN_TYPES = new Set<string>([
   'grant', 'reference', 'file', 'formula', 'context', 'cell', 'view',
-  'channel', 'subscription', 'aspect-type', 'agent',
+  'channel', 'subscription', 'aspect-type', 'agent', 'action',
   'claude-api-config', 'claude-code-config', 'python-config',
   'kanecta-function-config', 'group-chat-config', 'http-config',
 ]);

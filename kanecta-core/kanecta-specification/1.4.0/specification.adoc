@@ -2836,12 +2836,13 @@ The distinction is important:
 {
   "pipelineId": "uuid-of-summarise-pipeline",
   "targetTypes": ["uuid-of-custom-finding-type", "uuid-of-another-custom-type"],
-  "params": { "outputFormat": "bullet-points" },
   "description": "Summarise this item using the current LLM model.",
   "icon": "AutoAwesome",
   "confirmationMessage": null
 }
 ----
+
+Default parameter values are an open key-value map, so — per the flat one-level rule — they are stored as `property` children of the action item (each child's `item.value` is the param name, `payload.value` its default), never an inline `params` object.
 
 [cols="1,1,2", options="header"]
 |===
@@ -2855,9 +2856,9 @@ The distinction is important:
 | no
 | Item types this action is available on. Each entry is the UUID of a type item (built-in or user-defined). Studio renders this action as a button or menu item when the user is viewing a matching item. Null = workspace-level action — appears in the global palette without a type restriction; `params.targetItemId` is null when invoked this way.
 
-| `params`
+| default params
 | no
-| Default parameter values for the pipeline. Keys must match the pipeline's `params[].name` definitions. Caller-supplied params override these; these override the pipeline's own defaults. Null means no action-level defaults.
+| Default parameter values for the pipeline are `property` children of the action item (not a payload field). Each property's `item.value` is the param name (matching the pipeline's `params[].name`), `payload.value` its default. Caller-supplied params override these; these override the pipeline's own defaults.
 
 | `description`
 | no

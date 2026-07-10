@@ -1864,3 +1864,19 @@ describe('structured built-in projection (agent + per-runtime config, normalised
     expect((await adapter.readObjectJson(gc.id, GROUP_CHAT_CFG)).participants).toEqual([a1.id, a2.id]);
   });
 });
+
+describe('structured built-in projection (action, params normalised out)', () => {
+  const ACTION_TYPE_ID = '1ab2a990-c2cf-4b91-aace-588c66b0a78b';
+  test('action projects with no inline params object (defaults are property children)', async () => {
+    const pipeline = await adapter.create({ value: 'summarise-pipeline' });
+    const action = await adapter.create({
+      type: 'action', value: 'Summarise',
+      objectData: { pipelineId: pipeline.id, targetTypes: ['task', 'note'], icon: 'AutoAwesome' },
+    });
+    expect(action.typeId).toBe(ACTION_TYPE_ID);
+    const p = await adapter.readObjectJson(action.id, ACTION_TYPE_ID);
+    expect(p.pipelineId).toBe(pipeline.id);
+    expect(p.targetTypes).toEqual(['task', 'note']);
+    expect('params' in p).toBe(false);   // no inline params column — normalised to property children
+  });
+});
