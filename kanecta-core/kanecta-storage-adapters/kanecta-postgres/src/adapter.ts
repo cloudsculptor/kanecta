@@ -102,6 +102,9 @@ const PROJECTED_BUILT_IN_TYPES = new Set<string>([
   // annotation: a payload-dimension type — item lives under the annotation type
   // container, associates via payload.targetId, threads via payload.parentAnnotationId.
   'annotation',
+  // alias: a payload-dimension type — item lives under the alias type container, string
+  // is item.value, associates via payload.targetId, scoped by payload.assignedBy.
+  'alias',
 ]);
 
 // The obj_<typeId> the given item projects to, or null if it doesn't project.
@@ -777,7 +780,16 @@ class PostgresAdapter {
     const now = new Date();
     const warnings = await this.deleteWarnings(id);
     await this._snapshot(item, 'delete', actor, now);
-    await this._pool.query('DELETE FROM aliases WHERE target_id = $1', [id]);
+    // Alias items pointing at this item would dangle (and their target_id FK would
+    // block the delete), so remove them first. Their obj_<alias> rows cascade via the
+    // item_id FK. (Aliases are now first-class items — no `aliases` table.)
+    const aliasTable = objTableName(BUILT_IN_TYPE_ID_BY_NAME['alias']);
+    await this._pool.query(
+      `DELETE FROM items WHERE id IN (
+         SELECT i.id FROM items i JOIN "${aliasTable}" a ON a.item_id = i.id
+         WHERE i.type = 'alias' AND a.target_id = $1)`,
+      [id],
+    ).catch(() => { /* obj_<alias> not materialised yet */ });
     // Derived backlink rows reference items via FK in both directions — clear
     // them before removing the item.
     await this._pool.query('DELETE FROM perf_backlinks WHERE source_id = $1 OR target_id = $1', [id]);
@@ -820,11 +832,25 @@ class PostgresAdapter {
 
   // ─── Aliases ─────────────────────────────────────────────────────────────────
 
+  // An alias is a payload-dimension item (spec §"Well-known payload dimension names"):
+  // the item lives under the alias type-UUID container, the alias STRING is item.value
+  // (case-insensitive), and it points at its target via payload.targetId. payload.assignedBy
+  // scopes it to an owning entity (null = unscoped); membership-graph visibility resolution
+  // is deferred (see plan) — resolveAlias returns the matching target as before.
+  // setAlias/resolveAlias/listAliases/removeAlias keep their signatures; no `aliases` table.
   async resolveAlias(alias: any) {
-    const { rows } = await this._pool.query(
-      'SELECT target_id FROM aliases WHERE alias = $1', [alias.toLowerCase()],
-    );
-    return rows[0]?.target_id ?? null;
+    const table = objTableName(BUILT_IN_TYPE_ID_BY_NAME['alias']);
+    try {
+      const { rows } = await this._pool.query(
+        `SELECT a.target_id FROM items i JOIN "${table}" a ON a.item_id = i.id
+         WHERE i.type = 'alias' AND lower(i.value) = $1 AND i.deleted_at IS NULL
+         ORDER BY (a.assigned_by IS NULL) DESC, i.created_at LIMIT 1`,
+        [String(alias).toLowerCase()],
+      );
+      return rows[0]?.target_id ?? null;
+    } catch {
+      return null;
+    }
   }
 
   async resolve(idOrAlias: any) {
@@ -834,19 +860,52 @@ class PostgresAdapter {
   }
 
   async setAlias(alias: any, id: any) {
-    await this._pool.query(
-      'INSERT INTO aliases (alias, target_id) VALUES ($1,$2) ON CONFLICT (alias) DO UPDATE SET target_id = $2',
-      [alias.toLowerCase(), id],
-    );
+    const value       = String(alias).toLowerCase();
+    const aliasTypeId = BUILT_IN_TYPE_ID_BY_NAME['alias'];
+    const table       = objTableName(aliasTypeId);
+    const payload     = {
+      targetId: id, assignedBy: null, provisional: false,
+      confirmedAt: new Date().toISOString(), computedFromFormulaId: null,
+    };
+    // Upsert the default (unscoped) alias for this string — preserves the prior
+    // one-target-per-string behaviour of setAlias.
+    let existingId: any = null;
+    try {
+      const { rows } = await this._pool.query(
+        `SELECT i.id FROM items i JOIN "${table}" a ON a.item_id = i.id
+         WHERE i.type = 'alias' AND lower(i.value) = $1 AND a.assigned_by IS NULL
+           AND i.deleted_at IS NULL LIMIT 1`,
+        [value],
+      );
+      existingId = rows[0]?.id ?? null;
+    } catch { /* obj_<alias> not materialised yet */ }
+
+    if (existingId) {
+      await this.writeObjectJson(existingId, aliasTypeId, payload);
+    } else {
+      await this.create({ type: 'alias', parentId: aliasTypeId, value, owner: this.config.owner, objectData: payload });
+    }
   }
 
   async removeAlias(alias: any) {
-    await this._pool.query('DELETE FROM aliases WHERE alias = $1', [alias.toLowerCase()]);
+    const { rows } = await this._pool.query(
+      `SELECT id FROM items WHERE type = 'alias' AND lower(value) = $1 AND deleted_at IS NULL`,
+      [String(alias).toLowerCase()],
+    );
+    for (const r of rows) await this.delete(r.id);
   }
 
   async listAliases() {
-    const { rows } = await this._pool.query('SELECT alias, target_id FROM aliases ORDER BY alias');
-    return rows.map(r => ({ alias: r.alias, targetId: r.target_id }));
+    const table = objTableName(BUILT_IN_TYPE_ID_BY_NAME['alias']);
+    try {
+      const { rows } = await this._pool.query(
+        `SELECT i.value AS alias, a.target_id FROM items i JOIN "${table}" a ON a.item_id = i.id
+         WHERE i.type = 'alias' AND i.deleted_at IS NULL ORDER BY i.value`,
+      );
+      return rows.map((r: any) => ({ alias: r.alias, targetId: r.target_id }));
+    } catch {
+      return [];
+    }
   }
 
   // ─── Annotations ─────────────────────────────────────────────────────────────

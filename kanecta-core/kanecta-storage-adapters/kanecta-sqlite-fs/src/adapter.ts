@@ -2109,7 +2109,7 @@ class SqliteFsAdapter {
     const doc = this._metaItem({
       id: crypto.randomUUID(), parentId: TYPE_ITEM_UUIDS.alias, type: 'alias', value: alias,
     });
-    doc.payload = { targetId: id, scope: 'personal', provisional: false, confirmedAt: now, computedFrom: null };
+    doc.payload = { targetId: id, assignedBy: null, provisional: false, confirmedAt: now, computedFromFormulaId: null };
     this._writeMetadataItem(doc);
   }
 

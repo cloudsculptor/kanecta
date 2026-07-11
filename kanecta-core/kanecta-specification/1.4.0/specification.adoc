@@ -697,7 +697,7 @@ NOTE: `annotation` is *not* a primitive — it is a built-in *structured* type c
 | link:../built-in-types/types/type.json[type.json^]
 
 | `alias`
-| A human-readable string that resolves to a UUID. The alias string lives in `item.value`; lookup is case-insensitive. Distinct from `symlink` — a symlink is a tree-placement item; an alias is a string lookup. Lives under the aliased item as its canonical home. Provisional aliases are computed locally at creation and confirmed as globally unique at merge time.
+| A human-readable string that resolves to a UUID. The alias string lives in `item.value`; lookup is case-insensitive. Distinct from `symlink` — a symlink is a tree-placement item; an alias is a string lookup. Like every structured type, an `alias` item lives under the `alias` type-UUID container (the universal placement rule) and points at its target via `payload.targetId`. Provisional aliases are computed locally at creation and confirmed as globally unique at merge time.
 | link:../built-in-types/types/alias.json[alias.json^]
 
 | `aspect-type`
@@ -1608,7 +1608,7 @@ For `type: "type"`. Defines a custom Kanecta type. Five top-level keys: `meta`, 
 | Comma-separated grouping tags.
 
 | `aliasFormulas`
-| Map of named formula references for alias auto-generation. Keys are arbitrary scope names (`"default"` is conventional); values are UUIDs of `formula` items. When an instance of this type is created, the adapter evaluates each formula and creates a provisional `alias` item under the new item for each entry. A type with no `aliasFormulas` generates no automatic aliases — aliases can still be created manually. Example: `{ "default": "<formulaId>", "invoice": "<formulaId2>" }`. The `formula` items referenced here are independent items; they are not embedded in typePayload.
+| Map of named formula references for alias auto-generation. Keys are arbitrary scope names (`"default"` is conventional); values are UUIDs of `formula` items. When an instance of this type is created, the adapter evaluates each formula and creates a provisional `alias` item (under the `alias` type container, with `payload.targetId` set to the new item and `computedFromFormulaId` set to the formula) for each entry. A type with no `aliasFormulas` generates no automatic aliases — aliases can still be created manually. Example: `{ "default": "<formulaId>", "invoice": "<formulaId2>" }`. The `formula` items referenced here are independent items; they are not embedded in typePayload.
 
 | `primaryField`
 | The field (or expression) that computes `item.value` for instances. Three forms: plain string path (`"name"`), object with `fields` array + optional `expression`, or object with `fields` + `functionId`.
@@ -1845,10 +1845,10 @@ The alias item's `parentId` is the synthetic `alias` type item UUID (the univers
 ----
 {
   "targetId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "scope": "org",
+  "assignedBy": "7c9e6a10-4b2d-4e8a-9f31-org-item-uuid",
   "provisional": false,
   "confirmedAt": "2026-06-25T09:14:00Z",
-  "computedFrom": null
+  "computedFromFormulaId": null
 }
 ----
 
@@ -1856,12 +1856,10 @@ The alias item's `parentId` is the synthetic `alias` type item UUID (the univers
 ----
 {
   "targetId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "scope": "type",
+  "assignedBy": null,
   "provisional": true,
   "confirmedAt": null,
-  "computedFrom": {
-    "formulaId": "f9e8d7c6-b5a4-3210-fedc-ba9876543210"
-  }
+  "computedFromFormulaId": "f9e8d7c6-b5a4-3210-fedc-ba9876543210"
 }
 ----
 
@@ -1874,12 +1872,12 @@ The alias item's `parentId` is the synthetic `alias` type item UUID (the univers
 | `targetId`
 | UUID string
 | Yes
-| The item this alias resolves to. Also the alias item's `parentId` — the alias lives under its target in the tree.
+| The item this alias resolves to. The alias item's `parentId` is the `alias` type container (not the target); the target is referenced only through this field.
 
-| `scope`
-| `"personal" \| "org" \| "type"`
-| Yes
-| Visibility layer. `personal` — visible only in the personal workspace. `org` — shared across the org workspace. `type` — defined at the type level, applies to all items of that type (usually formula-generated).
+| `assignedBy`
+| UUID string \| null
+| No
+| The entity item that owns/scopes this alias — a user, team, division, or company (all ordinary items). Replaces the old `personal\|org\|type` scope enum. An alias is visible to a viewer when `assignedBy` is the viewer or any group/org the viewer belongs to — resolved by walking the ReBAC membership graph (the same graph grants traverse). `null` = unscoped (visible to all). A type-wide formula alias is `computedFromFormulaId` set plus `assignedBy` = whichever entity owns the formula — there is no separate `type` scope.
 
 | `provisional`
 | boolean
@@ -1888,18 +1886,18 @@ The alias item's `parentId` is the synthetic `alias` type item UUID (the univers
 
 | `confirmedAt`
 | ISO 8601 datetime \| null
-| Yes
+| No
 | Timestamp of the merge-time uniqueness check that confirmed this alias. `null` while `provisional: true`.
 
-| `computedFrom`
-| object \| null
-| Yes
-| If this alias was generated by a formula, contains `{ "formulaId": "<UUID>" }`. `null` for manually created aliases.
+| `computedFromFormulaId`
+| UUID string \| null
+| No
+| If this alias was generated by a formula (e.g. a per-type sequential id like `INV-001`), the UUID of that `formula` item; `null` for manually created aliases. Flattened from the former `computedFrom: { formulaId }` object — an inline object cannot be a projected column.
 |===
 
-*Scope layers and conflict resolution*
+*Assigner scoping and conflict resolution*
 
-Aliases are resolved in scope order: `personal` overrides `org`, which overrides `type`. If two aliases in the same scope match the same lookup string, the adapter surfaces the full list and the user selects the intended target — Kanecta does not silently pick one. Users can set a preferred ordering per-scope.
+An alias's `assignedBy` names the entity that owns it. A viewer sees an alias when `assignedBy` is the viewer or any group/org the viewer belongs to, resolved by walking the same ReBAC membership graph that grant resolution uses (groups are items, membership is a relationship) — so alias visibility and access visibility are the one graph, not two. On a lookup clash (the same string resolving to different targets across the viewer's assigners), the *nearest* assigner in the graph wins: the viewer's own alias overrides their team's, which overrides their org's (the former `personal` > `org` > `type` ordering, generalised to arbitrary depth). If two aliases at the same distance match, the adapter surfaces the full list and the user selects — Kanecta does not silently pick one. (The exact membership relationship-type the traversal follows is settled with the relationships/access model; `assignedBy: null` is unscoped and visible to all.)
 
 *Provisional alias lifecycle*
 
@@ -1911,7 +1909,7 @@ Aliases are resolved in scope order: `personal` overrides `org`, which overrides
 
 NOTE: The `n` variable in formula evaluation is workspace-scoped and monotonically increasing. It is never reused even if an alias item is deleted — this prevents silent alias collisions after deletions.
 
-TIP: *Postgres* — alias columns (alias, target_id, scope, workspace_id) live in the alias projection `obj_<alias-type-uuid>`, compiler-derived from the type definition — there is no bespoke `aliases` table. A case-insensitive lookup accelerator, if any, is the `perf_`-prefixed rebuildable index `perf_alias_lookup` (keyed on `(alias, scope, workspace_id)`): rebuilt in full on workspace open, updated incrementally on item write, never a source of truth.
+TIP: *Postgres* — the alias string is `item.value`; the projected columns on `obj_<alias-type-uuid>` are `target_id`, `assigned_by`, `provisional`, `confirmed_at`, `computed_from_formula_id`, all compiler-derived from the type definition — there is no bespoke `aliases` table. A case-insensitive lookup accelerator, if any, is the `perf_`-prefixed rebuildable index `perf_alias_lookup` (keyed on `(lower(value), assigned_by)`): rebuilt in full on workspace open, updated incrementally on item write, never a source of truth.
 
 === relationshipPayload
 
