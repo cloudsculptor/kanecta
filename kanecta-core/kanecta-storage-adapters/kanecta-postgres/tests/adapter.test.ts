@@ -1888,6 +1888,47 @@ describe('annotation + licence are seeded structured types', () => {
   });
 });
 
+describe('licence cutover — licences are items projecting to obj_<licence-type>', () => {
+  const LICENCE_TYPE_ID = '9798b629-06f4-495f-90e8-2d70f817466e';
+  const DEFAULT_LICENCE = 'bb3bf137-d8a9-4264-9fb7-ac373b1d4739';
+  const OBJ_LICENCE     = `obj_${LICENCE_TYPE_ID.replace(/-/g, '_')}`;
+
+  test('the bespoke licences table is gone (four-table law)', async () => {
+    const { rows } = await pool.query("SELECT to_regclass('licences') AS t");
+    expect(rows[0].t).toBeNull();
+  });
+
+  test('all 19 built-in licences are seeded as licence items projecting to obj_licence', async () => {
+    const { rows: n }    = await pool.query("SELECT COUNT(*)::int AS n FROM items WHERE type = 'licence'");
+    expect(n[0].n).toBe(19);
+    const { rows: proj } = await pool.query(`SELECT COUNT(*)::int AS n FROM "${OBJ_LICENCE}"`);
+    expect(proj[0].n).toBe(19);
+  });
+
+  test('the default licence is reparented under the licence type and projects its payload', async () => {
+    const def = await adapter.get(DEFAULT_LICENCE);
+    expect(def.type).toBe('licence');
+    expect(def.parentId).toBe(LICENCE_TYPE_ID);      // out of the self-parented bootstrap state
+    const payload = await adapter.readObjectJson(DEFAULT_LICENCE, LICENCE_TYPE_ID);
+    expect(payload.name).toBe('All Rights Reserved (Copyright)');
+    expect(payload.spdxId).toBeNull();
+  });
+
+  test('an spdx licence projects its identity (GPL-3.0)', async () => {
+    const payload = await adapter.readObjectJson('6af82527-a086-4596-a07f-84ca3cad2277', LICENCE_TYPE_ID);
+    expect(payload.spdxId).toBe('GPL-3.0-only');
+    expect(payload.url).toBe('https://www.gnu.org/licenses/gpl-3.0.html');
+  });
+
+  test('items.license now references items(id): a new item resolves to the default licence item', async () => {
+    const it = await adapter.create({ value: 'licensed thing', type: 'note' });
+    const { rows } = await pool.query('SELECT license FROM items WHERE id = $1', [it.id]);
+    expect(rows[0].license).toBe(DEFAULT_LICENCE);
+    const lic = await adapter.get(rows[0].license);   // FK target is a real licence item
+    expect(lic.type).toBe('licence');
+  });
+});
+
 describe('structured built-in projection (subscription + channel, normalised)', () => {
   const CHANNEL_TYPE_ID = 'b4e15597-5a90-4e40-bed0-dbb28a9165a9';
   const SUB_TYPE_ID = 'cf066390-a599-4dbe-bc20-491de885cb18';

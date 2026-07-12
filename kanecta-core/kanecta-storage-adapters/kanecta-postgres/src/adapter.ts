@@ -14,6 +14,7 @@ import {
   primitiveTypes,
   structuredTypes,
   builtInTypeItems,
+  builtInSystemItems,
 } from '@kanecta/specification';
 import { validateItem } from '@kanecta/specification/validator';
 import { deriveSqlSchema, deriveIndexDdl } from '@kanecta/schema-compiler';
@@ -105,6 +106,11 @@ const PROJECTED_BUILT_IN_TYPES = new Set<string>([
   // alias: a payload-dimension type — item lives under the alias type container, string
   // is item.value, associates via payload.targetId, scoped by payload.assignedBy.
   'alias',
+  // licence: a first-class item like any structured built-in — meta.license (a
+  // UUID) resolves to a licence item whose {spdxId,name,url,text} projects to
+  // obj_<licence-type>, never a bespoke licences table. Instances are the 19
+  // built-in licences seeded by _ensureSystemItems from @kanecta/specification.
+  'licence',
 ]);
 
 // The obj_<typeId> the given item projects to, or null if it doesn't project.
@@ -217,6 +223,7 @@ class PostgresAdapter {
     await adapter._ensureConfig(owner);
     await adapter._initRoots();
     await adapter._ensureBuiltInTypes();
+    await adapter._ensureSystemItems();
     await adapter._loadRelTypes();
     if (adapter._embeddingProvider) await adapter._ensureEmbeddingTable();
     return adapter;
@@ -230,6 +237,7 @@ class PostgresAdapter {
     // Idempotent backfill: seed any built-in type definitions a pre-existing
     // datastore is missing, so open() and init() converge on the same shape.
     await adapter._ensureBuiltInTypes();
+    await adapter._ensureSystemItems();
     await adapter._loadRelTypes();
     if (adapter._embeddingProvider) await adapter._ensureEmbeddingTable();
     return adapter;
@@ -456,6 +464,51 @@ class PostgresAdapter {
         ],
       );
     }
+  }
+
+  // Seed the mandatory system INSTANCES the platform depends on — currently the
+  // 19 built-in licences (spec §licencePayload) — from @kanecta/specification's
+  // builtInSystemItems. Each becomes a `licence` item under the licence type
+  // container, projecting {spdxId,name,url,text} to obj_<licence-type>. Runs
+  // AFTER _ensureBuiltInTypes so the licence type + its projection def exist.
+  // Idempotent (ON CONFLICT / UPSERT) so it backfills existing datastores on open
+  // as well as seeding fresh ones. Same fail-closed guard as the type seeding.
+  //
+  // The default licence (bb3bf137) was seeded self-parented by migration 036 so
+  // the items.license -> items(id) FK could retarget; here we write its
+  // projection and reparent it under the licence type — its canonical home.
+  async _ensureSystemItems() {
+    if (!PostgresAdapter._schemaChangesAllowed()) return;
+
+    const licenceTypeId = BUILT_IN_TYPE_ID_BY_NAME['licence'];
+    if (!licenceTypeId) return;                       // licence type not seeded
+
+    const projected = await this._ensureProjection(licenceTypeId);
+    const typePath  = `${ROOT_ID}/${TYPES_CONTAINER_ID}/${licenceTypeId}`;
+    const now       = new Date();
+
+    for (const src of builtInSystemItems as any[]) {
+      const id       = src.item.id;
+      const parentId = src.item.parentId ?? licenceTypeId;
+      const owner    = src.meta?.owner ?? this.config.owner;
+      const license  = src.meta?.license ?? DEFAULT_LICENSE;
+      await this._pool.query(
+        `INSERT INTO items (id, spec_version, parent_id, path, value, type, type_id, owner,
+           license, sort_order, created_at, modified_at, created_by, modified_by)
+         VALUES ($1,$2,$3,$4,$5,'licence',$6,$7,$8,0,$9,$9,$7,$7)
+         ON CONFLICT (id) DO NOTHING`,
+        [id, specVersion, parentId, `${typePath}/${id}`, src.item.value,
+         licenceTypeId, owner, license, now],
+      );
+      if (projected) await this.writeObjectJson(id, licenceTypeId, src.payload ?? {});
+    }
+
+    // Reparent the default licence out of its self-parented bootstrap state (only
+    // while still self-parented, so this is a no-op on already-seeded datastores).
+    await this._pool.query(
+      `UPDATE items SET parent_id = $1, path = $2 WHERE id = $3 AND parent_id = $3`,
+      [licenceTypeId, `${typePath}/${DEFAULT_LICENSE}`, DEFAULT_LICENSE],
+    );
   }
 
   async getRoot()     { return this._getByType('root'); }
