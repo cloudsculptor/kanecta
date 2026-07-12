@@ -111,6 +111,28 @@ const TYPE_ITEM_UUIDS = {
 // calls them "metadata and tree structure, not graph edges".
 const METADATA_TYPES = new Set(['item_history', 'activity', 'alias', 'relationship']);
 
+// Built-in type name → its fixed type-item UUID (from @kanecta/specification),
+// mirroring the Postgres adapter's BUILT_IN_TYPE_ID_BY_NAME. Used to resolve the
+// obj_<typeId> projection table for a structured built-in metadata type.
+const BUILT_IN_TYPE_ID_BY_NAME: Record<string, string> = Object.fromEntries(
+  (builtInTypeItems ?? []).map((t: any) => [t.item.value, t.item.id]),
+);
+
+// Built-in type-item UUID → its type definition payload ({ jsonSchema, indexes, … }).
+// Used as a fallback when projecting a built-in metadata instance during a rebuild
+// that runs before the type items are seeded on disk (e.g. opening a migrated store,
+// where _ensureBuiltInTypes runs after the initial _openDb rebuild).
+const BUILT_IN_TYPE_DEF_BY_ID: Record<string, any> = Object.fromEntries(
+  (builtInTypeItems ?? []).map((t: any) => [t.item.id, t.payload]),
+);
+
+// Structured built-in types that project to obj_<typeId>, matching the Postgres
+// PROJECTED_BUILT_IN_TYPES allow-list. Grown one type per cutover as its bespoke
+// lookup table is retired. (relationship-type is seeded as FK targets but its
+// jsonSchema is empty — its projection is special-cased in Postgres and stays a
+// follow-up, so it is intentionally absent here.)
+const PROJECTED_BUILT_IN_TYPES = new Set(['relationship']);
+
 class UnknownTypeError extends Error {
   code: string;
   typeName: string;
@@ -226,18 +248,6 @@ CREATE TABLE IF NOT EXISTS backlinks (
   PRIMARY KEY (source_id, target_id)
 );
 CREATE INDEX IF NOT EXISTS idx_backlinks_target ON backlinks(target_id);
-
-CREATE TABLE IF NOT EXISTS relationships (
-  id         TEXT PRIMARY KEY,
-  source_id  TEXT NOT NULL,
-  type       TEXT NOT NULL,
-  target_id  TEXT NOT NULL,
-  note       TEXT,
-  created_at TEXT NOT NULL,
-  created_by TEXT
-);
-CREATE INDEX IF NOT EXISTS idx_rel_source ON relationships(source_id);
-CREATE INDEX IF NOT EXISTS idx_rel_target ON relationships(target_id);
 
 CREATE TABLE IF NOT EXISTS annotations (
   id                   TEXT PRIMARY KEY,
@@ -806,12 +816,13 @@ class SqliteFsAdapter {
     // items/ (so _rebuildFromFs repopulates them for free).
     this._indexMetadataDoc(db, doc);
 
-    // Per-type table projection: a live object instance materialises its type's
-    // table and holds one row there. Runs on create AND full/sparse rebuild
-    // (both route through here); soft-deleted instances are skipped so a rebuild
-    // reconstructs exactly the live-row set.
-    if (item.type === 'object' && item.typeId && !meta.deletedAt)
-      this._projectObjectRow(db, id, item.typeId, payload ?? {});
+    // Per-type table projection: a live object (or projected built-in metadata)
+    // instance materialises its type's table and holds one row there. Runs on
+    // create AND full/sparse rebuild (both route through here); soft-deleted
+    // instances are skipped so a rebuild reconstructs exactly the live-row set.
+    const projTypeId = this._projectionTypeId(item.type, item.typeId);
+    if (projTypeId && !meta.deletedAt)
+      this._projectObjectRow(db, id, projTypeId, payload ?? {});
   }
 
   // Project an alias/relationship/annotation item.json into its derived lookup
@@ -822,11 +833,6 @@ class SqliteFsAdapter {
     if (item.type === 'alias') {
       db.prepare('INSERT OR REPLACE INTO aliases (alias, target_id, item_id) VALUES (?, ?, ?)')
         .run(item.value, p.targetId ?? null, item.id);
-    } else if (item.type === 'relationship') {
-      db.prepare(
-        'INSERT OR REPLACE INTO relationships (id, source_id, type, target_id, note, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)'
-      ).run(item.id, p.sourceId ?? null, item.value, p.targetId ?? null,
-            p.note ?? null, meta?.createdAt ?? null, meta?.createdBy ?? null);
     } else if (item.type === 'annotation') {
       db.prepare(
         'INSERT OR REPLACE INTO annotations (id, target_id, author, content, created_at, parent_annotation_id) VALUES (?, ?, ?, ?, ?, ?)'
@@ -839,6 +845,17 @@ class SqliteFsAdapter {
   }
 
   // ─── Per-type table projection ────────────────────────────────────────────
+
+  // Resolve the obj_<typeId> projection table for an item, mirroring the Postgres
+  // adapter's projectionTypeId(). User objects project under their own typeId;
+  // structured built-in metadata types (relationship, …) project under their fixed
+  // type-item UUID. Returns null for anything that must not project (primitives,
+  // logs, not-yet-cut-over built-ins).
+  _projectionTypeId(type: any, typeId: any) {
+    if (type === 'object') return typeId ?? null;
+    if (PROJECTED_BUILT_IN_TYPES.has(type)) return BUILT_IN_TYPE_ID_BY_NAME[type] ?? null;
+    return null;
+  }
 
   // Create the `obj_<typeId>` table (and its declared indexes) if absent.
   // Idempotent (IF NOT EXISTS) and cheap to call on every object write. DDL is
@@ -858,7 +875,10 @@ class SqliteFsAdapter {
   // Ensure the type's table exists and upsert this live instance's row into it.
   // No-op when the referenced type has no stored jsonSchema (unknown typeId).
   _projectObjectRow(db: SqlDatabase, id: any, typeId: any, payload: any) {
-    const typeDef    = this.readTypeJson(typeId);
+    // Prefer the on-disk type item; fall back to the static built-in definition so
+    // a built-in metadata instance still projects during a rebuild that precedes
+    // type-item seeding (e.g. opening a migrated store).
+    const typeDef    = this.readTypeJson(typeId) ?? BUILT_IN_TYPE_DEF_BY_ID[typeId] ?? null;
     const jsonSchema = typeDef?.jsonSchema;
     if (!jsonSchema) return;   // unknown / schemaless type — nothing to project
 
@@ -898,7 +918,7 @@ class SqliteFsAdapter {
     const row = db.prepare(
       `SELECT COUNT(*) AS n FROM items i
          LEFT JOIN items_meta m ON m.item_id = i.id
-        WHERE i.type = 'object' AND i.type_id = ? AND m.deleted_at IS NULL`,
+        WHERE i.type_id = ? AND m.deleted_at IS NULL`,
     ).get(typeId);
     if (!row || row.n === 0) db.exec(`DROP TABLE IF EXISTS "${objTableName(typeId)}"`);
   }
@@ -949,16 +969,17 @@ class SqliteFsAdapter {
     db.prepare('DELETE FROM item_tags     WHERE item_id = ?').run(itemId);
     db.prepare('DELETE FROM backlinks     WHERE source_id = ?').run(itemId);
     db.prepare('DELETE FROM items         WHERE id = ?').run(itemId);
-    if      (type === 'alias')        db.prepare('DELETE FROM aliases       WHERE item_id = ?').run(itemId);
-    else if (type === 'relationship') db.prepare('DELETE FROM relationships WHERE id = ?').run(itemId);
-    else if (type === 'annotation')   db.prepare('DELETE FROM annotations   WHERE id = ?').run(itemId);
+    // The obj_<relationship> row cascaded away with the items row (FK ON DELETE
+    // CASCADE); alias/annotation still have bespoke lookup tables to clean up.
+    if      (type === 'alias')      db.prepare('DELETE FROM aliases     WHERE item_id = ?').run(itemId);
+    else if (type === 'annotation') db.prepare('DELETE FROM annotations WHERE id = ?').run(itemId);
   }
 
   // When a content item is deleted, cascade-delete the metadata items that hang
   // off it: relationships in either direction, annotations on it, aliases to it.
   // Keeps the derived tables consistent with items/ after a rebuild.
   _cascadeDeleteMetadata(db: SqlDatabase, id: any) {
-    for (const r of db.prepare('SELECT id FROM relationships WHERE source_id = ? OR target_id = ?').all(id, id))
+    for (const r of this._relItemsTouching(db, id))
       this._deleteMetadataItem(db, r.id, 'relationship');
     for (const a of db.prepare('SELECT id FROM annotations WHERE target_id = ?').all(id))
       this._deleteMetadataItem(db, a.id, 'annotation');
@@ -1075,6 +1096,11 @@ class SqliteFsAdapter {
     }
 
     db.transaction(() => {
+      // Defer FK enforcement to commit: obj_<typeId> projections carry FKs to
+      // items(id) (e.g. relationship.source_id/target_id/type_id), but the fs is
+      // scanned in tree order, so an edge may be projected before its endpoint
+      // row is inserted. All rows exist by commit, when the deferred check runs.
+      db.exec('PRAGMA defer_foreign_keys = ON');
       for (const doc of docs) {
         const id = doc.item.id;
         this._insertIndexTx(db, id, doc, paths.get(id) ?? id);
@@ -1736,8 +1762,9 @@ class SqliteFsAdapter {
         // On a full-branch hard delete, drop the type table if this was the last
         // live instance. Sparse tombstones mask an upstream item ("not gone") so
         // they keep the table.
-        if (!sparse && item.type === 'object' && item.typeId)
-          this._dropProjectionIfEmpty(db, item.typeId);
+        const projTypeId = this._projectionTypeId(item.type, item.typeId);
+        if (!sparse && projTypeId)
+          this._dropProjectionIfEmpty(db, projTypeId);
       })();
     });
 
@@ -1748,7 +1775,7 @@ class SqliteFsAdapter {
   // annotations on the item, aliases to it) — so _withWrite can journal them.
   _cascadeMetadataOps(db: SqlDatabase, id: any) {
     const ids = new Set();
-    for (const r of db.prepare('SELECT id FROM relationships WHERE source_id = ? OR target_id = ?').all(id, id)) ids.add(r.id);
+    for (const r of this._relItemsTouching(db, id)) ids.add(r.id);
     for (const a of db.prepare('SELECT id FROM annotations WHERE target_id = ?').all(id)) ids.add(a.id);
     for (const a of db.prepare('SELECT item_id FROM aliases WHERE target_id = ?').all(id)) if (a.item_id) ids.add(a.item_id);
     return [...ids].map(x => ({ id: x, store: 'items' }));
@@ -1851,8 +1878,9 @@ class SqliteFsAdapter {
       if (row) db.prepare('UPDATE items_payload SET payload = ? WHERE item_id = ?').run(JSON.stringify(data), id);
       else     db.prepare('INSERT INTO items_payload (item_id, payload) VALUES (?, ?)').run(id, JSON.stringify(data));
       // Refresh the per-type table row so its columns track the new payload.
-      if (doc.item?.type === 'object' && doc.item?.typeId && !doc.meta?.deletedAt)
-        this._projectObjectRow(db, id, doc.item.typeId, data ?? {});
+      const projTypeId = this._projectionTypeId(doc.item?.type, doc.item?.typeId);
+      if (projTypeId && !doc.meta?.deletedAt)
+        this._projectObjectRow(db, id, projTypeId, data ?? {});
       this._mem.delete(id);
     });
   }
@@ -2235,7 +2263,8 @@ class SqliteFsAdapter {
     // §relationshipPayload). User-defined types not in the canonical set resolve to
     // null (slug-only) until they too are seeded as relationship-type items.
     const doc = this._metaItem({
-      id: relId, parentId: TYPE_ITEM_UUIDS.relationship, type: 'relationship', value: type,
+      id: relId, parentId: TYPE_ITEM_UUIDS.relationship, typeId: TYPE_ITEM_UUIDS.relationship,
+      type: 'relationship', value: type,
       layer: 'user', owner: actor, createdBy: actor, modifiedBy: actor,
       createdAt: now.toISOString(), modifiedAt: now.toISOString(),
     });
@@ -2248,12 +2277,37 @@ class SqliteFsAdapter {
   }
 
   relationships(id: any) {
-    const db  = this._openDb();
-    const out = db.prepare('SELECT * FROM relationships WHERE source_id = ?').all(id)
-      .map(r => ({ id: r.id, targetId: r.target_id, type: r.type, createdAt: r.created_at, createdBy: r.created_by, note: r.note }));
-    const inn = db.prepare('SELECT * FROM relationships WHERE target_id = ?').all(id)
-      .map(r => ({ id: r.id, sourceId: r.source_id, type: r.type, createdAt: r.created_at, createdBy: r.created_by, note: r.note }));
-    return { outbound: out, inbound: inn };
+    const db    = this._openDb();
+    const table = objTableName(TYPE_ITEM_UUIDS.relationship);
+    // The relationship-type slug lives on the relationship item's value; source/
+    // target/note on obj_<relationship>; created_at/created_by on the item envelope
+    // (items_meta). The obj_ table is lazily created, so an empty store has no
+    // table yet → treat "no such table" as no relationships.
+    try {
+      const out = db.prepare(
+        `SELECT i.id AS id, i.value AS type, o.target_id AS target_id,
+                m.created_at AS created_at, m.created_by AS created_by, o.note AS note
+           FROM "${table}" o JOIN items i ON i.id = o.item_id
+           LEFT JOIN items_meta m ON m.item_id = i.id
+          WHERE o.source_id = ? AND m.deleted_at IS NULL`,
+      ).all(id).map((r: any) => ({ id: r.id, targetId: r.target_id, type: r.type, createdAt: r.created_at, createdBy: r.created_by, note: r.note }));
+      const inn = db.prepare(
+        `SELECT i.id AS id, i.value AS type, o.source_id AS source_id,
+                m.created_at AS created_at, m.created_by AS created_by, o.note AS note
+           FROM "${table}" o JOIN items i ON i.id = o.item_id
+           LEFT JOIN items_meta m ON m.item_id = i.id
+          WHERE o.target_id = ? AND m.deleted_at IS NULL`,
+      ).all(id).map((r: any) => ({ id: r.id, sourceId: r.source_id, type: r.type, createdAt: r.created_at, createdBy: r.created_by, note: r.note }));
+      return { outbound: out, inbound: inn };
+    } catch { return { outbound: [], inbound: [] }; }
+  }
+
+  // Relationship item ids touching an item in either direction (cascade helper).
+  // Guarded — obj_<relationship> may not be materialised yet.
+  _relItemsTouching(db: SqlDatabase, id: any): any[] {
+    const table = objTableName(TYPE_ITEM_UUIDS.relationship);
+    try { return db.prepare(`SELECT item_id AS id FROM "${table}" WHERE source_id = ? OR target_id = ?`).all(id, id); }
+    catch { return []; }
   }
 
   backlinks(id: any) {
@@ -2262,8 +2316,18 @@ class SqliteFsAdapter {
   }
 
   listRelationships() {
-    return this._openDb().prepare('SELECT * FROM relationships ORDER BY created_at').all()
-      .map(r => ({ id: r.id, sourceId: r.source_id, targetId: r.target_id, type: r.type, note: r.note, createdAt: r.created_at, createdBy: r.created_by }));
+    const db    = this._openDb();
+    const table = objTableName(TYPE_ITEM_UUIDS.relationship);
+    try {
+      return db.prepare(
+        `SELECT i.id AS id, i.value AS type, o.source_id AS source_id, o.target_id AS target_id,
+                o.note AS note, m.created_at AS created_at, m.created_by AS created_by
+           FROM "${table}" o JOIN items i ON i.id = o.item_id
+           LEFT JOIN items_meta m ON m.item_id = i.id
+          WHERE m.deleted_at IS NULL
+          ORDER BY m.created_at`,
+      ).all().map((r: any) => ({ id: r.id, sourceId: r.source_id, targetId: r.target_id, type: r.type, note: r.note, createdAt: r.created_at, createdBy: r.created_by }));
+    } catch { return []; }
   }
 
   // ─── History ───────────────────────────────────────────────────────────────
@@ -2612,7 +2676,6 @@ class SqliteFsAdapter {
       db.prepare('DELETE FROM backlinks').run();
       db.prepare('DELETE FROM history').run();
       db.prepare('DELETE FROM aliases').run();
-      db.prepare('DELETE FROM relationships').run();
       db.prepare('DELETE FROM annotations').run();
       db.prepare('DELETE FROM items').run();
       if (this._isSparse()) this._rebuildFromFsSparse(db);

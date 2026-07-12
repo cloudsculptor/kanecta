@@ -226,3 +226,87 @@ describe('per-type projection — exemptions', () => {
     cleanup(a);
   });
 });
+
+// ─── Projected built-in metadata: relationship ──────────────────────────────────
+// Relationships are `relationship` items projected to obj_<relationship>, matching
+// the Postgres adapter — the bespoke `relationships` lookup table is retired.
+
+const REL_TYPE_ID = '334ea5f6-6bfa-43e5-b77f-5d811642d897';
+const REL_TABLE   = objTableName(REL_TYPE_ID);
+const DEPENDS_ON  = '96292b57-7064-44d2-9be1-ae495602dacf';
+
+describe('per-type projection — relationship', () => {
+  test('the bespoke relationships table is gone', () => {
+    const a = tmpAdapter();
+    const gone = a._openDb()
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='relationships'").get();
+    expect(gone).toBeUndefined();
+    cleanup(a);
+  });
+
+  test('relate() projects a row into obj_<relationship> with the spec column shape', () => {
+    const a = tmpAdapter();
+    const x = a.create({ value: 'x' });
+    const y = a.create({ value: 'y' });
+    a.relate(x.id, 'depends-on', y.id, { note: 'critical' });
+
+    expect(a.listProjectedRelations()).toContain(REL_TABLE);
+    const row = a._openDb().prepare(`SELECT * FROM "${REL_TABLE}"`).get();
+    expect(row.type_id).toBe(DEPENDS_ON);           // resolved relationship-type UUID
+    expect(row.source_id).toBe(x.id);
+    expect(row.target_id).toBe(y.id);
+    expect(row.note).toBe('critical');
+    // The relationship item carries the relationship TYPE UUID.
+    expect(a.get(a.listRelationships()[0].id).typeId).toBe(REL_TYPE_ID);
+    cleanup(a);
+  });
+
+  test('relationships()/listRelationships() read from the projection', () => {
+    const a = tmpAdapter();
+    const x = a.create({ value: 'x' });
+    const y = a.create({ value: 'y' });
+    a.relate(x.id, 'depends-on', y.id);
+    expect(a.relationships(x.id).outbound).toHaveLength(1);
+    expect(a.relationships(x.id).outbound[0].targetId).toBe(y.id);
+    expect(a.relationships(y.id).inbound).toHaveLength(1);
+    expect(a.relationships(y.id).inbound[0].sourceId).toBe(x.id);
+    expect(a.listRelationships()).toHaveLength(1);
+    // Empty store (obj_<relationship> not materialised) resolves to empty, not throw.
+    expect(a.relationships(a.create({ value: 'z' }).id)).toEqual({ outbound: [], inbound: [] });
+    cleanup(a);
+  });
+
+  test('custom (unseeded) relationship types project with a null type_id', () => {
+    const a = tmpAdapter();
+    a.addRelTypes(['affects']);
+    const x = a.create({ value: 'x' });
+    const y = a.create({ value: 'y' });
+    a.relate(x.id, 'affects', y.id);
+    const row = a._openDb().prepare(`SELECT * FROM "${REL_TABLE}"`).get();
+    expect(row.type_id).toBeNull();                 // no seeded relationship-type item
+    expect(a.relationships(x.id).outbound[0].type).toBe('affects');
+    cleanup(a);
+  });
+
+  test('deleting an endpoint cascades the relationship out of the projection', () => {
+    const a = tmpAdapter();
+    const x = a.create({ value: 'x' });
+    const y = a.create({ value: 'y' });
+    a.relate(x.id, 'depends-on', y.id);
+    a.delete(x.id);
+    expect(a.relationships(y.id).inbound).toHaveLength(0);
+    cleanup(a);
+  });
+
+  test('projection survives a full rebuild from the filesystem', () => {
+    const a = tmpAdapter();
+    const x = a.create({ value: 'x' });
+    const y = a.create({ value: 'y' });
+    a.relate(x.id, 'depends-on', y.id, { note: 'critical' });
+    a.rebuildIndexes();                             // drops + reconstructs obj_ from items/
+    expect(a.relationships(x.id).outbound).toHaveLength(1);
+    expect(a.relationships(x.id).outbound[0].note).toBe('critical');
+    expect(a._openDb().prepare(`SELECT type_id FROM "${REL_TABLE}"`).get().type_id).toBe(DEPENDS_ON);
+    cleanup(a);
+  });
+});
