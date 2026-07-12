@@ -23,6 +23,10 @@ import { createEmbeddingProvider, reciprocalRankFusion } from './embeddings.ts';
 
 const ROOT_ID         = '00000000-0000-0000-0000-000000000000';
 const DEFAULT_LICENSE = 'bb3bf137-d8a9-4264-9fb7-ac373b1d4739';
+// The root TYPE item (distinct from the root ITEM 0000…). root is both a
+// well-known lifecycle anchor and a projected structured type: its payload is the
+// datastore config record (spec §rootPayload), projected to obj_<root-type>.
+const ROOT_TYPE_ID    = '73068dfc-e56b-4c4b-a8e6-f623f9ad9ab9';
 const WELL_KNOWN_TYPES = new Set(['root']);
 const WELL_KNOWN_ORDER: string[] = [];
 const UUID_RE  = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -111,6 +115,10 @@ const PROJECTED_BUILT_IN_TYPES = new Set<string>([
   // obj_<licence-type>, never a bespoke licences table. Instances are the 19
   // built-in licences seeded by _ensureSystemItems from @kanecta/specification.
   'licence',
+  // root: the datastore config record. The one root item (0000…) projects its
+  // rootPayload {owner, specVersion, itemHistory, activity, entryPoint} to
+  // obj_<root-type> — spec §rootPayload replaces the bespoke config table.
+  'root',
 ]);
 
 // The obj_<typeId> the given item projects to, or null if it doesn't project.
@@ -220,9 +228,14 @@ class PostgresAdapter {
   static async init(pool: Pool, owner: any, { embeddings = null }: any = {}) {
     const adapter = new PostgresAdapter(pool, { embeddings });
     await adapter._migrate();
-    await adapter._ensureConfig(owner);
+    // Config lives in rootPayload (obj_<root>) per spec §rootPayload, not a config
+    // table. Hold owner in memory so _initRoots / _ensureBuiltInTypes can stamp it
+    // on seeded rows; _ensureConfig persists it once the root item, the root type,
+    // and its projection all exist.
+    adapter._config = { owner, spec_version: specVersion };
     await adapter._initRoots();
     await adapter._ensureBuiltInTypes();
+    await adapter._ensureConfig();
     await adapter._ensureSystemItems();
     await adapter._loadRelTypes();
     if (adapter._embeddingProvider) await adapter._ensureEmbeddingTable();
@@ -315,21 +328,44 @@ class PostgresAdapter {
     return v === '1' || v === 'true';
   }
 
-  async _ensureConfig(owner: any) {
-    await this._pool.query(
-      `INSERT INTO config (key, value) VALUES ('owner', $1), ('spec_version', '1.4.0')
-       ON CONFLICT (key) DO NOTHING`,
-      [owner],
-    );
-    this._config = await this._loadConfig();
+  // Persist the datastore config record into the root node's payload (obj_<root>)
+  // — spec §rootPayload replaces the config table. Requires the root item
+  // (_initRoots), the root type + its projection (_ensureBuiltInTypes) to exist
+  // first. Guarded like the other seeders so an unauthorised connect never mutates
+  // schema/data; the in-memory this._config (set from the init owner arg) keeps the
+  // adapter usable regardless.
+  async _ensureConfig() {
+    if (!PostgresAdapter._schemaChangesAllowed()) return;
+    const cfg = this._config ?? {};
+    await this._ensureProjection(ROOT_TYPE_ID);
+    await this.writeObjectJson(ROOT_ID, ROOT_TYPE_ID, {
+      owner:       cfg.owner,
+      specVersion: cfg.spec_version ?? specVersion,
+      itemHistory: cfg.item_history ?? 'EXTERNAL',
+      activity:    cfg.activity ?? 'EXTERNAL',
+      ...(cfg.entry_point ? { entryPoint: cfg.entry_point } : {}),
+    });
+    this._config = (await this._loadConfig()) ?? this._config;
   }
 
+  // Read the datastore config from the root node's payload (obj_<root>). Falls back
+  // to the legacy config table for datastores not yet migrated past 037. Returns
+  // an object carrying at least { owner, spec_version } — the shape every
+  // this.config consumer expects.
   async _loadConfig() {
     try {
+      const { rows } = await this._pool.query(
+        `SELECT owner, spec_version, item_history, activity, entry_point
+           FROM "${objTableName(ROOT_TYPE_ID)}" WHERE item_id = $1`,
+        [ROOT_ID],
+      );
+      if (rows.length) return { ...rows[0] };
+    } catch { /* obj_<root> not present yet — fall back to the legacy table */ }
+    try {
       const { rows } = await this._pool.query('SELECT key, value FROM config');
-      if (!rows.length) return null;
-      return Object.fromEntries(rows.map(r => [r.key, r.value]));
-    } catch { return null; }
+      if (rows.length) return Object.fromEntries(rows.map(r => [r.key, r.value]));
+    } catch { /* no config table either */ }
+    return null;
   }
 
   // ─── Relationship types ──────────────────────────────────────────────────────

@@ -1929,6 +1929,39 @@ describe('licence cutover — licences are items projecting to obj_<licence-type
   });
 });
 
+describe('config cutover — datastore config lives in rootPayload (obj_<root>)', () => {
+  const ROOT_TYPE_ID = '73068dfc-e56b-4c4b-a8e6-f623f9ad9ab9';
+  const OBJ_ROOT     = `obj_${ROOT_TYPE_ID.replace(/-/g, '_')}`;
+
+  test('the bespoke config table is gone (four-table law)', async () => {
+    const { rows } = await pool.query("SELECT to_regclass('config') AS t");
+    expect(rows[0].t).toBeNull();
+  });
+
+  test('the root item projects its config payload to obj_<root>', async () => {
+    const { rows } = await pool.query(
+      `SELECT owner, spec_version, item_history, activity FROM "${OBJ_ROOT}" WHERE item_id = $1`,
+      [ROOT_ID],
+    );
+    expect(rows.length).toBe(1);
+    expect(rows[0].owner).toBe(OWNER);
+    expect(rows[0].spec_version).toBe('1.4.0');
+    expect(rows[0].item_history).toBe('EXTERNAL');
+    expect(rows[0].activity).toBe('EXTERNAL');
+  });
+
+  test('adapter.config resolves owner + spec_version from rootPayload', async () => {
+    expect(adapter.config.owner).toBe(OWNER);
+    expect(adapter.config.spec_version).toBe('1.4.0');
+  });
+
+  test('open() reads config back from obj_<root> (no config table)', async () => {
+    const reopened = await PostgresAdapter.open(pool);
+    expect(reopened.config.owner).toBe(OWNER);
+    expect(reopened.config.spec_version).toBe('1.4.0');
+  });
+});
+
 describe('structured built-in projection (subscription + channel, normalised)', () => {
   const CHANNEL_TYPE_ID = 'b4e15597-5a90-4e40-bed0-dbb28a9165a9';
   const SUB_TYPE_ID = 'cf066390-a599-4dbe-bc20-491de885cb18';
