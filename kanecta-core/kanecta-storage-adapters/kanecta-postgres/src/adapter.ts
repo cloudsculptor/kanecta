@@ -157,6 +157,11 @@ const PROJECTED_BUILT_IN_TYPES = new Set<string>([
   // it extends the nested type payload, so obj_<relationship-type> is built from
   // the flat seed metaschema (relationshipTypeSeedMetaschema) — see _ensureProjection.
   'relationship-type',
+  // relationship: a typed edge is a first-class item. relate() creates a
+  // `relationship` item whose payload {typeId, sourceId, targetId, data, confidence,
+  // note} projects to obj_<relationship> — spec §relationshipPayload replaces the
+  // bespoke `relationships` table. The AGE graph is a purely additive perf_ mirror.
+  'relationship',
 ]);
 
 // The obj_<typeId> the given item projects to, or null if it doesn't project.
@@ -1038,9 +1043,11 @@ class PostgresAdapter {
     const { rows: linkRows } = await this._pool.query(
       'SELECT COUNT(*) FROM perf_backlinks WHERE target_id = $1', [id],
     );
-    const { rows: relRows } = await this._pool.query(
-      'SELECT COUNT(*) FROM relationships WHERE target_id = $1', [id],
-    );
+    const relRows = await this._pool.query(
+      `SELECT COUNT(*) FROM "${objTableName(RELATIONSHIP_TYPE_ID)}" o
+         JOIN items i ON i.id = o.item_id
+        WHERE o.target_id = $1 AND i.deleted_at IS NULL`, [id],
+    ).then(r => r.rows).catch(() => [{ count: '0' }]);   // obj_<relationship> not materialised
     const warnings = [];
     if (parseInt(linkRows[0].count) > 0)
       warnings.push(`${linkRows[0].count} item(s) link to this via [[uuid]] syntax`);
@@ -1238,44 +1245,81 @@ class PostgresAdapter {
 
   // ─── Relationships ────────────────────────────────────────────────────────────
 
+  // Create a typed relationship. A relationship is a first-class `relationship`
+  // item (spec §relationshipPayload — no bespoke `relationships` table): its
+  // payload {typeId, sourceId, targetId, data, confidence, note} projects to
+  // obj_<relationship>. The string API is preserved: `type` is a slug resolved to
+  // its relationship-type item UUID (payload.typeId). The AGE edge is an additive
+  // perf_ mirror; a graph error never fails the authoritative SQL write.
   async relate(sourceId: any, type: any, targetId: any, { createdBy, note = null }: any = {}) {
     const validTypes = this._relTypesCache ?? BUILT_IN_REL_TYPES;
     if (!validTypes.includes(type))
       throw new Error(`Invalid relationship type: ${type}. Valid: ${validTypes.join(', ')}`);
-    const id    = crypto.randomUUID();
-    const now   = new Date();
-    const actor = createdBy || this.config.owner;
+    const typeId = this._relTypeIdByName.get(type) ?? null;
+    const id     = crypto.randomUUID();
+    const now    = new Date();
+    const actor  = createdBy || this.config.owner;
+    const relPath = `${ROOT_ID}/${TYPES_CONTAINER_ID}/${RELATIONSHIP_TYPE_ID}/${id}`;
+    // The relationship item lives under the relationship type container (universal
+    // placement rule); item.value is the slug label, item.type_id is the
+    // relationship type (334ea5f6) so it projects to / counts against obj_<relationship>.
     await this._pool.query(
-      `INSERT INTO relationships (id, source_id, target_id, type, created_at, created_by, note)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-      [id, sourceId, targetId, type, now, actor, note],
+      `INSERT INTO items (id, spec_version, parent_id, path, value, type, type_id, owner,
+         license, sort_order, created_at, modified_at, created_by, modified_by)
+       VALUES ($1,$2,$3,$4,$5,'relationship',$6,$7,$8,0,$9,$9,$7,$7)`,
+      [id, specVersion, RELATIONSHIP_TYPE_ID, relPath, type, RELATIONSHIP_TYPE_ID,
+       actor, DEFAULT_LICENSE, now],
     );
-    // Additive graph projection: mirror the relationship as an AGE edge when the
-    // graph is enabled. Never let a graph error fail the (authoritative) SQL write.
+    await this._ensureProjection(RELATIONSHIP_TYPE_ID);
+    await this.writeObjectJson(id, RELATIONSHIP_TYPE_ID, {
+      typeId, sourceId, targetId, data: null, confidence: null, note,
+    });
+    await this._snapshot(id, 'create', actor, now);
     await this._projectRelationshipToGraph({ id, sourceId, targetId, type });
     return { id, sourceId, targetId, type, createdAt: now.toISOString(), createdBy: actor, note };
   }
 
-  // Remove a relationship by id (and its mirrored AGE edge, if any). Returns
-  // true if a row was deleted. There is no cascade from item delete, so this is
-  // the supported way to retract a relationship.
+  // Retract a relationship by hard-deleting its item (its obj_<relationship> row
+  // cascades via the item_id FK) and its mirrored AGE edge. Returns true if an
+  // item was removed. Endpoint items are never touched (spec §relationshipPayload).
   async unrelate(id: any) {
-    const { rowCount } = await this._pool.query('DELETE FROM relationships WHERE id = $1', [id]);
+    const { rowCount } = await this._pool.query(
+      `DELETE FROM items WHERE id = $1 AND type = 'relationship'`, [id],
+    );
     await this._unprojectRelationshipFromGraph(id);
+    if ((rowCount ?? 0) > 0) await this._dropProjectionIfEmpty(RELATIONSHIP_TYPE_ID);
     return (rowCount ?? 0) > 0;
   }
 
   async relationships(id: any) {
-    const { rows: out } = await this._pool.query(
-      `SELECT * FROM relationships WHERE source_id = $1 ORDER BY created_at`, [id],
-    );
-    const { rows: inn } = await this._pool.query(
-      `SELECT * FROM relationships WHERE target_id = $1 ORDER BY created_at`, [id],
-    );
-    return {
-      outbound: out.map(r => ({ id: r.id, targetId: r.target_id, type: r.type, createdAt: r.created_at?.toISOString(), createdBy: r.created_by, note: r.note })),
-      inbound:  inn.map(r => ({ id: r.id, sourceId: r.source_id, type: r.type, createdAt: r.created_at?.toISOString(), createdBy: r.created_by, note: r.note })),
-    };
+    const relObj = objTableName(RELATIONSHIP_TYPE_ID);
+    try {
+      const { rows: out } = await this._pool.query(
+        `SELECT o.item_id AS id, o.source_id, o.target_id, rt.value AS type, o.note,
+                i.created_at, i.created_by
+           FROM "${relObj}" o
+           JOIN items i        ON i.id = o.item_id
+           LEFT JOIN items rt  ON rt.id = o.type_id
+          WHERE o.source_id = $1 AND i.deleted_at IS NULL
+          ORDER BY i.created_at`, [id],
+      );
+      const { rows: inn } = await this._pool.query(
+        `SELECT o.item_id AS id, o.source_id, o.target_id, rt.value AS type, o.note,
+                i.created_at, i.created_by
+           FROM "${relObj}" o
+           JOIN items i        ON i.id = o.item_id
+           LEFT JOIN items rt  ON rt.id = o.type_id
+          WHERE o.target_id = $1 AND i.deleted_at IS NULL
+          ORDER BY i.created_at`, [id],
+      );
+      return {
+        outbound: out.map(r => ({ id: r.id, targetId: r.target_id, type: r.type, createdAt: r.created_at?.toISOString(), createdBy: r.created_by, note: r.note })),
+        inbound:  inn.map(r => ({ id: r.id, sourceId: r.source_id, type: r.type, createdAt: r.created_at?.toISOString(), createdBy: r.created_by, note: r.note })),
+      };
+    } catch {
+      // obj_<relationship> not materialised yet (no relationships created) → none.
+      return { outbound: [], inbound: [] };
+    }
   }
 
   async backlinks(id: any) {
@@ -1286,11 +1330,24 @@ class PostgresAdapter {
   }
 
   async listRelationships() {
-    const { rows } = await this._pool.query('SELECT * FROM relationships ORDER BY created_at');
-    return rows.map(r => ({
-      id: r.id, sourceId: r.source_id, targetId: r.target_id,
-      type: r.type, createdAt: r.created_at?.toISOString(), createdBy: r.created_by, note: r.note,
-    }));
+    const relObj = objTableName(RELATIONSHIP_TYPE_ID);
+    try {
+      const { rows } = await this._pool.query(
+        `SELECT o.item_id AS id, o.source_id, o.target_id, rt.value AS type, o.note,
+                i.created_at, i.created_by
+           FROM "${relObj}" o
+           JOIN items i        ON i.id = o.item_id
+           LEFT JOIN items rt  ON rt.id = o.type_id
+          WHERE i.deleted_at IS NULL
+          ORDER BY i.created_at`,
+      );
+      return rows.map(r => ({
+        id: r.id, sourceId: r.source_id, targetId: r.target_id,
+        type: r.type, createdAt: r.created_at?.toISOString(), createdBy: r.created_by, note: r.note,
+      }));
+    } catch {
+      return [];
+    }
   }
 
   // ─── History ─────────────────────────────────────────────────────────────────
@@ -2487,9 +2544,15 @@ class PostgresAdapter {
     }
     this._graphReady = false;
     await this._ensureGraph();
-    const { rows } = await this._pool.query(
-      `SELECT id, source_id, target_id, type FROM relationships`,
-    );
+    // The authoritative relationship set is obj_<relationship> (the relationship
+    // items); the graph is a rebuildable perf_ mirror derived from it.
+    const rows = await this._pool.query(
+      `SELECT o.item_id AS id, o.source_id, o.target_id, rt.value AS type
+         FROM "${objTableName(RELATIONSHIP_TYPE_ID)}" o
+         JOIN items i        ON i.id = o.item_id
+         LEFT JOIN items rt  ON rt.id = o.type_id
+        WHERE i.deleted_at IS NULL`,
+    ).then(r => r.rows).catch(() => []);   // no relationships materialised yet
     for (const r of rows) {
       await this._projectRelationshipToGraph({ id: r.id, sourceId: r.source_id, targetId: r.target_id, type: r.type });
     }

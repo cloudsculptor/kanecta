@@ -741,6 +741,61 @@ describe('relationship-type registry -> obj_<relationship-type>', () => {
   });
 });
 
+// ─── relationships-as-items cutover (Part 3b: relationships -> obj_<relationship>) ─
+
+const RELATIONSHIP_TYPE_ID = '334ea5f6-6bfa-43e5-b77f-5d811642d897';
+const REL_OBJ = `obj_${RELATIONSHIP_TYPE_ID.replace(/-/g, '_')}`;
+
+describe('relationships -> obj_<relationship>', () => {
+  test('the bespoke relationships table is gone (dropped by migration 040)', async () => {
+    const { rows } = await pool.query(
+      `SELECT to_regclass('"${SCHEMA}".relationships') IS NOT NULL AS has_relationships`,
+    );
+    expect(rows[0].has_relationships).toBe(false);
+  });
+
+  test('relate() creates a relationship item whose payload projects to obj_<relationship>', async () => {
+    const a = await adapter.create({ value: 'obj-rel-a' });
+    const b = await adapter.create({ value: 'obj-rel-b' });
+    const r = await adapter.relate(a.id, 'depends-on', b.id, { note: 'x' });
+    // The item exists as a first-class `relationship` item.
+    const item = await adapter.get(r.id);
+    expect(item.type).toBe('relationship');
+    // Its payload row carries the resolved relationship-type UUID + endpoints.
+    const { rows } = await pool.query(
+      `SELECT o.type_id, o.source_id, o.target_id, o.note, rt.value AS type_slug
+         FROM "${REL_OBJ}" o LEFT JOIN items rt ON rt.id = o.type_id
+        WHERE o.item_id = $1`, [r.id],
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].source_id).toBe(a.id);
+    expect(rows[0].target_id).toBe(b.id);
+    expect(rows[0].note).toBe('x');
+    expect(rows[0].type_slug).toBe('depends-on');   // payload.typeId resolves to the slug
+  });
+
+  test('relationships() reads obj_<relationship> (outbound + inbound)', async () => {
+    const a = await adapter.create({ value: 'obj-rel2-a' });
+    const b = await adapter.create({ value: 'obj-rel2-b' });
+    await adapter.relate(a.id, 'blocks', b.id);
+    const ra = await adapter.relationships(a.id);
+    expect(ra.outbound.map(o => o.targetId)).toContain(b.id);
+    expect(ra.outbound.find(o => o.targetId === b.id).type).toBe('blocks');
+    const rb = await adapter.relationships(b.id);
+    expect(rb.inbound.map(o => o.sourceId)).toContain(a.id);
+  });
+
+  test('unrelate() deletes the relationship item and its obj_<relationship> row', async () => {
+    const a = await adapter.create({ value: 'obj-unrel-a' });
+    const b = await adapter.create({ value: 'obj-unrel-b' });
+    const r = await adapter.relate(a.id, 'relates-to', b.id);
+    expect(await adapter.unrelate(r.id)).toBe(true);
+    expect(await adapter.get(r.id)).toBeNull();
+    const { rows } = await pool.query(`SELECT 1 FROM "${REL_OBJ}" WHERE item_id = $1`, [r.id]);
+    expect(rows).toHaveLength(0);
+  });
+});
+
 // ─── history ───────────────────────────────────────────────────────────────────
 
 describe('history', () => {
@@ -1817,15 +1872,17 @@ describe.skipIf(!AGE_ENABLED)('graph projection (AGE)', () => {
     expect(await adapter.graphNeighbors(a.id)).not.toContain(b.id);
   });
 
-  test('rebuildGraphProjection reconstructs edges from the relationships table', async () => {
+  test('rebuildGraphProjection reconstructs edges from obj_<relationship>', async () => {
     const a = await adapter.create({ value: 'g-r-a' });
     const b = await adapter.create({ value: 'g-r-b' });
     await adapter.relate(a.id, 'enables', b.id);
 
     const summary = await adapter.rebuildGraphProjection();
     expect(summary.rebuilt).toBe(true);
-    // Every relationships-table row is mirrored as exactly one edge.
-    const { rows } = await pool.query('SELECT count(*)::int AS n FROM relationships');
+    // Every relationship item is mirrored as exactly one edge.
+    const { rows } = await pool.query(
+      `SELECT count(*)::int AS n FROM items WHERE type = 'relationship' AND deleted_at IS NULL`,
+    );
     expect(await adapter.countProjectedGraphEdges()).toBe(rows[0].n);
     // The rebuilt graph still answers traversals.
     expect(await adapter.graphNeighbors(a.id, { relType: 'enables' })).toContain(b.id);
