@@ -71,8 +71,21 @@ describe.skipIf(!PG_URL)('live schema conformance (the modernisation backlog)', 
         `Backlog (${report.violations.length}):\n  ${report.violations.join('\n  ')}\n`,
       );
       expect(tables).toContain('items');
-      // TODO(uniform-projection-modernisation): flip to the strict gate when the
-      // backlog is empty — expect(report.conformant).toBe(true);
+      // Regression guard: every bespoke table retired by the uniform-projection
+      // epic must stay gone. rel_types + relationships were the last two cut
+      // (Part 3, migrations 039/040); types/config/aliases/annotations/licences/
+      // functions/documents/item_grants/files/schema_version went earlier.
+      for (const cut of [
+        'rel_types', 'relationships', 'types', 'config', 'aliases', 'annotations',
+        'licences', 'functions', 'documents', 'item_grants', 'files', 'schema_version',
+      ]) {
+        expect(report.violations).not.toContain(cut);
+      }
+      // Only the post-1.4.0 branching tables remain (separately tracked, deferred).
+      expect(report.violations).toEqual(['branch_changes', 'branches']);
+      // TODO(uniform-projection-modernisation): flip to the strict gate
+      // (expect(report.conformant).toBe(true)) once branches/branch_changes are
+      // themselves projected — the last of the backlog.
       expect(report).toBeTruthy();
     } finally {
       await pool.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`).catch(() => {});
