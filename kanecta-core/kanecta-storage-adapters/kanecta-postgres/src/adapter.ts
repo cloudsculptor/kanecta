@@ -15,6 +15,7 @@ import {
   structuredTypes,
   builtInTypeItems,
   builtInSystemItems,
+  typeSeedMetaschema,
 } from '@kanecta/specification';
 import { validateItem } from '@kanecta/specification/validator';
 import { deriveSqlSchema, deriveIndexDdl } from '@kanecta/schema-compiler';
@@ -27,6 +28,12 @@ const DEFAULT_LICENSE = 'bb3bf137-d8a9-4264-9fb7-ac373b1d4739';
 // well-known lifecycle anchor and a projected structured type: its payload is the
 // datastore config record (spec §rootPayload), projected to obj_<root-type>.
 const ROOT_TYPE_ID    = '73068dfc-e56b-4c4b-a8e6-f623f9ad9ab9';
+// The `type` meta-type's own type-item UUID (from type.json). The type registry
+// lives in obj_<type-type> — there is no bespoke `types` table (spec
+// §cqrs-projections / four-table law). obj_<type-type>'s columns can't be derived
+// from type.json's own (nested) payload — that's circular — so the adapter builds
+// it from the flat seed metaschema (rootPayload.seedMetaschema / typeSeedMetaschema).
+const TYPE_TYPE_ID    = 'abbd7b52-92aa-4fca-b458-d9c4e1a60061';
 const WELL_KNOWN_TYPES = new Set(['root']);
 const WELL_KNOWN_ORDER: string[] = [];
 const UUID_RE  = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -119,6 +126,11 @@ const PROJECTED_BUILT_IN_TYPES = new Set<string>([
   // rootPayload {owner, specVersion, itemHistory, activity, entryPoint} to
   // obj_<root-type> — spec §rootPayload replaces the bespoke config table.
   'root',
+  // type: the type registry. Every type item (built-in + user-defined) projects
+  // to obj_<type-type> — spec §cqrs-projections replaces the bespoke `types`
+  // table. obj_<type-type> is built from the flat seed metaschema (not type.json's
+  // own nested payload, which would be circular) — see _ensureProjection.
+  'type',
 ]);
 
 // The obj_<typeId> the given item projects to, or null if it doesn't project.
@@ -432,11 +444,15 @@ class PostgresAdapter {
   // Seed the core manifest of built-in type items (grant, query, file, …) under
   // the synthetic types-container node, with their fixed UUIDs, from
   // @kanecta/specification. These are ordinary type items (type='type' in items,
-  // a 1:1 row in types carrying the jsonSchema) — so readTypeJson/_ensureProjection
-  // work on a built-in exactly as on a user type. Idempotent: skips any type item
-  // already present, so it safely backfills existing datastores on open as well
-  // as seeding fresh ones at init. Writes NO obj_ tables (a type with zero
-  // instances projects nothing — the four-table invariant).
+  // a 1:1 registry row in obj_<type-type> carrying the jsonSchema) — so
+  // readTypeJson/_ensureProjection work on a built-in exactly as on a user type.
+  // Idempotent: skips the items-row for any type item already present but re-upserts
+  // its obj_<type-type> row, so it safely backfills existing datastores on open (and
+  // completes the `types` -> obj_<type-type> cutover on the first authorised open
+  // after migration 038) as well as seeding fresh ones at init. The one obj_ table
+  // it materialises is the registry itself, obj_<type-type> — a type with zero
+  // *instances* still projects nothing (the four-table invariant); type items ARE
+  // the instances of the type-type, so its projection is always live.
   async _ensureBuiltInTypes() {
     // Seeding inserts the built-in type items + their type rows — a bootstrap
     // mutation of the datastore. Same fail-closed guard as migrations: on an
@@ -459,37 +475,49 @@ class PostgresAdapter {
        `${ROOT_ID}/${TYPES_CONTAINER_ID}`, owner, DEFAULT_LICENSE, now],
     );
 
+    // The type registry is obj_<type-type> (spec §cqrs-projections — no bespoke
+    // `types` table; migration 038 drops it). Materialise obj_<type-type> from the
+    // flat seed metaschema before seeding any type rows into it — the type-type
+    // can't derive its own columns (that's circular; see _ensureProjection).
+    // Idempotent (IF NOT EXISTS).
+    const typeObj = objTableName(TYPE_TYPE_ID);
+    await this._ensureProjection(TYPE_TYPE_ID);
+
     for (const src of builtInTypeItems as any[]) {
       const id      = src.item.id;
       const value   = src.item.value;
       const payload = src.payload ?? {};
       if (!payload.jsonSchema) continue;             // nothing to project against
 
+      // The items row is inserted once (skip if present); the obj_<type-type> row
+      // is upserted UNCONDITIONALLY so an existing datastore — whose built-in type
+      // items predate the `types` -> obj_<type-type> cutover — gets its registry
+      // rows re-seeded into the new projection after migration 038 drops `types`.
       const { rows } = await this._pool.query('SELECT 1 FROM items WHERE id = $1', [id]);
-      if (rows.length) continue;                     // already seeded
-
-      const parentId = src.item.parentId ?? TYPES_CONTAINER_ID;
-      await this._pool.query(
-        `INSERT INTO items (id, spec_version, parent_id, path, value, type, owner, license,
-           sort_order, created_at, modified_at, created_by, modified_by)
-         VALUES ($1,$2,$3,$4,$5,'type',$6,$7,0,$8,$8,$6,$6)
-         ON CONFLICT (id) DO NOTHING`,
-        [id, specVersion, parentId, `${ROOT_ID}/${TYPES_CONTAINER_ID}/${id}`,
-         value, owner, DEFAULT_LICENSE, now],
-      );
+      if (!rows.length) {
+        const parentId = src.item.parentId ?? TYPES_CONTAINER_ID;
+        await this._pool.query(
+          `INSERT INTO items (id, spec_version, parent_id, path, value, type, owner, license,
+             sort_order, created_at, modified_at, created_by, modified_by)
+           VALUES ($1,$2,$3,$4,$5,'type',$6,$7,0,$8,$8,$6,$6)
+           ON CONFLICT (id) DO NOTHING`,
+          [id, specVersion, parentId, `${ROOT_ID}/${TYPES_CONTAINER_ID}/${id}`,
+           value, owner, DEFAULT_LICENSE, now],
+        );
+      }
 
       const meta = payload.meta ?? {};
       await this._pool.query(
-        `INSERT INTO types (
-           item_id, table_name,
+        `INSERT INTO "${typeObj}" (
+           item_id,
            meta_icon, meta_description, meta_details, meta_keywords, meta_tags,
            meta_primary_field, meta_ai_instructions_claude,
            meta_functions_consumed_by, meta_functions_produced_by,
            json_schema, sql_schema, sync, superseded_by, implements, extends, indexes
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
          ON CONFLICT (item_id) DO NOTHING`,
         [
-          id, objTableName(id),
+          id,
           meta.icon ?? null, meta.description ?? '', meta.details ?? null,
           meta.keywords ?? null, meta.tags ?? null,
           meta.primaryField ?? null, meta.skills?.claude ?? null,
@@ -1938,36 +1966,37 @@ class PostgresAdapter {
     };
 
     const meta = resolvedSchema.meta ?? {};
-    // `table_name` is documentary — the name the projection WILL use. The
-    // physical `obj_<typeId>` table is NOT created here: a fresh type has zero
-    // instances (N(T)=0), so per the spec invariant it projects no table. The
-    // table is materialised lazily on the first live object instance
-    // (_ensureProjection) and dropped on hard-delete of the last.
-    const tableName = objTableName(id);
+    // The type registry is the type-type's own projection obj_<type-type> (spec
+    // §cqrs-projections — no bespoke `types` table). This type's definition is a
+    // row there. Ensure the registry table exists (idempotent; it already does
+    // after init, since every built-in type seeds a row). The type's OWN instance
+    // table obj_<thisTypeId> is NOT created here — a fresh type has zero instances
+    // (N(T)=0), so per the spec invariant it projects no table until the first
+    // live instance is written (_ensureProjection).
+    await this._ensureProjection(TYPE_TYPE_ID);
 
     await this._pool.query(
-      `INSERT INTO types (
-         item_id, table_name,
+      `INSERT INTO "${objTableName(TYPE_TYPE_ID)}" (
+         item_id,
          meta_icon, meta_description, meta_details, meta_keywords, meta_tags,
          meta_primary_field, meta_ai_instructions_claude,
          meta_functions_consumed_by, meta_functions_produced_by,
          json_schema, sql_schema, sync, superseded_by, implements, extends, indexes
        ) VALUES (
-         $1, $2,
-         $3, $4, $5, $6, $7,
-         $8, $9,
-         $10, $11,
-         $12, $13, $14, $15, $16, $17, $18
+         $1,
+         $2, $3, $4, $5, $6,
+         $7, $8,
+         $9, $10,
+         $11, $12, $13, $14, $15, $16, $17
        )
        ON CONFLICT (item_id) DO UPDATE SET
-         table_name = $2,
-         meta_icon = $3, meta_description = $4, meta_details = $5, meta_keywords = $6, meta_tags = $7,
-         meta_primary_field = $8, meta_ai_instructions_claude = $9,
-         meta_functions_consumed_by = $10, meta_functions_produced_by = $11,
-         json_schema = $12, sql_schema = $13, sync = $14, superseded_by = $15, implements = $16, extends = $17,
-         indexes = $18`,
+         meta_icon = $2, meta_description = $3, meta_details = $4, meta_keywords = $5, meta_tags = $6,
+         meta_primary_field = $7, meta_ai_instructions_claude = $8,
+         meta_functions_consumed_by = $9, meta_functions_produced_by = $10,
+         json_schema = $11, sql_schema = $12, sync = $13, superseded_by = $14, implements = $15, extends = $16,
+         indexes = $17`,
       [
-        id, tableName,
+        id,
         meta.icon ?? null, meta.description ?? '', meta.details ?? null, meta.keywords ?? null, meta.tags ?? null,
         meta.primaryField ?? null, meta.skills?.claude ?? null,
         meta.functions?.consumedBy ?? [], meta.functions?.producedBy ?? [],
@@ -1982,9 +2011,25 @@ class PostgresAdapter {
     return { metadata, schema: resolvedSchema };
   }
 
+  // The type registry lives in obj_<type-type> (spec §cqrs-projections — no
+  // bespoke `types` table). Read that projection; fall back to the legacy `types`
+  // table only during the transition, before an authorised init has backfilled +
+  // dropped it. obj_<type-type>'s columns match the legacy table 1:1 (by design of
+  // the seed metaschema), so the reconstruction below is identical for both.
+  async _readTypeRow(id: any) {
+    const table = objTableName(TYPE_TYPE_ID);
+    try {
+      const { rows } = await this._pool.query(`SELECT * FROM "${table}" WHERE item_id = $1`, [id]);
+      if (rows[0]) return rows[0];
+    } catch { /* obj_<type-type> not materialised yet — try legacy */ }
+    try {
+      const { rows } = await this._pool.query('SELECT * FROM types WHERE item_id = $1', [id]);
+      return rows[0] ?? null;
+    } catch { return null; }   // legacy table already dropped
+  }
+
   async readTypeJson(id: any) {
-    const { rows } = await this._pool.query('SELECT * FROM types WHERE item_id = $1', [id]);
-    const t = rows[0];
+    const t = await this._readTypeRow(id);
     if (!t) return null;
     const meta = {
       icon: t.meta_icon ?? '',
@@ -2006,7 +2051,7 @@ class PostgresAdapter {
   async writeTypeJson(id: any, data: any) {
     const meta = data.meta ?? {};
     await this._pool.query(
-      `UPDATE types SET
+      `UPDATE "${objTableName(TYPE_TYPE_ID)}" SET
          meta_icon = $2, meta_description = $3, meta_details = $4, meta_keywords = $5, meta_tags = $6,
          meta_primary_field = $7, meta_ai_instructions_claude = $8,
          meta_functions_consumed_by = $9, meta_functions_produced_by = $10,
@@ -2050,7 +2095,13 @@ class PostgresAdapter {
   // malformed index declaration is skipped with a warning, never blocking the
   // instance write.
   async _ensureProjection(typeId: any): Promise<boolean> {
-    const def = await this.readTypeJson(typeId);
+    // The type-type's own columns cannot be derived from type.json's payload —
+    // the schema describing the type that defines types is exactly what we would
+    // be building (circular). Build obj_<type-type> from the flat seed metaschema
+    // (rootPayload.seedMetaschema) instead. Every other type derives from its def.
+    const def = String(typeId) === TYPE_TYPE_ID
+      ? { jsonSchema: typeSeedMetaschema, indexes: [] }
+      : await this.readTypeJson(typeId);
     if (!def || !def.jsonSchema) return false;   // orphan / schemaless type
     for (const stmt of deriveSqlSchema(def.jsonSchema, { typeId, dialect: 'postgres' }))
       await this._pool.query(guardDdl(stmt));
@@ -2074,10 +2125,14 @@ class PostgresAdapter {
     // Count by type_id alone — the projection key. A structured built-in's
     // instances carry type_id but type='grant'/'query'/…, so filtering on
     // type='object' would under-count and drop a live table.
-    const { rows } = await this._pool.query(
-      'SELECT COUNT(*)::int AS n FROM items WHERE type_id = $1',
-      [typeId],
-    );
+    // The type-type is the exception: type items are its instances but carry
+    // type_id=NULL (type='type' is their identity), so count them by type.
+    const { rows } = String(typeId) === TYPE_TYPE_ID
+      ? await this._pool.query("SELECT COUNT(*)::int AS n FROM items WHERE type = 'type'")
+      : await this._pool.query(
+          'SELECT COUNT(*)::int AS n FROM items WHERE type_id = $1',
+          [typeId],
+        );
     if (!rows[0] || rows[0].n === 0)
       await this._pool.query(`DROP TABLE IF EXISTS "${objTableName(typeId)}"`);
   }

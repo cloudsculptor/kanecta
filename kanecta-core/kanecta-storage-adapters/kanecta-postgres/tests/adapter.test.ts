@@ -925,6 +925,71 @@ describe('type definitions', () => {
   });
 });
 
+// The type registry lives in obj_<type-type>, not a bespoke `types` table (spec
+// §cqrs-projections, the four-table law). obj_<type-type> is built from the flat
+// seed metaschema (rootPayload.seedMetaschema) because the type-type can't derive
+// its own columns from type.json (circular). Migration 038 drops `types`.
+describe('type registry cutover (types -> obj_<type-type>)', () => {
+  const TYPE_TYPE_ID = 'abbd7b52-92aa-4fca-b458-d9c4e1a60061';
+  const TYPE_OBJ     = `obj_${TYPE_TYPE_ID.replace(/-/g, '_')}`;
+
+  test('the bespoke `types` table is dropped', async () => {
+    const { rows } = await pool.query(`SELECT to_regclass(current_schema() || '.types') AS reg`);
+    expect(rows[0].reg).toBeNull();
+  });
+
+  test('obj_<type-type> exists and holds a registry row per built-in type', async () => {
+    const reg = await pool.query(`SELECT to_regclass($1) AS reg`, [TYPE_OBJ]);
+    expect(reg.rows[0].reg).toBe(TYPE_OBJ);
+    // Every seeded built-in type item has an items row AND an obj_<type-type> row.
+    const items = await pool.query(`SELECT count(*)::int n FROM items WHERE type = 'type'`);
+    const regRows = await pool.query(`SELECT count(*)::int n FROM "${TYPE_OBJ}"`);
+    expect(regRows.rows[0].n).toBeGreaterThanOrEqual(40);
+    expect(regRows.rows[0].n).toBe(items.rows[0].n);
+  });
+
+  test('obj_<type-type> has the flat seed-metaschema columns, not a nested meta blob', async () => {
+    const { rows } = await pool.query(
+      `SELECT column_name FROM information_schema.columns
+        WHERE table_schema = current_schema() AND table_name = $1`, [TYPE_OBJ],
+    );
+    const cols = rows.map((r) => r.column_name);
+    for (const c of ['meta_icon', 'meta_description', 'json_schema', 'sql_schema', 'indexes'])
+      expect(cols).toContain(c);
+    expect(cols).not.toContain('meta');       // meta is flattened, never a blob column
+    expect(cols).not.toContain('table_name'); // table_name is derivable, dropped
+  });
+
+  test('the type-type describes itself — its own row is in the registry (self-referential)', async () => {
+    const { rows } = await pool.query(`SELECT item_id FROM "${TYPE_OBJ}" WHERE item_id = $1`, [TYPE_TYPE_ID]);
+    expect(rows.length).toBe(1);
+    const def = await adapter.readTypeJson(TYPE_TYPE_ID);
+    expect(def).toBeTruthy();
+    expect(def.jsonSchema).toBeTruthy();
+  });
+
+  test('a user type created after cutover round-trips through obj_<type-type>', async () => {
+    const id = crypto.randomUUID();
+    await adapter.createType('CutoverWidget', {
+      schema: {
+        meta: { icon: 'Star', description: 'post-cutover type', skills: { claude: '' } },
+        jsonSchema: {
+          '$schema': 'http://json-schema.org/draft-07/schema#', title: 'CutoverWidget',
+          type: 'object', properties: { label: { type: 'string' } }, required: [], additionalProperties: false,
+        },
+        sqlSchema: [],
+      },
+      id,
+    });
+    // The definition row lives in obj_<type-type> (not a `types` table, which is gone).
+    const inReg = await pool.query(`SELECT meta_description FROM "${TYPE_OBJ}" WHERE item_id = $1`, [id]);
+    expect(inReg.rows[0]?.meta_description).toBe('post-cutover type');
+    const def = await adapter.readTypeJson(id);
+    expect(def.meta.description).toBe('post-cutover type');
+    expect(def.jsonSchema.title).toBe('CutoverWidget');
+  });
+});
+
 // ─── objectData / functionData ─────────────────────────────────────────────────
 
 describe('objectData round-trip', () => {
