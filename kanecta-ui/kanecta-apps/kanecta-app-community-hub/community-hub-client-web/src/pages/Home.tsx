@@ -13,11 +13,7 @@ const publicActive = [
     title: "Events",
     blurb: "Find local events, gatherings, and activities happening in Featherston.",
     path: "/events",
-    image: "/balloon-160x160.png",
-    attribution: {
-      label: "Photo: Bryan Kennedy / Public Domain",
-      url: "https://commons.wikimedia.org/wiki/File:Balloon_free_image.jpg",
-    },
+    image: "/events-real.jpg",
   },
   {
     title: "Transport",
@@ -39,51 +35,43 @@ const publicActive = [
     title: "Community Groups",
     blurb: "Discover local community groups",
     path: "/groups",
-    image: "/group-photo-160x160.png",
-    attribution: {
-      label: "Photo: Canva AI",
-      url: "https://www.canva.com/",
-    },
+    image: "/community-groups-real.jpg",
   },
   {
     title: "Local Businesses",
     blurb: "Support and explore local businesses in Featherston and the South Wairarapa.",
     path: "/local-businesses",
-    image: "/local-business-160x160.jpg",
+    image: "/local-business-real.jpg",
   },
   {
     title: "Social Services",
     blurb: "Access social support, welfare, and community care services.",
     path: "/social-services",
-    image: "/social-services-160x160.jpg",
+    image: "/social-services-real.jpg",
   },
   {
     title: "Community Resilience",
     blurb: "Resources and networks for when things get tough.",
     path: "/community-resilience",
-    image: "/resilience-160x160.jpg",
+    image: "/community-resilience-real.jpg",
   },
   {
     title: "Communication Networks",
     blurb: "Stay connected with local networks, groups, and channels.",
     path: "/communication-networks",
-    image: "/notice-boards-160x160.png",
-    attribution: {
-      label: "Photo: Joseph Barillari",
-      url: "https://commons.wikimedia.org/wiki/File:Infinite-corridor-bboard.jpeg",
-    },
+    image: "/communication-networks-real.jpg",
   },
   {
     title: "Local Government",
     blurb: "Local and regional government services for Featherston.",
     path: "/local-government",
-    image: "/local-government-160x160.jpg",
+    image: "/local-government-real.jpg",
   },
   {
     title: "Education",
     blurb: "Schools, early childhood services, and learning resources in Featherston.",
     path: "/education",
-    image: "/education-160x160.jpg",
+    image: "/education-real.jpg",
   },
 ];
 
