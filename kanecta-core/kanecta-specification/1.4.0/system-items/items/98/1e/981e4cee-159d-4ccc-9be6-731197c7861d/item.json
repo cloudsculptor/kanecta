@@ -1,0 +1,53 @@
+{
+  "item": {
+    "id": "981e4cee-159d-4ccc-9be6-731197c7861d",
+    "parentId": "15861dd7-e54c-4209-bceb-bdd65de4f472",
+    "type": "relationship-type",
+    "typeId": "15861dd7-e54c-4209-bceb-bdd65de4f472",
+    "value": "contradicts",
+    "sortOrder": 3
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "The source and target items contradict each other (symmetric).",
+      "confidence": "locked",
+      "icon": "Cancel",
+      "directional": false,
+      "inverse": null
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "contradictsData",
+      "type": "object",
+      "properties": {},
+      "additionalProperties": true
+    },
+    "sqlSchema": []
+  }
+}

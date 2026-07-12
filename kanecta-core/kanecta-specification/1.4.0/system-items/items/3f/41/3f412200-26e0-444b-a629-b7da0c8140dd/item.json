@@ -1,0 +1,53 @@
+{
+  "item": {
+    "id": "3f412200-26e0-444b-a629-b7da0c8140dd",
+    "parentId": "15861dd7-e54c-4209-bceb-bdd65de4f472",
+    "type": "relationship-type",
+    "typeId": "15861dd7-e54c-4209-bceb-bdd65de4f472",
+    "value": "derived-from",
+    "sortOrder": 7
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "The source item is derived from the target item (inverse of prerequisite-for).",
+      "confidence": "locked",
+      "icon": "AccountTree",
+      "directional": true,
+      "inverse": "5ba7862e-aa51-4fb7-aed3-08d7a9caac7d"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "derived-fromData",
+      "type": "object",
+      "properties": {},
+      "additionalProperties": true
+    },
+    "sqlSchema": []
+  }
+}

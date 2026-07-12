@@ -5468,6 +5468,21 @@ bootstrap table of any kind: bootstrapping is the root item's payload, and nothi
 else. Even the version marker and the metaschema seed are data on the one item that
 is guaranteed to exist first.
 
+The `type` type is not the only meta-type that cannot describe its own projection.
+The `relationship-type` type *extends* the (nested) type payload — its definition is
+`allOf: [type.json, { meta: { directional, inverse } }]` — so `obj_<relationship-type>`
+hits the identical circularity: the schema that would describe the relationship-type-
+defining type is exactly what the engine would be building. It therefore needs its own
+flat seed metaschema (`relationshipTypeSeedMetaschema` = the `type` seed's columns plus
+`metaDirectional` and `metaInverse`), and the adapter compiles `obj_<relationship-type>`
+from it, special-casing the relationship-type type UUID exactly as it special-cases the
+`type` type UUID. Unlike the `type` seed, this one is *not* carried in `rootPayload`: it
+is *derivative* of the already-stored `type` seed (it adds two columns to it), not a
+second irreducible bootstrap, so it ships as an export-only constant from the
+specification package rather than as datastore data. The irreducible-bootstrap-is-data
+rule is about what a datastore cannot reconstruct without the adapter; a schema that is
+the `type` seed plus two fixed columns is reconstructible, so it stays in code.
+
 *Any relation that is not one of these four kinds is a specification violation.* A
 `schema_version` (or migration-tracking) table, a bespoke per-type table
 (`functions`, `documents`, `aliases`, `annotations`, `item_grants`, `files`,

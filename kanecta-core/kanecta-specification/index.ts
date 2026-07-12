@@ -59,6 +59,14 @@ import tView from './1.4.0/built-in-types/types/view.json' with { type: 'json' }
 // obj_<type-type> from it (spec §rootPayload / §cqrs-projections).
 import typeSeed from './1.4.0/built-in-types/type-seed-metaschema.json' with { type: 'json' };
 
+// The seed metaschema for the `relationship-type` type. relationship-type EXTENDS
+// the (nested) type payload, so obj_<relationship-type>'s columns can't be derived
+// from its own jsonSchema any more than `type`'s can — same circularity. This flat
+// schema = typeSeedMetaschema columns + metaDirectional + metaInverse. Held as an
+// export-only constant (NOT a second rootPayload field — it is derivative of the
+// stored type seed); the adapter compiles obj_<relationship-type> from it.
+import relationshipTypeSeed from './1.4.0/built-in-types/relationship-type-seed-metaschema.json' with { type: 'json' };
+
 // Built-in system items — mandatory seed INSTANCES the platform depends on (not
 // type definitions). Currently the 19 built-in licences (spec §licencePayload),
 // seeded as `licence` items projecting to obj_<licence-type>. Static JSON imports
@@ -84,6 +92,23 @@ import sysItem17 from './1.4.0/system-items/items/d4/f4/d4f4b3b2-a652-4dd2-b83e-
 import sysItem18 from './1.4.0/system-items/items/e5/82/e58246ce-4c9b-4b60-90b4-b442cccecba5/item.json' with { type: 'json' };
 import sysItem19 from './1.4.0/system-items/items/f3/75/f3753e87-6b36-4939-8e31-70d504f1a36c/item.json' with { type: 'json' };
 
+// The 9 canonical relationship-type system items (relates-to, depends-on<->enables,
+// contradicts, blocks<->blocked-by, prerequisite-for<->derived-from, supersedes).
+// Bootstrapped as `relationship-type` items under the relationship-type type
+// container, projecting to obj_<relationship-type>. Exported separately from the
+// licences (builtInSystemItems) because their payload is a nested type payload
+// (meta/jsonSchema/sqlSchema + directional/inverse) the adapter maps to flat
+// columns, and their meta_inverse cross-references require two-pass FK seeding.
+import relType1 from './1.4.0/system-items/items/5c/0b/5c0b7815-f590-47c5-ae93-17ea3ccb924a/item.json' with { type: 'json' };
+import relType2 from './1.4.0/system-items/items/96/29/96292b57-7064-44d2-9be1-ae495602dacf/item.json' with { type: 'json' };
+import relType3 from './1.4.0/system-items/items/89/d1/89d1984b-8663-44d8-88b2-c2cd703094ff/item.json' with { type: 'json' };
+import relType4 from './1.4.0/system-items/items/98/1e/981e4cee-159d-4ccc-9be6-731197c7861d/item.json' with { type: 'json' };
+import relType5 from './1.4.0/system-items/items/21/d6/21d69551-6949-4ec5-822f-cdb6f26c57ab/item.json' with { type: 'json' };
+import relType6 from './1.4.0/system-items/items/24/5a/245a1172-2954-4e9d-be0a-5add0c2615ba/item.json' with { type: 'json' };
+import relType7 from './1.4.0/system-items/items/5b/a7/5ba7862e-aa51-4fb7-aed3-08d7a9caac7d/item.json' with { type: 'json' };
+import relType8 from './1.4.0/system-items/items/3f/41/3f412200-26e0-444b-a629-b7da0c8140dd/item.json' with { type: 'json' };
+import relType9 from './1.4.0/system-items/items/c3/76/c37690ad-f07c-4e8d-bc0b-ac4ab1a49f2e/item.json' with { type: 'json' };
+
 export const version: string = pkg.version;
 export const item: object = itemSpec;
 export { types };
@@ -95,6 +120,9 @@ export const wellKnownTypes: readonly string[] = types.wellKnown;
 export { builtInTypeManifest };
 // The seed metaschema for the `type` type (obj_<type-type> column source).
 export const typeSeedMetaschema: object = typeSeed;
+// The seed metaschema for the `relationship-type` type (obj_<relationship-type>
+// column source) — type seed columns + metaDirectional/metaInverse. Export-only.
+export const relationshipTypeSeedMetaschema: object = relationshipTypeSeed;
 export const builtInTypeItems: object[] = [
   tAction, tActivity, tAgent, tAlias, tAnnotation, tAspectType, tCell, tChannel,
   tClaudeApiConfig, tClaudeCodeConfig, tComponent, tContext, tDocument, tDocumentExpandException, tDocumentRoleByDepth, tDocumentRoleByType,
@@ -110,4 +138,12 @@ export const builtInSystemItems: object[] = [
   sysItem1, sysItem2, sysItem3, sysItem4, sysItem5, sysItem6, sysItem7,
   sysItem8, sysItem9, sysItem10, sysItem11, sysItem12, sysItem13, sysItem14,
   sysItem15, sysItem16, sysItem17, sysItem18, sysItem19,
+];
+
+// The 9 canonical relationship-type seed items. Kept apart from builtInSystemItems
+// because they are a meta-type (nested payload -> flat obj_<relationship-type>
+// columns) seeded via a dedicated two-pass seeder (meta_inverse FK cross-refs).
+export const builtInRelationshipTypeItems: object[] = [
+  relType1, relType2, relType3, relType4, relType5,
+  relType6, relType7, relType8, relType9,
 ];
