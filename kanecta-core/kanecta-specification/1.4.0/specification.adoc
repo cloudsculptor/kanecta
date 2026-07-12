@@ -5331,11 +5331,14 @@ These are exposed over HTTP by `GET .../branches/:branch/merge-preview` and
 `POST .../branches/:branch/merge` (which returns `409` with the `conflicts` /
 `blastRadius` payload for a conflicting or reference-breaking merge).
 
+[#postgres-branching]
 === Postgres branching
 
-A branch is *an item like everything else*: branch items project to `obj_<branch-type-uuid>` (columns `name`, `schema_name`, `base_branch`, `merged_at`, `deleted_at`, …), compiler-derived from the branch type definition. There is *no bespoke `branches` table* — the branch registry is queried from the branch projection like any other type.
+A branch is *versioning infrastructure, not an item.* On every adapter a branch is a native structural mechanism — a Postgres *schema-per-branch*, a self-contained filesystem *folder* `branches/<name>/` that itself *contains* the entire `items/` tree, an S3 *key-prefix* (see <<branching>>). A branch therefore cannot be an item: items live *inside* a branch, so the branch is the versioning axis, orthogonal to the item model — the same category as the `item_history`/`activity` logs, which are *about* items rather than item content. Consequently the two Postgres branching relations — the `branches` registry and the `branch_changes` delta store — are both *sanctioned exceptions* to the four-table shape (see <<cqrs-projections>>), never projected `obj_<typeId>` types.
 
-Branching adds exactly one non-`obj_` structure — `branch_changes` — a *staging/delta* mechanism. Like the `item_history`/`activity` logs, it is a sanctioned exception to the four-table shape rather than a per-type table: it is a transient overlay of pending changes, not a read/query surface for a type's instances, and it is discarded at merge. One row per changed section per item:
+NOTE: An earlier draft of this section described a branch as "an item like everything else" projecting to `obj_<branch-type-uuid>`. That was never implemented — no `branch` type definition exists — and it contradicts the folder/schema/prefix reality that *every* adapter uses for branches (on the filesystem the branch folder literally *contains* the item tree, so a branch cannot also be one `item.json` inside itself). Branches are infrastructure; the branch registry is a sanctioned exception, not a projected type.
+
+The `branches` registry carries the branch name, base branch, and lifecycle timestamps; it is dropped/pruned as branches are deleted, not queried as a type projection. Branching also adds `branch_changes` — a *staging/delta* mechanism. Like the `item_history`/`activity` logs, it is a sanctioned exception rather than a per-type table: a transient overlay of pending changes, not a read/query surface for a type's instances, discarded at merge. One row per changed section per item:
 
 [source,sql]
 ----
@@ -5459,6 +5462,17 @@ kinds of relation*, and nothing else:
    exists only to make reads fast is legitimate *if and only if* it carries this
    prefix and this property.
 
+*Branching is a sanctioned exception in the same spirit as the exempt logs (kind 3).*
+A branch is *versioning infrastructure*, not item content: on each adapter it is a
+native structural mechanism — a Postgres schema-per-branch, a self-contained filesystem
+folder `branches/<name>/` that *contains* the entire item tree, an S3 key-prefix — so a
+branch can never be an item (items live *inside* a branch). The Postgres `branches`
+registry and the `branch_changes` staging/delta store are therefore sanctioned
+exceptions to the four-table shape, exactly as `item_history`/`activity` are: they are
+not per-type read/query surfaces, and they are pruned (`branches`) or discarded
+(`branch_changes`) as branches are deleted or merged. They do not count as violations.
+See <<branching>> and <<postgres-branching>>.
+
 There is exactly one place for bootstrapping, and it is *not a table*: the *payload
 of the root item*. The root item's payload (`rootPayload`) carries the entire
 irreducible bootstrap — the specification version and the seed metaschema for the
@@ -5486,8 +5500,10 @@ the `type` seed plus two fixed columns is reconstructible, so it stays in code.
 *Any relation that is not one of these four kinds is a specification violation.* A
 `schema_version` (or migration-tracking) table, a bespoke per-type table
 (`functions`, `documents`, `aliases`, `annotations`, `item_grants`, `files`,
-`licences`, `types`, `rel_types`, `relationships`, `config`, `branches`, …), and a
+`licences`, `types`, `rel_types`, `relationships`, `config`, …), and a
 generic JSON payload table used as a read/query surface are all prohibited:
+(`branches`/`branch_changes` are *not* in this list — they are sanctioned versioning
+infrastructure, see above and <<postgres-branching>>).
 bootstrapping lives in `rootPayload`, and every other datum is an item whose payload
 projects to `obj_<typeId>` like any other.
 

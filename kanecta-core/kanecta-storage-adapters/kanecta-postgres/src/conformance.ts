@@ -6,13 +6,20 @@
 //   * obj_<typeId>           — the per-type projection of every type (incl. built-ins),
 //                              plus scalar-array child tables obj_<typeId>_<field>
 //   * perf_<name>            — rebuildable, performance-only derived structures
+//   * branches, branch_changes — sanctioned VERSIONING infrastructure (spec
+//                              §cqrs-projections / §postgres-branching). A branch is a
+//                              native structural mechanism (schema-per-branch on pg, a
+//                              folder that CONTAINS the item tree on fs, an S3 prefix) —
+//                              it can never be an item, so these are a sanctioned
+//                              exception in the same spirit as item_history/activity,
+//                              not per-type projections. Pruned/discarded on merge.
 // Bootstrapping lives in the root item's payload (rootPayload) — there is NO
 // schema_version table and NO bespoke per-type table. Anything else is a violation.
 //
 // This is the machine-checkable form of the law: run checkConformance over a live
 // datastore's table list and any drift fails the build.
 
-export type TableKind = 'items' | 'item_history' | 'activity' | 'obj' | 'perf' | 'violation';
+export type TableKind = 'items' | 'item_history' | 'activity' | 'obj' | 'perf' | 'branching' | 'violation';
 
 // obj_<uuid-with-underscores>, optionally with a _<field> scalar-array child suffix.
 const OBJ_RE = /^obj_[0-9a-f]{8}_[0-9a-f]{4}_[0-9a-f]{4}_[0-9a-f]{4}_[0-9a-f]{12}(_[a-z0-9_]+)?$/;
@@ -24,6 +31,10 @@ export function classifyTable(name: string): TableKind {
   if (name === 'activity') return 'activity';
   if (OBJ_RE.test(name)) return 'obj';
   if (name.startsWith('perf_')) return 'perf';
+  // Sanctioned versioning infrastructure — a branch is a native structural mechanism
+  // (schema/folder/prefix), never an item, so its registry + delta store are an
+  // exception like item_history/activity, not violations (spec §postgres-branching).
+  if (name === 'branches' || name === 'branch_changes') return 'branching';
   return 'violation';
 }
 
@@ -37,7 +48,7 @@ export interface ConformanceReport {
 
 /** Check a datastore's table list against the four-table law. */
 export function checkConformance(tables: string[]): ConformanceReport {
-  const counts: Record<TableKind, number> = { items: 0, item_history: 0, activity: 0, obj: 0, perf: 0, violation: 0 };
+  const counts: Record<TableKind, number> = { items: 0, item_history: 0, activity: 0, obj: 0, perf: 0, branching: 0, violation: 0 };
   const violations: string[] = [];
   for (const t of tables) {
     const kind = classifyTable(t);
