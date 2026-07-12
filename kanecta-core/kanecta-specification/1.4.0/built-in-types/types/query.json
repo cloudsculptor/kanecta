@@ -57,48 +57,6 @@
           "type": "string",
           "description": "The query body. For 'kanecta': a filter/search expression, e.g. 'type = \"task\" AND payload.status = \"open\" AND payload.assignee = {{params.assignee}}'. For 'sql': a SELECT statement, e.g. 'SELECT i.* FROM items i JOIN items t ON t.id = i.payload->>''typeId'' WHERE t.value = ''task'' AND i.payload->>''status'' = {{params.status}}'. For 'graph': a Cypher MATCH/RETURN statement. May contain {{params.name}} placeholders substituted at execution time. Placeholders in SQL are injected as parameterised values (never string-interpolated) to prevent injection."
         },
-        "params": {
-          "type": [
-            "array",
-            "null"
-          ],
-          "description": "Named parameters that make this query reusable. Each parameter is substituted into {{params.name}} placeholders in expression at execution time. The adapter validates supplied values against the declared type before execution. Studio generates an input form from this definition when a user runs the query interactively. Null or empty array means no parameters — the query is fixed.",
-          "items": {
-            "type": "object",
-            "required": [
-              "name",
-              "type"
-            ],
-            "additionalProperties": false,
-            "properties": {
-              "name": {
-                "type": "string",
-                "description": "Parameter name. Referenced in expression as {{params.name}}. Must be unique within the params array."
-              },
-              "type": {
-                "type": "string",
-                "enum": [
-                  "string",
-                  "number",
-                  "boolean",
-                  "uuid",
-                  "date"
-                ],
-                "description": "Parameter type. Used for validation before execution and for Studio input form generation (uuid renders a UUID picker, date renders a date input, etc.)."
-              },
-              "description": {
-                "type": [
-                  "string",
-                  "null"
-                ],
-                "description": "Human-readable explanation of what this parameter controls. Shown as a label in the Studio input form."
-              },
-              "default": {
-                "description": "Default value used when the parameter is not supplied at execution time. Must match the declared type. Null means the parameter is required — the adapter rejects execution if the parameter is missing and has no default."
-              }
-            }
-          }
-        },
         "returnType": {
           "type": [
             "string",

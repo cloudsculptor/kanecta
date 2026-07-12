@@ -1,0 +1,26 @@
+-- Kanecta postgres schema — spec version 1.4.0
+--
+-- Uniform-projection modernisation (spec §cqrs-projections): retire the bespoke
+-- `documents` JSONB table. A document is now projected to obj_<document-type> like
+-- every other type (the four-table law): scalar contract on obj_<document-type>
+-- (target_id, name, mode, default_depth, is_org_default, base_document_id), and the
+-- two nested maps as child items — expandState.exceptions →
+-- `document-expand-exception`, roleMap.byDepth → `document-role-by-depth`,
+-- roleMap.byType → `document-role-by-type` (expandState.defaultDepth flattened onto
+-- the scalar row). createDocument / readDocumentPayload / writeDocumentPayload /
+-- listDocuments reassemble the nested payload from the projection plus those
+-- children — nothing reads or writes this JSONB table any more.
+--
+-- BACKFILL CAVEAT (READ BEFORE APPLYING TO A DATA-BEARING DATABASE): unlike the
+-- function tables, `documents` is likely to hold real rows (Studio creates
+-- documents). This migration does NOT decompose that JSONB into obj_ rows + child
+-- items — doing so requires generating item rows per exception/role entry, which is
+-- a scripted backfill, not portable SQL. A deployment with existing documents MUST
+-- run that backfill (obj_<document-type> scalars + document-expand-exception /
+-- document-role-by-depth / document-role-by-type children, one per map entry) and
+-- verify it BEFORE applying this drop — back up first. Fresh / test databases have
+-- no rows, so the drop is a clean no-op there. The schema-change guard
+-- (KANECTA_ALLOW_SCHEMA_CHANGES) means this only runs on deliberate authorisation,
+-- never on a production open(). See runbooks/postgres-schema-migration.md.
+
+DROP TABLE IF EXISTS documents;

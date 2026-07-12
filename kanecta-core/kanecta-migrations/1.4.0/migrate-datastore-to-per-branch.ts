@@ -95,7 +95,7 @@ const TYPE_ITEM_UUIDS = {
   item_history: 'b81923c7-ecf5-4fef-8588-2d91c3985aea',
   alias:        '80f95b21-6c51-43b5-bdfb-35aad8991c7a',
   relationship: '334ea5f6-6bfa-43e5-b77f-5d811642d897',
-  annotation:   '8797b002-091a-4289-abf0-850d4b05a743',
+  annotation:   '235d6155-db2a-4232-9548-8f5a66150d82',
 };
 
 const ROOT_ID = '00000000-0000-0000-0000-000000000000';

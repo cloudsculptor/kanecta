@@ -9,6 +9,9 @@ import {
 import * as claude from '@kanecta/ai';
 import { generateFunctionScaffold, getRuntimeDir, computeBundleHash, toCamelCase, toPythonName, VALID_RUNTIME_RE } from '@kanecta/lib';
 import { requireAuth } from './middleware/auth.ts';
+import { buildSchemaModel, buildGraphqlEngine, loadTypeItems, buildComputedMap, PgDataSource, type GraphqlEngine } from './graphql/index.ts';
+import { principalsFromToken, can } from './authz/index.ts';
+import { PgAuthzSource } from './authz/pg-authz-source.ts';
 import { spawnSync, spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
@@ -2094,6 +2097,75 @@ app.get('/integrity/stream', async (req, res) => {
     if (!closed) res.write(`data: ${JSON.stringify({ type: 'error', error: err.message })}\n\n`);
   } finally {
     if (!closed) res.end();
+  }
+});
+
+// ─── GraphQL — the uniform type-items → GraphQL surface ─────────────────────────
+//
+// POST /graphql exposes the generic engine (src/graphql): the active working set's
+// `type` items become a GraphQL schema over their obj_<type> tables. It is the ONE
+// query surface for typed data — no per-domain routes. Postgres-backed only (the
+// generic executor runs SQL via PgDataSource); other adapters get a clear 501.
+//
+// The built engine is cached per Postgres pool (keyed by the pool object, so a
+// reopened datastore automatically gets a fresh engine and stale ones are GC'd)
+// and rebuilt only when that pool's set of type items changes, so repeated
+// requests skip schema (re)generation.
+// NOTE: `context.authorize` (the G4 per-item read gate) is not wired here yet — it
+// needs a Postgres AuthzSource; until then /graphql sits behind the same auth wall
+// as the REST routes but does not enforce per-item grants. principals are computed
+// so wiring the gate is a one-line change once that source lands.
+const _gqlEngineByPool = new WeakMap<object, { sig: string; engine: GraphqlEngine }>();
+
+app.post('/graphql', async (req, res) => {
+  const { query, variables, operationName } = req.body ?? {};
+  if (typeof query !== 'string' || !query.trim()) {
+    return res.status(400).json({ errors: [{ message: 'A GraphQL "query" string is required' }] });
+  }
+  const ds = await openDatastore(res, req);
+  if (!ds) return; // openDatastore already sent a 503
+  const pool = (ds as any)?._adapter?._pool;
+  if (!pool) {
+    return res.status(501).json({ errors: [{ message: 'GraphQL is only available on a Postgres-backed working set' }] });
+  }
+  try {
+    const typeItems = await loadTypeItems(ds);
+    const sig = typeItems.map((t: any) => t.item.id).sort().join(',');
+    let cached = _gqlEngineByPool.get(pool);
+    if (!cached || cached.sig !== sig) {
+      const model = buildSchemaModel(typeItems);
+      // Resolve each computed field's backing query/formula item so computed
+      // fields (replyCount, hasUnread) run declaratively; unresolved backings just
+      // throw when that field is selected (the honest pre-runner behaviour).
+      // Backing items are read from their per-type projected table via readObjectJson
+      // (spec §cqrs-projections) — never a generic JSON store. NB: built-in `query`/
+      // `formula` types are not auto-projected to obj_ yet in this adapter (built-ins
+      // treated as primitive), so these resolve once that per-type projection lands.
+      const { map: computed } = await buildComputedMap(model, (id: string) => ds.readObjectJson(id));
+      cached = { sig, engine: buildGraphqlEngine(model, new PgDataSource(pool, model, { computed })) };
+      _gqlEngineByPool.set(pool, cached);
+    }
+    const principals = req.user ? principalsFromToken({ sub: req.user.id, roles: req.user.roles }) : [];
+    // Per-item read gate (opt-in via KANECTA_GRAPHQL_AUTHZ=on). Enforces the
+    // visibility (public/organisation) + owner layers via PgAuthzSource; the
+    // grant-cascade layer awaits the payload_grant derived table. Default OFF so it
+    // is not enabled before backfilled items carry correct visibility (they default
+    // to 'private'). inOrganisation: a single-tenant community treats any
+    // authenticated viewer as in-org.
+    let authorize: ((id: string) => Promise<boolean>) | undefined;
+    if (process.env.KANECTA_GRAPHQL_AUTHZ === 'on') {
+      const authz = new PgAuthzSource(pool);
+      authorize = (id: string) => can(authz, principals, id, 'read', { inOrganisation: !!req.user });
+    }
+    const result = await cached.engine.execute({
+      source: query,
+      variableValues: variables,
+      operationName,
+      context: { viewer: req.user?.id, principals, ...(authorize ? { authorize } : {}) },
+    });
+    res.status(200).json(result); // GraphQL-over-HTTP: 200 even with field errors
+  } catch (err: any) {
+    res.status(500).json({ errors: [{ message: err?.message ?? String(err) }] });
   }
 });
 

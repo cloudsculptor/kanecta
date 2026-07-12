@@ -1148,6 +1148,18 @@ describe('relationships', () => {
     expect(() => ds.relate(a.id, 'invented-type', b.id)).toThrow(/Invalid relationship type/);
   });
 
+  it('relate() resolves the slug to the relationship-type item UUID in payload.typeId', () => {
+    const a = ds.create({ value: 'a' });
+    const b = ds.create({ value: 'b' });
+    const r = ds.relate(a.id, 'depends-on', b.id);
+    // The relationship item carries the spec relationshipPayload shape, with the
+    // canonical relationship-type UUID (not a null slug-only placeholder).
+    const payload = ds.readObjectJson(r.id);
+    expect(payload.typeId).toBe('96292b57-7064-44d2-9be1-ae495602dacf'); // depends-on
+    expect(payload.sourceId).toBe(a.id);
+    expect(payload.targetId).toBe(b.id);
+  });
+
   it('relationships() returns empty outbound/inbound for item with no relationships', () => {
     const item = ds.create({ value: 'x' });
     const r = ds.relationships(item.id);

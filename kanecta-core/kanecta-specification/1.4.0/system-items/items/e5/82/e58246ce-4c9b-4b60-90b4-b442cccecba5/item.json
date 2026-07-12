@@ -1,0 +1,42 @@
+{
+  "item": {
+    "id": "e58246ce-4c9b-4b60-90b4-b442cccecba5",
+    "parentId": "9798b629-06f4-495f-90e8-2d70f817466e",
+    "type": "licence",
+    "typeId": "9798b629-06f4-495f-90e8-2d70f817466e",
+    "value": "Apache License 2.0",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "spdxId": "Apache-2.0",
+    "name": "Apache License 2.0",
+    "url": "https://www.apache.org/licenses/LICENSE-2.0",
+    "text": null
+  }
+}

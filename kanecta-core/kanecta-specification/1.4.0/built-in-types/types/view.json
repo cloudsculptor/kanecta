@@ -44,16 +44,16 @@
       "title": "viewPayload",
       "type": "object",
       "required": [
-        "itemId",
+        "viewedItemId",
         "componentId",
         "contextId"
       ],
       "additionalProperties": false,
       "properties": {
-        "itemId": {
+        "viewedItemId": {
           "type": "string",
           "format": "uuid",
-          "description": "UUID of the item being viewed. Always a specific item — a view without an item is a component."
+          "description": "UUID of the item being viewed. Always a specific item — a view without an item is a component. (Named viewedItemId, not itemId, so its projected column does not collide with the obj_ table's own item_id primary key.)"
         },
         "componentId": {
           "type": "string",

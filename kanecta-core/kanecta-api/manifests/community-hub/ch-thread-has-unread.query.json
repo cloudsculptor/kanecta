@@ -1,0 +1,30 @@
+{
+  "item": {
+    "id": "0c8a7b10-1111-4a00-8000-000000000201",
+    "parentId": "0c8a7b10-1111-4a00-8000-000000000001",
+    "type": "query",
+    "typeId": null,
+    "value": "ch-thread-has-unread",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-07-10T00:00:00.000Z",
+    "modifiedAt": "2026-07-10T00:00:00.000Z",
+    "visibility": "public",
+    "tags": ["community-hub", "discussions", "computed", "perViewer"]
+  },
+  "search": null,
+  "payload": {
+    "language": "sql",
+    "expression": "SELECT (o.latest_message_at IS NOT NULL AND (r.last_read_at IS NULL OR o.latest_message_at > r.last_read_at)) AS unread FROM obj_0c8a7b10_1111_4a00_8000_000000000101 o LEFT JOIN obj_0c8a7b10_1111_4a00_8000_000000000103 r ON r.thread_id = o.item_id AND r.user_id = {{params.viewer}} WHERE o.item_id = {{params.self}}",
+    "params": [
+      { "name": "self", "type": "uuid", "description": "The ch-thread row's item id (bound from the row)." },
+      { "name": "viewer", "type": "string", "description": "The requesting principal (bound from ctx.viewer)." }
+    ],
+    "returnType": null,
+    "description": "ch-thread.hasUnread (perViewer) — true when the thread's latestMessageAt is newer than this viewer's ch-thread-read.lastReadAt (or the viewer has no read-state row)."
+  }
+}

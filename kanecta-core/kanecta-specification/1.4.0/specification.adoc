@@ -194,15 +194,15 @@ These map directly to five database tables in SQLite and Postgres adapters:
 | FTS and semantic search metadata. Managed by adapter.
 
 | `payload`
-| `items_payload`
-| Type-specific content. Loaded when item is opened.
+| `items_payload` (write-side) → `obj_<typeId>` (read surface)
+| Type-specific content. `items_payload` is a *write-side* store only; the read/query surface for a type's instances is that type's `obj_<typeId>` projection. Loaded when item is opened.
 
 | `time`
 | `items_time`
 | Keyed temporal contexts. Sparse — only items with time data have rows. See <<the-time-section>>.
 |===
 
-NOTE: Tree traversal hits only `items`. List rendering hits only `items`. Item open hits `items` + `items_meta` + `items_payload`. Search hits `items_search` plus FTS/vector indexes. Scheduling queries hit only `items_time`.
+NOTE: Tree traversal hits only `items`. List rendering hits only `items`. Item open reads the item envelope from `items` + `items_meta` and its type-specific content from the item's `obj_<typeId>` projection (the read surface); `items_payload`, where an adapter keeps it, is the write-side store behind that projection, never the read/query surface. Search hits `items_search` plus FTS/vector indexes. Scheduling queries hit only `items_time`.
 
 [#read-model]
 .Stored item vs. returned item (the read model)
@@ -664,10 +664,9 @@ Types are grouped into three categories.
 
 | `runner`
 | An execution environment or script runner.
-
-| `annotation`
-| A comment or note on another item, without modifying it.
 |===
+
+NOTE: `annotation` is *not* a primitive — it is a built-in *structured* type carrying a payload (`{ targetId, body }`) and, like every structured type, it projects to `obj_<annotation-type>`. See the Structured Types catalogue below.
 
 === Structured Types
 
@@ -698,7 +697,7 @@ Types are grouped into three categories.
 | link:../built-in-types/types/type.json[type.json^]
 
 | `alias`
-| A human-readable string that resolves to a UUID. The alias string lives in `item.value`; lookup is case-insensitive. Distinct from `symlink` — a symlink is a tree-placement item; an alias is a string lookup. Lives under the aliased item as its canonical home. Provisional aliases are computed locally at creation and confirmed as globally unique at merge time.
+| A human-readable string that resolves to a UUID. The alias string lives in `item.value`; lookup is case-insensitive. Distinct from `symlink` — a symlink is a tree-placement item; an alias is a string lookup. Like every structured type, an `alias` item lives under the `alias` type-UUID container (the universal placement rule) and points at its target via `payload.targetId`. Provisional aliases are computed locally at creation and confirmed as globally unique at merge time.
 | link:../built-in-types/types/alias.json[alias.json^]
 
 | `aspect-type`
@@ -738,12 +737,24 @@ Types are grouped into three categories.
 | link:../built-in-types/types/connector.json[connector.json^]
 
 | `reference`
-| A declared dependency on a UUID that exists outside the item graph — physical (engraved on machinery, printed on a label, QR code), external system, function argument, or function output. `payload.blockDeletion: true` prevents deletion of the target until this reference is resolved. `parentId` is the reference type item UUID (universal rule); `payload.targetId` identifies the item being depended on. Structural references (inline `[[uuid]]` links, payload UUID fields, `parentId`) are tracked automatically in the `item_references` derived index; `reference` items cover declared and manual cases.
+| A declared dependency on a UUID that exists outside the item graph — physical (engraved on machinery, printed on a label, QR code), external system, function argument, or function output. `payload.blockDeletion: true` prevents deletion of the target until this reference is resolved. `parentId` is the reference type item UUID (universal rule); `payload.targetId` identifies the item being depended on. Structural references (inline `[[uuid]]` links, payload UUID fields, `parentId`) are tracked automatically in the `perf_item_references` derived index; `reference` items cover declared and manual cases.
 | link:../built-in-types/types/reference.json[reference.json^]
 
 | `subscription`
 | A live notification channel registered against a UUID. Distinct from `reference` — a subscription is about change notification, not external dependency or deletion protection. `payload.targetId` identifies the watched item.
 | link:../built-in-types/types/subscription.json[subscription.json^]
+
+| `annotation`
+| A comment or note on another item, without modifying it. Built-in *structured* type — its payload carries `{ targetId, body }` and projects to `obj_<annotation-type>` like any other type.
+| link:../built-in-types/types/annotation.json[annotation.json^]
+
+| `document`
+| A generated or attached document bound to another item. `payload.targetId` identifies the documented item; the document body/reference lives in the payload. Projects to `obj_<document-type>`.
+| link:../built-in-types/types/document.json[document.json^]
+
+| `licence`
+| A licence definition an item's `meta.license` resolves to. Payload carries `{ spdxId, name, url, text }`. Projects to `obj_<licence-type>` like any other type.
+| link:../built-in-types/types/licence.json[licence.json^]
 
 | `query`
 | A saved, named query expression. Executes against the item graph and returns a result set. Two classes: single-type filter or derived result set. Three dialects: kanecta / sql / graph.
@@ -881,7 +892,7 @@ All items of `type: "type"` — both built-in type items seeded from the core ma
 
 Built-in type items are seeded idempotently at datastore initialisation from the core manifest. If a type item already exists with the correct UUID, the seed is a no-op. See <<manifests-and-built-in-type-items>> for the full mechanism, UUID registry, and seed file format.
 
-Built-in types with type items (31 total): `action`, `activity`, `agent`, `alias`, `annotation`, `aspect-type`, `cell`, `component`, `connector`, `context`, `document`, `eval`, `eval-run`, `file`, `formula`, `function`, `grant`, `grid`, `item_history`, `object`, `pipeline`, `pipeline-run`, `query`, `reference`, `relationship`, `relationship-type`, `runner`, `subscription`, `symlink`, `tree`, `view`.
+Built-in types with type items (32 total): `action`, `activity`, `agent`, `alias`, `annotation`, `aspect-type`, `cell`, `component`, `connector`, `context`, `document`, `eval`, `eval-run`, `file`, `formula`, `function`, `grant`, `grid`, `item_history`, `licence`, `object`, `pipeline`, `pipeline-run`, `query`, `reference`, `relationship`, `relationship-type`, `runner`, `subscription`, `symlink`, `tree`, `view`.
 
 NOTE: The payload-less primitive types — `string`, `number`, `text`, `heading`, `url` — do *not* have type items. These types are content items that live directly under their parent in the tree. Creating a type bucket for bare strings or numbers would produce a meaningless collection of decontextualised values. Their `parentId` is always their actual tree parent.
 
@@ -939,9 +950,13 @@ The following built-in types use a payload reference field (not the aspect patte
 | `document`
 | `"documents"`
 | `payload.targetId`
+
+| `annotation`
+| `"annotations"`
+| `payload.targetId`
 |===
 
-To query all grants governing item X: `SELECT * FROM items WHERE type = 'grant' AND payload->>'governedItemId' = $x`. To query all aliases for item X: `SELECT * FROM items WHERE type = 'alias' AND payload->>'targetId' = $x`. The adapter maintains derived lookup tables (e.g. `payload_grant`, `aliases`) for O(1) access — these are always rebuildable from items and are never the source of truth.
+To query all grants governing item X, hit the grant projection: `SELECT * FROM obj_<grant-type-uuid> WHERE governed_item_id = $x`. To query all aliases for item X, hit the alias projection: `SELECT * FROM obj_<alias-type-uuid> WHERE target_id = $x`. Any accelerator on top of these is a `perf_`-prefixed rebuildable index (e.g. `perf_grant_resolution`, `perf_alias_lookup`), never a bespoke `payload_grant`/`aliases` table — such indexes are always rebuildable from items and are never the source of truth.
 
 [#payload-definitions]
 == Payload Definitions
@@ -989,7 +1004,7 @@ This is distinct from the primary tree, where items carry `parentId` directly. A
 
 *Moving a node* — update `parentId` and `path` on the node item, and update `path` on all descendant nodes. The target item is not touched.
 
-TIP: *Postgres* — the `payload_node` table exists alongside the main `items` table for efficient tree queries. Schema: `CREATE TABLE payload_node (id UUID PRIMARY KEY REFERENCES items(id), target UUID NOT NULL REFERENCES items(id), parent_id UUID REFERENCES payload_node(id), path TEXT NOT NULL UNIQUE, sort_order INTEGER NOT NULL DEFAULT 0, aspect VARCHAR(50))`. Index on `(parent_id, sort_order)` for children queries; index on `path` with `LIKE` for subtree queries.
+TIP: *Postgres* — a `perf_node_tree` relation exists alongside the main `items` table for efficient tree queries. It is *adapter/compiler-derived and fully rebuildable* from `items` + the `node` projection (`obj_<node-type>`), never a source of truth, and self-declaring by its `perf_` prefix. Its columns (target, parent_id, path, sort_order, aspect) are compiler-emitted, not hand-authored DDL; the adapter indexes `(parent_id, sort_order)` for children queries and `path` with `LIKE` for subtree queries.
 
 === filePayload
 
@@ -1048,6 +1063,8 @@ For `type: "function"`. The function name lives in `item.value`.
 
 A function item describes the *contract* of a function — its name, parameters, return type, and runtime. The implementation lives in a deployment bundle on disk and in cloud storage. The adapter generates a type-safe interface from the contract and enforces that the implementation satisfies it before saving.
 
+The scalar contract is stored on the function item's payload; per the flat one-level rule its `parameters`, `typeParameters`, `throws`, and `bundleHash` are *children* of the function item, never inline arrays/objects. The read/write payload the adapter exposes reassembles them:
+
 [source,json]
 ----
 {
@@ -1055,27 +1072,29 @@ A function item describes the *contract* of a function — its name, parameters,
   "description": "Fetch a user by ID.",
   "async": true,
   "ai": false,
-  "parameters": [
+  "parameters": [                                    // <-- `parameter` children
     { "name": "id", "type": "string", "description": "User UUID." }
   ],
   "returnTypeId": "f1e2d3c4-...",
-  "throws": [{ "type": "Error", "description": "If the user is not found." }],
+  "throws": [{ "type": "Error", "description": "..." }],  // <-- `function-throw` children
   "dependencies": ["axios@^1.0.0"],
-  "bundleHash": {
+  "bundleHash": {                                    // <-- `property` children
     "typescript": "sha256:a3f1c9..."
   }
 }
 ----
 
-*Parameters* use the shared `parameterOrProp` definition — exactly one of:
+*Parameters* are `parameter` children of the function item (ordered by `item.sortOrder`), using the shared `parameter` type — the same type a component's props use. Each carries exactly one of:
 
 * `type` — A primitive type name in the target runtime's type system. For TypeScript: `string`, `number`, `boolean`, `Promise<T>`, etc. For other runtimes, use that runtime's native type name. Prefer `typeId` for object-typed parameters because `typeId` is runtime-neutral.
 * `typeId` — UUID of a Kanecta type item. Runtime-neutral — the adapter maps the type's `jsonSchema` to the appropriate type declaration for the target runtime.
 * `functionId` — UUID of a Kanecta function item (for callback/higher-order function parameters).
 
+*Type parameters* (generics, TypeScript only) are `type-parameter` children; *throws* are `function-throw` children — both ordered by `item.sortOrder`.
+
 *Return type* uses the same split: `returnType` (primitive string) or `returnTypeId` (object type UUID). One must be present.
 
-TIP: *Postgres* — `function_parameters` and `function_throws` are child tables ordered by `sort_order`, each enforcing `type` XOR `type_id` XOR `function_id`. `dependencies` is a native `TEXT[]` column. `bundleHash` is stored as a `JSONB` column.
+TIP: *Postgres* — the function projects to `obj_<function-type>` exactly like every other type (the four-table law). Its scalar columns are `runtime`, `description`, `async`, `ai`, `skill_id`, `return_type`, `return_type_id`, `deprecated`, `body`, `include_kanecta_sdk`, and a native `TEXT[]` `dependencies`. Parameters, type parameters, throws, and bundleHash are child items (`obj_<parameter>` / `obj_<type-parameter>` / `obj_<function-throw>` / `obj_<property>`), not bespoke tables. `readFunctionJson` / `writeFunctionJson` reassemble the nested payload from the projection plus its ordered children.
 
 *Runtime*
 
@@ -1110,7 +1129,7 @@ Each function item has a deployment bundle: a directory tree containing everythi
 
 The entire `.function/` directory (all runtime subdirectories) is zipped and stored as a file blob referenced from the function item via `meta.files`. `node_modules/` is excluded from the zip — it is a derived artifact, not source. On execution, the adapter checks whether `node_modules/` exists and whether the hash of `package-lock.json` matches a locally cached value; if either check fails, it runs `npm install` before invoking `main()`. This keeps bundle sizes small while ensuring deterministic dependency resolution.
 
-`bundleHash` in the function item payload is an open object keyed by runtime name. Each value is the SHA-256 hash of the source files for that runtime's subdirectory (excluding `node_modules/`). The adapter compares this hash against the locally unpacked bundle before executing — a mismatch means the local bundle is stale and must be re-fetched and re-unpacked. Runtimes not present in `bundleHash` have no cloud bundle yet.
+`bundleHash` in the function item payload is an open map keyed by runtime name. Each value is the SHA-256 hash of the source files for that runtime's subdirectory (excluding `node_modules/`). Per the flat one-level rule this open map is stored as `property` children of the function item (`item.value` = runtime name, `payload.value` = hash), not an inline object — the same mechanism a component uses for its per-target bundle hashes. The adapter compares this hash against the locally unpacked bundle before executing — a mismatch means the local bundle is stale and must be re-fetched and re-unpacked. Runtimes not present in `bundleHash` have no cloud bundle yet.
 
 [source,json]
 ----
@@ -1377,14 +1396,17 @@ Component bundles follow the same model as function bundles. The entire `.compon
         [any other files or directories the author needs]
 ----
 
-`bundleHash` is an open object keyed by target name, each value the SHA-256 hash of the source files for that target's subdirectory (excluding `node_modules/`):
+`bundleHash` is an open map keyed by target name, each value the SHA-256 hash of the source files for that target's subdirectory (excluding `node_modules/`). Per the flat one-level rule this open map is stored as `property` children of the component item (`item.value` = target name, `payload.value` = hash), not an inline object:
 
 [source,json]
 ----
+// conceptual — stored as property children, one per target
 "bundleHash": {
   "react": "sha256:b7c2d1e4f8..."
 }
 ----
+
+Likewise a component's props are `parameter` children of the component item (ordered by `item.sortOrder`), using the shared `parameter` type — the same type a function's parameters use — never an inline `props` array.
 
 *`interface.ts` — adapter-generated props contract:*
 
@@ -1586,7 +1608,7 @@ For `type: "type"`. Defines a custom Kanecta type. Five top-level keys: `meta`, 
 | Comma-separated grouping tags.
 
 | `aliasFormulas`
-| Map of named formula references for alias auto-generation. Keys are arbitrary scope names (`"default"` is conventional); values are UUIDs of `formula` items. When an instance of this type is created, the adapter evaluates each formula and creates a provisional `alias` item under the new item for each entry. A type with no `aliasFormulas` generates no automatic aliases — aliases can still be created manually. Example: `{ "default": "<formulaId>", "invoice": "<formulaId2>" }`. The `formula` items referenced here are independent items; they are not embedded in typePayload.
+| Map of named formula references for alias auto-generation. Keys are arbitrary scope names (`"default"` is conventional); values are UUIDs of `formula` items. When an instance of this type is created, the adapter evaluates each formula and creates a provisional `alias` item (under the `alias` type container, with `payload.targetId` set to the new item and `computedFromFormulaId` set to the formula) for each entry. A type with no `aliasFormulas` generates no automatic aliases — aliases can still be created manually. Example: `{ "default": "<formulaId>", "invoice": "<formulaId2>" }`. The `formula` items referenced here are independent items; they are not embedded in typePayload.
 
 | `primaryField`
 | The field (or expression) that computes `item.value` for instances. Three forms: plain string path (`"name"`), object with `fields` array + optional `expression`, or object with `fields` + `functionId`.
@@ -1638,7 +1660,9 @@ JSON Schema Draft-07 for instances. Types are *flat — exactly one level deep*.
 * UUID references to other Kanecta custom types: `{ "type": "string", "format": "uuid", "typeId": "<type-uuid>" }`
 * UUID references to built-in Kanecta types: `{ "type": "string", "format": "uuid", "x-kanecta-itemType": "<built-in-type-name>" }`
 
-No inline nested objects. A reusable nested concept must be its own standalone type, referenced via `typeId`. This keeps every type flat: its scalar fields map to one object table (plus, on ANSI backends without array columns, one small child value-table per scalar-array field — see the sqlSchema rules).
+No inline nested objects. A reusable nested concept must be its own standalone type, referenced via `typeId`. This keeps every type flat: its scalar fields map to one object table (plus, on ANSI backends without array columns, one small child value-table per scalar-array field — see the sqlSchema rules). The compiler *enforces* this: an object-typed property is a compile error, so the anti-pattern of a catch-all JSON column standing in for normalisation cannot be introduced.
+
+The *one* exception is a field whose value is genuinely a JSON *document* — a stored JSON Schema (`aspect-type.jsonSchema`, `type.jsonSchema`), rich-text editor state, or another opaque JSON payload the application round-trips as a unit and never queries by sub-field. Such a field is marked `"x-kanecta-storage": "json"` and projects to a JSON column (`JSONB` on Postgres, JSON-text elsewhere). This is *not* an escape hatch for avoiding normalisation: if the object has a known shape whose fields you would ever want to query, filter, or index, it is a nested concept and must be its own type — not a JSON column. Use `x-kanecta-storage: "json"` only when the value's *content* is inherently JSON.
 
 ===== Reference enforcement keywords
 
@@ -1815,16 +1839,16 @@ link:../built-in-types/types/alias.json[Seed item^]
 
 For `type: "alias"`. The alias string itself lives in `item.value` — this is the human-readable label the user types to address the target item. Lookup is always case-insensitive; the adapter normalises to lowercase when querying but preserves original casing in `item.value` for display.
 
-The alias item's `parentId` is the synthetic `alias` type item UUID (the universal rule). The relationship to the aliased item is carried entirely in `payload.targetId`. The adapter maintains a derived `aliases` lookup table for O(1) string resolution, but that table is rebuilt from items and is never the source of truth.
+The alias item's `parentId` is the synthetic `alias` type item UUID (the universal rule). The relationship to the aliased item is carried entirely in `payload.targetId`. Alias columns live in the alias projection `obj_<alias-type-uuid>`; for O(1) string resolution the adapter may maintain a `perf_`-prefixed rebuildable index (`perf_alias_lookup`), never a bespoke `aliases` table — and it is rebuilt from items, never the source of truth.
 
 [source,json]
 ----
 {
   "targetId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "scope": "org",
+  "assignedBy": "7c9e6a10-4b2d-4e8a-9f31-org-item-uuid",
   "provisional": false,
   "confirmedAt": "2026-06-25T09:14:00Z",
-  "computedFrom": null
+  "computedFromFormulaId": null
 }
 ----
 
@@ -1832,12 +1856,10 @@ The alias item's `parentId` is the synthetic `alias` type item UUID (the univers
 ----
 {
   "targetId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "scope": "type",
+  "assignedBy": null,
   "provisional": true,
   "confirmedAt": null,
-  "computedFrom": {
-    "formulaId": "f9e8d7c6-b5a4-3210-fedc-ba9876543210"
-  }
+  "computedFromFormulaId": "f9e8d7c6-b5a4-3210-fedc-ba9876543210"
 }
 ----
 
@@ -1850,12 +1872,12 @@ The alias item's `parentId` is the synthetic `alias` type item UUID (the univers
 | `targetId`
 | UUID string
 | Yes
-| The item this alias resolves to. Also the alias item's `parentId` — the alias lives under its target in the tree.
+| The item this alias resolves to. The alias item's `parentId` is the `alias` type container (not the target); the target is referenced only through this field.
 
-| `scope`
-| `"personal" \| "org" \| "type"`
-| Yes
-| Visibility layer. `personal` — visible only in the personal workspace. `org` — shared across the org workspace. `type` — defined at the type level, applies to all items of that type (usually formula-generated).
+| `assignedBy`
+| UUID string \| null
+| No
+| The entity item that owns/scopes this alias — a user, team, division, or company (all ordinary items). Replaces the old `personal\|org\|type` scope enum. An alias is visible to a viewer when `assignedBy` is the viewer or any group/org the viewer belongs to — resolved by walking the ReBAC membership graph (the same graph grants traverse). `null` = unscoped (visible to all). A type-wide formula alias is `computedFromFormulaId` set plus `assignedBy` = whichever entity owns the formula — there is no separate `type` scope.
 
 | `provisional`
 | boolean
@@ -1864,18 +1886,18 @@ The alias item's `parentId` is the synthetic `alias` type item UUID (the univers
 
 | `confirmedAt`
 | ISO 8601 datetime \| null
-| Yes
+| No
 | Timestamp of the merge-time uniqueness check that confirmed this alias. `null` while `provisional: true`.
 
-| `computedFrom`
-| object \| null
-| Yes
-| If this alias was generated by a formula, contains `{ "formulaId": "<UUID>" }`. `null` for manually created aliases.
+| `computedFromFormulaId`
+| UUID string \| null
+| No
+| If this alias was generated by a formula (e.g. a per-type sequential id like `INV-001`), the UUID of that `formula` item; `null` for manually created aliases. Flattened from the former `computedFrom: { formulaId }` object — an inline object cannot be a projected column.
 |===
 
-*Scope layers and conflict resolution*
+*Assigner scoping and conflict resolution*
 
-Aliases are resolved in scope order: `personal` overrides `org`, which overrides `type`. If two aliases in the same scope match the same lookup string, the adapter surfaces the full list and the user selects the intended target — Kanecta does not silently pick one. Users can set a preferred ordering per-scope.
+An alias's `assignedBy` names the entity that owns it. A viewer sees an alias when `assignedBy` is the viewer or any group/org the viewer belongs to, resolved by walking the same ReBAC membership graph that grant resolution uses (groups are items, membership is a relationship) — so alias visibility and access visibility are the one graph, not two. On a lookup clash (the same string resolving to different targets across the viewer's assigners), the *nearest* assigner in the graph wins: the viewer's own alias overrides their team's, which overrides their org's (the former `personal` > `org` > `type` ordering, generalised to arbitrary depth). If two aliases at the same distance match, the adapter surfaces the full list and the user selects — Kanecta does not silently pick one. (The exact membership relationship-type the traversal follows is settled with the relationships/access model; `assignedBy: null` is unscoped and visible to all.)
 
 *Provisional alias lifecycle*
 
@@ -1887,7 +1909,7 @@ Aliases are resolved in scope order: `personal` overrides `org`, which overrides
 
 NOTE: The `n` variable in formula evaluation is workspace-scoped and monotonically increasing. It is never reused even if an alias item is deleted — this prevents silent alias collisions after deletions.
 
-TIP: *Postgres* — the derived aliases lookup table schema: `CREATE TABLE aliases (alias TEXT NOT NULL, target_id UUID NOT NULL REFERENCES items(id), scope TEXT NOT NULL, workspace_id UUID NOT NULL, PRIMARY KEY (alias, scope, workspace_id))`. Rebuilt in full on workspace open; updated incrementally on item write.
+TIP: *Postgres* — the alias string is `item.value`; the projected columns on `obj_<alias-type-uuid>` are `target_id`, `assigned_by`, `provisional`, `confirmed_at`, `computed_from_formula_id`, all compiler-derived from the type definition — there is no bespoke `aliases` table. A case-insensitive lookup accelerator, if any, is the `perf_`-prefixed rebuildable index `perf_alias_lookup` (keyed on `(lower(value), assigned_by)`): rebuilt in full on workspace open, updated incrementally on item write, never a source of truth.
 
 === relationshipPayload
 
@@ -1957,7 +1979,7 @@ Relationship items coexist with the lighter-weight inline `[[uuid]]` link syntax
 | `supersedes` | (none)
 |===
 
-TIP: *Postgres* — `payload_relationship` table for efficient graph queries: `CREATE TABLE payload_relationship (id UUID PRIMARY KEY REFERENCES items(id), source_id UUID NOT NULL REFERENCES items(id), target_id UUID NOT NULL REFERENCES items(id), type_id UUID NOT NULL REFERENCES items(id))`. GIN indexes on `source_id` and `target_id` for bidirectional traversal.
+TIP: *Postgres* — relationship columns (source_id, target_id, type_id) live in the relationship projection `obj_<relationship-type-uuid>`, compiler-derived from the type definition — there is no bespoke `payload_relationship` table. Bidirectional multi-hop traversal is served by the AGE `perf_` graph projection (relationships projected as edges), a rebuildable performance-only structure; ordinary source/target lookups hit `obj_<relationship-type-uuid>` via its compiler-emitted indexes.
 
 NOTE: Relationship-as-item keeps the git history clean: creating a relationship adds exactly one new file to the datastore; deleting a relationship removes exactly one file; endpoint items are never touched. There are no three-file writes, no cascading deletes, and no coupling between endpoint items. The alternative — storing `outgoing`/`incoming` UUID arrays on each item — would require writing three files per relationship (the relationship itself plus both endpoints) and introduce a consistency hazard if a write is interrupted partway. `rebuildIndexes()` reconstructs the full relationship graph by scanning for items where `sourceId IS NOT NULL`.
 
@@ -2003,7 +2025,7 @@ For `type: "aspect-type"`. Defines the schema and semantics of a named aspect di
 
 Well-known aspect-type items (e.g. `"comments"`, `"simplified"`, `"draft"`) may be bootstrapped as system items with stable UUIDs. Custom aspect types are user-defined items of type `"aspect-type"` with `layer: "user"` or `layer: "app"`.
 
-TIP: *Postgres* — `CREATE TABLE payload_aspect_type (id UUID PRIMARY KEY REFERENCES items(id), json_schema JSONB, description TEXT)`. To find all aspect items of a given aspect type across all parents: `SELECT * FROM items WHERE aspect = $aspectTypeUUID`. To find all aspect items (both string and UUID forms) for a parent item X: `SELECT * FROM items WHERE parent_id = $x AND aspect IS NOT NULL`.
+TIP: *Postgres* — the `aspect-type` type projects to `obj_<aspect-type-type-uuid>` (columns `json_schema`, `description`) like any other type; there is no bespoke `payload_aspect_type` table. To find all aspect items of a given aspect type across all parents: `SELECT * FROM items WHERE aspect = $aspectTypeUUID` (`aspect` is a column on `items`). To find all aspect items (both string and UUID forms) for a parent item X: `SELECT * FROM items WHERE parent_id = $x AND aspect IS NOT NULL`.
 
 === grantPayload
 
@@ -2060,7 +2082,7 @@ For `type: "grant"`. Access control grants. The grant item's `parentId` is the s
 
 *ReBAC (relationship-based access control):* The `{itemId, relation}` principal form enables group-based access control. Groups are ordinary Kanecta items. Membership is a Kanecta relationship. Grant resolution is a graph traversal — any principal that holds the named `relation` to the named `itemId` receives the grant. No special group type is needed.
 
-TIP: *Postgres* — `payload_grant` derived table for O(1) grant resolution: `CREATE TABLE payload_grant (id UUID PRIMARY KEY REFERENCES items(id), governed_item_id UUID NOT NULL REFERENCES items(id), principal TEXT NOT NULL, permissions TEXT[] NOT NULL, cascade BOOLEAN NOT NULL DEFAULT false)`. Index on `governed_item_id` for fast per-item grant lookup. A `visibility` column on `items` (`"private"` / `"organisation"` / `"public"`) is the fast no-join path; `payload_grant` layers per-principal permissions on top.
+TIP: *Postgres* — grant columns (governed_item_id, principal, permissions, cascade) live in the grant projection `obj_<grant-type-uuid>`, compiler-derived from the type definition — there is no bespoke `payload_grant` table. O(1) grant resolution is served by a `perf_`-prefixed rebuildable index `perf_grant_resolution` (keyed on `governed_item_id` for fast per-item lookup). A `visibility` column on `items` (`"private"` / `"organisation"` / `"public"`) stays the fast no-join path; `perf_grant_resolution` layers per-principal permissions on top and can always be rebuilt from `obj_<grant-type-uuid>`.
 
 === viewPayload
 
@@ -2071,7 +2093,7 @@ For `type: "view"`. Binds a specific item to a renderer and a context. The view'
 [source,json]
 ----
 {
-  "itemId": "uuid-of-the-item-being-viewed",
+  "viewedItemId": "uuid-of-the-item-being-viewed",
   "componentId": "uuid-of-the-component-or-function-renderer",
   "contextId": "uuid-of-the-context-item"
 }
@@ -2081,9 +2103,9 @@ For `type: "view"`. Binds a specific item to a renderer and a context. The view'
 |===
 | Field | Required | Description
 
-| `itemId`
+| `viewedItemId`
 | yes
-| UUID of the item being viewed. Always a specific item — a view without an item is a `component`.
+| UUID of the item being viewed. Always a specific item — a view without an item is a `component`. Named `viewedItemId` rather than `itemId` so its projected column (`viewed_item_id`) does not collide with the `obj_<view-type>` table's own `item_id` primary key, which holds the *view* item's id — not the viewed item's.
 
 | `componentId`
 | yes
@@ -2100,7 +2122,7 @@ The optional label (`item.value`) is a human name for this view binding (e.g. `"
 
 When Studio needs to render item X in the current context C, it resolves the component to use by walking four steps in priority order, stopping at the first match:
 
-. *Explicit view item* — query `WHERE type = 'view' AND payload.itemId = X` and filter to results whose `contextId` matches C exactly (both `runtime` and `display` must match). If found, use that view item's `componentId`. If multiple view items match the same item and context, the most recently created one wins. This is the per-item override — the mechanism for customising how a specific item is rendered without affecting anything else.
+. *Explicit view item* — query the view projection `SELECT … FROM obj_<view-type-uuid> WHERE viewed_item_id = X` (the column holding the viewed item; the table's own `item_id` is the view item's id) and filter to results whose `contextId` matches C exactly (both `runtime` and `display` must match). If found, use that view item's `componentId`. If multiple view items match the same item and context, the most recently created one wins. This is the per-item override — the mechanism for customising how a specific item is rendered without affecting anything else.
 
 . *Type's `defaultViews`* — if no explicit view matches, look at the item's type (`item.typeId`). Read `typePayload.meta.defaultViews` (see <<typePayload>>) — an ordered array of `{ contextId, componentId }` entries. Find the first entry whose `contextId` matches C exactly. If found, use that `componentId`. This is the type-level context-specific default: a `Person` type can declare a compact card for `tree-node` display and a full form for `detail-panel` display, and every Person instance gets those renderers without needing individual view items.
 
@@ -2129,6 +2151,65 @@ Two hops from root to the running application (root → view → component). Ful
 A view item UUID is a stable, shareable reference to "this item, rendered this way, in this context." Two things are encoded in the UUID: what you are looking at (`itemId`) and how you are looking at it (`componentId` + `contextId`). A bookmark is just a UUID. A shared link resolves to the view item, which Studio opens exactly as the sender saw it.
 
 `item.value` on the view item is the human label for the bookmark (e.g. `"Alice's dashboard"`, `"Sprint board — compact"`). Null means no label — the view is functional but unnamed.
+
+=== sqlViewPayload (design captured 2026-07-10 — not yet implemented)
+
+NOTE: This is a captured design, not yet implemented in the adapters. It is
+recorded in the canonical spec so the idea is not lost; the fuller treatment,
+including its role as a conversion-fidelity mechanism, lives in the Kanecta
+Converter specification (`kanecta-converter/kanecta-converter-specification`).
+
+A **`sql-view` item** is a *storage-layer* projection: exactly as a `type` item
+projects to a physical `obj_<typeId>` table, a `sql-view` item projects to a real
+database `CREATE VIEW`. It holds a `SELECT` (over `obj_*`/`items` tables or other
+views) as data, and the adapter materialises the corresponding `CREATE VIEW` (or
+`CREATE MATERIALIZED VIEW`) when the item is written — versioned, inspectable,
+deployed like any other item, and portable because `CREATE VIEW` is core ANSI SQL
+(SQL-92) supported by every relational backend.
+
+IMPORTANT: This is a *different* concept from `view`/`query` items, which are
+**API-layer** persisted GraphQL/presentation views. `sql-view` is at the
+**database layer**: it produces an actual SQL relation that SQL clients query by
+name. The two coexist.
+
+Why it exists (three motivations):
+
+* **A SQL-native compatibility surface for the entire SQL ecosystem.** Any tool
+  that speaks SQL — BI/reporting (Metabase, Tableau), a spreadsheet over ODBC,
+  another application, a legacy service, or the *unmodified* API of an app being
+  converted to Kanecta — can read Kanecta through named views with familiar
+  shapes, **without going through GraphQL**. This is on-mission for Kanecta
+  subsuming other software: you do not force every consumer onto GraphQL; SQL
+  consumers get SQL. (In the converter this is the Gate-1 fidelity mechanism —
+  generated compat views let the untouched old app read the projected storage,
+  e.g. `CREATE VIEW events AS SELECT o.item_id AS id, o.* , i.created_at … FROM
+  obj_<uuid> o JOIN items i ON i.id = o.item_id`.)
+* **Declarative, DB-computed read models — including *materialised* views.** A
+  `sql-view` item can define a join/aggregate over `obj_` tables (a thread with
+  `reply_count` and its latest message) as a plain view, or a **materialised**
+  view the database caches and refreshes on write. This is an *optimisation path
+  for computed fields*: instead of the runner computing `reply_count` per request,
+  the database maintains it. On the "declarative-first, soft-coded-function-last"
+  ladder it sits on the declarative rung — above a `function` item — and the query
+  planner / DB engine can optimise it.
+* **It is simply more "everything is items."** A `SELECT` stored as data,
+  versioned, inspectable, adapter-deployed, portable across backends.
+
+CAUTION: **Authorization trust boundary.** A SQL view **bypasses GraphQL's
+per-field grant checks** — a SQL consumer reading a view is not gated by Kanecta's
+`grant`/`visibility`/`owner` authz. Therefore `sql-view` access is a *different
+trust boundary*: it must be restricted to DB-level roles / trusted-internal
+consumers, or (as a public feature) gated by a database-role access story that the
+implementation defines explicitly. For internal conversion compatibility views
+this is acceptable (internal-only); a `sql-view` must never be assumed to inherit
+item-level authz.
+
+Payload sketch (to be finalised on implementation): a portable `SELECT` expression
+(or a structured, dialect-compiled definition, mirroring how `sqlSchema` is derived
+per backend rather than authored raw); a `materialized` boolean; a refresh policy
+for the materialised case (on-write / scheduled); and the trust-boundary
+declaration. Writes are read-only through the view unless an `INSTEAD OF` trigger
+strategy is defined (out of scope for the read-only compatibility use).
 
 === contextPayload
 
@@ -2166,7 +2247,7 @@ NOTE: Security is not part of context — it is resolved at runtime via `grant` 
 
 === rootPayload
 
-For `type: "root"`. The root node's payload is the authoritative configuration record for the datastore. There is no separate config file — `rootPayload` replaces it. The bootstrapper writes this payload when the datastore is first initialised; subsequent updates are ordinary item updates.
+For `type: "root"`. The root node's payload is the authoritative configuration record for the datastore. There is no separate config file — `rootPayload` replaces it. The bootstrapper writes this payload when the datastore is first initialised; subsequent updates are ordinary item updates. Beyond the configuration fields, `rootPayload` also carries the *seed metaschema for the `type` type* — the irreducible bootstrap that lets the adapter build `obj_<type-type>` (you cannot derive the derivation rules from themselves). This is the single place bootstrapping lives; see <<cqrs-projections>>.
 
 [source,json]
 ----
@@ -2175,7 +2256,8 @@ For `type: "root"`. The root node's payload is the authoritative configuration r
   "specVersion": "1.4.0",
   "itemHistory": "EXTERNAL",
   "activity": "EXTERNAL",
-  "entryPoint": "uuid-of-view-item"
+  "entryPoint": "uuid-of-view-item",
+  "seedMetaschema": { "…": "the hand-authored column description for obj_<type-type>" }
 }
 ----
 
@@ -2204,6 +2286,10 @@ For `type: "root"`. The root node's payload is the authoritative configuration r
 | `entryPoint`
 | no
 | UUID of the `view` item that bootstraps this deployment in the Studio. Null means the Studio falls back to rendering the root node directly. Different deployment types (web, desktop, CLI) may use different view items — update this field or pass it as a startup argument to the adapter.
+
+| `seedMetaschema`
+| no
+| The hand-authored column description (a JSON Schema, stored `x-kanecta-storage: "json"`) for the `type` type's own projection table `obj_<type-type>`. The generic projection engine derives every type's `obj_<typeId>` columns from that type's `jsonSchema` — but it cannot do so for `type` itself, because the schema that would describe the type-defining type is exactly what it is trying to build (circular). This one fixed schema breaks the loop; the adapter compiles `obj_<type-type>` from it instead of from `type.json`'s nested payload schema. Stored on root because root is the one item guaranteed to exist before any per-type table is built — the entire irreducible bootstrap (spec version + this seed) is data on root, never a bootstrap table (see <<cqrs-projections>>). The adapter supplies the canonical seed on init, so a datastore whose root omits it is still valid.
 |===
 
 Different deployments of the same datastore (web UI, API server, CLI) each have their own view item. To support multiple deployment types, create multiple view items and update `entryPoint` to whichever is active — or make the entry point function context-aware.
@@ -2280,11 +2366,7 @@ Distinct from `reference` — a subscription is about change notification, not d
 ----
 {
   "targetId": "uuid-of-watched-item",
-  "channel": {
-    "type": "webhook",
-    "url": "$WEBHOOK_URL",
-    "secret": "$WEBHOOK_SECRET"
-  },
+  "channelId": "uuid-of-the-channel-item",
   "events": ["update", "delete"],
   "filter": "event.delta['payload.status'].to = 'done'",
   "recursive": false,
@@ -2302,9 +2384,9 @@ Distinct from `reference` — a subscription is about change notification, not d
 | yes
 | UUID of the item being watched.
 
-| `channel`
+| `channelId`
 | yes
-| Notification channel. `type` determines the required fields — see channel types below.
+| UUID of the `channel` item that configures delivery (webhook / mcp / reactive). The channel is a nested concept, so per the flat one-level rule it is its own `channel` type (see `channelPayload`) referenced by UUID — never an inline object on the subscription.
 
 | `events`
 | yes
@@ -2331,7 +2413,9 @@ Distinct from `reference` — a subscription is about change notification, not d
 | Identity of who registered this subscription. Used for audit, notification routing, and filtering (e.g. `kanecta_my_subscriptions` returns only subscriptions for the current principal). Free-form string matching the adapter's identity format.
 |===
 
-==== Channel types
+==== channelPayload (the `channel` type)
+
+A `channel` is its own built-in structured type (`channelPayload`), referenced by `subscription.channelId`. Its `type` discriminator selects which additional fields apply:
 
 [cols="1,1,2", options="header"]
 |===
@@ -2354,7 +2438,7 @@ Distinct from `reference` — a subscription is about change notification, not d
 
 After every successful item write, the adapter fans out to all active subscription items targeting that item:
 
-. Query active subscriptions: `WHERE type = 'subscription' AND payload.targetId = X AND payload.active = true`. If `recursive` subscriptions exist, also query by `targetId` matching any ancestor of X.
+. Query active subscriptions from the subscription projection: `SELECT … FROM obj_<subscription-type-uuid> WHERE target_id = X AND active = true`. If `recursive` subscriptions exist, also query by `target_id` matching any ancestor of X.
 . For each matching subscription, evaluate the `filter` expression against the event context. Skip subscriptions whose filter returns false.
 . Check `expiresAt` — if expired, set `active: false` on the subscription item and skip delivery.
 . Deliver to the channel. Delivery is best-effort for `webhook` and `mcp` channels — if the endpoint is unreachable, the adapter logs the failure and retries with exponential backoff (up to the adapter's configured retry limit). `reactive` delivery is in-process and synchronous.
@@ -2383,7 +2467,7 @@ For `type: "document"`. A named projection of a subtree into document form — m
 
 A document item does not own the subtree it projects. It points at a target item via `payload.targetId` and declares how the tree under that item should be interpreted. Multiple document items can project the same subtree differently — a quarterly review might have one document for the executive summary and another for the detailed breakdown, both reading from the same item graph.
 
-`parentId` for a document item is the synthetic `document` type item UUID (the universal rule). The target item is identified by `payload.targetId`. To find all documents for item X: `SELECT * FROM items WHERE type = 'document' AND payload->>'targetId' = $x`. The adapter maintains a derived `documents` lookup for O(1) resolution; that lookup is never the source of truth, it is rebuilt from items.
+`parentId` for a document item is the synthetic `document` type item UUID (the universal rule). The target item is identified by `payload.targetId`. To find all documents for item X, query the `document` projection: `SELECT … FROM obj_<document-type-uuid> WHERE target_id = $x`. There is no bespoke `documents` table; any accelerator is a `perf_`-prefixed rebuildable index, never the source of truth (it is rebuilt from items).
 
 The role map controls how items at each depth are rendered:
 
@@ -2405,6 +2489,8 @@ Org default vs personal:
 * `isOrgDefault: true` marks this document as the canonical org-level view for this target item. At most one document per `targetId` should carry `isOrgDefault: true`; tooling surfaces it first in document lists.
 * When a user modifies an org-default document, the intended behaviour is fork-on-modify: a new personal document is created with `baseDocumentId` pointing at the source document and `meta.visibility: 'private'`. The org default is left untouched. The `baseDocumentId` link allows tooling to diff or sync the fork against the upstream canonical when needed.
 * `meta.visibility: 'org'` — visible to all org members. `meta.visibility: 'private'` — visible only to the owner.
+
+NOTE: *Storage* — the payload below is the logical form the adapter reads and writes; per the flat one-level rule it is stored *decomposed* on the `document` projection, never as an inline blob. The scalar fields (`targetId`, `name`, `mode`, `isOrgDefault`, `baseDocumentId`) plus `expandState.defaultDepth` (flattened to a `default_depth` column) are columns on `obj_<document-type>`. The two nested maps become child items of the document: `expandState.exceptions` → `document-expand-exception` children (`{overrideItemId, depth}`, where `depth = -1` encodes the `false`/collapse value); `roleMap.byDepth` → `document-role-by-depth` children (`{depth, role}`); `roleMap.byType` → `document-role-by-type` children (`{key, role}` — `key` is a plain string so both type-name and typeId-UUID keys round-trip losslessly). `readDocumentPayload` / `writeDocumentPayload` reassemble / decompose this shape, so consumers see the nested payload unchanged.
 
 [source,json]
 ----
@@ -2483,6 +2569,24 @@ Org default vs personal:
 NOTE: *Export:* The initial export target is Markdown, implemented as the `exportMarkdown(adapter, documentId)` pure function in `kanecta-lib`. Plain text and HTML are planned. PDF requires a rendering pipeline and is not in this release.
 
 NOTE: *Inline references:* When an item with `type: "reference"` appears in the document subtree and its `payload.kind` is not `"physical"`, the Markdown exporter renders an inline link using the target item's `item.value` as link text. Transclusion (embedding a target item's full content) is deferred.
+
+=== licencePayload
+
+link:../built-in-types/types/licence.json[Seed item^]
+
+For `type: "licence"`. A licence is a first-class item like any other built-in structured type — an item's `meta.license` field is a UUID that resolves to a `licence` item. The payload carries the licence identity and terms:
+
+[source,json]
+----
+{
+  "spdxId": "MIT",
+  "name": "MIT License",
+  "url": "https://spdx.org/licenses/MIT.html",
+  "text": "Permission is hereby granted, free of charge, ..."
+}
+----
+
+Like every structured type, `licence` projects to `obj_<licence-type-uuid>` (columns `spdx_id`, `name`, `url`, `text`) — that projection is the read/query surface, never a bespoke `licences` table. To resolve an item's licence, follow `meta.license` to the licence item and read its projected row.
 
 === itemHistoryPayload
 
@@ -2569,14 +2673,14 @@ Recursion guard: the adapter sets a per-request flag when writing a history item
 
 ==== Read path
 
-History items are queryable via the standard item query mechanism — they are items like any other. Two common patterns:
+History items are queryable via the dedicated append-only `item_history` log, whose queryable columns (`target_id`, `sequence`, …) are extracted from the payload rather than read through a generic `payload->>` scan. Two common patterns:
 
 *Full event log for an item:*
 [source,sql]
 ----
-SELECT * FROM items
-WHERE type = 'item_history' AND payload->>'targetId' = $itemId
-ORDER BY payload->>'sequence' ASC
+SELECT * FROM item_history
+WHERE target_id = $itemId
+ORDER BY sequence ASC
 ----
 
 *Point-in-time state reconstruction* — no replay needed. Find the history item whose `meta.createdAt` is at or before the target time with the highest sequence, and read its `snapshot` field directly. The snapshot is the full item state at that moment.
@@ -2682,7 +2786,7 @@ Two classes of query:
 ----
 {
   "language": "sql",
-  "expression": "SELECT i.id, i.value, i.payload->>'status' AS status, i.payload->>'assignee' AS assignee FROM items i WHERE i.type = 'pipeline' AND i.payload->>'status' = {{params.status}} ORDER BY i.meta->>'createdAt' DESC",
+  "expression": "SELECT o.item_id, i.value, o.status, o.assignee FROM obj_<pipeline-type-uuid> o JOIN items i ON i.id = o.item_id WHERE o.status = {{params.status}} ORDER BY i.created_at DESC",
   "params": [
     { "name": "status", "type": "string", "description": "Pipeline status to filter by", "default": "active" }
   ],
@@ -2703,9 +2807,9 @@ Two classes of query:
 | yes
 | The query body. May contain `{{params.name}}` placeholders substituted at execution time. SQL placeholders are injected as parameterised values — never string-interpolated — to prevent injection attacks.
 
-| `params`
+| parameters
 | no
-| Named parameters that make this query reusable. Each entry has `name` (string), `type` (`"string"` \| `"number"` \| `"boolean"` \| `"uuid"` \| `"date"`), optional `description`, and optional `default`. Studio generates an input form from this definition when a user runs the query interactively. Null means the query is fixed with no parameters.
+| Named parameters that make the query reusable are `query-param` *children* of the query item — an array of objects is never an inline field (the flat one-level rule). Each `query-param` has `name`, `type` (`"string"` \| `"number"` \| `"boolean"` \| `"uuid"` \| `"date"`), optional `description`, and optional `defaultValue`. Studio generates an input form from the query's `query-param` children.
 
 | `returnType`
 | no
@@ -2748,12 +2852,13 @@ The distinction is important:
 {
   "pipelineId": "uuid-of-summarise-pipeline",
   "targetTypes": ["uuid-of-custom-finding-type", "uuid-of-another-custom-type"],
-  "params": { "outputFormat": "bullet-points" },
   "description": "Summarise this item using the current LLM model.",
   "icon": "AutoAwesome",
   "confirmationMessage": null
 }
 ----
+
+Default parameter values are an open key-value map, so — per the flat one-level rule — they are stored as `property` children of the action item (each child's `item.value` is the param name, `payload.value` its default), never an inline `params` object.
 
 [cols="1,1,2", options="header"]
 |===
@@ -2767,9 +2872,9 @@ The distinction is important:
 | no
 | Item types this action is available on. Each entry is the UUID of a type item (built-in or user-defined). Studio renders this action as a button or menu item when the user is viewing a matching item. Null = workspace-level action — appears in the global palette without a type restriction; `params.targetItemId` is null when invoked this way.
 
-| `params`
+| default params
 | no
-| Default parameter values for the pipeline. Keys must match the pipeline's `params[].name` definitions. Caller-supplied params override these; these override the pipeline's own defaults. Null means no action-level defaults.
+| Default parameter values for the pipeline are `property` children of the action item (not a payload field). Each property's `item.value` is the param name (matching the pipeline's `params[].name`), `payload.value` its default. Caller-supplied params override these; these override the pipeline's own defaults.
 
 | `description`
 | no
@@ -3507,11 +3612,15 @@ Two examples follow — a standard single-model agent and a group-chat agent.
   "model": "claude-sonnet-4-6",
   "systemPrompt": "You are a UI auditor. You compare screenshots of iOS and Android screens and identify visual and behavioural differences. Write findings as Kanecta items using kanecta_capture.",
   "tools": ["kanecta_capture", "kanecta_query", "kanecta_relate"],
-  "config": {
-    "max_tokens": 8096,
-    "temperature": 0
-  }
+  "configId": "<claude-api-config-item-uuid>"
 }
+----
+
+The referenced `claude-api-config` item's payload:
+
+[source,json]
+----
+{ "maxTokens": 8096, "temperature": 0 }
 ----
 
 *Group-chat agent (multi-model deliberation):*
@@ -3523,16 +3632,19 @@ Two examples follow — a standard single-model agent and a group-chat agent.
   "model": null,
   "systemPrompt": "You are a panel of UI auditors reaching a consensus verdict on findings. Challenge each other's reasoning — do not agree for the sake of agreement. A finding only reaches the output if at least two panel members endorse it with high confidence.",
   "tools": ["kanecta_add_item", "kanecta_conclude_discussion"],
-  "config": {
-    "participants": [
-      "<audit-sonnet-uuid>",
-      "<audit-opus-uuid>",
-      "<devil-advocate-uuid>"
-    ],
-    "maxTurns": 12,
-    "terminationCondition": "explicit",
-    "outputAgent": null
-  }
+  "configId": "<group-chat-config-item-uuid>"
+}
+----
+
+The referenced `group-chat-config` item's payload:
+
+[source,json]
+----
+{
+  "participants": ["<audit-sonnet-uuid>", "<audit-opus-uuid>", "<devil-advocate-uuid>"],
+  "maxTurns": 12,
+  "terminationCondition": "explicit",
+  "outputAgent": null
 }
 ----
 
@@ -3562,15 +3674,16 @@ Open string — new runtimes can be added without spec changes; the runner resol
 | no
 | Array of MCP tool names this agent can access. Restricting tools is a safety measure — a read-only analysis agent should not have `kanecta_delete`; an implementation agent should not reach production datastores. For `"group-chat"` agents, include `kanecta_conclude_discussion` if using `terminationCondition: "explicit"`. Null means all tools available in the current MCP context are accessible.
 
-| `config`
+| `configId`
 | no
-| Runtime-specific configuration. Structure is determined by the runtime adapter — the spec does not constrain it beyond the known runtimes documented here. Null means runtime defaults apply.
-For `"claude-api"`: `max_tokens`, `temperature`, `top_p`.
-For `"claude-code"`: `working_directory`, `env`.
-For `"python"`: `script_path`, `interpreter`.
-For `"kanecta-function"`: `functionId` (UUID of the function item to execute).
-For `"group-chat"`: `participants` (array of agent UUIDs, required), `maxTurns` (integer, default 10, hard cap on total turns regardless of termination condition), `terminationCondition` (`"explicit"` or `"max-turns"` — see note below), `outputAgent` (UUID of the agent that writes final items after `"max-turns"` termination; null for `"explicit"` termination where the concluding agent writes its own items).
-For `"http"`: `url` (required, string, supports `{{params.name}}` substitution), `method` (`"GET"` \| `"POST"` \| `"PUT"` \| `"PATCH"` \| `"DELETE"`, default `"GET"`), `headers` (key-value object, string values support substitution), `body` (any JSON-serialisable value, string leaves support substitution, ignored for GET/DELETE), `outputItemType` (string type name — if set, the response body is written as a Kanecta item of this type; if null, the response is stored in `phases[].output.httpResponse`), `timeoutSeconds` (integer ≥ 1, defaults to runner global HTTP timeout, typically 30s). Secret header values should be injected via runner environment variable substitution rather than stored in the agent item.
+| UUID of the runtime-specific config item. Runtime-specific configuration is normalised into a *per-runtime config type* referenced by UUID — never an inline object (the flat one-level rule; a JSON column is never used for this). The config item's type is determined by the agent's `runtime`. Null means runtime defaults apply. Each config type is flat scalars/scalar-arrays/UUID refs; the two open maps (`claude-code` env vars, `http` headers) are `property` children of the config item.
+
+* `claude-api-config` — `maxTokens`, `temperature`, `topP`.
+* `claude-code-config` — `workingDirectory` (env vars are `property` children).
+* `python-config` — `scriptPath` (required), `interpreter`.
+* `kanecta-function-config` — `functionId` (UUID ref to the function item, required).
+* `group-chat-config` — `participants` (UUID[] of agent items, required), `maxTurns` (default 10), `terminationCondition` (`"explicit"` \| `"max-turns"`), `outputAgent` (UUID ref, null for `"explicit"`).
+* `http-config` — `url` (required), `method` (default `"GET"`), `body` (text template — `{{params.name}}` substituted; not a JSON column), `outputItemType`, `timeoutSeconds`; request headers are `property` children. Secret header values come from runner env substitution, never stored inline.
 |===
 
 NOTE: `runtime: "kanecta-function"` executes a Kanecta `function` item directly via the kanecta-sdk, rather than invoking an external process. The runner provides the function with a pre-scoped sdk client that automatically tags all created items with `meta.sourceRunId` (the pipeline run UUID) and adds their UUIDs to the phase's `itemsProduced` list. This means a function-based phase can call `sdk.ai.complete()` for AI reasoning and `sdk.items.create()` for deterministic writes in the same execution unit — no MCP round-trips, no subprocess overhead. Function params are validated against pipeline params before the run starts. Because the function item is itself a versioned Kanecta item, the pipeline run record captures exactly which function version executed each phase.
@@ -4449,7 +4562,7 @@ Write path: sidecars are written *before* `item.json`. This ordering ensures tha
 
 === Layer 2: SQLite index (fast, always rebuildable)
 
-SQLite provides a queryable index over the filesystem layer. It mirrors the structure of the items table — every column that exists in the Postgres adapter also exists in the SQLite index, including JSONB-equivalent columns stored as SQLite JSON. The search index (FTS5 virtual table) and derived payload tables (`payload_relationship`, `payload_grant`, `aliases`) live here.
+SQLite provides a queryable index over the filesystem layer. It mirrors the structure of the items table — every column that exists in the Postgres adapter also exists in the SQLite index, including JSONB-equivalent columns stored as SQLite JSON. The four-table law applies here identically to Postgres: relationship, grant, and alias columns live in their per-type `obj_<typeId>` projections, the search index is an FTS5 virtual table, and any lookup accelerators are `perf_`-prefixed rebuildable structures (e.g. `perf_grant_resolution`, `perf_alias_lookup`) — never bespoke `payload_relationship`/`payload_grant`/`aliases` tables.
 
 The SQLite index is *not* the source of truth and *must never* be treated as one. It is fully rebuildable from the filesystem at any time by scanning all `item.json` files and repopulating the index. The rebuild process is deterministic — given the same filesystem contents it produces identical SQLite state.
 
@@ -4686,7 +4799,7 @@ Old types remain readable indefinitely. `supersededBy` is a suggestion, not a fo
 
 Types are first-class Kanecta items (`type: "type"`). They can be linked, tagged, annotated, subscribed to, and related just like any other item. Their `parentId` is always `11111111-1111-1111-1111-111111111111` (the well-known `types` node). See <<well-known-types>>.
 
-TIP: *Postgres* — types are normalised into a `types` table (1:1 with `items`) that stores `meta` fields as columns and `jsonSchema` as the only `JSONB` column in the schema. `types.table_name` records the per-type object table name (`obj_<uuid>`); null until the type's first instance is created.
+TIP: *Postgres* — the `type` type projects to `obj_<type-type-uuid>` like any other type (1:1 with its `items` rows), storing `meta` fields as columns and `jsonSchema` as a `JSONB` column. It is bootstrapped from the one hardcoded seed metaschema constant in `rootPayload` (needed because you cannot derive the derivation rules from themselves). There is *no* bespoke `types` table. The per-type object table name for any type is computed as `obj_<uuid>` and exists iff that type has at least one live instance.
 
 == Confidence and Status
 
@@ -4819,24 +4932,24 @@ The five `item.json` sections map directly to database tables, enabling efficien
 | `start_at`, `end_at`, `recurrence_rule`, `recurrence_exceptions`, `next_occurrence_at`, `completed_at` — sparse, one row per named temporal context
 |===
 
-TIP: *Postgres* — `items` also carries a denormalised `children UUID[]` column (updated by a trigger on INSERT/UPDATE/DELETE of `parent_id`) as a read-performance cache for tree traversal. Source of truth remains `parent_id`; `children` can always be rebuilt. A singleton `schema_version` table records the DB schema version; the application reads this at connection time and refuses to run on a mismatch.
+TIP: *Postgres* — `items` also carries a denormalised `children UUID[]` column — a *compiler-emitted* read-performance cache on the core `items` table (updated by a trigger on INSERT/UPDATE/DELETE of `parent_id`) for tree traversal. Source of truth remains `parent_id`; `children` can always be rebuilt. There is *no `schema_version` table*: the spec/version marker lives in the root item's payload (`rootPayload.specVersion`); the application reads it at connection time and refuses to run on a mismatch.
 
-TIP: *SQLite* — no native array columns. `children` cache uses a JSON `TEXT` column or a separate `item_children(parent_id, child_id)` table. `schema_version` is a simple one-row `key/value` table.
+TIP: *SQLite* — no native array columns. The compiler-emitted `children` cache uses a JSON `TEXT` column or a separate `perf_item_children(parent_id, child_id)` relation — a `perf_`-prefixed, rebuildable performance structure, never a source of truth. As on Postgres, there is *no `schema_version` table*; the version marker lives in `rootPayload.specVersion`.
 
 === Per-type projected tables (always a table, both adapters)
 
-The `payload` section has two representations. `items_payload` is the *write-side* store — one JSON row per item, portable and generic. On top of it, every user type with at least one live instance also has a *read-side* per-type table `obj_<typeId>` holding one row per live instance with real scalar columns, foreign keys, and secondary indexes derived from the type definition. This per-type table is a *materialised TABLE in both the Postgres and the filesystem (SQLite) adapter* — never a view — and its existence tracks *item existence*, not the type definition: it is created when the first instance of the type is written and dropped when the last live instance is hard-deleted. See <<cqrs-projections>> for the full invariant, lifecycle, and the derivation of columns/indexes from `jsonSchema` + `indexes`. The filesystem adapter historically stored all object payloads in a single generic `items_payload(item_id, payload JSON)` table; under this rule it additionally maintains the per-type `obj_<typeId>` tables as derived projections, rebuildable from the `item.json` source of truth.
+The `payload` section has a read surface and, optionally, a write-side store. *Every* type — user-defined *and* built-in structured (`grant`, `query`, `function`, `document`, `alias`, `annotation`, `file`, `licence`, `relationship`, `relationship-type`, `subscription`, `reference`, `view`, `aspect-type`, and `type` itself), save only the `item_history`/`activity` logs — has a *read-side* per-type table `obj_<typeId>` holding one row per live instance with real scalar columns, foreign keys, and secondary indexes derived from the type definition. This per-type table is a *materialised TABLE in both the Postgres and the filesystem (SQLite) adapter* — never a view — and its existence tracks *item existence*, not the type definition: it is created when the first instance of the type is written and dropped when the last live instance is hard-deleted. See <<cqrs-projections>> for the full invariant, lifecycle, and the derivation of columns/indexes from `jsonSchema` + `indexes`. `items_payload`, where an adapter keeps it (e.g. the filesystem adapter historically stored all object payloads in a single generic `items_payload(item_id, payload JSON)` table), is a *write-side representation only, never a read/query surface*; under this rule the adapter additionally maintains the per-type `obj_<typeId>` tables as derived projections, rebuildable from the `item.json` source of truth.
 
 [#item-history-and-activity]
 === item_history and activity
 
-`item_history` and `activity` are *items*, not separate tables. They follow the universal parentId rule — instances live under their respective synthetic type items (`item_history` and `activity`), bootstrapped at datastore init. They are queried like any other item: `SELECT * FROM items WHERE type = 'item_history' AND payload->>'targetId' = $id ORDER BY meta->>'createdAt' DESC`.
+`item_history` and `activity` are *items*, and they are the law's one sanctioned exception to the generic `obj_<typeId>` projection: they use dedicated append-only logs named exactly `item_history` and `activity`. They follow the universal parentId rule — instances live under their respective synthetic type items (`item_history` and `activity`), bootstrapped at datastore init. They are queried from those dedicated logs via extracted columns (never a generic `payload->>` scan): `SELECT * FROM item_history WHERE target_id = $id ORDER BY created_at DESC`.
 
 See `itemHistoryPayload` and `activityPayload` in the Payload Definitions section for the full field specification.
 
-`item_history` and `activity` are *exempt from the generic per-type `obj_<typeId>` projection* (see <<cqrs-projections>>) — they are the one behavioural special case. Instead of a generic per-type table they use their own dedicated, append-only derived tables (`payload_item_history`, `payload_activity`). The reasons are their distinct semantics: they are write-heavy, append-only (never updated), and — under `EXTERNAL` placement — physically separated from `items/` into sibling `item-history/` and `activity/` directories (filesystem) or dedicated tables (Postgres), so routing them through the generic engine would add no value and lose their append-only optimisation.
+`item_history` and `activity` are *exempt from the generic per-type `obj_<typeId>` projection* (see <<cqrs-projections>>) — they are the one behavioural special case. Instead of a generic per-type table they use their own dedicated, append-only logs named exactly `item_history` and `activity` (these two names are the law's sanctioned exception to the four-table shape). The reasons are their distinct semantics: they are write-heavy, append-only (never updated), and — under `EXTERNAL` placement — physically separated from `items/` into sibling `item-history/` and `activity/` directories (filesystem) or dedicated tables (Postgres), so routing them through the generic engine would add no value and lose their append-only optimisation.
 
-TIP: *Postgres* — because `item_history` and `activity` items are write-heavy and never updated, the adapter maintains these dedicated derived index tables (`payload_item_history`, `payload_activity`) with queryable columns extracted from payload. These are strictly derived — always rebuildable from `items`. The `items` table remains the source of truth.
+TIP: *Postgres* — because `item_history` and `activity` items are write-heavy and never updated, the adapter maintains these as the dedicated append-only logs `item_history` and `activity` (the sanctioned exempt names) with queryable columns (e.g. `target_id`, `sequence`) extracted from payload. These are strictly derived — always rebuildable from `items`. The `items` table remains the source of truth.
 
 == Business Rules
 
@@ -4862,7 +4975,7 @@ TIP: *Postgres* — because `item_history` and `activity` items are write-heavy 
 === Deleting Items
 
 1. Check `reference` items whose `targetId` is this item's UUID and `blockDeletion: true`. If any exist, deletion is blocked — surface them to the user with the reference owner. The reference owner must remove or acknowledge the reference before deletion can proceed.
-2. Check the `item_references` derived index for structural inbound references (other items' `parentId`, inline links, payload UUID fields). Warn if any exist; require explicit confirmation.
+2. Check the `perf_item_references` derived index for structural inbound references (other items' `parentId`, inline links, payload UUID fields). Warn if any exist; require explicit confirmation.
 3. Write history snapshot (`changeType: delete`).
 4. Remove item folder from `.kanecta/items/`.
 5. Cascade-delete all index entries (type, tag, backlinks, relationships, annotations, field-refs).
@@ -4882,7 +4995,7 @@ TIP: *Postgres* — because `item_history` and `activity` items are write-heavy 
 
 Create the `root` item (self-referencing, all-zeros UUID), then immediately create the `types` node (all-ones UUID, `parentId = root`). These two items are the only items the spec prescribes at init time. Then the bootstrapper seeds the core manifest (built-in type items, all with `parentId = 11111111-1111-1111-1111-111111111111`), then any app manifests. Any additional `tree` children the bootstrapper wants under root are a deployment decision — the spec does not prescribe them beyond root and types.
 
-TIP: *Postgres* — insert root in its own `BEGIN ... COMMIT` transaction with `ON CONFLICT (id) DO NOTHING` for idempotence. Each migration that changes the schema bumps `schema_version` via upsert.
+TIP: *Postgres* — insert root in its own `BEGIN ... COMMIT` transaction with `ON CONFLICT (id) DO NOTHING` for idempotence. There is no `schema_version` table: each migration that changes the schema updates the version marker in the root item's payload (`rootPayload.specVersion`) as part of the same write.
 
 TIP: *SQLite* — use WAL mode (`PRAGMA journal_mode = WAL`) for concurrent reads during writes. Set `PRAGMA synchronous = NORMAL` for a safe balance of durability and performance. Run `PRAGMA optimize` periodically to update query planner statistics.
 
@@ -5001,7 +5114,7 @@ These UUIDs can never be changed without a global migration of every `parentId` 
 | `activity`          | `2033f23f-f1d6-43bb-b74e-f62e96251df7`
 | `agent`             | `e5d3fad0-5123-46cc-a827-80954f7f96b2`
 | `alias`             | `80f95b21-6c51-43b5-bdfb-35aad8991c7a`
-| `annotation`        | `8797b002-091a-4289-abf0-850d4b05a743`
+| `annotation`        | `235d6155-db2a-4232-9548-8f5a66150d82`
 | `aspect-type`       | `45bc6fbe-aa63-41be-8566-7217a9a15ece`
 | `cell`              | `42561614-32d6-4c01-93c8-2f6e023ad19f`
 | `component`         | `fab55d91-6975-422a-9398-2b16f72bc805`
@@ -5218,26 +5331,17 @@ These are exposed over HTTP by `GET .../branches/:branch/merge-preview` and
 `POST .../branches/:branch/merge` (which returns `409` with the `conflicts` /
 `blastRadius` payload for a conflicting or reference-breaking merge).
 
-=== Postgres branching tables
+=== Postgres branching
 
-Two tables govern branching on Postgres remotes:
+A branch is *an item like everything else*: branch items project to `obj_<branch-type-uuid>` (columns `name`, `schema_name`, `base_branch`, `merged_at`, `deleted_at`, …), compiler-derived from the branch type definition. There is *no bespoke `branches` table* — the branch registry is queried from the branch projection like any other type.
+
+Branching adds exactly one non-`obj_` structure — `branch_changes` — a *staging/delta* mechanism. Like the `item_history`/`activity` logs, it is a sanctioned exception to the four-table shape rather than a per-type table: it is a transient overlay of pending changes, not a read/query surface for a type's instances, and it is discarded at merge. One row per changed section per item:
 
 [source,sql]
 ----
--- Branch registry
-CREATE TABLE branches (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name        TEXT NOT NULL,
-    schema_name TEXT NOT NULL,
-    base_branch TEXT NOT NULL DEFAULT 'main',
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    merged_at   TIMESTAMPTZ,
-    deleted_at  TIMESTAMPTZ
-);
-
--- Delta store — one row per changed section per item
+-- Delta store — one row per changed section per item (staging overlay, discarded at merge)
 CREATE TABLE branch_changes (
-    branch_id   UUID NOT NULL REFERENCES branches(id),
+    branch_id   UUID NOT NULL,
     item_id     UUID NOT NULL,
     change_type TEXT NOT NULL CHECK (change_type IN ('create', 'update', 'delete')),
     section     TEXT NOT NULL CHECK (section IN ('item', 'meta', 'search', 'payload')),
@@ -5247,7 +5351,7 @@ CREATE TABLE branch_changes (
 );
 ----
 
-Reading an item section on a branch prefers the branch override if one exists:
+Reading an item section on a branch prefers the branch override if one exists. The `items_payload` access below is a *single-item point lookup* of the write-side store (keyed on `ip.id = $itemId`), not a type-query surface — a branch reads one item's write representation to overlay its staged delta, never scans `items_payload` to enumerate a type's instances:
 
 [source,sql]
 ----
@@ -5324,17 +5428,139 @@ Conflicts (same item changed on both branches since branching) must be resolved 
 [#cqrs-projections]
 === CQRS projections
 
-Every user type projects a materialised per-type SQL *table* — a real relation with proper columns and indexes, not a generic `items_payload` JSONB scan. For a `customer` type with millions of instances, the `obj_<typeId>` table is what queries hit; the JSON payload store is the write-side representation and the per-type table is the read-side projection derived from it. This is the standard CQRS split: one authoritative write model, purpose-built read models derived from it.
+==== The four-table law (the shape of a Kanecta database)
 
-*Guaranteed lifecycle (adapter invariant).* This projection is *not optional* and is *not* limited to query-intensive types. For every user type `T` (a `type` item with id `typeId`), let `N(T)` be the number of live (non-tombstoned) instances — items with `type = "object"` and `typeId = T`. Then:
+Everything is an item. A conformant Kanecta datastore therefore contains only *four
+kinds of relation*, and nothing else:
+
+1. *`items`* — the single spine table. *Every* item has its envelope row here — a
+   `customer`, a `type`, a `relationship`, a `grant`, a `query`, a `config` setting,
+   a `branch`. There is no per-kind item table; "everything is an item" is literal.
+
+2. *`obj_<typeId>`* — the read-side projection of *every* type, without exception:
+   user-defined types, the built-in structured types (`grant`, `query`, `function`,
+   `document`, `alias`, `annotation`, `file`, `licence`, `relationship`,
+   `relationship-type`, and the `type` type itself), and manifest-packaged types.
+   One materialised table per type with at least one live instance, whose typed
+   columns, foreign keys, indexes, triggers, and views are derived *entirely* from
+   the type definition by the schema compiler (see <<sqlSchema-rules>>). No type is
+   ever given a hand-written table.
+
+3. *`item_history` and `activity`* — the two append-only exempt logs (see the
+   exception below). These are the *only* built-in types that do not use the generic
+   `obj_` projection, justified solely by their append-only, write-heavy,
+   externalisable semantics.
+
+4. *`perf_<name>`* — performance-only derived structures: rebuildable, never a source
+   of truth, and *self-declaring by the `perf_` prefix*. The full-text index, the
+   graph traversal projection (AGE), the UUID-dependency index, the backlink index,
+   and a grant-resolution index are all `perf_` relations. Dropping and rebuilding
+   any `perf_` relation from `items` + `obj_` changes no data. A structure that
+   exists only to make reads fast is legitimate *if and only if* it carries this
+   prefix and this property.
+
+There is exactly one place for bootstrapping, and it is *not a table*: the *payload
+of the root item*. The root item's payload (`rootPayload`) carries the entire
+irreducible bootstrap — the specification version and the seed metaschema for the
+`type` type (needed to project `obj_<type-type>`, since you cannot derive the
+derivation rules from themselves). There is *no `schema_version` table* and no
+bootstrap table of any kind: bootstrapping is the root item's payload, and nothing
+else. Even the version marker and the metaschema seed are data on the one item that
+is guaranteed to exist first.
+
+The `type` type is not the only meta-type that cannot describe its own projection.
+The `relationship-type` type *extends* the (nested) type payload — its definition is
+`allOf: [type.json, { meta: { directional, inverse } }]` — so `obj_<relationship-type>`
+hits the identical circularity: the schema that would describe the relationship-type-
+defining type is exactly what the engine would be building. It therefore needs its own
+flat seed metaschema (`relationshipTypeSeedMetaschema` = the `type` seed's columns plus
+`metaDirectional` and `metaInverse`), and the adapter compiles `obj_<relationship-type>`
+from it, special-casing the relationship-type type UUID exactly as it special-cases the
+`type` type UUID. Unlike the `type` seed, this one is *not* carried in `rootPayload`: it
+is *derivative* of the already-stored `type` seed (it adds two columns to it), not a
+second irreducible bootstrap, so it ships as an export-only constant from the
+specification package rather than as datastore data. The irreducible-bootstrap-is-data
+rule is about what a datastore cannot reconstruct without the adapter; a schema that is
+the `type` seed plus two fixed columns is reconstructible, so it stays in code.
+
+*Any relation that is not one of these four kinds is a specification violation.* A
+`schema_version` (or migration-tracking) table, a bespoke per-type table
+(`functions`, `documents`, `aliases`, `annotations`, `item_grants`, `files`,
+`licences`, `types`, `rel_types`, `relationships`, `config`, `branches`, …), and a
+generic JSON payload table used as a read/query surface are all prohibited:
+bootstrapping lives in `rootPayload`, and every other datum is an item whose payload
+projects to `obj_<typeId>` like any other.
+
+*Envelope-section tables are not a fifth kind.* The `items` spine may be physically
+decomposed into section tables — `items_meta`, `items_search`, `items_time`, and the
+write-side `items_payload` — that share the item's identity `1:1` (or sparsely, keyed
+on the item id). These are *physical decompositions of the single `items` spine
+kind*, not additional table kinds, and are therefore not violations. The one standing
+constraint is on `items_payload`: it is a *write-side representation only* — the
+read/query surface for a type's instances is always that type's `obj_<typeId>`
+projection, never `items_payload`.
+
+*The four-table law applies to every SQL adapter equally — Postgres AND SQLite.* The
+SQLite adapter is not exempt and is not a lesser citizen: it MUST implement `items`,
+`item_history`, `activity`, the per-type `obj_<typeId>` projections, and `perf_<name>`
+structures exactly as the Postgres adapter does, and it MUST be able to operate
+*DB-only* (no filesystem) with the full read/query surface. In the filesystem
+deployment, the on-disk `item.json` / sidecar layer is an *optional projected
+representation* — rebuildable from the DB, and the DB rebuildable from it (they are
+mutually derivable) — *not* a privileged source of truth that lets the DB skip any of
+the four kinds. An SQLite adapter that stores a type's instances only as `item.json`
+files, or reads/queries them from a generic payload table instead of `obj_<typeId>`,
+is as non-conformant as a Postgres adapter that hand-writes a bespoke table.
+
+==== No hand-coded DDL the compiler could emit
+
+The historical reason bespoke tables existed is that the schema compiler could not
+yet *soft-code* a database feature a type needed — a trigger to maintain a search
+vector, a computed column, a view, a stored procedure, a foreign key, a partial
+index — so an adapter author hand-wrote a table instead. That is a *compiler gap to
+close, never a licence to hand-write DDL*. The schema compiler
+(`@kanecta/schema-compiler`) is the single authority that turns a type definition
+into physical DDL, and its vocabulary MUST be able to express every database feature
+any type requires:
+
+* columns + scalar types (from `jsonSchema`) — *done*
+* foreign keys / relationships (`typeId` / `x-kanecta-itemType` reference columns →
+  `REFERENCES items(id)`) — *done*
+* secondary and partial indexes (`indexes`) — *done*
+* constraints (`constraints`) — *done*
+* views (the `sql-view` item / `sqlViewPayload`) — *done*
+* graph projection (`projectTo: ["graph"]`) — *done*
+* *triggers, stored procedures/functions, and computed columns* — the remaining gap;
+  these must become declarable in the type definition and emitted by the compiler.
+
+The rule is absolute: *if a type needs a database feature, it is declared in the type
+definition and emitted by the compiler — never hand-written as a special table or as
+bespoke DDL inside an adapter.* Extending the compiler's vocabulary is the *only*
+sanctioned way to add support for a new database capability. An adapter that
+hand-writes DDL the compiler could emit is non-conformant.
+
+==== The per-type projection
+
+Every type — *user-created, built-in, and manifest-packaged, without exception* (save the single `item_history`/`activity` case below) — projects a materialised per-type SQL *table*: a real relation with proper typed columns, foreign keys, and indexes. This is *never* a generic JSON/key-value payload store (an `items_payload` / `item_payloads` JSONB scan) used as the read or query surface. For a `customer` type with millions of instances, the `obj_<typeId>` table is what queries hit; where an adapter keeps a generic JSON payload store at all, that store is *only* the write-side representation, and the per-type table is the *mandatory* read-side projection derived from it. This is the standard CQRS split: one authoritative write model, purpose-built read models derived from it. **Storing a type's instances only in — or reading/querying them from — a generic JSON payload table is a prohibited anti-pattern, for every type, built-in types included.**
+
+*Guaranteed lifecycle (adapter invariant).* This projection is *not optional*, is *not* limited to query-intensive types, and — critically — is *not* limited to user-defined `object` types. It applies *identically* to the built-in structured types (`grant`, `query`, `alias`, `subscription`, `formula`, `document`, `reference`, …): these are *ordinary types* whose definitions declare their own columns and indexes and are projected by the same generic engine, with no hardcoded per-type special cases and no generic-JSON fallback. For every type `T` (a `type` item with id `typeId`) — user-defined *or* built-in — let `N(T)` be the number of live (non-tombstoned) instances of `T`. An instance is any item whose *resolved type* is `T`: for a user object type, `type = "object"` and `typeId = T`; for a built-in type, `item.type` equals the built-in type's name, which resolves to that type's fixed type-item UUID `T` (grants → `obj_<grant-type-uuid>`, queries → `obj_<query-type-uuid>`, and so on). Then:
 
 * A per-type relation named `obj_<typeId>` (hyphens in the UUID rendered as underscores) exists *if and only if* `N(T) >= 1`.
 * It is *a real materialised TABLE* — never a view — in *both* the Postgres adapter and the filesystem (SQLite) adapter. (Earlier drafts allowed a SQLite view; that is superseded. Because types declare `indexes` and SQLite cannot index a view, an indexed type needs a table anyway, so both adapters use a table uniformly.)
 * It is *created when the first instance is written* and *dropped only when the last live instance is hard-deleted*. A soft-deleted last instance (a set `deletedAt`) keeps the relation, so restore does not have to recreate it. An `update` that moves the last instance off type `T` (changes its `typeId`) drops `T`'s relation and ensures the new type's.
 * Its columns, foreign keys, and secondary indexes come *entirely from the type definition* — `deriveSqlSchema(T.jsonSchema)` for columns/FKs and the type's `indexes` declaration for secondary indexes (see <<sqlSchema-rules>>, <<indexes>>). There are *no hardcoded per-type special cases* in the adapters: the built-in relational/metadata types (`alias`, `relationship`, `relationship-type`, `grant`, …) are ordinary types whose definitions declare their own columns and indexes and are projected by the same generic engine.
-* Types with `N(T) = 0` project no relation; a type that is defined but never instantiated has no table. Primitive types never project a relation.
+* Types with `N(T) = 0` project no relation; a type that is defined but never instantiated has no table. Payload-less scalar content types (`string`, `number`, `text`, `heading`, `url`, `symlink`) project no relation. Every built-in *structured* type — including `annotation` — projects like any other type.
 
-The one exception is `item_history` and `activity` — see <<item-history-and-activity>>. These are append-only and use their own dedicated derived tables (`payload_item_history`, `payload_activity`) rather than the generic `obj_<typeId>` projection; they are exempt from this per-type-table rule.
+The one exception is `item_history` and `activity` — see <<item-history-and-activity>>. These are append-only and use their own dedicated logs named exactly `item_history` and `activity` (the law's sanctioned exempt names) rather than the generic `obj_<typeId>` projection; they are exempt from this per-type-table rule.
+
+[IMPORTANT]
+====
+*Prohibited anti-pattern — never store a type's instances in a generic JSON payload table.* It is explicitly forbidden, for *any* type and *especially* for the built-in structured types (`grant`, `query`, `formula`, `subscription`, `alias`, …), to introduce a bespoke or shared generic key-value/JSON payload table (e.g. `item_payloads(item_id, payload JSONB)`) and store, read, or query a type's instances from that JSON as a substitute for the per-type `obj_<typeId>` table.
+
+Every type is projected the same way: its `obj_<typeId>` table has *typed scalar columns* derived from its `jsonSchema` via `deriveSqlSchema`, with foreign keys and secondary indexes. A grant's `governedItemId` / `principal` / `permissions` / `cascade` are *columns* in `obj_<grant-type-uuid>`; a query's `language` / `expression` are *columns* in `obj_<query-type-uuid>`. Authz resolution, computed-field execution, and every other reader query these per-type tables — never a generic JSON scan.
+
+This is not a performance preference; it is foundational. The uniform per-type projection is what makes Kanecta's data model *self-describing, type-safe, referentially intact, indexable, and uniformly queryable* over one GraphQL/SQL surface. A generic JSON blob destroys all of those properties at once. Where an adapter maintains a generic write-side payload store (e.g. the filesystem adapter's `items_payload`), it is a write representation *only*; the per-type read projection is still mandatory for every type. Introducing a generic JSON store as a read/query surface for any type — built-in or user — is a specification violation.
+====
 
 Projections are:
 
@@ -5348,7 +5574,7 @@ Branches do not maintain their own projections. The bounded set of changes in a 
 
 Before merging a branch, the platform scans the *blast radius* of every UUID touched by the branch. This surfaces:
 
-1. *Structural references* — other items that reference a changed UUID via `parentId`, inline `[[uuid]]` links, or payload UUID fields. Queried from the `item_references` derived index.
+1. *Structural references* — other items that reference a changed UUID via `parentId`, inline `[[uuid]]` links, or payload UUID fields. Queried from the `perf_item_references` derived index.
 2. *Declared references* — `reference` items whose `targetId` is in the changed set. Physical references with `blockDeletion: true` block the merge until removed or acknowledged by their owner.
 3. *Active subscriptions* — webhook and reactive subscriptions registered against changed UUIDs.
 4. *Breaking payload changes* — items where the payload shape changed in a way downstream consumers may be sensitive to.
@@ -5356,21 +5582,21 @@ Before merging a branch, the platform scans the *blast radius* of every UUID tou
 [source,sql]
 ----
 -- Blast radius in one query
-SELECT * FROM item_references WHERE target_item_id = ANY($changedIds);
-SELECT * FROM items WHERE type = 'reference'
-  AND (payload->>'targetId')::uuid = ANY($changedIds)
-  AND (payload->>'blockDeletion')::boolean = true;
+SELECT * FROM perf_item_references WHERE target_item_id = ANY($changedIds);
+SELECT * FROM obj_<reference-type-uuid>
+  WHERE target_id = ANY($changedIds)
+  AND block_deletion = true;
 ----
 
 Merges are blocked (configurable) when any `reference` item with `blockDeletion: true` is in the blast radius and has not been acknowledged.
 
-=== item_references derived index
+=== perf_item_references derived index
 
-`item_references` tracks all structural UUID dependencies within the item graph. It is maintained automatically by the adapter and never edited manually.
+`perf_item_references` is a `perf_`-prefixed, *adapter-derived and fully rebuildable* index that tracks all structural UUID dependencies within the item graph. It is a performance-only structure, never a source of truth; it is maintained automatically by the adapter and never edited manually.
 
 [source,sql]
 ----
-CREATE TABLE item_references (
+CREATE TABLE perf_item_references (
     source_item_id UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
     target_item_id UUID NOT NULL,
     reference_type TEXT NOT NULL,
@@ -5378,12 +5604,12 @@ CREATE TABLE item_references (
     PRIMARY KEY (source_item_id, target_item_id, reference_type,
                  coalesce(field_name, ''))
 );
-CREATE INDEX idx_item_references_target ON item_references(target_item_id);
+CREATE INDEX idx_perf_item_references_target ON perf_item_references(target_item_id);
 ----
 
 `reference_type` values: `parent`, `inline-link`, `payload-field`, `relationship-source`, `relationship-target`, `view-item`, `view-component`, `view-context`, `grant-rebac`.
 
-The index is rebuilt from `items` + `items_payload` whenever items are written. It is strictly derived — can always be reconstructed from item content.
+The index is rebuilt from `items` + the per-type `obj_<typeId>` projections whenever items are written. It is strictly derived — can always be reconstructed from item content.
 
 [#graph-projection]
 == Graph Projection (Apache AGE)
@@ -5617,11 +5843,11 @@ kanecta_get_relationships(
 
 === Annotation tools
 
-Annotations are threaded comments on items, stored as `annotation` items whose `parentId` is the annotated item.
+Annotations are threaded comments on items, stored as `annotation` items. Like the other payload-dimension built-ins (see <<Well-known payload dimension names>>), an annotation item lives under the annotation type-UUID container and associates with the annotated item via `payload.targetId` — *not* as a child of the annotated item (its `parentId` is the annotation type container). The author is `item.createdBy`, the timestamp is `item.createdAt`, and `item.value` mirrors the body for display/search.
 
-`kanecta_add_annotation` — Add an annotation. `parentAnnotationId` enables threaded replies.
+`kanecta_add_annotation` — Add an annotation. `payload.parentAnnotationId` (a reference to another `annotation`) enables threaded replies; a reply carries the same `targetId` as the thread it belongs to.
 
-`kanecta_get_annotations` — Get all annotations on an item, threaded and ordered by `createdAt`.
+`kanecta_get_annotations` — Get all annotations on an item (`SELECT … FROM obj_<annotation-type> WHERE target_id = X`), reassembled into threads via `parentAnnotationId` and ordered by `createdAt`.
 
 == Bootstrap Configuration
 

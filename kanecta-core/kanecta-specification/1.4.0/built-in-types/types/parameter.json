@@ -1,0 +1,114 @@
+{
+  "item": {
+    "id": "e19f06be-5f2c-4bef-ae1f-7885832b1a90",
+    "parentId": "11111111-1111-1111-1111-111111111111",
+    "type": "type",
+    "typeId": null,
+    "value": "parameter",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "A named, typed parameter or prop. A function's parameters and a component's props are `parameter` children of the function/component item (ordered by item.sortOrder), not an inline array.",
+      "confidence": "locked",
+      "icon": "Tune"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "parameterPayload",
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Parameter/prop name."
+        },
+        "type": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Primitive type name in the target runtime's type system. Prefer typeId for object-typed values."
+        },
+        "typeId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid",
+          "x-kanecta-itemType": "type",
+          "description": "UUID of a Kanecta type item (runtime-neutral)."
+        },
+        "functionId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid",
+          "x-kanecta-itemType": "function",
+          "description": "UUID of a Kanecta function item (for callback parameters)."
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Human-readable description."
+        },
+        "optional": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "Whether the parameter is optional."
+        },
+        "rest": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "Whether this is a rest (...args) parameter."
+        },
+        "defaultValue": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Default value (text form)."
+        }
+      }
+    },
+    "sqlSchema": [
+      "-- Built-in type: adapter handles storage natively."
+    ]
+  }
+}

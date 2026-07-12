@@ -1,0 +1,35 @@
+-- Kanecta postgres schema — spec version 1.4.0
+--
+-- Uniform-projection modernisation (spec §cqrs-projections, the four-table law):
+-- retire the bespoke `types` table. The type registry is now the type-type's own
+-- projection obj_<type-type> — every type item (built-in AND user-defined) is a
+-- row there, exactly like an instance of any other type. There is no bespoke
+-- `types` table (spec §cqrs-projections is explicit: a `types` table is a listed
+-- prohibited relation).
+--
+-- obj_<type-type>'s columns can't be derived from type.json's own payload schema
+-- (it is nested/non-flat — the schema that would describe the type-defining type
+-- is exactly what the projection engine would be building; circular). The adapter
+-- builds obj_<type-type> from the flat SEED METASCHEMA carried in
+-- rootPayload.seedMetaschema (spec §rootPayload / §cqrs-projections). A migration
+-- cannot do that (no compiler, no seed metaschema at migrate time), so — as with
+-- config (037) and licences (036) — this migration only DROPS the redundant table;
+-- the adapter creates + populates obj_<type-type> on init/open (_ensureBuiltInTypes:
+-- _ensureProjection(TYPE_TYPE_ID) from the seed metaschema, then a registry row per
+-- built-in type item). readTypeJson/writeTypeJson/createType read/write that
+-- projection; readTypeJson falls back to this table only until the drop takes
+-- effect, so opens during the transition still work.
+--
+-- BACKFILL CAVEAT (READ BEFORE APPLYING TO A DATA-BEARING DATABASE): `types` may
+-- hold real USER-DEFINED type definitions. This migration does NOT convert them
+-- into obj_<type-type> rows — the adapter re-seeds only the BUILT-IN types on init.
+-- A deployment with existing user types MUST run a scripted backfill (copy each
+-- non-built-in `types` row into obj_<type-type>: item_id + the meta_*/json_schema/
+-- sql_schema/list columns; `table_name` is dropped, derivable as obj_<item_id>) and
+-- verify it BEFORE applying this drop — and back up first, because a lost user type
+-- def orphans its instances' obj_<userType> tables. Fresh / test / built-in-only
+-- databases have no such rows, so the drop is a clean no-op there. The schema-change
+-- guard (KANECTA_ALLOW_SCHEMA_CHANGES) means this only runs on deliberate
+-- authorisation.
+
+DROP TABLE IF EXISTS types;

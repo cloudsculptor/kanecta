@@ -329,8 +329,13 @@ describe('update', () => {
     expect((await adapter.history(item.id)).some(e => e.changeType === 'update')).toBe(true);
   });
 
-  test('throws when editing the reserved root node', async () => {
-    await expect(adapter.update(ROOT_ID, { value: 'x' }, OWNER)).rejects.toThrow(/reserved root node/);
+  test('the reserved root node is structurally locked', async () => {
+    // The root is renamable (see the root-protection suite) but its structural
+    // fields stay locked so it remains the self-parented type:'root' anchor.
+    await expect(adapter.update(ROOT_ID, { parentId: crypto.randomUUID() }, OWNER))
+      .rejects.toThrow(/cannot be changed/);
+    await expect(adapter.update(ROOT_ID, { typeId: crypto.randomUUID() }, OWNER))
+      .rejects.toThrow(/cannot be changed/);
   });
 });
 
@@ -678,6 +683,119 @@ describe('addRelTypes', () => {
   });
 });
 
+// ─── relationship-type registry cutover (Part 3a: rel_types -> obj_<reltype>) ────
+
+const RELATIONSHIP_TYPE_TYPE_ID = '15861dd7-e54c-4209-bceb-bdd65de4f472';
+const RELTYPE_OBJ = `obj_${RELATIONSHIP_TYPE_TYPE_ID.replace(/-/g, '_')}`;
+
+describe('relationship-type registry -> obj_<relationship-type>', () => {
+  test('the bespoke rel_types table is gone (dropped by migration 039)', async () => {
+    const { rows } = await pool.query(
+      `SELECT to_regclass('"${SCHEMA}".rel_types') IS NOT NULL AS has_rel_types`,
+    );
+    expect(rows[0].has_rel_types).toBe(false);
+  });
+
+  test('the 9 canonical relationship-types are seeded as items projecting to obj_<relationship-type>', async () => {
+    const { rows } = await pool.query(
+      `SELECT i.value FROM items i
+        JOIN "${RELTYPE_OBJ}" o ON o.item_id = i.id
+       WHERE i.type = 'relationship-type' AND i.deleted_at IS NULL
+       ORDER BY i.value`,
+    );
+    const slugs = rows.map(r => r.value);
+    for (const s of ['relates-to', 'depends-on', 'enables', 'contradicts', 'blocks',
+      'blocked-by', 'prerequisite-for', 'derived-from', 'supersedes'])
+      expect(slugs).toContain(s);
+  });
+
+  test('relTypes are sourced from the relationship-type items (not a table)', () => {
+    expect(adapter.relTypes).toEqual(expect.arrayContaining(['relates-to', 'depends-on', 'supersedes']));
+  });
+
+  test('meta_directional / meta_inverse are wired (depends-on <-> enables)', async () => {
+    const { rows } = await pool.query(
+      `SELECT i.value, o.meta_directional, o.meta_inverse,
+              inv.value AS inverse_value
+         FROM items i
+         JOIN "${RELTYPE_OBJ}" o   ON o.item_id = i.id
+         LEFT JOIN items inv       ON inv.id = o.meta_inverse
+        WHERE i.type = 'relationship-type'
+          AND i.value IN ('depends-on', 'enables', 'relates-to')`,
+    );
+    const byName = Object.fromEntries(rows.map(r => [r.value, r]));
+    expect(byName['depends-on'].meta_directional).toBe(true);
+    expect(byName['depends-on'].inverse_value).toBe('enables');
+    expect(byName['enables'].inverse_value).toBe('depends-on');
+    expect(byName['relates-to'].meta_directional).toBe(false);
+    expect(byName['relates-to'].meta_inverse).toBeNull();
+  });
+
+  test('addRelTypes creates a relationship-type item (not a rel_types row)', async () => {
+    await adapter.addRelTypes(['influences']);
+    const { rows } = await pool.query(
+      `SELECT 1 FROM items WHERE type = 'relationship-type' AND value = 'influences' AND deleted_at IS NULL`,
+    );
+    expect(rows).toHaveLength(1);
+    expect(adapter.relTypes).toContain('influences');
+  });
+});
+
+// ─── relationships-as-items cutover (Part 3b: relationships -> obj_<relationship>) ─
+
+const RELATIONSHIP_TYPE_ID = '334ea5f6-6bfa-43e5-b77f-5d811642d897';
+const REL_OBJ = `obj_${RELATIONSHIP_TYPE_ID.replace(/-/g, '_')}`;
+
+describe('relationships -> obj_<relationship>', () => {
+  test('the bespoke relationships table is gone (dropped by migration 040)', async () => {
+    const { rows } = await pool.query(
+      `SELECT to_regclass('"${SCHEMA}".relationships') IS NOT NULL AS has_relationships`,
+    );
+    expect(rows[0].has_relationships).toBe(false);
+  });
+
+  test('relate() creates a relationship item whose payload projects to obj_<relationship>', async () => {
+    const a = await adapter.create({ value: 'obj-rel-a' });
+    const b = await adapter.create({ value: 'obj-rel-b' });
+    const r = await adapter.relate(a.id, 'depends-on', b.id, { note: 'x' });
+    // The item exists as a first-class `relationship` item.
+    const item = await adapter.get(r.id);
+    expect(item.type).toBe('relationship');
+    // Its payload row carries the resolved relationship-type UUID + endpoints.
+    const { rows } = await pool.query(
+      `SELECT o.type_id, o.source_id, o.target_id, o.note, rt.value AS type_slug
+         FROM "${REL_OBJ}" o LEFT JOIN items rt ON rt.id = o.type_id
+        WHERE o.item_id = $1`, [r.id],
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].source_id).toBe(a.id);
+    expect(rows[0].target_id).toBe(b.id);
+    expect(rows[0].note).toBe('x');
+    expect(rows[0].type_slug).toBe('depends-on');   // payload.typeId resolves to the slug
+  });
+
+  test('relationships() reads obj_<relationship> (outbound + inbound)', async () => {
+    const a = await adapter.create({ value: 'obj-rel2-a' });
+    const b = await adapter.create({ value: 'obj-rel2-b' });
+    await adapter.relate(a.id, 'blocks', b.id);
+    const ra = await adapter.relationships(a.id);
+    expect(ra.outbound.map(o => o.targetId)).toContain(b.id);
+    expect(ra.outbound.find(o => o.targetId === b.id).type).toBe('blocks');
+    const rb = await adapter.relationships(b.id);
+    expect(rb.inbound.map(o => o.sourceId)).toContain(a.id);
+  });
+
+  test('unrelate() deletes the relationship item and its obj_<relationship> row', async () => {
+    const a = await adapter.create({ value: 'obj-unrel-a' });
+    const b = await adapter.create({ value: 'obj-unrel-b' });
+    const r = await adapter.relate(a.id, 'relates-to', b.id);
+    expect(await adapter.unrelate(r.id)).toBe(true);
+    expect(await adapter.get(r.id)).toBeNull();
+    const { rows } = await pool.query(`SELECT 1 FROM "${REL_OBJ}" WHERE item_id = $1`, [r.id]);
+    expect(rows).toHaveLength(0);
+  });
+});
+
 // ─── history ───────────────────────────────────────────────────────────────────
 
 describe('history', () => {
@@ -917,6 +1035,83 @@ describe('type definitions', () => {
     expect(await adapter.resolveTypeId('text')).toEqual({ primitive: true });
     expect(await adapter.resolveTypeId('ResolveTest')).toEqual({ id });
     expect(await adapter.resolveTypeId('Nonexistent')).toEqual({ unknown: true });
+  });
+});
+
+// The type registry lives in obj_<type-type>, not a bespoke `types` table (spec
+// §cqrs-projections, the four-table law). obj_<type-type> is built from the flat
+// seed metaschema (rootPayload.seedMetaschema) because the type-type can't derive
+// its own columns from type.json (circular). Migration 038 drops `types`.
+describe('type registry cutover (types -> obj_<type-type>)', () => {
+  const TYPE_TYPE_ID = 'abbd7b52-92aa-4fca-b458-d9c4e1a60061';
+  const TYPE_OBJ     = `obj_${TYPE_TYPE_ID.replace(/-/g, '_')}`;
+
+  test('the bespoke `types` table is dropped', async () => {
+    const { rows } = await pool.query(`SELECT to_regclass(current_schema() || '.types') AS reg`);
+    expect(rows[0].reg).toBeNull();
+  });
+
+  test('obj_<type-type> exists and holds a registry row per built-in type', async () => {
+    const reg = await pool.query(`SELECT to_regclass($1) AS reg`, [TYPE_OBJ]);
+    expect(reg.rows[0].reg).toBe(TYPE_OBJ);
+    // Every seeded built-in type item has an items row AND an obj_<type-type> row.
+    const items = await pool.query(`SELECT count(*)::int n FROM items WHERE type = 'type'`);
+    const regRows = await pool.query(`SELECT count(*)::int n FROM "${TYPE_OBJ}"`);
+    expect(regRows.rows[0].n).toBeGreaterThanOrEqual(40);
+    expect(regRows.rows[0].n).toBe(items.rows[0].n);
+  });
+
+  test('obj_<type-type> has the flat seed-metaschema columns, not a nested meta blob', async () => {
+    const { rows } = await pool.query(
+      `SELECT column_name FROM information_schema.columns
+        WHERE table_schema = current_schema() AND table_name = $1`, [TYPE_OBJ],
+    );
+    const cols = rows.map((r) => r.column_name);
+    for (const c of ['meta_icon', 'meta_description', 'json_schema', 'sql_schema', 'indexes'])
+      expect(cols).toContain(c);
+    expect(cols).not.toContain('meta');       // meta is flattened, never a blob column
+    expect(cols).not.toContain('table_name'); // table_name is derivable, dropped
+  });
+
+  test('the type-type describes itself — its own row is in the registry (self-referential)', async () => {
+    const { rows } = await pool.query(`SELECT item_id FROM "${TYPE_OBJ}" WHERE item_id = $1`, [TYPE_TYPE_ID]);
+    expect(rows.length).toBe(1);
+    const def = await adapter.readTypeJson(TYPE_TYPE_ID);
+    expect(def).toBeTruthy();
+    expect(def.jsonSchema).toBeTruthy();
+  });
+
+  test('rootPayload carries the seed metaschema (self-describing bootstrap)', async () => {
+    const ROOT_TYPE_ID = '73068dfc-e56b-4c4b-a8e6-f623f9ad9ab9';
+    const objRoot = `obj_${ROOT_TYPE_ID.replace(/-/g, '_')}`;
+    const { rows } = await pool.query(`SELECT seed_metaschema FROM "${objRoot}" WHERE item_id = $1`, [ROOT_ID]);
+    const seed = rows[0]?.seed_metaschema;
+    expect(seed).toBeTruthy();
+    expect(seed.title).toBe('typeSeedMetaschema');
+    // It describes the flat obj_<type-type> columns — meta_* + json_schema, no meta blob.
+    expect(seed.properties.metaIcon).toBeTruthy();
+    expect(seed.properties.jsonSchema['x-kanecta-storage']).toBe('json');
+  });
+
+  test('a user type created after cutover round-trips through obj_<type-type>', async () => {
+    const id = crypto.randomUUID();
+    await adapter.createType('CutoverWidget', {
+      schema: {
+        meta: { icon: 'Star', description: 'post-cutover type', skills: { claude: '' } },
+        jsonSchema: {
+          '$schema': 'http://json-schema.org/draft-07/schema#', title: 'CutoverWidget',
+          type: 'object', properties: { label: { type: 'string' } }, required: [], additionalProperties: false,
+        },
+        sqlSchema: [],
+      },
+      id,
+    });
+    // The definition row lives in obj_<type-type> (not a `types` table, which is gone).
+    const inReg = await pool.query(`SELECT meta_description FROM "${TYPE_OBJ}" WHERE item_id = $1`, [id]);
+    expect(inReg.rows[0]?.meta_description).toBe('post-cutover type');
+    const def = await adapter.readTypeJson(id);
+    expect(def.meta.description).toBe('post-cutover type');
+    expect(def.jsonSchema.title).toBe('CutoverWidget');
   });
 });
 
@@ -1249,6 +1444,90 @@ describe('functionData round-trip', () => {
   });
 });
 
+// ─── documentData round-trip ──────────────────────────────────────────────────
+// Characterization tests for the document read/write CONTRACT (not the underlying
+// documents table). These pin createDocument / readDocumentPayload /
+// writeDocumentPayload / listDocuments behaviour so the pending documents-table →
+// obj_<document-type> cutover (plans/uniform-projection-modernisation.md #3) can be
+// proven to preserve the signatures. Written before the cutover, they must stay
+// green through it.
+describe('documentData round-trip', () => {
+  test('createDocument creates a document item under the document type node', async () => {
+    const target = await adapter.create({ value: 'target', type: 'note' });
+    const doc = await adapter.createDocument(target.id, 'My Doc', { owner: OWNER });
+    expect(doc.type).toBe('document');
+    expect(doc.parentId).toBe(PostgresAdapter.DOCUMENT_TYPE_UUID);
+    expect(doc.value).toBe('My Doc');
+  });
+
+  test('readDocumentPayload round-trips the created payload with defaults applied', async () => {
+    const target = await adapter.create({ value: 'target-defaults', type: 'note' });
+    const doc = await adapter.createDocument(target.id, 'Defaults Doc', { owner: OWNER });
+    const payload = await adapter.readDocumentPayload(doc.id);
+    expect(payload.targetId).toBe(target.id);
+    expect(payload.name).toBe('Defaults Doc');
+    expect(payload.expandState).toEqual({ defaultDepth: 2, exceptions: {} });
+    expect(payload.roleMap).toEqual({
+      byDepth: { '1': 'heading', '2': 'subheading', '3': 'body' }, byType: {},
+    });
+    expect(payload.isOrgDefault).toBe(false);
+    expect(payload.baseDocumentId).toBeNull();
+  });
+
+  test('createDocument honours explicit expandState / roleMap / isOrgDefault / baseDocumentId', async () => {
+    const target = await adapter.create({ value: 'target-explicit', type: 'note' });
+    const base = await adapter.create({ value: 'base-doc', type: 'note' });
+    const expandState = { defaultDepth: 4, exceptions: { [base.id]: 1 } };
+    const roleMap = { byDepth: { '1': 'body' }, byType: { [target.id]: 'heading' } };
+    const doc = await adapter.createDocument(target.id, 'Explicit Doc', {
+      owner: OWNER, expandState, roleMap, isOrgDefault: true, baseDocumentId: base.id,
+    });
+    const payload = await adapter.readDocumentPayload(doc.id);
+    expect(payload.expandState).toEqual(expandState);
+    expect(payload.roleMap).toEqual(roleMap);
+    expect(payload.isOrgDefault).toBe(true);
+    expect(payload.baseDocumentId).toBe(base.id);
+  });
+
+  test('readDocumentPayload returns null when the item has no document payload', async () => {
+    const item = await adapter.create({ value: 'not-a-doc', type: 'note' });
+    expect(await adapter.readDocumentPayload(item.id)).toBeNull();
+  });
+
+  test('writeDocumentPayload upserts — a second write replaces the payload', async () => {
+    const target = await adapter.create({ value: 'target-upsert', type: 'note' });
+    const doc = await adapter.createDocument(target.id, 'Upsert Doc', { owner: OWNER });
+    const next = {
+      targetId: target.id, name: 'Renamed', isOrgDefault: true, baseDocumentId: null,
+      expandState: { defaultDepth: 1, exceptions: {} },
+      roleMap: { byDepth: {}, byType: {} },
+    };
+    await adapter.writeDocumentPayload(doc.id, next);
+    expect(await adapter.readDocumentPayload(doc.id)).toEqual(next);
+  });
+
+  test('listDocuments returns only documents for the given target, excluding soft-deleted', async () => {
+    const targetA = await adapter.create({ value: 'target-A', type: 'note' });
+    const targetB = await adapter.create({ value: 'target-B', type: 'note' });
+    const d1 = await adapter.createDocument(targetA.id, 'A-1', { owner: OWNER });
+    const d2 = await adapter.createDocument(targetA.id, 'A-2', { owner: OWNER });
+    await adapter.createDocument(targetB.id, 'B-1', { owner: OWNER });
+
+    const forA = await adapter.listDocuments(targetA.id);
+    expect(forA.map((d: any) => d.id).sort()).toEqual([d1.id, d2.id].sort());
+
+    await adapter.softDelete(d2.id);
+    const afterDelete = await adapter.listDocuments(targetA.id);
+    expect(afterDelete.map((d: any) => d.id)).toEqual([d1.id]);
+  });
+
+  test('createDocument requires targetId and name', async () => {
+    await expect(adapter.createDocument(null, 'x', { owner: OWNER })).rejects.toThrow(/targetId/);
+    const target = await adapter.create({ value: 'target-noname', type: 'note' });
+    await expect(adapter.createDocument(target.id, null, { owner: OWNER })).rejects.toThrow(/name/);
+  });
+});
+
 // ─── rebuildIndexes / checkIntegrity / rebuildPaths ───────────────────────────
 
 describe('rebuildIndexes', () => {
@@ -1260,7 +1539,7 @@ describe('rebuildIndexes', () => {
   test('re-populates backlinks after manual delete', async () => {
     const target = await adapter.create({ value: 'rb-target' });
     const linker = await adapter.create({ value: `[[${target.id}]]` });
-    await pool.query('DELETE FROM links WHERE source_id = $1', [linker.id]);
+    await pool.query('DELETE FROM perf_backlinks WHERE source_id = $1', [linker.id]);
     expect(await adapter.backlinks(target.id)).not.toContain(linker.id);
     await adapter.rebuildIndexes();
     expect(await adapter.backlinks(target.id)).toContain(linker.id);
@@ -1321,8 +1600,13 @@ describe('well-known node protection', () => {
     }
   });
 
-  test('the root node cannot be updated or deleted', async () => {
-    await expect(adapter.update(ROOT_ID, { value: 'Org Space' }, OWNER)).rejects.toThrow(/reserved root node/);
+  test('the root node is renamable but cannot be structurally changed or deleted', async () => {
+    // A datastore can be given a meaningful name by renaming its root…
+    const renamed = await adapter.update(ROOT_ID, { value: 'Org Space' }, OWNER);
+    expect(renamed.value).toBe('Org Space');
+    // …but its structural identity is locked, and it can never be deleted.
+    await expect(adapter.update(ROOT_ID, { type: 'object', typeId: crypto.randomUUID() }, OWNER))
+      .rejects.toThrow(/cannot be changed/);
     await expect(adapter.delete(ROOT_ID, OWNER)).rejects.toThrow(/reserved root node/);
   });
 });
@@ -1489,10 +1773,10 @@ describe('semantic / hybrid search', () => {
       await PostgresAdapter.init(p, OWNER);
       const emb = await PostgresAdapter.open(p, { embeddings: { provider: 'mock', dimensions: 16 } });
       const item = await emb.create({ value: 'queued for background embedding' });
-      expect((await p.query('SELECT 1 FROM pending_embeddings WHERE item_id = $1', [item.id])).rows).toHaveLength(1);
+      expect((await p.query('SELECT 1 FROM perf_embedding_queue WHERE item_id = $1', [item.id])).rows).toHaveLength(1);
       const result = await emb.processPendingEmbeddings({ limit: 100 });
       expect(result.embedded).toBeGreaterThan(0);
-      const { rows: remaining } = await p.query('SELECT 1 FROM pending_embeddings WHERE item_id = $1', [item.id]);
+      const { rows: remaining } = await p.query('SELECT 1 FROM perf_embedding_queue WHERE item_id = $1', [item.id]);
       expect(remaining).toHaveLength(0);
     } finally {
       await p.end();
@@ -1588,17 +1872,402 @@ describe.skipIf(!AGE_ENABLED)('graph projection (AGE)', () => {
     expect(await adapter.graphNeighbors(a.id)).not.toContain(b.id);
   });
 
-  test('rebuildGraphProjection reconstructs edges from the relationships table', async () => {
+  test('rebuildGraphProjection reconstructs edges from obj_<relationship>', async () => {
     const a = await adapter.create({ value: 'g-r-a' });
     const b = await adapter.create({ value: 'g-r-b' });
     await adapter.relate(a.id, 'enables', b.id);
 
     const summary = await adapter.rebuildGraphProjection();
     expect(summary.rebuilt).toBe(true);
-    // Every relationships-table row is mirrored as exactly one edge.
-    const { rows } = await pool.query('SELECT count(*)::int AS n FROM relationships');
+    // Every relationship item is mirrored as exactly one edge.
+    const { rows } = await pool.query(
+      `SELECT count(*)::int AS n FROM items WHERE type = 'relationship' AND deleted_at IS NULL`,
+    );
     expect(await adapter.countProjectedGraphEdges()).toBe(rows[0].n);
     // The rebuilt graph still answers traversals.
     expect(await adapter.graphNeighbors(a.id, { relType: 'enables' })).toContain(b.id);
+  });
+});
+
+// ─── Structured built-in projection (four-table law) ─────────────────────────────
+
+describe('structured built-in projection', () => {
+  const GRANT_TYPE_ID = '89138971-cd16-4c7a-b4cd-669711bfab75';
+  const grantTable = `obj_${GRANT_TYPE_ID.replace(/-/g, '_')}`;
+
+  test('the grant type definition is seeded (readTypeJson resolves its jsonSchema)', async () => {
+    const def = await adapter.readTypeJson(GRANT_TYPE_ID);
+    expect(def?.jsonSchema?.title).toBe('grantPayload');
+  });
+
+  test('a grant instance projects to obj_<grant-type> with typed columns', async () => {
+    const governed = await adapter.create({ value: 'governed-doc' });
+    const grant = await adapter.create({
+      type: 'grant',
+      value: 'grant',
+      objectData: {
+        governedItemId: governed.id,
+        principal: 'alice@example.com',
+        permissions: ['read', 'write'],
+        cascade: false,
+      },
+    });
+
+    // The instance carries the grant type's fixed UUID (the projection key) —
+    // NOT type='object'. This is the four-table law: a built-in is an ordinary
+    // type projected to obj_<typeId>.
+    expect(grant.type).toBe('grant');
+    expect(grant.typeId).toBe(GRANT_TYPE_ID);
+
+    // Payload round-trips through the projected table's typed columns.
+    const payload = await adapter.readObjectJson(grant.id, GRANT_TYPE_ID);
+    expect(payload.governedItemId).toBe(governed.id);
+    expect(payload.principal).toBe('alice@example.com');
+    expect(payload.permissions).toEqual(['read', 'write']);
+    expect(payload.cascade).toBe(false);
+
+    // The exact read contract PgAuthzSource.grantsFor() depends on: typed
+    // columns on obj_<grant-type>, joined to items, filtered by governed_item_id.
+    const { rows } = await pool.query(
+      `SELECT g.principal, g.permissions, g.cascade
+         FROM "${grantTable}" g JOIN items i ON i.id = g.item_id
+        WHERE g.governed_item_id = $1 AND i.deleted_at IS NULL`,
+      [governed.id],
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].principal).toBe('alice@example.com');
+    expect(rows[0].permissions).toEqual(['read', 'write']);
+    expect(rows[0].cascade).toBe(false);
+  });
+
+  test('an invalid grant payload is rejected before the item row is written', async () => {
+    const before = (await pool.query('SELECT count(*)::int AS n FROM items')).rows[0].n;
+    await expect(adapter.create({
+      type: 'grant', value: 'grant',
+      objectData: { governedItemId: crypto.randomUUID(), principal: 'x' }, // missing permissions
+    })).rejects.toThrow(/validation|permissions/i);
+    const after = (await pool.query('SELECT count(*)::int AS n FROM items')).rows[0].n;
+    expect(after).toBe(before);
+  });
+});
+
+describe('structured built-in projection (query + query-param children)', () => {
+  const QUERY_TYPE_ID = '1c23396d-c3a0-4f51-9307-a1aecd1f44fa';
+  const QUERY_PARAM_TYPE_ID = '82a025d4-a862-434a-9e56-68657814af0f';
+  test('a query projects (no inline params); its params are query-param children', async () => {
+    const q = await adapter.create({
+      type: 'query', value: 'tasks-by-assignee',
+      objectData: { language: 'kanecta', expression: 'type:task assignee:{{params.assignee}}' },
+    });
+    expect(q.typeId).toBe(QUERY_TYPE_ID);
+    const p = await adapter.readObjectJson(q.id, QUERY_TYPE_ID);
+    expect(p.expression).toBe('type:task assignee:{{params.assignee}}');
+    expect('params' in p).toBe(false);   // normalised out — params are children
+
+    const param = await adapter.create({
+      type: 'query-param', value: 'assignee', parentId: q.id,
+      objectData: { name: 'assignee', type: 'string', description: 'Who the task is assigned to' },
+    });
+    expect(param.typeId).toBe(QUERY_PARAM_TYPE_ID);
+    expect(param.parentId).toBe(q.id);
+    const pp = await adapter.readObjectJson(param.id, QUERY_PARAM_TYPE_ID);
+    expect(pp.name).toBe('assignee');
+    expect(pp.type).toBe('string');
+  });
+});
+
+// ─── Schema-change guard (fail-closed migration protection) ──────────────────────
+
+describe('schema-change guard', () => {
+  test('init throws on a fresh schema when KANECTA_ALLOW_SCHEMA_CHANGES is unset', async () => {
+    const guardSchema = `kanecta_guard_${crypto.randomBytes(4).toString('hex')}`;
+    await adminPool.query(`CREATE SCHEMA "${guardSchema}"`);
+    const gPool = new Pool({ connectionString: CONNECTION_STRING, options: `-c search_path="${guardSchema}"` });
+    const saved = process.env.KANECTA_ALLOW_SCHEMA_CHANGES;
+    try {
+      delete process.env.KANECTA_ALLOW_SCHEMA_CHANGES;
+      await expect(PostgresAdapter.init(gPool, OWNER))
+        .rejects.toThrow(/Refusing to apply .* pending schema migration/);
+      // With the flag set, the same init succeeds and applies migrations.
+      process.env.KANECTA_ALLOW_SCHEMA_CHANGES = '1';
+      const ok = await PostgresAdapter.init(gPool, OWNER);
+      expect((await ok.getRoot()).type).toBe('root');
+    } finally {
+      if (saved === undefined) delete process.env.KANECTA_ALLOW_SCHEMA_CHANGES;
+      else process.env.KANECTA_ALLOW_SCHEMA_CHANGES = saved;
+      await gPool.end();
+      await adminPool.query(`DROP SCHEMA IF EXISTS "${guardSchema}" CASCADE`);
+    }
+  });
+});
+
+describe('structured built-in projection (reference, file)', () => {
+  const REFERENCE_TYPE_ID = 'cb120719-5a23-4b4f-b614-898f79f1904f';
+  const FILE_TYPE_ID = 'c0f603f1-a3ac-4a7d-b9ac-983822c7304f';
+
+  test('a reference instance projects to obj_<reference-type> and round-trips', async () => {
+    const target = await adapter.create({ value: 'ref-target' });
+    const ref = await adapter.create({
+      type: 'reference', value: 'external-fk',
+      objectData: { targetId: target.id, kind: 'external-system', description: 'FK held in another DB', blockDeletion: true },
+    });
+    expect(ref.type).toBe('reference');
+    expect(ref.typeId).toBe(REFERENCE_TYPE_ID);
+    const payload = await adapter.readObjectJson(ref.id, REFERENCE_TYPE_ID);
+    expect(payload.targetId).toBe(target.id);
+    expect(payload.kind).toBe('external-system');
+    expect(payload.blockDeletion).toBe(true);
+  });
+
+  test('a file instance projects to obj_<file-type> (metadata; bytes live in S3/sidecar)', async () => {
+    const f = await adapter.create({
+      type: 'file', value: 'photo.jpg',
+      objectData: { mimeType: 'image/jpeg', size: 20481, width: 1024, height: 768, altText: 'A photo' },
+    });
+    expect(f.type).toBe('file');
+    expect(f.typeId).toBe(FILE_TYPE_ID);
+    const payload = await adapter.readObjectJson(f.id, FILE_TYPE_ID);
+    expect(payload.mimeType).toBe('image/jpeg');
+    expect(payload.size).toBe(20481);
+    expect(payload.width).toBe(1024);
+  });
+});
+
+describe('structured built-in projection (formula, context, cell)', () => {
+  const cases = [
+    { type: 'formula', id: 'd605ed1b-2c53-44a0-b4ac-3a307b61e82a',
+      data: { level: 'template', expression: 'TASK-{n}' }, check: (p: any) => expect(p.expression).toBe('TASK-{n}') },
+    { type: 'context', id: 'bd48218a-1c21-4c8e-ac0e-9ea026f2cf4d',
+      data: { runtime: 'web', display: 'detail-panel', capabilities: ['react', 'css'] },
+      check: (p: any) => { expect(p.runtime).toBe('web'); expect(p.capabilities).toEqual(['react', 'css']); } },
+    { type: 'cell', id: '42561614-32d6-4c01-93c8-2f6e023ad19f',
+      data: { row: 3, column: 'B' }, check: (p: any) => { expect(p.row).toBe(3); expect(p.column).toBe('B'); } },
+  ];
+  for (const c of cases) {
+    test(`a ${c.type} instance projects to obj_<${c.type}-type> and round-trips`, async () => {
+      const item = await adapter.create({ type: c.type, value: c.type, objectData: c.data });
+      expect(item.type).toBe(c.type);
+      expect(item.typeId).toBe(c.id);
+      c.check(await adapter.readObjectJson(item.id, c.id));
+    });
+  }
+});
+
+describe('structured built-in projection (view)', () => {
+  const VIEW_TYPE_ID = 'cfba24ea-be40-46ba-b4db-e15a55af4392';
+  test('a view instance projects to obj_<view-type>; viewedItemId does not collide with item_id', async () => {
+    const [viewed, comp, ctx] = await Promise.all([
+      adapter.create({ value: 'viewed' }), adapter.create({ value: 'comp' }), adapter.create({ value: 'ctx' }),
+    ]);
+    const view = await adapter.create({
+      type: 'view', value: 'compact-card',
+      objectData: { viewedItemId: viewed.id, componentId: comp.id, contextId: ctx.id },
+    });
+    expect(view.type).toBe('view');
+    expect(view.typeId).toBe(VIEW_TYPE_ID);
+    const payload = await adapter.readObjectJson(view.id, VIEW_TYPE_ID);
+    expect(payload.viewedItemId).toBe(viewed.id);   // the viewed item, stored in viewed_item_id
+    expect(view.id).not.toBe(viewed.id);            // the row's item_id is the VIEW item, distinct
+  });
+});
+
+describe('annotation + licence are seeded structured types', () => {
+  test('their type definitions resolve via readTypeJson', async () => {
+    const ann = await adapter.readTypeJson('235d6155-db2a-4232-9548-8f5a66150d82');
+    expect(ann?.jsonSchema?.title).toBe('annotationPayload');
+    const lic = await adapter.readTypeJson('9798b629-06f4-495f-90e8-2d70f817466e');
+    expect(lic?.jsonSchema?.title).toBe('licencePayload');
+  });
+});
+
+describe('licence cutover — licences are items projecting to obj_<licence-type>', () => {
+  const LICENCE_TYPE_ID = '9798b629-06f4-495f-90e8-2d70f817466e';
+  const DEFAULT_LICENCE = 'bb3bf137-d8a9-4264-9fb7-ac373b1d4739';
+  const OBJ_LICENCE     = `obj_${LICENCE_TYPE_ID.replace(/-/g, '_')}`;
+
+  test('the bespoke licences table is gone (four-table law)', async () => {
+    const { rows } = await pool.query("SELECT to_regclass('licences') AS t");
+    expect(rows[0].t).toBeNull();
+  });
+
+  test('all 19 built-in licences are seeded as licence items projecting to obj_licence', async () => {
+    const { rows: n }    = await pool.query("SELECT COUNT(*)::int AS n FROM items WHERE type = 'licence'");
+    expect(n[0].n).toBe(19);
+    const { rows: proj } = await pool.query(`SELECT COUNT(*)::int AS n FROM "${OBJ_LICENCE}"`);
+    expect(proj[0].n).toBe(19);
+  });
+
+  test('the default licence is reparented under the licence type and projects its payload', async () => {
+    const def = await adapter.get(DEFAULT_LICENCE);
+    expect(def.type).toBe('licence');
+    expect(def.parentId).toBe(LICENCE_TYPE_ID);      // out of the self-parented bootstrap state
+    const payload = await adapter.readObjectJson(DEFAULT_LICENCE, LICENCE_TYPE_ID);
+    expect(payload.name).toBe('All Rights Reserved (Copyright)');
+    expect(payload.spdxId).toBeNull();
+  });
+
+  test('an spdx licence projects its identity (GPL-3.0)', async () => {
+    const payload = await adapter.readObjectJson('6af82527-a086-4596-a07f-84ca3cad2277', LICENCE_TYPE_ID);
+    expect(payload.spdxId).toBe('GPL-3.0-only');
+    expect(payload.url).toBe('https://www.gnu.org/licenses/gpl-3.0.html');
+  });
+
+  test('items.license now references items(id): a new item resolves to the default licence item', async () => {
+    const it = await adapter.create({ value: 'licensed thing', type: 'note' });
+    const { rows } = await pool.query('SELECT license FROM items WHERE id = $1', [it.id]);
+    expect(rows[0].license).toBe(DEFAULT_LICENCE);
+    const lic = await adapter.get(rows[0].license);   // FK target is a real licence item
+    expect(lic.type).toBe('licence');
+  });
+});
+
+describe('config cutover — datastore config lives in rootPayload (obj_<root>)', () => {
+  const ROOT_TYPE_ID = '73068dfc-e56b-4c4b-a8e6-f623f9ad9ab9';
+  const OBJ_ROOT     = `obj_${ROOT_TYPE_ID.replace(/-/g, '_')}`;
+
+  test('the bespoke config table is gone (four-table law)', async () => {
+    const { rows } = await pool.query("SELECT to_regclass('config') AS t");
+    expect(rows[0].t).toBeNull();
+  });
+
+  test('the root item projects its config payload to obj_<root>', async () => {
+    const { rows } = await pool.query(
+      `SELECT owner, spec_version, item_history, activity FROM "${OBJ_ROOT}" WHERE item_id = $1`,
+      [ROOT_ID],
+    );
+    expect(rows.length).toBe(1);
+    expect(rows[0].owner).toBe(OWNER);
+    expect(rows[0].spec_version).toBe('1.4.0');
+    expect(rows[0].item_history).toBe('EXTERNAL');
+    expect(rows[0].activity).toBe('EXTERNAL');
+  });
+
+  test('adapter.config resolves owner + spec_version from rootPayload', async () => {
+    expect(adapter.config.owner).toBe(OWNER);
+    expect(adapter.config.spec_version).toBe('1.4.0');
+  });
+
+  test('open() reads config back from obj_<root> (no config table)', async () => {
+    const reopened = await PostgresAdapter.open(pool);
+    expect(reopened.config.owner).toBe(OWNER);
+    expect(reopened.config.spec_version).toBe('1.4.0');
+  });
+});
+
+describe('structured built-in projection (subscription + channel, normalised)', () => {
+  const CHANNEL_TYPE_ID = 'b4e15597-5a90-4e40-bed0-dbb28a9165a9';
+  const SUB_TYPE_ID = 'cf066390-a599-4dbe-bc20-491de885cb18';
+  test('a channel projects, and a subscription references it via channelId (no inline object)', async () => {
+    const watched = await adapter.create({ value: 'watched-item' });
+    const channel = await adapter.create({
+      type: 'channel', value: 'my-webhook',
+      objectData: { type: 'webhook', url: 'https://example.test/hook', secret: '$HOOK' },
+    });
+    expect(channel.typeId).toBe(CHANNEL_TYPE_ID);
+    expect((await adapter.readObjectJson(channel.id, CHANNEL_TYPE_ID)).url).toBe('https://example.test/hook');
+
+    const sub = await adapter.create({
+      type: 'subscription', value: 'watch',
+      objectData: { targetId: watched.id, channelId: channel.id, events: ['update', 'delete'], recursive: true },
+    });
+    expect(sub.typeId).toBe(SUB_TYPE_ID);
+    const p = await adapter.readObjectJson(sub.id, SUB_TYPE_ID);
+    expect(p.channelId).toBe(channel.id);      // normalised reference, not an inline object
+    expect(p.events).toEqual(['update', 'delete']);
+    expect(p.recursive).toBe(true);            // nullable-union boolean -> real BOOLEAN column
+  });
+});
+
+describe('structured built-in projection (aspect-type, genuine-JSON field)', () => {
+  const ASPECT_TYPE_TYPE_ID = '45bc6fbe-aa63-41be-8566-7217a9a15ece';
+  test('aspect-type projects with jsonSchema stored as a JSON column (round-trips)', async () => {
+    const schema = { type: 'object', properties: { amount: { type: 'number' } }, required: ['amount'] };
+    const at = await adapter.create({
+      type: 'aspect-type', value: 'financial-costs',
+      objectData: { jsonSchema: schema, description: 'Cost breakdown dimension' },
+    });
+    expect(at.typeId).toBe(ASPECT_TYPE_TYPE_ID);
+    const p = await adapter.readObjectJson(at.id, ASPECT_TYPE_TYPE_ID);
+    expect(p.description).toBe('Cost breakdown dimension');
+    expect(p.jsonSchema).toEqual(schema);   // full JSON document round-trips through JSONB
+  });
+});
+
+describe('structured built-in projection (agent + per-runtime config, normalised)', () => {
+  const AGENT_TYPE_ID = 'e5d3fad0-5123-46cc-a827-80954f7f96b2';
+  const CLAUDE_API_CFG = 'fe57b551-b0d8-4e49-b720-d858557bd571';
+  const GROUP_CHAT_CFG = 'f94eaf19-b880-403f-8d93-bed168308efe';
+
+  test('an agent references its runtime config by configId (a normalised per-runtime type)', async () => {
+    const cfg = await adapter.create({
+      type: 'claude-api-config', value: 'default-sampling',
+      objectData: { maxTokens: 4096, temperature: 0.7, topP: 0.95 },
+    });
+    expect(cfg.typeId).toBe(CLAUDE_API_CFG);
+    expect((await adapter.readObjectJson(cfg.id, CLAUDE_API_CFG)).maxTokens).toBe(4096);
+
+    const agent = await adapter.create({
+      type: 'agent', value: 'auditor',
+      objectData: { runtime: 'claude-api', model: 'claude-opus-4-8', tools: ['kanecta_query'], configId: cfg.id },
+    });
+    expect(agent.typeId).toBe(AGENT_TYPE_ID);
+    const p = await adapter.readObjectJson(agent.id, AGENT_TYPE_ID);
+    expect(p.runtime).toBe('claude-api');
+    expect(p.configId).toBe(cfg.id);           // normalised reference, not an inline config object
+    expect(p.tools).toEqual(['kanecta_query']);
+  });
+
+  test('group-chat-config normalises participants to a UUID[] of agent refs', async () => {
+    const [a1, a2] = await Promise.all([
+      adapter.create({ type: 'agent', value: 'panelist-1', objectData: { runtime: 'claude-api' } }),
+      adapter.create({ type: 'agent', value: 'panelist-2', objectData: { runtime: 'claude-api' } }),
+    ]);
+    const gc = await adapter.create({
+      type: 'group-chat-config', value: 'panel',
+      objectData: { participants: [a1.id, a2.id], maxTurns: 8, terminationCondition: 'max-turns' },
+    });
+    expect(gc.typeId).toBe(GROUP_CHAT_CFG);
+    expect((await adapter.readObjectJson(gc.id, GROUP_CHAT_CFG)).participants).toEqual([a1.id, a2.id]);
+  });
+});
+
+describe('structured built-in projection (action, params normalised out)', () => {
+  const ACTION_TYPE_ID = '1ab2a990-c2cf-4b91-aace-588c66b0a78b';
+  test('action projects with no inline params object (defaults are property children)', async () => {
+    const pipeline = await adapter.create({ value: 'summarise-pipeline' });
+    const action = await adapter.create({
+      type: 'action', value: 'Summarise',
+      objectData: { pipelineId: pipeline.id, targetTypes: ['task', 'note'], icon: 'AutoAwesome' },
+    });
+    expect(action.typeId).toBe(ACTION_TYPE_ID);
+    const p = await adapter.readObjectJson(action.id, ACTION_TYPE_ID);
+    expect(p.pipelineId).toBe(pipeline.id);
+    expect(p.targetTypes).toEqual(['task', 'note']);
+    expect('params' in p).toBe(false);   // no inline params column — normalised to property children
+  });
+});
+
+describe('structured built-in projection (component + parameter children)', () => {
+  const COMPONENT_TYPE_ID = 'fab55d91-6975-422a-9398-2b16f72bc805';
+  const PARAMETER_TYPE_ID = 'e19f06be-5f2c-4bef-ae1f-7885832b1a90';
+  test('component projects with no inline props/bundleHash; props are parameter children', async () => {
+    const c = await adapter.create({
+      type: 'component', value: 'PersonCard',
+      objectData: { target: 'react', description: 'Compact person card', dependencies: ['date-fns'] },
+    });
+    expect(c.typeId).toBe(COMPONENT_TYPE_ID);
+    const p = await adapter.readObjectJson(c.id, COMPONENT_TYPE_ID);
+    expect(p.target).toBe('react');
+    expect(p.dependencies).toEqual(['date-fns']);
+    expect('props' in p).toBe(false);
+    expect('bundleHash' in p).toBe(false);
+
+    const prop = await adapter.create({
+      type: 'parameter', value: 'personId', parentId: c.id, sortOrder: 0,
+      objectData: { name: 'personId', type: 'string', optional: false },
+    });
+    expect(prop.typeId).toBe(PARAMETER_TYPE_ID);
+    expect(prop.parentId).toBe(c.id);
+    expect((await adapter.readObjectJson(prop.id, PARAMETER_TYPE_ID)).name).toBe('personId');
   });
 });

@@ -76,116 +76,13 @@
           },
           "description": "Array of MCP tool names this agent can access. Restricting tools is a safety measure. For 'group-chat' agents, include 'kanecta_conclude_discussion' if using terminationCondition 'explicit'. Null means all tools available in the current MCP context are accessible."
         },
-        "config": {
+        "configId": {
           "type": [
-            "object",
+            "string",
             "null"
           ],
-          "description": "Runtime-specific configuration. Structure is determined by the runtime adapter. Null means runtime defaults apply.",
-          "properties": {
-            "max_tokens": {
-              "type": "integer",
-              "description": "claude-api: maximum tokens in the model response."
-            },
-            "temperature": {
-              "type": "number",
-              "description": "claude-api: sampling temperature (0.0–1.0)."
-            },
-            "top_p": {
-              "type": "number",
-              "description": "claude-api: nucleus sampling parameter."
-            },
-            "working_directory": {
-              "type": "string",
-              "description": "claude-code: working directory for the Claude Code subprocess."
-            },
-            "env": {
-              "type": "object",
-              "description": "claude-code: environment variables injected into the subprocess."
-            },
-            "script_path": {
-              "type": "string",
-              "description": "python: path to the Python script to execute."
-            },
-            "interpreter": {
-              "type": "string",
-              "description": "python: Python interpreter path (e.g. 'python3', '/usr/bin/python3.11'). Defaults to 'python3'."
-            },
-            "functionId": {
-              "type": "string",
-              "format": "uuid",
-              "description": "kanecta-function: UUID of the Kanecta function item to execute."
-            },
-            "participants": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "description": "group-chat: UUIDs of the agent items that participate in the conversation. Agents take turns in round-robin order. Each participant's own systemPrompt and tools are used for their turns."
-            },
-            "maxTurns": {
-              "type": "integer",
-              "minimum": 1,
-              "description": "group-chat: hard cap on total turns across all participants. Applies regardless of terminationCondition — prevents runaway conversations. Default 10."
-            },
-            "terminationCondition": {
-              "type": "string",
-              "enum": [
-                "explicit",
-                "max-turns"
-              ],
-              "description": "group-chat: how the conversation ends. 'explicit' — continues until any participant calls kanecta_conclude_discussion; that participant writes the final items. 'max-turns' — runs for maxTurns turns then outputAgent synthesises and writes final items."
-            },
-            "outputAgent": {
-              "type": [
-                "string",
-                "null"
-              ],
-              "format": "uuid",
-              "description": "group-chat: UUID of the agent re-invoked to synthesise and write final items after 'max-turns' termination. Null for 'explicit' termination where the concluding participant is the writer."
-            },
-            "url": {
-              "type": "string",
-              "description": "http: URL to request. May contain {{params.name}} placeholders substituted by the runner before the request is made."
-            },
-            "method": {
-              "type": "string",
-              "enum": [
-                "GET",
-                "POST",
-                "PUT",
-                "PATCH",
-                "DELETE"
-              ],
-              "description": "http: HTTP method. Defaults to 'GET'."
-            },
-            "headers": {
-              "type": [
-                "object",
-                "null"
-              ],
-              "description": "http: key-value map of request headers. Values may contain {{params.name}} placeholders. Use for Authorization, Content-Type, and other standard headers. Secret values should be referenced via environment variable substitution in the runner config, not stored in the agent item."
-            },
-            "body": {
-              "description": "http: request body. Any JSON-serialisable value. May contain {{params.name}} placeholders in string leaves. Ignored for GET and DELETE requests."
-            },
-            "outputItemType": {
-              "type": [
-                "string",
-                "null"
-              ],
-              "description": "http: if set, the runner writes the HTTP response body as a Kanecta item of this type (e.g. 'note', 'text'). The response JSON is stored as the item payload; item.value is set to the HTTP status code and URL. If null, the response is injected into the phase's output map as phases.<id>.output.httpResponse and is not written as a standalone item. Use null for lightweight data passing between phases; use outputItemType when the response should be a first-class queryable item."
-            },
-            "timeoutSeconds": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "minimum": 1,
-              "description": "http: request timeout in seconds. If the server does not respond within this time the phase fails. Null defaults to the runner's global HTTP timeout (typically 30s)."
-            }
-          }
+          "format": "uuid",
+          "description": "UUID of the runtime-specific config item. Its type is the config type for this agent's runtime — claude-api-config, claude-code-config, python-config, kanecta-function-config, group-chat-config, or http-config (a new runtime adds its own config type). Normalised out of the payload into per-runtime types per the flat one-level rule — never an inline object. Null means runtime defaults apply. Open maps within a config (claude-code env, http headers) are `property` children of the config item; they are never JSON columns."
         }
       }
     },

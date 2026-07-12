@@ -1,0 +1,42 @@
+{
+  "item": {
+    "id": "0c8a7b10-1111-4a00-8000-000000000104",
+    "parentId": "0c8a7b10-1111-4a00-8000-000000000001",
+    "type": "type",
+    "typeId": null,
+    "value": "ch-thread-subscription",
+    "sortOrder": 5
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-07-10T00:00:00.000Z",
+    "modifiedAt": "2026-07-10T00:00:00.000Z",
+    "visibility": "public",
+    "tags": ["community-hub", "discussions"]
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "icon": "NotificationsActive",
+      "description": "A viewer's notification subscription to a thread.",
+      "details": "Native per-(user, thread) subscription item (from discussions_thread_notification_subscriptions). One item per (userId, threadId). Powers the ch-thread.isNotificationsEnabled computed field: enabled = a row exists for (viewer, thread).",
+      "primaryField": "userId"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$id": "https://kanecta.org/types/ch-thread-subscription",
+      "title": "ChThreadSubscription",
+      "type": "object",
+      "x-graphql": { "expose": false },
+      "properties": {
+        "userId": { "x-id": "0c8a7b10-1111-4a00-8000-0000000d0001", "type": "string", "description": "Keycloak sub of the subscriber." },
+        "threadId": { "x-id": "0c8a7b10-1111-4a00-8000-0000000d0002", "type": "string", "format": "uuid", "typeId": "0c8a7b10-1111-4a00-8000-000000000101", "description": "The ch-thread subscribed to." },
+        "createdAt": { "x-id": "0c8a7b10-1111-4a00-8000-0000000d0003", "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "threadId"]
+    },
+    "indexes": [{ "fields": ["userId", "threadId"], "unique": true }]
+  }
+}

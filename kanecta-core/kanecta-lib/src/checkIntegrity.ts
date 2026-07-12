@@ -791,13 +791,15 @@ const CHECKS: IntegrityCheckDef[] = [
   {
     id: 'view-refs-resolve', group: 'references',
     title: 'View objects reference existing item, component, and context',
-    specRef: 'specification.adoc §viewPayload (itemId/componentId/contextId resolve, L2037–2047)',
+    specRef: 'specification.adoc §viewPayload (viewedItemId/componentId/contextId resolve, L2037–2047)',
     async run(ctx) {
       const findings: Finding[] = [];
       for (const it of objectsOfType(ctx, 'view')) {
         const payload = await safe(() => ctx.ds.readObjectJson(it.id), null);
         if (!payload) continue;
-        for (const field of ['itemId', 'componentId', 'contextId'] as const) {
+        // viewedItemId (renamed from itemId — it collided with the obj_ projection
+        // PK column) / componentId / contextId are the view's outbound refs.
+        for (const field of ['viewedItemId', 'componentId', 'contextId'] as const) {
           const ref = payload[field];
           if (ref == null) continue;
           if (!(await ctx.has(ref))) {

@@ -1,0 +1,14 @@
+{
+  "name": "@kanecta/converter-specification",
+  "version": "1.4.0",
+  "description": "The Kanecta Converter specification — the reusable methodology for converting a standard web app onto a Kanecta backend.",
+  "type": "module",
+  "scripts": {
+    "build:spec": "asciidoctor 1.4.0/specification.converter.adoc -o 1.4.0/specification.converter.html"
+  },
+  "devDependencies": {
+    "asciidoctor": "^4.0.2"
+  },
+  "author": "Kanecta",
+  "license": "MIT"
+}

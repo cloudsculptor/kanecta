@@ -70,7 +70,8 @@
             "object",
             "null"
           ],
-          "description": "Free-form object validated against the relationship type's jsonSchema (if defined). null for relationship types with no payload schema."
+          "x-kanecta-storage": "json",
+          "description": "Free-form object validated against the relationship type's jsonSchema (if defined). null for relationship types with no payload schema. Genuine opaque JSON round-tripped as a unit (spec §1665) → projects to a JSONB column, never normalised."
         },
         "confidence": {
           "type": [

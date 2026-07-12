@@ -1,0 +1,53 @@
+{
+  "item": {
+    "id": "245a1172-2954-4e9d-be0a-5add0c2615ba",
+    "parentId": "15861dd7-e54c-4209-bceb-bdd65de4f472",
+    "type": "relationship-type",
+    "typeId": "15861dd7-e54c-4209-bceb-bdd65de4f472",
+    "value": "blocked-by",
+    "sortOrder": 5
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "The source item is blocked by the target item (inverse of blocks).",
+      "confidence": "locked",
+      "icon": "DoNotDisturb",
+      "directional": true,
+      "inverse": "21d69551-6949-4ec5-822f-cdb6f26c57ab"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "blocked-byData",
+      "type": "object",
+      "properties": {},
+      "additionalProperties": true
+    },
+    "sqlSchema": []
+  }
+}

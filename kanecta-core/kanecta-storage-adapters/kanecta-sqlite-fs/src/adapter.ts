@@ -75,6 +75,19 @@ const VALID_REL_TYPES = [
   'relates-to', 'depends-on', 'enables', 'contradicts',
   'blocks', 'blocked-by', 'prerequisite-for', 'derived-from', 'supersedes',
 ];
+
+// Relationship types are first-class `relationship-type` items (spec
+// §relationshipPayload), not string slugs. relate() resolves the preserved string
+// API to the relationship-type item UUID it stores in relationship.payload.typeId.
+// Sourced from the canonical seed items in @kanecta/specification — the same
+// const-map approach this adapter uses for the built-in licence (DEFAULT_LICENSE),
+// pending the shared sqlite metadata-types → obj_ cutover (relationship-type/
+// alias/annotation/licence all still project to rebuildable index.db lookup tables
+// here, not obj_<typeId> — a separate, consistent pass, tracked with the licence
+// sqlite cutover).
+const REL_TYPE_ID_BY_NAME: Record<string, string> = Object.fromEntries(
+  ((spec as any).builtInRelationshipTypeItems ?? []).map((i: any) => [i.item.value, i.item.id]),
+);
 const UUID_RE      = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DEFAULT_LICENSE = 'bb3bf137-d8a9-4264-9fb7-ac373b1d4739';
 const LINK_SOURCE  = '\\[\\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\\]\\]';
@@ -88,7 +101,7 @@ const TYPE_ITEM_UUIDS = {
   alias:               '80f95b21-6c51-43b5-bdfb-35aad8991c7a',
   relationship:        '334ea5f6-6bfa-43e5-b77f-5d811642d897',
   'relationship-type': '15861dd7-e54c-4209-bceb-bdd65de4f472',
-  annotation:          '8797b002-091a-4289-abf0-850d4b05a743',
+  annotation:          '235d6155-db2a-4232-9548-8f5a66150d82',
 };
 
 // Metadata item types: real items (source of truth on disk) that back the derived
@@ -2109,7 +2122,7 @@ class SqliteFsAdapter {
     const doc = this._metaItem({
       id: crypto.randomUUID(), parentId: TYPE_ITEM_UUIDS.alias, type: 'alias', value: alias,
     });
-    doc.payload = { targetId: id, scope: 'personal', provisional: false, confirmedAt: now, computedFrom: null };
+    doc.payload = { targetId: id, assignedBy: null, provisional: false, confirmedAt: now, computedFromFormulaId: null };
     this._writeMetadataItem(doc);
   }
 
@@ -2189,13 +2202,19 @@ class SqliteFsAdapter {
 
     // A relationship is a real `relationship` item.json (the source of truth); the
     // relationships table is a derived projection. The relationship-type slug lives
-    // in item.value; source/target live in the payload.
+    // in item.value; source/target and the resolved relationship-type UUID live in
+    // the payload (payload.typeId → the relationship-type item, spec
+    // §relationshipPayload). User-defined types not in the canonical set resolve to
+    // null (slug-only) until they too are seeded as relationship-type items.
     const doc = this._metaItem({
       id: relId, parentId: TYPE_ITEM_UUIDS.relationship, type: 'relationship', value: type,
       layer: 'user', owner: actor, createdBy: actor, modifiedBy: actor,
       createdAt: now.toISOString(), modifiedAt: now.toISOString(),
     });
-    doc.payload = { typeId: null, sourceId, targetId, data: null, confidence: null, note };
+    doc.payload = {
+      typeId: REL_TYPE_ID_BY_NAME[type] ?? null,
+      sourceId, targetId, data: null, confidence: null, note,
+    };
     this._writeMetadataItem(doc);
     return { id: relId, sourceId, targetId, type, createdAt: now.toISOString(), createdBy: actor, note };
   }

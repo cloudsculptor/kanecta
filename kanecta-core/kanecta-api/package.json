@@ -15,10 +15,12 @@
     "@kanecta/lib": "^1.0.0",
     "@kanecta/specification": "^1.4.0",
     "express": "^5.2.1",
+    "graphql": "^16.14.2",
     "jsonwebtoken": "^9.0.3",
     "jwks-rsa": "^4.1.0"
   },
   "devDependencies": {
+    "@kanecta/schema-compiler": "*",
     "jest": "^30.4.2",
     "supertest": "^7.0.0"
   },

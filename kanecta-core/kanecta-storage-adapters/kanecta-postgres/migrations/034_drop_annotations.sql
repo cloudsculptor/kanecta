@@ -1,0 +1,21 @@
+-- Kanecta postgres schema — spec version 1.4.0
+--
+-- Uniform-projection modernisation (spec §cqrs-projections): retire the bespoke
+-- `annotations` table. An annotation is now a first-class `annotation` item — a
+-- payload-dimension type (spec §"Well-known payload dimension names"): the item lives
+-- under the annotation type-UUID container, associates with its target via
+-- payload.targetId (obj_<annotation-type>.target_id), and threads via
+-- payload.parentAnnotationId. author -> item.createdBy, created_at -> item.createdAt,
+-- content -> payload.body (mirrored to item.value). annotate()/readback reassemble the
+-- prior return shape, so the API + MCP consumers are untouched.
+--
+-- BACKFILL CAVEAT (READ BEFORE APPLYING TO A DATA-BEARING DATABASE): like documents,
+-- `annotations` may hold real rows. This migration does NOT convert them into items +
+-- obj_<annotation-type> rows — that is a scripted backfill (one item per annotation:
+-- items row + obj_ row, preserving id/created_at/created_by, mapping content->body and
+-- parent_annotation_id->payload). A deployment with existing annotations MUST run that
+-- backfill and verify it BEFORE applying this drop — back up first. Fresh / test
+-- databases have no rows, so the drop is a clean no-op there. The schema-change guard
+-- (KANECTA_ALLOW_SCHEMA_CHANGES) means this only runs on deliberate authorisation.
+
+DROP TABLE IF EXISTS annotations;

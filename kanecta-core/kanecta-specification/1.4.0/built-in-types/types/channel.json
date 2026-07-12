@@ -1,0 +1,84 @@
+{
+  "item": {
+    "id": "b4e15597-5a90-4e40-bed0-dbb28a9165a9",
+    "parentId": "11111111-1111-1111-1111-111111111111",
+    "type": "type",
+    "typeId": null,
+    "value": "channel",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "A notification channel configuration (webhook, mcp, or reactive). Referenced by a subscription via channelId.",
+      "confidence": "locked",
+      "icon": "Sensors"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "channelPayload",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "webhook",
+            "mcp",
+            "reactive"
+          ],
+          "description": "Channel type. webhook: HTTP POST to url. mcp: notify an active MCP session. reactive: notify a reactive Studio component."
+        },
+        "url": {
+          "type": ["string", "null"],
+          "description": "webhook: endpoint URL. Use $VAR syntax for secrets — never inline credentials."
+        },
+        "secret": {
+          "type": ["string", "null"],
+          "description": "webhook: HMAC-SHA256 signing secret. Use $VAR syntax. If set, the adapter signs the request body and includes the signature in X-Kanecta-Signature."
+        },
+        "sessionId": {
+          "type": ["string", "null"],
+          "description": "mcp: ID of the active MCP session to deliver notifications to."
+        },
+        "componentId": {
+          "type": ["string", "null"],
+          "format": "uuid",
+          "x-kanecta-itemType": "component",
+          "description": "reactive: UUID of the Studio component to notify. The component re-renders on delivery."
+        }
+      }
+    },
+    "sqlSchema": [
+      "-- Built-in type: adapter handles storage natively."
+    ]
+  }
+}

@@ -457,15 +457,12 @@ describe('reference-type payload resolution', () => {
     return t.id;
   }
 
-  test('dangling reference target fails reference-target-resolves', async () => {
-    const ds = tmpDs();
-    await ds.create({ type: 'object', typeId: await typeId(ds, 'reference'), value: 'ref',
-      objectData: { targetId: RANDOM_UUID, kind: 'link' } });
-    const rep = await report(ds, { checks: ['reference-target-resolves'] });
-    const r = byId(rep, 'reference-target-resolves');
-    expect(r.status).toBe('fail');
-    expect(r.findings.some((f: any) => f.targetId === RANDOM_UUID)).toBe(true);
-  });
+  // Dangling payload refs (targetId / viewedItemId / … = a nonexistent UUID) can no
+  // longer be manufactured: reference/subscription/view project to obj_ with
+  // FK-enforced uuid columns, so the adapter rejects a dangling ref at create() and
+  // payload validation rejects a malformed one. These integrity checks stay as a
+  // cheap rebuild/import/hand-edited-fs safety net; the tests below prove they PASS
+  // on resolvable refs, and that the write path enforces the negative structurally.
 
   test('resolvable reference target passes', async () => {
     const ds = tmpDs();
@@ -475,27 +472,27 @@ describe('reference-type payload resolution', () => {
     expect(byId(await report(ds, { checks: ['reference-target-resolves'] }), 'reference-target-resolves').status).toBe('pass');
   });
 
-  test('dangling subscription target fails subscription-target-resolves', async () => {
+  test('a dangling reference cannot be created — the projection FK rejects it', async () => {
     const ds = tmpDs();
-    await ds.create({ type: 'object', typeId: await typeId(ds, 'subscription'), value: 'sub',
-      objectData: { targetId: RANDOM_UUID, channel: { type: 'webhook' }, events: ['created'] } });
-    expect(byId(await report(ds, { checks: ['subscription-target-resolves'] }), 'subscription-target-resolves').status).toBe('fail');
+    await expect(ds.create({ type: 'object', typeId: await typeId(ds, 'reference'), value: 'ref',
+      objectData: { targetId: RANDOM_UUID, kind: 'link' } })).rejects.toThrow();
   });
 
-  test('dangling view reference fails view-refs-resolve', async () => {
+  test('resolvable subscription target passes', async () => {
     const ds = tmpDs();
-    await ds.create({ type: 'object', typeId: await typeId(ds, 'view'), value: 'v',
-      objectData: { itemId: RANDOM_UUID, componentId: RANDOM_UUID, contextId: RANDOM_UUID } });
-    const r = byId(await report(ds, { checks: ['view-refs-resolve'] }), 'view-refs-resolve');
-    expect(r.status).toBe('fail');
-    expect(r.findings.some((f: any) => f.field === 'itemId')).toBe(true);
+    const target = await ds.create({ value: 'sub-target', type: 'note' });
+    const channel = await ds.create({ type: 'object', typeId: await typeId(ds, 'channel'), value: 'ch',
+      objectData: { type: 'webhook' } });
+    await ds.create({ type: 'object', typeId: await typeId(ds, 'subscription'), value: 'sub',
+      objectData: { targetId: target.id, channelId: channel.id, events: ['created'] } });
+    expect(byId(await report(ds, { checks: ['subscription-target-resolves'] }), 'subscription-target-resolves').status).toBe('pass');
   });
 
   test('view with resolvable references passes', async () => {
     const ds = tmpDs();
     const t = await ds.create({ value: 'shown', type: 'note' });
     await ds.create({ type: 'object', typeId: await typeId(ds, 'view'), value: 'v',
-      objectData: { itemId: t.id, componentId: t.id, contextId: t.id } });
+      objectData: { viewedItemId: t.id, componentId: t.id, contextId: t.id } });
     expect(byId(await report(ds, { checks: ['view-refs-resolve'] }), 'view-refs-resolve').status).toBe('pass');
   });
 
