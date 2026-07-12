@@ -85,8 +85,9 @@ const VALID_REL_TYPES = [
 // alias/annotation/licence all still project to rebuildable index.db lookup tables
 // here, not obj_<typeId> — a separate, consistent pass, tracked with the licence
 // sqlite cutover).
+const builtInRelationshipTypeItems: any[] = (spec as any).builtInRelationshipTypeItems ?? [];
 const REL_TYPE_ID_BY_NAME: Record<string, string> = Object.fromEntries(
-  ((spec as any).builtInRelationshipTypeItems ?? []).map((i: any) => [i.item.value, i.item.id]),
+  builtInRelationshipTypeItems.map((i: any) => [i.item.value, i.item.id]),
 );
 const UUID_RE      = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DEFAULT_LICENSE = 'bb3bf137-d8a9-4264-9fb7-ac373b1d4739';
@@ -576,6 +577,7 @@ class SqliteFsAdapter {
     // Backfill the built-in type items on datastores created before they existed
     // (idempotent — a no-op once present), so icon resolution always has them.
     adapter._ensureBuiltInTypes();
+    adapter._ensureRelationshipTypeItems();
     adapter._loadRoots();
     return adapter;
   }
@@ -1299,6 +1301,7 @@ class SqliteFsAdapter {
     if (!this.get(ROOT_ID))       this._createWellKnownNode(ROOT_ID,    ROOT_ID,    'root',  0);
     if (!this.get(TYPES_NODE))    this._createWellKnownNode(TYPES_NODE, ROOT_ID,    'types', 1);
     this._ensureBuiltInTypes();
+    this._ensureRelationshipTypeItems();
     this._loadRoots();
   }
 
@@ -1323,6 +1326,31 @@ class SqliteFsAdapter {
       }
     })();
     if (wrote) { this._iconCache = null; this._mem.clear(); }
+  }
+
+  // Seed the 9 canonical relationship-type items (relates-to, depends-on, …) as
+  // real items under the relationship-type type node, with their fixed UUIDs, from
+  // @kanecta/specification. They are the FK targets of relationship.payload.typeId
+  // once relationships project to obj_<relationship> (relationship.type_id →
+  // items(id)). Idempotent: only writes the ones not already present, so it
+  // backfills existing datastores on open as well as seeding fresh ones at init.
+  _ensureRelationshipTypeItems() {
+    const db = this._openDb();
+    const parentId   = TYPE_ITEM_UUIDS['relationship-type'];
+    const typesPath  = this._getPath(TYPES_NODE) ?? TYPES_NODE;
+    const parentPath = this._getPath(parentId) ?? `${typesPath}/${parentId}`;
+    let wrote = false;
+    db.transaction(() => {
+      for (const src of builtInRelationshipTypeItems) {
+        const id = src.item.id;
+        if (this._getRow(db, id)) continue;            // already seeded
+        const doc = { item: src.item, meta: src.meta, search: src.search ?? null, payload: src.payload ?? null, time: src.time ?? null };
+        this._writeItemJson(id, doc);
+        this._insertIndexTx(db, id, doc, `${parentPath}/${id}`);
+        wrote = true;
+      }
+    })();
+    if (wrote) this._mem.clear();
   }
 
   // ─── Icon resolution (derived on read; never stored on the item) ─────────────
@@ -2279,7 +2307,7 @@ class SqliteFsAdapter {
              m.connector_id, m.materialized, m.files, m.layer,
              m.source_system, m.source_external_id, m.icon
       FROM items i LEFT JOIN items_meta m ON m.item_id = i.id
-      WHERE i.type NOT IN ('alias', 'relationship', 'annotation', 'item_history', 'type')
+      WHERE i.type NOT IN ('alias', 'relationship', 'relationship-type', 'annotation', 'item_history', 'type')
     `).all().map(r => this._rowToItem(r));
   }
 
@@ -2351,7 +2379,7 @@ class SqliteFsAdapter {
 
     // Metadata items (annotations live under their target via the "comments"
     // aspect) are not part of the content tree.
-    const exclude = " AND i.type NOT IN ('root', 'types', 'alias', 'relationship', 'annotation', 'item_history', 'type')";
+    const exclude = " AND i.type NOT IN ('root', 'types', 'alias', 'relationship', 'relationship-type', 'annotation', 'item_history', 'type')";
     // With an implicit root we skip the root node and start its CHILDREN at
     // traversal-depth 0, so the absolute path is already one level deeper than
     // the traversal depth — widen the SQL bound by one to match.
@@ -2453,7 +2481,7 @@ class SqliteFsAdapter {
     if (!row?.path) return 0;
     const r = this._openDb().prepare(
       `SELECT COUNT(*) AS cnt FROM items WHERE (path = ? OR path LIKE ?)
-       AND type NOT IN ('alias', 'relationship', 'annotation', 'item_history', 'type')`
+       AND type NOT IN ('alias', 'relationship', 'relationship-type', 'annotation', 'item_history', 'type')`
     ).get(row.path, row.path + '/%');
     return r?.cnt ?? 0;
   }
