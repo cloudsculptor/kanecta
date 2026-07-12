@@ -1,0 +1,83 @@
+{
+  "item": {
+    "id": "73068dfc-e56b-4c4b-a8e6-f623f9ad9ab9",
+    "parentId": "11111111-1111-1111-1111-111111111111",
+    "type": "type",
+    "typeId": null,
+    "value": "root",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "The universal root node's type. The single root item (all-zeros UUID) is a well-known anchor whose payload is the datastore's authoritative configuration record (owner, spec version, history/activity modes, entry point) — there is no separate config file or table. root is both a well-known lifecycle anchor and a projected structured type: its payload projects to obj_<root-type> like any other type.",
+      "confidence": "locked",
+      "icon": "Settings"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "rootPayload",
+      "type": "object",
+      "required": [
+        "owner",
+        "specVersion",
+        "itemHistory",
+        "activity"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "owner": {
+          "type": "string",
+          "description": "Human-readable identifier for who owns or manages this datastore. Free string. Used in Studio headers and sync conflict resolution."
+        },
+        "specVersion": {
+          "type": "string",
+          "description": "Kanecta spec version this datastore was last written by (e.g. \"1.4.0\"). Read at open time; migration tooling uses it to determine needed migrations."
+        },
+        "itemHistory": {
+          "type": "string",
+          "enum": ["NONE", "ITEM", "EXTERNAL"],
+          "description": "Whether item_history items are written on create/update. NONE = off; ITEM = stored inside items/; EXTERNAL = routed to a sibling item-history store. Default EXTERNAL."
+        },
+        "activity": {
+          "type": "string",
+          "enum": ["NONE", "ITEM", "EXTERNAL"],
+          "description": "Whether activity items are written for workspace events. NONE = off; ITEM = stored inside items/; EXTERNAL = routed to a sibling activity store. Default EXTERNAL."
+        },
+        "entryPoint": {
+          "type": "string",
+          "format": "uuid",
+          "description": "UUID of the view item that bootstraps this deployment in Studio. Null = Studio falls back to rendering the root node directly."
+        }
+      }
+    },
+    "sqlSchema": [
+      "-- Built-in type: adapter handles storage natively."
+    ]
+  }
+}

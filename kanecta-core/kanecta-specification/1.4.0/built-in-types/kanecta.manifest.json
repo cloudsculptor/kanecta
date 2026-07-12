@@ -43,6 +43,7 @@
     { "id": "cb120719-5a23-4b4f-b614-898f79f1904f", "type": "reference",                 "file": "built-in-types/types/reference.json" },
     { "id": "334ea5f6-6bfa-43e5-b77f-5d811642d897", "type": "relationship",              "file": "built-in-types/types/relationship.json" },
     { "id": "15861dd7-e54c-4209-bceb-bdd65de4f472", "type": "relationship-type",         "file": "built-in-types/types/relationship-type.json" },
+    { "id": "73068dfc-e56b-4c4b-a8e6-f623f9ad9ab9", "type": "root",                      "file": "built-in-types/types/root.json" },
     { "id": "cf066390-a599-4dbe-bc20-491de885cb18", "type": "subscription",              "file": "built-in-types/types/subscription.json" },
     { "id": "abbd7b52-92aa-4fca-b458-d9c4e1a60061", "type": "type",                      "file": "built-in-types/types/type.json" },
     { "id": "3d993652-42df-4bd2-b4ad-c0c23a7c83f0", "type": "type-parameter",            "file": "built-in-types/types/type-parameter.json" },
