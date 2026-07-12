@@ -2247,7 +2247,7 @@ NOTE: Security is not part of context — it is resolved at runtime via `grant` 
 
 === rootPayload
 
-For `type: "root"`. The root node's payload is the authoritative configuration record for the datastore. There is no separate config file — `rootPayload` replaces it. The bootstrapper writes this payload when the datastore is first initialised; subsequent updates are ordinary item updates.
+For `type: "root"`. The root node's payload is the authoritative configuration record for the datastore. There is no separate config file — `rootPayload` replaces it. The bootstrapper writes this payload when the datastore is first initialised; subsequent updates are ordinary item updates. Beyond the configuration fields, `rootPayload` also carries the *seed metaschema for the `type` type* — the irreducible bootstrap that lets the adapter build `obj_<type-type>` (you cannot derive the derivation rules from themselves). This is the single place bootstrapping lives; see <<cqrs-projections>>.
 
 [source,json]
 ----
@@ -2256,7 +2256,8 @@ For `type: "root"`. The root node's payload is the authoritative configuration r
   "specVersion": "1.4.0",
   "itemHistory": "EXTERNAL",
   "activity": "EXTERNAL",
-  "entryPoint": "uuid-of-view-item"
+  "entryPoint": "uuid-of-view-item",
+  "seedMetaschema": { "…": "the hand-authored column description for obj_<type-type>" }
 }
 ----
 
@@ -2285,6 +2286,10 @@ For `type: "root"`. The root node's payload is the authoritative configuration r
 | `entryPoint`
 | no
 | UUID of the `view` item that bootstraps this deployment in the Studio. Null means the Studio falls back to rendering the root node directly. Different deployment types (web, desktop, CLI) may use different view items — update this field or pass it as a startup argument to the adapter.
+
+| `seedMetaschema`
+| no
+| The hand-authored column description (a JSON Schema, stored `x-kanecta-storage: "json"`) for the `type` type's own projection table `obj_<type-type>`. The generic projection engine derives every type's `obj_<typeId>` columns from that type's `jsonSchema` — but it cannot do so for `type` itself, because the schema that would describe the type-defining type is exactly what it is trying to build (circular). This one fixed schema breaks the loop; the adapter compiles `obj_<type-type>` from it instead of from `type.json`'s nested payload schema. Stored on root because root is the one item guaranteed to exist before any per-type table is built — the entire irreducible bootstrap (spec version + this seed) is data on root, never a bootstrap table (see <<cqrs-projections>>). The adapter supplies the canonical seed on init, so a datastore whose root omits it is still valid.
 |===
 
 Different deployments of the same datastore (web UI, API server, CLI) each have their own view item. To support multiple deployment types, create multiple view items and update `entryPoint` to whichever is active — or make the entry point function context-aware.

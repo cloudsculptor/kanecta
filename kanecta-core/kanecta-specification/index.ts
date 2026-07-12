@@ -52,6 +52,13 @@ import tType from './1.4.0/built-in-types/types/type.json' with { type: 'json' }
 import tTypeParameter from './1.4.0/built-in-types/types/type-parameter.json' with { type: 'json' };
 import tView from './1.4.0/built-in-types/types/view.json' with { type: 'json' };
 
+// The irreducible bootstrap: the seed metaschema for the `type` type. The
+// projection engine can't derive obj_<type-type>'s columns from type.json's own
+// (nested) payload schema — that's circular — so this flat, hand-authored schema
+// breaks the loop. Carried in rootPayload.seedMetaschema; the adapter compiles
+// obj_<type-type> from it (spec §rootPayload / §cqrs-projections).
+import typeSeed from './1.4.0/built-in-types/type-seed-metaschema.json' with { type: 'json' };
+
 // Built-in system items — mandatory seed INSTANCES the platform depends on (not
 // type definitions). Currently the 19 built-in licences (spec §licencePayload),
 // seeded as `licence` items projecting to obj_<licence-type>. Static JSON imports
@@ -86,6 +93,8 @@ export const structuredTypes: readonly string[] = types.structured;
 export const wellKnownTypes: readonly string[] = types.wellKnown;
 
 export { builtInTypeManifest };
+// The seed metaschema for the `type` type (obj_<type-type> column source).
+export const typeSeedMetaschema: object = typeSeed;
 export const builtInTypeItems: object[] = [
   tAction, tActivity, tAgent, tAlias, tAnnotation, tAspectType, tCell, tChannel,
   tClaudeApiConfig, tClaudeCodeConfig, tComponent, tContext, tDocument, tDocumentExpandException, tDocumentRoleByDepth, tDocumentRoleByType,

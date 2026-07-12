@@ -73,6 +73,11 @@
           "type": "string",
           "format": "uuid",
           "description": "UUID of the view item that bootstraps this deployment in Studio. Null = Studio falls back to rendering the root node directly."
+        },
+        "seedMetaschema": {
+          "type": "object",
+          "x-kanecta-storage": "json",
+          "description": "The hand-authored column description for the `type` type's own projection table (obj_<type-type>). The type machinery cannot describe the type that defines types (it would be circular), so this one fixed JSON Schema breaks the loop: the adapter derives obj_<type-type>'s columns from it rather than from type.json's own (nested, non-flat) payload schema. It lives on the root item because root is the one item guaranteed to exist before any per-type table is built — the irreducible bootstrap (see <<cqrs-projections>>). Opaque JSON, stored and read as a unit; not required, and the adapter supplies the canonical default on init."
         }
       }
     },
