@@ -683,6 +683,64 @@ describe('addRelTypes', () => {
   });
 });
 
+// ─── relationship-type registry cutover (Part 3a: rel_types -> obj_<reltype>) ────
+
+const RELATIONSHIP_TYPE_TYPE_ID = '15861dd7-e54c-4209-bceb-bdd65de4f472';
+const RELTYPE_OBJ = `obj_${RELATIONSHIP_TYPE_TYPE_ID.replace(/-/g, '_')}`;
+
+describe('relationship-type registry -> obj_<relationship-type>', () => {
+  test('the bespoke rel_types table is gone (dropped by migration 039)', async () => {
+    const { rows } = await pool.query(
+      `SELECT to_regclass('"${SCHEMA}".rel_types') IS NOT NULL AS has_rel_types`,
+    );
+    expect(rows[0].has_rel_types).toBe(false);
+  });
+
+  test('the 9 canonical relationship-types are seeded as items projecting to obj_<relationship-type>', async () => {
+    const { rows } = await pool.query(
+      `SELECT i.value FROM items i
+        JOIN "${RELTYPE_OBJ}" o ON o.item_id = i.id
+       WHERE i.type = 'relationship-type' AND i.deleted_at IS NULL
+       ORDER BY i.value`,
+    );
+    const slugs = rows.map(r => r.value);
+    for (const s of ['relates-to', 'depends-on', 'enables', 'contradicts', 'blocks',
+      'blocked-by', 'prerequisite-for', 'derived-from', 'supersedes'])
+      expect(slugs).toContain(s);
+  });
+
+  test('relTypes are sourced from the relationship-type items (not a table)', () => {
+    expect(adapter.relTypes).toEqual(expect.arrayContaining(['relates-to', 'depends-on', 'supersedes']));
+  });
+
+  test('meta_directional / meta_inverse are wired (depends-on <-> enables)', async () => {
+    const { rows } = await pool.query(
+      `SELECT i.value, o.meta_directional, o.meta_inverse,
+              inv.value AS inverse_value
+         FROM items i
+         JOIN "${RELTYPE_OBJ}" o   ON o.item_id = i.id
+         LEFT JOIN items inv       ON inv.id = o.meta_inverse
+        WHERE i.type = 'relationship-type'
+          AND i.value IN ('depends-on', 'enables', 'relates-to')`,
+    );
+    const byName = Object.fromEntries(rows.map(r => [r.value, r]));
+    expect(byName['depends-on'].meta_directional).toBe(true);
+    expect(byName['depends-on'].inverse_value).toBe('enables');
+    expect(byName['enables'].inverse_value).toBe('depends-on');
+    expect(byName['relates-to'].meta_directional).toBe(false);
+    expect(byName['relates-to'].meta_inverse).toBeNull();
+  });
+
+  test('addRelTypes creates a relationship-type item (not a rel_types row)', async () => {
+    await adapter.addRelTypes(['influences']);
+    const { rows } = await pool.query(
+      `SELECT 1 FROM items WHERE type = 'relationship-type' AND value = 'influences' AND deleted_at IS NULL`,
+    );
+    expect(rows).toHaveLength(1);
+    expect(adapter.relTypes).toContain('influences');
+  });
+});
+
 // ─── history ───────────────────────────────────────────────────────────────────
 
 describe('history', () => {

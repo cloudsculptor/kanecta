@@ -15,7 +15,9 @@ import {
   structuredTypes,
   builtInTypeItems,
   builtInSystemItems,
+  builtInRelationshipTypeItems,
   typeSeedMetaschema,
+  relationshipTypeSeedMetaschema,
 } from '@kanecta/specification';
 import { validateItem } from '@kanecta/specification/validator';
 import { deriveSqlSchema, deriveIndexDdl } from '@kanecta/schema-compiler';
@@ -34,8 +36,26 @@ const ROOT_TYPE_ID    = '73068dfc-e56b-4c4b-a8e6-f623f9ad9ab9';
 // from type.json's own (nested) payload — that's circular — so the adapter builds
 // it from the flat seed metaschema (rootPayload.seedMetaschema / typeSeedMetaschema).
 const TYPE_TYPE_ID    = 'abbd7b52-92aa-4fca-b458-d9c4e1a60061';
+// The `relationship` type item's UUID — every relationship item projects to
+// obj_<relationship> (spec §relationshipPayload; no bespoke `relationships` table).
+const RELATIONSHIP_TYPE_ID = '334ea5f6-6bfa-43e5-b77f-5d811642d897';
+// The `relationship-type` meta-type's own type-item UUID. relationship-type items
+// (the relationship vocabulary) live in obj_<relationship-type> — no bespoke
+// `rel_types` table. Like `type`, it EXTENDS the nested type payload so it can't
+// derive its own columns; obj_<relationship-type> is built from the flat seed
+// metaschema (relationshipTypeSeedMetaschema) — see _ensureProjection.
+const RELATIONSHIP_TYPE_TYPE_ID = '15861dd7-e54c-4209-bceb-bdd65de4f472';
 const WELL_KNOWN_TYPES = new Set(['root']);
 const WELL_KNOWN_ORDER: string[] = [];
+
+// Meta-types whose obj_<typeId> columns can't be derived from their own (nested,
+// self-referential) payload schema, so the adapter builds them from a flat seed
+// metaschema instead. `type` extends nothing but describes types; `relationship-type`
+// extends the type payload — both are circular. See _ensureProjection.
+const SEED_METASCHEMA_BY_TYPE_ID: Record<string, any> = {
+  [TYPE_TYPE_ID]: typeSeedMetaschema,
+  [RELATIONSHIP_TYPE_TYPE_ID]: relationshipTypeSeedMetaschema,
+};
 const UUID_RE  = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const LINK_RE  = /\[\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]\]/gi;
 
@@ -131,6 +151,12 @@ const PROJECTED_BUILT_IN_TYPES = new Set<string>([
   // table. obj_<type-type> is built from the flat seed metaschema (not type.json's
   // own nested payload, which would be circular) — see _ensureProjection.
   'type',
+  // relationship-type: the relationship vocabulary. Each relationship-type item
+  // (the 9 canonical + any user-defined) projects to obj_<relationship-type> —
+  // spec §cqrs-projections replaces the bespoke `rel_types` table. Like `type`,
+  // it extends the nested type payload, so obj_<relationship-type> is built from
+  // the flat seed metaschema (relationshipTypeSeedMetaschema) — see _ensureProjection.
+  'relationship-type',
 ]);
 
 // The obj_<typeId> the given item projects to, or null if it doesn't project.
@@ -217,6 +243,10 @@ class PostgresAdapter {
   _pool: Pool;
   _config: any;
   _relTypesCache: string[] | null;
+  // name (slug) → relationship-type item UUID, from the relationship-type items
+  // (obj_<relationship-type>). Lets relate() resolve the string API to a payload
+  // typeId. Rebuilt by _loadRelTypes alongside _relTypesCache.
+  _relTypeIdByName: Map<string, string>;
   _embeddingProvider: any;
   _embeddingsEnabled: boolean;
   // Apache AGE graph projection (lazy, capability-gated). `undefined` = unprobed;
@@ -230,6 +260,7 @@ class PostgresAdapter {
     this._pool              = pool;
     this._config            = null;
     this._relTypesCache     = null;
+    this._relTypeIdByName   = new Map();
     this._embeddingProvider = createEmbeddingProvider(embeddings);
     this._embeddingsEnabled = embeddings?.enabled !== false;
     this._graphReady        = false;
@@ -249,6 +280,7 @@ class PostgresAdapter {
     await adapter._ensureBuiltInTypes();
     await adapter._ensureConfig();
     await adapter._ensureSystemItems();
+    await adapter._ensureRelationshipTypes();
     await adapter._loadRelTypes();
     if (adapter._embeddingProvider) await adapter._ensureEmbeddingTable();
     return adapter;
@@ -263,6 +295,7 @@ class PostgresAdapter {
     // datastore is missing, so open() and init() converge on the same shape.
     await adapter._ensureBuiltInTypes();
     await adapter._ensureSystemItems();
+    await adapter._ensureRelationshipTypes();
     await adapter._loadRelTypes();
     if (adapter._embeddingProvider) await adapter._ensureEmbeddingTable();
     return adapter;
@@ -393,25 +426,140 @@ class PostgresAdapter {
 
   // ─── Relationship types ──────────────────────────────────────────────────────
 
+  // The relationship vocabulary is the set of relationship-type ITEMS (spec
+  // §cqrs-projections — no bespoke `rel_types` table). Cache the slugs (item.value)
+  // and a name→UUID map so relate() can resolve the preserved string API to a
+  // payload typeId. Falls back to the built-in slugs when the items aren't seeded
+  // yet (e.g. an unauthorised open where _ensureRelationshipTypes was skipped).
   async _loadRelTypes() {
     try {
-      const { rows } = await this._pool.query('SELECT type FROM rel_types ORDER BY type');
-      this._relTypesCache = rows.map(r => r.type);
-    } catch {
-      this._relTypesCache = [...BUILT_IN_REL_TYPES];
-    }
+      const { rows } = await this._pool.query(
+        `SELECT id, value FROM items WHERE type = 'relationship-type' AND deleted_at IS NULL
+         ORDER BY value`,
+      );
+      if (rows.length) {
+        this._relTypesCache   = rows.map(r => r.value);
+        this._relTypeIdByName = new Map(rows.map(r => [r.value, r.id]));
+        return;
+      }
+    } catch { /* items table not queryable — fall back */ }
+    this._relTypesCache   = [...BUILT_IN_REL_TYPES];
+    this._relTypeIdByName = new Map();
   }
 
+  // Add user-defined relationship types by creating `relationship-type` items
+  // (directional by default, no inverse) projecting to obj_<relationship-type>.
   async addRelTypes(names: any) {
+    if (!PostgresAdapter._schemaChangesAllowed())
+      throw new Error('Refusing to create relationship-type items: set KANECTA_ALLOW_SCHEMA_CHANGES=1');
     const invalid = names.filter((n: any) => !/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(n));
     if (invalid.length)
       throw new Error(`Invalid relationship type name(s): ${invalid.join(', ')} — must be lowercase kebab-case starting with a letter`);
+    await this._ensureProjection(RELATIONSHIP_TYPE_TYPE_ID);
+    await this._loadRelTypes();
+    const now = new Date();
     for (const name of names) {
-      await this._pool.query(
-        'INSERT INTO rel_types (type) VALUES ($1) ON CONFLICT DO NOTHING', [name],
-      );
+      if (this._relTypeIdByName.has(name)) continue;   // already exists
+      const id = crypto.randomUUID();
+      await this._writeRelationshipTypeItem(id, {
+        value: name,
+        meta: { description: `User-defined relationship type: ${name}`, directional: true, inverse: null },
+        jsonSchema: { '$schema': 'http://json-schema.org/draft-07/schema#', title: name, type: 'object', properties: {}, additionalProperties: true },
+        sqlSchema: [],
+      }, now);
     }
     await this._loadRelTypes();
+  }
+
+  // Seed the 9 canonical relationship-type items (spec §relationshipPayload) from
+  // @kanecta/specification's builtInRelationshipTypeItems, each projecting to
+  // obj_<relationship-type>. Runs AFTER _ensureBuiltInTypes so the relationship-type
+  // type item (its items row + registry def) exists. Same fail-closed schema-change
+  // guard as the other seeders. Idempotent (ON CONFLICT / UPSERT).
+  //
+  // Two passes: insert every items row first, THEN write every projection row —
+  // meta_inverse is a self-referential FK to items(id) (depends-on ↔ enables), so a
+  // one-pass insert would violate the FK before the partner row exists.
+  async _ensureRelationshipTypes() {
+    if (!PostgresAdapter._schemaChangesAllowed()) return;
+    const rtypeId  = RELATIONSHIP_TYPE_TYPE_ID;
+    const projected = await this._ensureProjection(rtypeId);
+    const typePath  = `${ROOT_ID}/${TYPES_CONTAINER_ID}/${rtypeId}`;
+    const now       = new Date();
+    const owner     = this.config.owner;
+
+    // Pass 1: items rows.
+    for (const src of builtInRelationshipTypeItems as any[]) {
+      const id = src.item.id;
+      await this._pool.query(
+        `INSERT INTO items (id, spec_version, parent_id, path, value, type, type_id, owner,
+           license, sort_order, created_at, modified_at, created_by, modified_by)
+         VALUES ($1,$2,$3,$4,$5,'relationship-type',$6,$7,$8,$9,$10,$10,$7,$7)
+         ON CONFLICT (id) DO NOTHING`,
+        [id, specVersion, rtypeId, `${typePath}/${id}`, src.item.value, rtypeId,
+         owner, src.meta?.license ?? DEFAULT_LICENSE, src.item.sortOrder ?? 0, now],
+      );
+    }
+
+    // Pass 2: projection rows (now every meta_inverse target exists).
+    if (projected) {
+      for (const src of builtInRelationshipTypeItems as any[]) {
+        await this._writeRelationshipTypeProjection(src.item.id, src.payload ?? {});
+      }
+    }
+  }
+
+  // Insert a single relationship-type item (items row + obj_<relationship-type>
+  // projection). Used by addRelTypes; the seeder uses two explicit passes instead
+  // because of the meta_inverse FK ordering.
+  async _writeRelationshipTypeItem(id: any, payload: any, now: Date) {
+    const rtypeId  = RELATIONSHIP_TYPE_TYPE_ID;
+    const typePath = `${ROOT_ID}/${TYPES_CONTAINER_ID}/${rtypeId}`;
+    await this._pool.query(
+      `INSERT INTO items (id, spec_version, parent_id, path, value, type, type_id, owner,
+         license, sort_order, created_at, modified_at, created_by, modified_by)
+       VALUES ($1,$2,$3,$4,$5,'relationship-type',$6,$7,$8,0,$9,$9,$7,$7)
+       ON CONFLICT (id) DO NOTHING`,
+      [id, specVersion, rtypeId, `${typePath}/${id}`, payload.value, rtypeId,
+       this.config.owner, DEFAULT_LICENSE, now],
+    );
+    await this._writeRelationshipTypeProjection(id, payload);
+    await this._snapshot(id, 'create', this.config.owner, now);
+  }
+
+  // Write a relationship-type item's nested payload to its flat obj_<relationship-type>
+  // row (upsert). Mirrors _ensureBuiltInTypes' type-registry write, plus the two
+  // directional-semantics columns (meta_directional, meta_inverse).
+  async _writeRelationshipTypeProjection(id: any, payload: any) {
+    const meta = payload.meta ?? {};
+    await this._pool.query(
+      `INSERT INTO "${objTableName(RELATIONSHIP_TYPE_TYPE_ID)}" (
+         item_id,
+         meta_icon, meta_description, meta_details, meta_keywords, meta_tags,
+         meta_primary_field, meta_ai_instructions_claude,
+         meta_functions_consumed_by, meta_functions_produced_by,
+         meta_directional, meta_inverse,
+         json_schema, sql_schema, sync, superseded_by, implements, extends, indexes
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+       ON CONFLICT (item_id) DO UPDATE SET
+         meta_icon = $2, meta_description = $3, meta_details = $4, meta_keywords = $5, meta_tags = $6,
+         meta_primary_field = $7, meta_ai_instructions_claude = $8,
+         meta_functions_consumed_by = $9, meta_functions_produced_by = $10,
+         meta_directional = $11, meta_inverse = $12,
+         json_schema = $13, sql_schema = $14, sync = $15, superseded_by = $16, implements = $17,
+         extends = $18, indexes = $19`,
+      [
+        id,
+        meta.icon ?? null, meta.description ?? '', meta.details ?? null,
+        meta.keywords ?? null, meta.tags ?? null,
+        meta.primaryField ?? null, meta.skills?.claude ?? null,
+        meta.functions?.consumedBy ?? [], meta.functions?.producedBy ?? [],
+        meta.directional ?? true, meta.inverse ?? null,
+        JSON.stringify(payload.jsonSchema ?? {}), payload.sqlSchema ?? [],
+        meta.sync ?? [], meta.supersededBy ?? [], meta.implements ?? [], meta.extends ?? [],
+        JSON.stringify(payload.indexes ?? []),
+      ],
+    );
   }
 
   // ─── Well-known root nodes ───────────────────────────────────────────────────
@@ -2106,12 +2254,15 @@ class PostgresAdapter {
   // malformed index declaration is skipped with a warning, never blocking the
   // instance write.
   async _ensureProjection(typeId: any): Promise<boolean> {
-    // The type-type's own columns cannot be derived from type.json's payload —
+    // A meta-type's own columns cannot be derived from its own payload schema —
     // the schema describing the type that defines types is exactly what we would
-    // be building (circular). Build obj_<type-type> from the flat seed metaschema
-    // (rootPayload.seedMetaschema) instead. Every other type derives from its def.
-    const def = String(typeId) === TYPE_TYPE_ID
-      ? { jsonSchema: typeSeedMetaschema, indexes: [] }
+    // be building (circular). `type` and `relationship-type` (which extends the
+    // nested type payload) are both built from a flat SEED METASCHEMA instead
+    // (rootPayload.seedMetaschema / the export-only relationshipTypeSeedMetaschema).
+    // Every other type derives from its own def.
+    const seed = SEED_METASCHEMA_BY_TYPE_ID[String(typeId)];
+    const def = seed
+      ? { jsonSchema: seed, indexes: [] }
       : await this.readTypeJson(typeId);
     if (!def || !def.jsonSchema) return false;   // orphan / schemaless type
     for (const stmt of deriveSqlSchema(def.jsonSchema, { typeId, dialect: 'postgres' }))
