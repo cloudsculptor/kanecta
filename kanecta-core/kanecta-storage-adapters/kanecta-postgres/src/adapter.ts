@@ -350,11 +350,22 @@ class PostgresAdapter {
     if (!PostgresAdapter._schemaChangesAllowed()) return;
     const cfg = this._config ?? {};
     await this._ensureProjection(ROOT_TYPE_ID);
+    // rootPayload now carries the type-type seed metaschema (spec §rootPayload /
+    // §cqrs-projections) — the irreducible bootstrap, stored as data so the
+    // datastore is self-describing rather than relying only on adapter code. A
+    // datastore whose obj_<root> predates this field (created before the root
+    // schema gained seedMetaschema) lacks the column; _ensureProjection's IF NOT
+    // EXISTS create won't evolve an existing table, so reconcile it here. No-op on
+    // a fresh datastore (the column is already present from the current schema).
+    await this._pool.query(
+      `ALTER TABLE "${objTableName(ROOT_TYPE_ID)}" ADD COLUMN IF NOT EXISTS seed_metaschema JSONB`,
+    );
     await this.writeObjectJson(ROOT_ID, ROOT_TYPE_ID, {
-      owner:       cfg.owner,
-      specVersion: cfg.spec_version ?? specVersion,
-      itemHistory: cfg.item_history ?? 'EXTERNAL',
-      activity:    cfg.activity ?? 'EXTERNAL',
+      owner:          cfg.owner,
+      specVersion:    cfg.spec_version ?? specVersion,
+      itemHistory:    cfg.item_history ?? 'EXTERNAL',
+      activity:       cfg.activity ?? 'EXTERNAL',
+      seedMetaschema: typeSeedMetaschema,
       ...(cfg.entry_point ? { entryPoint: cfg.entry_point } : {}),
     });
     this._config = (await this._loadConfig()) ?? this._config;

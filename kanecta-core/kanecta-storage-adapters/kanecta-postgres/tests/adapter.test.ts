@@ -968,6 +968,18 @@ describe('type registry cutover (types -> obj_<type-type>)', () => {
     expect(def.jsonSchema).toBeTruthy();
   });
 
+  test('rootPayload carries the seed metaschema (self-describing bootstrap)', async () => {
+    const ROOT_TYPE_ID = '73068dfc-e56b-4c4b-a8e6-f623f9ad9ab9';
+    const objRoot = `obj_${ROOT_TYPE_ID.replace(/-/g, '_')}`;
+    const { rows } = await pool.query(`SELECT seed_metaschema FROM "${objRoot}" WHERE item_id = $1`, [ROOT_ID]);
+    const seed = rows[0]?.seed_metaschema;
+    expect(seed).toBeTruthy();
+    expect(seed.title).toBe('typeSeedMetaschema');
+    // It describes the flat obj_<type-type> columns — meta_* + json_schema, no meta blob.
+    expect(seed.properties.metaIcon).toBeTruthy();
+    expect(seed.properties.jsonSchema['x-kanecta-storage']).toBe('json');
+  });
+
   test('a user type created after cutover round-trips through obj_<type-type>', async () => {
     const id = crypto.randomUUID();
     await adapter.createType('CutoverWidget', {
