@@ -650,3 +650,34 @@ describe('sparse branches via the Datastore facade', () => {
     fs.rmSync(ds.root, { recursive: true, force: true });
   });
 });
+
+// ─── transaction(fn) facade ───────────────────────────────────────────────────
+
+describe('transaction(fn) facade', () => {
+  test('delegates to the adapter and passes the datastore as the tx handle', async () => {
+    let received;
+    const calls = [];
+    const stubAdapter = {
+      // Mimic the Postgres adapter: open the tx scope, then invoke fn.
+      async transaction(fn) { return fn(this); },
+      async create(opts) { calls.push(['create', opts]); return { id: 'x', ...opts }; },
+    };
+    const ds = new Datastore(stubAdapter);
+    const out = await ds.transaction(async (tx) => {
+      received = tx;
+      const a = await tx.create({ value: 'a' });
+      return a.id;
+    });
+    // fn's return value flows back out.
+    expect(out).toBe('x');
+    // The handle passed to fn is the facade itself, so every tx.* enlists via it.
+    expect(received).toBe(ds);
+    expect(calls).toEqual([['create', { value: 'a' }]]);
+  });
+
+  test('throws on a working set whose adapter has no transaction support', async () => {
+    const ds = tmpDs(); // fs/sqlite adapter — transaction is deferred
+    await expect(ds.transaction(async () => {})).rejects.toThrow(/not supported on this working set/);
+    fs.rmSync(ds.root, { recursive: true, force: true });
+  });
+});
