@@ -1,16 +1,13 @@
 import { Router } from "express";
-import pool from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
+import { listLicences } from "../repositories/licences.js";
 
 const router = Router();
 
 const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 
 router.get("/", requireAuth, wrap(async (_req, res) => {
-  const { rows } = await pool.query(
-    "SELECT id, name, url, public_description, private_details, badge, sort_order FROM licences ORDER BY sort_order"
-  );
-  res.json(rows);
+  res.json(await listLicences());
 }));
 
 router.use((err, _req, res, _next) => {
