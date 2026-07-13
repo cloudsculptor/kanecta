@@ -1,16 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Ajv from 'ajv';
-import SyncIcon from '@mui/icons-material/Sync';
 import type { TypeItem } from '@kanecta/component-type-list';
 import { TypeList } from '@kanecta/component-type-list';
-import { SyncTypesDialog } from './SyncTypesDialog';
 import './TypesView.scss';
-
-export interface SystemTypeItem {
-  folderId: string;
-  title: string;
-}
 
 export interface TypesViewProps {
   onFetchTypes: () => Promise<TypeItem[]>;
@@ -20,9 +13,6 @@ export interface TypesViewProps {
   onFetchMetadata: (typeId: string) => Promise<unknown>;
   onCreateType: (name: string) => Promise<TypeItem>;
   onCreateItem: (type: TypeItem) => Promise<unknown>;
-  onFetchSystemTypes: () => Promise<SystemTypeItem[]>;
-  onImportTypes: (ids: string[]) => Promise<unknown>;
-  onExportTypes: (ids: string[]) => Promise<unknown>;
   typeSpec?: string;
   queryKey?: string;
 }
@@ -328,9 +318,6 @@ export function TypesView({
   onFetchMetadata,
   onCreateType,
   onCreateItem,
-  onFetchSystemTypes,
-  onImportTypes,
-  onExportTypes,
   typeSpec,
   queryKey = '',
 }: TypesViewProps) {
@@ -353,7 +340,6 @@ export function TypesView({
   const [selectedType, setSelectedType] = useState<TypeItem | null>(null);
   const [selectedInitialTab, setSelectedInitialTab] = useState<Tab>('view');
   const [schema, setSchema] = useState<string>('');
-  const [syncOpen, setSyncOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [addError, setAddError] = useState<string | null>(null);
@@ -412,21 +398,6 @@ export function TypesView({
 
   return (
     <div className="TypesView">
-      <div className="TypesView-toolbar">
-        <button className="TypesView-btn TypesView-btn--auto TypesView-btn--icon" onClick={() => setSyncOpen(true)}>
-          <SyncIcon className="TypesView-btn-icon" />
-          Sync types
-        </button>
-      </div>
-      <SyncTypesDialog
-        open={syncOpen}
-        onClose={() => setSyncOpen(false)}
-        onFetchSystemTypes={onFetchSystemTypes}
-        onFetchTypes={onFetchTypes}
-        onImportTypes={onImportTypes}
-        onExportTypes={onExportTypes}
-        queryKey={queryKey}
-      />
       <div className="TypesView-columns">
         <div className="TypesView-list">
           <TypeList

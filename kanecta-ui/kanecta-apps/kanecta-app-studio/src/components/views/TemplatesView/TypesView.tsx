@@ -26,9 +26,6 @@ export function TypesView() {
       onFetchMetadata={(typeId) => api.types.metadata(typeId)}
       onCreateType={(name) => api.types.create(name)}
       onCreateItem={(type) => api.items.create({ value: `New ${type.value}`, type: type.value as ItemType })}
-      onFetchSystemTypes={() => api.systemItems.list()}
-      onImportTypes={(ids) => api.systemItems.importItems(ids)}
-      onExportTypes={(ids) => api.systemItems.exportItems(ids)}
       typeSpec={typeSpecRaw}
       queryKey={activeWorkingSetId ?? ''}
     />
