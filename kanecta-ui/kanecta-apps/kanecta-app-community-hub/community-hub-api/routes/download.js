@@ -4,9 +4,9 @@ import { createWriteStream, createReadStream, unlink, statSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import archiver from "archiver";
-import pool from "../db.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { getFileStream } from "../lib/spaces.js";
+import { listPublicPagesForExport, getFilesByIds } from "../repositories/download.js";
 
 const router = Router();
 const requireTeam = requireRole("team", "moderator", "admin");
@@ -105,11 +105,7 @@ function extractImageRefs(contentJson) {
 // ── POST /api/download/prepare ─────────────────────────────────────────────────
 
 router.post("/prepare", requireAuth, requireTeam, wrap(async (req, res) => {
-  const { rows: pages } = await pool.query(
-    `SELECT slug, title, content_json FROM pages
-     WHERE public = TRUE AND deleted_at IS NULL
-     ORDER BY title`
-  );
+  const pages = await listPublicPagesForExport();
 
   // Collect unique image UUIDs and per-page image maps
   const allUUIDs = new Set();
@@ -124,11 +120,7 @@ router.post("/prepare", requireAuth, requireTeam, wrap(async (req, res) => {
   // Look up original filenames from the files table
   const uuidToFile = new Map();
   if (allUUIDs.size > 0) {
-    const { rows: files } = await pool.query(
-      `SELECT id, name, storage_key FROM files
-       WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL`,
-      [[...allUUIDs]]
-    );
+    const files = await getFilesByIds([...allUUIDs]);
     for (const f of files) {
       uuidToFile.set(f.id, { name: f.name, storageKey: f.storage_key });
     }
