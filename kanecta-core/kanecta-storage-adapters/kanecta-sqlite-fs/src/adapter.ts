@@ -81,12 +81,10 @@ const VALID_REL_TYPES = [
 // Relationship types are first-class `relationship-type` items (spec
 // §relationshipPayload), not string slugs. relate() resolves the preserved string
 // API to the relationship-type item UUID it stores in relationship.payload.typeId.
-// Sourced from the canonical seed items in @kanecta/specification — the same
-// const-map approach this adapter uses for the built-in licence (DEFAULT_LICENSE),
-// pending the shared sqlite metadata-types → obj_ cutover (relationship-type/
-// alias/annotation/licence all still project to rebuildable index.db lookup tables
-// here, not obj_<typeId> — a separate, consistent pass, tracked with the licence
-// sqlite cutover).
+// Sourced from the canonical seed items in @kanecta/specification. Like the
+// relationship/alias/annotation/licence metadata types, they now project to
+// obj_<relationship-type> (via the flat seed metaschema — see _projectObjectRow);
+// no bespoke index.db lookup table remains.
 const builtInRelationshipTypeItems: any[] = (spec as any).builtInRelationshipTypeItems ?? [];
 const REL_TYPE_ID_BY_NAME: Record<string, string> = Object.fromEntries(
   builtInRelationshipTypeItems.map((i: any) => [i.item.value, i.item.id]),
@@ -130,10 +128,46 @@ const BUILT_IN_TYPE_DEF_BY_ID: Record<string, any> = Object.fromEntries(
 
 // Structured built-in types that project to obj_<typeId>, matching the Postgres
 // PROJECTED_BUILT_IN_TYPES allow-list. Grown one type per cutover as its bespoke
-// lookup table is retired. (relationship-type is seeded as FK targets but its
-// jsonSchema is empty — its projection is special-cased in Postgres and stays a
-// follow-up, so it is intentionally absent here.)
-const PROJECTED_BUILT_IN_TYPES = new Set(['relationship', 'alias', 'annotation', 'licence']);
+// lookup table is retired.
+const PROJECTED_BUILT_IN_TYPES = new Set(['relationship', 'relationship-type', 'alias', 'annotation', 'licence']);
+
+// Meta-types whose obj_<typeId> columns can't be derived from their own (empty,
+// self-referential) payload schema, so the adapter builds the table AND flattens
+// each instance from a flat SEED METASCHEMA instead — mirroring the Postgres
+// adapter's SEED_METASCHEMA_BY_TYPE_ID. `relationship-type` extends the nested type
+// payload (circular) and its own jsonSchema is empty `{}`; the seed metaschema
+// supplies the flat meta_directional/meta_inverse/… columns.
+const SEED_METASCHEMA_BY_TYPE_ID: Record<string, any> = {
+  [TYPE_ITEM_UUIDS['relationship-type']]: (spec as any).relationshipTypeSeedMetaschema,
+};
+
+// Flatten a relationship-type item's nested type payload ({meta, jsonSchema,
+// sqlSchema}) to the flat seed-metaschema shape (camelCase keys → obj_ columns via
+// snakeCol). Mirrors the Postgres adapter's _writeRelationshipTypeProjection field
+// mapping exactly, so both backends carry identical obj_<relationship-type> rows.
+function flattenRelationshipTypePayload(payload: any): Record<string, any> {
+  const meta = payload?.meta ?? {};
+  return {
+    metaIcon: meta.icon ?? null,
+    metaDescription: meta.description ?? '',
+    metaDetails: meta.details ?? null,
+    metaKeywords: meta.keywords ?? null,
+    metaTags: meta.tags ?? null,
+    metaPrimaryField: meta.primaryField ?? null,
+    metaAiInstructionsClaude: meta.skills?.claude ?? null,
+    metaFunctionsConsumedBy: meta.functions?.consumedBy ?? [],
+    metaFunctionsProducedBy: meta.functions?.producedBy ?? [],
+    metaDirectional: meta.directional ?? true,
+    metaInverse: meta.inverse ?? null,
+    jsonSchema: payload?.jsonSchema ?? {},
+    sqlSchema: payload?.sqlSchema ?? [],
+    sync: meta.sync ?? [],
+    supersededBy: meta.supersededBy ?? [],
+    implements: meta.implements ?? [],
+    extends: meta.extends ?? [],
+    indexes: payload?.indexes ?? [],
+  };
+}
 
 class UnknownTypeError extends Error {
   code: string;
@@ -853,21 +887,35 @@ class SqliteFsAdapter {
   // Ensure the type's table exists and upsert this live instance's row into it.
   // No-op when the referenced type has no stored jsonSchema (unknown typeId).
   _projectObjectRow(db: SqlDatabase, id: any, typeId: any, payload: any) {
-    // Prefer the on-disk type item; fall back to the static built-in definition so
-    // a built-in metadata instance still projects during a rebuild that precedes
-    // type-item seeding (e.g. opening a migrated store).
-    const typeDef    = this.readTypeJson(typeId) ?? BUILT_IN_TYPE_DEF_BY_ID[typeId] ?? null;
-    const jsonSchema = typeDef?.jsonSchema;
-    if (!jsonSchema) return;   // unknown / schemaless type — nothing to project
+    // A meta-type (relationship-type) can't derive its own columns from its own
+    // (empty, circular) payload schema — the table and each row come from the flat
+    // seed metaschema instead, and the nested type payload is flattened to that
+    // shape (mirrors the pg adapter's SEED_METASCHEMA_BY_TYPE_ID + projection write).
+    const seed = SEED_METASCHEMA_BY_TYPE_ID[typeId];
+    let jsonSchema: any, indexes: any, rowPayload: any;
+    if (seed) {
+      jsonSchema = seed;
+      indexes    = [];
+      rowPayload = flattenRelationshipTypePayload(payload);
+    } else {
+      // Prefer the on-disk type item; fall back to the static built-in definition so
+      // a built-in metadata instance still projects during a rebuild that precedes
+      // type-item seeding (e.g. opening a migrated store).
+      const typeDef = this.readTypeJson(typeId) ?? BUILT_IN_TYPE_DEF_BY_ID[typeId] ?? null;
+      jsonSchema    = typeDef?.jsonSchema;
+      if (!jsonSchema) return;   // unknown / schemaless type — nothing to project
+      indexes       = typeDef.indexes;
+      rowPayload    = payload;
+    }
 
-    this._ensureProjection(db, typeId, jsonSchema, typeDef.indexes);
+    this._ensureProjection(db, typeId, jsonSchema, indexes);
 
     const props = jsonSchema.properties || {};
     const cols  = ['item_id'];
     const vals: any[] = [id];
     for (const [name, prop] of Object.entries<any>(props)) {
       cols.push(snakeCol(name));
-      let v = payload ? payload[name] : undefined;
+      let v = rowPayload ? rowPayload[name] : undefined;
       if (v === undefined) v = null;
       if (v !== null) {
         if (prop && prop.type === 'array')        v = JSON.stringify(v);
@@ -1344,6 +1392,11 @@ class SqliteFsAdapter {
     const parentPath = this._getPath(parentId) ?? `${typesPath}/${parentId}`;
     let wrote = false;
     db.transaction(() => {
+      // obj_<relationship-type>.meta_inverse is a self-referential FK to items(id)
+      // (depends-on ↔ enables, …), so seeding the 9 in one transaction would violate
+      // the FK before a partner row exists. Defer the check to commit, when all rows
+      // are present (same tactic the fs rebuild uses for edge-before-endpoint order).
+      db.exec('PRAGMA defer_foreign_keys = ON');
       for (const src of builtInRelationshipTypeItems) {
         const id = src.item.id;
         if (this._getRow(db, id)) continue;            // already seeded

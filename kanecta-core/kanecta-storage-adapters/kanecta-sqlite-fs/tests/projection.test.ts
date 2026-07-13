@@ -313,6 +313,80 @@ describe('per-type projection — relationship', () => {
   });
 });
 
+// ─── Projected built-in metadata: relationship-type ─────────────────────────────
+// The 9 canonical relationship-type items project to obj_<relationship-type>. Their
+// own jsonSchema is empty, so the table + each row come from the flat seed
+// metaschema (meta_directional/meta_inverse/…), mirroring the Postgres adapter. The
+// meta_inverse self-FK cross-references (depends-on ↔ enables) require deferred FK
+// seeding.
+
+const RELTYPE_TYPE_ID = '15861dd7-e54c-4209-bceb-bdd65de4f472';
+const RELTYPE_TABLE   = objTableName(RELTYPE_TYPE_ID);
+
+describe('per-type projection — relationship-type', () => {
+  test('the 9 canonical relationship-type items project to obj_<relationship-type>', () => {
+    const a = tmpAdapter();
+    expect(a.listProjectedRelations()).toContain(RELTYPE_TABLE);
+    const { n } = a._openDb().prepare(`SELECT COUNT(*) AS n FROM "${RELTYPE_TABLE}"`).get();
+    expect(n).toBe(9);
+    cleanup(a);
+  });
+
+  test('the nested type payload is flattened to the seed-metaschema columns', () => {
+    const a = tmpAdapter();
+    const db = a._openDb();
+    // depends-on: directional, description populated, json_schema stored as JSON text.
+    const row = db.prepare(
+      `SELECT o.* FROM "${RELTYPE_TABLE}" o JOIN items i ON i.id = o.item_id WHERE i.value = 'depends-on'`,
+    ).get();
+    expect(row.meta_directional).toBe(1);
+    expect(typeof row.meta_description).toBe('string');
+    expect(row.meta_description.length).toBeGreaterThan(0);
+    expect(() => JSON.parse(row.json_schema)).not.toThrow();
+    // relates-to is self-inverse and non-directional → meta_directional 0.
+    const rel = db.prepare(
+      `SELECT o.meta_directional FROM "${RELTYPE_TABLE}" o JOIN items i ON i.id = o.item_id WHERE i.value = 'relates-to'`,
+    ).get();
+    expect(rel.meta_directional).toBe(0);
+    cleanup(a);
+  });
+
+  test('meta_inverse self-FK cross-references resolve to real relationship-type items', () => {
+    const a = tmpAdapter();
+    const db = a._openDb();
+    const dependsOn = db.prepare(
+      `SELECT o.meta_inverse FROM "${RELTYPE_TABLE}" o JOIN items i ON i.id = o.item_id WHERE i.value = 'depends-on'`,
+    ).get();
+    expect(dependsOn.meta_inverse).toBeTruthy();
+    // The inverse points at a real, projected relationship-type item (enables).
+    const inv = db.prepare(
+      `SELECT i.value FROM items i JOIN "${RELTYPE_TABLE}" o ON o.item_id = i.id WHERE i.id = ?`,
+    ).get(dependsOn.meta_inverse);
+    expect(inv.value).toBe('enables');
+    // A self-inverse type (relates-to) carries a null inverse.
+    const selfInv = db.prepare(
+      `SELECT o.meta_inverse FROM "${RELTYPE_TABLE}" o JOIN items i ON i.id = o.item_id WHERE i.value = 'relates-to'`,
+    ).get();
+    expect(selfInv.meta_inverse).toBeNull();
+    cleanup(a);
+  });
+
+  test('projection survives a full rebuild with no dangling meta_inverse FK', () => {
+    const a = tmpAdapter();
+    a.rebuildIndexes();                             // drops + reconstructs obj_ from items/
+    expect(a.listProjectedRelations()).toContain(RELTYPE_TABLE);
+    const { n } = a._openDb().prepare(`SELECT COUNT(*) AS n FROM "${RELTYPE_TABLE}"`).get();
+    expect(n).toBe(9);
+    const dangling = a._openDb().prepare(
+      `SELECT COUNT(*) AS n FROM "${RELTYPE_TABLE}" o
+        WHERE o.meta_inverse IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM items i WHERE i.id = o.meta_inverse)`,
+    ).get();
+    expect(dangling.n).toBe(0);
+    cleanup(a);
+  });
+});
+
 // ─── Projected built-in metadata: alias ─────────────────────────────────────────
 // Aliases are `alias` items projected to obj_<alias> — the alias string is
 // item.value; the payload holds target_id/…. The bespoke `aliases` table is gone.
