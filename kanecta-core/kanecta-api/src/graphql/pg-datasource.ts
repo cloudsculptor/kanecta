@@ -4,8 +4,13 @@
 //   getById   → SELECT the obj_<type> row + the item's parent_id
 //   query     → compileSelect (G1 where/sort/pagination) → item ids → load rows
 //   children  → obj_<targetType> rows whose item's parent_id = this item (containment)
-//   related   → relationship items of a given type (reference collections)
-//   runComputed → NOT yet wired (needs the runner) — see below
+//   related   → relationship items of a given type (reference collections).
+//               NB: still reads a legacy `relationships` table with a `type` slug
+//               column — stale after PR #134 (Postgres now projects relationships
+//               to obj_<relationship> with a type_id UUID). Untested; see
+//               plans/graphql-related-stale-relationships-table.md.
+//   runComputed → wired (declarative-first): runs the field's backing query/formula
+//               item via runComputedSpec against this DataSource's client.
 //
 // It reads obj_<type> tables raw (snake_case columns), which is exactly what the
 // executor's `backing.column` expects; the executor owns the camelCase wire
