@@ -6,6 +6,66 @@ import {
 
 import * as datastoreUtils from '@kanecta/datastore-utils';
 
+// ─── Remote-only working set: `cloud` remote → openCloud cloudConfig ──────────
+//
+// A remote-only working set (a hosted webapp — shared Postgres for items, S3 for
+// files, no local filesystem) is expressed on disk as a single composite `cloud`
+// remote pairing the two backends, both REQUIRED:
+//
+//   "remotes": {
+//     "origin": {
+//       "type": "cloud",
+//       "postgres": { "host", "port"?, "database", "user", "password"?, "ssl"? },
+//       "s3":       { "endpoint", "region"?, "accessKeyId", "secretAccessKey", "bucket" }
+//     }
+//   }
+//
+// `Datastore.openCloud` wants `{ pg: { connectionString, ssl? }, s3: {…} }`, so we
+// translate the discrete Postgres fields into a `postgres://` connection string
+// (URL-encoding user + password) and pass the S3 block through unchanged. `$VAR`
+// values are already resolved by `readAppConfig` (deepResolveEnv) before a working
+// set reaches here, so no env expansion is needed at this layer.
+
+function buildPgConnectionString(pg: any): string {
+  const host = pg.host;
+  if (!host) throw new Error("cloud remote's postgres block requires 'host'");
+  if (!pg.database) throw new Error("cloud remote's postgres block requires 'database'");
+  if (!pg.user) throw new Error("cloud remote's postgres block requires 'user'");
+  const port = pg.port ?? 5432;
+  const user = encodeURIComponent(pg.user);
+  const auth = pg.password != null && pg.password !== ''
+    ? `${user}:${encodeURIComponent(pg.password)}`
+    : user;
+  return `postgres://${auth}@${host}:${port}/${pg.database}`;
+}
+
+// Translate a `cloud` origin remote into the cloudConfig shape openCloud expects.
+// Throws a clear error if either half of the required pg+s3 pair is missing.
+function cloudConfigFromRemote(origin: any): any {
+  const pg = origin.postgres;
+  const s3 = origin.s3;
+  if (!pg) {
+    throw new Error("cloud remote requires a 'postgres' block (items backend)");
+  }
+  if (!s3) {
+    throw new Error(
+      "cloud remote requires an 's3' block — files are required for a remote-only " +
+      'working set (items + files are a mandatory pair)',
+    );
+  }
+  const cloudConfig: any = { pg: { connectionString: buildPgConnectionString(pg) } };
+  if (pg.ssl) cloudConfig.pg.ssl = pg.ssl;
+  cloudConfig.s3 = {
+    endpoint:        s3.endpoint,
+    region:          s3.region,
+    accessKeyId:     s3.accessKeyId,
+    secretAccessKey: s3.secretAccessKey,
+    bucket:          s3.bucket,
+  };
+  if (origin.embeddings) cloudConfig.embeddings = origin.embeddings;
+  return cloudConfig;
+}
+
 class Datastore {
   _adapter: any;
 
@@ -70,6 +130,13 @@ class Datastore {
       const target = branch || workingSet.defaultBranch || workingSet.branch;
       if (target) ds.useBranch(target);
       return ds;
+    }
+    // Remote-only working set (no `local`): a composite `cloud` origin remote that
+    // pairs Postgres (items) + S3 (files). Resolve it in-process to a cloud adapter.
+    // No branch/useBranch — cloud branching is a separate mechanism (schema-per-branch).
+    const origin = workingSet.remotes?.origin;
+    if (origin && origin.type === 'cloud') {
+      return Datastore.openCloud(cloudConfigFromRemote(origin));
     }
     // 1.3.x format: { mode, datastore, cloud }
     switch (workingSet.mode) {
@@ -187,4 +254,4 @@ class Datastore {
   mergeBranchLocally(name: any, opts?: any) { return this._adapter.mergeBranchLocally(name, opts); }
 }
 
-export { Datastore, ROOT_ID, TYPES_NODE, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE, DEFAULT_LICENSE };
+export { Datastore, cloudConfigFromRemote, buildPgConnectionString, ROOT_ID, TYPES_NODE, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE, DEFAULT_LICENSE };

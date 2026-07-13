@@ -5916,7 +5916,7 @@ NOTE: The component store is a *cache*, not a source of truth — it can be dele
 
 === Workspace shape
 
-Each workspace is a local datastore with optional named remotes. Multiple remotes are supported — `origin` is the conventional default. The `branch` field sets the active branch name; each adapter translates it into its native mechanism (Git branch, Postgres schema, S3 prefix).
+Each workspace is a local datastore with optional named remotes, *or* a remote-only workspace (no `local`) whose `origin` remote is a `cloud` backend — see _Remote-only workspaces_ below. At least one of `local` or `remotes` must be present. Multiple remotes are supported — `origin` is the conventional default. The `branch` field sets the active branch name; each adapter translates it into its native mechanism (Git branch, Postgres schema, S3 prefix).
 
 [source,json]
 ----
@@ -5958,9 +5958,47 @@ Each workspace is a local datastore with optional named remotes. Multiple remote
 
 | `server`
 | `url` — base URL of the Kanecta server. Optional: `apiKey`.
+
+| `cloud`
+| `postgres` — the item store (`host`, `database`, `user`; optional `port`, `password`, `ssl`) — *and* `s3` — the file store (`endpoint`, `accessKeyId`, `secretAccessKey`, `bucket`; optional `region`). *Both are required.*
 |===
 
-== File Specifications
+=== Remote-only workspaces
+
+A hosted webapp runs against a shared datastore with *no local filesystem*: items live in Postgres and file bytes live in S3-compatible object storage. Such a workspace omits `local` entirely and declares its backend as a single composite `cloud` remote on `origin`:
+
+[source,json]
+----
+{
+  "specVersion": "1.4.0",
+  "defaultWorkingSet": "hosted",
+  "workingSets": {
+    "hosted": {
+      "remotes": {
+        "origin": {
+          "type": "cloud",
+          "postgres": {
+            "host": "$KANECTA_DB_HOST",
+            "database": "$KANECTA_DB_NAME",
+            "user": "$KANECTA_DB_USER",
+            "password": "$KANECTA_DB_PASSWORD",
+            "ssl": true
+          },
+          "s3": {
+            "endpoint": "$KANECTA_S3_ENDPOINT",
+            "accessKeyId": "$KANECTA_S3_KEY",
+            "secretAccessKey": "$KANECTA_S3_SECRET",
+            "bucket": "kanecta"
+          }
+        }
+      },
+      "defaultBranch": "main"
+    }
+  }
+}
+----
+
+The Postgres and S3 halves are one remote — not two — because a datastore is items *and* files together: neither is usable alone, so the config binds them as a mandatory pair. When such a workspace is opened, the platform resolves the `cloud` remote in-process to a cloud (Postgres + S3) adapter: the discrete Postgres fields are assembled into a connection string and the S3 block is passed through unchanged. A `cloud` remote whose `postgres` or `s3` half is missing is a configuration error, reported clearly at open time. Branch selection for a remote-only workspace uses the Postgres schema-per-branch mechanism; the active branch is resolved the same way as for any workspace.
 
 [cols="1,1,2", options="header"]
 |===

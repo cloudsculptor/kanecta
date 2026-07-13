@@ -44,11 +44,14 @@
   "definitions": {
     "workingSet": {
       "type": "object",
-      "required": ["local"],
+      "anyOf": [
+        { "required": ["local"] },
+        { "required": ["remotes"] }
+      ],
       "additionalProperties": false,
       "properties": {
         "local": {
-          "description": "Local datastore. Either a filesystem path (string shorthand) or a typed local adapter definition.",
+          "description": "Local datastore. Either a filesystem path (string shorthand) or a typed local adapter definition. Optional for a REMOTE-ONLY working set (a hosted webapp with no local filesystem): omit 'local' and supply a 'cloud' origin remote instead — see the 'remotes' property and the 'cloud' remote type.",
           "oneOf": [
             {
               "type": "string",
@@ -71,7 +74,7 @@
           "description": "Fallback branch for this working set, used when no active branch is recorded in state.json and none is supplied via KANECTA_BRANCH or a per-call argument. Defaults to 'main'. Each adapter maps the branch name to its native mechanism: filesystem → branch folder, Postgres → schema name (slashes become double-underscores), S3 → key prefix. Kanecta branching is independent of Git."
         }
       },
-      "description": "A working set. History and activity tracking are NOT configured here — they are a property of the datastore itself, set in the root node payload (rootPayload.itemHistory / rootPayload.activity, each NONE | ITEM | EXTERNAL). The config only locates and selects datastores; the datastore owns its own history/activity policy so it is consistent across every machine and config that references it."
+      "description": "A working set — either a local datastore with optional named remotes, OR a remote-only set (no 'local') whose 'origin' is a 'cloud' remote. At least one of 'local' or 'remotes' must be present. History and activity tracking are NOT configured here — they are a property of the datastore itself, set in the root node payload (rootPayload.itemHistory / rootPayload.activity, each NONE | ITEM | EXTERNAL). The config only locates and selects datastores; the datastore owns its own history/activity policy so it is consistent across every machine and config that references it."
     },
     "localFilesystem": {
       "type": "object",
@@ -124,8 +127,45 @@
       "oneOf": [
         { "$ref": "#/definitions/remotePostgres" },
         { "$ref": "#/definitions/remoteSQLite" },
-        { "$ref": "#/definitions/remoteServer" }
+        { "$ref": "#/definitions/remoteServer" },
+        { "$ref": "#/definitions/remoteCloud" }
       ]
+    },
+    "remoteCloud": {
+      "type": "object",
+      "description": "A composite cloud backend: a Postgres store for items PAIRED with an S3 store for files. Both halves are REQUIRED — a cloud remote is meaningless without somewhere to put file bytes. This is the shape a remote-only working set (a hosted webapp with no local filesystem) uses for its 'origin' remote. The two sub-backends are addressed as one remote because they are opened and used together as a single logical datastore.",
+      "required": ["type", "postgres", "s3"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "const": "cloud" },
+        "postgres": {
+          "type": "object",
+          "description": "Postgres connection for the item store. Same fields as a standalone 'postgres' remote, minus its 'type' discriminator (the enclosing remote is 'cloud').",
+          "required": ["host", "database", "user"],
+          "additionalProperties": false,
+          "properties": {
+            "host":     { "type": "string", "description": "Postgres host. Supports '$VAR' env var resolution." },
+            "port":     { "type": ["integer", "string"], "default": 5432, "description": "Postgres port. Defaults to 5432. Supports '$VAR' env var resolution." },
+            "database": { "type": "string", "description": "Database name. Supports '$VAR' env var resolution." },
+            "user":     { "type": "string", "description": "Database user. Supports '$VAR' env var resolution." },
+            "password": { "type": "string", "description": "Database password. Use '$VAR' env var reference — do not hardcode secrets." },
+            "ssl":      { "type": "boolean", "default": false, "description": "Require SSL/TLS connection." }
+          }
+        },
+        "s3": {
+          "type": "object",
+          "description": "S3-compatible object store for the file store (uploads, media sidecars).",
+          "required": ["endpoint", "accessKeyId", "secretAccessKey", "bucket"],
+          "additionalProperties": false,
+          "properties": {
+            "endpoint":        { "type": "string", "description": "S3 endpoint URL (e.g. 'https://s3.amazonaws.com' or a MinIO URL). Supports '$VAR' env var resolution." },
+            "region":          { "type": "string", "default": "us-east-1", "description": "S3 region. Defaults to 'us-east-1'." },
+            "accessKeyId":     { "type": "string", "description": "S3 access key id. Supports '$VAR' env var resolution." },
+            "secretAccessKey": { "type": "string", "description": "S3 secret access key. Use '$VAR' env var reference — do not hardcode secrets." },
+            "bucket":          { "type": "string", "description": "S3 bucket name. Supports '$VAR' env var resolution." }
+          }
+        }
+      }
     },
     "remotePostgres": {
       "type": "object",
@@ -227,6 +267,37 @@
               "type": "server",
               "url": "https://backup.kanecta.acme.com",
               "apiKey": "$KANECTA_BACKUP_API_KEY"
+            }
+          },
+          "defaultBranch": "main"
+        }
+      },
+      "studioPort": 9743,
+      "apiPort": 9744
+    },
+    {
+      "specVersion": "1.4.0",
+      "defaultWorkingSet": "hosted",
+      "workingSets": {
+        "hosted": {
+          "remotes": {
+            "origin": {
+              "type": "cloud",
+              "postgres": {
+                "host": "$KANECTA_DB_HOST",
+                "port": "$KANECTA_DB_PORT",
+                "database": "$KANECTA_DB_NAME",
+                "user": "$KANECTA_DB_USER",
+                "password": "$KANECTA_DB_PASSWORD",
+                "ssl": true
+              },
+              "s3": {
+                "endpoint": "$KANECTA_S3_ENDPOINT",
+                "region": "us-east-1",
+                "accessKeyId": "$KANECTA_S3_KEY",
+                "secretAccessKey": "$KANECTA_S3_SECRET",
+                "bucket": "kanecta"
+              }
             }
           },
           "defaultBranch": "main"
