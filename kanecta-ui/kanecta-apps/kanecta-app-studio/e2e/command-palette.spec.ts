@@ -102,8 +102,6 @@ test.describe('CommandPalette — search with items', () => {
       route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
     await page.route((url) => url.pathname === '/api/skills', (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
-    await page.route((url) => url.pathname === '/api/app/studio/sync-system-items', (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
     await page.route((url) => url.pathname === '/api/app/studio/layouts', (route) =>
       route.fulfill({ status: 200, json: { activeTabId: 'tab-1', tabs: [{ id: 'tab-1', label: 'Default', root: { type: 'leaf', id: 'leaf-1', viewType: null, itemId: null } }] } }));
     await page.route((url) => url.pathname === '/api/app/studio/settings', (route) =>
@@ -156,8 +154,6 @@ test.describe('CommandPalette — keyboard navigation', () => {
     await page.route((url) => url.pathname === '/api/types', (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
     await page.route((url) => url.pathname === '/api/skills', (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
-    await page.route((url) => url.pathname === '/api/app/studio/sync-system-items', (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
     await page.route((url) => url.pathname === '/api/app/studio/layouts', (route) =>
       route.fulfill({ status: 200, json: { activeTabId: 'tab-1', tabs: [{ id: 'tab-1', label: 'Default', root: { type: 'leaf', id: 'leaf-1', viewType: null, itemId: null } }] } }));

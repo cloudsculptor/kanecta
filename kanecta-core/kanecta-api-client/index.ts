@@ -298,12 +298,6 @@ export interface BulkUpdateResult {
   errors: Array<{ index: number; id?: string; error: string }>;
 }
 
-export interface SyncSystemItem {
-  folderId: string;
-  title: string;
-  schema: TypeSchema;
-}
-
 // ─── Namespace interfaces ─────────────────────────────────────────────────────
 
 export interface ConfigApi {
@@ -496,12 +490,6 @@ export interface StarredApi {
 export interface ViewApi {
   get(id: string): Promise<Record<string, unknown> | null>;
   save(id: string, payload: { levels: unknown }): Promise<{ ok: boolean }>;
-}
-
-export interface SystemItemsApi {
-  getSync(): Promise<SyncSystemItem[]>;
-  import(folderIds: string[]): Promise<{ imported: Array<{ id: string; value: string }>; errors: Array<{ folderId: string; error: string }> }>;
-  export(typeIds: string[]): Promise<{ exported: Array<{ id: string }>; errors: Array<{ id: string; error: string }> }>;
 }
 
 export interface SettingsApi {
@@ -834,19 +822,6 @@ export class KanectaApiClient {
     return {
       get: (id) => c._fetch('GET', `/app/studio/view/${id}`),
       save: (id, payload) => c._fetch('PUT', `/app/studio/view/${id}`, payload),
-    };
-  }
-
-  // ─── System items ────────────────────────────────────────────────────────────
-
-  get systemItems(): SystemItemsApi {
-    const c = this;
-    return {
-      getSync: () => c._fetch('GET', '/app/studio/sync-system-items'),
-      import: (folderIds) =>
-        c._fetch('POST', '/app/studio/sync-system-items/import', { folderIds }),
-      export: (typeIds) =>
-        c._fetch('POST', '/app/studio/sync-system-items/export', { typeIds }),
     };
   }
 

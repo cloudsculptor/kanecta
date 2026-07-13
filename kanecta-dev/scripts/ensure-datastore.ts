@@ -139,7 +139,6 @@ function migrateOldConfig(file: string, oldData: any) {
     workspaces,
     studioPort: oldData.studioPort ?? 9743,
     apiPort: oldData.apiPort ?? 9744,
-    ...(oldData.systemItemsDir ? { systemItemsDir: oldData.systemItemsDir } : {}),
   };
 
   fs.writeFileSync(file, JSON.stringify(newData, null, 2) + '\n', 'utf8');
@@ -195,7 +194,7 @@ function toWorkingSet(workspace: any) {
   return { ...workspace, defaultBranch: workspace.defaultBranch || workspace.branch || 'main' };
 }
 
-function writePointer(name: string, workspace: any, apiPort: number, studioPort: number, systemItemsDir?: string) {
+function writePointer(name: string, workspace: any, apiPort: number, studioPort: number) {
   const file = POINTER_LOCATIONS[0];
   const isNew = !fs.existsSync(file);
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -213,7 +212,6 @@ function writePointer(name: string, workspace: any, apiPort: number, studioPort:
     apiPort,
   };
   data.workingSets[name] = toWorkingSet(workspace);
-  if (systemItemsDir || raw.systemItemsDir) data.systemItemsDir = systemItemsDir || raw.systemItemsDir;
 
   fs.writeFileSync(file, JSON.stringify(data, null, 2) + '\n', 'utf8');
   if (isNew) {
@@ -456,10 +454,6 @@ async function wizard(): Promise<any> {
   const apiPortInput = await ask(rl, `API port [${studioPort + 1}]: `);
   const apiPort = parseInt(apiPortInput || String(studioPort + 1), 10);
 
-  const defaultCommonTypesDir = path.resolve(__dirname, '../../kanecta-system-items/items');
-  const systemItemsDirInput = await ask(rl, `System items directory [${defaultCommonTypesDir}]: `);
-  const systemItemsDir = expandHome(systemItemsDirInput || defaultCommonTypesDir);
-
   // ── Summary + confirmation ─────────────────────────────────────────────────
 
   const summary = {
@@ -469,7 +463,6 @@ async function wizard(): Promise<any> {
     ...(zipPath ? { importFrom: zipPath } : {}),
     frontendPort: studioPort,
     apiPort,
-    systemItemsDir,
     pointerFile: POINTER_LOCATIONS[0],
   };
 
@@ -505,8 +498,8 @@ async function wizard(): Promise<any> {
     }
     rl.close();
     const workspace = { mode: 'CLOUD', cloud: cloudConfig };
-    writePointer(workspaceName, workspace, apiPort, studioPort, systemItemsDir);
-    return { name: workspaceName, workspace, apiPort, studioPort, systemItemsDir };
+    writePointer(workspaceName, workspace, apiPort, studioPort);
+    return { name: workspaceName, workspace, apiPort, studioPort };
 
   } else if (mode === 'create-sqlite') {
     fs.mkdirSync(datastorePath, { recursive: true });
@@ -537,125 +530,15 @@ async function wizard(): Promise<any> {
 
   rl.close();
   const workspace = { mode: 'FILESYSTEM', datastore: datastorePath };
-  writePointer(workspaceName, workspace, apiPort, studioPort, systemItemsDir);
-  return { name: workspaceName, workspace, apiPort, studioPort, systemItemsDir };
+  writePointer(workspaceName, workspace, apiPort, studioPort);
+  return { name: workspaceName, workspace, apiPort, studioPort };
 }
 
-async function syncSystemItems(datastorePath: string, systemItemsDir?: string) {
-  if (!systemItemsDir) {
-    console.log('\n  system items check: skipped (systemItemsDir not configured)');
-    return;
-  }
-  if (!fs.existsSync(systemItemsDir)) {
-    console.log(`\n  system items check: skipped (systemItemsDir not found: ${systemItemsDir})`);
-    return;
-  }
-
-  // The legacy sync wrote metadata.json files into .kanecta/data and .kanecta/types.
-  // The 1.4.0 per-branch engine stores item.json under branches/<branch>/items, so
-  // this sync no longer applies — skip rather than pollute a new-format datastore.
-  // (Seeding built-in/system items for 1.4.0 is a separate, pending mechanism.)
-  if (fs.existsSync(path.join(datastorePath, '.kanecta', 'branches'))) {
-    console.log('\n  system items check: skipped (1.4.0 per-branch datastore — legacy metadata.json sync does not apply)');
-    return;
-  }
-
-  console.log('\n  system items check...');
-
-  // Scan systemItemsDir — 2+2+UUID sharding
-  const allSystemItems: any[] = [];
-  for (const shard1 of fs.readdirSync(systemItemsDir)) {
-    const shard1Path = path.join(systemItemsDir, shard1);
-    if (!fs.statSync(shard1Path).isDirectory()) continue;
-    for (const shard2 of fs.readdirSync(shard1Path)) {
-      const shard2Path = path.join(shard1Path, shard2);
-      if (!fs.statSync(shard2Path).isDirectory()) continue;
-      for (const itemId of fs.readdirSync(shard2Path)) {
-        const itemPath = path.join(shard2Path, itemId);
-        const metaPath = path.join(itemPath, 'metadata.json');
-        if (!fs.existsSync(metaPath)) continue;
-        try {
-          const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-          allSystemItems.push({ id: itemId, meta, sourcePath: itemPath });
-        } catch {}
-      }
-    }
-  }
-
-  // Calculate: non-type items missing from the datastore
-  const dataRoot = path.join(datastorePath, '.kanecta', 'data');
-  const nonTypeItems = allSystemItems.filter(item => item.meta.type !== 'type');
-  const itemsToAdd = nonTypeItems.filter(({ id }) =>
-    !fs.existsSync(path.join(dataRoot, id.slice(0, 2), id.slice(2, 4), id, 'metadata.json'))
-  );
-
-  // Calculate: types required by those items that are missing from .kanecta/types
-  const typesRoot = path.join(datastorePath, '.kanecta', 'types');
-  const typeIds = [...new Set(itemsToAdd.map(i => i.meta.typeId).filter(Boolean))];
-  const typesToAdd = allSystemItems.filter(i =>
-    typeIds.includes(i.id) &&
-    !fs.existsSync(path.join(typesRoot, i.id.slice(0, 2), i.id.slice(2, 4), i.id, 'metadata.json'))
-  );
-
-  if (itemsToAdd.length === 0 && typesToAdd.length === 0) {
-    console.log('  system items check: all system items already present');
-    return;
-  }
-
-  // Show proposed changes
-  console.log('\n  Proposed changes:');
-  if (itemsToAdd.length > 0) {
-    console.log(`\n  Items to add to .kanecta/data (${itemsToAdd.length}):`);
-    for (const { id, meta } of itemsToAdd) {
-      console.log(`    + "${meta.value || id}"  (${id})`);
-    }
-  }
-  if (typesToAdd.length > 0) {
-    console.log(`\n  Types to add to .kanecta/types (${typesToAdd.length}):`);
-    for (const { id, meta } of typesToAdd) {
-      console.log(`    + "${meta.value || id}"  (${id})`);
-    }
-  }
-
-  // Prompt for confirmation
-  if (!process.stdin.isTTY) {
-    console.log('\n  system items check: non-interactive session, skipping apply');
-    return;
-  }
-
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  const answer = await ask(rl, '\n  Apply these changes? [Y/n]: ');
-  rl.close();
-
-  if (answer.toLowerCase() === 'n') {
-    console.log('  system items check: skipped by user');
-    return;
-  }
-
-  // Apply
-  for (const { id, meta, sourcePath } of itemsToAdd) {
-    const destPath = path.join(dataRoot, id.slice(0, 2), id.slice(2, 4), id);
-    fs.mkdirSync(destPath, { recursive: true });
-    for (const file of fs.readdirSync(sourcePath)) {
-      fs.copyFileSync(path.join(sourcePath, file), path.join(destPath, file));
-    }
-    console.log(`  + added item: "${meta.value || id}" (${id})`);
-  }
-
-  for (const { id, meta, sourcePath } of typesToAdd) {
-    const destPath = path.join(typesRoot, id.slice(0, 2), id.slice(2, 4), id);
-    fs.mkdirSync(destPath, { recursive: true });
-    for (const file of fs.readdirSync(sourcePath)) {
-      fs.copyFileSync(path.join(sourcePath, file), path.join(destPath, file));
-    }
-    console.log(`  + added type: "${meta.value || id}" (${id})`);
-  }
-}
 
 // `workspaceName` is null when launched via an explicit env override (no named
 // working set involved); `datastorePath` is null for pure-cloud working sets.
 // `configFile` is the config.json the API/Studio should resolve from.
-async function launch(workspaceName: string | null, datastorePath: string | null, apiPort: number, studioPort: number, systemItemsDir: string | undefined, branch: string | null, configFile: string) {
+async function launch(workspaceName: string | null, datastorePath: string | null, apiPort: number, studioPort: number, branch: string | null, configFile: string) {
   const [apiFree, studioFree] = await Promise.all([
     checkPortFree(apiPort),
     checkPortFree(studioPort),
@@ -713,7 +596,6 @@ async function launch(workspaceName: string | null, datastorePath: string | null
         if (branch)        e.KANECTA_BRANCH = branch;
         e.PORT = String(apiPort);
         e.KANECTA_API_URL = `http://localhost:${apiPort}`;
-        if (systemItemsDir) e.KANECTA_SYSTEM_ITEMS_DIR = systemItemsDir;
         // `npm start` from source has no Keycloak instance to point at — force
         // both sides into auth-disabled mode so the local dev loop never needs
         // one. Real auth is only exercised by deploying with KEYCLOAK_URL/
@@ -767,7 +649,7 @@ async function main() {
     if (!norm) {
       // CLOUD-only workspace (old format mode: CLOUD) — no local path
       console.log(`✓ Working set: ${name} (${selectionReason}; cloud)`);
-      return launch(name, null, data.apiPort ?? 9744, data.studioPort ?? 9743, data.systemItemsDir, null, pointerFile);
+      return launch(name, null, data.apiPort ?? 9744, data.studioPort ?? 9743, null, pointerFile);
     }
     if (!Datastore.isDatastore(norm.localPath)) {
       console.error(`Datastore not found at configured path: ${norm.localPath}`);
@@ -775,9 +657,8 @@ async function main() {
     }
     console.log(`✓ Working set: ${name} (${selectionReason}; ${norm.localPath}; branch: ${norm.branch})`);
     checkSpecVersion(norm.localPath, norm.branch);
-    await syncSystemItems(norm.localPath, data.systemItemsDir);
 
-    return launch(name, norm.localPath, data.apiPort ?? 9744, data.studioPort ?? 9743, data.systemItemsDir, norm.branch, pointerFile);
+    return launch(name, norm.localPath, data.apiPort ?? 9744, data.studioPort ?? 9743, norm.branch, pointerFile);
   }
 
   // 3. First-run wizard
@@ -789,9 +670,8 @@ async function main() {
   const workspace = wizardResult.workspace;
   if (workspace.mode !== 'CLOUD') {
     checkSpecVersion(workspace.datastore);
-    await syncSystemItems(workspace.datastore, wizardResult.systemItemsDir);
   }
-  launch(wizardResult.name, workspace.datastore ?? null, wizardResult.apiPort, wizardResult.studioPort, wizardResult.systemItemsDir, 'main', POINTER_LOCATIONS[0]);
+  launch(wizardResult.name, workspace.datastore ?? null, wizardResult.apiPort, wizardResult.studioPort, 'main', POINTER_LOCATIONS[0]);
 }
 
 main().catch((err) => {
