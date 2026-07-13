@@ -131,7 +131,7 @@ const BUILT_IN_TYPE_DEF_BY_ID: Record<string, any> = Object.fromEntries(
 // lookup table is retired. (relationship-type is seeded as FK targets but its
 // jsonSchema is empty — its projection is special-cased in Postgres and stays a
 // follow-up, so it is intentionally absent here.)
-const PROJECTED_BUILT_IN_TYPES = new Set(['relationship', 'alias']);
+const PROJECTED_BUILT_IN_TYPES = new Set(['relationship', 'alias', 'annotation']);
 
 class UnknownTypeError extends Error {
   code: string;
@@ -248,16 +248,6 @@ CREATE TABLE IF NOT EXISTS backlinks (
   PRIMARY KEY (source_id, target_id)
 );
 CREATE INDEX IF NOT EXISTS idx_backlinks_target ON backlinks(target_id);
-
-CREATE TABLE IF NOT EXISTS annotations (
-  id                   TEXT PRIMARY KEY,
-  target_id            TEXT NOT NULL,
-  author               TEXT,
-  content              TEXT NOT NULL,
-  created_at           TEXT NOT NULL,
-  parent_annotation_id TEXT
-);
-CREATE INDEX IF NOT EXISTS idx_ann_target ON annotations(target_id);
 
 CREATE TABLE IF NOT EXISTS history (
   seq         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -819,17 +809,11 @@ class SqliteFsAdapter {
       this._projectObjectRow(db, id, projTypeId, payload ?? {});
   }
 
-  // Project an annotation item.json into its derived lookup table. No-op for
-  // ordinary content items. (alias/relationship now use obj_<typeId>.)
+  // Project item_history events into their derived lookup. No-op for ordinary
+  // content items. (alias/relationship/annotation now use obj_<typeId>.)
   _indexMetadataDoc(db: SqlDatabase, doc: any) {
-    const { item, meta, payload } = doc;
-    const p = payload || {};
-    if (item.type === 'annotation') {
-      db.prepare(
-        'INSERT OR REPLACE INTO annotations (id, target_id, author, content, created_at, parent_annotation_id) VALUES (?, ?, ?, ?, ?, ?)'
-      ).run(item.id, item.parentId, p.author ?? meta?.createdBy ?? null,
-            p.content ?? item.value, meta?.createdAt ?? null, p.parentAnnotationId ?? null);
-    } else if (item.type === 'item_history') {
+    const { item } = doc;
+    if (item.type === 'item_history') {
       // 'ITEM' mode: history events live in items/ and are picked up here.
       this._indexHistoryDoc(db, doc);
     }
@@ -960,9 +944,8 @@ class SqliteFsAdapter {
     db.prepare('DELETE FROM item_tags     WHERE item_id = ?').run(itemId);
     db.prepare('DELETE FROM backlinks     WHERE source_id = ?').run(itemId);
     db.prepare('DELETE FROM items         WHERE id = ?').run(itemId);
-    // The obj_<relationship>/obj_<alias> rows cascaded away with the items row (FK
-    // ON DELETE CASCADE); annotation still has a bespoke lookup table to clean up.
-    if (type === 'annotation') db.prepare('DELETE FROM annotations WHERE id = ?').run(itemId);
+    // The obj_<relationship>/obj_<alias>/obj_<annotation> rows cascaded away with
+    // the items row (FK ON DELETE CASCADE) — nothing bespoke left to clean up.
   }
 
   // When a content item is deleted, cascade-delete the metadata items that hang
@@ -971,7 +954,7 @@ class SqliteFsAdapter {
   _cascadeDeleteMetadata(db: SqlDatabase, id: any) {
     for (const r of this._relItemsTouching(db, id))
       this._deleteMetadataItem(db, r.id, 'relationship');
-    for (const a of db.prepare('SELECT id FROM annotations WHERE target_id = ?').all(id))
+    for (const a of this._annotationItemsTargeting(db, id))
       this._deleteMetadataItem(db, a.id, 'annotation');
     for (const a of this._aliasItemsTargeting(db, id))
       if (a.id) this._deleteMetadataItem(db, a.id, 'alias');
@@ -1737,6 +1720,11 @@ class SqliteFsAdapter {
       else        this._deleteItemDir(id);
       this._mem.delete(id);
       db.transaction(() => {
+        // Defer FK enforcement to commit: the cascade deletes threaded annotation
+        // items whose obj_<annotation>.parent_annotation_id references each other,
+        // and the target item this metadata points at — order-independent once all
+        // deletes are staged and the check runs at commit.
+        db.exec('PRAGMA defer_foreign_keys = ON');
         this._snapshot(db, item, 'delete', actor, now);
         // Cascade-delete the metadata items hanging off this item (relationships,
         // annotations, aliases) — their item.json files and derived rows together.
@@ -1766,7 +1754,7 @@ class SqliteFsAdapter {
   _cascadeMetadataOps(db: SqlDatabase, id: any) {
     const ids = new Set();
     for (const r of this._relItemsTouching(db, id)) ids.add(r.id);
-    for (const a of db.prepare('SELECT id FROM annotations WHERE target_id = ?').all(id)) ids.add(a.id);
+    for (const a of this._annotationItemsTargeting(db, id)) ids.add(a.id);
     for (const a of this._aliasItemsTargeting(db, id)) if (a.id) ids.add(a.id);
     return [...ids].map(x => ({ id: x, store: 'items' }));
   }
@@ -2202,29 +2190,40 @@ class SqliteFsAdapter {
     const actor  = author || this.config.owner;
     const ann    = { id, targetId, author: actor, content, createdAt: now.toISOString(), parentAnnotationId };
 
-    // Annotation is a real `annotation` item.json parented under its target, in
-    // the "comments" aspect so it stays out of default content traversal. The
-    // item.json is the source of truth; the annotations table is derived.
+    // Annotation is a real `annotation` item.json under the annotation type-UUID
+    // container (universal placement rule), in the "comments" aspect so it stays
+    // out of default content traversal; it associates via payload.targetId and
+    // projects to obj_<annotation> {targetId, body, parentAnnotationId}. Author =
+    // createdBy, timestamp = createdAt. The item.json is the source of truth.
     const doc = this._metaItem({
-      id, parentId: targetId, type: 'annotation',
+      id, parentId: TYPE_ITEM_UUIDS.annotation, typeId: TYPE_ITEM_UUIDS.annotation, type: 'annotation',
       value: typeof content === 'string' ? content.slice(0, 255) : null,
       aspect: 'comments', layer: 'user',
       owner: actor, createdBy: actor, modifiedBy: actor, createdAt: now.toISOString(), modifiedAt: now.toISOString(),
     });
-    doc.payload = { content, author: actor, parentAnnotationId };
+    doc.payload = { targetId, body: content, parentAnnotationId };
     this._writeMetadataItem(doc);
     return ann;
   }
 
   annotations(targetId: any) {
-    return this._openDb()
-      .prepare('SELECT * FROM annotations WHERE target_id = ? ORDER BY created_at, id')
-      .all(targetId)
-      .map(r => ({
-        id: r.id, targetId: r.target_id, author: r.author,
-        content: r.content, createdAt: r.created_at,
+    const db    = this._openDb();
+    const table = objTableName(TYPE_ITEM_UUIDS.annotation);
+    try {
+      return db.prepare(
+        `SELECT i.id AS id, o.target_id AS target_id, o.body AS body,
+                o.parent_annotation_id AS parent_annotation_id,
+                m.created_at AS created_at, m.created_by AS created_by
+           FROM items i JOIN "${table}" o ON o.item_id = i.id
+           LEFT JOIN items_meta m ON m.item_id = i.id
+          WHERE i.type = 'annotation' AND o.target_id = ? AND m.deleted_at IS NULL
+          ORDER BY m.created_at, i.id`,
+      ).all(targetId).map((r: any) => ({
+        id: r.id, targetId: r.target_id, author: r.created_by,
+        content: r.body, createdAt: r.created_at,
         parentAnnotationId: r.parent_annotation_id,
       }));
+    } catch { return []; }
   }
 
   // ─── Relationships ─────────────────────────────────────────────────────────
@@ -2328,6 +2327,13 @@ class SqliteFsAdapter {
   // Alias item ids pointing at a target item (cascade helper). Guarded.
   _aliasItemsTargeting(db: SqlDatabase, id: any): any[] {
     const table = objTableName(TYPE_ITEM_UUIDS.alias);
+    try { return db.prepare(`SELECT item_id AS id FROM "${table}" WHERE target_id = ?`).all(id); }
+    catch { return []; }
+  }
+
+  // Annotation item ids on a target item (cascade helper). Guarded.
+  _annotationItemsTargeting(db: SqlDatabase, id: any): any[] {
+    const table = objTableName(TYPE_ITEM_UUIDS.annotation);
     try { return db.prepare(`SELECT item_id AS id FROM "${table}" WHERE target_id = ?`).all(id); }
     catch { return []; }
   }
@@ -2463,8 +2469,8 @@ class SqliteFsAdapter {
       FROM items i LEFT JOIN items_meta m ON m.item_id = i.id
     `;
 
-    // Metadata items (annotations live under their target via the "comments"
-    // aspect) are not part of the content tree.
+    // Metadata items (alias/relationship/annotation live under their type-UUID
+    // container, associating via a payload ref) are not part of the content tree.
     const exclude = " AND i.type NOT IN ('root', 'types', 'alias', 'relationship', 'relationship-type', 'annotation', 'item_history', 'type')";
     // With an implicit root we skip the root node and start its CHILDREN at
     // traversal-depth 0, so the absolute path is already one level deeper than
@@ -2697,7 +2703,6 @@ class SqliteFsAdapter {
       db.prepare('DELETE FROM item_tags').run();
       db.prepare('DELETE FROM backlinks').run();
       db.prepare('DELETE FROM history').run();
-      db.prepare('DELETE FROM annotations').run();
       db.prepare('DELETE FROM items').run();
       if (this._isSparse()) this._rebuildFromFsSparse(db);
       else                  this._rebuildFromFs(db);

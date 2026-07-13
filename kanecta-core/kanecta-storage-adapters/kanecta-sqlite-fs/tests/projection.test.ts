@@ -387,3 +387,72 @@ describe('per-type projection — alias', () => {
     cleanup(a);
   });
 });
+
+// ─── Projected built-in metadata: annotation ────────────────────────────────────
+// Annotations are `annotation` items under the annotation type-UUID container,
+// projected to obj_<annotation> {targetId, body, parentAnnotationId}; author =
+// createdBy. The bespoke `annotations` table is gone.
+
+const ANNOTATION_TYPE_ID = '235d6155-db2a-4232-9548-8f5a66150d82';
+const ANN_TABLE          = objTableName(ANNOTATION_TYPE_ID);
+
+describe('per-type projection — annotation', () => {
+  test('the bespoke annotations table is gone', () => {
+    const a = tmpAdapter();
+    const gone = a._openDb()
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='annotations'").get();
+    expect(gone).toBeUndefined();
+    cleanup(a);
+  });
+
+  test('annotate() projects a row and parents under the type container', () => {
+    const a = tmpAdapter();
+    const t = a.create({ value: 'target' });
+    const ann = a.annotate(t.id, { content: 'a note', author: 'alice@x.z' });
+    expect(a.listProjectedRelations()).toContain(ANN_TABLE);
+    const row = a._openDb().prepare(`SELECT * FROM "${ANN_TABLE}"`).get();
+    expect(row.target_id).toBe(t.id);
+    expect(row.body).toBe('a note');
+    expect(row.parent_annotation_id).toBeNull();
+    const item = a.get(ann.id);
+    expect(item.parentId).toBe(ANNOTATION_TYPE_ID);
+    expect(item.typeId).toBe(ANNOTATION_TYPE_ID);
+    cleanup(a);
+  });
+
+  test('annotations() reads the projection: author=createdBy, threaded replies', () => {
+    const a = tmpAdapter();
+    const t = a.create({ value: 'target' });
+    const root  = a.annotate(t.id, { content: 'root', author: 'alice@x.z' });
+    a.annotate(t.id, { content: 'reply', parentAnnotationId: root.id });
+    const anns = a.annotations(t.id);
+    expect(anns).toHaveLength(2);
+    expect(anns[0].author).toBe('alice@x.z');
+    expect(anns[0].content).toBe('root');
+    expect(anns[1].parentAnnotationId).toBe(root.id);
+    expect(a.annotations(a.create({ value: 'x' }).id)).toEqual([]);   // empty, no throw
+    cleanup(a);
+  });
+
+  test('deleting the target cascades threaded annotations out of the projection', () => {
+    const a = tmpAdapter();
+    const t = a.create({ value: 'target' });
+    const root = a.annotate(t.id, { content: 'root' });
+    a.annotate(t.id, { content: 'reply', parentAnnotationId: root.id });
+    a.delete(t.id);
+    expect(a.annotations(t.id)).toEqual([]);
+    cleanup(a);
+  });
+
+  test('projection survives a full rebuild from the filesystem', () => {
+    const a = tmpAdapter();
+    const t = a.create({ value: 'target' });
+    a.annotate(t.id, { content: 'persisted note', author: 'bob@x.z' });
+    a.rebuildIndexes();
+    const anns = a.annotations(t.id);
+    expect(anns).toHaveLength(1);
+    expect(anns[0].content).toBe('persisted note');
+    expect(anns[0].author).toBe('bob@x.z');
+    cleanup(a);
+  });
+});
