@@ -137,13 +137,18 @@ describe('corrupted datastores', () => {
     expect(isValueOverLong({})).toBe(false);
   });
 
-  test('dangling alias fails alias-targets-resolve', async () => {
+  test('the alias projection FK rejects a dangling target; valid aliases resolve', async () => {
     const ds = tmpDs();
-    await ds.setAlias('ghost', RANDOM_UUID);
+    // Aliases now project to obj_<alias> whose target_id → items(id): a dangling
+    // alias can no longer be created via the API (the FK rejects it) — a stronger
+    // guarantee than the alias-targets-resolve check, which still guards
+    // hand-edited stores / rebuilds. (Mirrors the Postgres reference/view cutover.)
+    await expect(ds.setAlias('ghost', RANDOM_UUID)).rejects.toThrow();
+    // A valid alias projects and passes the check.
+    const real = await ds.create({ value: 'real', type: 'string' });
+    await ds.setAlias('good', real.id);
     const rep = await report(ds, { checks: ['alias-targets-resolve'] });
-    const r = byId(rep, 'alias-targets-resolve');
-    expect(r.status).toBe('fail');
-    expect(r.findings.some((f: any) => f.alias === 'ghost')).toBe(true);
+    expect(byId(rep, 'alias-targets-resolve').status).toBe('pass');
   });
 
   test('case-insensitive duplicate alias fails alias-uniqueness', async () => {
