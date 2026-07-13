@@ -310,3 +310,80 @@ describe('per-type projection — relationship', () => {
     cleanup(a);
   });
 });
+
+// ─── Projected built-in metadata: alias ─────────────────────────────────────────
+// Aliases are `alias` items projected to obj_<alias> — the alias string is
+// item.value; the payload holds target_id/…. The bespoke `aliases` table is gone.
+
+const ALIAS_TYPE_ID = '80f95b21-6c51-43b5-bdfb-35aad8991c7a';
+const ALIAS_TABLE   = objTableName(ALIAS_TYPE_ID);
+
+describe('per-type projection — alias', () => {
+  test('the bespoke aliases table is gone', () => {
+    const a = tmpAdapter();
+    const gone = a._openDb()
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='aliases'").get();
+    expect(gone).toBeUndefined();
+    cleanup(a);
+  });
+
+  test('setAlias() projects a row with the spec column shape; the string is item.value', () => {
+    const a = tmpAdapter();
+    const t = a.create({ value: 'target' });
+    a.setAlias('the-alias', t.id);
+    expect(a.listProjectedRelations()).toContain(ALIAS_TABLE);
+    const row = a._openDb().prepare(`SELECT * FROM "${ALIAS_TABLE}"`).get();
+    expect(row.target_id).toBe(t.id);
+    expect(row.provisional).toBe(0);
+    expect(row.assigned_by).toBeNull();
+    expect(row.computed_from_formula_id).toBeNull();
+    const aliasItem = a.get(row.item_id);
+    expect(aliasItem.value).toBe('the-alias');
+    expect(aliasItem.typeId).toBe(ALIAS_TYPE_ID);
+    cleanup(a);
+  });
+
+  test('resolveAlias/listAliases/removeAlias read + write the projection', () => {
+    const a = tmpAdapter();
+    const t = a.create({ value: 'target' });
+    a.setAlias('a1', t.id);
+    expect(a.resolveAlias('a1')).toBe(t.id);
+    expect(a.resolveAlias('missing')).toBeNull();          // no throw on empty match
+    expect(a.listAliases()).toEqual([{ alias: 'a1', targetId: t.id }]);
+    a.removeAlias('a1');
+    expect(a.resolveAlias('a1')).toBeNull();
+    expect(a.listAliases()).toEqual([]);
+    cleanup(a);
+  });
+
+  test('setAlias() overwrites the target of an existing alias string', () => {
+    const a = tmpAdapter();
+    const t1 = a.create({ value: 't1' });
+    const t2 = a.create({ value: 't2' });
+    a.setAlias('same', t1.id);
+    a.setAlias('same', t2.id);
+    expect(a.resolveAlias('same')).toBe(t2.id);
+    expect(a.listAliases()).toHaveLength(1);
+    cleanup(a);
+  });
+
+  test('deleting the target cascades the alias out of the projection', () => {
+    const a = tmpAdapter();
+    const t = a.create({ value: 'target' });
+    a.setAlias('gone-soon', t.id);
+    a.delete(t.id);
+    expect(a.resolveAlias('gone-soon')).toBeNull();
+    expect(a.listAliases()).toEqual([]);
+    cleanup(a);
+  });
+
+  test('projection survives a full rebuild from the filesystem', () => {
+    const a = tmpAdapter();
+    const t = a.create({ value: 'target' });
+    a.setAlias('persists', t.id);
+    a.rebuildIndexes();
+    expect(a.resolveAlias('persists')).toBe(t.id);
+    expect(a.listAliases()).toEqual([{ alias: 'persists', targetId: t.id }]);
+    cleanup(a);
+  });
+});

@@ -131,7 +131,7 @@ const BUILT_IN_TYPE_DEF_BY_ID: Record<string, any> = Object.fromEntries(
 // lookup table is retired. (relationship-type is seeded as FK targets but its
 // jsonSchema is empty — its projection is special-cased in Postgres and stays a
 // follow-up, so it is intentionally absent here.)
-const PROJECTED_BUILT_IN_TYPES = new Set(['relationship']);
+const PROJECTED_BUILT_IN_TYPES = new Set(['relationship', 'alias']);
 
 class UnknownTypeError extends Error {
   code: string;
@@ -269,12 +269,6 @@ CREATE TABLE IF NOT EXISTS history (
 );
 CREATE INDEX IF NOT EXISTS idx_hist_item    ON history(item_id);
 CREATE INDEX IF NOT EXISTS idx_hist_changed ON history(changed_at);
-
-CREATE TABLE IF NOT EXISTS aliases (
-  alias     TEXT PRIMARY KEY,
-  target_id TEXT NOT NULL,
-  item_id   TEXT
-);
 
 CREATE TABLE IF NOT EXISTS type_defs (
   id            TEXT PRIMARY KEY,
@@ -825,15 +819,12 @@ class SqliteFsAdapter {
       this._projectObjectRow(db, id, projTypeId, payload ?? {});
   }
 
-  // Project an alias/relationship/annotation item.json into its derived lookup
-  // table. No-op for ordinary content items.
+  // Project an annotation item.json into its derived lookup table. No-op for
+  // ordinary content items. (alias/relationship now use obj_<typeId>.)
   _indexMetadataDoc(db: SqlDatabase, doc: any) {
     const { item, meta, payload } = doc;
     const p = payload || {};
-    if (item.type === 'alias') {
-      db.prepare('INSERT OR REPLACE INTO aliases (alias, target_id, item_id) VALUES (?, ?, ?)')
-        .run(item.value, p.targetId ?? null, item.id);
-    } else if (item.type === 'annotation') {
+    if (item.type === 'annotation') {
       db.prepare(
         'INSERT OR REPLACE INTO annotations (id, target_id, author, content, created_at, parent_annotation_id) VALUES (?, ?, ?, ?, ?, ?)'
       ).run(item.id, item.parentId, p.author ?? meta?.createdBy ?? null,
@@ -969,10 +960,9 @@ class SqliteFsAdapter {
     db.prepare('DELETE FROM item_tags     WHERE item_id = ?').run(itemId);
     db.prepare('DELETE FROM backlinks     WHERE source_id = ?').run(itemId);
     db.prepare('DELETE FROM items         WHERE id = ?').run(itemId);
-    // The obj_<relationship> row cascaded away with the items row (FK ON DELETE
-    // CASCADE); alias/annotation still have bespoke lookup tables to clean up.
-    if      (type === 'alias')      db.prepare('DELETE FROM aliases     WHERE item_id = ?').run(itemId);
-    else if (type === 'annotation') db.prepare('DELETE FROM annotations WHERE id = ?').run(itemId);
+    // The obj_<relationship>/obj_<alias> rows cascaded away with the items row (FK
+    // ON DELETE CASCADE); annotation still has a bespoke lookup table to clean up.
+    if (type === 'annotation') db.prepare('DELETE FROM annotations WHERE id = ?').run(itemId);
   }
 
   // When a content item is deleted, cascade-delete the metadata items that hang
@@ -983,8 +973,8 @@ class SqliteFsAdapter {
       this._deleteMetadataItem(db, r.id, 'relationship');
     for (const a of db.prepare('SELECT id FROM annotations WHERE target_id = ?').all(id))
       this._deleteMetadataItem(db, a.id, 'annotation');
-    for (const a of db.prepare('SELECT item_id FROM aliases WHERE target_id = ?').all(id))
-      if (a.item_id) this._deleteMetadataItem(db, a.item_id, 'alias');
+    for (const a of this._aliasItemsTargeting(db, id))
+      if (a.id) this._deleteMetadataItem(db, a.id, 'alias');
   }
 
   _updateIndexMeta(db: SqlDatabase, id: any, meta: any, tags: any) {
@@ -1581,7 +1571,7 @@ class SqliteFsAdapter {
   }
 
   resolveAlias(alias: any) {
-    const row = this._openDb().prepare('SELECT target_id FROM aliases WHERE alias = ?').get(alias);
+    const row = this._aliasItemByValueSafe(this._openDb(), alias);
     return row ? row.target_id : null;
   }
 
@@ -1777,7 +1767,7 @@ class SqliteFsAdapter {
     const ids = new Set();
     for (const r of this._relItemsTouching(db, id)) ids.add(r.id);
     for (const a of db.prepare('SELECT id FROM annotations WHERE target_id = ?').all(id)) ids.add(a.id);
-    for (const a of db.prepare('SELECT item_id FROM aliases WHERE target_id = ?').all(id)) if (a.item_id) ids.add(a.item_id);
+    for (const a of this._aliasItemsTargeting(db, id)) if (a.id) ids.add(a.id);
     return [...ids].map(x => ({ id: x, store: 'items' }));
   }
 
@@ -2171,12 +2161,15 @@ class SqliteFsAdapter {
   setAlias(alias: any, id: any) {
     const db = this._openDb();
     // Overwrite: drop any existing alias item carrying this string first.
-    const existing = db.prepare('SELECT item_id FROM aliases WHERE alias = ?').get(alias);
+    const existing = this._aliasItemByValueSafe(db, alias);
     if (existing?.item_id) db.transaction(() => this._deleteMetadataItem(db, existing.item_id, 'alias'))();
 
     const now = new Date().toISOString();
+    // An `alias` item projected to obj_<alias>: the string is item.value; the
+    // payload holds targetId/assignedBy/provisional/confirmedAt/computedFromFormulaId.
     const doc = this._metaItem({
-      id: crypto.randomUUID(), parentId: TYPE_ITEM_UUIDS.alias, type: 'alias', value: alias,
+      id: crypto.randomUUID(), parentId: TYPE_ITEM_UUIDS.alias, typeId: TYPE_ITEM_UUIDS.alias,
+      type: 'alias', value: alias,
     });
     doc.payload = { targetId: id, assignedBy: null, provisional: false, confirmedAt: now, computedFromFormulaId: null };
     this._writeMetadataItem(doc);
@@ -2184,14 +2177,21 @@ class SqliteFsAdapter {
 
   removeAlias(alias: any) {
     const db = this._openDb();
-    const existing = db.prepare('SELECT item_id FROM aliases WHERE alias = ?').get(alias);
+    const existing = this._aliasItemByValueSafe(db, alias);
     if (existing?.item_id) db.transaction(() => this._deleteMetadataItem(db, existing.item_id, 'alias'))();
-    else db.prepare('DELETE FROM aliases WHERE alias = ?').run(alias);
   }
 
   listAliases() {
-    return this._openDb().prepare('SELECT alias, target_id FROM aliases ORDER BY alias').all()
-      .map(r => ({ alias: r.alias, targetId: r.target_id }));
+    const db = this._openDb();
+    try {
+      return db.prepare(
+        `SELECT i.value AS alias, o.target_id AS target_id
+           FROM items i JOIN "${objTableName(TYPE_ITEM_UUIDS.alias)}" o ON o.item_id = i.id
+           LEFT JOIN items_meta m ON m.item_id = i.id
+          WHERE i.type = 'alias' AND m.deleted_at IS NULL
+          ORDER BY i.value`,
+      ).all().map((r: any) => ({ alias: r.alias, targetId: r.target_id }));
+    } catch { return []; }
   }
 
   // ─── Annotations ───────────────────────────────────────────────────────────
@@ -2307,6 +2307,28 @@ class SqliteFsAdapter {
   _relItemsTouching(db: SqlDatabase, id: any): any[] {
     const table = objTableName(TYPE_ITEM_UUIDS.relationship);
     try { return db.prepare(`SELECT item_id AS id FROM "${table}" WHERE source_id = ? OR target_id = ?`).all(id, id); }
+    catch { return []; }
+  }
+
+  // The live alias item carrying this string (its value), or undefined. The alias
+  // string is item.value; obj_<alias> holds target_id/… Guarded for the lazily
+  // materialised table. Case-sensitive exact match, preserving prior behaviour.
+  _aliasItemByValue(db: SqlDatabase, alias: any): any {
+    return db.prepare(
+      `SELECT i.id AS item_id, o.target_id AS target_id
+         FROM items i JOIN "${objTableName(TYPE_ITEM_UUIDS.alias)}" o ON o.item_id = i.id
+         LEFT JOIN items_meta m ON m.item_id = i.id
+        WHERE i.type = 'alias' AND i.value = ? AND m.deleted_at IS NULL LIMIT 1`,
+    ).get(alias);
+  }
+  _aliasItemByValueSafe(db: SqlDatabase, alias: any): any {
+    try { return this._aliasItemByValue(db, alias); } catch { return undefined; }
+  }
+
+  // Alias item ids pointing at a target item (cascade helper). Guarded.
+  _aliasItemsTargeting(db: SqlDatabase, id: any): any[] {
+    const table = objTableName(TYPE_ITEM_UUIDS.alias);
+    try { return db.prepare(`SELECT item_id AS id FROM "${table}" WHERE target_id = ?`).all(id); }
     catch { return []; }
   }
 
@@ -2675,7 +2697,6 @@ class SqliteFsAdapter {
       db.prepare('DELETE FROM item_tags').run();
       db.prepare('DELETE FROM backlinks').run();
       db.prepare('DELETE FROM history').run();
-      db.prepare('DELETE FROM aliases').run();
       db.prepare('DELETE FROM annotations').run();
       db.prepare('DELETE FROM items').run();
       if (this._isSparse()) this._rebuildFromFsSparse(db);
@@ -2903,7 +2924,7 @@ class SqliteFsAdapter {
     const children = db.prepare('SELECT id FROM items WHERE parent_id = ? AND id != parent_id').all(id).map(r => r.id);
     const links    = this.backlinks(id);
     const relationships = (this.relationships(id).inbound || []).map(r => r.sourceId).filter(Boolean);
-    const aliases  = db.prepare('SELECT item_id FROM aliases WHERE target_id = ?').all(id).map(r => r.item_id).filter(Boolean);
+    const aliases  = this._aliasItemsTargeting(db, id).map((r: any) => r.id).filter(Boolean);
     return { children, links, relationships, aliases };
   }
 
@@ -3042,10 +3063,22 @@ class SqliteFsAdapter {
       if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
     };
 
+    // Metadata items (alias/relationship/annotation) referencing a deleted item
+    // would be left dangling on main's tree; obj_<alias>/obj_<relationship> carry
+    // FKs to items(id), so a dangling edge breaks the post-merge rebuild. Cascade
+    // their item.json removal here — mirroring the normal delete cascade and the
+    // Postgres adapter (deleting an item removes its aliases). The blast radius was
+    // already surfaced above for the caller; this only reconciles the tree.
+    const mainDb = this._openDb();
     let merged = 0, skipped = 0;
     for (const a of preview.adds)    { if (skip(a.id)) { skipped++; continue; } writeMainDoc(a.id, a.doc); merged++; }
     for (const e of preview.edits)   { if (skip(e.id)) { skipped++; continue; } writeMainDoc(e.id, e.doc); merged++; }
-    for (const d of preview.deletes) { if (skip(d.id)) { skipped++; continue; } deleteMainDoc(d.id);       merged++; }
+    for (const d of preview.deletes) {
+      if (skip(d.id)) { skipped++; continue; }
+      for (const op of this._cascadeMetadataOps(mainDb, d.id)) deleteMainDoc(op.id);
+      deleteMainDoc(d.id);
+      merged++;
+    }
 
     // index.db is fully derived — rebuild main's index from its files.
     this.rebuildIndexes();
