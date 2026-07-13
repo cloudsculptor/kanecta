@@ -23,6 +23,13 @@ const T1 = 'aa000000-0000-4000-8000-000000000001';
 const M1 = 'aa000000-0000-4000-8000-000000000002';
 const M2 = 'aa000000-0000-4000-8000-000000000003';
 const F1 = 'aa000000-0000-4000-8000-000000000004';
+// A relationship-type item whose value is the 'attaches' slug, and the M1→F1
+// relationship item that projects into obj_<relationship-type>. The built-in
+// relationship type id is fixed (matches kanecta-postgres / PgDataSource).
+const RELATIONSHIP_TYPE_ID = '334ea5f6-6bfa-43e5-b77f-5d811642d897';
+const REL_OBJ = `obj_${RELATIONSHIP_TYPE_ID.replace(/-/g, '_')}`;
+const ATTACHES_TYPE = 'aa000000-0000-4000-8000-0000000000a1'; // relationship-type item (value='attaches')
+const REL1 = 'aa000000-0000-4000-8000-0000000000b1'; // the M1→F1 relationship item
 
 const model = buildSchemaModel([chThread, chMessage, chFile]);
 
@@ -38,10 +45,13 @@ run('engine ↔ Postgres (real)', () => {
     await admin.query(`CREATE SCHEMA "${SCHEMA}"`);
     pool = new Pool({ connectionString: PG_URL, options: `-c search_path="${SCHEMA}"` });
 
-    // Minimal real schema: items (FK target) + relationships, then each type's
-    // obj table straight from the compiler.
-    await pool.query(`CREATE TABLE items (id UUID PRIMARY KEY, parent_id UUID, type_id UUID, deleted_at TIMESTAMPTZ)`);
-    await pool.query(`CREATE TABLE relationships (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), source_id UUID, target_id UUID, type TEXT)`);
+    // Minimal real schema: items (FK target) + obj_<relationship-type>, then each
+    // type's obj table straight from the compiler.
+    await pool.query(`CREATE TABLE items (id UUID PRIMARY KEY, parent_id UUID, type_id UUID, value TEXT, deleted_at TIMESTAMPTZ)`);
+    // Relationships project to obj_<relationship-type> (spec §relationshipPayload) —
+    // the bespoke `relationships` table is retired. Columns mirror the pg adapter's
+    // relationship projection (item_id, type_id → the relationship-type item, endpoints).
+    await pool.query(`CREATE TABLE "${REL_OBJ}" (item_id UUID PRIMARY KEY, type_id UUID, source_id UUID, target_id UUID, data JSONB, confidence REAL, note TEXT)`);
     for (const t of [chThread, chMessage, chFile]) {
       for (const ddl of deriveSqlSchema((t as any).payload.jsonSchema, { typeId: t.item.id, dialect: 'postgres' })) {
         await pool.query(ddl);
@@ -59,7 +69,11 @@ run('engine ↔ Postgres (real)', () => {
     await pool.query(`INSERT INTO "${message}" (item_id, thread_id, user_name, content, created_at) VALUES ($1,$2,'Alice','Hello','2026-01-02T00:00:00Z')`, [M1, T1]);
     await pool.query(`INSERT INTO "${message}" (item_id, thread_id, user_name, content, created_at) VALUES ($1,$2,'Bob','Reply','2026-01-03T00:00:00Z')`, [M2, T1]);
     await pool.query(`INSERT INTO "${file}" (item_id, name, mime_type, size_bytes) VALUES ($1,'a.png','image/png',10)`, [F1]);
-    await pool.query(`INSERT INTO relationships (source_id, target_id, type) VALUES ($1,$2,'attaches')`, [M1, F1]);
+    // The 'attaches' relationship: its relationship-type item (value = the slug), the
+    // relationship item itself, and its obj_<relationship-type> projection row (M1→F1).
+    await pool.query(`INSERT INTO items (id, parent_id, type_id, value) VALUES ($1, NULL, NULL, 'attaches')`, [ATTACHES_TYPE]);
+    await pool.query(`INSERT INTO items (id, parent_id, type_id) VALUES ($1, NULL, $2)`, [REL1, RELATIONSHIP_TYPE_ID]);
+    await pool.query(`INSERT INTO "${REL_OBJ}" (item_id, type_id, source_id, target_id) VALUES ($1, $2, $3, $4)`, [REL1, ATTACHES_TYPE, M1, F1]);
 
     ds = new PgDataSource(pool, model);
     exec = new Executor(model, ds);
@@ -120,6 +134,31 @@ run('engine ↔ Postgres (real)', () => {
     const denied = new Set([M2]);
     const rows = await exec.resolveList('ChMessage', {}, { id: true }, { authorize: (id) => !denied.has(id) });
     expect(rows.map((r) => r.id)).toEqual([M1]);
+  });
+
+  it('related(): reads obj_<relationship-type>, resolves the slug, and filters by direction', async () => {
+    // Outgoing: M1 --attaches--> F1 (the slug is recovered via type_id → items.value).
+    const out = await ds.related(M1, 'attaches', 'outgoing', 'ChFile');
+    expect(out.map((r) => r.id)).toEqual([F1]);
+    // Incoming: F1 <--attaches-- M1.
+    const inc = await ds.related(F1, 'attaches', 'incoming', 'ChMessage');
+    expect(inc.map((r) => r.id)).toEqual([M1]);
+    // A slug with no matching relationship-type item resolves to nothing.
+    const none = await ds.related(M1, 'mentions', 'outgoing', 'ChFile');
+    expect(none).toEqual([]);
+    // undefined = any type: still finds the attaches edge.
+    const any = await ds.related(M1, undefined, 'outgoing', 'ChFile');
+    expect(any.map((r) => r.id)).toEqual([F1]);
+  });
+
+  it('related(): a soft-deleted relationship item drops out', async () => {
+    await pool.query(`UPDATE items SET deleted_at = now() WHERE id = $1`, [REL1]);
+    try {
+      const out = await ds.related(M1, 'attaches', 'outgoing', 'ChFile');
+      expect(out).toEqual([]);
+    } finally {
+      await pool.query(`UPDATE items SET deleted_at = NULL WHERE id = $1`, [REL1]);
+    }
   });
 
   it('runComputed: a declarative query-backed replyCount runs end-to-end', async () => {

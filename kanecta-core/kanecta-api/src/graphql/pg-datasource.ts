@@ -4,8 +4,8 @@
 //   getById   → SELECT the obj_<type> row + the item's parent_id
 //   query     → compileSelect (G1 where/sort/pagination) → item ids → load rows
 //   children  → obj_<targetType> rows whose item's parent_id = this item (containment)
-//   related   → relationship items of a given type (reference collections)
-//   runComputed → NOT yet wired (needs the runner) — see below
+//   related   → obj_<relationship-type> edges of a given slug (reference collections)
+//   runComputed → the field's backing query/formula item (declarative-first)
 //
 // It reads obj_<type> tables raw (snake_case columns), which is exactly what the
 // executor's `backing.column` expects; the executor owns the camelCase wire
@@ -22,11 +22,21 @@ export interface SqlClient {
   query(sql: string, params?: unknown[]): Promise<{ rows: any[] }>;
 }
 
+// Relationships project to obj_<relationship-type> (spec §relationshipPayload) —
+// the bespoke `relationships` table was retired by the uniform-projection epic.
+// Columns: item_id, type_id (→ the relationship-type item), source_id, target_id,
+// data, confidence, note. The slug ('attaches', …) is the relationship-type item's
+// `value`, recovered via o.type_id → items. Matches kanecta-postgres' RELATIONSHIP_TYPE_ID.
+const RELATIONSHIP_TYPE_ID = '334ea5f6-6bfa-43e5-b77f-5d811642d897';
+const objTableName = (typeId: string): string => `obj_${typeId.replace(/-/g, '_')}`;
+
 export interface PgDataSourceOptions {
   /** The items table (default 'items'). */
   itemsTable?: string;
-  /** The relationships table (default 'relationships'), with source_id/target_id/type. */
-  relationshipsTable?: string;
+  /** The obj_<relationship-type> projection table (default derived from the built-in
+   *  relationship type id). Relationships project here — there is no bespoke
+   *  `relationships` table after the uniform-projection epic. */
+  relationshipObjTable?: string;
   /** Computed-field runner map: a computed field's `backedBy` id → its resolved
    *  `query`/`formula` spec (see buildComputedMap). Absent → runComputed throws
    *  (the pre-runner behaviour) only when a computed field is actually selected. */
@@ -51,7 +61,7 @@ export class PgDataSource implements DataSource {
       this.modelByType.set(t.name, t);
     }
     this.items = opts.itemsTable ?? 'items';
-    this.rels = opts.relationshipsTable ?? 'relationships';
+    this.rels = opts.relationshipObjTable ?? objTableName(RELATIONSHIP_TYPE_ID);
     this.computed = opts.computed ?? new Map();
   }
 
@@ -111,11 +121,22 @@ export class PgDataSource implements DataSource {
 
   async related(id: string, relationshipType: string | undefined, direction: 'outgoing' | 'incoming', targetTypeName: string): Promise<StoredRow[]> {
     const rels = q(this.rels);
+    const items = q(this.items);
     const fromCol = direction === 'outgoing' ? 'source_id' : 'target_id';
     const toCol = direction === 'outgoing' ? 'target_id' : 'source_id';
+    // Read the obj_<relationship-type> projection (mirrors kanecta-postgres'
+    // relationships()): the edge's own item (o.item_id) is joined so soft-deleted
+    // relationships drop out, and the slug is recovered from the relationship-type
+    // item via o.type_id → items.value. `relationshipType` undefined = any type.
+    const slugFilter = relationshipType === undefined ? '' : 'AND rt.value = $2';
+    const params: unknown[] = relationshipType === undefined ? [id] : [id, relationshipType];
     const { rows: relRows } = await this.client.query(
-      `SELECT ${toCol} AS oid FROM ${rels} WHERE ${fromCol} = $1 AND type = $2`,
-      [id, relationshipType ?? null],
+      `SELECT o.${toCol} AS oid
+         FROM ${rels} o
+         JOIN ${items} ri ON ri.id = o.item_id AND ri.deleted_at IS NULL
+         LEFT JOIN ${items} rt ON rt.id = o.type_id
+        WHERE o.${fromCol} = $1 ${slugFilter}`,
+      params,
     );
     const ids = relRows.map((r) => String(r.oid));
     if (!ids.length) return [];
