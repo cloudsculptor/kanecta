@@ -27,6 +27,8 @@ interface SqlDatabase {
 const specVersion: string = spec.version;
 const primitiveTypes = spec.primitiveTypes;
 const builtInTypeItems: any[] = (spec as any).builtInTypeItems;
+// Mandatory seed instances the platform depends on (the 19 built-in licences).
+const builtInSystemItems: any[] = (spec as any).builtInSystemItems ?? [];
 
 // ─── Icons (resolved on read, never stored on the item) ─────────────────────────
 // Every item gets a MUI icon slug on read. It is resolved from the item's type:
@@ -131,7 +133,7 @@ const BUILT_IN_TYPE_DEF_BY_ID: Record<string, any> = Object.fromEntries(
 // lookup table is retired. (relationship-type is seeded as FK targets but its
 // jsonSchema is empty — its projection is special-cased in Postgres and stays a
 // follow-up, so it is intentionally absent here.)
-const PROJECTED_BUILT_IN_TYPES = new Set(['relationship', 'alias', 'annotation']);
+const PROJECTED_BUILT_IN_TYPES = new Set(['relationship', 'alias', 'annotation', 'licence']);
 
 class UnknownTypeError extends Error {
   code: string;
@@ -572,6 +574,7 @@ class SqliteFsAdapter {
     // (idempotent — a no-op once present), so icon resolution always has them.
     adapter._ensureBuiltInTypes();
     adapter._ensureRelationshipTypeItems();
+    adapter._ensureSystemItems();
     adapter._loadRoots();
     return adapter;
   }
@@ -1301,6 +1304,7 @@ class SqliteFsAdapter {
     if (!this.get(TYPES_NODE))    this._createWellKnownNode(TYPES_NODE, ROOT_ID,    'types', 1);
     this._ensureBuiltInTypes();
     this._ensureRelationshipTypeItems();
+    this._ensureSystemItems();
     this._loadRoots();
   }
 
@@ -1344,6 +1348,42 @@ class SqliteFsAdapter {
         const id = src.item.id;
         if (this._getRow(db, id)) continue;            // already seeded
         const doc = { item: src.item, meta: src.meta, search: src.search ?? null, payload: src.payload ?? null, time: src.time ?? null };
+        this._writeItemJson(id, doc);
+        this._insertIndexTx(db, id, doc, `${parentPath}/${id}`);
+        wrote = true;
+      }
+    })();
+    if (wrote) this._mem.clear();
+  }
+
+  // Seed the mandatory built-in system items (the 19 licences, incl. the default
+  // DEFAULT_LICENSE) as real `licence` items under the licence type container, from
+  // @kanecta/specification, projecting {spdxId,name,url,text} → obj_<licence> —
+  // mirroring the Postgres adapter's _ensureSystemItems. This gives DEFAULT_LICENSE
+  // (referenced by every item's meta.license) a real backing item. Idempotent:
+  // backfills on open. (sqlite has no items.license FK, so no reparent dance.)
+  _ensureSystemItems() {
+    if (!builtInSystemItems.length) return;
+    const db = this._openDb();
+    const licenceTypeId = BUILT_IN_TYPE_ID_BY_NAME['licence'];
+    if (!licenceTypeId) return;
+    const typesPath  = this._getPath(TYPES_NODE) ?? TYPES_NODE;
+    const parentPath = this._getPath(licenceTypeId) ?? `${typesPath}/${licenceTypeId}`;
+    let wrote = false;
+    db.transaction(() => {
+      for (const src of builtInSystemItems) {
+        const id = src.item.id;
+        if (this._getRow(db, id)) continue;            // already seeded
+        // Build a full 5-section doc from the seed's minimal meta.
+        const doc = this._metaItem({
+          id, parentId: src.item.parentId ?? licenceTypeId, typeId: licenceTypeId,
+          type: src.item.type ?? 'licence', value: src.item.value,
+          owner: src.meta?.owner ?? this.config.owner,
+          license: src.meta?.license ?? DEFAULT_LICENSE,
+          visibility: src.meta?.visibility ?? 'public',
+          layer: src.meta?.layer ?? 'core',
+        });
+        doc.payload = src.payload ?? {};
         this._writeItemJson(id, doc);
         this._insertIndexTx(db, id, doc, `${parentPath}/${id}`);
         wrote = true;
@@ -2399,7 +2439,7 @@ class SqliteFsAdapter {
              m.connector_id, m.materialized, m.files, m.layer,
              m.source_system, m.source_external_id, m.icon
       FROM items i LEFT JOIN items_meta m ON m.item_id = i.id
-      WHERE i.type NOT IN ('alias', 'relationship', 'relationship-type', 'annotation', 'item_history', 'type')
+      WHERE i.type NOT IN ('alias', 'relationship', 'relationship-type', 'annotation', 'licence', 'item_history', 'type')
     `).all().map(r => this._rowToItem(r));
   }
 
@@ -2471,7 +2511,7 @@ class SqliteFsAdapter {
 
     // Metadata items (alias/relationship/annotation live under their type-UUID
     // container, associating via a payload ref) are not part of the content tree.
-    const exclude = " AND i.type NOT IN ('root', 'types', 'alias', 'relationship', 'relationship-type', 'annotation', 'item_history', 'type')";
+    const exclude = " AND i.type NOT IN ('root', 'types', 'alias', 'relationship', 'relationship-type', 'annotation', 'licence', 'item_history', 'type')";
     // With an implicit root we skip the root node and start its CHILDREN at
     // traversal-depth 0, so the absolute path is already one level deeper than
     // the traversal depth — widen the SQL bound by one to match.
@@ -2573,7 +2613,7 @@ class SqliteFsAdapter {
     if (!row?.path) return 0;
     const r = this._openDb().prepare(
       `SELECT COUNT(*) AS cnt FROM items WHERE (path = ? OR path LIKE ?)
-       AND type NOT IN ('alias', 'relationship', 'relationship-type', 'annotation', 'item_history', 'type')`
+       AND type NOT IN ('alias', 'relationship', 'relationship-type', 'annotation', 'licence', 'item_history', 'type')`
     ).get(row.path, row.path + '/%');
     return r?.cnt ?? 0;
   }

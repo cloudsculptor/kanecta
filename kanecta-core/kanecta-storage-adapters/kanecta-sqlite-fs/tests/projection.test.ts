@@ -218,11 +218,13 @@ describe('per-type projection — rebuildIndexes', () => {
 // ─── Exemptions ────────────────────────────────────────────────────────────────
 
 describe('per-type projection — exemptions', () => {
-  test('non-object items never create an obj_ table', () => {
+  test('a primitive item creates no obj_ table of its own', () => {
     const a = tmpAdapter();
+    // A fresh store seeds the built-in licences → obj_<licence> exists; a plain
+    // text item must not add any further obj_ table.
+    const before = a.listProjectedRelations().length;
     a.create({ value: 'plain text', type: 'text' });
-    const objTables = a.listProjectedRelations();
-    expect(objTables).toEqual([]);
+    expect(a.listProjectedRelations().length).toBe(before);
     cleanup(a);
   });
 });
@@ -453,6 +455,51 @@ describe('per-type projection — annotation', () => {
     expect(anns).toHaveLength(1);
     expect(anns[0].content).toBe('persisted note');
     expect(anns[0].author).toBe('bob@x.z');
+    cleanup(a);
+  });
+});
+
+// ─── Projected built-in metadata: licence ───────────────────────────────────────
+// The built-in licences are seeded as `licence` items under the licence type
+// container and projected to obj_<licence> {spdxId,name,url,text} — giving the
+// DEFAULT_LICENSE referenced by every item's meta.license a real backing item.
+
+const LICENCE_TYPE_ID = '9798b629-06f4-495f-90e8-2d70f817466e';
+const LICENCE_TABLE   = objTableName(LICENCE_TYPE_ID);
+const DEFAULT_LICENSE = 'bb3bf137-d8a9-4264-9fb7-ac373b1d4739';
+
+describe('per-type projection — licence', () => {
+  test('the built-in licences are seeded and projected to obj_<licence>', () => {
+    const a = tmpAdapter();
+    expect(a.listProjectedRelations()).toContain(LICENCE_TABLE);
+    const n = a._openDb().prepare(`SELECT COUNT(*) AS n FROM "${LICENCE_TABLE}"`).get().n;
+    expect(n).toBe(19);
+    const row = a._openDb().prepare(`SELECT * FROM "${LICENCE_TABLE}" WHERE item_id = ?`).get(DEFAULT_LICENSE);
+    expect(row.name).toBe('All Rights Reserved (Copyright)');
+    cleanup(a);
+  });
+
+  test('DEFAULT_LICENSE has a real backing item that meta.license resolves to', () => {
+    const a = tmpAdapter();
+    expect(a.get(DEFAULT_LICENSE)?.type).toBe('licence');
+    const item = a.create({ value: 'x' });
+    const licenceId = a.get(item.id).license;
+    expect(licenceId).toBe(DEFAULT_LICENSE);
+    expect(a.get(licenceId)).not.toBeNull();               // resolves to the backing item
+    cleanup(a);
+  });
+
+  test('licence items never leak into content traversal', () => {
+    const a = tmpAdapter();
+    expect(a.loadAll().every((i: any) => i.type !== 'licence')).toBe(true);
+    cleanup(a);
+  });
+
+  test('projection is rebuilt from the filesystem', () => {
+    const a = tmpAdapter();
+    a.rebuildIndexes();
+    const n = a._openDb().prepare(`SELECT COUNT(*) AS n FROM "${LICENCE_TABLE}"`).get().n;
+    expect(n).toBe(19);
     cleanup(a);
   });
 });
