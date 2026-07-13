@@ -21,7 +21,7 @@ import {
 } from '@kanecta/specification';
 import { validateItem } from '@kanecta/specification/validator';
 import { deriveSqlSchema, deriveIndexDdl } from '@kanecta/schema-compiler';
-import { Pool } from 'pg';
+import { Pool, PoolClient, QueryResult } from 'pg';
 import { AsyncLocalStorage } from 'async_hooks';
 import { createEmbeddingProvider, reciprocalRankFusion } from './embeddings.ts';
 
@@ -261,6 +261,12 @@ class PostgresAdapter {
   _ageAvailable?: boolean;
   _graphName?: string;
   _graphReady: boolean;
+  // Carries the active transaction client (and its savepoint counter) through the
+  // async call chain so every query in a `transaction(fn)` / `_withTx` scope runs
+  // on ONE connection inside ONE BEGIN…COMMIT. `client` is a checked-out pg
+  // PoolClient; `spSeq` is a per-transaction monotonic counter for `_execTry`'s
+  // savepoint names. See `_exec` / `_execTry` / `_withTx`.
+  _txStore: AsyncLocalStorage<{ client: PoolClient; spSeq?: number }>;
 
   constructor(pool: Pool, { embeddings = null }: any = {}) {
     this._pool              = pool;
@@ -280,9 +286,36 @@ class PostgresAdapter {
   // Run a query on the active transaction client if one is in scope, else on the
   // pool. All adapter reads/writes go through this, so a call made inside
   // `transaction(fn)` both sees its own uncommitted writes and commits atomically.
-  _exec(text: any, params?: any) {
+  _exec(text: any, params?: any): Promise<QueryResult> {
     const runner = this._txStore.getStore()?.client ?? this._pool;
     return runner.query(text, params);
+  }
+
+  // Like `_exec`, but for the handful of queries that intentionally tolerate a
+  // failure (a missing table/relation: the legacy `types` table, an un-materialised
+  // obj_<typeId> projection) and swallow the error at the call site. Under autocommit
+  // (no active transaction) a failed statement is naturally isolated — the next
+  // query starts a fresh implicit transaction — so this was harmless before writes
+  // became atomic. Inside a `transaction(fn)` / `_withTx` scope every statement now
+  // shares ONE connection in ONE BEGIN…COMMIT, so a raw failure poisons the whole
+  // transaction ("current transaction is aborted, commands ignored until end of
+  // transaction block") and every subsequent write throws. Fencing the tolerant
+  // query in a SAVEPOINT and rolling back to it on error contains the failure to
+  // just that statement, leaving the enclosing transaction intact.
+  async _execTry(text: any, params?: any): Promise<QueryResult> {
+    const store = this._txStore.getStore();
+    if (!store?.client) return this._pool.query(text, params);
+    const client = store.client;
+    const sp = `kx_sp_${(store.spSeq = (store.spSeq ?? 0) + 1)}`;
+    await client.query(`SAVEPOINT ${sp}`);
+    try {
+      const result = await client.query(text, params);
+      await client.query(`RELEASE SAVEPOINT ${sp}`);
+      return result;
+    } catch (err) {
+      await client.query(`ROLLBACK TO SAVEPOINT ${sp}`);
+      throw err;
+    }
   }
 
   // Join-or-begin: if already inside a transaction, run `fn` in it (no nested
@@ -1105,7 +1138,7 @@ class PostgresAdapter {
     const { rows: linkRows } = await this._exec(
       'SELECT COUNT(*) FROM perf_backlinks WHERE target_id = $1', [id],
     );
-    const relRows = await this._exec(
+    const relRows = await this._execTry(
       `SELECT COUNT(*) FROM "${objTableName(RELATIONSHIP_TYPE_ID)}" o
          JOIN items i ON i.id = o.item_id
         WHERE o.target_id = $1 AND i.deleted_at IS NULL`, [id],
@@ -1133,7 +1166,7 @@ class PostgresAdapter {
     // block the delete), so remove them first. Their obj_<alias> rows cascade via the
     // item_id FK. (Aliases are now first-class items — no `aliases` table.)
     const aliasTable = objTableName(BUILT_IN_TYPE_ID_BY_NAME['alias']);
-    await this._exec(
+    await this._execTry(
       `DELETE FROM items WHERE id IN (
          SELECT i.id FROM items i JOIN "${aliasTable}" a ON a.item_id = i.id
          WHERE i.type = 'alias' AND a.target_id = $1)`,
@@ -1750,7 +1783,7 @@ class PostgresAdapter {
     if (!typeId) return null;
     const table = objTableName(typeId);
     try {
-      const result = await this._exec(
+      const result = await this._execTry(
         `SELECT * FROM "${table}" WHERE item_id = $1`, [id],
       );
       if (!result.rows[0]) return null;
@@ -2301,11 +2334,11 @@ class PostgresAdapter {
   async _readTypeRow(id: any) {
     const table = objTableName(TYPE_TYPE_ID);
     try {
-      const { rows } = await this._exec(`SELECT * FROM "${table}" WHERE item_id = $1`, [id]);
+      const { rows } = await this._execTry(`SELECT * FROM "${table}" WHERE item_id = $1`, [id]);
       if (rows[0]) return rows[0];
     } catch { /* obj_<type-type> not materialised yet — try legacy */ }
     try {
-      const { rows } = await this._exec('SELECT * FROM types WHERE item_id = $1', [id]);
+      const { rows } = await this._execTry('SELECT * FROM types WHERE item_id = $1', [id]);
       return rows[0] ?? null;
     } catch { return null; }   // legacy table already dropped
   }
@@ -2612,7 +2645,7 @@ class PostgresAdapter {
     await this._ensureGraph();
     // The authoritative relationship set is obj_<relationship> (the relationship
     // items); the graph is a rebuildable perf_ mirror derived from it.
-    const rows = await this._exec(
+    const rows = await this._execTry(
       `SELECT o.item_id AS id, o.source_id, o.target_id, rt.value AS type
          FROM "${objTableName(RELATIONSHIP_TYPE_ID)}" o
          JOIN items i        ON i.id = o.item_id
@@ -2956,7 +2989,7 @@ class PostgresAdapter {
     let structuralRefs: any[] = [];
     let blockingRefs: any[]   = [];
     if (changedIds.length) {
-      const { rows: refRows } = await this._exec(
+      const { rows: refRows } = await this._execTry(
         'SELECT source_item_id, target_item_id, reference_type, field_name FROM perf_references WHERE target_item_id = ANY($1)',
         [changedIds],
       ).catch(() => ({ rows: [] })); // item_references may not exist on older schemas
