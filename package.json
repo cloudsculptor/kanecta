@@ -31,7 +31,6 @@
     "kanecta-core/kanecta-transcript-import",
     "kanecta-core/kanecta-runner",
     "kanecta-core/kanecta-migrations",
-    "kanecta-core/kanecta-system-items",
     "kanecta-core/kanecta-tiling-wm",
     "kanecta-ui/kanecta-ui-specification",
     "kanecta-ui/kanecta-apps/kanecta-app-studio",

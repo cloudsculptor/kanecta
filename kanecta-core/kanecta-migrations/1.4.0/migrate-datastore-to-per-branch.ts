@@ -151,7 +151,7 @@ function materialiseOldMetadata(oldSharedDbPath: any, mainItemsDir: any, mainHis
         const id = uuid();
         writeItemJson(mainItemsDir, id, metaDoc({
           id, parentId: TYPE_ITEM_UUIDS.alias, type: 'alias', value: r.alias, layer: 'system',
-          payload: { targetId: r.target_id, scope: 'personal', provisional: false, confirmedAt: null, computedFrom: null },
+          payload: { targetId: r.target_id, assignedBy: null, provisional: false, confirmedAt: null, computedFromFormulaId: null },
         }));
         n++;
       }
@@ -169,10 +169,10 @@ function materialiseOldMetadata(oldSharedDbPath: any, mainItemsDir: any, mainHis
     if (has('annotations')) {
       for (const r of db.prepare('SELECT id, target_id, author, content, created_at, parent_annotation_id FROM annotations').all()) {
         writeItemJson(mainItemsDir, r.id, metaDoc({
-          id: r.id, parentId: r.target_id, type: 'annotation',
+          id: r.id, parentId: TYPE_ITEM_UUIDS.annotation, type: 'annotation',
           value: typeof r.content === 'string' ? r.content.slice(0, 255) : null,
           aspect: 'comments', createdAt: r.created_at, createdBy: r.author, layer: 'user',
-          payload: { content: r.content, author: r.author, parentAnnotationId: r.parent_annotation_id },
+          payload: { targetId: r.target_id, body: r.content, parentAnnotationId: r.parent_annotation_id },
         }));
         n++;
       }
