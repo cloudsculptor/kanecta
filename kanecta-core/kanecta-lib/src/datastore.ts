@@ -201,6 +201,7 @@ class Datastore {
   // ─── Relationships ─────────────────────────────────────────────────────────
 
   async relate(sourceId: any, type: any, targetId: any, opts?: any) { return this._adapter.relate(sourceId, type, targetId, opts); }
+  async unrelate(id: any)                         { return this._adapter.unrelate(id); }
   get relTypes()                             { return this._adapter.relTypes; }
   async addRelTypes(names: any)                   { return this._adapter.addRelTypes(names); }
   async relationships(id: any)                    { return this._adapter.relationships(id); }
