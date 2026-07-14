@@ -9,6 +9,8 @@
 // `db` seam; that is only needed for the S3-interleaved event/page writes).
 // Part of the repository seam — see repositories/licences.js.
 import pool from "../db.js";
+import { USE_KANECTA } from "./backend.js";
+import * as kanecta from "./kanecta/discussions.js";
 
 // ── Message files ─────────────────────────────────────────────────────────────
 
@@ -95,6 +97,7 @@ export async function seedThreadReads(userId) {
 
 // Live threads with per-user unread + notification-subscription flags.
 export async function listThreads(userId) {
+  if (USE_KANECTA) return kanecta.listThreads(userId);
   const { rows } = await pool.query(
     `SELECT t.id, t.name, t.description, t.created_by_name, t.created_by_user_id, t.created_at,
             CASE WHEN t.latest_message_at IS NOT NULL

@@ -4,9 +4,12 @@
 // route (business rules, not data access). Part of the repository seam — see
 // repositories/licences.js.
 import pool from "../db.js";
+import { USE_KANECTA } from "./backend.js";
+import * as kanecta from "./kanecta/finances.js";
 
 // Transactions in a date range, each with its attached file_count.
 export async function listTransactions({ from, to } = {}) {
+  if (USE_KANECTA) return kanecta.listTransactions({ from, to });
   let inner = "SELECT * FROM finances_transactions";
   const params = [];
   const conditions = [];
@@ -61,6 +64,7 @@ export async function deleteTransaction(id) {
 
 // Totals grouped by type + category for the report view.
 export async function getReport({ from, to } = {}) {
+  if (USE_KANECTA) return kanecta.getReport({ from, to });
   const params = [];
   const conditions = [];
   if (from) { params.push(from); conditions.push(`date >= $${params.length}`); }
@@ -76,6 +80,7 @@ export async function getReport({ from, to } = {}) {
 }
 
 export async function listExpenses() {
+  if (USE_KANECTA) return kanecta.listExpenses();
   const { rows } = await pool.query(
     "SELECT * FROM finances_expenses ORDER BY frequency, supplier, description"
   );

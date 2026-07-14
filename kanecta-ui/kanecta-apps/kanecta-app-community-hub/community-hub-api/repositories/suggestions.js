@@ -2,6 +2,8 @@
 // non-DB concerns (FCM broadcast, Keycloak name resolution) stay in the route.
 // Part of the repository seam — see repositories/licences.js.
 import pool from "../db.js";
+import { USE_KANECTA } from "./backend.js";
+import * as kanecta from "./kanecta/suggestions.js";
 
 export async function createSuggestion({ content, submittedById, submittedByName }) {
   const { rows } = await pool.query(
@@ -13,6 +15,7 @@ export async function createSuggestion({ content, submittedById, submittedByName
 }
 
 export async function listActiveSuggestions() {
+  if (USE_KANECTA) return kanecta.listActiveSuggestions();
   const { rows } = await pool.query(
     `SELECT id, content, submitted_by_name, submitted_at
      FROM suggestions
@@ -23,6 +26,7 @@ export async function listActiveSuggestions() {
 }
 
 export async function listArchivedSuggestions() {
+  if (USE_KANECTA) return kanecta.listArchivedSuggestions();
   const { rows } = await pool.query(
     `SELECT id, content, submitted_by_name, submitted_at, archived_at, archived_by_id
      FROM suggestions

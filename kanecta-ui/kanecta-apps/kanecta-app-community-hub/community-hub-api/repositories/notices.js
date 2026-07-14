@@ -2,8 +2,11 @@
 // heading/body validation and email-verified checks stay in the route.
 // Part of the repository seam — see repositories/licences.js.
 import pool from "../db.js";
+import { USE_KANECTA } from "./backend.js";
+import * as kanecta from "./kanecta/notices.js";
 
 export async function listApprovedNotices() {
+  if (USE_KANECTA) return kanecta.listApprovedNotices();
   const { rows } = await pool.query(
     `SELECT id, heading, body, notice_date, submitted_by_name, submitted_at
      FROM notices
@@ -14,6 +17,7 @@ export async function listApprovedNotices() {
 }
 
 export async function listMyNotices(userId) {
+  if (USE_KANECTA) return kanecta.listMyNotices(userId);
   const { rows } = await pool.query(
     `SELECT id, heading, notice_date, status, decline_reason, submitted_at
      FROM notices
@@ -25,6 +29,7 @@ export async function listMyNotices(userId) {
 }
 
 export async function listPendingNotices() {
+  if (USE_KANECTA) return kanecta.listPendingNotices();
   const { rows } = await pool.query(
     `SELECT id, heading, body, notice_date, submitted_by_name, submitted_at
      FROM notices
