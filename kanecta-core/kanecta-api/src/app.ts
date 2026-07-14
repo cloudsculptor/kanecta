@@ -189,6 +189,102 @@ async function collectSubtreeIds(ds: any, id: any) {
   return ids;
 }
 
+// ─── POST /transaction op vocabulary ──────────────────────────────────────────
+// Generic item ops for the atomic /transaction endpoint. Each op mirrors the
+// arg shape of its single-op route (create = POST /items body, update = {id,
+// changes}, relate = POST /relationships, …). NO domain words — the caller
+// decides what belongs together; Kanecta just executes ordered generic ops.
+
+const VALID_TX_OPS = new Set(['create', 'update', 'delete', 'relate', 'unrelate', 'setAlias', 'removeAlias']);
+
+// Structural validation only (shape + well-formed UUIDs) — returns an error
+// string or null. Existence is NOT checked here: a later op may reference an item
+// an earlier op creates, so referential failures surface inside the transaction
+// (which then rolls the whole list back), never as a false pre-flight 400.
+function validateTxOp(op: any, ds: any): string | null {
+  switch (op.op) {
+    case 'create': {
+      const type = op.type ?? 'string';
+      if (!VALID_TYPES.includes(type)) return `invalid type "${type}"`;
+      if (op.id != null && !isUuid(op.id)) return `invalid id "${op.id}"`;
+      if (op.parentId != null && !isUuid(op.parentId)) return `invalid parentId "${op.parentId}"`;
+      if (op.confidence != null && !VALID_CONFIDENCES.includes(op.confidence)) return `invalid confidence "${op.confidence}"`;
+      return null;
+    }
+    case 'update':
+      if (!op.id || !isUuid(op.id)) return 'update requires a valid id';
+      if (op.changes != null && typeof op.changes !== 'object') return 'changes must be an object';
+      if (op.changes?.type != null && !VALID_TYPES.includes(op.changes.type)) return `invalid type "${op.changes.type}"`;
+      return null;
+    case 'delete':
+      if (!op.id || !isUuid(op.id)) return 'delete requires a valid id';
+      return null;
+    case 'relate':
+      if (!op.sourceId || !isUuid(op.sourceId)) return 'relate requires a valid sourceId';
+      if (!op.targetId || !isUuid(op.targetId)) return 'relate requires a valid targetId';
+      if (!op.type) return 'relate requires a type';
+      if (!ds.relTypes.includes(op.type)) return `invalid relationship type "${op.type}"`;
+      return null;
+    case 'unrelate':
+      if (!op.id || !isUuid(op.id)) return 'unrelate requires a valid relationship id';
+      return null;
+    case 'setAlias':
+      if (!op.alias || typeof op.alias !== 'string') return 'setAlias requires an alias';
+      if (!op.targetId || !isUuid(op.targetId)) return 'setAlias requires a valid targetId';
+      return null;
+    case 'removeAlias':
+      if (!op.alias || typeof op.alias !== 'string') return 'removeAlias requires an alias';
+      return null;
+    default:
+      return `unknown op "${op.op}"`;
+  }
+}
+
+// Execute one op on the transaction handle `tx`. Any throw propagates and rolls
+// back the whole transaction. Returns the op's result (created/updated item,
+// relationship, or an { ok, id/alias } envelope for delete/alias ops).
+async function applyTxOp(tx: any, op: any, actor: any): Promise<any> {
+  switch (op.op) {
+    case 'create': {
+      const item = await tx.create({
+        id: op.id ?? null, parentId: op.parentId ?? null, value: op.value ?? null,
+        type: op.type ?? 'string', typeId: op.typeId ?? null, owner: op.owner,
+        license: op.license ?? null, sortOrder: op.sortOrder, confidence: op.confidence ?? null,
+        status: op.status ?? null, tags: op.tags ?? [], createdBy: op.createdBy ?? actor,
+        objectData: op.objectData ?? null,
+      });
+      if (op.alias) await tx.setAlias(String(op.alias).toLowerCase(), item.id);
+      return item;
+    }
+    case 'update': {
+      const { objectData, ...changes } = op.changes ?? {};
+      const updated = await tx.update(op.id, changes, actor);
+      if (objectData !== undefined) await tx.writeObjectJson(op.id, objectData);
+      return updated;
+    }
+    case 'delete':
+      await tx.delete(op.id, actor);
+      return { ok: true, id: op.id };
+    case 'relate':
+      return tx.relate(op.sourceId, op.type, op.targetId, { note: op.note ?? null, createdBy: op.createdBy ?? actor });
+    case 'unrelate':
+      await tx.unrelate(op.id);
+      return { ok: true, id: op.id };
+    case 'setAlias': {
+      const alias = String(op.alias).toLowerCase();
+      await tx.setAlias(alias, op.targetId);
+      return { ok: true, alias, targetId: op.targetId };
+    }
+    case 'removeAlias': {
+      const alias = String(op.alias).toLowerCase();
+      await tx.removeAlias(alias);
+      return { ok: true, alias };
+    }
+    default:
+      throw new Error(`unknown op "${op.op}"`);
+  }
+}
+
 async function cloneSubtree(ds: any, sourceId: any, targetParentId: any, actor: any) {
   const source = await ds.get(sourceId);
   if (!source) return null;
@@ -603,7 +699,7 @@ app.post('/items/bulk', async (req, res) => {
 app.post('/items', async (req, res) => {
   const ds = await openDatastore(res);
   if (!ds) return;
-  const { parentId = null, value = null, type = 'string', typeId = null,
+  const { id = null, parentId = null, value = null, type = 'string', typeId = null,
     owner, license = null, sortOrder, confidence = null, status = null, tags = [],
     alias, createdBy, objectData = null } = req.body;
 
@@ -611,16 +707,21 @@ app.post('/items', async (req, res) => {
     return res.status(400).json({ error: `Invalid type: ${type}. Valid: ${VALID_TYPES.join(', ')}` });
   if (confidence && !VALID_CONFIDENCES.includes(confidence))
     return res.status(400).json({ error: `Invalid confidence: ${confidence}. Valid: ${VALID_CONFIDENCES.join(', ')}` });
+  // Optional caller-supplied id: backfill preserving prod UUIDs, or an intra-
+  // transaction reference. Adapter enforces uniqueness (409 below).
+  if (id !== null && !isUuid(id))
+    return res.status(400).json({ error: `Invalid id: ${id}` });
   if (parentId !== null && !isUuid(parentId))
     return res.status(400).json({ error: `Invalid parentId: ${parentId}` });
   if (parentId && !await ds.get(parentId))
     return res.status(404).json({ error: `Parent not found: ${parentId}` });
 
   try {
-    const item = await ds.create({ parentId, value, type, typeId, owner, license, sortOrder, confidence, status, tags, createdBy, objectData });
+    const item = await ds.create({ id, parentId, value, type, typeId, owner, license, sortOrder, confidence, status, tags, createdBy, objectData });
     if (alias) await ds.setAlias(alias, item.id);
     res.status(201).json(item);
   } catch (err: any) {
+    if (/id already exists/i.test(err.message)) return res.status(409).json({ error: err.message });
     res.status(500).json({ error: err.message });
   }
 });
@@ -1432,6 +1533,52 @@ app.post('/relationships', async (req, res) => {
   if (!await ds.get(targetId)) return res.status(404).json({ error: `Target not found: ${targetId}` });
   const rel = await ds.relate(sourceId, type, targetId, { note, createdBy });
   res.status(201).json(rel);
+});
+
+// ─── Transactions ─────────────────────────────────────────────────────────────
+
+// POST /transaction — run an ordered list of GENERIC item ops as ONE atomic
+// transaction. All-or-nothing: every op commits together, or the whole list
+// rolls back and ZERO ops apply. The op vocabulary is create/update/delete/
+// relate/unrelate/setAlias/removeAlias over ITEMS — no domain words (uniform-
+// item-API rule). Ops run in array order; a later op can reference an item an
+// earlier op created via a client-supplied `id`. Distinct from /items/bulk,
+// which is best-effort (per-item errors, 207 partial success); this is atomic.
+app.post('/transaction', async (req, res) => {
+  const ds = await openDatastore(res);
+  if (!ds) return;
+  const { ops, actor } = req.body ?? {};
+  if (!Array.isArray(ops) || ops.length === 0)
+    return res.status(400).json({ error: 'ops must be a non-empty array' });
+
+  // Fail fast on a malformed op BEFORE opening the transaction (no partial work).
+  for (const [i, op] of ops.entries()) {
+    if (!op || typeof op !== 'object' || !VALID_TX_OPS.has(op.op))
+      return res.status(400).json({ error: `ops[${i}]: unknown op "${op?.op}". Valid: ${[...VALID_TX_OPS].join(', ')}` });
+    const bad = validateTxOp(op, ds);
+    if (bad) return res.status(400).json({ error: `ops[${i}]: ${bad}` });
+  }
+
+  try {
+    const results = await ds.transaction(async (tx: any) => {
+      const out = [];
+      for (let i = 0; i < ops.length; i++) {
+        try {
+          out.push(await applyTxOp(tx, ops[i], actor));
+        } catch (err: any) {
+          err.__txOpIndex = i; // remember which op tripped so the 409 can name it
+          throw err;
+        }
+      }
+      return out;
+    });
+    res.json({ results });
+  } catch (err: any) {
+    // Any failure rolled the WHOLE transaction back — zero ops applied.
+    const body: any = { error: err.message, rolledBack: true };
+    if (typeof err.__txOpIndex === 'number') body.failedIndex = err.__txOpIndex;
+    res.status(409).json(body);
+  }
 });
 
 // ─── Tags ─────────────────────────────────────────────────────────────────────

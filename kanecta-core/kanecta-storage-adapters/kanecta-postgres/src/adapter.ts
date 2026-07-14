@@ -21,7 +21,8 @@ import {
 } from '@kanecta/specification';
 import { validateItem } from '@kanecta/specification/validator';
 import { deriveSqlSchema, deriveIndexDdl } from '@kanecta/schema-compiler';
-import { Pool } from 'pg';
+import { Pool, PoolClient, QueryResult } from 'pg';
+import { AsyncLocalStorage } from 'async_hooks';
 import { createEmbeddingProvider, reciprocalRankFusion } from './embeddings.ts';
 
 const ROOT_ID         = '00000000-0000-0000-0000-000000000000';
@@ -260,6 +261,12 @@ class PostgresAdapter {
   _ageAvailable?: boolean;
   _graphName?: string;
   _graphReady: boolean;
+  // Carries the active transaction client (and its savepoint counter) through the
+  // async call chain so every query in a `transaction(fn)` / `_withTx` scope runs
+  // on ONE connection inside ONE BEGIN…COMMIT. `client` is a checked-out pg
+  // PoolClient; `spSeq` is a per-transaction monotonic counter for `_execTry`'s
+  // savepoint names. See `_exec` / `_execTry` / `_withTx`.
+  _txStore: AsyncLocalStorage<{ client: PoolClient; spSeq?: number }>;
 
   constructor(pool: Pool, { embeddings = null }: any = {}) {
     this._pool              = pool;
@@ -269,6 +276,73 @@ class PostgresAdapter {
     this._embeddingProvider = createEmbeddingProvider(embeddings);
     this._embeddingsEnabled = embeddings?.enabled !== false;
     this._graphReady        = false;
+    // Carries the active transaction client (if any) through the async call chain
+    // so every query in a `transaction(fn)` / `_withTx(fn)` scope runs on ONE
+    // connection inside ONE BEGIN…COMMIT — without threading a client param through
+    // every helper. Concurrency-safe: each transaction gets its own async store.
+    this._txStore           = new AsyncLocalStorage();
+  }
+
+  // Run a query on the active transaction client if one is in scope, else on the
+  // pool. All adapter reads/writes go through this, so a call made inside
+  // `transaction(fn)` both sees its own uncommitted writes and commits atomically.
+  _exec(text: any, params?: any): Promise<QueryResult> {
+    const runner = this._txStore.getStore()?.client ?? this._pool;
+    return runner.query(text, params);
+  }
+
+  // Like `_exec`, but for the handful of queries that intentionally tolerate a
+  // failure (a missing table/relation: the legacy `types` table, an un-materialised
+  // obj_<typeId> projection) and swallow the error at the call site. Under autocommit
+  // (no active transaction) a failed statement is naturally isolated — the next
+  // query starts a fresh implicit transaction — so this was harmless before writes
+  // became atomic. Inside a `transaction(fn)` / `_withTx` scope every statement now
+  // shares ONE connection in ONE BEGIN…COMMIT, so a raw failure poisons the whole
+  // transaction ("current transaction is aborted, commands ignored until end of
+  // transaction block") and every subsequent write throws. Fencing the tolerant
+  // query in a SAVEPOINT and rolling back to it on error contains the failure to
+  // just that statement, leaving the enclosing transaction intact.
+  async _execTry(text: any, params?: any): Promise<QueryResult> {
+    const store = this._txStore.getStore();
+    if (!store?.client) return this._pool.query(text, params);
+    const client = store.client;
+    const sp = `kx_sp_${(store.spSeq = (store.spSeq ?? 0) + 1)}`;
+    await client.query(`SAVEPOINT ${sp}`);
+    try {
+      const result = await client.query(text, params);
+      await client.query(`RELEASE SAVEPOINT ${sp}`);
+      return result;
+    } catch (err) {
+      await client.query(`ROLLBACK TO SAVEPOINT ${sp}`);
+      throw err;
+    }
+  }
+
+  // Join-or-begin: if already inside a transaction, run `fn` in it (no nested
+  // BEGIN); otherwise check out a client, wrap `fn` in BEGIN…COMMIT, and roll back
+  // on any error. This gives per-write atomicity (Level 1) AND lets a caller batch
+  // many writes atomically (Level 2) via the public `transaction` below.
+  async _withTx(fn: any) {
+    if (this._txStore.getStore()?.client) return fn();
+    const client = await this._pool.connect();
+    try {
+      await client.query('BEGIN');
+      const result = await this._txStore.run({ client }, fn);
+      await client.query('COMMIT');
+      return result;
+    } catch (err) {
+      try { await client.query('ROLLBACK'); } catch { /* connection already broken */ }
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  // Public: run `fn` as ONE atomic transaction. Every adapter write `fn` performs
+  // (directly or via the facade) enlists in the same BEGIN…COMMIT and commits
+  // together, or all roll back. Generic over items — no domain awareness.
+  async transaction(fn: any) {
+    return this._withTx(() => fn(this));
   }
 
   // ─── Lifecycle ──────────────────────────────────────────────────────────────
@@ -324,7 +398,7 @@ class PostgresAdapter {
     // Migrations are forward-only and run exactly once, in filename order. A
     // ledger records what's been applied so reopening a datastore does not
     // re-run (and fail on) non-idempotent statements like ADD CONSTRAINT.
-    await this._pool.query(
+    await this._exec(
       `CREATE TABLE IF NOT EXISTS schema_migrations (
          filename   TEXT PRIMARY KEY,
          applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -334,18 +408,18 @@ class PostgresAdapter {
     // Baseline: a schema that was already migrated before this ledger existed
     // (items table present, no ledger rows) is recorded as fully applied so we
     // never re-run migrations against a live database.
-    const { rows: count } = await this._pool.query('SELECT COUNT(*)::int AS n FROM schema_migrations');
+    const { rows: count } = await this._exec('SELECT COUNT(*)::int AS n FROM schema_migrations');
     if (count[0].n === 0) {
-      const { rows: has } = await this._pool.query("SELECT to_regclass('items') IS NOT NULL AS has_items");
+      const { rows: has } = await this._exec("SELECT to_regclass('items') IS NOT NULL AS has_items");
       if (has[0].has_items) {
         for (const file of files) {
-          await this._pool.query('INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING', [file]);
+          await this._exec('INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING', [file]);
         }
         return;
       }
     }
 
-    const { rows } = await this._pool.query('SELECT filename FROM schema_migrations');
+    const { rows } = await this._exec('SELECT filename FROM schema_migrations');
     const applied = new Set(rows.map(r => r.filename));
     const pending = files.filter(f => !applied.has(f));
 
@@ -364,8 +438,8 @@ class PostgresAdapter {
     }
 
     for (const file of pending) {
-      await this._pool.query(fs.readFileSync(path.join(dir, file), 'utf8'));
-      await this._pool.query('INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING', [file]);
+      await this._exec(fs.readFileSync(path.join(dir, file), 'utf8'));
+      await this._exec('INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING', [file]);
     }
   }
 
@@ -395,7 +469,7 @@ class PostgresAdapter {
     // schema gained seedMetaschema) lacks the column; _ensureProjection's IF NOT
     // EXISTS create won't evolve an existing table, so reconcile it here. No-op on
     // a fresh datastore (the column is already present from the current schema).
-    await this._pool.query(
+    await this._exec(
       `ALTER TABLE "${objTableName(ROOT_TYPE_ID)}" ADD COLUMN IF NOT EXISTS seed_metaschema JSONB`,
     );
     await this.writeObjectJson(ROOT_ID, ROOT_TYPE_ID, {
@@ -415,7 +489,7 @@ class PostgresAdapter {
   // this.config consumer expects.
   async _loadConfig() {
     try {
-      const { rows } = await this._pool.query(
+      const { rows } = await this._exec(
         `SELECT owner, spec_version, item_history, activity, entry_point
            FROM "${objTableName(ROOT_TYPE_ID)}" WHERE item_id = $1`,
         [ROOT_ID],
@@ -423,7 +497,7 @@ class PostgresAdapter {
       if (rows.length) return { ...rows[0] };
     } catch { /* obj_<root> not present yet — fall back to the legacy table */ }
     try {
-      const { rows } = await this._pool.query('SELECT key, value FROM config');
+      const { rows } = await this._exec('SELECT key, value FROM config');
       if (rows.length) return Object.fromEntries(rows.map(r => [r.key, r.value]));
     } catch { /* no config table either */ }
     return null;
@@ -438,7 +512,7 @@ class PostgresAdapter {
   // yet (e.g. an unauthorised open where _ensureRelationshipTypes was skipped).
   async _loadRelTypes() {
     try {
-      const { rows } = await this._pool.query(
+      const { rows } = await this._exec(
         `SELECT id, value FROM items WHERE type = 'relationship-type' AND deleted_at IS NULL
          ORDER BY value`,
       );
@@ -496,7 +570,7 @@ class PostgresAdapter {
     // Pass 1: items rows.
     for (const src of builtInRelationshipTypeItems as any[]) {
       const id = src.item.id;
-      await this._pool.query(
+      await this._exec(
         `INSERT INTO items (id, spec_version, parent_id, path, value, type, type_id, owner,
            license, sort_order, created_at, modified_at, created_by, modified_by)
          VALUES ($1,$2,$3,$4,$5,'relationship-type',$6,$7,$8,$9,$10,$10,$7,$7)
@@ -520,7 +594,7 @@ class PostgresAdapter {
   async _writeRelationshipTypeItem(id: any, payload: any, now: Date) {
     const rtypeId  = RELATIONSHIP_TYPE_TYPE_ID;
     const typePath = `${ROOT_ID}/${TYPES_CONTAINER_ID}/${rtypeId}`;
-    await this._pool.query(
+    await this._exec(
       `INSERT INTO items (id, spec_version, parent_id, path, value, type, type_id, owner,
          license, sort_order, created_at, modified_at, created_by, modified_by)
        VALUES ($1,$2,$3,$4,$5,'relationship-type',$6,$7,$8,0,$9,$9,$7,$7)
@@ -537,7 +611,7 @@ class PostgresAdapter {
   // directional-semantics columns (meta_directional, meta_inverse).
   async _writeRelationshipTypeProjection(id: any, payload: any) {
     const meta = payload.meta ?? {};
-    await this._pool.query(
+    await this._exec(
       `INSERT INTO "${objTableName(RELATIONSHIP_TYPE_TYPE_ID)}" (
          item_id,
          meta_icon, meta_description, meta_details, meta_keywords, meta_tags,
@@ -594,7 +668,7 @@ class PostgresAdapter {
       const parentPath = await this._getPath(parentId);
       path = parentPath != null ? `${parentPath}/${id}` : id;
     }
-    await this._pool.query(
+    await this._exec(
       `INSERT INTO items (id, spec_version, parent_id, path, value, type, owner, license, sort_order,
          created_at, modified_at, created_by, modified_by)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10,$7,$7)
@@ -630,7 +704,7 @@ class PostgresAdapter {
 
     // The types-container node. Parented under root; its own children are the
     // built-in type items. Direct insert (create() forbids reserved types).
-    await this._pool.query(
+    await this._exec(
       `INSERT INTO items (id, spec_version, parent_id, path, value, type, owner, license,
          sort_order, created_at, modified_at, created_by, modified_by)
        VALUES ($1,$2,$3,$4,'types','types',$5,$6,0,$7,$7,$5,$5)
@@ -657,10 +731,10 @@ class PostgresAdapter {
       // is upserted UNCONDITIONALLY so an existing datastore — whose built-in type
       // items predate the `types` -> obj_<type-type> cutover — gets its registry
       // rows re-seeded into the new projection after migration 038 drops `types`.
-      const { rows } = await this._pool.query('SELECT 1 FROM items WHERE id = $1', [id]);
+      const { rows } = await this._exec('SELECT 1 FROM items WHERE id = $1', [id]);
       if (!rows.length) {
         const parentId = src.item.parentId ?? TYPES_CONTAINER_ID;
-        await this._pool.query(
+        await this._exec(
           `INSERT INTO items (id, spec_version, parent_id, path, value, type, owner, license,
              sort_order, created_at, modified_at, created_by, modified_by)
            VALUES ($1,$2,$3,$4,$5,'type',$6,$7,0,$8,$8,$6,$6)
@@ -671,7 +745,7 @@ class PostgresAdapter {
       }
 
       const meta = payload.meta ?? {};
-      await this._pool.query(
+      await this._exec(
         `INSERT INTO "${typeObj}" (
            item_id,
            meta_icon, meta_description, meta_details, meta_keywords, meta_tags,
@@ -720,7 +794,7 @@ class PostgresAdapter {
       const parentId = src.item.parentId ?? licenceTypeId;
       const owner    = src.meta?.owner ?? this.config.owner;
       const license  = src.meta?.license ?? DEFAULT_LICENSE;
-      await this._pool.query(
+      await this._exec(
         `INSERT INTO items (id, spec_version, parent_id, path, value, type, type_id, owner,
            license, sort_order, created_at, modified_at, created_by, modified_by)
          VALUES ($1,$2,$3,$4,$5,'licence',$6,$7,$8,0,$9,$9,$7,$7)
@@ -733,7 +807,7 @@ class PostgresAdapter {
 
     // Reparent the default licence out of its self-parented bootstrap state (only
     // while still self-parented, so this is a no-op on already-seeded datastores).
-    await this._pool.query(
+    await this._exec(
       `UPDATE items SET parent_id = $1, path = $2 WHERE id = $3 AND parent_id = $3`,
       [licenceTypeId, `${typePath}/${DEFAULT_LICENSE}`, DEFAULT_LICENSE],
     );
@@ -742,7 +816,7 @@ class PostgresAdapter {
   async getRoot()     { return this._getByType('root'); }
 
   async _getByType(type: any) {
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       'SELECT * FROM items WHERE type = $1 LIMIT 1', [type],
     );
     return rowToItem(rows[0] ?? null);
@@ -764,7 +838,7 @@ class PostgresAdapter {
 
   async _getPath(id: any) {
     if (!id) return null;
-    const { rows } = await this._pool.query('SELECT path FROM items WHERE id = $1', [id]);
+    const { rows } = await this._exec('SELECT path FROM items WHERE id = $1', [id]);
     return rows[0]?.path ?? null;
   }
 
@@ -775,12 +849,12 @@ class PostgresAdapter {
 
   async _cascadePathUpdate(id: any, newPath: any) {
     const oldPath = await this._getPath(id);
-    await this._pool.query('UPDATE items SET path = $1 WHERE id = $2', [newPath, id]);
+    await this._exec('UPDATE items SET path = $1 WHERE id = $2', [newPath, id]);
     if (oldPath) {
       const oldPrefix = oldPath + '/';
       // Update all descendants whose path starts with the old prefix.
       // SUBSTRING(path FROM length) extracts the part after the old prefix.
-      await this._pool.query(
+      await this._exec(
         // $2::int forces SUBSTRING's positional form; without the cast an
         // untyped parameter is treated as the regex-pattern form and returns
         // null, wiping every descendant's path.
@@ -797,7 +871,7 @@ class PostgresAdapter {
   async _snapshot(idOrItem: any, changeType: any, changedBy: any, now?: any) {
     const item = typeof idOrItem === 'string' ? await this.get(idOrItem) : idOrItem;
     if (!item) return;
-    await this._pool.query(
+    await this._exec(
       `INSERT INTO item_history (id, item_id, snapshot, snapshot_at, changed_by, change_type)
        VALUES ($1,$2,$3,$4,$5,$6)`,
       [crypto.randomUUID(), item.id, JSON.stringify(item), now ?? new Date(), changedBy, changeType],
@@ -807,13 +881,13 @@ class PostgresAdapter {
   // ─── Item CRUD ───────────────────────────────────────────────────────────────
 
   async get(id: any) {
-    const { rows } = await this._pool.query('SELECT * FROM items WHERE id = $1', [id]);
+    const { rows } = await this._exec('SELECT * FROM items WHERE id = $1', [id]);
     return rowToItem(rows[0] ?? null);
   }
 
   async _typeDefExists(typeId: any) {
     if (!typeId) return false;
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       `SELECT 1 FROM items WHERE id = $1 AND type = 'type' LIMIT 1`, [typeId],
     );
     return rows.length > 0;
@@ -831,7 +905,15 @@ class PostgresAdapter {
     return `typeId ${typeId} has no type definition — node written anyway; run \`kanecta doctor\``;
   }
 
-  async create({
+  // Public write ops are atomic across all their projection/log writes: each wraps
+  // its implementation in `_withTx` (a standalone BEGIN…COMMIT), or joins the
+  // caller's `transaction(fn)` if one is already open.
+  async create(args: any = {}) {
+    return this._withTx(() => this._createImpl(args));
+  }
+
+  async _createImpl({
+    id: providedId = null,
     parentId, value = null, type = 'string', typeId = null,
     owner, license = null, sortOrder, confidence = null, status = null,
     tags = [], createdBy, objectData = null, dueAt = null, aspect = null,
@@ -841,6 +923,15 @@ class PostgresAdapter {
   }: any = {}) {
     if (WELL_KNOWN_TYPES.has(type))
       throw new Error(`Type '${type}' is well-known and cannot be created via create()`);
+    // Optional caller-supplied id (backfill preserving source UUIDs; intra-
+    // transaction references where a later op points at this item). Must be a valid
+    // UUID that is not already taken; otherwise ids are server-minted.
+    if (providedId != null) {
+      if (!UUID_RE.test(providedId))
+        throw new Error(`Invalid id (must be a UUID): ${providedId}`);
+      const { rows } = await this._exec('SELECT 1 FROM items WHERE id = $1', [providedId]);
+      if (rows.length) throw new Error(`Item id already exists: ${providedId}`);
+    }
 
     let typeWarning: any = null;
     if (type === 'object' && typeId && !(await this._typeDefExists(typeId))) {
@@ -863,7 +954,7 @@ class PostgresAdapter {
       parentId = ROOT_ID;
     }
 
-    const id       = crypto.randomUUID();
+    const id       = providedId ?? crypto.randomUUID();
     const now      = new Date();
     const ownerVal = owner || this.config.owner;
     const actor    = createdBy || ownerVal;
@@ -877,7 +968,7 @@ class PostgresAdapter {
     const parentPath = parentId ? await this._getPath(parentId) : null;
     const itemPath   = parentPath != null ? `${parentPath}/${id}` : id;
 
-    await this._pool.query(
+    await this._exec(
       `INSERT INTO items
          (id, spec_version, parent_id, path, value, type, type_id, owner, license, sort_order,
           confidence, status, tags, created_at, modified_at, created_by, modified_by,
@@ -896,7 +987,7 @@ class PostgresAdapter {
     );
 
     for (const link of parseLinks(value)) {
-      await this._pool.query(
+      await this._exec(
         'INSERT INTO perf_backlinks (source_id, target_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
         [id, link],
       );
@@ -911,7 +1002,7 @@ class PostgresAdapter {
       const projected = await this._ensureProjection(rowTypeId);
       if (projected) {
         if (objectData) await this.writeObjectJson(id, rowTypeId, objectData);
-        else await this._pool.query(
+        else await this._exec(
           `INSERT INTO "${objTableName(rowTypeId)}" (item_id) VALUES ($1) ON CONFLICT (item_id) DO NOTHING`,
           [id],
         );
@@ -926,7 +1017,11 @@ class PostgresAdapter {
     return item;
   }
 
-  async update(id: any, changes: any, actor?: any, { strict }: any = {}) {
+  async update(id: any, changes: any, actor?: any, opts: any = {}) {
+    return this._withTx(() => this._updateImpl(id, changes, actor, opts));
+  }
+
+  async _updateImpl(id: any, changes: any, actor?: any, { strict }: any = {}) {
     const current = await this.get(id);
     if (!current) throw new Error(`Item not found: ${id}`);
     // The root node is renamable — its `value` (and other descriptive fields)
@@ -965,9 +1060,9 @@ class PostgresAdapter {
       const oldLinks = parseLinks(current.value);
       const newLinks = parseLinks(changes.value);
       for (const l of oldLinks) if (!newLinks.includes(l))
-        await this._pool.query('DELETE FROM perf_backlinks WHERE source_id=$1 AND target_id=$2', [id, l]);
+        await this._exec('DELETE FROM perf_backlinks WHERE source_id=$1 AND target_id=$2', [id, l]);
       for (const l of newLinks) if (!oldLinks.includes(l))
-        await this._pool.query('INSERT INTO perf_backlinks (source_id, target_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [id, l]);
+        await this._exec('INSERT INTO perf_backlinks (source_id, target_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [id, l]);
       maybeSet('value', changes.value);
     }
 
@@ -1006,7 +1101,7 @@ class PostgresAdapter {
     maybeSet('modified_by', actor);
 
     if (sets.length) {
-      await this._pool.query(
+      await this._exec(
         `UPDATE items SET ${sets.join(', ')} WHERE id = $${p}`,
         [...params, id],
       );
@@ -1020,13 +1115,13 @@ class PostgresAdapter {
     const prevProj = projectionTypeId(current.type, current.typeId);
     const nextProj = projectionTypeId(newType, newTypeId);
     if (prevProj && prevProj !== nextProj) {
-      try { await this._pool.query(`DELETE FROM "${objTableName(prevProj)}" WHERE item_id = $1`, [id]); }
+      try { await this._exec(`DELETE FROM "${objTableName(prevProj)}" WHERE item_id = $1`, [id]); }
       catch { /* old table already absent */ }
       await this._dropProjectionIfEmpty(prevProj);
     }
     if (nextProj && prevProj !== nextProj) {
       const projected = await this._ensureProjection(nextProj);
-      if (projected) await this._pool.query(
+      if (projected) await this._exec(
         `INSERT INTO "${objTableName(nextProj)}" (item_id) VALUES ($1) ON CONFLICT (item_id) DO NOTHING`,
         [id],
       );
@@ -1040,10 +1135,10 @@ class PostgresAdapter {
   }
 
   async deleteWarnings(id: any) {
-    const { rows: linkRows } = await this._pool.query(
+    const { rows: linkRows } = await this._exec(
       'SELECT COUNT(*) FROM perf_backlinks WHERE target_id = $1', [id],
     );
-    const relRows = await this._pool.query(
+    const relRows = await this._execTry(
       `SELECT COUNT(*) FROM "${objTableName(RELATIONSHIP_TYPE_ID)}" o
          JOIN items i ON i.id = o.item_id
         WHERE o.target_id = $1 AND i.deleted_at IS NULL`, [id],
@@ -1057,6 +1152,10 @@ class PostgresAdapter {
   }
 
   async delete(id: any, actor?: any) {
+    return this._withTx(() => this._deleteImpl(id, actor));
+  }
+
+  async _deleteImpl(id: any, actor?: any) {
     const item = await this.get(id);
     this._assertDeletable(item, id);
     actor = actor || this.config.owner;
@@ -1067,7 +1166,7 @@ class PostgresAdapter {
     // block the delete), so remove them first. Their obj_<alias> rows cascade via the
     // item_id FK. (Aliases are now first-class items — no `aliases` table.)
     const aliasTable = objTableName(BUILT_IN_TYPE_ID_BY_NAME['alias']);
-    await this._pool.query(
+    await this._execTry(
       `DELETE FROM items WHERE id IN (
          SELECT i.id FROM items i JOIN "${aliasTable}" a ON a.item_id = i.id
          WHERE i.type = 'alias' AND a.target_id = $1)`,
@@ -1075,8 +1174,8 @@ class PostgresAdapter {
     ).catch(() => { /* obj_<alias> not materialised yet */ });
     // Derived backlink rows reference items via FK in both directions — clear
     // them before removing the item.
-    await this._pool.query('DELETE FROM perf_backlinks WHERE source_id = $1 OR target_id = $1', [id]);
-    await this._pool.query('DELETE FROM items WHERE id = $1', [id]);
+    await this._exec('DELETE FROM perf_backlinks WHERE source_id = $1 OR target_id = $1', [id]);
+    await this._exec('DELETE FROM items WHERE id = $1', [id]);
     // The obj_ row cascaded away with the items row (FK ON DELETE CASCADE). Drop
     // the type table if this hard delete removed the last remaining instance.
     // typeId is the projection key (object OR structured built-in).
@@ -1093,7 +1192,7 @@ class PostgresAdapter {
     actor = actor || this.config.owner;
     const now = new Date();
     await this._snapshot(item, 'soft-delete', actor, now);
-    await this._pool.query(
+    await this._exec(
       'UPDATE items SET deleted_at = $1, modified_at = $1, modified_by = $2 WHERE id = $3',
       [now, actor, id],
     );
@@ -1106,7 +1205,7 @@ class PostgresAdapter {
     actor = actor || this.config.owner;
     const now = new Date();
     await this._snapshot(item, 'restore', actor, now);
-    await this._pool.query(
+    await this._exec(
       'UPDATE items SET deleted_at = NULL, modified_at = $1, modified_by = $2 WHERE id = $3',
       [now, actor, id],
     );
@@ -1124,7 +1223,7 @@ class PostgresAdapter {
   async resolveAlias(alias: any) {
     const table = objTableName(BUILT_IN_TYPE_ID_BY_NAME['alias']);
     try {
-      const { rows } = await this._pool.query(
+      const { rows } = await this._exec(
         `SELECT a.target_id FROM items i JOIN "${table}" a ON a.item_id = i.id
          WHERE i.type = 'alias' AND lower(i.value) = $1 AND i.deleted_at IS NULL
          ORDER BY (a.assigned_by IS NULL) DESC, i.created_at LIMIT 1`,
@@ -1154,7 +1253,7 @@ class PostgresAdapter {
     // one-target-per-string behaviour of setAlias.
     let existingId: any = null;
     try {
-      const { rows } = await this._pool.query(
+      const { rows } = await this._exec(
         `SELECT i.id FROM items i JOIN "${table}" a ON a.item_id = i.id
          WHERE i.type = 'alias' AND lower(i.value) = $1 AND a.assigned_by IS NULL
            AND i.deleted_at IS NULL LIMIT 1`,
@@ -1171,7 +1270,7 @@ class PostgresAdapter {
   }
 
   async removeAlias(alias: any) {
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       `SELECT id FROM items WHERE type = 'alias' AND lower(value) = $1 AND deleted_at IS NULL`,
       [String(alias).toLowerCase()],
     );
@@ -1181,7 +1280,7 @@ class PostgresAdapter {
   async listAliases() {
     const table = objTableName(BUILT_IN_TYPE_ID_BY_NAME['alias']);
     try {
-      const { rows } = await this._pool.query(
+      const { rows } = await this._exec(
         `SELECT i.value AS alias, a.target_id FROM items i JOIN "${table}" a ON a.item_id = i.id
          WHERE i.type = 'alias' AND i.deleted_at IS NULL ORDER BY i.value`,
       );
@@ -1222,7 +1321,7 @@ class PostgresAdapter {
   async annotations(targetId: any) {
     const table = objTableName(BUILT_IN_TYPE_ID_BY_NAME['annotation']);
     try {
-      const { rows } = await this._pool.query(
+      const { rows } = await this._exec(
         `SELECT i.id, i.created_at, i.created_by, a.target_id, a.body, a.parent_annotation_id
          FROM items i JOIN "${table}" a ON a.item_id = i.id
          WHERE i.type = 'annotation' AND a.target_id = $1 AND i.deleted_at IS NULL
@@ -1263,7 +1362,7 @@ class PostgresAdapter {
     // The relationship item lives under the relationship type container (universal
     // placement rule); item.value is the slug label, item.type_id is the
     // relationship type (334ea5f6) so it projects to / counts against obj_<relationship>.
-    await this._pool.query(
+    await this._exec(
       `INSERT INTO items (id, spec_version, parent_id, path, value, type, type_id, owner,
          license, sort_order, created_at, modified_at, created_by, modified_by)
        VALUES ($1,$2,$3,$4,$5,'relationship',$6,$7,$8,0,$9,$9,$7,$7)`,
@@ -1283,7 +1382,7 @@ class PostgresAdapter {
   // cascades via the item_id FK) and its mirrored AGE edge. Returns true if an
   // item was removed. Endpoint items are never touched (spec §relationshipPayload).
   async unrelate(id: any) {
-    const { rowCount } = await this._pool.query(
+    const { rowCount } = await this._exec(
       `DELETE FROM items WHERE id = $1 AND type = 'relationship'`, [id],
     );
     await this._unprojectRelationshipFromGraph(id);
@@ -1294,7 +1393,7 @@ class PostgresAdapter {
   async relationships(id: any) {
     const relObj = objTableName(RELATIONSHIP_TYPE_ID);
     try {
-      const { rows: out } = await this._pool.query(
+      const { rows: out } = await this._exec(
         `SELECT o.item_id AS id, o.source_id, o.target_id, rt.value AS type, o.note,
                 i.created_at, i.created_by
            FROM "${relObj}" o
@@ -1303,7 +1402,7 @@ class PostgresAdapter {
           WHERE o.source_id = $1 AND i.deleted_at IS NULL
           ORDER BY i.created_at`, [id],
       );
-      const { rows: inn } = await this._pool.query(
+      const { rows: inn } = await this._exec(
         `SELECT o.item_id AS id, o.source_id, o.target_id, rt.value AS type, o.note,
                 i.created_at, i.created_by
            FROM "${relObj}" o
@@ -1323,7 +1422,7 @@ class PostgresAdapter {
   }
 
   async backlinks(id: any) {
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       'SELECT source_id FROM perf_backlinks WHERE target_id = $1', [id],
     );
     return rows.map(r => r.source_id);
@@ -1332,7 +1431,7 @@ class PostgresAdapter {
   async listRelationships() {
     const relObj = objTableName(RELATIONSHIP_TYPE_ID);
     try {
-      const { rows } = await this._pool.query(
+      const { rows } = await this._exec(
         `SELECT o.item_id AS id, o.source_id, o.target_id, rt.value AS type, o.note,
                 i.created_at, i.created_by
            FROM "${relObj}" o
@@ -1353,7 +1452,7 @@ class PostgresAdapter {
   // ─── History ─────────────────────────────────────────────────────────────────
 
   async history(id: any) {
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       `SELECT * FROM item_history WHERE item_id = $1 ORDER BY snapshot_at`, [id],
     );
     return rows.map(r => ({
@@ -1369,7 +1468,7 @@ class PostgresAdapter {
   async children(parentId: any, aspect: any = undefined) {
     if (aspect === undefined) {
       // No aspect filter: return all children (aspect IS NULL)
-      const { rows } = await this._pool.query(
+      const { rows } = await this._exec(
         `SELECT * FROM items WHERE parent_id = $1 AND id != $1 AND aspect IS NULL
          ORDER BY sort_order`,
         [parentId],
@@ -1378,7 +1477,7 @@ class PostgresAdapter {
     }
     if (aspect === null) {
       // Explicit null: only items with no aspect (same as above for normal use)
-      const { rows } = await this._pool.query(
+      const { rows } = await this._exec(
         `SELECT * FROM items WHERE parent_id = $1 AND id != $1 AND aspect IS NULL
          ORDER BY sort_order`,
         [parentId],
@@ -1386,7 +1485,7 @@ class PostgresAdapter {
       return rows.map(rowToItem);
     }
     // Named aspect filter
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       `SELECT * FROM items WHERE parent_id = $1 AND id != $1 AND aspect = $2
        ORDER BY sort_order`,
       [parentId, aspect],
@@ -1395,13 +1494,13 @@ class PostgresAdapter {
   }
 
   async ancestors(id: any) {
-    const { rows } = await this._pool.query('SELECT path FROM items WHERE id = $1', [id]);
+    const { rows } = await this._exec('SELECT path FROM items WHERE id = $1', [id]);
     if (!rows.length || !rows[0].path) return [];
     const segments    = rows[0].path.split('/');
     const ancestorIds = segments.slice(0, -1);
     if (!ancestorIds.length) return [];
     const placeholders = ancestorIds.map((_: any, i: number) => `$${i + 1}`).join(', ');
-    const { rows: aRows } = await this._pool.query(
+    const { rows: aRows } = await this._exec(
       `SELECT * FROM items WHERE id IN (${placeholders})`, ancestorIds,
     );
     const byId = new Map(aRows.map(r => [r.id, rowToItem(r)]));
@@ -1409,10 +1508,10 @@ class PostgresAdapter {
   }
 
   async subtreeCount(rootId: any) {
-    const { rows } = await this._pool.query('SELECT path FROM items WHERE id = $1', [rootId]);
+    const { rows } = await this._exec('SELECT path FROM items WHERE id = $1', [rootId]);
     if (!rows.length || !rows[0].path) return 0;
     const rootPath = rows[0].path;
-    const { rows: cnt } = await this._pool.query(
+    const { rows: cnt } = await this._exec(
       'SELECT COUNT(*) AS n FROM items WHERE path = $1 OR path LIKE $2',
       [rootPath, rootPath + '/%'],
     );
@@ -1424,7 +1523,7 @@ class PostgresAdapter {
       rootId = ROOT_ID;
     }
 
-    const { rows: rootRows } = await this._pool.query(
+    const { rows: rootRows } = await this._exec(
       'SELECT path FROM items WHERE id = $1', [rootId],
     );
     if (!rootRows.length) return [];
@@ -1438,14 +1537,14 @@ class PostgresAdapter {
     let rows;
 
     if (maxDepth === Infinity) {
-      const { rows: r } = await this._pool.query(
+      const { rows: r } = await this._exec(
         `SELECT * FROM items WHERE path = $1 OR path LIKE $2 ORDER BY path`,
         [rootPath, rootPath + '/%'],
       );
       rows = r;
     } else {
       const maxSlashes = rootDepth + maxDepth;
-      const { rows: r } = await this._pool.query(
+      const { rows: r } = await this._exec(
         `SELECT * FROM items
          WHERE (path = $1 OR path LIKE $2)
            AND (LENGTH(path) - LENGTH(REPLACE(path, '/', ''))) <= $3
@@ -1483,7 +1582,7 @@ class PostgresAdapter {
 
   async _treeSlow(rootId: any, maxDepth: any = Infinity) {
     const depthLimit = Number.isFinite(maxDepth) ? maxDepth : 100;
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       `WITH RECURSIVE subtree AS (
          SELECT *, 0 AS depth FROM items WHERE id = $1
          UNION ALL
@@ -1501,14 +1600,14 @@ class PostgresAdapter {
   // ─── Queries ──────────────────────────────────────────────────────────────────
 
   async byTag(tag: any) {
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       'SELECT id FROM items WHERE $1 = ANY(tags)', [tag],
     );
     return rows.map(r => r.id);
   }
 
   async byType(typeId: any) {
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       'SELECT id FROM items WHERE type_id = $1', [typeId],
     );
     return rows.map(r => r.id);
@@ -1521,7 +1620,7 @@ class PostgresAdapter {
   // item or null.
   async bySource(sourceSystem: any, sourceExternalId: any) {
     if (!sourceSystem || !sourceExternalId) return null;
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       'SELECT * FROM items WHERE source_system = $1 AND source_external_id = $2 LIMIT 1',
       [sourceSystem, sourceExternalId],
     );
@@ -1529,14 +1628,14 @@ class PostgresAdapter {
   }
 
   async loadAll() {
-    const { rows } = await this._pool.query('SELECT * FROM items ORDER BY sort_order');
+    const { rows } = await this._exec('SELECT * FROM items ORDER BY sort_order');
     return rows.map(rowToItem);
   }
 
   async resolveTypeId(name: any) {
     if (!name) return { unknown: true };
     if (BUILT_IN_TYPES.has(name)) return { primitive: true };
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       `SELECT id FROM items WHERE value = $1 AND type = 'type' LIMIT 1`, [name],
     );
     if (rows.length) return { id: rows[0].id };
@@ -1602,7 +1701,7 @@ class PostgresAdapter {
     }
 
     const whereClause = conditions.length ? ' WHERE ' + conditions.join(' AND ') : '';
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       `SELECT * FROM items${whereClause}`, params,
     );
     let items = rows.map(rowToItem);
@@ -1656,7 +1755,7 @@ class PostgresAdapter {
   // ─── Full-text search ─────────────────────────────────────────────────────────
 
   async search(query: any, { rootId = null, limit = 10 }: any = {}) {
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       `WITH RECURSIVE subtree AS (
          SELECT id FROM items WHERE id = $2
          UNION ALL
@@ -1684,7 +1783,7 @@ class PostgresAdapter {
     if (!typeId) return null;
     const table = objTableName(typeId);
     try {
-      const result = await this._pool.query(
+      const result = await this._execTry(
         `SELECT * FROM "${table}" WHERE item_id = $1`, [id],
       );
       if (!result.rows[0]) return null;
@@ -1745,7 +1844,7 @@ class PostgresAdapter {
     const sets         = entries.map(([k], i) => `"${k}" = $${i + 2}`).join(', ');
     const placeholders = vals.map((_, i) => `$${i + 2}`).join(', ');
     try {
-      await this._pool.query(
+      await this._exec(
         `INSERT INTO "${table}" (item_id, ${cols}) VALUES ($1, ${placeholders})
          ON CONFLICT (item_id) DO UPDATE SET ${sets}`,
         [id, ...vals],
@@ -1768,7 +1867,7 @@ class PostgresAdapter {
   async readFunctionJson(id: any) {
     const scalars: any = await this.readObjectJson(id, BUILT_IN_TYPE_ID_BY_NAME['function']);
 
-    const { rows: kids } = await this._pool.query(
+    const { rows: kids } = await this._exec(
       `SELECT id, value, type FROM items
         WHERE parent_id = $1 AND deleted_at IS NULL
           AND type = ANY($2) ORDER BY sort_order`,
@@ -1866,7 +1965,7 @@ class PostgresAdapter {
   // real item with its own obj_<childType> projection — the array-of-objects and
   // open-map fields are normalised into children, never inline columns.
   async _replaceFunctionChildren(id: any, { parameters, typeParameters, throws, bundleHash }: any) {
-    const { rows: existing } = await this._pool.query(
+    const { rows: existing } = await this._exec(
       `SELECT id FROM items WHERE parent_id = $1
          AND type = ANY($2)`,
       [id, ['parameter', 'type-parameter', 'function-throw', 'property']],
@@ -1914,7 +2013,7 @@ class PostgresAdapter {
 
   // All stub items (materialized=false) managed by a specific connector.
   async listStubs(connectorId: any) {
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       `SELECT * FROM items
        WHERE connector_id = $1 AND materialized = false AND deleted_at IS NULL`,
       [connectorId],
@@ -1925,7 +2024,7 @@ class PostgresAdapter {
   // All connector-managed items whose cached_at is older than beforeAt.
   // Used by ConnectorEngine to drive scheduled refresh.
   async listDueForRefresh(beforeAt: any) {
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       `SELECT * FROM items
        WHERE connector_id IS NOT NULL AND cached_at < $1 AND deleted_at IS NULL`,
       [beforeAt],
@@ -1965,27 +2064,27 @@ class PostgresAdapter {
   }
 
   async readTimeJson(id: any) {
-    const { rows } = await this._pool.query('SELECT time_data FROM items WHERE id = $1', [id]);
+    const { rows } = await this._exec('SELECT time_data FROM items WHERE id = $1', [id]);
     return rows[0]?.time_data ?? null;
   }
 
   async writeTimeJson(id: any, data: any) {
-    await this._pool.query(
+    await this._exec(
       'UPDATE items SET time_data = $1 WHERE id = $2', [data, id],
     );
   }
 
   async deleteTimeJson(id: any) {
-    await this._pool.query('UPDATE items SET time_data = NULL WHERE id = $1', [id]);
+    await this._exec('UPDATE items SET time_data = NULL WHERE id = $1', [id]);
   }
 
   async readScheduleJson(id: any) {
-    const { rows } = await this._pool.query('SELECT schedule_data FROM items WHERE id = $1', [id]);
+    const { rows } = await this._exec('SELECT schedule_data FROM items WHERE id = $1', [id]);
     return rows[0]?.schedule_data ?? null;
   }
 
   async writeScheduleJson(id: any, data: any) {
-    await this._pool.query(
+    await this._exec(
       'UPDATE items SET schedule_data = $1 WHERE id = $2', [data, id],
     );
   }
@@ -2042,7 +2141,7 @@ class PostgresAdapter {
     // payload" (a non-document item, or the transient empty row create() leaves).
     if (!scalars || scalars.targetId == null) return null;
 
-    const { rows: kids } = await this._pool.query(
+    const { rows: kids } = await this._exec(
       `SELECT id, type FROM items
         WHERE parent_id = $1 AND deleted_at IS NULL
           AND type = ANY($2) ORDER BY sort_order`,
@@ -2094,7 +2193,7 @@ class PostgresAdapter {
   // function child-replacement). Existing exception / role children are hard-deleted
   // (obj_ rows cascade) and re-created in map order.
   async _replaceDocumentChildren(id: any, payload: any) {
-    const { rows: existing } = await this._pool.query(
+    const { rows: existing } = await this._exec(
       `SELECT id FROM items WHERE parent_id = $1 AND type = ANY($2)`,
       [id, ['document-expand-exception', 'document-role-by-depth', 'document-role-by-type']],
     );
@@ -2124,7 +2223,7 @@ class PostgresAdapter {
   async listDocuments(targetId: any) {
     const table = objTableName(BUILT_IN_TYPE_ID_BY_NAME['document']);
     try {
-      const { rows } = await this._pool.query(`
+      const { rows } = await this._exec(`
         SELECT i.*
         FROM items i
         JOIN "${table}" d ON d.item_id = i.id
@@ -2142,7 +2241,7 @@ class PostgresAdapter {
 
   // Active schedule items whose next fire time is at or before beforeAt.
   async listDueSchedules(beforeAt: any) {
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       "SELECT * FROM items WHERE type = 'schedule' AND status = 'active' AND due_at <= $1 AND deleted_at IS NULL",
       [beforeAt],
     );
@@ -2157,7 +2256,7 @@ class PostgresAdapter {
     const owner = this.config.owner;
     const actor = createdBy || owner;
 
-    await this._pool.query(
+    await this._exec(
       `INSERT INTO items (id, spec_version, parent_id, path, value, type, owner, license, sort_order,
          created_at, modified_at, created_by, modified_by)
        VALUES ($1, $2, $1, $7, $3, 'type', $4, $5, 0, $6, $6, $4, $4)
@@ -2191,7 +2290,7 @@ class PostgresAdapter {
     // live instance is written (_ensureProjection).
     await this._ensureProjection(TYPE_TYPE_ID);
 
-    await this._pool.query(
+    await this._exec(
       `INSERT INTO "${objTableName(TYPE_TYPE_ID)}" (
          item_id,
          meta_icon, meta_description, meta_details, meta_keywords, meta_tags,
@@ -2235,11 +2334,11 @@ class PostgresAdapter {
   async _readTypeRow(id: any) {
     const table = objTableName(TYPE_TYPE_ID);
     try {
-      const { rows } = await this._pool.query(`SELECT * FROM "${table}" WHERE item_id = $1`, [id]);
+      const { rows } = await this._execTry(`SELECT * FROM "${table}" WHERE item_id = $1`, [id]);
       if (rows[0]) return rows[0];
     } catch { /* obj_<type-type> not materialised yet — try legacy */ }
     try {
-      const { rows } = await this._pool.query('SELECT * FROM types WHERE item_id = $1', [id]);
+      const { rows } = await this._execTry('SELECT * FROM types WHERE item_id = $1', [id]);
       return rows[0] ?? null;
     } catch { return null; }   // legacy table already dropped
   }
@@ -2266,7 +2365,7 @@ class PostgresAdapter {
 
   async writeTypeJson(id: any, data: any) {
     const meta = data.meta ?? {};
-    await this._pool.query(
+    await this._exec(
       `UPDATE "${objTableName(TYPE_TYPE_ID)}" SET
          meta_icon = $2, meta_description = $3, meta_details = $4, meta_keywords = $5, meta_tags = $6,
          meta_primary_field = $7, meta_ai_instructions_claude = $8,
@@ -2291,7 +2390,7 @@ class PostgresAdapter {
     // fresh table used to race the old `DROP IF EXISTS` + `CREATE` pair — one CREATE
     // would hit "trigger already exists". Create-and-swallow-duplicate is atomic and
     // safe under concurrency.
-    await this._pool.query(
+    await this._exec(
       `DO $$
        BEGIN
          CREATE TRIGGER trg_object_search_vector
@@ -2323,10 +2422,10 @@ class PostgresAdapter {
       : await this.readTypeJson(typeId);
     if (!def || !def.jsonSchema) return false;   // orphan / schemaless type
     for (const stmt of deriveSqlSchema(def.jsonSchema, { typeId, dialect: 'postgres' }))
-      await this._pool.query(guardDdl(stmt));
+      await this._exec(guardDdl(stmt));
     try {
       for (const stmt of deriveIndexDdl(def.jsonSchema, def.indexes, { typeId, dialect: 'postgres' }))
-        await this._pool.query(guardDdl(stmt));
+        await this._exec(guardDdl(stmt));
     } catch (e: any) {
       console.warn(`[postgres] skipping indexes for type ${typeId}: ${e?.message ?? e}`);
     }
@@ -2347,19 +2446,19 @@ class PostgresAdapter {
     // The type-type is the exception: type items are its instances but carry
     // type_id=NULL (type='type' is their identity), so count them by type.
     const { rows } = String(typeId) === TYPE_TYPE_ID
-      ? await this._pool.query("SELECT COUNT(*)::int AS n FROM items WHERE type = 'type'")
-      : await this._pool.query(
+      ? await this._exec("SELECT COUNT(*)::int AS n FROM items WHERE type = 'type'")
+      : await this._exec(
           'SELECT COUNT(*)::int AS n FROM items WHERE type_id = $1',
           [typeId],
         );
     if (!rows[0] || rows[0].n === 0)
-      await this._pool.query(`DROP TABLE IF EXISTS "${objTableName(typeId)}"`);
+      await this._exec(`DROP TABLE IF EXISTS "${objTableName(typeId)}"`);
   }
 
   // Every materialised per-type table in the current schema. Used by integrity
   // checks; mirrors the sqlite-fs handle surface.
   async listProjectedRelations() {
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       `SELECT table_name FROM information_schema.tables
         WHERE table_schema = current_schema() AND table_name LIKE 'obj\\_%'`,
     );
@@ -2400,11 +2499,11 @@ class PostgresAdapter {
   async _ensureAgeExtension() {
     if (this._ageAvailable !== undefined) return this._ageAvailable;
     try {
-      const { rows } = await this._pool.query(
+      const { rows } = await this._exec(
         `SELECT 1 FROM pg_available_extensions WHERE name = 'age'`,
       );
       if (!rows.length) { this._ageAvailable = false; return false; }
-      await this._pool.query(`CREATE EXTENSION IF NOT EXISTS age`);
+      await this._exec(`CREATE EXTENSION IF NOT EXISTS age`);
       this._ageAvailable = true;
     } catch {
       this._ageAvailable = false;
@@ -2417,7 +2516,7 @@ class PostgresAdapter {
   // colliding. `public` → `kg_public`.
   async _resolveGraphName() {
     if (this._graphName) return this._graphName;
-    const { rows } = await this._pool.query(`SELECT current_schema() AS s`);
+    const { rows } = await this._exec(`SELECT current_schema() AS s`);
     const schema = (rows[0]?.s || 'public').replace(/[^a-zA-Z0-9_]/g, '_');
     this._graphName = `kg_${schema}`.slice(0, 63);
     return this._graphName;
@@ -2444,7 +2543,7 @@ class PostgresAdapter {
     if (!(await this._ensureAgeExtension())) return false;
     if (this._graphReady) return true;
     const name = await this._resolveGraphName();
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       `SELECT 1 FROM ag_catalog.ag_graph WHERE name = $1`, [name],
     );
     if (!rows.length) {
@@ -2470,7 +2569,7 @@ class PostgresAdapter {
       if (!(await this._ensureGraph())) return;
       // Look up endpoint types on the pooled (schema-scoped) connection BEFORE
       // entering the graph client, whose search_path can't see the items table.
-      const { rows } = await this._pool.query(
+      const { rows } = await this._exec(
         `SELECT id, type FROM items WHERE id = ANY($1::uuid[])`, [[rel.sourceId, rel.targetId]],
       );
       const typeOf = new Map(rows.map((r: any) => [r.id, r.type]));
@@ -2536,7 +2635,7 @@ class PostgresAdapter {
   async rebuildGraphProjection() {
     if (!(await this._ensureAgeExtension())) return { rebuilt: false, reason: 'AGE unavailable', edges: 0 };
     const name = await this._resolveGraphName();
-    const { rows: exists } = await this._pool.query(
+    const { rows: exists } = await this._exec(
       `SELECT 1 FROM ag_catalog.ag_graph WHERE name = $1`, [name],
     );
     if (exists.length) {
@@ -2546,7 +2645,7 @@ class PostgresAdapter {
     await this._ensureGraph();
     // The authoritative relationship set is obj_<relationship> (the relationship
     // items); the graph is a rebuildable perf_ mirror derived from it.
-    const rows = await this._pool.query(
+    const rows = await this._execTry(
       `SELECT o.item_id AS id, o.source_id, o.target_id, rt.value AS type
          FROM "${objTableName(RELATIONSHIP_TYPE_ID)}" o
          JOIN items i        ON i.id = o.item_id
@@ -2563,7 +2662,7 @@ class PostgresAdapter {
   async dropGraphProjection() {
     if (!(await this._ensureAgeExtension())) return;
     const name = await this._resolveGraphName();
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       `SELECT 1 FROM ag_catalog.ag_graph WHERE name = $1`, [name],
     );
     if (rows.length) {
@@ -2601,7 +2700,7 @@ class PostgresAdapter {
     const provider = this._requireEmbeddingsEnabled();
     const [queryEmbedding] = await provider.embed([query]);
     const vectorLiteral = `[${queryEmbedding.join(',')}]`;
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       `WITH RECURSIVE subtree AS (
          SELECT id FROM items WHERE id = $3
          UNION ALL
@@ -2634,7 +2733,7 @@ class PostgresAdapter {
     if (!Number.isInteger(dimensions) || dimensions <= 0) {
       throw new Error(`Invalid embedding dimensions for provider '${provider.name}': ${provider.dimensions}`);
     }
-    await this._pool.query(`
+    await this._exec(`
       CREATE TABLE IF NOT EXISTS item_embeddings (
         item_id      UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
         model        TEXT NOT NULL,
@@ -2644,11 +2743,11 @@ class PostgresAdapter {
         PRIMARY KEY (item_id, model)
       )
     `);
-    await this._pool.query(`
+    await this._exec(`
       CREATE INDEX IF NOT EXISTS idx_item_embeddings_hnsw
         ON item_embeddings USING hnsw (embedding public.vector_cosine_ops)
     `);
-    await this._pool.query(
+    await this._exec(
       `INSERT INTO perf_embedding_queue (item_id)
        SELECT i.id FROM items i
        WHERE NOT EXISTS (
@@ -2679,14 +2778,14 @@ class PostgresAdapter {
     if (!item) return false;
     const content     = await this._embeddingContent(item);
     const contentHash = crypto.createHash('sha256').update(content).digest('hex');
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       'SELECT content_hash FROM item_embeddings WHERE item_id = $1 AND model = $2',
       [id, provider.model],
     );
     if (rows[0]?.content_hash === contentHash) return false;
     const [embedding] = await provider.embed([content]);
     const vectorLiteral = `[${embedding.join(',')}]`;
-    await this._pool.query(
+    await this._exec(
       `INSERT INTO item_embeddings (item_id, model, embedding, content_hash, embedded_at)
        VALUES ($1, $2, $3::public.vector, $4, now())
        ON CONFLICT (item_id, model) DO UPDATE
@@ -2698,14 +2797,14 @@ class PostgresAdapter {
 
   async processPendingEmbeddings({ limit = 50 }: any = {}) {
     this._requireEmbeddingProvider();
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       'SELECT item_id FROM perf_embedding_queue ORDER BY queued_at LIMIT $1', [limit],
     );
     let embedded = 0, skipped = 0, failed = 0;
     for (const { item_id } of rows) {
       try {
         if (await this.embedItem(item_id)) embedded++; else skipped++;
-        await this._pool.query('DELETE FROM perf_embedding_queue WHERE item_id = $1', [item_id]);
+        await this._exec('DELETE FROM perf_embedding_queue WHERE item_id = $1', [item_id]);
       } catch (e: any) {
         failed++;
         console.warn(`processPendingEmbeddings: failed to embed ${item_id}:`, e.message);
@@ -2717,17 +2816,17 @@ class PostgresAdapter {
   // ─── Index maintenance ────────────────────────────────────────────────────────
 
   async rebuildIndexes() {
-    await this._pool.query('DELETE FROM perf_backlinks');
-    const { rows } = await this._pool.query(`SELECT id, value FROM items WHERE value IS NOT NULL`);
+    await this._exec('DELETE FROM perf_backlinks');
+    const { rows } = await this._exec(`SELECT id, value FROM items WHERE value IS NOT NULL`);
     for (const row of rows) {
       for (const link of parseLinks(row.value)) {
-        await this._pool.query(
+        await this._exec(
           'INSERT INTO perf_backlinks (source_id, target_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
           [row.id, link],
         );
       }
     }
-    const { rows: [{ count }] } = await this._pool.query('SELECT COUNT(*) FROM items');
+    const { rows: [{ count }] } = await this._exec('SELECT COUNT(*) FROM items');
     return parseInt(count);
   }
 
@@ -2739,7 +2838,7 @@ class PostgresAdapter {
     const findings = [];
 
     if (run('orphan-type-id')) {
-      const { rows } = await this._pool.query(
+      const { rows } = await this._exec(
         `SELECT i.id, i.type_id
            FROM items i
            LEFT JOIN items t ON t.id = i.type_id AND t.type = 'type'
@@ -2758,7 +2857,7 @@ class PostgresAdapter {
     }
 
     if (run('disconnected-items')) {
-      const { rows } = await this._pool.query(
+      const { rows } = await this._exec(
         `SELECT i.id FROM items i
          WHERE i.path IS NULL AND i.type NOT IN ('root')`,
       );
@@ -2778,7 +2877,7 @@ class PostgresAdapter {
 
   // Recompute materialized paths for all items from the root down.
   async rebuildPaths() {
-    await this._pool.query(`
+    await this._exec(`
       WITH RECURSIVE paths AS (
         SELECT id, id::text AS path FROM items
         WHERE id = '00000000-0000-0000-0000-000000000000'
@@ -2797,9 +2896,9 @@ class PostgresAdapter {
     if (!name || typeof name !== 'string' || !name.trim()) throw new Error('branch name is required');
     name = name.trim();
     if (name === 'main') throw new Error('Cannot create a branch named "main"');
-    const existing = await this._pool.query('SELECT id FROM branches WHERE name = $1 AND deleted_at IS NULL', [name]);
+    const existing = await this._exec('SELECT id FROM branches WHERE name = $1 AND deleted_at IS NULL', [name]);
     if (existing.rows.length) throw new Error(`Branch "${name}" already exists`);
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       'INSERT INTO branches (name, base_branch) VALUES ($1, $2) RETURNING id, name, base_branch, created_at',
       [name, 'main'],
     );
@@ -2808,7 +2907,7 @@ class PostgresAdapter {
   }
 
   async listBranches() {
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       'SELECT id, name, base_branch, created_at, merged_at, deleted_at FROM branches WHERE deleted_at IS NULL ORDER BY created_at',
     );
     return rows.map(r => ({
@@ -2820,7 +2919,7 @@ class PostgresAdapter {
   }
 
   async getBranch(name: any) {
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       'SELECT id, name, base_branch, created_at, merged_at, deleted_at FROM branches WHERE name = $1 AND deleted_at IS NULL',
       [name],
     );
@@ -2855,7 +2954,7 @@ class PostgresAdapter {
   }
 
   async getBranchChanges(branchId: any) {
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       'SELECT item_id, change_type, section, data, changed_at FROM branch_changes WHERE branch_id = $1 ORDER BY item_id, section',
       [branchId],
     );
@@ -2869,14 +2968,14 @@ class PostgresAdapter {
   // Blocks merge when any reference item with blockDeletion=true targets a deleted item.
   async preFlightScan(branchId: any) {
     // Collect the set of deleted item IDs on this branch
-    const { rows: delRows } = await this._pool.query(
+    const { rows: delRows } = await this._exec(
       "SELECT DISTINCT item_id FROM branch_changes WHERE branch_id = $1 AND change_type = 'delete'",
       [branchId],
     );
     const deletedIds = delRows.map(r => r.item_id);
 
     // Get all changed item IDs (creates, updates, deletes)
-    const { rows: allRows } = await this._pool.query(
+    const { rows: allRows } = await this._exec(
       "SELECT DISTINCT item_id, change_type FROM branch_changes WHERE branch_id = $1 AND section = 'item'",
       [branchId],
     );
@@ -2890,7 +2989,7 @@ class PostgresAdapter {
     let structuralRefs: any[] = [];
     let blockingRefs: any[]   = [];
     if (changedIds.length) {
-      const { rows: refRows } = await this._pool.query(
+      const { rows: refRows } = await this._execTry(
         'SELECT source_item_id, target_item_id, reference_type, field_name FROM perf_references WHERE target_item_id = ANY($1)',
         [changedIds],
       ).catch(() => ({ rows: [] })); // item_references may not exist on older schemas
@@ -2904,7 +3003,7 @@ class PostgresAdapter {
         // Reference items store targetId and blockDeletion flag in the main items value field
         // or time_data column as JSON — query items of type 'reference' pointing at deleted IDs.
         // This is a best-effort check; full payload scanning is handled by the SyncEngine.
-        const { rows: blockRows } = await this._pool.query(`
+        const { rows: blockRows } = await this._exec(`
           SELECT id FROM items
           WHERE type = 'reference'
             AND parent_id = ANY($1)
@@ -2924,7 +3023,7 @@ class PostgresAdapter {
 
   // Atomically merge all branch_changes into main tables, then mark branch merged.
   async mergeBranch(branchId: any) {
-    const { rows: branchRows } = await this._pool.query(
+    const { rows: branchRows } = await this._exec(
       'SELECT id, name FROM branches WHERE id = $1 AND deleted_at IS NULL AND merged_at IS NULL',
       [branchId],
     );
@@ -3039,10 +3138,10 @@ class PostgresAdapter {
 
   async deleteBranch(name: any) {
     if (!name || name === 'main') throw new Error('Cannot delete the main branch');
-    const { rows } = await this._pool.query('SELECT id FROM branches WHERE name = $1 AND deleted_at IS NULL', [name]);
+    const { rows } = await this._exec('SELECT id FROM branches WHERE name = $1 AND deleted_at IS NULL', [name]);
     if (!rows.length) throw new Error(`Branch "${name}" not found`);
-    await this._pool.query('UPDATE branches SET deleted_at = now() WHERE id = $1', [rows[0].id]);
-    await this._pool.query('DELETE FROM branch_changes WHERE branch_id = $1', [rows[0].id]);
+    await this._exec('UPDATE branches SET deleted_at = now() WHERE id = $1', [rows[0].id]);
+    await this._exec('DELETE FROM branch_changes WHERE branch_id = $1', [rows[0].id]);
   }
 }
 

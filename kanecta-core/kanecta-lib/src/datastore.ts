@@ -161,6 +161,30 @@ class Datastore {
   async deleteWarnings(id: any)                   { return this._adapter.deleteWarnings(id); }
   async createType(value: any, opts?: any)              { return this._adapter.createType(value, opts); }
 
+  // ─── Transactions ──────────────────────────────────────────────────────────
+
+  // Run `fn` as ONE atomic transaction. Every write `fn` performs on this
+  // datastore (create/update/delete/relate/…) enlists in a single BEGIN…COMMIT
+  // and commits together, or ALL roll back on any throw. `fn` receives this same
+  // datastore as its `tx` handle — because the adapter opens its transaction scope
+  // (an AsyncLocalStorage) before invoking `fn`, every op the facade delegates
+  // inside `fn` automatically runs on the transaction's connection.
+  //
+  // Generic over items: the CALLER decides what belongs in one transaction —
+  // Kanecta stays domain-agnostic (no "page + revision" awareness). Postgres-only
+  // for now; the fs/sqlite lock-file equivalent is deferred, so a working set whose
+  // adapter has no `transaction` throws here rather than silently writing
+  // non-atomically.
+  async transaction(fn: (tx: Datastore) => any) {
+    if (typeof this._adapter.transaction !== 'function') {
+      throw new Error(
+        'transaction(fn) is not supported on this working set — atomic multi-op ' +
+        'transactions require the Postgres working set (fs/sqlite is deferred).',
+      );
+    }
+    return this._adapter.transaction(() => fn(this));
+  }
+
   // ─── Aliases ───────────────────────────────────────────────────────────────
 
   async resolve(idOrAlias: any)                   { return this._adapter.resolve(idOrAlias); }
@@ -177,6 +201,7 @@ class Datastore {
   // ─── Relationships ─────────────────────────────────────────────────────────
 
   async relate(sourceId: any, type: any, targetId: any, opts?: any) { return this._adapter.relate(sourceId, type, targetId, opts); }
+  async unrelate(id: any)                         { return this._adapter.unrelate(id); }
   get relTypes()                             { return this._adapter.relTypes; }
   async addRelTypes(names: any)                   { return this._adapter.addRelTypes(names); }
   async relationships(id: any)                    { return this._adapter.relationships(id); }

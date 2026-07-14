@@ -2271,3 +2271,79 @@ describe('structured built-in projection (component + parameter children)', () =
     expect((await adapter.readObjectJson(prop.id, PARAMETER_TYPE_ID)).name).toBe('personId');
   });
 });
+
+// ─── Universal transactions (atomic multi-op writes) ──────────────────────────
+
+describe('transactions', () => {
+  test('transaction(fn) commits every op together', async () => {
+    let aId, bId;
+    await adapter.transaction(async (tx) => {
+      const a = await tx.create({ value: 'tx-commit-a' });
+      const b = await tx.create({ value: 'tx-commit-b', parentId: a.id });
+      aId = a.id; bId = b.id;
+    });
+    // Both survive the commit, and the second's parent link to the first held.
+    expect((await adapter.get(aId))?.value).toBe('tx-commit-a');
+    const b = await adapter.get(bId);
+    expect(b?.value).toBe('tx-commit-b');
+    expect(b?.parentId).toBe(aId);
+  });
+
+  test('a throw mid-transaction rolls back ALL ops (no partial write)', async () => {
+    let aId;
+    await expect(
+      adapter.transaction(async (tx) => {
+        const a = await tx.create({ value: 'tx-rollback-a' });
+        aId = a.id;
+        // Second op fails — the whole transaction must unwind, including op 1.
+        throw new Error('boom');
+      }),
+    ).rejects.toThrow('boom');
+    expect(aId).toBeTruthy();
+    expect(await adapter.get(aId)).toBeNull();
+  });
+
+  test('the return value of transaction(fn) is fn\'s result', async () => {
+    const out = await adapter.transaction(async (tx) => {
+      const a = await tx.create({ value: 'tx-return' });
+      return a.id;
+    });
+    expect(typeof out).toBe('string');
+    expect((await adapter.get(out))?.value).toBe('tx-return');
+  });
+
+  test('client-supplied id lets a later op reference an item created earlier', async () => {
+    const parentId = crypto.randomUUID();
+    let childId;
+    await adapter.transaction(async (tx) => {
+      await tx.create({ id: parentId, value: 'tx-parent' });
+      const child = await tx.create({ value: 'tx-child', parentId });
+      childId = child.id;
+    });
+    expect((await adapter.get(parentId))?.value).toBe('tx-parent');
+    expect((await adapter.get(childId))?.parentId).toBe(parentId);
+  });
+
+  // Level 1 — per-write atomicity. Force a failure AFTER the `items` row is
+  // inserted (in `_snapshot`, which `_createImpl` calls once the row exists) and
+  // assert the create left NO orphan `items` row behind — i.e. each single write
+  // is itself all-or-nothing, not just multi-op transactions.
+  test('crash mid-create leaves no orphan items row (per-write atomicity)', async () => {
+    const orig = adapter._snapshot.bind(adapter);
+    let attemptedId;
+    adapter._snapshot = async (idOrItem, ...rest) => {
+      // Remember the id we were about to snapshot, then blow up.
+      attemptedId = typeof idOrItem === 'string' ? idOrItem : idOrItem?.id;
+      throw new Error('injected crash after items insert');
+    };
+    try {
+      await expect(adapter.create({ value: 'orphan-check' })).rejects.toThrow('injected crash');
+    } finally {
+      adapter._snapshot = orig;
+    }
+    expect(attemptedId).toBeTruthy();
+    // The items INSERT ran before the crash; rollback must have removed it.
+    const { rows } = await pool.query('SELECT id FROM items WHERE id = $1', [attemptedId]);
+    expect(rows).toHaveLength(0);
+  });
+});
