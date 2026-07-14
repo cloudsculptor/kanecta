@@ -154,6 +154,33 @@ describe('filesystem: file-first model', () => {
     expect(doc.item.value).toBe('item section');
   });
 
+  it('preserves a valid caller-supplied id instead of minting one', () => {
+    const id = '11111111-2222-4333-8444-555555555555';
+    const item = ds.create({ id, value: 'preserved id' });
+    expect(item.id).toBe(id);
+    expect(fs.existsSync(mainItemPath(id))).toBe(true);
+    expect(ds.get(id)?.value).toBe('preserved id');
+  });
+
+  it('mints a random id when none is supplied (regression guard)', () => {
+    const a = ds.create({ value: 'a' });
+    const b = ds.create({ value: 'b' });
+    expect(a.id).not.toBe(b.id);
+    expect(a.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+  });
+
+  it('rejects a non-UUID caller-supplied id', () => {
+    expect(() => ds.create({ id: 'not-a-uuid', value: 'x' }))
+      .toThrow(/Invalid id \(must be a UUID\)/);
+  });
+
+  it('rejects a caller-supplied id that already exists', () => {
+    const id = '99999999-8888-4777-8666-555555555555';
+    ds.create({ id, value: 'first' });
+    expect(() => ds.create({ id, value: 'second' }))
+      .toThrow(/Item id already exists/);
+  });
+
   it('meta section contains owner, visibility, tags, createdAt', () => {
     const item = ds.create({ value: 'meta section', tags: ['a', 'b'] });
     const doc  = JSON.parse(fs.readFileSync(mainItemPath(item.id), 'utf8'));
