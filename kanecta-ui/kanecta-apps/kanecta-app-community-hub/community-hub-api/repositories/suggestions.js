@@ -6,6 +6,7 @@ import { USE_KANECTA } from "./backend.js";
 import * as kanecta from "./kanecta/suggestions.js";
 
 export async function createSuggestion({ content, submittedById, submittedByName }) {
+  if (USE_KANECTA) return kanecta.createSuggestion({ content, submittedById, submittedByName });
   const { rows } = await pool.query(
     `INSERT INTO suggestions (content, submitted_by_id, submitted_by_name)
      VALUES ($1, $2, $3) RETURNING id`,

@@ -1,7 +1,7 @@
 // KanectaRepository — suggestions reads over kanecta-api (GraphQL). archived_at is
 // a normal filterable field (exposeSoftDelete backfill), so the active/archived
 // split reproduces exactly.
-import { graphql } from "../../lib/kanectaClient.js";
+import { graphql, createItem, resolveTypeId, ROOT_ID, OWNER } from "../../lib/kanectaClient.js";
 import { coerceRow, selectionFor } from "../../lib/kanectaMap.js";
 
 const ACTIVE = [
@@ -11,6 +11,17 @@ const ARCHIVED = [
   ["id", "id"], ["content", "text"], ["submitted_by_name", "text"], ["submitted_at", "timestamp"],
   ["archived_at", "timestamp"], ["archived_by_id", "text"],
 ];
+
+// pg: INSERT INTO suggestions (content, submitted_by_id, submitted_by_name)
+//     VALUES (...) RETURNING id. submitted_at defaults to NOW() in pg; set it here.
+export async function createSuggestion({ content, submittedById, submittedByName }) {
+  const typeId = await resolveTypeId("suggestions");
+  const item = await createItem({
+    type: "object", typeId, parentId: ROOT_ID, owner: OWNER,
+    objectData: { content, submittedById, submittedByName, submittedAt: new Date().toISOString() },
+  });
+  return { id: item.id };
+}
 
 // pg: WHERE archived_at IS NULL ORDER BY submitted_at DESC
 export async function listActiveSuggestions() {

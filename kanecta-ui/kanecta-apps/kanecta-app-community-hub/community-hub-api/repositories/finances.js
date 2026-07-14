@@ -32,6 +32,7 @@ export async function listTransactions({ from, to } = {}) {
 export async function createTransaction({
   date, description, amount, type, category, reference, sortOrder, createdById, createdByName,
 }) {
+  if (USE_KANECTA) return kanecta.createTransaction({ date, description, amount, type, category, reference, sortOrder, createdById, createdByName });
   const { rows } = await pool.query(
     `INSERT INTO finances_transactions
        (date, description, amount, type, category, reference, sort_order, created_by_id, created_by_name)
@@ -45,6 +46,7 @@ export async function createTransaction({
 export async function updateTransaction({
   id, date, description, amount, type, category, reference, sortOrder,
 }) {
+  if (USE_KANECTA) return kanecta.updateTransaction({ id, date, description, amount, type, category, reference, sortOrder });
   const { rows } = await pool.query(
     `UPDATE finances_transactions
      SET date=$1, description=$2, amount=$3, type=$4, category=$5, reference=$6, sort_order=$7, updated_at=NOW()
@@ -56,6 +58,7 @@ export async function updateTransaction({
 
 // Returns the deleted id, or undefined if no transaction has that id.
 export async function deleteTransaction(id) {
+  if (USE_KANECTA) return kanecta.deleteTransaction(id);
   const { rows } = await pool.query(
     "DELETE FROM finances_transactions WHERE id=$1 RETURNING id", [id]
   );

@@ -2,7 +2,7 @@
 // the licence/group name (a LEFT JOIN in pg) with a follow-up point lookup — the
 // FK is preserved as both a data field (licence_id / owner_id) and a relates-to
 // edge; here we resolve the display name via the id.
-import { graphql } from "../../lib/kanectaClient.js";
+import { graphql, transaction, resolveTypeId, newId, ROOT_ID, OWNER } from "../../lib/kanectaClient.js";
 import { coerceRow, selectionFor } from "../../lib/kanectaMap.js";
 
 const LIST = [
@@ -83,4 +83,46 @@ export async function getLivePageIdBySlug(slug) {
   const data = await graphql(
     `query($s:String){ pageses(where:{slug:{eq:$s}, deletedAt:{isNull:true}}, limit:1){ id } }`, { s: slug });
   return data.pageses[0] ? { id: data.pageses[0].id } : null;
+}
+
+// Read one page back as a pg-shaped p.* row (no licence/group name — matches RETURNING *).
+async function readPageStar(id) {
+  const data = await graphql(
+    `query($id:ID){ pageses(where:{id:{eq:$id}}, limit:1){ ${selectionFor(STAR)} } }`, { id });
+  return data.pageses[0] ? coerceRow(data.pageses[0], STAR) : null;
+}
+
+// pg: BEGIN; INSERT page (public=FALSE, version=1); INSERT page_history(Created,
+// version 1); COMMIT — returns the page row. The atomic multi-item write is the
+// point of Phase C: two create ops in ONE POST /transaction (PR #142), so the page
+// and its initial history row commit together or not at all.
+export async function createPageWithHistory({
+  slug, title, contentJson, createdById, createdByName, licenceId, ownerType, ownerId,
+}) {
+  const [pageType, historyType] = await Promise.all([
+    resolveTypeId("pages"), resolveTypeId("page-history"),
+  ]);
+  const pageId = newId();
+  const now = new Date().toISOString();
+  // content_json (jsonb in the source) projects to a string property, so it is
+  // stored JSON-encoded; the read path parses it back (STAR `json` kind).
+  const contentStr = JSON.stringify(contentJson || {});
+  await transaction([
+    {
+      op: "create", id: pageId, type: "object", typeId: pageType, parentId: ROOT_ID, owner: OWNER,
+      objectData: {
+        slug, title: title || "", contentJson: contentStr, createdById, createdByName,
+        licenceId: licenceId || null, public: false, version: 1,
+        ownerType: ownerType || "group", ownerId: ownerId ?? null, createdAt: now, updatedAt: now,
+      },
+    },
+    {
+      op: "create", id: newId(), type: "object", typeId: historyType, parentId: ROOT_ID, owner: OWNER,
+      objectData: {
+        pageId, action: "Created", version: 1, contentJson: contentStr,
+        licenceId: licenceId || null, userId: createdById, userName: createdByName, createdAt: now,
+      },
+    },
+  ]);
+  return readPageStar(pageId);
 }

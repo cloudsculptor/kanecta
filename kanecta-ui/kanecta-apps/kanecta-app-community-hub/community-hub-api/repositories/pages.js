@@ -158,6 +158,7 @@ export async function softDeletePage(slug) {
 export async function createPageWithHistory({
   slug, title, contentJson, createdById, createdByName, licenceId, ownerType, ownerId,
 }) {
+  if (USE_KANECTA) return kanecta.createPageWithHistory({ slug, title, contentJson, createdById, createdByName, licenceId, ownerType, ownerId });
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
