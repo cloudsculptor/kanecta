@@ -1522,6 +1522,7 @@ class SqliteFsAdapter {
   }
 
   create({
+    id: providedId = null,
     parentId, value = null, type = 'string', typeId = null,
     owner, license = null, sortOrder, confidence = null, status = null, tags = [],
     createdBy, objectData = null, dueAt = null, visibility = 'private', aspect = null,
@@ -1531,11 +1532,22 @@ class SqliteFsAdapter {
     if (WELL_KNOWN_TYPES.has(type))
       throw new Error(`Type '${type}' is a well-known root type and cannot be created via create()`);
 
+    // Optional caller-supplied id (backfill preserving source UUIDs; intra-
+    // transaction references where a later op points at this item). Must be a valid
+    // UUID that is not already taken; otherwise ids are server-minted. Mirrors the
+    // Postgres adapter so the uniform API behaves identically across backends.
+    if (providedId != null) {
+      if (!UUID_RE.test(providedId))
+        throw new Error(`Invalid id (must be a UUID): ${providedId}`);
+      if (this.get(providedId) != null)
+        throw new Error(`Item id already exists: ${providedId}`);
+    }
+
     if (parentId == null) {
       parentId = ROOT_ID;
     }
 
-    const id       = crypto.randomUUID();
+    const id       = providedId ?? crypto.randomUUID();
     const now      = new Date();
     const ownerVal = owner || this.config.owner;
     const actor    = createdBy || ownerVal;
