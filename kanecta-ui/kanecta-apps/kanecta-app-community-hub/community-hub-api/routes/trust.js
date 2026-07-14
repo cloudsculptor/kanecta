@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import { adminFetch } from "../lib/keycloakAdmin.js";
-import pool from "../db.js";
+import { getEndorsementFor, isEndorsed } from "../repositories/trust.js";
 
 const router = Router();
 const wrap = fn => (req, res, next) => fn(req, res, next).catch(next);
@@ -41,25 +41,17 @@ router.get("/my-chain", requireAuth, wrap(async (req, res) => {
   while (currentId && !visited.has(currentId) && steps.length < MAX_DEPTH) {
     visited.add(currentId);
 
-    const { rows } = await pool.query(
-      `SELECT endorsed_by_id, know_personally, trusted_by_someone, resilience_hui, other_reason
-       FROM trust WHERE user_id = $1 ORDER BY created_at ASC LIMIT 1`,
-      [currentId]
-    );
+    const trustRecord = await getEndorsementFor(currentId);
 
-    steps.unshift({ userId: currentId, trustRecord: rows[0] ?? null });
+    steps.unshift({ userId: currentId, trustRecord });
 
-    if (!rows[0]) break; // no trust record — this is the root
+    if (!trustRecord) break; // no trust record — this is the root
 
-    const endorserId = rows[0].endorsed_by_id;
+    const endorserId = trustRecord.endorsed_by_id;
     if (visited.has(endorserId)) break;
 
     // Check if endorser was themselves trusted; if not they're the root (Administrator)
-    const { rows: endorserTrust } = await pool.query(
-      `SELECT id FROM trust WHERE user_id = $1 LIMIT 1`,
-      [endorserId]
-    );
-    if (endorserTrust.length === 0) {
+    if (!(await isEndorsed(endorserId))) {
       steps.unshift({ userId: endorserId, trustRecord: null });
       break;
     }

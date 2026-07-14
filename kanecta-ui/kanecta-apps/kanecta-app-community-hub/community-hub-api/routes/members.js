@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { adminFetch } from "../lib/keycloakAdmin.js";
-import pool from "../db.js";
+import { createEndorsement } from "../repositories/trust.js";
 
 const router = Router();
 
@@ -79,11 +79,15 @@ router.post("/:userId/roles/team", requireAuth, requireModeratorOrAdmin, wrap(as
     body: JSON.stringify([teamRole]),
   });
 
-  await pool.query(
-    `INSERT INTO trust (user_id, endorsed_by_id, know_personally, trusted_by_someone, resilience_hui, other_reason, locality)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    [userId, req.user.id, !!know_personally, !!trusted_by_someone, !!resilience_hui, other_reason?.trim() || null, locality]
-  );
+  await createEndorsement({
+    userId,
+    endorsedById: req.user.id,
+    knowPersonally: !!know_personally,
+    trustedBySomeone: !!trusted_by_someone,
+    resilienceHui: !!resilience_hui,
+    otherReason: other_reason?.trim() || null,
+    locality,
+  });
 
   res.status(204).end();
 }));

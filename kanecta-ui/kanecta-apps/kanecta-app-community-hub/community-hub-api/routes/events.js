@@ -5,6 +5,7 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import { uploadFile, deleteFile } from "../lib/spaces.js";
 import { broadcastFcm } from "../lib/fcm.js";
 import { notify } from "../lib/notification-templates.js";
+import * as eventsRepo from "../repositories/events.js";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -17,14 +18,7 @@ const PUBLIC_URL = process.env.SPACES_PUBLIC_URL;
 async function attachFiles(events) {
   if (!events.length) return events;
   const ids = events.map((e) => e.id);
-  const { rows } = await pool.query(
-    `SELECT ef.event_id, ef.role, ef.position, f.id AS file_id, f.storage_key
-     FROM event_files ef
-     JOIN files f ON f.id = ef.file_id
-     WHERE ef.event_id = ANY($1::uuid[]) AND f.deleted_at IS NULL
-     ORDER BY ef.event_id, ef.role DESC, ef.position`,
-    [ids]
-  );
+  const rows = await eventsRepo.getEventFiles(pool, ids);
   const byEvent = new Map();
   for (const row of rows) {
     if (!byEvent.has(row.event_id)) byEvent.set(row.event_id, { hero: null, gallery: [] });
@@ -46,15 +40,7 @@ async function attachFiles(events) {
 // Public. Returns approved, non-deleted events whose end date is today or future.
 
 router.get("/", wrap(async (req, res) => {
-  const { rows } = await pool.query(
-    `SELECT id, title, description, start_date, start_time, end_date, end_time,
-            address, lat, lng, website, phone, email, area, submitted_at
-     FROM events
-     WHERE status = 'approved'
-       AND deleted_at IS NULL
-       AND COALESCE(end_date, start_date) >= CURRENT_DATE
-     ORDER BY start_date ASC`
-  );
+  const rows = await eventsRepo.listUpcomingApprovedEvents(pool);
   const events = await attachFiles(rows);
   res.json(events);
 }));
@@ -63,33 +49,22 @@ router.get("/", wrap(async (req, res) => {
 // Auth. Returns all events submitted by the current user.
 
 router.get("/mine", requireAuth, wrap(async (req, res) => {
-  const { rows } = await pool.query(
-    `SELECT id, title, start_date, start_time, end_date, status, decline_reason, submitted_at
-     FROM events
-     WHERE submitted_by_id = $1
-       AND deleted_at IS NULL
-     ORDER BY submitted_at DESC`,
-    [req.user.id]
-  );
-  res.json(rows);
+  res.json(await eventsRepo.listMyEvents(pool, req.user.id));
 }));
 
 // ── DELETE /api/events/:id ─────────────────────────────────────────────────────
 // Auth + owner (or moderator). Soft-deletes the event.
 
 router.delete("/:id", requireAuth, wrap(async (req, res) => {
-  const { rows } = await pool.query(
-    "SELECT submitted_by_id, deleted_at FROM events WHERE id = $1",
-    [req.params.id]
-  );
-  if (!rows.length || rows[0].deleted_at) return res.status(404).json({ error: "Event not found" });
+  const event = await eventsRepo.getEventForDelete(pool, req.params.id);
+  if (!event || event.deleted_at) return res.status(404).json({ error: "Event not found" });
 
   const isModerator = req.user.roles.includes("moderator") || req.user.roles.includes("admin");
-  if (rows[0].submitted_by_id !== req.user.id && !isModerator) {
+  if (event.submitted_by_id !== req.user.id && !isModerator) {
     return res.status(403).json({ error: "Not your event" });
   }
 
-  await pool.query("UPDATE events SET deleted_at = NOW() WHERE id = $1", [req.params.id]);
+  await eventsRepo.softDeleteEvent(pool, req.params.id);
   res.json({ ok: true });
 }));
 
@@ -97,16 +72,7 @@ router.delete("/:id", requireAuth, wrap(async (req, res) => {
 // Moderator only. Returns all pending events.
 
 router.get("/pending", requireAuth, requireModerator, wrap(async (req, res) => {
-  const { rows } = await pool.query(
-    `SELECT id, title, description, start_date, start_time, end_date, end_time,
-            address, lat, lng, website, phone, email, area,
-            organiser_name, organiser_email, organiser_phone,
-            submitted_by_name, submitted_at
-     FROM events
-     WHERE status = 'pending'
-       AND deleted_at IS NULL
-     ORDER BY submitted_at ASC`
-  );
+  const rows = await eventsRepo.listPendingEvents(pool);
   const events = await attachFiles(rows);
   res.json(events);
 }));
@@ -115,20 +81,13 @@ router.get("/pending", requireAuth, requireModerator, wrap(async (req, res) => {
 // Auth + owner or moderator. Returns full event data including files.
 
 router.get("/:id", requireAuth, wrap(async (req, res) => {
-  const { rows } = await pool.query(
-    `SELECT id, title, description, start_date, start_time, end_date, end_time,
-            address, lat, lng, website, phone, email, area, status,
-            organiser_name, organiser_email, organiser_phone,
-            submitted_by_id, submitted_at
-     FROM events WHERE id = $1 AND deleted_at IS NULL`,
-    [req.params.id]
-  );
-  if (!rows.length) return res.status(404).json({ error: "Event not found" });
+  const detail = await eventsRepo.getEventDetail(pool, req.params.id);
+  if (!detail) return res.status(404).json({ error: "Event not found" });
   const isModerator = req.user.roles.includes("moderator") || req.user.roles.includes("admin");
-  if (rows[0].submitted_by_id !== req.user.id && !isModerator) {
+  if (detail.submitted_by_id !== req.user.id && !isModerator) {
     return res.status(403).json({ error: "Not your event" });
   }
-  const [event] = await attachFiles(rows);
+  const [event] = await attachFiles([detail]);
   res.json(event);
 }));
 
@@ -151,31 +110,22 @@ router.post("/", requireAuth, wrap(async (req, res) => {
   if (desc.length > 1000) return res.status(400).json({ error: "Description must be 1000 characters or fewer" });
   const eventArea = area?.trim() || "Featherston";
 
-  const { rows } = await pool.query(
-    `INSERT INTO events
-       (title, description, start_date, start_time, end_date, end_time,
-        address, lat, lng, website, phone, email,
-        organiser_name, organiser_email, organiser_phone, area,
-        submitted_by_id, submitted_by_name)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
-     RETURNING id`,
-    [
-      title.trim(), desc,
-      start_date, start_time || null, end_date || null, end_time || null,
-      address?.trim() || null,
-      lat != null ? parseFloat(lat) : null, lng != null ? parseFloat(lng) : null,
-      website?.trim() || null, phone?.trim() || null, email?.trim() || null,
-      organiser_name?.trim() || null, organiser_email?.trim() || null, organiser_phone?.trim() || null,
-      eventArea, req.user.id, req.user.name,
-    ]
-  );
+  const row = await eventsRepo.createEvent(pool, {
+    title: title.trim(), description: desc,
+    startDate: start_date, startTime: start_time || null, endDate: end_date || null, endTime: end_time || null,
+    address: address?.trim() || null,
+    lat: lat != null ? parseFloat(lat) : null, lng: lng != null ? parseFloat(lng) : null,
+    website: website?.trim() || null, phone: phone?.trim() || null, email: email?.trim() || null,
+    organiserName: organiser_name?.trim() || null, organiserEmail: organiser_email?.trim() || null, organiserPhone: organiser_phone?.trim() || null,
+    area: eventArea, submittedById: req.user.id, submittedByName: req.user.name,
+  });
   ;(async () => {
     await broadcastFcm("events", req.user.id, notify.eventCreated({
       title: title.trim(),
       description: desc,
     }));
   })().catch(() => {});
-  res.status(201).json({ id: rows[0].id });
+  res.status(201).json({ id: row.id });
 }));
 
 // ── POST /api/events/:id/images ────────────────────────────────────────────────
@@ -193,14 +143,11 @@ router.post(
       return res.status(400).json({ error: "role must be hero or gallery" });
     }
 
-    const { rows: eventRows } = await pool.query(
-      "SELECT submitted_by_id, status FROM events WHERE id = $1",
-      [id]
-    );
-    if (!eventRows.length) return res.status(404).json({ error: "Event not found" });
+    const event = await eventsRepo.getEventOwnerStatus(pool, id);
+    if (!event) return res.status(404).json({ error: "Event not found" });
 
     const isModerator = req.user.roles.includes("moderator") || req.user.roles.includes("admin");
-    if (eventRows[0].submitted_by_id !== req.user.id && !isModerator) {
+    if (event.submitted_by_id !== req.user.id && !isModerator) {
       return res.status(403).json({ error: "Not your event" });
     }
 
@@ -211,15 +158,13 @@ router.post(
 
     // Cap gallery at 3 images
     if (role === "gallery") {
-      const { rows: existing } = await pool.query(
-        "SELECT COUNT(*) FROM event_files WHERE event_id = $1 AND role = 'gallery'",
-        [id]
-      );
-      if (parseInt(existing[0].count, 10) >= 3) {
+      if (await eventsRepo.countGalleryImages(pool, id) >= 3) {
         return res.status(400).json({ error: "Maximum 3 gallery images allowed" });
       }
     }
 
+    // This transaction spans Spaces (S3) uploads AND several event tables, so the
+    // route owns the BEGIN/COMMIT and hands the client to each repo statement.
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
@@ -234,24 +179,16 @@ router.post(
 
       // Replace existing hero if uploading a new one
       if (role === "hero") {
-        const { rows: oldHero } = await client.query(
-          `SELECT ef.file_id, f.storage_key
-           FROM event_files ef JOIN files f ON f.id = ef.file_id
-           WHERE ef.event_id = $1 AND ef.role = 'hero'`,
-          [id]
-        );
-        if (oldHero.length) {
-          await deleteFile({ storageKey: oldHero[0].storage_key, fileId: oldHero[0].file_id, pool: client });
-          await client.query("DELETE FROM event_files WHERE event_id = $1 AND role = 'hero'", [id]);
+        const oldHero = await eventsRepo.getHeroImage(client, id);
+        if (oldHero) {
+          await deleteFile({ storageKey: oldHero.storage_key, fileId: oldHero.file_id, pool: client });
+          await eventsRepo.deleteHeroEventFile(client, id);
         }
       }
 
-      await client.query(
-        "INSERT INTO event_files (event_id, file_id, role, position) VALUES ($1,$2,$3,$4)",
-        [id, fileRow.id, role, parseInt(position, 10)]
-      );
-      if (eventRows[0].status === "approved") {
-        await client.query("UPDATE events SET status = 'pending' WHERE id = $1", [id]);
+      await eventsRepo.insertEventFile(client, { eventId: id, fileId: fileRow.id, role, position: parseInt(position, 10) });
+      if (event.status === "approved") {
+        await eventsRepo.setEventPendingIfApproved(client, id);
       }
       await client.query("COMMIT");
       res.status(201).json({ file_id: fileRow.id, url });
@@ -270,27 +207,21 @@ router.post(
 router.delete("/:id/images/:fileId", requireAuth, wrap(async (req, res) => {
   const { id, fileId } = req.params;
 
-  const { rows: eventRows } = await pool.query(
-    "SELECT submitted_by_id, status FROM events WHERE id = $1",
-    [id]
-  );
-  if (!eventRows.length) return res.status(404).json({ error: "Event not found" });
+  const event = await eventsRepo.getEventOwnerStatus(pool, id);
+  if (!event) return res.status(404).json({ error: "Event not found" });
 
   const isModerator = req.user.roles.includes("moderator") || req.user.roles.includes("admin");
-  if (eventRows[0].submitted_by_id !== req.user.id && !isModerator) {
+  if (event.submitted_by_id !== req.user.id && !isModerator) {
     return res.status(403).json({ error: "Not your event" });
   }
 
-  const { rows: efRows } = await pool.query(
-    "SELECT ef.file_id, f.storage_key FROM event_files ef JOIN files f ON f.id = ef.file_id WHERE ef.event_id = $1 AND ef.file_id = $2",
-    [id, fileId]
-  );
-  if (!efRows.length) return res.status(404).json({ error: "Image not found" });
+  const ef = await eventsRepo.getEventFile(pool, id, fileId);
+  if (!ef) return res.status(404).json({ error: "Image not found" });
 
-  await deleteFile({ storageKey: efRows[0].storage_key, fileId: efRows[0].file_id, pool });
-  await pool.query("DELETE FROM event_files WHERE event_id = $1 AND file_id = $2", [id, fileId]);
-  if (eventRows[0].status === "approved") {
-    await pool.query("UPDATE events SET status = 'pending' WHERE id = $1", [id]);
+  await deleteFile({ storageKey: ef.storage_key, fileId: ef.file_id, pool });
+  await eventsRepo.deleteEventFile(pool, id, fileId);
+  if (event.status === "approved") {
+    await eventsRepo.setEventPendingIfApproved(pool, id);
   }
   res.json({ ok: true });
 }));
@@ -299,13 +230,10 @@ router.delete("/:id/images/:fileId", requireAuth, wrap(async (req, res) => {
 // Auth + owner or moderator. Updates event fields. Resets approved → pending.
 
 router.patch("/:id", requireAuth, wrap(async (req, res) => {
-  const { rows: existing } = await pool.query(
-    "SELECT submitted_by_id, status FROM events WHERE id = $1",
-    [req.params.id]
-  );
-  if (!existing.length) return res.status(404).json({ error: "Event not found" });
+  const existing = await eventsRepo.getEventOwnerStatus(pool, req.params.id);
+  if (!existing) return res.status(404).json({ error: "Event not found" });
   const isModerator = req.user.roles.includes("moderator") || req.user.roles.includes("admin");
-  if (existing[0].submitted_by_id !== req.user.id && !isModerator) {
+  if (existing.submitted_by_id !== req.user.id && !isModerator) {
     return res.status(403).json({ error: "Not your event" });
   }
 
@@ -316,41 +244,26 @@ router.patch("/:id", requireAuth, wrap(async (req, res) => {
   if (!start_date) return res.status(400).json({ error: "Start date is required" });
   const eventArea = area?.trim() || "Featherston";
 
-  const newStatus = existing[0].status === "approved" ? "pending" : existing[0].status;
+  const newStatus = existing.status === "approved" ? "pending" : existing.status;
 
-  const { rows } = await pool.query(
-    `UPDATE events
-     SET title=$1, description=$2, start_date=$3, start_time=$4,
-         end_date=$5, end_time=$6, address=$7, lat=$8, lng=$9,
-         website=$10, phone=$11, email=$12,
-         organiser_name=$13, organiser_email=$14, organiser_phone=$15,
-         area=$16, status=$17
-     WHERE id=$18
-     RETURNING id, status`,
-    [
-      title.trim(), description?.trim() || null,
-      start_date, start_time || null, end_date || null, end_time || null,
-      address?.trim() || null,
-      lat != null ? parseFloat(lat) : null, lng != null ? parseFloat(lng) : null,
-      website?.trim() || null, phone?.trim() || null, email?.trim() || null,
-      organiser_name?.trim() || null, organiser_email?.trim() || null, organiser_phone?.trim() || null,
-      eventArea, newStatus, req.params.id,
-    ]
-  );
-  res.json({ ok: true, status: rows[0].status });
+  const row = await eventsRepo.updateEvent(pool, {
+    id: req.params.id,
+    title: title.trim(), description: description?.trim() || null,
+    startDate: start_date, startTime: start_time || null, endDate: end_date || null, endTime: end_time || null,
+    address: address?.trim() || null,
+    lat: lat != null ? parseFloat(lat) : null, lng: lng != null ? parseFloat(lng) : null,
+    website: website?.trim() || null, phone: phone?.trim() || null, email: email?.trim() || null,
+    organiserName: organiser_name?.trim() || null, organiserEmail: organiser_email?.trim() || null, organiserPhone: organiser_phone?.trim() || null,
+    area: eventArea, status: newStatus,
+  });
+  res.json({ ok: true, status: row.status });
 }));
 
 // ── PATCH /api/events/:id/approve ─────────────────────────────────────────────
 
 router.patch("/:id/approve", requireAuth, requireModerator, wrap(async (req, res) => {
-  const { rows } = await pool.query(
-    `UPDATE events
-     SET status = 'approved', reviewed_by_id = $1, reviewed_by_name = $2, reviewed_at = NOW()
-     WHERE id = $3 AND status = 'pending' AND deleted_at IS NULL
-     RETURNING id`,
-    [req.user.id, req.user.name, req.params.id]
-  );
-  if (!rows.length) return res.status(404).json({ error: "Event not found or not pending" });
+  const row = await eventsRepo.approveEvent(pool, { id: req.params.id, reviewedById: req.user.id, reviewedByName: req.user.name });
+  if (!row) return res.status(404).json({ error: "Event not found or not pending" });
   res.json({ ok: true });
 }));
 
@@ -358,15 +271,11 @@ router.patch("/:id/approve", requireAuth, requireModerator, wrap(async (req, res
 
 router.patch("/:id/decline", requireAuth, requireModerator, wrap(async (req, res) => {
   const { decline_reason } = req.body;
-  const { rows } = await pool.query(
-    `UPDATE events
-     SET status = 'declined', decline_reason = $1,
-         reviewed_by_id = $2, reviewed_by_name = $3, reviewed_at = NOW()
-     WHERE id = $4 AND status = 'pending' AND deleted_at IS NULL
-     RETURNING id`,
-    [decline_reason?.trim() || null, req.user.id, req.user.name, req.params.id]
-  );
-  if (!rows.length) return res.status(404).json({ error: "Event not found or not pending" });
+  const row = await eventsRepo.declineEvent(pool, {
+    id: req.params.id, declineReason: decline_reason?.trim() || null,
+    reviewedById: req.user.id, reviewedByName: req.user.name,
+  });
+  if (!row) return res.status(404).json({ error: "Event not found or not pending" });
   res.json({ ok: true });
 }));
 
