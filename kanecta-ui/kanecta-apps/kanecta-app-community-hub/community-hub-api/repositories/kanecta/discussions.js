@@ -3,7 +3,41 @@
 // has_unread + is_notifications_enabled. GraphQL has no cross-type join, so we read
 // the three projected obj_ tables and join in JS — reproducing the exact CASE
 // semantics and the sortOrder-NULLS-LAST ordering.
-import { graphql } from "../../lib/kanectaClient.js";
+import { graphql, transaction, resolveTypeId, newId, ROOT_ID, OWNER } from "../../lib/kanectaClient.js";
+
+// Does this user have any thread-read rows yet? (First-visit seeding gate.)
+// pg: SELECT 1 FROM discussions_thread_reads WHERE user_id=$1 LIMIT 1
+export async function hasThreadReads(userId) {
+  const data = await graphql(
+    `query($u:String){ discussionsThreadReadses(where:{userId:{eq:$u}}, limit:1){ id } }`,
+    { u: userId },
+  );
+  return data.discussionsThreadReadses.length > 0;
+}
+
+// Seed a first-time visitor's read state so they start with everything read.
+// pg: INSERT (user_id, thread_id, last_read_at) SELECT ... FROM active threads
+//     ON CONFLICT DO NOTHING. Here: create a thread-read item per active thread the
+//     user has not already read, all in one atomic transaction.
+export async function seedThreadReads(userId) {
+  const typeId = await resolveTypeId("discussions-thread-reads");
+  const data = await graphql(
+    `query($u:String){
+       discussionsThreadses(where:{archivedAt:{isNull:true}}, limit:500){ id latestMessageAt }
+       discussionsThreadReadses(where:{userId:{eq:$u}}, limit:500){ threadId { id } }
+     }`,
+    { u: userId },
+  );
+  const already = new Set(data.discussionsThreadReadses.map((r) => r.threadId?.id));
+  const now = new Date().toISOString();
+  const ops = data.discussionsThreadses
+    .filter((t) => !already.has(t.id))
+    .map((t) => ({
+      op: "create", id: newId(), type: "object", typeId, parentId: ROOT_ID, owner: OWNER,
+      objectData: { userId, threadId: t.id, lastReadAt: t.latestMessageAt || now },
+    }));
+  if (ops.length) await transaction(ops);
+}
 
 // pg (see repositories/pg/discussions.js listThreads):
 //   threads LEFT JOIN thread_reads(user) LEFT JOIN subscriptions(user)

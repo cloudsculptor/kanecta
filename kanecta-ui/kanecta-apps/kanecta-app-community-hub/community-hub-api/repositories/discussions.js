@@ -77,6 +77,7 @@ export async function setMessageFilePreview(id, showPreview, userId) {
 
 // Does this user have any thread-read rows yet? (First-visit seeding gate.)
 export async function hasThreadReads(userId) {
+  if (USE_KANECTA) return kanecta.hasThreadReads(userId);
   const { rows } = await pool.query(
     "SELECT 1 FROM discussions_thread_reads WHERE user_id = $1 LIMIT 1",
     [userId]
@@ -86,6 +87,7 @@ export async function hasThreadReads(userId) {
 
 // Seed a first-time visitor's read state so they start with everything read.
 export async function seedThreadReads(userId) {
+  if (USE_KANECTA) return kanecta.seedThreadReads(userId);
   await pool.query(
     `INSERT INTO discussions_thread_reads (user_id, thread_id, last_read_at)
      SELECT $1, id, COALESCE(latest_message_at, NOW())
