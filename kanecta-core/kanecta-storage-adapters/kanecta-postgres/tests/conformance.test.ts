@@ -1,11 +1,13 @@
 // Four-table-law conformance guardrail (spec §cqrs-projections).
 //
 // Unit: the pure classifier. Integration (gated): apply the full migration set to a
-// throwaway schema, enumerate its tables, and REPORT the backlog of non-conforming
-// tables — the uniform-projection modernisation removes them one by one. It is
-// deliberately non-strict for now (it asserts `items` exists and logs the backlog);
-// flip the marked assertion to `expect(report.conformant).toBe(true)` once the epic
-// completes, and this becomes the gate that prevents the drift ever recurring.
+// throwaway schema, enumerate its tables, and assert FULL conformance. The
+// uniform-projection modernisation removed every bespoke table one by one; the epic
+// is now complete, so this is the STRICT gate (`report.conformant === true`) that
+// prevents any bespoke table ever drifting back in. The only non-obj_ relations left
+// are the sanctioned exceptions: item_history/activity (logs), perf_* (rebuildable
+// indexes), and branches/branch_changes (versioning infrastructure — a branch is a
+// schema/folder/prefix, never an item; spec §postgres-branching).
 
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
@@ -23,6 +25,12 @@ describe('classifyTable', () => {
     expect(classifyTable('obj_0c8a7b10_1111_4a00_8000_000000000102')).toBe('obj');
     expect(classifyTable('obj_0c8a7b10_1111_4a00_8000_000000000102_tags')).toBe('obj'); // array child
     expect(classifyTable('perf_search')).toBe('perf');
+  });
+  it('classifies the sanctioned versioning infrastructure as branching, not violations', () => {
+    // A branch is a native structural mechanism (schema/folder/prefix), never an item —
+    // its registry + delta store are a sanctioned exception like item_history/activity.
+    expect(classifyTable('branches')).toBe('branching');
+    expect(classifyTable('branch_changes')).toBe('branching');
   });
   it('flags everything else as a violation', () => {
     for (const t of ['types', 'documents', 'functions', 'item_grants', 'aliases', 'config', 'schema_version', 'history'])
@@ -81,12 +89,14 @@ describe.skipIf(!PG_URL)('live schema conformance (the modernisation backlog)', 
       ]) {
         expect(report.violations).not.toContain(cut);
       }
-      // Only the post-1.4.0 branching tables remain (separately tracked, deferred).
-      expect(report.violations).toEqual(['branch_changes', 'branches']);
-      // TODO(uniform-projection-modernisation): flip to the strict gate
-      // (expect(report.conformant).toBe(true)) once branches/branch_changes are
-      // themselves projected — the last of the backlog.
-      expect(report).toBeTruthy();
+      // The epic is complete. branches + branch_changes are sanctioned versioning
+      // infrastructure (a branch is a schema/folder/prefix, never an item — spec
+      // §postgres-branching), classified as `branching`, not violations. THE STRICT
+      // GATE: a freshly-migrated schema is fully four-table-law conformant, and this
+      // assertion prevents any bespoke table ever drifting back in.
+      expect(report.counts.branching).toBe(2); // branches + branch_changes, sanctioned
+      expect(report.violations).toEqual([]);
+      expect(report.conformant).toBe(true);
     } finally {
       await pool.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`).catch(() => {});
       await pool.end();
