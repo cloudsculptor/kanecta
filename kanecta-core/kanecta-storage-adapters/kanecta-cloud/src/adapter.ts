@@ -21,8 +21,10 @@ const ITEM_METHODS = [
   'history', 'byTag', 'byType', 'listRelationships',
   'loadAll', 'children', 'tree', 'query', 'rebuildIndexes',
   'readObjectJson', 'writeObjectJson', 'readFunctionJson', 'writeFunctionJson',
-  'readTypeJson', 'writeTypeJson',
+  'readTypeJson', 'writeTypeJson', '_listTypeDefs',
   'getRoot', 'getDataRoot',
+  'resolveTypeId', 'checkIntegrity', 'softDelete', 'restore',
+  'readTimeJson', 'writeTimeJson', 'deleteTimeJson', 'transaction',
 ];
 
 const FILE_METHODS = ['putFile', 'getFile', 'deleteFile', 'listFiles'];
@@ -58,6 +60,12 @@ export class CloudAdapter {
   }
 
   get config() { return this._items.config; }
+
+  // Surface the items backend's Postgres pool so pool-based features on
+  // kanecta-api (the GraphQL engine, the pg authz source) work uniformly on a
+  // Postgres-backed cloud working set — not just on a direct pg adapter. Reads
+  // through to the composed items adapter; undefined if items isn't pg-backed.
+  get _pool() { return this._items?._pool; }
 }
 
 for (const name of ITEM_METHODS) {

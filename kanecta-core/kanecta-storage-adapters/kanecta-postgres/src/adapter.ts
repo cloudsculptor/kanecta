@@ -1632,6 +1632,18 @@ class PostgresAdapter {
     return rows.map(rowToItem);
   }
 
+  // List every registered type definition (id + value), ordered by name. This is
+  // the pg parity of the sqlite-fs `_listTypeDefs` — kanecta-api's GraphQL schema
+  // builder (loadTypeItems) and the `/types` endpoint call it through the
+  // Datastore facade, so a Postgres-backed working set needs it too. Soft-deleted
+  // types are excluded: a deleted type must not generate GraphQL schema.
+  async _listTypeDefs() {
+    const { rows } = await this._exec(
+      `SELECT id, value FROM items WHERE type = 'type' AND deleted_at IS NULL ORDER BY value`,
+    );
+    return rows;
+  }
+
   async resolveTypeId(name: any) {
     if (!name) return { unknown: true };
     if (BUILT_IN_TYPES.has(name)) return { primitive: true };

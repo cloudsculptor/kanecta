@@ -65,6 +65,24 @@ test('cloudConfigFromRemote omits pg.ssl when not requested', () => {
   expect('ssl' in cfg.pg).toBe(false);
 });
 
+test('cloudConfigFromRemote maps an optional schema to a search_path options string', () => {
+  const cfg = cloudConfigFromRemote({
+    type: 'cloud',
+    postgres: { host: 'h', database: 'kanecta', user: 'kanecta', schema: 'communityhub_backfill' },
+    s3: S3_BLOCK,
+  });
+  expect(cfg.pg.options).toBe('-c search_path="communityhub_backfill"');
+});
+
+test('cloudConfigFromRemote omits pg.options when no schema is given', () => {
+  const cfg = cloudConfigFromRemote({
+    type: 'cloud',
+    postgres: { host: 'h', database: 'kanecta', user: 'kanecta' },
+    s3: S3_BLOCK,
+  });
+  expect('options' in cfg.pg).toBe(false);
+});
+
 test('cloudConfigFromRemote requires both halves of the pair', () => {
   expect(() => cloudConfigFromRemote({ type: 'cloud', s3: S3_BLOCK })).toThrow(/postgres/);
   expect(() => cloudConfigFromRemote({

@@ -1036,6 +1036,24 @@ describe('type definitions', () => {
     expect(await adapter.resolveTypeId('ResolveTest')).toEqual({ id });
     expect(await adapter.resolveTypeId('Nonexistent')).toEqual({ unknown: true });
   });
+
+  // _listTypeDefs is the pg parity of the sqlite-fs method kanecta-api's GraphQL
+  // schema builder + /types endpoint call through the Datastore facade — without
+  // it a Postgres-backed working set could not build its GraphQL schema.
+  test('_listTypeDefs returns {id,value} for every registered type, ordered by value', async () => {
+    const id        = crypto.randomUUID();
+    const tableName = `obj_${id.replace(/-/g, '_')}`;
+    await adapter.createType('ZzzListDefsProbe', { schema: makeTypeSchema(tableName, 'ZzzListDefsProbe'), id });
+    const defs = await adapter._listTypeDefs();
+    const probe = defs.find((d: any) => d.value === 'ZzzListDefsProbe');
+    expect(probe).toEqual({ id, value: 'ZzzListDefsProbe' });
+    // Rows carry only id + value.
+    expect(Object.keys(probe).sort()).toEqual(['id', 'value']);
+    // Ordered by value (Postgres collation) and free of duplicates.
+    const values = defs.map((d: any) => d.value);
+    expect(values).toEqual([...values].sort((a: string, b: string) => a.localeCompare(b)));
+    expect(new Set(values).size).toBe(values.length);
+  });
 });
 
 // The type registry lives in obj_<type-type>, not a bespoke `types` table (spec

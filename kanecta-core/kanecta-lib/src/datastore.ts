@@ -55,6 +55,11 @@ function cloudConfigFromRemote(origin: any): any {
   }
   const cloudConfig: any = { pg: { connectionString: buildPgConnectionString(pg) } };
   if (pg.ssl) cloudConfig.pg.ssl = pg.ssl;
+  // Optional `schema` scopes every connection's search_path — lets one Postgres
+  // database host several isolated Kanecta datastores side by side (e.g. a
+  // backfilled app copy in its own schema). Passed as a libpq `options` startup
+  // parameter, which node-postgres forwards per connection.
+  if (pg.schema) cloudConfig.pg.options = `-c search_path="${pg.schema}"`;
   cloudConfig.s3 = {
     endpoint:        s3.endpoint,
     region:          s3.region,
