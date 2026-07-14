@@ -111,7 +111,10 @@ async function main() {
 
   // ── 3. Seed the 24 type items + force their obj_ projection tables ────────────
   for (const t of tables) {
-    const res = introspect(t, { typeIdForTable });
+    // exposeSoftDelete: community-hub's own SQL filters deleted_at / archived_at
+    // directly (approved-not-deleted notices, archived suggestions), so the read
+    // path must be able to reproduce those filters over GraphQL.
+    const res = introspect(t, { typeIdForTable, exposeSoftDelete: true });
     const typeId = res.typeItem.item.id;
     await adapter.createType(res.report.typeValue, { schema: res.typeItem.payload, id: typeId });
     await adapter._ensureProjection(typeId);
