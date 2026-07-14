@@ -84,6 +84,27 @@ test('buildSourceTables skips expression-index members (null column)', () => {
   assert.equal(t.indexes, undefined);
 });
 
+test('buildSourceTables drops a MIXED column+expression index (no fabricated narrower constraint)', () => {
+  // Mirrors push_subscriptions' UNIQUE (user_id, (subscription->>'endpoint')): the
+  // expression member is not transcribable, so keeping only user_id would fabricate
+  // a UNIQUE (user_id) that wrongly forbids two subscriptions per user. Drop it whole.
+  const rows: CatalogRows = {
+    columns: [
+      { table_name: 'subs', column_name: 'id', sql_type: 'integer', nullable: false, column_default: null },
+      { table_name: 'subs', column_name: 'user_id', sql_type: 'uuid', nullable: false, column_default: null },
+      { table_name: 'subs', column_name: 'data', sql_type: 'jsonb', nullable: false, column_default: null },
+    ],
+    primaryKeys: [{ table_name: 'subs', column_name: 'id' }],
+    foreignKeys: [],
+    indexes: [
+      { table_name: 'subs', index_name: 'subs_user_endpoint', unique: true, column_name: 'user_id', where_pred: null },
+      { table_name: 'subs', index_name: 'subs_user_endpoint', unique: true, column_name: null, where_pred: null },
+    ],
+  };
+  const [t] = buildSourceTables(rows);
+  assert.equal(t.indexes, undefined, 'the mixed unique index must not survive as UNIQUE (user_id)');
+});
+
 test('buildSourceTables attaches enum labels; introspect emits an enum constraint (faithful)', () => {
   const rows: CatalogRows = {
     columns: [
