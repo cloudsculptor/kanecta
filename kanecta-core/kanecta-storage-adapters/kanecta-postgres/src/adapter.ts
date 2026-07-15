@@ -325,16 +325,27 @@ class PostgresAdapter {
   async _withTx(fn: any) {
     if (this._txStore.getStore()?.client) return fn();
     const client = await this._pool.connect();
+    // If we can't cleanly ROLLBACK a failed transaction, the connection is still
+    // mid-transaction (aborted) — returning it to the pool would poison the NEXT
+    // caller with "current transaction is aborted, commands ignored until end of
+    // transaction block". Track that and DESTROY the connection instead of
+    // recycling it: `client.release(err)` with a truthy arg tells pg to discard
+    // the client rather than return it to the pool.
+    let broken = false;
     try {
       await client.query('BEGIN');
       const result = await this._txStore.run({ client }, fn);
       await client.query('COMMIT');
       return result;
     } catch (err) {
-      try { await client.query('ROLLBACK'); } catch { /* connection already broken */ }
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        broken = true; // connection couldn't be reset — must not go back to the pool
+      }
       throw err;
     } finally {
-      client.release();
+      client.release(broken ? new Error('discarding connection: rollback failed') : undefined);
     }
   }
 

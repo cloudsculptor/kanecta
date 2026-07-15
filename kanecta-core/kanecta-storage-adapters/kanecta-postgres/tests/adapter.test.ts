@@ -2364,4 +2364,84 @@ describe('transactions', () => {
     const { rows } = await pool.query('SELECT id FROM items WHERE id = $1', [attemptedId]);
     expect(rows).toHaveLength(0);
   });
+
+  // Regression (#3): a transaction that fails on a REAL Postgres error leaves the
+  // connection mid-transaction (aborted). `_withTx` must ROLLBACK and hand the
+  // pool a usable connection — never a poisoned one, or the NEXT caller gets
+  // "current transaction is aborted, commands ignored until end of transaction
+  // block". A single-connection pool makes the leak observable: the same
+  // connection is reused, so a poisoned one would fail the very next query.
+  test('a failed transaction does not poison the pooled connection (single-conn pool)', async () => {
+    const soloPool = new Pool({
+      connectionString: CONNECTION_STRING,
+      options: `-c search_path="${SCHEMA}"`,
+      max: 1, // exactly one connection — reused across requests, so poisoning shows
+    });
+    const solo = await PostgresAdapter.open(soloPool);
+    try {
+      // Force a genuine DB-level failure INSIDE the transaction so the tx enters
+      // the aborted state (a plain JS throw before any SQL wouldn't reproduce it).
+      let startedId;
+      await expect(
+        solo.transaction(async (tx) => {
+          const a = await tx.create({ value: 'poison-check-a' });
+          startedId = a.id;
+          await tx._exec('SELECT * FROM a_table_that_does_not_exist_xyz');
+        }),
+      ).rejects.toThrow(/does not exist/i);
+
+      // The SAME single connection is now back in the pool. If it were still
+      // aborted, this would throw "current transaction is aborted…". It must not.
+      const after = await solo.create({ value: 'poison-check-after' });
+      expect(after.id).toBeTruthy();
+      expect((await solo.get(after.id))?.value).toBe('poison-check-after');
+
+      // And the failed transaction rolled back cleanly — the create it started
+      // before the DB error must have unwound (no partial write survived).
+      expect(startedId).toBeTruthy();
+      expect(await solo.get(startedId)).toBeNull();
+    } finally {
+      await soloPool.end();
+    }
+  });
+
+  // Regression (#3), discard path: if the tx is aborted AND the ROLLBACK meant to
+  // reset it can't run (a genuinely broken connection), `_withTx` must DISCARD the
+  // connection — `client.release(err)` with a truthy arg tells pg to destroy it —
+  // rather than recycle a poisoned one back into the pool. Driven with a stub pool
+  // so the "ROLLBACK fails" case is exercised deterministically without a real
+  // network fault.
+  test('a failed transaction whose ROLLBACK also fails discards the connection (release with error)', async () => {
+    const queries: string[] = [];
+    let releasedWith: any = 'NOT_RELEASED';
+    const fakeClient = {
+      query: (text: any) => {
+        const sql = String(text);
+        queries.push(sql);
+        if (/^\s*ROLLBACK/i.test(sql)) return Promise.reject(new Error('connection is dead'));
+        return Promise.resolve({ rows: [] });
+      },
+      release: (err?: any) => { releasedWith = err; },
+    };
+    const fakePool = { connect: async () => fakeClient };
+
+    const origPool = adapter._pool;
+    adapter._pool = fakePool as any;
+    try {
+      await expect(
+        adapter.transaction(async () => { throw new Error('op blew up'); }),
+      ).rejects.toThrow('op blew up');
+    } finally {
+      adapter._pool = origPool;
+    }
+
+    // BEGIN then an attempted (failing) ROLLBACK; COMMIT must NOT have run.
+    expect(queries.some((q) => /^\s*BEGIN/i.test(q))).toBe(true);
+    expect(queries.some((q) => /^\s*ROLLBACK/i.test(q))).toBe(true);
+    expect(queries.some((q) => /^\s*COMMIT/i.test(q))).toBe(false);
+    // The key assertion: the connection was released WITH an error, so pg discards
+    // it instead of handing the next caller a poisoned connection.
+    expect(releasedWith).not.toBe('NOT_RELEASED');
+    expect(releasedWith).toBeInstanceOf(Error);
+  });
 });
