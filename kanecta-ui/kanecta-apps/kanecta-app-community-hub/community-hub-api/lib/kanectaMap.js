@@ -28,7 +28,11 @@ function coerce(value, kind) {
     // (its typeId points at the target type), not a scalar. The source column held
     // the raw target id, so unwrap `{ id }` back to that scalar.
     case "ref":       return value.id ?? null;
-    default:          return value; // text / id / int / bool / json — pass through
+    // A jsonb source column projects to a STRING property in GraphQL (stored
+    // JSON-encoded). The pg driver returns jsonb as a parsed JS object, so parse
+    // it back to match the route's original response shape byte-for-byte.
+    case "json":      return typeof value === "string" ? JSON.parse(value) : value;
+    default:          return value; // text / id / int / bool — pass through
   }
 }
 

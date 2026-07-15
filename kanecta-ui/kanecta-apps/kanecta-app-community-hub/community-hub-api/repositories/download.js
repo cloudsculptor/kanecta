@@ -3,10 +3,13 @@
 // streaming are transport/formatting logic that stays in the route.
 // Part of the repository seam — see repositories/licences.js.
 import pool from "../db.js";
+import { USE_KANECTA } from "./backend.js";
+import * as kanecta from "./kanecta/download.js";
 
 // Public, non-deleted pages with the fields the export needs (its own projection,
 // distinct from the pages route's reads).
 export async function listPublicPagesForExport() {
+  if (USE_KANECTA) return kanecta.listPublicPagesForExport();
   const { rows } = await pool.query(
     `SELECT slug, title, content_json FROM pages
      WHERE public = TRUE AND deleted_at IS NULL

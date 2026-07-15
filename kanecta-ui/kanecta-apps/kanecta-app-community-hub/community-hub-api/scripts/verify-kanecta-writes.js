@@ -8,7 +8,17 @@
 import * as suggestions from "../repositories/kanecta/suggestions.js";
 import * as finances from "../repositories/kanecta/finances.js";
 import * as pages from "../repositories/kanecta/pages.js";
+import * as trust from "../repositories/kanecta/trust.js";
+import * as push from "../repositories/kanecta/push.js";
 import { deleteItem, graphql } from "../lib/kanectaClient.js";
+
+// Delete every item matching a single-field GraphQL filter (test cleanup).
+async function purge(field, plural, whereField, value) {
+  const data = await graphql(
+    `query($v:String){ ${plural}(where:{${whereField}:{eq:$v}}, limit:500){ id } }`, { v: value },
+  ).catch(() => ({ [plural]: [] }));
+  for (const r of data[plural] || []) await deleteItem(r.id, { force: true });
+}
 
 let pass = 0, fail = 0;
 const ok = (name, cond, detail) => {
@@ -84,6 +94,71 @@ const ok = (name, cond, detail) => {
   }
   const check = await graphql(`query($s:String){ pageses(where:{slug:{eq:$s}}, limit:1){ id } }`, { s: slug });
   ok("createPageWithHistory cleanup", check.pageses.length === 0);
+}
+
+// ── trust.createEndorsement → getEndorsementFor + isEndorsed reflect it ───────
+{
+  const u = "phase4-trust-user";
+  await purge("trusts", "trusts", "userId", u); // idempotent start
+  await trust.createEndorsement({
+    userId: u, endorsedById: "endorser-1", knowPersonally: true, trustedBySomeone: false,
+    resilienceHui: true, otherReason: "probe", locality: "Featherston",
+  });
+  const e = await trust.getEndorsementFor(u);
+  ok("createEndorsement → getEndorsementFor returns the record",
+    e && e.endorsed_by_id === "endorser-1" && e.know_personally === true
+      && e.resilience_hui === true && e.other_reason === "probe", JSON.stringify(e));
+  ok("createEndorsement → isEndorsed(user) true", (await trust.isEndorsed(u)) === true);
+  await purge("trusts", "trusts", "userId", u);
+  ok("createEndorsement cleanup", (await trust.isEndorsed(u)) === false);
+}
+
+// ── push: upsert subscription (insert → update same endpoint) + delete ────────
+{
+  const u = "phase4-push-user";
+  await purge(null, "pushSubscriptionses", "userId", u);
+  const endpoint = "https://push.example/endpoint-A";
+  await push.upsertPushSubscription(u, { endpoint, keys: { auth: "a1", p256dh: "p1" } });
+  let subs = await push.getUserSubscriptions(u);
+  ok("upsertPushSubscription insert → 1 subscription",
+    subs.length === 1 && subs[0].subscription.keys.auth === "a1", JSON.stringify(subs));
+  // Same endpoint again → upsert updates in place (still 1 row, new keys).
+  await push.upsertPushSubscription(u, { endpoint, keys: { auth: "a2", p256dh: "p2" } });
+  subs = await push.getUserSubscriptions(u);
+  ok("upsertPushSubscription same endpoint → updated in place (still 1)",
+    subs.length === 1 && subs[0].subscription.keys.auth === "a2", JSON.stringify(subs));
+  await push.deletePushSubscription(u, endpoint);
+  ok("deletePushSubscription → 0", (await push.getUserSubscriptions(u)).length === 0);
+}
+
+// ── push: upsert FCM token (insert → idempotent no-op) + delete ───────────────
+{
+  const u = "phase4-fcm-user";
+  await purge(null, "fcmTokenses", "userId", u);
+  await push.upsertFcmToken(u, "TOKEN-1");
+  await push.upsertFcmToken(u, "TOKEN-1"); // ON CONFLICT DO NOTHING → still 1
+  const t1 = await graphql(`query($u:String){ fcmTokenses(where:{userId:{eq:$u}}, limit:10){ id token } }`, { u });
+  ok("upsertFcmToken insert + idempotent → exactly 1 token",
+    t1.fcmTokenses.length === 1 && t1.fcmTokenses[0].token === "TOKEN-1", JSON.stringify(t1.fcmTokenses));
+  await push.deleteFcmToken(u, "TOKEN-1");
+  const t2 = await graphql(`query($u:String){ fcmTokenses(where:{userId:{eq:$u}}, limit:10){ id } }`, { u });
+  ok("deleteFcmToken → 0", t2.fcmTokenses.length === 0);
+}
+
+// ── push: upsert preference (insert → update enabled) ─────────────────────────
+{
+  const u = "phase4-pref-user";
+  await purge(null, "notificationPreferenceses", "userId", u);
+  await push.upsertPreference(u, "notices", true);
+  let prefs = await push.getPreferences(u);
+  ok("upsertPreference insert → enabled true",
+    prefs.length === 1 && prefs[0].category === "notices" && prefs[0].enabled === true, JSON.stringify(prefs));
+  await push.upsertPreference(u, "notices", false);
+  prefs = await push.getPreferences(u);
+  ok("upsertPreference same category → updated in place (still 1, enabled false)",
+    prefs.length === 1 && prefs[0].enabled === false, JSON.stringify(prefs));
+  await purge(null, "notificationPreferenceses", "userId", u);
+  ok("upsertPreference cleanup", (await push.getPreferences(u)).length === 0);
 }
 
 console.log(`\n${pass}/${pass + fail} write checks passed.`);

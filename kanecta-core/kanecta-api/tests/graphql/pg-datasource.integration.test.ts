@@ -177,4 +177,15 @@ run('engine ↔ Postgres (real)', () => {
     const m2 = await cexec.resolveById('ChMessage', M2, { id: true, replyCount: true } as Selection);
     expect(m2).toEqual({ id: M2, replyCount: 0 });
   });
+
+  // A type whose obj_<type> projection has been dropped (kanecta-postgres drops it
+  // when its last row is deleted) must read as EMPTY, not throw "relation does not
+  // exist". Kept last: it drops the ChFile table for the rest of this describe.
+  it('query/getById over a missing projection table read as empty (not error)', async () => {
+    const fileTable = `obj_${chFile.item.id.replace(/-/g, '_')}`;
+    await pool.query(`DROP TABLE IF EXISTS "${fileTable}"`);
+    await expect(ds.query('ChFile', {})).resolves.toEqual([]);
+    await expect(ds.getById('ChFile', F1)).resolves.toBeNull();
+    await expect(exec.resolveList('ChFile', {}, { id: true })).resolves.toEqual([]);
+  });
 });

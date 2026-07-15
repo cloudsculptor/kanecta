@@ -83,4 +83,11 @@ export async function transaction(ops) {
   return post("/transaction", { ops });
 }
 
+// Update one item's projected object payload (a single atomic update op).
+// `objectData` is the FULL camelCase column set — writeObjectJson validates it
+// against the whole type schema, so callers resend unchanged required columns.
+export async function updateObject(id, objectData) {
+  return post("/transaction", { ops: [{ op: "update", id, changes: { objectData } }] });
+}
+
 export function apiBase() { return BASE; }
