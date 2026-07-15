@@ -17,6 +17,7 @@ import * as kanecta from "./kanecta/discussions.js";
 // Attach already-uploaded files (owned by the uploader) to a message. No-op for
 // an empty/absent file list so no query fires — preserves route call order.
 export async function attachFilesToMessage(messageId, fileIds, uploaderId) {
+  if (USE_KANECTA) return kanecta.attachFilesToMessage(messageId, fileIds, uploaderId);
   if (!fileIds?.length) return;
   await pool.query(
     `INSERT INTO discussions_message_files (message_id, file_id)
@@ -30,6 +31,7 @@ export async function attachFilesToMessage(messageId, fileIds, uploaderId) {
 // Raw (dmf + file) rows for one message, oldest attachment first. The route adds
 // the public URL from SPACES_PUBLIC_URL.
 export async function getMessageFiles(messageId) {
+  if (USE_KANECTA) return kanecta.getMessageFiles(messageId);
   const { rows } = await pool.query(
     `SELECT dmf.id, f.id AS file_id, f.name, f.mime_type, f.size_bytes, f.storage_key, dmf.show_preview
      FROM discussions_message_files dmf
@@ -43,6 +45,7 @@ export async function getMessageFiles(messageId) {
 
 // { name, storage_key, mime_type } for a file, or undefined (download endpoint).
 export async function getFileForDownload(fileId) {
+  if (USE_KANECTA) return kanecta.getFileForDownload(fileId);
   const { rows } = await pool.query(
     "SELECT name, storage_key, mime_type FROM files WHERE id = $1",
     [fileId]

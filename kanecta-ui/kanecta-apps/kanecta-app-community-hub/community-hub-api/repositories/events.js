@@ -12,6 +12,7 @@ import * as kanecta from "./kanecta/events.js";
 
 // Hero + gallery file rows for a set of events (used to attach image URLs).
 export async function getEventFiles(db, ids) {
+  if (USE_KANECTA) return kanecta.getEventFiles(db, ids);
   const { rows } = await db.query(
     `SELECT ef.event_id, ef.role, ef.position, f.id AS file_id, f.storage_key
      FROM event_files ef
@@ -139,6 +140,7 @@ export async function countGalleryImages(db, eventId) {
 
 // The current hero image row for an event (file_id + storage_key), or undefined.
 export async function getHeroImage(db, eventId) {
+  if (USE_KANECTA) return kanecta.getHeroImage(db, eventId);
   const { rows } = await db.query(
     `SELECT ef.file_id, f.storage_key
      FROM event_files ef JOIN files f ON f.id = ef.file_id
@@ -149,10 +151,12 @@ export async function getHeroImage(db, eventId) {
 }
 
 export async function deleteHeroEventFile(db, eventId) {
+  if (USE_KANECTA) return kanecta.deleteHeroEventFile(db, eventId);
   await db.query("DELETE FROM event_files WHERE event_id = $1 AND role = 'hero'", [eventId]);
 }
 
 export async function insertEventFile(db, { eventId, fileId, role, position }) {
+  if (USE_KANECTA) return kanecta.insertEventFile(db, { eventId, fileId, role, position });
   await db.query(
     "INSERT INTO event_files (event_id, file_id, role, position) VALUES ($1,$2,$3,$4)",
     [eventId, fileId, role, position]
@@ -175,6 +179,7 @@ export async function getEventFile(db, eventId, fileId) {
 }
 
 export async function deleteEventFile(db, eventId, fileId) {
+  if (USE_KANECTA) return kanecta.deleteEventFile(db, eventId, fileId);
   await db.query("DELETE FROM event_files WHERE event_id = $1 AND file_id = $2", [eventId, fileId]);
 }
 

@@ -519,6 +519,46 @@ export async function getMessageReactions(messageId) {
 
 // ─── Message files (records only; bytes handled by the native-file section) ──
 
+// pg: dmf JOIN files WHERE dmf.message_id=$1 ORDER BY dmf.created_at (record read;
+// the route adds public URLs). Reuses the same join helper as listThreadMessages.
+export async function getMessageFiles(messageId) {
+  return (await filesByMessage([messageId])).get(messageId) || [];
+}
+
+// pg: SELECT name, storage_key, mime_type FROM files WHERE id=$1 -> row or undefined
+// (record-only; the route streams bytes from storage_key).
+export async function getFileForDownload(fileId) {
+  const data = await graphql(
+    `query($id:ID){ fileses(where:{id:{eq:$id}}, limit:1){ name storageKey mimeType } }`, { id: fileId },
+  );
+  const f = data.fileses[0];
+  return f ? { name: f.name, storage_key: f.storageKey, mime_type: f.mimeType } : undefined;
+}
+
+// pg: INSERT INTO discussions_message_files (message_id, file_id) SELECT $1, id FROM
+//     files WHERE id=ANY($2) AND uploaded_by_id=$3 ON CONFLICT DO NOTHING. Only the
+//     uploader's own files attach; duplicates skipped.
+export async function attachFilesToMessage(messageId, fileIds, uploaderId) {
+  if (!fileIds?.length) return;
+  const filesData = await graphql(
+    `query($ids:[ID!]){ fileses(where:{id:{in:$ids}}, limit:500){ id uploadedById } }`, { ids: fileIds },
+  );
+  const owned = filesData.fileses.filter((f) => f.uploadedById === uploaderId).map((f) => f.id);
+  if (!owned.length) return;
+  const existing = await graphql(
+    `query($m:ID){ discussionsMessageFileses(where:{messageId:{eq:$m}}, limit:500){ fileId{id} } }`, { m: messageId },
+  );
+  const already = new Set(existing.discussionsMessageFileses.map((d) => d.fileId?.id));
+  const typeId = await resolveTypeId("discussions-message-files");
+  for (const fid of owned) {
+    if (already.has(fid)) continue;
+    await createItem({
+      type: "object", typeId, parentId: ROOT_ID, owner: OWNER,
+      objectData: { messageId, fileId: fid, showPreview: true, createdAt: new Date().toISOString() },
+    });
+  }
+}
+
 // pg: SELECT id, storage_key, uploaded_by_id FROM files WHERE id=$1 -> row or undefined
 export async function getFileForDelete(fileId) {
   const data = await graphql(

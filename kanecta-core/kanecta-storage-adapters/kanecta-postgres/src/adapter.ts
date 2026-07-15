@@ -1873,7 +1873,17 @@ class PostgresAdapter {
         [id, ...vals],
       );
     } catch (e: any) {
-      console.warn(`writeObjectJson: table ${table} not found for type ${typeId}:`, e.message);
+      // Only tolerate a genuinely-missing projection table (42P01): the payload
+      // just isn't projected. Any OTHER error (unique/constraint violation,
+      // not-null, type mismatch) is real — swallowing it here would leave the
+      // enclosing transaction ABORTED (so every later statement fails with
+      // "current transaction is aborted…") and orphan the items row. Propagate it
+      // so the write rolls back cleanly and the caller gets a proper error.
+      if (e?.code === '42P01') {
+        console.warn(`writeObjectJson: table ${table} not found for type ${typeId}:`, e.message);
+        return;
+      }
+      throw e;
     }
   }
 

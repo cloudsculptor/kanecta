@@ -335,6 +335,35 @@ const CASES = [
     params: [FILE_EVENT, EVENT_FILE_ID], fn: () => events.getEventFile(null, FILE_EVENT, EVENT_FILE_ID),
     check: (rows, kres) => eq(rows[0] ? { file_id: rows[0].file_id, storage_key: rows[0].storage_key } : undefined, kres) },
 
+  // ── file records (join tables + files metadata; no bytes) ────────────────────
+  { name: "discussions.getMessageFiles",
+    sql: `SELECT dmf.id, f.id AS file_id, f.name, f.mime_type, f.size_bytes, f.storage_key, dmf.show_preview
+          FROM discussions_message_files dmf JOIN files f ON f.id=dmf.file_id WHERE dmf.message_id=$1 ORDER BY dmf.created_at`,
+    params: [FILE_MSG], fn: () => disc.getMessageFiles(FILE_MSG),
+    check: (rows, kres) => eq(rows.map(normFile).sort(byId), kres.map(normFile).sort(byId)) },
+  { name: "discussions.getFileForDownload",
+    sql: "SELECT name, storage_key, mime_type FROM files WHERE id=$1", params: [A_FILE],
+    fn: () => disc.getFileForDownload(A_FILE),
+    check: (rows, kres) => eq(rows[0] ? { name: rows[0].name, storage_key: rows[0].storage_key, mime_type: rows[0].mime_type } : undefined, kres) },
+  { name: "download.getFilesByIds",
+    sql: "SELECT id, name, storage_key FROM files WHERE id=ANY($1::uuid[]) AND deleted_at IS NULL", params: [[A_FILE, EVENT_FILE_ID]],
+    fn: () => download.getFilesByIds([A_FILE, EVENT_FILE_ID]),
+    check: (rows, kres) => eq(sortBy((r) => r.id)(rows).map((r) => ({ id: r.id, name: r.name, storage_key: r.storage_key })), sortBy((r) => r.id)(kres)) },
+  { name: "events.getEventFiles",
+    sql: `SELECT ef.event_id, ef.role, ef.position, f.id AS file_id, f.storage_key
+          FROM event_files ef JOIN files f ON f.id=ef.file_id WHERE ef.event_id=ANY($1::uuid[]) AND f.deleted_at IS NULL
+          ORDER BY ef.event_id, ef.role DESC, ef.position`,
+    params: [[FILE_EVENT]], fn: () => events.getEventFiles(null, [FILE_EVENT]),
+    check: (rows, kres) => {
+      const n = (r) => ({ event_id: r.event_id, role: r.role, position: Number(r.position), file_id: r.file_id, storage_key: r.storage_key });
+      const sk = sortBy((r) => `${r.event_id}|${r.role}|${r.position}|${r.file_id}`);
+      return eq(sk(rows).map(n), sk(kres).map(n));
+    } },
+  { name: "events.getHeroImage",
+    sql: "SELECT ef.file_id, f.storage_key FROM event_files ef JOIN files f ON f.id=ef.file_id WHERE ef.event_id=$1 AND ef.role='hero'",
+    params: [FILE_EVENT], fn: () => events.getHeroImage(null, FILE_EVENT),
+    check: (rows, kres) => eq(rows[0] ? { file_id: rows[0].file_id, storage_key: rows[0].storage_key } : undefined, kres) },
+
   // ── download / export ────────────────────────────────────────────────────────
   { name: "download.listPublicPagesForExport", kinds: KIND.exportPages,
     sql: "SELECT slug, title, content_json FROM pages WHERE public=TRUE AND deleted_at IS NULL ORDER BY title",

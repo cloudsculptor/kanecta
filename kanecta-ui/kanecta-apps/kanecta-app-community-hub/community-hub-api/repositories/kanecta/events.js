@@ -3,7 +3,7 @@
 // transaction; the Kanecta path speaks HTTP, so the `db` arg is accepted and
 // ignored. File-BYTES event methods (hero/gallery image up/down) live in the
 // native-file section; here it's event records + event_file record reads.
-import { graphql, createItem, updateObject, getItem, resolveTypeId, ROOT_ID, OWNER } from "../../lib/kanectaClient.js";
+import { graphql, createItem, updateObject, getItem, deleteItem, resolveTypeId, ROOT_ID, OWNER } from "../../lib/kanectaClient.js";
 import { coerceRow, selectionFor } from "../../lib/kanectaMap.js";
 
 const UPCOMING = [
@@ -119,6 +119,66 @@ export async function createEvent(_db, {
     },
   });
   return { id: item.id };
+}
+
+// pg: event_files ef JOIN files f WHERE ef.event_id=ANY AND f.deleted_at IS NULL
+//     ORDER BY ef.event_id, ef.role DESC, ef.position (record read; the route
+//     attaches image URLs). Joined in JS.
+export async function getEventFiles(_db, ids) {
+  if (!ids?.length) return [];
+  const data = await graphql(
+    `{ eventFileses(limit:2000){ eventId{id} fileId{id} role position } fileses(limit:2000){ id storageKey deletedAt } }`,
+  );
+  const idset = new Set(ids);
+  const fileById = new Map(data.fileses.map((f) => [f.id, f]));
+  const rows = data.eventFileses
+    .filter((ef) => idset.has(ef.eventId?.id))
+    .map((ef) => ({ ef, f: fileById.get(ef.fileId?.id) }))
+    .filter((x) => x.f && x.f.deletedAt == null)
+    .map(({ ef, f }) => ({ event_id: ef.eventId.id, role: ef.role, position: ef.position, file_id: f.id, storage_key: f.storageKey }));
+  rows.sort((a, b) =>
+    a.event_id < b.event_id ? -1 : a.event_id > b.event_id ? 1
+      : a.role < b.role ? 1 : a.role > b.role ? -1 // role DESC
+        : a.position - b.position);
+  return rows;
+}
+
+// pg: event_files ef JOIN files f WHERE ef.event_id=$1 AND ef.role='hero'
+//     -> { file_id, storage_key } or undefined
+export async function getHeroImage(_db, eventId) {
+  const data = await graphql(
+    `query($e:ID){ eventFileses(where:{eventId:{eq:$e}, role:{eq:"hero"}}, limit:1){ fileId{id} } }`, { e: eventId },
+  );
+  const ef = data.eventFileses[0];
+  if (!ef) return undefined;
+  const fid = ef.fileId?.id;
+  const file = await graphql(`query($id:ID){ fileses(where:{id:{eq:$id}}, limit:1){ storageKey } }`, { id: fid });
+  return { file_id: fid, storage_key: file.fileses[0]?.storageKey ?? null };
+}
+
+// pg: DELETE FROM event_files WHERE event_id=$1 AND role='hero'
+export async function deleteHeroEventFile(_db, eventId) {
+  const data = await graphql(
+    `query($e:ID){ eventFileses(where:{eventId:{eq:$e}, role:{eq:"hero"}}, limit:500){ id } }`, { e: eventId },
+  );
+  for (const ef of data.eventFileses) await deleteItem(ef.id, { force: true });
+}
+
+// pg: INSERT INTO event_files (event_id, file_id, role, position) VALUES (...)
+export async function insertEventFile(_db, { eventId, fileId, role, position }) {
+  const typeId = await resolveTypeId("event-files");
+  await createItem({
+    type: "object", typeId, parentId: ROOT_ID, owner: OWNER,
+    objectData: { eventId, fileId, role, position, createdAt: new Date().toISOString() },
+  });
+}
+
+// pg: DELETE FROM event_files WHERE event_id=$1 AND file_id=$2
+export async function deleteEventFile(_db, eventId, fileId) {
+  const data = await graphql(
+    `query($e:ID,$f:ID){ eventFileses(where:{eventId:{eq:$e}, fileId:{eq:$f}}, limit:500){ id } }`, { e: eventId, f: fileId },
+  );
+  for (const ef of data.eventFileses) await deleteItem(ef.id, { force: true });
 }
 
 // pg: SELECT COUNT(*) FROM event_files WHERE event_id=$1 AND role='gallery'

@@ -20,6 +20,7 @@ export async function listPublicPagesForExport() {
 
 // Original filename + storage key for the given file ids (skips deleted files).
 export async function getFilesByIds(ids) {
+  if (USE_KANECTA) return kanecta.getFilesByIds(ids);
   const { rows } = await pool.query(
     `SELECT id, name, storage_key FROM files
      WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL`,

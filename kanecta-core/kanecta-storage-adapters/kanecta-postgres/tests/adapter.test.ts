@@ -2444,4 +2444,31 @@ describe('transactions', () => {
     expect(releasedWith).not.toBe('NOT_RELEASED');
     expect(releasedWith).toBeInstanceOf(Error);
   });
+
+  // writeObjectJson's projection INSERT tolerates ONLY a missing table (42P01, a
+  // type with no projection yet). Any other pg error (unique/constraint, not-null)
+  // must PROPAGATE: swallowing it would leave the enclosing transaction aborted
+  // and orphan the items row, and the next request fails with "current transaction
+  // is aborted, commands ignored…".
+  test('writeObjectJson rethrows real projection errors but swallows only 42P01', async () => {
+    const origExec = adapter._exec.bind(adapter);
+    const fakeTypeId = crypto.randomUUID(); // unknown type → validation is skipped
+    try {
+      // A unique-violation (23505) on the projection INSERT must propagate.
+      adapter._exec = async (text: any, params?: any) => {
+        if (/^\s*INSERT INTO/i.test(String(text))) { const e: any = new Error('duplicate key'); e.code = '23505'; throw e; }
+        return origExec(text, params);
+      };
+      await expect(adapter.writeObjectJson(ROOT_ID, fakeTypeId, { a: 1 })).rejects.toThrow('duplicate key');
+
+      // A genuinely-missing projection table (42P01) is tolerated (resolves).
+      adapter._exec = async (text: any, params?: any) => {
+        if (/^\s*INSERT INTO/i.test(String(text))) { const e: any = new Error('no such table'); e.code = '42P01'; throw e; }
+        return origExec(text, params);
+      };
+      await expect(adapter.writeObjectJson(ROOT_ID, fakeTypeId, { a: 1 })).resolves.toBeUndefined();
+    } finally {
+      adapter._exec = origExec;
+    }
+  });
 });

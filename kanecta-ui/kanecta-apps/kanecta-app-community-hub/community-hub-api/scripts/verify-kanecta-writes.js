@@ -13,6 +13,7 @@ import * as push from "../repositories/kanecta/push.js";
 import * as notices from "../repositories/kanecta/notices.js";
 import * as disc from "../repositories/kanecta/discussions.js";
 import * as events from "../repositories/kanecta/events.js";
+import * as download from "../repositories/kanecta/download.js";
 import { deleteItem, graphql } from "../lib/kanectaClient.js";
 
 // Delete every item matching a single-field GraphQL filter (test cleanup).
@@ -334,6 +335,41 @@ const ok = (name, cond, detail) => {
   ok("softDeleteEvent → getEventForDelete has deleted_at", (await events.getEventForDelete(null, id))?.deleted_at != null);
   await deleteItem(id, { force: true });
   ok("events cleanup", (await events.getEventOwnerStatus(null, id)) === null);
+}
+
+// ── file join-row writes: attachFilesToMessage + event_files insert/delete ────
+{
+  const A_FILE = "41666c6d-32eb-46de-a9a0-bf8d3cdc9ffd";
+  const HERO_FILE = "94d946da-b9b0-44fb-8983-50ba982c5b96"; // a distinct file (event_files has UNIQUE(event_id,file_id))
+  const FILE_OWNER = "111f6452-1c13-4251-b937-4c7696906d50"; // A_FILE's uploader
+  // attachFilesToMessage: only the uploader's files attach; dedups
+  const thread = await disc.createThread({ name: "PHASE4 file thread", description: "d", createdByUserId: FILE_OWNER, createdByName: "Owner" });
+  const msg = await disc.createMessage({ threadId: thread.id, userId: FILE_OWNER, userName: "Owner", content: "with file" });
+  await disc.attachFilesToMessage(msg.id, [A_FILE], FILE_OWNER);
+  await disc.attachFilesToMessage(msg.id, [A_FILE], FILE_OWNER); // dedup
+  const mf = await disc.getMessageFiles(msg.id);
+  ok("attachFilesToMessage → 1 file (dedup)", mf.length === 1 && mf[0].file_id === A_FILE, JSON.stringify(mf));
+  await disc.attachFilesToMessage(msg.id, [A_FILE], "someone-else"); // not owner → no-op
+  ok("attachFilesToMessage (non-owner) → still 1", (await disc.getMessageFiles(msg.id)).length === 1);
+  // cleanup dmf + message + thread
+  const dmfs = await graphql(`query($m:ID){ discussionsMessageFileses(where:{messageId:{eq:$m}},limit:10){ id } }`, { m: msg.id });
+  for (const d of dmfs.discussionsMessageFileses) await deleteItem(d.id, { force: true });
+  await deleteItem(msg.id, { force: true });
+  await deleteItem(thread.id, { force: true });
+
+  // event_files: insert hero + gallery, count, delete
+  const ev = await events.createEvent(null, { title: "PHASE4 file event", startDate: "2026-08-01", submittedById: "u-test", submittedByName: "T" });
+  await events.insertEventFile(null, { eventId: ev.id, fileId: A_FILE, role: "gallery", position: 0 });
+  ok("insertEventFile (gallery) → countGalleryImages 1", (await events.countGalleryImages(null, ev.id)) === 1);
+  await events.insertEventFile(null, { eventId: ev.id, fileId: HERO_FILE, role: "hero", position: 0 });
+  ok("getHeroImage → the hero file", (await events.getHeroImage(null, ev.id))?.file_id === HERO_FILE);
+  ok("getEventFiles → 2 rows (hero first, role DESC)", (await events.getEventFiles(null, [ev.id])).length === 2 && (await events.getEventFiles(null, [ev.id]))[0].role === "hero");
+  await events.deleteHeroEventFile(null, ev.id);
+  ok("deleteHeroEventFile → hero gone", (await events.getHeroImage(null, ev.id)) === undefined);
+  await events.deleteEventFile(null, ev.id, A_FILE);
+  ok("deleteEventFile → gallery gone", (await events.countGalleryImages(null, ev.id)) === 0);
+  await deleteItem(ev.id, { force: true });
+  ok("file-write cleanup", (await events.getEventOwnerStatus(null, ev.id)) === null);
 }
 
 console.log(`\n${pass}/${pass + fail} write checks passed.`);
