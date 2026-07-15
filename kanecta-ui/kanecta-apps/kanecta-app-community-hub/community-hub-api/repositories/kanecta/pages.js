@@ -5,6 +5,28 @@
 import { graphql, transaction, updateObject, getItem, resolveTypeId, newId, ROOT_ID, OWNER } from "../../lib/kanectaClient.js";
 import { coerceRow, selectionFor } from "../../lib/kanectaMap.js";
 
+const PUBLIC_URL = process.env.SPACES_PUBLIC_URL;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Walk a Lexical JSON tree for the file UUIDs referenced by image nodes (mirrors
+// the pg repo's extractFileIds — the file id is the 3rd path segment after the
+// public URL prefix).
+function extractFileIds(contentJson) {
+  const ids = new Set();
+  if (!PUBLIC_URL || !contentJson?.root) return ids;
+  const prefix = PUBLIC_URL + "/";
+  const walk = (node) => {
+    if (!node) return;
+    if (node.type === "image" && typeof node.src === "string" && node.src.startsWith(prefix)) {
+      const id = node.src.slice(prefix.length).split("/")[2];
+      if (id && UUID_RE.test(id)) ids.add(id);
+    }
+    if (Array.isArray(node.children)) node.children.forEach(walk);
+  };
+  walk(contentJson.root);
+  return ids;
+}
+
 const LIST = [
   ["id", "id"], ["slug", "text"], ["title", "text"], ["created_by_name", "text"],
   ["created_at", "timestamp"], ["updated_at", "timestamp"], ["public", "bool"],
@@ -178,4 +200,78 @@ export async function createPageWithHistory({
     },
   ]);
   return readPageStar(pageId);
+}
+
+// pg: BEGIN; UPDATE pages SET ... version+1 WHERE slug=currentSlug; soft-delete the
+// image files removed from content_json; INSERT page_history; COMMIT. Returns
+// { row, action } or null if no page has currentSlug. Composed as ONE atomic
+// /transaction (page update + a soft-delete update per removed file + history create).
+export async function updatePageWithHistory({
+  currentSlug, targetSlug, title, contentJson, licenceId, isPublic, ownerType, ownerId, userId, userName,
+}) {
+  const found = await graphql(`query($s:String){ pageses(where:{slug:{eq:$s}}, limit:1){ id } }`, { s: currentSlug });
+  const pageId = found.pageses[0]?.id;
+  if (!pageId) return null;
+  const item = await getItem(pageId);
+  const p = item?.payload;
+  if (!p) return null;
+
+  const oldPublic = !!p.public;
+  const newPublic = isPublic !== undefined ? isPublic : oldPublic;
+  const newVersion = (p.version || 0) + 1;
+  let action = "Updated";
+  if (!oldPublic && newPublic) action = "Published";
+  else if (oldPublic && !newPublic) action = "Unpublished";
+
+  // content_json is stored JSON-encoded; parse the existing one to diff image files.
+  const oldContent = typeof p.contentJson === "string" ? JSON.parse(p.contentJson || "{}") : (p.contentJson || {});
+  const oldFileIds = extractFileIds(oldContent);
+  const newFileIds = extractFileIds(contentJson);
+  const removed = [...oldFileIds].filter((id) => !newFileIds.has(id));
+  const contentStr = JSON.stringify(contentJson || {});
+  const now = new Date().toISOString();
+  const newLicence = licenceId !== undefined ? (licenceId || null) : null;
+  const newOwnerId = ownerId !== undefined ? (ownerId || null) : null;
+
+  const historyType = await resolveTypeId("page-history");
+  const ops = [
+    {
+      op: "update", id: pageId,
+      changes: { objectData: {
+        ...normalizePagePayload(p),
+        slug: targetSlug, title: title || "", contentJson: contentStr, updatedAt: now,
+        licenceId: newLicence, public: newPublic, version: newVersion,
+        // pg: owner_type = COALESCE($ownerType, owner_type) — keep existing when null.
+        ownerType: ownerType || p.ownerType || null, ownerId: newOwnerId,
+      } },
+    },
+  ];
+  // Soft-delete each removed image file that isn't already deleted.
+  for (const fid of removed) {
+    const fitem = await getItem(fid);
+    const fp = fitem?.payload;
+    if (!fp || fp.deletedAt != null) continue;
+    ops.push({ op: "update", id: fid, changes: { objectData: { ...normalizeFilePayload(fp), deletedAt: now } } });
+  }
+  ops.push({
+    op: "create", id: newId(), type: "object", typeId: historyType, parentId: ROOT_ID, owner: OWNER,
+    objectData: {
+      pageId, action, version: newVersion, contentJson: contentStr,
+      licenceId: newLicence, userId, userName, createdAt: now,
+    },
+  });
+
+  await transaction(ops);
+  return { row: await readPageStar(pageId), action };
+}
+
+// A page payload from GET /items carries FK columns (licence_id, owner_id) as
+// resolved { id } objects; writeObjectJson wants the scalar ids back.
+function normalizePagePayload(p) {
+  return { ...p, licenceId: p.licenceId?.id ?? p.licenceId ?? null, ownerId: p.ownerId?.id ?? p.ownerId ?? null };
+}
+// A file payload's FK-free columns are already scalar; just pass through (kept as a
+// hook symmetric with normalizePagePayload in case files gain refs).
+function normalizeFilePayload(p) {
+  return { ...p };
 }

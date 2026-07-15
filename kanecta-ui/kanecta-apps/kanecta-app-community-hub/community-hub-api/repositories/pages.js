@@ -196,6 +196,7 @@ export async function createPageWithHistory({
 export async function updatePageWithHistory({
   currentSlug, targetSlug, title, contentJson, licenceId, isPublic, ownerType, ownerId, userId, userName,
 }) {
+  if (USE_KANECTA) return kanecta.updatePageWithHistory({ currentSlug, targetSlug, title, contentJson, licenceId, isPublic, ownerType, ownerId, userId, userName });
   const client = await pool.connect();
   try {
     await client.query("BEGIN");

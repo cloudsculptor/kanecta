@@ -14,7 +14,7 @@ import * as notices from "../repositories/kanecta/notices.js";
 import * as disc from "../repositories/kanecta/discussions.js";
 import * as events from "../repositories/kanecta/events.js";
 import * as download from "../repositories/kanecta/download.js";
-import { deleteItem, graphql } from "../lib/kanectaClient.js";
+import { deleteItem, graphql, createItem, resolveTypeId, ROOT_ID, OWNER } from "../lib/kanectaClient.js";
 
 // Delete every item matching a single-field GraphQL filter (test cleanup).
 async function purge(field, plural, whereField, value) {
@@ -370,6 +370,47 @@ const ok = (name, cond, detail) => {
   ok("deleteEventFile → gallery gone", (await events.countGalleryImages(null, ev.id)) === 0);
   await deleteItem(ev.id, { force: true });
   ok("file-write cleanup", (await events.getEventOwnerStatus(null, ev.id)) === null);
+}
+
+// ── pages.updatePageWithHistory (page update + history + removed-file soft-delete)
+{
+  const PUBLIC_URL = process.env.SPACES_PUBLIC_URL; // set by the runner for this case
+  const slug = "phase4-update-page";
+  // A throwaway file item referenced by the initial content, then removed on update.
+  const fileType = await resolveTypeId("files");
+  const file = await createItem({
+    type: "object", typeId: fileType, parentId: ROOT_ID, owner: OWNER,
+    objectData: { name: "img.png", storageKey: "ph/4/img", mimeType: "image/png", sizeBytes: 10,
+      description: null, uploadedById: "u-test", uploadedByName: "T", createdAt: new Date().toISOString(), deletedAt: null },
+  });
+  const imgSrc = PUBLIC_URL ? `${PUBLIC_URL}/ph/4/${file.id}` : `https://none/ph/4/${file.id}`;
+  const withImage = { root: { children: [{ type: "image", src: imgSrc }] } };
+  const withoutImage = { root: { children: [] } };
+
+  const page = await pages.createPageWithHistory({
+    slug, title: "Upd", contentJson: withImage, createdById: "u-test", createdByName: "T",
+    licenceId: null, ownerType: "group", ownerId: null,
+  });
+  // Update: publish it (draft→public) and drop the image.
+  const res = await pages.updatePageWithHistory({
+    currentSlug: slug, targetSlug: slug, title: "Upd v2", contentJson: withoutImage,
+    licenceId: null, isPublic: true, ownerType: null, ownerId: null, userId: "u-test", userName: "T",
+  });
+  ok("updatePageWithHistory → returns { row, action=Published }", res && res.action === "Published" && res.row.version === 2, JSON.stringify(res?.action));
+  ok("updatePageWithHistory → page now public + v2", res.row.public === true && res.row.title === "Upd v2");
+  const hist = await graphql(`query($p:ID){ pageHistories(where:{pageId:{eq:$p}}, sort:[{field:version,direction:ASC}], limit:10){ action version } }`, { p: page.id });
+  ok("updatePageWithHistory → 2 history rows (Created, Published)",
+    hist.pageHistories.length === 2 && hist.pageHistories[1].action === "Published", JSON.stringify(hist.pageHistories));
+  const f = await graphql(`query($id:ID){ fileses(where:{id:{eq:$id}}, limit:1){ deletedAt } }`, { id: file.id });
+  if (PUBLIC_URL) ok("updatePageWithHistory → removed image file soft-deleted", f.fileses[0]?.deletedAt != null, JSON.stringify(f.fileses[0]));
+  else ok("updatePageWithHistory → (file soft-delete skipped: no SPACES_PUBLIC_URL)", true);
+
+  // cleanup
+  const hids = await graphql(`query($p:ID){ pageHistories(where:{pageId:{eq:$p}}, limit:10){ id } }`, { p: page.id });
+  for (const h of hids.pageHistories) await deleteItem(h.id, { force: true });
+  await deleteItem(page.id, { force: true });
+  await deleteItem(file.id, { force: true });
+  ok("updatePageWithHistory cleanup", (await graphql(`query($s:String){ pageses(where:{slug:{eq:$s}}, limit:1){ id } }`, { s: slug })).pageses.length === 0);
 }
 
 console.log(`\n${pass}/${pass + fail} write checks passed.`);
