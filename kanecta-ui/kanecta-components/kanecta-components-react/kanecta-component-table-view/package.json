@@ -6,8 +6,8 @@
   "peerDependencies": {
     "@kanecta/component-type-list": "*",
     "@tanstack/react-query": "^5.101.2",
-    "ag-grid-community": "^36.0.0",
-    "ag-grid-react": "^36.0.0",
+    "ag-grid-community": "^36.0.1",
+    "ag-grid-react": "^36.0.1",
     "react": ">=19"
   }
 }
