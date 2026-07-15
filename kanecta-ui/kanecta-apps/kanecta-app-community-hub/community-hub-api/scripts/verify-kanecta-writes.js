@@ -14,7 +14,15 @@ import * as notices from "../repositories/kanecta/notices.js";
 import * as disc from "../repositories/kanecta/discussions.js";
 import * as events from "../repositories/kanecta/events.js";
 import * as download from "../repositories/kanecta/download.js";
-import { deleteItem, graphql, createItem, resolveTypeId, ROOT_ID, OWNER } from "../lib/kanectaClient.js";
+import * as nativeFiles from "../lib/spacesKanecta.js";
+import { deleteItem, graphql, createItem, getFile, resolveTypeId, ROOT_ID, OWNER } from "../lib/kanectaClient.js";
+
+// Read a Readable stream to a Buffer (getFileStream returns { Body: Readable }).
+async function streamToBuffer(stream) {
+  const chunks = [];
+  for await (const c of stream) chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c));
+  return Buffer.concat(chunks);
+}
 
 // Delete every item matching a single-field GraphQL filter (test cleanup).
 async function purge(field, plural, whereField, value) {
@@ -411,6 +419,31 @@ const ok = (name, cond, detail) => {
   await deleteItem(page.id, { force: true });
   await deleteItem(file.id, { force: true });
   ok("updatePageWithHistory cleanup", (await graphql(`query($s:String){ pageses(where:{slug:{eq:$s}}, limit:1){ id } }`, { s: slug })).pageses.length === 0);
+}
+
+// ── native file store: upload bytes → read back → record visible → delete ─────
+{
+  const bytes = Buffer.from("PHASE4 native file store bytes — hello Kanecta");
+  const { file, url } = await nativeFiles.uploadFile({
+    buffer: bytes, mimeType: "text/plain", originalName: "probe.txt",
+    uploadedById: "u-test", uploadedByName: "Test User",
+  });
+  ok("uploadFile → file record with id + storage_key=id", file && file.id && file.storage_key === file.id, JSON.stringify(file));
+  ok("uploadFile → returns a resolvable url", typeof url === "string" && url.includes(file.id));
+
+  // The bytes round-trip through getFileStream.
+  const { Body, ContentLength } = await nativeFiles.getFileStream({ storageKey: file.storage_key, mimeType: "text/plain" });
+  const back = await streamToBuffer(Body);
+  ok("getFileStream → bytes match", back.equals(bytes) && ContentLength === bytes.length);
+
+  // The record is a queryable Kanecta files item.
+  const recs = await download.getFilesByIds([file.id]);
+  ok("uploaded file record visible via getFilesByIds", recs.length === 1 && recs[0].name === "probe.txt");
+
+  // Delete removes both bytes and record.
+  await nativeFiles.deleteFile({ storageKey: file.storage_key, fileId: file.id });
+  ok("deleteFile → bytes gone", (await getFile(file.id)) === null);
+  ok("deleteFile → record gone", (await download.getFilesByIds([file.id])).length === 0);
 }
 
 console.log(`\n${pass}/${pass + fail} write checks passed.`);

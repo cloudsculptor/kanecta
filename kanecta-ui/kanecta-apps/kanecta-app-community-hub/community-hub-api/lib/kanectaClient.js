@@ -90,4 +90,37 @@ export async function updateObject(id, objectData) {
   return post("/transaction", { ops: [{ op: "update", id, changes: { objectData } }] });
 }
 
+// ─── File bytes (native file store over HTTP) ─────────────────────────────────
+// The kanecta-api file endpoints store/serve an item's raw bytes. community-hub
+// keeps ONE blob per file item under a fixed filename, so callers pass just the
+// file item id.
+const BLOB = "blob";
+
+// Store bytes for a file item (POST /items/:id/files/blob). `mimeType` becomes the
+// object's content type.
+export async function putFile(itemId, buffer, mimeType) {
+  const res = await fetch(`${BASE}/items/${itemId}/files/${BLOB}`, {
+    method: "POST",
+    headers: { "content-type": mimeType || "application/octet-stream" },
+    body: buffer,
+  });
+  if (!res.ok) throw new Error(`kanecta-api putFile ${itemId} ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  return res.json();
+}
+
+// Fetch a file item's bytes as a Buffer (GET /items/:id/files/blob), or null if absent.
+export async function getFile(itemId, mimeType) {
+  const q = mimeType ? `?mime=${encodeURIComponent(mimeType)}` : "";
+  const res = await fetch(`${BASE}/items/${itemId}/files/${BLOB}${q}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`kanecta-api getFile ${itemId} ${res.status}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
+// Delete a file item's bytes (DELETE /items/:id/files/blob). Idempotent.
+export async function deleteFileBytes(itemId) {
+  const res = await fetch(`${BASE}/items/${itemId}/files/${BLOB}`, { method: "DELETE" });
+  if (!res.ok && res.status !== 404) throw new Error(`kanecta-api deleteFile ${itemId} ${res.status}`);
+}
+
 export function apiBase() { return BASE; }
