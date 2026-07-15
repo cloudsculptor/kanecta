@@ -23,6 +23,7 @@ import * as discussions from "../repositories/kanecta/discussions.js";
 import * as trust from "../repositories/kanecta/trust.js";
 import * as push from "../repositories/kanecta/push.js";
 import * as download from "../repositories/kanecta/download.js";
+import * as disc from "../repositories/kanecta/discussions.js";
 
 const SRC = process.env.SRC_PG || "postgres://kanecta:kanecta@localhost:45433/communityhub";
 const USER = "111f6452-1c13-4251-b937-4c7696906d50";
@@ -50,6 +51,35 @@ function normRows(rows, kinds) {
 }
 function eq(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
 
+// ── deep normalisers for the discussions nested shapes (messages+files, reaction
+// maps, unread rollups). Timestamps → epoch; file/user arrays sorted so
+// unspecified pg array_agg / json_agg order doesn't mask a real difference.
+const epoch = (v) => (v == null ? null : v instanceof Date ? v.getTime() : Date.parse(v));
+const byId = (a, b) => (String(a.id) < String(b.id) ? -1 : 1);
+function normFile(f) {
+  return { id: f.id, file_id: f.file_id, name: f.name, mime_type: f.mime_type,
+    size_bytes: Number(f.size_bytes), storage_key: f.storage_key, show_preview: !!f.show_preview };
+}
+function normMsg(m) {
+  const o = { id: m.id, thread_id: m.thread_id, user_id: m.user_id, user_name: m.user_name,
+    content: m.content, created_at: epoch(m.created_at), edited_at: epoch(m.edited_at),
+    deleted_at: epoch(m.deleted_at), files: (m.files || []).map(normFile).sort(byId) };
+  if ("parent_message_id" in m) o.parent_message_id = m.parent_message_id ?? null;
+  if (m.reply_count != null) o.reply_count = Number(m.reply_count);
+  return o;
+}
+function normReaction(g) {
+  const pairs = (g.user_ids || []).map((u, i) => [u, g.user_names[i]]).sort((a, b) => (a[0] < b[0] ? -1 : 1));
+  const o = { emoji: g.emoji, count: Number(g.count), user_ids: pairs.map((p) => p[0]), user_names: pairs.map((p) => p[1]) };
+  if (g.message_id !== undefined) o.message_id = g.message_id;
+  return o;
+}
+function normUnread(u) {
+  return { thread_id: u.thread_id, name: u.name, last_read_at: epoch(u.last_read_at),
+    messages: (u.messages || []).map(normMsg).sort(byId) };
+}
+const sortBy = (fn) => (arr) => [...arr].sort((a, b) => (fn(a) < fn(b) ? -1 : fn(a) > fn(b) ? 1 : 0));
+
 const KIND = {
   licences: { id: "id", name: "text", url: "text", public_description: "text", private_details: "text", badge: "text", sort_order: "int" },
   noticesApproved: { id: "id", heading: "text", body: "text", notice_date: "date", submitted_by_name: "text", submitted_at: "timestamp" },
@@ -76,6 +106,13 @@ const SUBS_USER = "111f6452-1c13-4251-b937-4c7696906d50"; // a user with push su
 const SUBS_THREAD = "c5719980-6a25-42a1-a886-783e4713c32c"; // a thread with 2 tns subscribers
 const HISTORY_PAGE = "d4c75571-b97f-45fa-8ee7-7cce74822a6d"; // a page with 5 history rows
 const DELETED_NOTICE = "d5d456ad-e9ce-4fc5-9bec-7ec11566a138"; // a soft-deleted notice
+const MSG_THREAD = "dcba5793-8c51-4054-9140-4fdfe18e3d71"; // thread with 37 top-level messages
+const REPLY_PARENT = "b83d43d5-5740-4db9-85a4-81a0e7722870"; // message with 9 replies
+const REACT_MSG = "170a06f7-dcee-4d08-aad4-14a347eb5f51"; // message with reactions
+const FILE_MSG = "3482fb00-ace5-4e44-bb63-8a017ebd8f63"; // message with a file attachment
+const A_FILE = "41666c6d-32eb-46de-a9a0-bf8d3cdc9ffd"; // a live file
+const A_THREAD = "e52652d6-11de-41d7-8407-43fe3f33b6bc"; // a live thread ('Constitution')
+const READS_USER = "d8197299-34b1-4749-84ef-0ba9148adb62"; // a user with thread-read state
 
 const CASES = [
   { name: "licences.listLicences", kinds: KIND.licences,
@@ -172,6 +209,86 @@ const CASES = [
     sql: "SELECT submitted_by_id FROM notices WHERE id=$1 AND deleted_at IS NULL", params: [DELETED_NOTICE],
     fn: () => notices.getNoticeOwner(DELETED_NOTICE),
     check: (rows, kres) => kres === (rows[0]?.submitted_by_id ?? null) && kres === null },
+
+  // ── discussions: messages / replies / reactions / unreads ────────────────────
+  { name: "discussions.listThreadMessages",
+    sql: `SELECT m.id, m.thread_id, m.user_id, m.user_name, m.content, m.created_at, m.edited_at, m.deleted_at,
+            (SELECT COUNT(*) FROM discussions_messages r WHERE r.parent_message_id = m.id)::int AS reply_count,
+            COALESCE((SELECT json_agg(json_build_object('id',dmf.id,'file_id',f.id,'name',f.name,'mime_type',f.mime_type,
+              'size_bytes',f.size_bytes,'storage_key',f.storage_key,'show_preview',dmf.show_preview) ORDER BY dmf.created_at)
+              FROM discussions_message_files dmf JOIN files f ON f.id=dmf.file_id WHERE dmf.message_id=m.id),'[]'::json) AS files
+          FROM discussions_messages m WHERE thread_id=$1 AND parent_message_id IS NULL ORDER BY created_at ASC LIMIT $2`,
+    params: [MSG_THREAD, 100], fn: () => disc.listThreadMessages(MSG_THREAD, 100),
+    check: (rows, kres) => {
+      const sk = sortBy((m) => `${epoch(m.created_at)}|${m.id}`);
+      return eq(sk(rows).map(normMsg), sk(kres).map(normMsg));
+    } },
+  { name: "discussions.listReplies",
+    sql: `SELECT m.id, m.thread_id, m.parent_message_id, m.user_id, m.user_name, m.content, m.created_at, m.edited_at, m.deleted_at,
+            COALESCE((SELECT json_agg(json_build_object('id',dmf.id,'file_id',f.id,'name',f.name,'mime_type',f.mime_type,
+              'size_bytes',f.size_bytes,'storage_key',f.storage_key,'show_preview',dmf.show_preview) ORDER BY dmf.created_at)
+              FROM discussions_message_files dmf JOIN files f ON f.id=dmf.file_id WHERE dmf.message_id=m.id),'[]'::json) AS files
+          FROM discussions_messages m WHERE parent_message_id=$1 ORDER BY created_at ASC`,
+    params: [REPLY_PARENT], fn: () => disc.listReplies(REPLY_PARENT),
+    check: (rows, kres) => {
+      const sk = sortBy((m) => `${epoch(m.created_at)}|${m.id}`);
+      return eq(sk(rows).map(normMsg), sk(kres).map(normMsg));
+    } },
+  { name: "discussions.getThreadReactions",
+    sql: `SELECT dr.message_id, dr.emoji, COUNT(*) AS count, array_agg(dr.user_id) AS user_ids, array_agg(dr.user_name) AS user_names
+          FROM discussions_reactions dr JOIN discussions_messages dm ON dm.id=dr.message_id
+          WHERE dm.thread_id=$1 GROUP BY dr.message_id, dr.emoji`,
+    params: [MSG_THREAD], fn: () => disc.getThreadReactions(MSG_THREAD),
+    check: (rows, kres) => {
+      const sk = sortBy((g) => `${g.message_id}|${g.emoji}`);
+      return eq(sk(rows).map(normReaction), sk(kres).map(normReaction));
+    } },
+  { name: "discussions.getMessageReactions",
+    sql: `SELECT emoji, COUNT(*) AS count, array_agg(user_id) AS user_ids, array_agg(user_name) AS user_names
+          FROM discussions_reactions WHERE message_id=$1 GROUP BY emoji`,
+    params: [REACT_MSG], fn: () => disc.getMessageReactions(REACT_MSG),
+    check: (rows, kres) => {
+      const sk = sortBy((g) => g.emoji);
+      return eq(sk(rows).map(normReaction), sk(kres).map(normReaction));
+    } },
+  { name: "discussions.getParentMessage",
+    sql: "SELECT id, thread_id FROM discussions_messages WHERE id=$1 AND parent_message_id IS NULL",
+    params: [REPLY_PARENT], fn: () => disc.getParentMessage(REPLY_PARENT),
+    check: (rows, kres) => eq({ id: rows[0]?.id, thread_id: rows[0]?.thread_id }, { id: kres?.id, thread_id: kres?.thread_id }) },
+  { name: "discussions.getMessageThreadId",
+    sql: "SELECT thread_id FROM discussions_messages WHERE id=$1", params: [REACT_MSG],
+    fn: () => disc.getMessageThreadId(REACT_MSG),
+    check: (rows, kres) => (rows[0]?.thread_id ?? null) === (kres?.thread_id ?? null) },
+  { name: "discussions.getThreadName",
+    sql: "SELECT name FROM discussions_threads WHERE id=$1", params: [A_THREAD],
+    fn: () => disc.getThreadName(A_THREAD), check: (rows, kres) => (rows[0]?.name ?? null) === (kres?.name ?? null) },
+  { name: "discussions.getThreadForArchive",
+    sql: "SELECT created_by_user_id, created_by_name FROM discussions_threads WHERE id=$1 AND archived_at IS NULL",
+    params: [A_THREAD], fn: () => disc.getThreadForArchive(A_THREAD),
+    check: (rows, kres) => eq(rows[0] ? { created_by_user_id: rows[0].created_by_user_id, created_by_name: rows[0].created_by_name } : undefined, kres) },
+  { name: "discussions.findDuplicateThreads",
+    sql: "SELECT id, name, description FROM discussions_threads WHERE archived_at IS NULL AND LOWER(REGEXP_REPLACE(name,'\\s+','','g'))=$1",
+    params: ["constitution"], fn: () => disc.findDuplicateThreads("constitution"),
+    check: (rows, kres) => eq(sortBy((r) => r.id)(rows).map((r) => ({ id: r.id, name: r.name, description: r.description })), sortBy((r) => r.id)(kres)) },
+  { name: "discussions.getFileForDelete",
+    sql: "SELECT id, storage_key, uploaded_by_id FROM files WHERE id=$1", params: [A_FILE],
+    fn: () => disc.getFileForDelete(A_FILE),
+    check: (rows, kres) => eq(rows[0] ? { id: rows[0].id, storage_key: rows[0].storage_key, uploaded_by_id: rows[0].uploaded_by_id } : undefined, kres) },
+  { name: "discussions.listUnreads",
+    sql: `SELECT t.id AS thread_id, t.name, rd.last_read_at,
+            COALESCE(json_agg(json_build_object('id',m.id,'thread_id',m.thread_id,'parent_message_id',m.parent_message_id,
+              'user_id',m.user_id,'user_name',m.user_name,'content',m.content,'created_at',m.created_at,'edited_at',m.edited_at,
+              'deleted_at',m.deleted_at,'reply_count',(SELECT COUNT(*)::int FROM discussions_messages rc WHERE rc.parent_message_id=m.id))
+              ORDER BY m.created_at ASC) FILTER (WHERE m.id IS NOT NULL),'[]'::json) AS messages
+          FROM discussions_threads t JOIN discussions_thread_reads rd ON rd.thread_id=t.id AND rd.user_id=$1
+          LEFT JOIN discussions_messages m ON m.thread_id=t.id AND m.deleted_at IS NULL AND (
+            (m.parent_message_id IS NULL AND m.created_at>rd.last_read_at AND m.user_id!=$1)
+            OR (m.parent_message_id IS NOT NULL AND m.created_at>rd.last_read_at AND m.user_id!=$1)
+            OR (m.parent_message_id IS NULL AND EXISTS (SELECT 1 FROM discussions_messages nr WHERE nr.parent_message_id=m.id AND nr.created_at>rd.last_read_at AND nr.deleted_at IS NULL AND nr.user_id!=$1)))
+          WHERE t.archived_at IS NULL AND t.latest_message_at IS NOT NULL AND t.latest_message_at>rd.last_read_at
+          GROUP BY t.id, t.name, rd.last_read_at ORDER BY t.created_at ASC`,
+    params: [READS_USER], fn: () => disc.listUnreads(READS_USER),
+    check: (rows, kres) => eq(sortBy((u) => u.thread_id)(rows).map(normUnread), sortBy((u) => u.thread_id)(kres).map(normUnread)) },
 
   // ── download / export ────────────────────────────────────────────────────────
   { name: "download.listPublicPagesForExport", kinds: KIND.exportPages,

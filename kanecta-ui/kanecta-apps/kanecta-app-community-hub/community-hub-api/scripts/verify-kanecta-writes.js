@@ -11,6 +11,7 @@ import * as pages from "../repositories/kanecta/pages.js";
 import * as trust from "../repositories/kanecta/trust.js";
 import * as push from "../repositories/kanecta/push.js";
 import * as notices from "../repositories/kanecta/notices.js";
+import * as disc from "../repositories/kanecta/discussions.js";
 import { deleteItem, graphql } from "../lib/kanectaClient.js";
 
 // Delete every item matching a single-field GraphQL filter (test cleanup).
@@ -207,6 +208,92 @@ const ok = (name, cond, detail) => {
   const n2 = await suggestions.archiveSuggestion({ id, archivedById: "mod-1" });
   ok("archiveSuggestion again → rowCount 0 (already archived)", n2 === 0);
   await deleteItem(id, { force: true });
+}
+
+// ── discussions: thread + message + reply + reactions + read-state lifecycle ──
+{
+  const U = "phase4-disc-user";
+  const OTHER = "phase4-disc-other";
+  // createThread
+  const thread = await disc.createThread({ name: "PHASE4 probe thread", description: "d", createdByUserId: U, createdByName: "Disc User" });
+  ok("createThread → returns row with name + null sort_order",
+    thread && thread.name === "PHASE4 probe thread" && thread.sort_order === null, JSON.stringify(thread));
+  const tid = thread.id;
+  ok("getThreadName → name", (await disc.getThreadName(tid))?.name === "PHASE4 probe thread");
+  ok("getThreadForArchive → creator", (await disc.getThreadForArchive(tid))?.created_by_user_id === U);
+  ok("findDuplicateThreads matches normalized name", (await disc.findDuplicateThreads("phase4probethread")).some((t) => t.id === tid));
+
+  // touchThreadLatestMessage
+  const at = "2026-07-16T00:00:00.000Z";
+  await disc.touchThreadLatestMessage(tid, at);
+  const tcheck = await graphql(`query($id:ID){ discussionsThreadses(where:{id:{eq:$id}},limit:1){ latestMessageAt } }`, { id: tid });
+  ok("touchThreadLatestMessage → latest_message_at set", Date.parse(tcheck.discussionsThreadses[0].latestMessageAt) === Date.parse(at));
+
+  // createMessage
+  const msg = await disc.createMessage({ threadId: tid, userId: U, userName: "Disc User", content: "hello" });
+  ok("createMessage → row with reply_count 0", msg && msg.content === "hello" && msg.reply_count === 0 && msg.thread_id === tid, JSON.stringify(msg));
+  ok("createMessage → in listThreadMessages", (await disc.listThreadMessages(tid, 50)).some((m) => m.id === msg.id));
+
+  // updateMessage (author ok; other denied)
+  const upd = await disc.updateMessage(msg.id, "hello edited", U);
+  ok("updateMessage (author) → content changed + edited_at", upd && upd.content === "hello edited" && upd.edited_at != null);
+  ok("updateMessage (non-author) → undefined", (await disc.updateMessage(msg.id, "hax", OTHER)) === undefined);
+
+  // createReply → parent reply_count becomes 1
+  const reply = await disc.createReply({ threadId: tid, parentMessageId: msg.id, userId: OTHER, userName: "Other", content: "a reply" });
+  ok("createReply → row under parent", reply && reply.parent_message_id === msg.id && reply.content === "a reply", JSON.stringify(reply));
+  ok("listReplies → shows the reply", (await disc.listReplies(msg.id)).some((r) => r.id === reply.id));
+  ok("parent reply_count now 1", (await disc.listThreadMessages(tid, 50)).find((m) => m.id === msg.id)?.reply_count === 1);
+  ok("getParentMessage → { id, thread_id }", (await disc.getParentMessage(msg.id))?.thread_id === tid);
+  ok("getMessageThreadId(reply) → thread", (await disc.getMessageThreadId(reply.id))?.thread_id === tid);
+
+  // reactions
+  await disc.addReaction(msg.id, U, "Disc User", "👍");
+  await disc.addReaction(msg.id, U, "Disc User", "👍"); // idempotent
+  let rx = await disc.getMessageReactions(msg.id);
+  ok("addReaction → 1 group count 1 (idempotent)", rx.length === 1 && rx[0].emoji === "👍" && rx[0].count === "1", JSON.stringify(rx));
+  await disc.addReaction(msg.id, OTHER, "Other", "👍");
+  rx = await disc.getMessageReactions(msg.id);
+  ok("addReaction (2nd user) → count 2", rx[0].count === "2" && rx[0].user_ids.length === 2);
+  ok("getThreadReactions → includes the message group", (await disc.getThreadReactions(tid)).some((g) => g.message_id === msg.id && g.emoji === "👍"));
+  await disc.removeReaction(msg.id, U, "👍");
+  await disc.removeReaction(msg.id, OTHER, "👍");
+  ok("removeReaction → gone", (await disc.getMessageReactions(msg.id)).length === 0);
+
+  // notification subscriptions
+  await disc.subscribeThreadNotifications(U, tid);
+  await disc.subscribeThreadNotifications(U, tid); // idempotent
+  const subs = await graphql(`query($u:String,$t:ID){ threadNotificationSubscriptionses(where:{userId:{eq:$u},threadId:{eq:$t}},limit:10){ id } }`, { u: U, t: tid });
+  ok("subscribeThreadNotifications → exactly 1 (idempotent)", subs.threadNotificationSubscriptionses.length === 1);
+  await disc.unsubscribeThreadNotifications(U, tid);
+  const subs2 = await graphql(`query($u:String,$t:ID){ threadNotificationSubscriptionses(where:{userId:{eq:$u},threadId:{eq:$t}},limit:10){ id } }`, { u: U, t: tid });
+  ok("unsubscribeThreadNotifications → 0", subs2.threadNotificationSubscriptionses.length === 0);
+
+  // upsertThreadRead never moves backwards; markThreadRead sets to max message time
+  await disc.upsertThreadRead(U, tid, "2026-07-10T00:00:00.000Z");
+  await disc.upsertThreadRead(U, tid, "2026-07-05T00:00:00.000Z"); // older → ignored
+  let tr = await graphql(`query($u:String,$t:ID){ discussionsThreadReadses(where:{userId:{eq:$u},threadId:{eq:$t}},limit:1){ lastReadAt } }`, { u: U, t: tid });
+  ok("upsertThreadRead → does not move backwards", Date.parse(tr.discussionsThreadReadses[0].lastReadAt) === Date.parse("2026-07-10T00:00:00.000Z"));
+  await disc.upsertThreadRead(U, tid, "2026-07-12T00:00:00.000Z"); // newer → moves
+  tr = await graphql(`query($u:String,$t:ID){ discussionsThreadReadses(where:{userId:{eq:$u},threadId:{eq:$t}},limit:1){ lastReadAt } }`, { u: U, t: tid });
+  ok("upsertThreadRead → moves forward", Date.parse(tr.discussionsThreadReadses[0].lastReadAt) === Date.parse("2026-07-12T00:00:00.000Z"));
+
+  // deleteMessage (author) → soft-deleted, blanked
+  const del = await disc.deleteMessage(reply.id, OTHER, false);
+  ok("deleteMessage (author) → soft-deleted + blanked", del && del.deleted_at != null && del.content === "");
+  ok("deleteMessage (already deleted) → undefined", (await disc.deleteMessage(reply.id, OTHER, false)) === undefined);
+
+  // archiveThread → getThreadForArchive undefined
+  await disc.archiveThread(tid);
+  ok("archiveThread → getThreadForArchive undefined (archived)", (await disc.getThreadForArchive(tid)) === undefined);
+
+  // cleanup: messages, reads, thread
+  // obj_<message> has physical FK constraints (parent_message_id, thread_id) that
+  // ?force doesn't bypass, so hard-delete in dependency order: reply → message → thread.
+  for (const mid of [reply.id, msg.id]) await deleteItem(mid, { force: true });
+  await purge(null, "discussionsThreadReadses", "userId", U);
+  await deleteItem(tid, { force: true });
+  ok("discussions cleanup", (await disc.getThreadName(tid)) === undefined);
 }
 
 console.log(`\n${pass}/${pass + fail} write checks passed.`);
