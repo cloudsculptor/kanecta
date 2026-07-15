@@ -10,6 +10,7 @@ import * as finances from "../repositories/kanecta/finances.js";
 import * as pages from "../repositories/kanecta/pages.js";
 import * as trust from "../repositories/kanecta/trust.js";
 import * as push from "../repositories/kanecta/push.js";
+import * as notices from "../repositories/kanecta/notices.js";
 import { deleteItem, graphql } from "../lib/kanectaClient.js";
 
 // Delete every item matching a single-field GraphQL filter (test cleanup).
@@ -159,6 +160,53 @@ const ok = (name, cond, detail) => {
     prefs.length === 1 && prefs[0].enabled === false, JSON.stringify(prefs));
   await purge(null, "notificationPreferenceses", "userId", u);
   ok("upsertPreference cleanup", (await push.getPreferences(u)).length === 0);
+}
+
+// ── notices: create → approve (pending→approved) ─────────────────────────────
+{
+  const { id } = await notices.createNotice({
+    heading: "PHASE4 probe notice", body: "body text", noticeDate: "2026-07-10",
+    submittedById: "u-test", submittedByName: "Test User",
+  });
+  ok("createNotice → owner readable + pending", (await notices.getNoticeOwner(id)) === "u-test");
+  const pending = await notices.listPendingNotices();
+  ok("createNotice → appears in pending", pending.some((n) => n.id === id));
+  const app = await notices.approveNotice({ id, reviewedById: "mod-1", reviewedByName: "Mod One" });
+  ok("approveNotice → returns { id }", app && app.id === id);
+  const approved = await notices.listApprovedNotices();
+  ok("approveNotice → now in approved list", approved.some((n) => n.id === id));
+  // Re-approving is a no-op (no longer pending) → undefined.
+  ok("approveNotice again → undefined (not pending)",
+    (await notices.approveNotice({ id, reviewedById: "mod-1", reviewedByName: "Mod One" })) === undefined);
+  await deleteItem(id, { force: true });
+}
+
+// ── notices: create → decline, then softDelete ───────────────────────────────
+{
+  const { id } = await notices.createNotice({
+    heading: "PHASE4 decline notice", body: "b", noticeDate: "2026-07-10",
+    submittedById: "u-test", submittedByName: "Test User",
+  });
+  const dec = await notices.declineNotice({ id, declineReason: "spam", reviewedById: "mod-1", reviewedByName: "Mod One" });
+  ok("declineNotice → returns { id }", dec && dec.id === id);
+  await notices.softDeleteNotice(id);
+  ok("softDeleteNotice → getNoticeOwner null (filtered by deleted_at)",
+    (await notices.getNoticeOwner(id)) === null);
+  await deleteItem(id, { force: true });
+}
+
+// ── suggestions.archiveSuggestion (active → archived) ────────────────────────
+{
+  const { id } = await suggestions.createSuggestion({
+    content: "PHASE4 archive probe", submittedById: "u-test", submittedByName: "Test User",
+  });
+  ok("createSuggestion (for archive) → active", (await suggestions.listActiveSuggestions()).some((s) => s.id === id));
+  const n1 = await suggestions.archiveSuggestion({ id, archivedById: "mod-1" });
+  ok("archiveSuggestion → rowCount 1", n1 === 1);
+  ok("archiveSuggestion → now archived", (await suggestions.listArchivedSuggestions()).some((s) => s.id === id));
+  const n2 = await suggestions.archiveSuggestion({ id, archivedById: "mod-1" });
+  ok("archiveSuggestion again → rowCount 0 (already archived)", n2 === 0);
+  await deleteItem(id, { force: true });
 }
 
 console.log(`\n${pass}/${pass + fail} write checks passed.`);

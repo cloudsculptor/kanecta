@@ -40,6 +40,7 @@ export async function listPendingNotices() {
 }
 
 export async function createNotice({ heading, body, noticeDate, submittedById, submittedByName }) {
+  if (USE_KANECTA) return kanecta.createNotice({ heading, body, noticeDate, submittedById, submittedByName });
   const { rows } = await pool.query(
     `INSERT INTO notices (heading, body, notice_date, submitted_by_id, submitted_by_name)
      VALUES ($1, $2, $3, $4, $5)
@@ -51,6 +52,7 @@ export async function createNotice({ heading, body, noticeDate, submittedById, s
 
 // The owner id of a live (non-deleted) notice, or null if it doesn't exist.
 export async function getNoticeOwner(id) {
+  if (USE_KANECTA) return kanecta.getNoticeOwner(id);
   const { rows } = await pool.query(
     "SELECT submitted_by_id FROM notices WHERE id = $1 AND deleted_at IS NULL",
     [id]
@@ -59,11 +61,13 @@ export async function getNoticeOwner(id) {
 }
 
 export async function softDeleteNotice(id) {
+  if (USE_KANECTA) return kanecta.softDeleteNotice(id);
   await pool.query("UPDATE notices SET deleted_at = NOW() WHERE id = $1", [id]);
 }
 
 // Approve a pending notice; returns the id row, or undefined if not found/not pending.
 export async function approveNotice({ id, reviewedById, reviewedByName }) {
+  if (USE_KANECTA) return kanecta.approveNotice({ id, reviewedById, reviewedByName });
   const { rows } = await pool.query(
     `UPDATE notices
      SET status = 'approved', reviewed_by_id = $1, reviewed_by_name = $2, reviewed_at = NOW()
@@ -76,6 +80,7 @@ export async function approveNotice({ id, reviewedById, reviewedByName }) {
 
 // Decline a pending notice; returns the id row, or undefined if not found/not pending.
 export async function declineNotice({ id, declineReason, reviewedById, reviewedByName }) {
+  if (USE_KANECTA) return kanecta.declineNotice({ id, declineReason, reviewedById, reviewedByName });
   const { rows } = await pool.query(
     `UPDATE notices
      SET status = 'declined', decline_reason = $1,

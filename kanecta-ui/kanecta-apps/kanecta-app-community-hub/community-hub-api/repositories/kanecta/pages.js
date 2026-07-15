@@ -2,7 +2,7 @@
 // the licence/group name (a LEFT JOIN in pg) with a follow-up point lookup — the
 // FK is preserved as both a data field (licence_id / owner_id) and a relates-to
 // edge; here we resolve the display name via the id.
-import { graphql, transaction, resolveTypeId, newId, ROOT_ID, OWNER } from "../../lib/kanectaClient.js";
+import { graphql, transaction, updateObject, getItem, resolveTypeId, newId, ROOT_ID, OWNER } from "../../lib/kanectaClient.js";
 import { coerceRow, selectionFor } from "../../lib/kanectaMap.js";
 
 const LIST = [
@@ -90,6 +90,59 @@ async function readPageStar(id) {
   const data = await graphql(
     `query($id:ID){ pageses(where:{id:{eq:$id}}, limit:1){ ${selectionFor(STAR)} } }`, { id });
   return data.pageses[0] ? coerceRow(data.pageses[0], STAR) : null;
+}
+
+// page_history projection for getPageHistory (list) and getPageVersion (detail).
+const HISTORY_LIST = [
+  ["id", "id"], ["action", "text"], ["version", "int"], ["user_name", "text"], ["created_at", "timestamp"],
+  ["licence_id", "ref"],
+];
+const HISTORY_VERSION = [
+  ["version", "int"], ["action", "text"], ["content_json", "json"], ["user_name", "text"],
+  ["created_at", "timestamp"], ["licence_id", "ref"],
+];
+
+// pg: SELECT ph.id, ph.action, ph.version, ph.user_name, ph.created_at,
+//     l.name AS licence_name FROM page_history ph LEFT JOIN licences l
+//     WHERE ph.page_id=$1 ORDER BY ph.created_at DESC
+export async function getPageHistory(pageId) {
+  const data = await graphql(
+    `query($p:ID){ pageHistories(where:{pageId:{eq:$p}}, sort:[{field:createdAt,direction:DESC}],
+        limit:500){ ${selectionFor(HISTORY_LIST)} } }`,
+    { p: pageId },
+  );
+  const rows = data.pageHistories.map((r) => coerceRow(r, HISTORY_LIST));
+  for (const row of rows) {
+    row.licence_name = await licenceName(row.licence_id);
+    delete row.licence_id; // pg projection selects only licence_name, not licence_id
+  }
+  return rows;
+}
+
+// pg: SELECT ph.version, ph.action, ph.content_json, ph.user_name, ph.created_at,
+//     l.name AS licence_name ... WHERE ph.page_id=$1 AND ph.version=$2 → row or null
+export async function getPageVersion(pageId, version) {
+  const data = await graphql(
+    `query($p:ID,$v:Int){ pageHistories(where:{pageId:{eq:$p}, version:{eq:$v}}, limit:1){ ${selectionFor(HISTORY_VERSION)} } }`,
+    { p: pageId, v: version },
+  );
+  const gql = data.pageHistories[0];
+  if (!gql) return null;
+  const row = coerceRow(gql, HISTORY_VERSION);
+  row.licence_name = await licenceName(row.licence_id);
+  delete row.licence_id;
+  return row;
+}
+
+// pg: UPDATE pages SET deleted_at=NOW() WHERE slug=$1 (unconditional). Resolve the
+// page item id by slug, then resend the full payload with the new deleted_at.
+export async function softDeletePage(slug) {
+  const found = await graphql(`query($s:String){ pageses(where:{slug:{eq:$s}}, limit:1){ id } }`, { s: slug });
+  const id = found.pageses[0]?.id;
+  if (!id) return;
+  const item = await getItem(id);
+  if (!item?.payload) return;
+  await updateObject(id, { ...item.payload, deletedAt: new Date().toISOString() });
 }
 
 // pg: BEGIN; INSERT page (public=FALSE, version=1); INSERT page_history(Created,

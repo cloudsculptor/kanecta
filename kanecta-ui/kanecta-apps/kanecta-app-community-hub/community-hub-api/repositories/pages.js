@@ -125,6 +125,7 @@ export async function getLivePageIdBySlug(slug) {
 }
 
 export async function getPageHistory(pageId) {
+  if (USE_KANECTA) return kanecta.getPageHistory(pageId);
   const { rows } = await pool.query(
     `SELECT ph.id, ph.action, ph.version, ph.user_name, ph.created_at,
             l.name AS licence_name
@@ -138,6 +139,7 @@ export async function getPageHistory(pageId) {
 }
 
 export async function getPageVersion(pageId, version) {
+  if (USE_KANECTA) return kanecta.getPageVersion(pageId, version);
   const { rows } = await pool.query(
     `SELECT ph.version, ph.action, ph.content_json, ph.user_name, ph.created_at,
             l.name AS licence_name
@@ -150,6 +152,7 @@ export async function getPageVersion(pageId, version) {
 }
 
 export async function softDeletePage(slug) {
+  if (USE_KANECTA) return kanecta.softDeletePage(slug);
   await pool.query("UPDATE pages SET deleted_at = NOW() WHERE slug = $1", [slug]);
 }
 

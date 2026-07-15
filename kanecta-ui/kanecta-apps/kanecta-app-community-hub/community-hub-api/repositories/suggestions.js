@@ -39,6 +39,7 @@ export async function listArchivedSuggestions() {
 
 // Returns the number of rows archived (0 if not found or already archived).
 export async function archiveSuggestion({ id, archivedById }) {
+  if (USE_KANECTA) return kanecta.archiveSuggestion({ id, archivedById });
   const { rowCount } = await pool.query(
     `UPDATE suggestions SET archived_at = NOW(), archived_by_id = $1
      WHERE id = $2 AND archived_at IS NULL`,

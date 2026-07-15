@@ -64,6 +64,8 @@ const KIND = {
   exportPages: { slug: "text", title: "text", content_json: "json" },
   prefs: { category: "text", enabled: "bool" },
   userSubs: { user_id: "text", subscription: "json" },
+  pageHistory: { id: "id", action: "text", version: "int", user_name: "text", created_at: "timestamp", licence_name: "text" },
+  pageVersion: { version: "int", action: "text", content_json: "json", user_name: "text", created_at: "timestamp", licence_name: "text" },
 };
 
 // A known endorsed user in the source (chain non-root) and the chain root (has no
@@ -72,6 +74,8 @@ const ENDORSED_USER = "7ecbc138-eda1-4b36-a29d-f784c862f5d3";
 const ROOT_USER = "aaf6b0da-af38-42aa-853d-bc0da2b377aa"; // the seed endorser (no row where user_id=them)
 const SUBS_USER = "111f6452-1c13-4251-b937-4c7696906d50"; // a user with push subscriptions
 const SUBS_THREAD = "c5719980-6a25-42a1-a886-783e4713c32c"; // a thread with 2 tns subscribers
+const HISTORY_PAGE = "d4c75571-b97f-45fa-8ee7-7cce74822a6d"; // a page with 5 history rows
+const DELETED_NOTICE = "d5d456ad-e9ce-4fc5-9bec-7ec11566a138"; // a soft-deleted notice
 
 const CASES = [
   { name: "licences.listLicences", kinds: KIND.licences,
@@ -151,6 +155,23 @@ const CASES = [
     sql: "SELECT category, enabled FROM notification_preferences WHERE user_id=$1", params: [USER],
     fn: () => push.getPreferences(USER),
     check: (rows, kres) => eq(normRows(rows, KIND.prefs), normRows(kres, KIND.prefs)) },
+
+  // ── pages history / notices owner ────────────────────────────────────────────
+  { name: "pages.getPageHistory", kinds: KIND.pageHistory,
+    sql: `SELECT ph.id, ph.action, ph.version, ph.user_name, ph.created_at, l.name AS licence_name
+          FROM page_history ph LEFT JOIN licences l ON l.id=ph.licence_id
+          WHERE ph.page_id=$1 ORDER BY ph.created_at DESC`,
+    params: [HISTORY_PAGE], fn: () => pages.getPageHistory(HISTORY_PAGE) },
+  { name: "pages.getPageVersion",
+    sql: `SELECT ph.version, ph.action, ph.content_json, ph.user_name, ph.created_at, l.name AS licence_name
+          FROM page_history ph LEFT JOIN licences l ON l.id=ph.licence_id
+          WHERE ph.page_id=$1 AND ph.version=$2`,
+    params: [HISTORY_PAGE, 1], fn: () => pages.getPageVersion(HISTORY_PAGE, 1),
+    check: (rows, kres) => eq(normRows([rows[0]], KIND.pageVersion)[0], normRows([kres], KIND.pageVersion)[0]) },
+  { name: "notices.getNoticeOwner(deleted→null)",
+    sql: "SELECT submitted_by_id FROM notices WHERE id=$1 AND deleted_at IS NULL", params: [DELETED_NOTICE],
+    fn: () => notices.getNoticeOwner(DELETED_NOTICE),
+    check: (rows, kres) => kres === (rows[0]?.submitted_by_id ?? null) && kres === null },
 
   // ── download / export ────────────────────────────────────────────────────────
   { name: "download.listPublicPagesForExport", kinds: KIND.exportPages,
