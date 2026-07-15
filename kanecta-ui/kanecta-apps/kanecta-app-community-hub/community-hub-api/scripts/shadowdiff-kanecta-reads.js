@@ -24,6 +24,7 @@ import * as trust from "../repositories/kanecta/trust.js";
 import * as push from "../repositories/kanecta/push.js";
 import * as download from "../repositories/kanecta/download.js";
 import * as disc from "../repositories/kanecta/discussions.js";
+import * as events from "../repositories/kanecta/events.js";
 
 const SRC = process.env.SRC_PG || "postgres://kanecta:kanecta@localhost:45433/communityhub";
 const USER = "111f6452-1c13-4251-b937-4c7696906d50";
@@ -33,6 +34,7 @@ function normVal(v, kind) {
   if (v == null) return null;
   switch (kind) {
     case "money": return Number(v).toFixed(2);
+    case "float": return v == null ? null : Number(v);
     case "int": return Number(v);
     case "bool": return Boolean(v);
     case "date": return v instanceof Date ? v.toISOString().slice(0, 10) : String(v).slice(0, 10);
@@ -96,6 +98,10 @@ const KIND = {
   userSubs: { user_id: "text", subscription: "json" },
   pageHistory: { id: "id", action: "text", version: "int", user_name: "text", created_at: "timestamp", licence_name: "text" },
   pageVersion: { version: "int", action: "text", content_json: "json", user_name: "text", created_at: "timestamp", licence_name: "text" },
+  eventsUpcoming: { id: "id", title: "text", description: "text", start_date: "date", start_time: "text", end_date: "date", end_time: "text", address: "text", lat: "float", lng: "float", website: "text", phone: "text", email: "text", area: "text", submitted_at: "timestamp" },
+  eventsMine: { id: "id", title: "text", start_date: "date", start_time: "text", end_date: "date", status: "text", decline_reason: "text", submitted_at: "timestamp" },
+  eventsPending: { id: "id", title: "text", description: "text", start_date: "date", start_time: "text", end_date: "date", end_time: "text", address: "text", lat: "float", lng: "float", website: "text", phone: "text", email: "text", area: "text", organiser_name: "text", organiser_email: "text", organiser_phone: "text", submitted_by_name: "text", submitted_at: "timestamp" },
+  eventsDetail: { id: "id", title: "text", description: "text", start_date: "date", start_time: "text", end_date: "date", end_time: "text", address: "text", lat: "float", lng: "float", website: "text", phone: "text", email: "text", area: "text", status: "text", organiser_name: "text", organiser_email: "text", organiser_phone: "text", submitted_by_id: "text", submitted_at: "timestamp" },
 };
 
 // A known endorsed user in the source (chain non-root) and the chain root (has no
@@ -113,6 +119,10 @@ const FILE_MSG = "3482fb00-ace5-4e44-bb63-8a017ebd8f63"; // message with a file 
 const A_FILE = "41666c6d-32eb-46de-a9a0-bf8d3cdc9ffd"; // a live file
 const A_THREAD = "e52652d6-11de-41d7-8407-43fe3f33b6bc"; // a live thread ('Constitution')
 const READS_USER = "d8197299-34b1-4749-84ef-0ba9148adb62"; // a user with thread-read state
+const EVENT_SUBMITTER = "636adc46-c05a-4977-ac3a-af52faded173"; // submitter with 3 events
+const AN_EVENT = "1898f5e6-44bc-4432-83ec-cd515631b72b"; // an approved event
+const FILE_EVENT = "c3f3a78e-1a36-4e54-af42-6607cb26c75a"; // event with hero + gallery files
+const EVENT_FILE_ID = "2e9a4092-2b60-431a-9928-a5b86c6f2260"; // a gallery file on FILE_EVENT
 
 const CASES = [
   { name: "licences.listLicences", kinds: KIND.licences,
@@ -289,6 +299,41 @@ const CASES = [
           GROUP BY t.id, t.name, rd.last_read_at ORDER BY t.created_at ASC`,
     params: [READS_USER], fn: () => disc.listUnreads(READS_USER),
     check: (rows, kres) => eq(sortBy((u) => u.thread_id)(rows).map(normUnread), sortBy((u) => u.thread_id)(kres).map(normUnread)) },
+
+  // ── events ───────────────────────────────────────────────────────────────────
+  { name: "events.listUpcomingApprovedEvents", kinds: KIND.eventsUpcoming,
+    sql: `SELECT id,title,description,start_date,start_time,end_date,end_time,address,lat,lng,website,phone,email,area,submitted_at
+          FROM events WHERE status='approved' AND deleted_at IS NULL AND COALESCE(end_date,start_date)>=CURRENT_DATE ORDER BY start_date ASC`,
+    fn: () => events.listUpcomingApprovedEvents(null) },
+  { name: "events.listMyEvents", kinds: KIND.eventsMine,
+    sql: `SELECT id,title,start_date,start_time,end_date,status,decline_reason,submitted_at
+          FROM events WHERE submitted_by_id=$1 AND deleted_at IS NULL ORDER BY submitted_at DESC`,
+    params: [EVENT_SUBMITTER], fn: () => events.listMyEvents(null, EVENT_SUBMITTER) },
+  { name: "events.listPendingEvents", kinds: KIND.eventsPending,
+    sql: `SELECT id,title,description,start_date,start_time,end_date,end_time,address,lat,lng,website,phone,email,area,organiser_name,organiser_email,organiser_phone,submitted_by_name,submitted_at
+          FROM events WHERE status='pending' AND deleted_at IS NULL ORDER BY submitted_at ASC`,
+    fn: () => events.listPendingEvents(null) },
+  { name: "events.getEventDetail",
+    sql: `SELECT id,title,description,start_date,start_time,end_date,end_time,address,lat,lng,website,phone,email,area,status,organiser_name,organiser_email,organiser_phone,submitted_by_id,submitted_at
+          FROM events WHERE id=$1 AND deleted_at IS NULL`,
+    params: [AN_EVENT], fn: () => events.getEventDetail(null, AN_EVENT),
+    check: (rows, kres) => eq(normRows([rows[0]], KIND.eventsDetail)[0], normRows([kres], KIND.eventsDetail)[0]) },
+  { name: "events.getEventForDelete",
+    sql: "SELECT submitted_by_id, deleted_at FROM events WHERE id=$1", params: [AN_EVENT],
+    fn: () => events.getEventForDelete(null, AN_EVENT),
+    check: (rows, kres) => eq({ submitted_by_id: rows[0]?.submitted_by_id, deleted_at: rows[0]?.deleted_at ? epoch(rows[0].deleted_at) : null },
+      { submitted_by_id: kres?.submitted_by_id, deleted_at: kres?.deleted_at ? epoch(kres.deleted_at) : null }) },
+  { name: "events.getEventOwnerStatus",
+    sql: "SELECT submitted_by_id, status FROM events WHERE id=$1", params: [AN_EVENT],
+    fn: () => events.getEventOwnerStatus(null, AN_EVENT),
+    check: (rows, kres) => eq({ submitted_by_id: rows[0]?.submitted_by_id, status: rows[0]?.status }, kres) },
+  { name: "events.countGalleryImages",
+    sql: "SELECT COUNT(*)::int AS c FROM event_files WHERE event_id=$1 AND role='gallery'", params: [FILE_EVENT],
+    fn: () => events.countGalleryImages(null, FILE_EVENT), check: (rows, kres) => Number(rows[0].c) === kres },
+  { name: "events.getEventFile",
+    sql: "SELECT ef.file_id, f.storage_key FROM event_files ef JOIN files f ON f.id=ef.file_id WHERE ef.event_id=$1 AND ef.file_id=$2",
+    params: [FILE_EVENT, EVENT_FILE_ID], fn: () => events.getEventFile(null, FILE_EVENT, EVENT_FILE_ID),
+    check: (rows, kres) => eq(rows[0] ? { file_id: rows[0].file_id, storage_key: rows[0].storage_key } : undefined, kres) },
 
   // ── download / export ────────────────────────────────────────────────────────
   { name: "download.listPublicPagesForExport", kinds: KIND.exportPages,

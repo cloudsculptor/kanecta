@@ -22,6 +22,7 @@ function coerce(value, kind) {
   if (value == null) return value;
   switch (kind) {
     case "money":     return Number(value).toFixed(2);
+    case "float":     return Number(value); // double precision (lat/lng) — numeric passthrough
     case "date":      return String(value).slice(0, 10);
     case "timestamp": return new Date(value).toISOString();
     // A backfilled FK column is exposed as a RESOLVED reference object in GraphQL

@@ -7,6 +7,8 @@
 // each statement the client; pure reads/writes just pass the pool.
 // Part of the repository seam — see repositories/licences.js.
 import pool from "../db.js";
+import { USE_KANECTA } from "./backend.js";
+import * as kanecta from "./kanecta/events.js";
 
 // Hero + gallery file rows for a set of events (used to attach image URLs).
 export async function getEventFiles(db, ids) {
@@ -23,6 +25,7 @@ export async function getEventFiles(db, ids) {
 
 // Public list: approved, non-deleted, ending today or later.
 export async function listUpcomingApprovedEvents(db) {
+  if (USE_KANECTA) return kanecta.listUpcomingApprovedEvents(db);
   const { rows } = await db.query(
     `SELECT id, title, description, start_date, start_time, end_date, end_time,
             address, lat, lng, website, phone, email, area, submitted_at
@@ -36,6 +39,7 @@ export async function listUpcomingApprovedEvents(db) {
 }
 
 export async function listMyEvents(db, userId) {
+  if (USE_KANECTA) return kanecta.listMyEvents(db, userId);
   const { rows } = await db.query(
     `SELECT id, title, start_date, start_time, end_date, status, decline_reason, submitted_at
      FROM events
@@ -48,6 +52,7 @@ export async function listMyEvents(db, userId) {
 }
 
 export async function listPendingEvents(db) {
+  if (USE_KANECTA) return kanecta.listPendingEvents(db);
   const { rows } = await db.query(
     `SELECT id, title, description, start_date, start_time, end_date, end_time,
             address, lat, lng, website, phone, email, area,
@@ -63,6 +68,7 @@ export async function listPendingEvents(db) {
 
 // Full detail row for one non-deleted event, or null.
 export async function getEventDetail(db, id) {
+  if (USE_KANECTA) return kanecta.getEventDetail(db, id);
   const { rows } = await db.query(
     `SELECT id, title, description, start_date, start_time, end_date, end_time,
             address, lat, lng, website, phone, email, area, status,
@@ -76,6 +82,7 @@ export async function getEventDetail(db, id) {
 
 // Ownership + deleted flag (for the delete endpoint). Null if the id is unknown.
 export async function getEventForDelete(db, id) {
+  if (USE_KANECTA) return kanecta.getEventForDelete(db, id);
   const { rows } = await db.query(
     "SELECT submitted_by_id, deleted_at FROM events WHERE id = $1",
     [id]
@@ -85,6 +92,7 @@ export async function getEventForDelete(db, id) {
 
 // Ownership + status (for image + patch endpoints). Null if the id is unknown.
 export async function getEventOwnerStatus(db, id) {
+  if (USE_KANECTA) return kanecta.getEventOwnerStatus(db, id);
   const { rows } = await db.query(
     "SELECT submitted_by_id, status FROM events WHERE id = $1",
     [id]
@@ -93,6 +101,7 @@ export async function getEventOwnerStatus(db, id) {
 }
 
 export async function softDeleteEvent(db, id) {
+  if (USE_KANECTA) return kanecta.softDeleteEvent(db, id);
   await db.query("UPDATE events SET deleted_at = NOW() WHERE id = $1", [id]);
 }
 
@@ -101,6 +110,7 @@ export async function createEvent(db, {
   address, lat, lng, website, phone, email,
   organiserName, organiserEmail, organiserPhone, area, submittedById, submittedByName,
 }) {
+  if (USE_KANECTA) return kanecta.createEvent(db, { title, description, startDate, startTime, endDate, endTime, address, lat, lng, website, phone, email, organiserName, organiserEmail, organiserPhone, area, submittedById, submittedByName });
   const { rows } = await db.query(
     `INSERT INTO events
        (title, description, start_date, start_time, end_date, end_time,
@@ -119,6 +129,7 @@ export async function createEvent(db, {
 }
 
 export async function countGalleryImages(db, eventId) {
+  if (USE_KANECTA) return kanecta.countGalleryImages(db, eventId);
   const { rows } = await db.query(
     "SELECT COUNT(*) FROM event_files WHERE event_id = $1 AND role = 'gallery'",
     [eventId]
@@ -149,11 +160,13 @@ export async function insertEventFile(db, { eventId, fileId, role, position }) {
 }
 
 export async function setEventPendingIfApproved(db, eventId) {
+  if (USE_KANECTA) return kanecta.setEventPendingIfApproved(db, eventId);
   await db.query("UPDATE events SET status = 'pending' WHERE id = $1", [eventId]);
 }
 
 // The (event_file → file) row for a specific attachment, or undefined.
 export async function getEventFile(db, eventId, fileId) {
+  if (USE_KANECTA) return kanecta.getEventFile(db, eventId, fileId);
   const { rows } = await db.query(
     "SELECT ef.file_id, f.storage_key FROM event_files ef JOIN files f ON f.id = ef.file_id WHERE ef.event_id = $1 AND ef.file_id = $2",
     [eventId, fileId]
@@ -171,6 +184,7 @@ export async function updateEvent(db, {
   address, lat, lng, website, phone, email,
   organiserName, organiserEmail, organiserPhone, area, status,
 }) {
+  if (USE_KANECTA) return kanecta.updateEvent(db, { id, title, description, startDate, startTime, endDate, endTime, address, lat, lng, website, phone, email, organiserName, organiserEmail, organiserPhone, area, status });
   const { rows } = await db.query(
     `UPDATE events
      SET title=$1, description=$2, start_date=$3, start_time=$4,
@@ -191,6 +205,7 @@ export async function updateEvent(db, {
 
 // Approve a pending event; returns the id row or undefined.
 export async function approveEvent(db, { id, reviewedById, reviewedByName }) {
+  if (USE_KANECTA) return kanecta.approveEvent(db, { id, reviewedById, reviewedByName });
   const { rows } = await db.query(
     `UPDATE events
      SET status = 'approved', reviewed_by_id = $1, reviewed_by_name = $2, reviewed_at = NOW()
@@ -203,6 +218,7 @@ export async function approveEvent(db, { id, reviewedById, reviewedByName }) {
 
 // Decline a pending event; returns the id row or undefined.
 export async function declineEvent(db, { id, declineReason, reviewedById, reviewedByName }) {
+  if (USE_KANECTA) return kanecta.declineEvent(db, { id, declineReason, reviewedByName, reviewedById });
   const { rows } = await db.query(
     `UPDATE events
      SET status = 'declined', decline_reason = $1,

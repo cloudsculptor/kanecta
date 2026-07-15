@@ -12,6 +12,7 @@ import * as trust from "../repositories/kanecta/trust.js";
 import * as push from "../repositories/kanecta/push.js";
 import * as notices from "../repositories/kanecta/notices.js";
 import * as disc from "../repositories/kanecta/discussions.js";
+import * as events from "../repositories/kanecta/events.js";
 import { deleteItem, graphql } from "../lib/kanectaClient.js";
 
 // Delete every item matching a single-field GraphQL filter (test cleanup).
@@ -294,6 +295,45 @@ const ok = (name, cond, detail) => {
   await purge(null, "discussionsThreadReadses", "userId", U);
   await deleteItem(tid, { force: true });
   ok("discussions cleanup", (await disc.getThreadName(tid)) === undefined);
+}
+
+// ── events: create → detail → update → approve → pending → decline → delete ──
+{
+  const { id } = await events.createEvent(null, {
+    title: "PHASE4 event", description: "desc", startDate: "2026-08-01", startTime: "18:00:00",
+    endDate: "2026-08-01", endTime: "20:00:00", address: "1 Main St", lat: -41.12, lng: 175.32,
+    website: "https://x", phone: "123", email: "e@x", organiserName: "Org", organiserEmail: "o@x",
+    organiserPhone: "999", area: "Featherston", submittedById: "u-test", submittedByName: "Test User",
+  });
+  ok("createEvent → returns { id }", !!id);
+  const detail = await events.getEventDetail(null, id);
+  ok("createEvent → getEventDetail reflects it (pending, lat/lng)",
+    detail && detail.title === "PHASE4 event" && detail.status === "pending" && detail.lat === -41.12, JSON.stringify(detail));
+  ok("createEvent → getEventOwnerStatus", (await events.getEventOwnerStatus(null, id))?.submitted_by_id === "u-test");
+
+  const upd = await events.updateEvent(null, {
+    id, title: "PHASE4 event EDITED", description: "d2", startDate: "2026-08-02", startTime: "19:00:00",
+    endDate: null, endTime: null, address: "2 Main", lat: -41.2, lng: 175.4, website: null, phone: null,
+    email: null, organiserName: "Org2", organiserEmail: null, organiserPhone: null, area: "Greytown", status: "pending",
+  });
+  ok("updateEvent → returns { id, status }", upd && upd.id === id && upd.status === "pending");
+  const d2 = await events.getEventDetail(null, id);
+  ok("updateEvent → fields merged", d2.title === "PHASE4 event EDITED" && d2.area === "Greytown" && d2.lat === -41.2, JSON.stringify(d2));
+
+  ok("approveEvent → { id }", (await events.approveEvent(null, { id, reviewedById: "mod", reviewedByName: "Mod" }))?.id === id);
+  ok("approveEvent → status approved", (await events.getEventOwnerStatus(null, id))?.status === "approved");
+  ok("approveEvent again → undefined (not pending)", (await events.approveEvent(null, { id, reviewedById: "mod", reviewedByName: "Mod" })) === undefined);
+
+  await events.setEventPendingIfApproved(null, id);
+  ok("setEventPendingIfApproved → back to pending", (await events.getEventOwnerStatus(null, id))?.status === "pending");
+  ok("declineEvent → { id }", (await events.declineEvent(null, { id, declineReason: "no", reviewedById: "mod", reviewedByName: "Mod" }))?.id === id);
+  ok("declineEvent → status declined", (await events.getEventOwnerStatus(null, id))?.status === "declined");
+
+  await events.softDeleteEvent(null, id);
+  ok("softDeleteEvent → getEventDetail null", (await events.getEventDetail(null, id)) === null);
+  ok("softDeleteEvent → getEventForDelete has deleted_at", (await events.getEventForDelete(null, id))?.deleted_at != null);
+  await deleteItem(id, { force: true });
+  ok("events cleanup", (await events.getEventOwnerStatus(null, id)) === null);
 }
 
 console.log(`\n${pass}/${pass + fail} write checks passed.`);
