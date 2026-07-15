@@ -1581,6 +1581,98 @@ app.post('/transaction', async (req, res) => {
   }
 });
 
+// ─── Files (item byte attachments) ────────────────────────────────────────────
+// Surface the datastore's file store (CloudAdapter's S3 backend) over HTTP so
+// callers can attach/serve/list the raw bytes belonging to an item. Uniform over
+// items: an item id + a filename, no domain words. Only datastores whose adapter
+// composes a file backend (cloud working sets) support these; others answer 501.
+
+// A filename must be a single path segment — no separators or traversal, so it
+// can't escape the item's S3 key prefix.
+const isValidFilename = (name: string) =>
+  typeof name === 'string' && name.length > 0 && name.length <= 255 &&
+  !name.includes('/') && !name.includes('\\') && name !== '.' && name !== '..';
+
+// Run a file-store operation, mapping a datastore that doesn't support files
+// (method absent, or sqlite-fs' throwing stub) to a 501 rather than a 500.
+async function withFileStore(ds: any, res: any, fn: (ds: any) => Promise<any>) {
+  if (typeof ds?.putFile !== 'function' || typeof ds?.getFile !== 'function') {
+    res.status(501).json({ error: 'This datastore has no file store (not a cloud working set)' });
+    return { handled: true };
+  }
+  try {
+    return { handled: false, value: await fn(ds) };
+  } catch (err: any) {
+    if (/not supported/i.test(err?.message ?? '')) {
+      res.status(501).json({ error: 'This datastore has no file store (not a cloud working set)' });
+      return { handled: true };
+    }
+    throw err;
+  }
+}
+
+// POST /items/:id/files/:name — store raw bytes (request body) as `name` on item
+// `:id`. Content-Type header is preserved as the object's mime type. Body is read
+// raw (any content type) up to 50mb.
+app.post('/items/:id/files/:name', express.raw({ type: () => true, limit: '50mb' }), async (req, res) => {
+  const { id, name } = req.params;
+  if (!isValidId(id)) return res.status(400).json({ error: 'Invalid ID format' });
+  if (!isValidFilename(name)) return res.status(400).json({ error: 'Invalid filename' });
+  const ds = await openDatastore(res);
+  if (!ds) return;
+  const body = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body ?? '');
+  const mimeType = req.headers['content-type'] && req.headers['content-type'] !== 'application/octet-stream'
+    ? req.headers['content-type'] : undefined;
+  const { handled } = await withFileStore(ds, res, (d) => d.putFile(id, name, body, { mimeType }));
+  if (handled) return;
+  res.status(201).json({ ok: true, id, name, size: body.length });
+});
+
+// GET /items/:id/files/:name — stream the bytes back (404 if absent). The stored
+// mime type isn't recovered by getFile, so the response is octet-stream unless the
+// caller passes ?mime= (community-hub's serving route sets it from the file record).
+app.get('/items/:id/files/:name', async (req, res) => {
+  const { id, name } = req.params;
+  if (!isValidId(id)) return res.status(400).json({ error: 'Invalid ID format' });
+  if (!isValidFilename(name)) return res.status(400).json({ error: 'Invalid filename' });
+  const ds = await openDatastore(res);
+  if (!ds) return;
+  const { handled, value: buf } = await withFileStore(ds, res, (d) => d.getFile(id, name));
+  if (handled) return;
+  if (buf == null) return res.status(404).json({ error: 'File not found' });
+  const mime = typeof req.query.mime === 'string' ? req.query.mime : 'application/octet-stream';
+  res.set('Content-Type', mime);
+  res.set('Content-Length', String(buf.length));
+  res.send(buf);
+});
+
+// DELETE /items/:id/files/:name — remove the object (idempotent; S3 delete of a
+// missing key is a no-op).
+app.delete('/items/:id/files/:name', async (req, res) => {
+  const { id, name } = req.params;
+  if (!isValidId(id)) return res.status(400).json({ error: 'Invalid ID format' });
+  if (!isValidFilename(name)) return res.status(400).json({ error: 'Invalid filename' });
+  const ds = await openDatastore(res);
+  if (!ds) return;
+  const { handled } = await withFileStore(ds, res, (d) => d.deleteFile(id, name));
+  if (handled) return;
+  res.json({ ok: true, id, name });
+});
+
+// GET /items/:id/files — list the filenames attached to an item.
+app.get('/items/:id/files', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidId(id)) return res.status(400).json({ error: 'Invalid ID format' });
+  const ds = await openDatastore(res);
+  if (!ds) return;
+  if (typeof ds?.listFiles !== 'function') {
+    return res.status(501).json({ error: 'This datastore has no file store (not a cloud working set)' });
+  }
+  const { handled, value } = await withFileStore(ds, res, (d) => d.listFiles(id));
+  if (handled) return;
+  res.json({ files: value });
+});
+
 // ─── Tags ─────────────────────────────────────────────────────────────────────
 
 // GET /tags/:tag — list item IDs with this tag

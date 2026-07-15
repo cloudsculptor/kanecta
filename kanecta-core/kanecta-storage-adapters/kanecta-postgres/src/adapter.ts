@@ -21,7 +21,8 @@ import {
 } from '@kanecta/specification';
 import { validateItem } from '@kanecta/specification/validator';
 import { deriveSqlSchema, deriveIndexDdl } from '@kanecta/schema-compiler';
-import { Pool, PoolClient, QueryResult } from 'pg';
+import { Pool } from 'pg';
+import type { PoolClient, QueryResult } from 'pg';
 import { AsyncLocalStorage } from 'async_hooks';
 import { createEmbeddingProvider, reciprocalRankFusion } from './embeddings.ts';
 
