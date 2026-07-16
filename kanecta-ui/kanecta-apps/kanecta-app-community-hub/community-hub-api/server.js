@@ -13,6 +13,7 @@ import eventsRouter from "./routes/events.js";
 import suggestionsRouter from "./routes/suggestions.js";
 import noticesRouter from "./routes/notices.js";
 import trustRouter from "./routes/trust.js";
+import filesRouter from "./routes/files.js";
 import { setupDiscussionsSocket } from "./socket/discussions.js";
 
 const app = express();
@@ -47,6 +48,7 @@ app.use("/api/events", eventsRouter);
 app.use("/api/suggestions", suggestionsRouter);
 app.use("/api/notices", noticesRouter);
 app.use("/api/trust", trustRouter);
+app.use("/api/files", filesRouter);
 
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
