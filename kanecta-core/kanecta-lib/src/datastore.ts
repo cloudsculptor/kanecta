@@ -176,15 +176,16 @@ class Datastore {
   // inside `fn` automatically runs on the transaction's connection.
   //
   // Generic over items: the CALLER decides what belongs in one transaction —
-  // Kanecta stays domain-agnostic (no "page + revision" awareness). Postgres-only
-  // for now; the fs/sqlite lock-file equivalent is deferred, so a working set whose
-  // adapter has no `transaction` throws here rather than silently writing
-  // non-atomically.
+  // Kanecta stays domain-agnostic (no "page + revision" awareness). Supported by
+  // both the Postgres adapter (BEGIN…COMMIT on a pinned connection) and the
+  // sqlite-fs adapter (one write-ahead journal of pre-images + one db
+  // transaction; `fn` must be synchronous there). An adapter without
+  // `transaction` throws here rather than silently writing non-atomically.
   async transaction(fn: (tx: Datastore) => any) {
     if (typeof this._adapter.transaction !== 'function') {
       throw new Error(
-        'transaction(fn) is not supported on this working set — atomic multi-op ' +
-        'transactions require the Postgres working set (fs/sqlite is deferred).',
+        'transaction(fn) is not supported on this working set — the adapter ' +
+        'does not implement atomic multi-op transactions.',
       );
     }
     return this._adapter.transaction(() => fn(this));

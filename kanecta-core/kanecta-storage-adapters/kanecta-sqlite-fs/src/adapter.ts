@@ -330,6 +330,7 @@ class SqliteFsAdapter {
   _roots: any;
   _branch: string;
   _iconCache: any = null;
+  _tx: any = null;   // active transaction() context — see transaction()/_withWrite
 
   constructor(root: any) {
     this.root      = path.resolve(root);
@@ -483,7 +484,69 @@ class SqliteFsAdapter {
 
   _guard(branch?: any) { return new WriteGuard(this._branchRoot(branch)); }
 
+  // Public: run `fn` as ONE atomic transaction — the sqlite-fs counterpart of
+  // PostgresAdapter.transaction(fn). Every adapter write inside `fn` (each of
+  // which normally journals + commits its own _withWrite) instead ENLISTS in
+  // one outer write-ahead journal: first-touch pre-images accumulate as ops
+  // discover themselves, the journal is atomically rewritten as it grows, and
+  // the whole batch commits together or every touched item.json rolls back to
+  // its pre-image. The index DB side runs in one better-sqlite3 transaction
+  // (inner per-op db.transaction calls become savepoints automatically).
+  //
+  // `fn` MUST be synchronous (better-sqlite3 is); an async fn is rejected
+  // loudly rather than committing before its work runs. Nested transaction()
+  // calls flatten into the outer one.
+  transaction(fn: any) {
+    if (this._tx) return fn(this);
+    const guard = this._guard();
+    guard.acquire();
+    const tx = { recs: [] as any[], seen: new Set<string>(), guard };
+    this._tx = tx;
+    guard.begin({ branch: this._branch, ops: [] });
+    const db = this._openDb();
+    try {
+      const result = db.transaction(() => {
+        const r = fn(this);
+        if (r && typeof r.then === 'function') {
+          throw new Error('transaction(fn) must be synchronous on sqlite-fs — an async fn would commit before its writes run');
+        }
+        return r;
+      })();
+      guard.markL0Done();
+      guard.commit();
+      return result;
+    } catch (e) {
+      this._rollback(tx.recs);   // restore every touched item.json to its pre-image
+      guard.commit();            // journal resolved (rollback applied) — clear it
+      this._mem.clear();         // drop any cache entries from the aborted writes
+      throw e;
+    } finally {
+      this._tx = null;
+      guard.release();
+    }
+  }
+
   _withWrite(ops: any, fn: any) {
+    // Inside a transaction: no own lock/journal — record first-touch pre-images
+    // into the transaction's journal (rewritten atomically as it grows) and run.
+    // The transaction owns rollback, the L0 marker, and the db transaction.
+    const tx = this._tx;
+    if (tx) {
+      const fresh = [];
+      for (const o of ops) {
+        const store = o.store || 'items';
+        const key = `${store}:${o.id}`;
+        if (tx.seen.has(key)) continue;
+        tx.seen.add(key);
+        fresh.push({ id: o.id, store, preImage: this._readItemJson(o.id, store) });
+      }
+      if (fresh.length) {
+        tx.recs.push(...fresh);
+        tx.guard.begin({ branch: this._branch, ops: tx.recs });
+      }
+      return fn();
+    }
+
     const guard = this._guard();
     guard.acquire();
     try {

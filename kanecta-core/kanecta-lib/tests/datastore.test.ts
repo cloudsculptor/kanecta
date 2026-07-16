@@ -676,8 +676,22 @@ describe('transaction(fn) facade', () => {
   });
 
   test('throws on a working set whose adapter has no transaction support', async () => {
-    const ds = tmpDs(); // fs/sqlite adapter — transaction is deferred
+    const ds = new Datastore({}); // an adapter with no transaction()
     await expect(ds.transaction(async () => {})).rejects.toThrow(/not supported on this working set/);
+  });
+
+  test('sqlite-fs working set: transaction commits atomically and rejects an async fn', async () => {
+    const ds = tmpDs();
+    // sync fn: multi-op atomic commit through the facade
+    const id = await ds.transaction((tx) => {
+      const a = tx._adapter.create({ value: 'tx-a' });
+      tx._adapter.update(a.id, { value: 'tx-a2' });
+      return a.id;
+    });
+    expect((await ds.get(id)).value).toBe('tx-a2');
+    // async fn: rejected loudly (better-sqlite3 is synchronous), nothing written
+    await expect(ds.transaction(async (tx) => { await tx.create({ value: 'lost' }); }))
+      .rejects.toThrow(/synchronous/);
     fs.rmSync(ds.root, { recursive: true, force: true });
   });
 });
