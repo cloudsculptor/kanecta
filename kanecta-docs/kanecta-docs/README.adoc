@@ -5,3 +5,4 @@
 * link:sub-projects.adoc[Sub-projects] — setup, endpoints, env vars, and scripts for each component
 * link:architecture.adoc[Architecture] — system diagram and technology summary
 * link:contributor-guidelines.adoc[Contributor guidelines] — startup script, type contributions, and spec update rules
+* link:deploy-studio-cloud.md[Deploying Studio to the cloud] — docker-compose stack (studio + kanecta-api) behind your Keycloak: realm setup, TLS, datastore, smoke test

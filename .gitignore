@@ -42,3 +42,4 @@ worktrees/
 # Generated spec output
 kanecta-core/kanecta-specification/1.4.0/specification.html
 kanecta-ui/kanecta-ui-specification/1.4.0/specification.html
+deploy/.env
