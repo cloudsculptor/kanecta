@@ -1629,7 +1629,7 @@ describe('rebuildIndexes', () => {
   it('re-populates item_tags', () => {
     const item = ds.create({ value: 'x', tags: ['important'] });
     // Manually corrupt by deleting the tag row
-    ds._openDb().prepare('DELETE FROM item_tags WHERE item_id = ?').run(item.id);
+    ds._openDb().prepare('DELETE FROM perf_tags WHERE item_id = ?').run(item.id);
     expect(ds.byTag('important')).not.toContain(item.id);
     // Rebuild
     ds.rebuildIndexes();
@@ -1640,7 +1640,7 @@ describe('rebuildIndexes', () => {
     const target = ds.create({ value: 'target' });
     const linker = ds.create({ value: `[[${target.id}]]` });
     // Corrupt
-    ds._openDb().prepare('DELETE FROM backlinks WHERE source_id = ?').run(linker.id);
+    ds._openDb().prepare('DELETE FROM perf_backlinks WHERE source_id = ?').run(linker.id);
     expect(ds.backlinks(target.id)).not.toContain(linker.id);
     // Rebuild
     ds.rebuildIndexes();

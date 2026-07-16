@@ -758,7 +758,7 @@ app.patch('/items/bulk', async (req, res) => {
 app.get('/items/stats', async (req, res) => {
   const ds = await openDatastore(res);
   if (!ds) return;
-  // Build typeId → { name, icon } from type_defs table
+  // Build typeId → { name, icon } from the registered type definitions
   const typeInfo: Record<string, any> = {};
   const defs = await ds.listTypeDefs();
   for (const def of defs) {
@@ -1684,7 +1684,7 @@ app.get('/tags/:tag', async (req, res) => {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-// GET /types — list all type definitions from type_defs table
+// GET /types — list all registered type definitions
 app.get('/types', async (req, res) => {
   const ds = await openDatastore(res);
   if (!ds) return;

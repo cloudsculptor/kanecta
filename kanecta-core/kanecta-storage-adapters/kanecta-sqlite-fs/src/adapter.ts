@@ -271,21 +271,21 @@ CREATE TABLE IF NOT EXISTS items_time (
 CREATE INDEX IF NOT EXISTS idx_time_next ON items_time(next_occurrence_at)
   WHERE next_occurrence_at IS NOT NULL;
 
-CREATE TABLE IF NOT EXISTS item_tags (
+CREATE TABLE IF NOT EXISTS perf_tags (
   item_id TEXT NOT NULL,
   tag     TEXT NOT NULL,
   PRIMARY KEY (item_id, tag)
 );
-CREATE INDEX IF NOT EXISTS idx_tags_tag ON item_tags(tag);
+CREATE INDEX IF NOT EXISTS idx_tags_tag ON perf_tags(tag);
 
-CREATE TABLE IF NOT EXISTS backlinks (
+CREATE TABLE IF NOT EXISTS perf_backlinks (
   source_id TEXT NOT NULL,
   target_id TEXT NOT NULL,
   PRIMARY KEY (source_id, target_id)
 );
-CREATE INDEX IF NOT EXISTS idx_backlinks_target ON backlinks(target_id);
+CREATE INDEX IF NOT EXISTS idx_backlinks_target ON perf_backlinks(target_id);
 
-CREATE TABLE IF NOT EXISTS history (
+CREATE TABLE IF NOT EXISTS item_history (
   seq         INTEGER PRIMARY KEY AUTOINCREMENT,
   item_id     TEXT NOT NULL,
   change_type TEXT NOT NULL,
@@ -293,15 +293,19 @@ CREATE TABLE IF NOT EXISTS history (
   changed_at  TEXT NOT NULL,
   changed_by  TEXT
 );
-CREATE INDEX IF NOT EXISTS idx_hist_item    ON history(item_id);
-CREATE INDEX IF NOT EXISTS idx_hist_changed ON history(changed_at);
+CREATE INDEX IF NOT EXISTS idx_hist_item    ON item_history(item_id);
+CREATE INDEX IF NOT EXISTS idx_hist_changed ON item_history(changed_at);
 
-CREATE TABLE IF NOT EXISTS type_defs (
-  id            TEXT PRIMARY KEY,
-  value         TEXT NOT NULL,
-  schema_json   TEXT NOT NULL DEFAULT '{}',
-  metadata_json TEXT NOT NULL DEFAULT '{}'
+CREATE TABLE IF NOT EXISTS activity (
+  seq         INTEGER PRIMARY KEY AUTOINCREMENT,
+  item_id     TEXT NOT NULL,
+  change_type TEXT NOT NULL,
+  snapshot    TEXT NOT NULL,
+  changed_at  TEXT NOT NULL,
+  changed_by  TEXT
 );
+CREATE INDEX IF NOT EXISTS idx_act_item    ON activity(item_id);
+CREATE INDEX IF NOT EXISTS idx_act_changed ON activity(changed_at);
 `;
 
 // ─── Branch layout ─────────────────────────────────────────────────────────────
@@ -608,6 +612,23 @@ class SqliteFsAdapter {
     const dbPath = path.join(branchRoot, 'index.db');
 
     this._db = new Database(dbPath);
+
+    // Legacy-index upgrade (four-table law): older indexes used bespoke table
+    // names (`history`, `backlinks`, `item_tags`, `type_defs`). index.db is
+    // derived and disposable, so the upgrade is simply: throw the old file away
+    // and rebuild from the filesystem source of truth below.
+    const legacy: any = this._db.prepare(
+      `SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table'
+       AND name IN ('history', 'backlinks', 'item_tags', 'type_defs')`,
+    ).get();
+    if (legacy && legacy.n > 0) {
+      this._db.close();
+      fs.rmSync(dbPath, { force: true });
+      fs.rmSync(dbPath + '-wal', { force: true });
+      fs.rmSync(dbPath + '-shm', { force: true });
+      this._db = new Database(dbPath);
+    }
+
     this._db.exec(SCHEMA_SQL);
     this._dbBranch = this._branch;
 
@@ -890,10 +911,10 @@ class SqliteFsAdapter {
 
     // Tags and backlinks
     for (const tag of tags)
-      db.prepare('INSERT OR IGNORE INTO item_tags (item_id, tag) VALUES (?, ?)').run(id, tag);
+      db.prepare('INSERT OR IGNORE INTO perf_tags (item_id, tag) VALUES (?, ?)').run(id, tag);
 
     for (const link of this._parseLinks(item.value))
-      db.prepare('INSERT OR IGNORE INTO backlinks (source_id, target_id) VALUES (?, ?)').run(id, link);
+      db.prepare('INSERT OR IGNORE INTO perf_backlinks (source_id, target_id) VALUES (?, ?)').run(id, link);
 
     // Derived lookup projections for metadata item types. The item.json in items/
     // is the source of truth; these rows are pure projections rebuilt by scanning
@@ -1055,8 +1076,8 @@ class SqliteFsAdapter {
     db.prepare('DELETE FROM items_payload WHERE item_id = ?').run(itemId);
     db.prepare('DELETE FROM items_search  WHERE item_id = ?').run(itemId);
     db.prepare('DELETE FROM items_time    WHERE item_id = ?').run(itemId);
-    db.prepare('DELETE FROM item_tags     WHERE item_id = ?').run(itemId);
-    db.prepare('DELETE FROM backlinks     WHERE source_id = ?').run(itemId);
+    db.prepare('DELETE FROM perf_tags     WHERE item_id = ?').run(itemId);
+    db.prepare('DELETE FROM perf_backlinks     WHERE source_id = ?').run(itemId);
     db.prepare('DELETE FROM items         WHERE id = ?').run(itemId);
     // The obj_<relationship>/obj_<alias>/obj_<annotation> rows cascaded away with
     // the items row (FK ON DELETE CASCADE) — nothing bespoke left to clean up.
@@ -1223,7 +1244,7 @@ class SqliteFsAdapter {
   }
 
   _nextHistorySeq(db: SqlDatabase, targetId: any) {
-    const row = db.prepare('SELECT COUNT(*) AS n FROM history WHERE item_id = ?').get(targetId);
+    const row = db.prepare('SELECT COUNT(*) AS n FROM item_history WHERE item_id = ?').get(targetId);
     return (row?.n ?? 0) + 1;
   }
 
@@ -1267,7 +1288,7 @@ class SqliteFsAdapter {
     const p = histDoc.payload || {};
     const snap = p.snapshot || {};
     db.prepare(
-      'INSERT INTO history (item_id, change_type, snapshot, changed_at, changed_by) VALUES (?, ?, ?, ?, ?)'
+      'INSERT INTO item_history (item_id, change_type, snapshot, changed_at, changed_by) VALUES (?, ?, ?, ?, ?)'
     ).run(
       p.targetId, p.changeType ?? p.eventType ?? 'updated',
       JSON.stringify(snap),
@@ -1809,15 +1830,15 @@ class SqliteFsAdapter {
       this._updateIndexMeta(db, id, newDoc.meta, updated.tags || []);
 
       // Backlinks
-      for (const l of oldLinks) if (!newLinks.includes(l)) db.prepare('DELETE FROM backlinks WHERE source_id = ? AND target_id = ?').run(id, l);
-      for (const l of newLinks) if (!oldLinks.includes(l)) db.prepare('INSERT OR IGNORE INTO backlinks (source_id, target_id) VALUES (?, ?)').run(id, l);
+      for (const l of oldLinks) if (!newLinks.includes(l)) db.prepare('DELETE FROM perf_backlinks WHERE source_id = ? AND target_id = ?').run(id, l);
+      for (const l of newLinks) if (!oldLinks.includes(l)) db.prepare('INSERT OR IGNORE INTO perf_backlinks (source_id, target_id) VALUES (?, ?)').run(id, l);
 
       // Tags
       if ('tags' in changes) {
         const oldTags = current.tags || [];
         const newTags = changes.tags;
-        for (const t of oldTags) if (!newTags.includes(t)) db.prepare('DELETE FROM item_tags WHERE item_id = ? AND tag = ?').run(id, t);
-        for (const t of newTags) if (!oldTags.includes(t)) db.prepare('INSERT OR IGNORE INTO item_tags (item_id, tag) VALUES (?, ?)').run(id, t);
+        for (const t of oldTags) if (!newTags.includes(t)) db.prepare('DELETE FROM perf_tags WHERE item_id = ? AND tag = ?').run(id, t);
+        for (const t of newTags) if (!oldTags.includes(t)) db.prepare('INSERT OR IGNORE INTO perf_tags (item_id, tag) VALUES (?, ?)').run(id, t);
       }
 
       // Materialized path cascade
@@ -1897,8 +1918,8 @@ class SqliteFsAdapter {
         // Cascade-delete the metadata items hanging off this item (relationships,
         // annotations, aliases) — their item.json files and derived rows together.
         this._cascadeDeleteMetadata(db, id);
-        db.prepare('DELETE FROM item_tags    WHERE item_id = ?').run(id);
-        db.prepare('DELETE FROM backlinks    WHERE source_id = ? OR target_id = ?').run(id, id);
+        db.prepare('DELETE FROM perf_tags    WHERE item_id = ?').run(id);
+        db.prepare('DELETE FROM perf_backlinks    WHERE source_id = ? OR target_id = ?').run(id, id);
         db.prepare('DELETE FROM items_meta   WHERE item_id = ?').run(id);
         db.prepare('DELETE FROM items_payload WHERE item_id = ?').run(id);
         db.prepare('DELETE FROM items_search WHERE item_id = ?').run(id);
@@ -2582,7 +2603,7 @@ class SqliteFsAdapter {
   }
 
   backlinks(id: any) {
-    return this._openDb().prepare('SELECT source_id FROM backlinks WHERE target_id = ?').all(id)
+    return this._openDb().prepare('SELECT source_id FROM perf_backlinks WHERE target_id = ?').all(id)
       .map(r => r.source_id);
   }
 
@@ -2605,7 +2626,7 @@ class SqliteFsAdapter {
 
   history(id: any) {
     return this._openDb()
-      .prepare('SELECT * FROM history WHERE item_id = ? ORDER BY changed_at, change_type')
+      .prepare('SELECT * FROM item_history WHERE item_id = ? ORDER BY changed_at, change_type')
       .all(id)
       .map(r => JSON.parse(r.snapshot));
   }
@@ -2613,7 +2634,7 @@ class SqliteFsAdapter {
   // ─── Queries ───────────────────────────────────────────────────────────────
 
   byTag(tag: any) {
-    return this._openDb().prepare('SELECT item_id FROM item_tags WHERE tag = ?').all(tag)
+    return this._openDb().prepare('SELECT item_id FROM perf_tags WHERE tag = ?').all(tag)
       .map(r => r.item_id);
   }
 
@@ -2979,9 +3000,10 @@ class SqliteFsAdapter {
       db.prepare('DELETE FROM items_search').run();
       db.prepare('DELETE FROM items_payload').run();
       db.prepare('DELETE FROM items_meta').run();
-      db.prepare('DELETE FROM item_tags').run();
-      db.prepare('DELETE FROM backlinks').run();
-      db.prepare('DELETE FROM history').run();
+      db.prepare('DELETE FROM perf_tags').run();
+      db.prepare('DELETE FROM perf_backlinks').run();
+      db.prepare('DELETE FROM item_history').run();
+      db.prepare('DELETE FROM activity').run();
       db.prepare('DELETE FROM items').run();
       if (this._isSparse()) this._rebuildFromFsSparse(db);
       else                  this._rebuildFromFs(db);
