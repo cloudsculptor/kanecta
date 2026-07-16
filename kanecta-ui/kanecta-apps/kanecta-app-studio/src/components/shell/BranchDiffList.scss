@@ -1,0 +1,110 @@
+.BranchDiffList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 320px;
+  overflow-y: auto;
+  font-size: 0.8125rem;
+
+  &__change {
+    border: 1px solid var(--color-border, #e0e0e0);
+    border-radius: 4px;
+
+    &[open] {
+      background: var(--color-bg-subtle, #fafafa);
+    }
+  }
+
+  &__change-summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    cursor: pointer;
+    list-style-position: inside;
+
+    &::marker {
+      font-size: 0.625rem;
+    }
+  }
+
+  &__mark {
+    flex: none;
+    width: 14px;
+    text-align: center;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+
+    &--add { color: #2e7d32; }
+    &--edit { color: #ed6c02; }
+    &--delete { color: #c62828; }
+  }
+
+  &__label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+  }
+
+  &__type {
+    flex: none;
+    padding: 0 6px;
+    border-radius: 8px;
+    background: var(--color-bg-subtle, #f0f0f0);
+    color: var(--color-text-secondary, #616161);
+    font-size: 0.6875rem;
+    line-height: 1.6;
+  }
+
+  &__id {
+    flex: none;
+    margin-left: auto;
+    color: var(--color-text-muted, #888);
+    font-size: 0.6875rem;
+  }
+
+  &__fields {
+    width: 100%;
+    margin: 0;
+    padding: 4px 8px 8px 30px;
+    border-collapse: collapse;
+    font-size: 0.75rem;
+
+    th,
+    td {
+      padding: 1px 8px 1px 0;
+      text-align: left;
+      vertical-align: top;
+      word-break: break-word;
+    }
+  }
+
+  &__field-name {
+    width: 90px;
+    color: var(--color-text-secondary, #616161);
+    font-weight: 500;
+  }
+
+  &__field-value {
+    font-family: monospace;
+    font-size: 0.6875rem;
+
+    &--before {
+      color: #c62828;
+      text-decoration: line-through;
+    }
+  }
+
+  &__field-arrow {
+    width: 16px;
+    color: var(--color-text-muted, #888);
+  }
+
+  &__meta-only {
+    margin: 0;
+    padding: 4px 8px 8px 30px;
+    color: var(--color-text-muted, #888);
+    font-style: italic;
+  }
+}

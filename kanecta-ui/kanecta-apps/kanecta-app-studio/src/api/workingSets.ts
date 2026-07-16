@@ -30,11 +30,33 @@ export interface CreateBranchOptions {
   upstream?: { branch: string };
 }
 
+/**
+ * Flat item snapshot as `/diff` and `/merge-preview` carry it in `detail` —
+ * the adapter's read-model item shape (id, value, type, tags, timestamps…).
+ */
+export interface DiffItemSnapshot {
+  id: string;
+  value?: unknown;
+  type?: string;
+  parentId?: string | null;
+  tags?: string[];
+  [field: string]: unknown;
+}
+
+/** Item-level review payload: what a branch adds, edits, and deletes. */
+export interface DiffDetail {
+  adds: Array<{ id: string; after: DiffItemSnapshot }>;
+  edits: Array<{ id: string; before: DiffItemSnapshot; after: DiffItemSnapshot }>;
+  deletes: Array<{ id: string; before: DiffItemSnapshot }>;
+}
+
 /** Counts of a branch's changes vs its upstream. */
 export interface BranchDiffSummary {
   adds: number;
   edits: number;
   deletes: number;
+  /** Item-level payload — absent on older servers, so keep it optional. */
+  detail?: DiffDetail;
 }
 
 /** How merging conflicts are resolved: branch wins, or keep the upstream (main). */
@@ -65,6 +87,8 @@ export interface MergePreview {
   deletes: number;
   conflicts: MergeConflict[];
   blastRadius: BlastRadiusEntry[];
+  /** Item-level payload — absent on older servers, so keep it optional. */
+  detail?: DiffDetail;
 }
 
 /** Options for `POST .../merge`. */
@@ -93,7 +117,8 @@ export function workingSetsApi(client: KanectaApiClient) {
         activeWorkspace?: string;
       };
       return {
-        workingSets: res.workingSets,
+        // Default to [] — a malformed/empty response must not crash consumers.
+        workingSets: res.workingSets ?? [],
         activeWorkingSet: res.activeWorkingSet ?? res.activeWorkspace ?? '',
       };
     },

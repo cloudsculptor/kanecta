@@ -99,6 +99,44 @@ describe('MergePullRequestDialog', () => {
     });
   });
 
+  it('renders the item-level changes list when the preview carries detail', async () => {
+    mockGetMergePreview.mockResolvedValue(
+      preview({
+        detail: {
+          adds: [
+            {
+              id: 'aaaaaaaa-1111-2222-3333-444444444444',
+              after: { id: 'aaaaaaaa-1111-2222-3333-444444444444', value: 'Fundraising ideas', type: 'note' },
+            },
+          ],
+          edits: [
+            {
+              id: 'bbbbbbbb-1111-2222-3333-444444444444',
+              before: { id: 'bbbbbbbb-1111-2222-3333-444444444444', value: 'AGM agenda', type: 'note' },
+              after: { id: 'bbbbbbbb-1111-2222-3333-444444444444', value: 'AGM agenda 2026', type: 'note' },
+            },
+          ],
+          deletes: [],
+        },
+      }),
+    );
+    renderDialog();
+
+    const list = await screen.findByTestId('branch-diff-list');
+    expect(list).toHaveTextContent('Fundraising ideas');
+    expect(list).toHaveTextContent('AGM agenda 2026');
+  });
+
+  it('tolerates a preview without detail (older server)', async () => {
+    mockGetMergePreview.mockResolvedValue(preview());
+    renderDialog();
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Merge into main' })).toBeEnabled(),
+    );
+    expect(screen.queryByTestId('branch-diff-list')).not.toBeInTheDocument();
+  });
+
   it('surfaces the blast radius of deletions', async () => {
     mockGetMergePreview.mockResolvedValue(
       preview({
