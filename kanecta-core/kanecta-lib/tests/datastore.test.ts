@@ -287,8 +287,8 @@ test('rebuildIndexes repopulates indexes from filesystem', async () => {
   const target = await ds.create({ value: 'target' });
   const src    = await ds.create({ value: `[[${target.id}]]`, tags: ['mytag'] });
   // Corrupt the SQLite index directly — backlinks and tags derived from item.json files
-  ds._adapter._openDb().prepare('DELETE FROM item_tags WHERE item_id = ?').run(src.id);
-  ds._adapter._openDb().prepare('DELETE FROM backlinks WHERE source_id = ?').run(src.id);
+  ds._adapter._openDb().prepare('DELETE FROM perf_tags WHERE item_id = ?').run(src.id);
+  ds._adapter._openDb().prepare('DELETE FROM perf_backlinks WHERE source_id = ?').run(src.id);
   await ds.rebuildIndexes();
   expect(await ds.backlinks(target.id)).toContain(src.id);
   expect(await ds.byTag('mytag')).toContain(src.id);

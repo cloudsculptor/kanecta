@@ -346,7 +346,9 @@ class PostgresAdapter {
       }
       throw err;
     } finally {
-      client.release(broken ? new Error('discarding connection: rollback failed') : undefined);
+      // pg's runtime release(err) discards the connection instead of pooling it;
+      // this @types/pg version declares release() argless, hence the cast.
+      (client.release as any)(broken ? new Error('discarding connection: rollback failed') : undefined);
     }
   }
 
@@ -1473,6 +1475,57 @@ class PostgresAdapter {
       changedBy:  r.changed_by,
       changeType: r.change_type,
     }));
+  }
+
+  // ─── Activity log ────────────────────────────────────────────────────────────
+  // The second append-only exempt log (spec §activityPayload): item_history
+  // tracks what CHANGED, activity tracks what HAPPENED (item viewed, search
+  // performed, sync completed). Events are application-level — callers record
+  // them; the adapter only gates, stores, and reads. Gated by
+  // rootPayload.activity: 'NONE' → recording is a no-op. Events are
+  // append-only, never themselves logged, and have no history.
+
+  _activityRowToEvent(r: any) {
+    return {
+      id: r.id, eventType: r.event_type, actor: r.actor,
+      targetId: r.target_id ?? null, data: r.data ?? null,
+      occurredAt: r.occurred_at?.toISOString(),
+    };
+  }
+
+  // Record a workspace event. Returns the stored event, or null when
+  // rootPayload.activity === 'NONE'.
+  async recordActivity({ eventType, actor, targetId = null, data = null }: any = {}) {
+    if ((this.config.activity ?? 'EXTERNAL') === 'NONE') return null;
+    if (!eventType || typeof eventType !== 'string') throw new Error('recordActivity: eventType is required');
+    if (!actor || typeof actor !== 'string')         throw new Error('recordActivity: actor is required');
+    const id = crypto.randomUUID();
+    const { rows } = await this._exec(
+      `INSERT INTO activity (id, event_type, actor, target_id, data)
+       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      [id, eventType, actor, targetId, data == null ? null : JSON.stringify(data)],
+    );
+    return this._activityRowToEvent(rows[0]);
+  }
+
+  // Events for one item, newest first.
+  async activityFor(targetId: any, { limit = 50 }: any = {}) {
+    const { rows } = await this._exec(
+      `SELECT * FROM activity WHERE target_id = $1 ORDER BY occurred_at DESC, id LIMIT $2`,
+      [targetId, limit],
+    );
+    return rows.map(r => this._activityRowToEvent(r));
+  }
+
+  // Recent events across the workspace, optionally filtered by eventType.
+  async listActivity({ eventType = null, limit = 50 }: any = {}) {
+    const { rows } = eventType
+      ? await this._exec(
+          `SELECT * FROM activity WHERE event_type = $1 ORDER BY occurred_at DESC, id LIMIT $2`,
+          [eventType, limit])
+      : await this._exec(
+          `SELECT * FROM activity ORDER BY occurred_at DESC, id LIMIT $1`, [limit]);
+    return rows.map(r => this._activityRowToEvent(r));
   }
 
   // ─── Tree / navigation ───────────────────────────────────────────────────────

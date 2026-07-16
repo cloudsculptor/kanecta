@@ -298,14 +298,16 @@ CREATE INDEX IF NOT EXISTS idx_hist_changed ON item_history(changed_at);
 
 CREATE TABLE IF NOT EXISTS activity (
   seq         INTEGER PRIMARY KEY AUTOINCREMENT,
-  item_id     TEXT NOT NULL,
-  change_type TEXT NOT NULL,
-  snapshot    TEXT NOT NULL,
-  changed_at  TEXT NOT NULL,
-  changed_by  TEXT
+  id          TEXT NOT NULL UNIQUE,
+  event_type  TEXT NOT NULL,
+  actor       TEXT NOT NULL,
+  target_id   TEXT,
+  data        TEXT,
+  occurred_at TEXT NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_act_item    ON activity(item_id);
-CREATE INDEX IF NOT EXISTS idx_act_changed ON activity(changed_at);
+CREATE INDEX IF NOT EXISTS idx_act_target   ON activity(target_id);
+CREATE INDEX IF NOT EXISTS idx_act_type     ON activity(event_type);
+CREATE INDEX IF NOT EXISTS idx_act_occurred ON activity(occurred_at);
 `;
 
 // ─── Branch layout ─────────────────────────────────────────────────────────────
@@ -2629,6 +2631,57 @@ class SqliteFsAdapter {
       .prepare('SELECT * FROM item_history WHERE item_id = ? ORDER BY changed_at, change_type')
       .all(id)
       .map(r => JSON.parse(r.snapshot));
+  }
+
+  // ─── Activity log ────────────────────────────────────────────────────────────
+  // The second append-only exempt log (spec §activityPayload): item_history
+  // tracks what CHANGED, activity tracks what HAPPENED (item viewed, search
+  // performed, sync completed). Same surface as the Postgres adapter
+  // (recordActivity/activityFor/listActivity). Gated by rootPayload.activity —
+  // this adapter's config defaults it to 'NONE' (fs datastores are often
+  // VCS-backed, where the spec advises activity off), so recording is opt-in.
+
+  _activityRowToEvent(r: any) {
+    return {
+      id: r.id, eventType: r.event_type, actor: r.actor,
+      targetId: r.target_id ?? null,
+      data: r.data == null ? null : JSON.parse(r.data),
+      occurredAt: r.occurred_at,
+    };
+  }
+
+  // Record a workspace event. Returns the stored event, or null when
+  // rootPayload.activity is 'NONE' (this adapter's default).
+  recordActivity({ eventType, actor, targetId = null, data = null }: any = {}) {
+    if ((this.config.activity ?? 'NONE') === 'NONE') return null;
+    if (!eventType || typeof eventType !== 'string') throw new Error('recordActivity: eventType is required');
+    if (!actor || typeof actor !== 'string')         throw new Error('recordActivity: actor is required');
+    const event = {
+      id: crypto.randomUUID(), eventType, actor, targetId,
+      data: data ?? null, occurredAt: new Date().toISOString(),
+    };
+    this._openDb().prepare(
+      `INSERT INTO activity (id, event_type, actor, target_id, data, occurred_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    ).run(event.id, event.eventType, event.actor, event.targetId,
+          event.data == null ? null : JSON.stringify(event.data), event.occurredAt);
+    return event;
+  }
+
+  // Events for one item, newest first.
+  activityFor(targetId: any, { limit = 50 }: any = {}) {
+    return this._openDb()
+      .prepare('SELECT * FROM activity WHERE target_id = ? ORDER BY occurred_at DESC, seq DESC LIMIT ?')
+      .all(targetId, limit)
+      .map((r: any) => this._activityRowToEvent(r));
+  }
+
+  // Recent events across the workspace, optionally filtered by eventType.
+  listActivity({ eventType = null, limit = 50 }: any = {}) {
+    const rows = eventType
+      ? this._openDb().prepare('SELECT * FROM activity WHERE event_type = ? ORDER BY occurred_at DESC, seq DESC LIMIT ?').all(eventType, limit)
+      : this._openDb().prepare('SELECT * FROM activity ORDER BY occurred_at DESC, seq DESC LIMIT ?').all(limit);
+    return rows.map((r: any) => this._activityRowToEvent(r));
   }
 
   // ─── Queries ───────────────────────────────────────────────────────────────

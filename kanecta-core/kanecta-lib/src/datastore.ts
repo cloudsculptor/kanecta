@@ -191,6 +191,15 @@ class Datastore {
     return this._adapter.transaction(() => fn(this));
   }
 
+  // ─── Activity log ──────────────────────────────────────────────────────────
+  // The second append-only exempt log (spec §activityPayload): item_history
+  // tracks what changed; activity tracks what happened. Gated by
+  // rootPayload.activity — recordActivity is a no-op returning null when 'NONE'.
+
+  async recordActivity(event: any)                { return this._adapter.recordActivity(event); }
+  async activityFor(targetId: any, opts?: any)    { return this._adapter.activityFor(targetId, opts); }
+  async listActivity(opts?: any)                  { return this._adapter.listActivity(opts); }
+
   // ─── Aliases ───────────────────────────────────────────────────────────────
 
   async resolve(idOrAlias: any)                   { return this._adapter.resolve(idOrAlias); }
