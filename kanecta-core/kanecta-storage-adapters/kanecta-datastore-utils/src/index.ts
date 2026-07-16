@@ -30,7 +30,11 @@ export function createFilesystemAdapter(location: string, owner?: any) {
   return adapter;
 }
 
-export function openFilesystemAdapter(location: string) {
+export function openFilesystemAdapter(location: string, options: any = {}) {
+  // An options-carrying open (e.g. an embeddings provider) gets its own
+  // uncached handle: the interned one stays the plain-config instance other
+  // consumers of this path expect.
+  if (options.embeddings) return FilesystemAdapter.open(location, options);
   const key = _key(location);
   let adapter = _adapters.get(key);
   if (!adapter) {

@@ -5,7 +5,7 @@ import Database from 'better-sqlite3';
 import * as spec from '@kanecta/specification';
 import { deriveSqlSchema, deriveIndexDdl, objTableName } from '@kanecta/schema-compiler';
 import { validateItem } from '@kanecta/specification/validator';
-import { createEmbeddingProvider } from '@kanecta/embeddings';
+import { createEmbeddingProvider, reciprocalRankFusion } from '@kanecta/embeddings';
 import { WriteGuard } from './write-integrity.ts';
 
 // Minimal structural type for the better-sqlite3 handle (the package ships no
@@ -316,6 +316,18 @@ CREATE TABLE IF NOT EXISTS perf_embeddings (
 CREATE TABLE IF NOT EXISTS perf_embedding_queue (
   item_id   TEXT PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
   queued_at TEXT NOT NULL
+);
+
+-- Full-text index (FTS5), the sqlite analogue of postgres's perf_search
+-- tsvector table: one row per item whose content column stringifies every item
+-- field and every payload value (matching kanecta_row_to_tsvector's
+-- to_jsonb-the-whole-row approach). Maintained by _insertIndexTx, so live
+-- writes and rebuilds both repopulate it; virtual tables can't FK-cascade,
+-- so delete paths remove rows explicitly. FTS5 shadow tables all inherit the
+-- perf_search prefix, keeping the four-table conformance gate green.
+CREATE VIRTUAL TABLE IF NOT EXISTS perf_search USING fts5(
+  item_id UNINDEXED,
+  content
 );
 
 CREATE TABLE IF NOT EXISTS item_history (
@@ -952,6 +964,11 @@ class SqliteFsAdapter {
              search.embedding?.dimensions ?? null, search.embedding?.generatedAt ?? null);
     }
 
+    // Full-text index: replace this item's FTS row (fts5 has no upsert).
+    db.prepare('DELETE FROM perf_search WHERE item_id = ?').run(id);
+    db.prepare('INSERT INTO perf_search (item_id, content) VALUES (?, ?)')
+      .run(id, this._ftsContent(doc));
+
     // Embedding upkeep. The sidecar ingest runs on live writes AND rebuilds
     // (both route through here), so perf_embeddings — like every perf_ table —
     // repopulates from the filesystem for free, with no embedding-API calls.
@@ -1142,6 +1159,7 @@ class SqliteFsAdapter {
     db.prepare('DELETE FROM items_meta    WHERE item_id = ?').run(itemId);
     db.prepare('DELETE FROM items_payload WHERE item_id = ?').run(itemId);
     db.prepare('DELETE FROM items_search  WHERE item_id = ?').run(itemId);
+    db.prepare('DELETE FROM perf_search   WHERE item_id = ?').run(itemId);
     db.prepare('DELETE FROM items_time    WHERE item_id = ?').run(itemId);
     db.prepare('DELETE FROM perf_tags     WHERE item_id = ?').run(itemId);
     db.prepare('DELETE FROM perf_backlinks     WHERE source_id = ?').run(itemId);
@@ -1896,6 +1914,11 @@ class SqliteFsAdapter {
       // Update meta table
       this._updateIndexMeta(db, id, newDoc.meta, updated.tags || []);
 
+      // Refresh the FTS row with the updated content.
+      db.prepare('DELETE FROM perf_search WHERE item_id = ?').run(id);
+      db.prepare('INSERT INTO perf_search (item_id, content) VALUES (?, ?)')
+        .run(id, this._ftsContent(newDoc));
+
       // Backlinks
       for (const l of oldLinks) if (!newLinks.includes(l)) db.prepare('DELETE FROM perf_backlinks WHERE source_id = ? AND target_id = ?').run(id, l);
       for (const l of newLinks) if (!oldLinks.includes(l)) db.prepare('INSERT OR IGNORE INTO perf_backlinks (source_id, target_id) VALUES (?, ?)').run(id, l);
@@ -1990,6 +2013,7 @@ class SqliteFsAdapter {
         db.prepare('DELETE FROM items_meta   WHERE item_id = ?').run(id);
         db.prepare('DELETE FROM items_payload WHERE item_id = ?').run(id);
         db.prepare('DELETE FROM items_search WHERE item_id = ?').run(id);
+        db.prepare('DELETE FROM perf_search  WHERE item_id = ?').run(id);
         db.prepare('DELETE FROM items_time   WHERE item_id = ?').run(id);
         db.prepare('DELETE FROM items        WHERE id = ?').run(id);
         // The obj_ row cascaded away with the items row (FK ON DELETE CASCADE).
@@ -2115,6 +2139,11 @@ class SqliteFsAdapter {
       const projTypeId = this._projectionTypeId(doc.item?.type, doc.item?.typeId);
       if (projTypeId && !doc.meta?.deletedAt)
         this._projectObjectRow(db, id, projTypeId, data ?? {});
+      // Refresh the FTS row — payload values are part of the searchable
+      // content (postgres does this via its obj_* trigger).
+      db.prepare('DELETE FROM perf_search WHERE item_id = ?').run(id);
+      db.prepare('INSERT INTO perf_search (item_id, content) VALUES (?, ?)')
+        .run(id, this._ftsContent(doc));
       this._mem.delete(id);
     });
   }
@@ -2368,16 +2397,63 @@ class SqliteFsAdapter {
     return [...names].sort();
   }
 
+  // ─── Full-text search (FTS5) ─────────────────────────────────────────────────
+  // Same surface as the Postgres adapter's search(): plain-word query, rank
+  // ordering, optional rootId subtree scope. perf_search is maintained by
+  // _insertIndexTx (live writes + rebuilds) — see the schema comment.
+
+  // Everything searchable about an item, stringified: every item-section field
+  // plus every payload value — the sqlite analogue of postgres's generic
+  // kanecta_row_to_tsvector(to_jsonb(row)) over `items` + the obj_ row.
+  _ftsContent(doc: any) {
+    const parts: string[] = [];
+    const push = (v: any) => {
+      if (v === null || v === undefined || v === '') return;
+      parts.push(typeof v === 'object' ? JSON.stringify(v) : String(v));
+    };
+    for (const v of Object.values(doc?.item ?? {})) push(v);
+    for (const v of Object.values(doc?.payload ?? {})) push(v);
+    return parts.join(' ');
+  }
+
+  search(query: any, { rootId = null, limit = 10 }: any = {}) {
+    // plainto_tsquery semantics: bare words, implicitly ANDed — strip FTS5
+    // operators/punctuation so user input can never be a syntax error.
+    const words = String(query ?? '').toLowerCase().match(/[a-z0-9]+/g);
+    if (!words?.length) return [];
+    const db = this._openDb();
+
+    let sql = `SELECT s.item_id, s.rank FROM perf_search s
+               JOIN items i ON i.id = s.item_id
+               WHERE perf_search MATCH ?`;
+    const params: any[] = [words.join(' ')];
+    if (rootId) {
+      sql += ` AND i.id IN (
+        WITH RECURSIVE sub(id) AS (
+          SELECT ?
+          UNION
+          SELECT i2.id FROM items i2 JOIN sub s2 ON i2.parent_id = s2.id AND i2.id != i2.parent_id
+        ) SELECT id FROM sub
+      )`;
+      params.push(rootId);
+    }
+    sql += ' ORDER BY s.rank LIMIT ?';   // fts5 rank = BM25, lower is better
+    params.push(limit);
+
+    return db.prepare(sql).all(...params)
+      .map((row: any) => this.get(row.item_id))
+      .filter(Boolean);
+  }
+
   // ─── Semantic search (embeddings) ───────────────────────────────────────────
   // Same surface and semantics as the Postgres adapter (embeddingsEnabled,
-  // embedItem, processPendingEmbeddings, semanticSearch), with the storage
-  // model the spec mandates for a filesystem adapter: the vector is a raw
-  // float32 `embedding.bin` sidecar next to item.json (never inlined), its
-  // metadata lives in the doc's `search` section, and perf_embeddings is just
-  // the derived in-index copy. Similarity is brute-force cosine in JS — fine
-  // for local datastores; swapping in sqlite-vec is a tracked follow-up.
-  // hybridSearch is NOT ported: it fuses FTS + vectors, and sqlite-fs has no
-  // FTS search() yet.
+  // embedItem, processPendingEmbeddings, semanticSearch, hybridSearch), with
+  // the storage model the spec mandates for a filesystem adapter: the vector
+  // is a raw float32 `embedding.bin` sidecar next to item.json (never
+  // inlined), its metadata lives in the doc's `search` section, and
+  // perf_embeddings is just the derived in-index copy. Similarity is
+  // brute-force cosine in JS — fine for local datastores; swapping in
+  // sqlite-vec is a tracked follow-up.
 
   get embeddingsEnabled() {
     return !!this._embeddingProvider && this._embeddingsEnabled;
@@ -2549,6 +2625,19 @@ class SqliteFsAdapter {
       .slice(0, limit);
 
     return scored.map((s: any) => this.get(s.id)).filter(Boolean);
+  }
+
+  // FTS + vectors fused with reciprocal rank fusion — identical to the
+  // Postgres adapter, including the plain-FTS fallback when embeddings are
+  // unconfigured or paused.
+  async hybridSearch(query: any, { rootId = null, limit = 10 }: any = {}) {
+    if (!this.embeddingsEnabled) return this.search(query, { rootId, limit });
+    const fanOut = Math.max(limit * 2, 20);
+    const [ftsResults, vectorResults] = await Promise.all([
+      this.search(query, { rootId, limit: fanOut }),
+      this.semanticSearch(query, { rootId, limit: fanOut }),
+    ]);
+    return reciprocalRankFusion([ftsResults, vectorResults]).slice(0, limit);
   }
 
   // ─── Type definitions ─────────────────────────────────────────────────────
@@ -3299,6 +3388,7 @@ class SqliteFsAdapter {
         db.exec(`DROP TABLE IF EXISTS "${r.name}"`);
       db.prepare('DELETE FROM items_time').run();
       db.prepare('DELETE FROM items_search').run();
+      db.prepare('DELETE FROM perf_search').run();
       db.prepare('DELETE FROM items_payload').run();
       db.prepare('DELETE FROM items_meta').run();
       db.prepare('DELETE FROM perf_tags').run();

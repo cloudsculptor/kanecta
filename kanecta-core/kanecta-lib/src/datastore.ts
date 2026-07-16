@@ -113,11 +113,11 @@ class Datastore {
     return new Datastore(datastoreUtils.createFilesystemAdapter(location, owner));
   }
 
-  static open(location: any, { items = 'FILE', files = 'FILE' }: any = {}) {
+  static open(location: any, { items = 'FILE', files = 'FILE', embeddings = null }: any = {}) {
     if (items === 'REMOTE' || files === 'REMOTE') {
       throw new Error('Use Datastore.openCloud(cloudConfig) for cloud mode.');
     }
-    return new Datastore(datastoreUtils.openFilesystemAdapter(location));
+    return new Datastore(datastoreUtils.openFilesystemAdapter(location, embeddings ? { embeddings } : {}));
   }
 
   // Open a datastore from a working-set config — see ~/.config/kanecta/config.json
@@ -303,6 +303,14 @@ class Datastore {
   branchDiff(name: any)               { return this._adapter.branchDiff(name); }
   previewMerge(name: any)             { return this._adapter.previewMerge(name); }
   mergeBranchLocally(name: any, opts?: any) { return this._adapter.mergeBranchLocally(name, opts); }
+
+  // ─── Search (FTS + semantic) — same surface on every adapter ───────────────
+  get embeddingsEnabled()             { return this._adapter.embeddingsEnabled; }
+  search(query: any, opts?: any)      { return this._adapter.search(query, opts); }
+  semanticSearch(query: any, opts?: any) { return this._adapter.semanticSearch(query, opts); }
+  hybridSearch(query: any, opts?: any)   { return this._adapter.hybridSearch(query, opts); }
+  embedItem(id: any)                  { return this._adapter.embedItem(id); }
+  processPendingEmbeddings(opts?: any) { return this._adapter.processPendingEmbeddings(opts); }
 }
 
 export { Datastore, cloudConfigFromRemote, buildPgConnectionString, ROOT_ID, TYPES_NODE, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE, DEFAULT_LICENSE };
