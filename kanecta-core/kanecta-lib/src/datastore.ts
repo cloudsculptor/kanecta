@@ -181,6 +181,10 @@ class Datastore {
   // sqlite-fs adapter (one write-ahead journal of pre-images + one db
   // transaction; `fn` must be synchronous there). An adapter without
   // `transaction` throws here rather than silently writing non-atomically.
+  // 'sync' when the adapter cannot hold a transaction across await boundaries
+  // (sqlite-fs / better-sqlite3) — callers pick a synchronous fn accordingly.
+  get transactionMode() { return this._adapter.transactionMode ?? 'async'; }
+
   async transaction(fn: (tx: Datastore) => any) {
     if (typeof this._adapter.transaction !== 'function') {
       throw new Error(
@@ -193,11 +197,19 @@ class Datastore {
     // continuation would resume after rollback and apply the remaining writes
     // OUTSIDE the transaction. The sync wrapper arrow below would hide the
     // fn's asyncness from the adapter's own guard, so the check lives here.
-    if (this._adapter.transactionMode === 'sync' && (fn as any)?.constructor?.name === 'AsyncFunction') {
-      throw new Error(
-        'transaction(fn) must be synchronous on this working set — the ' +
-        'sqlite-fs adapter cannot hold a transaction across await boundaries.',
-      );
+    if (this._adapter.transactionMode === 'sync') {
+      if ((fn as any)?.constructor?.name === 'AsyncFunction') {
+        throw new Error(
+          'transaction(fn) must be synchronous on this working set — the ' +
+          'sqlite-fs adapter cannot hold a transaction across await boundaries.',
+        );
+      }
+      // Hand fn the RAW adapter, not this facade: the facade's methods are
+      // async wrappers, so inside a sync fn a failing op would surface as a
+      // floating rejected promise AFTER the commit decision instead of a
+      // synchronous throw that rolls the transaction back. The adapter's own
+      // methods are synchronous — same names, same args, sync throws.
+      return this._adapter.transaction(() => fn(this._adapter));
     }
     return this._adapter.transaction(() => fn(this));
   }

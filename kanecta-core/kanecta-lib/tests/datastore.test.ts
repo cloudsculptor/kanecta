@@ -682,16 +682,31 @@ describe('transaction(fn) facade', () => {
 
   test('sqlite-fs working set: transaction commits atomically and rejects an async fn', async () => {
     const ds = tmpDs();
-    // sync fn: multi-op atomic commit through the facade
+    // sync fn: multi-op atomic commit. The tx handle is the SYNC surface
+    // (plain returns, sync throws) — no reaching into _adapter needed.
     const id = await ds.transaction((tx) => {
-      const a = tx._adapter.create({ value: 'tx-a' });
-      tx._adapter.update(a.id, { value: 'tx-a2' });
+      const a = tx.create({ value: 'tx-a' });
+      tx.update(a.id, { value: 'tx-a2' });
       return a.id;
     });
     expect((await ds.get(id)).value).toBe('tx-a2');
     // async fn: rejected loudly (better-sqlite3 is synchronous), nothing written
     await expect(ds.transaction(async (tx) => { await tx.create({ value: 'lost' }); }))
       .rejects.toThrow(/synchronous/);
+    fs.rmSync(ds.root, { recursive: true, force: true });
+  });
+
+  test('sqlite-fs working set: a failing op inside the fn rolls the whole transaction back', async () => {
+    const ds = tmpDs();
+    // The tx handle throws SYNCHRONOUSLY on a failing op — with the async
+    // facade as the handle this surfaced as a floating rejected promise after
+    // commit, and the earlier ops stayed applied (the bug this test pins).
+    let createdId: any = null;
+    await expect(ds.transaction((tx) => {
+      createdId = tx.create({ value: 'doomed' }).id;
+      tx.update('99999999-9999-4999-8999-999999999999', { value: 'no such item' });
+    })).rejects.toThrow(/not found/i);
+    expect(await ds.get(createdId)).toBeNull();
     fs.rmSync(ds.root, { recursive: true, force: true });
   });
 });

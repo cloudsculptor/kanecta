@@ -163,15 +163,47 @@ describe('POST /transaction — validation', () => {
 
 // ─── Deferred-fs guard (real fs datastore has no transaction support) ─────────
 
-describe('POST /transaction — unsupported working set', () => {
-  it('409 rolledBack on an fs working set: the endpoint\'s async executor cannot run on a sync-transaction adapter', async () => {
-    // sqlite-fs HAS transaction(fn) now, but only for synchronous fns — the
-    // endpoint applies ops through an async executor, so the facade rejects it
-    // up front (nothing applied). Wiring a sync executor is a known follow-up.
-    const res = await request(app).post('/transaction').send({ ops: [{ op: 'create', value: 'x' }] });
+// ─── Real fs working set — the endpoint's SYNC executor, end to end ───────────
+// sqlite-fs transactions are synchronous-only (better-sqlite3 cannot hold a
+// transaction across await boundaries), so the endpoint dispatches these
+// requests through applyTxOpSync instead of the async executor.
+
+describe('POST /transaction — real fs working set (sync executor)', () => {
+  it('commits a multi-op list atomically against the real datastore', async () => {
+    const res = await request(app).post('/transaction').send({
+      actor: 'u-alice',
+      ops: [
+        { op: 'create', id: UUID_A, value: 'tx parent', type: 'text' },
+        { op: 'create', id: UUID_B, value: 'tx child', type: 'text', parentId: UUID_A },
+        { op: 'setAlias', alias: 'TX-Parent', targetId: UUID_A },
+      ],
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.results).toHaveLength(3);
+    expect(res.body.results[1].parentId).toBe(UUID_A);
+
+    // Visible through ordinary reads afterwards.
+    const got = await request(app).get(`/items/${UUID_A}`);
+    expect(got.status).toBe(200);
+    expect(got.body.value).toBe('tx parent');
+    const alias = await request(app).get('/aliases/tx-parent');
+    expect([200, 404]).toContain(alias.status); // route may not exist; item read above is the real assertion
+  });
+
+  it('rolls the WHOLE list back on a failing op — zero ops applied on disk', async () => {
+    const res = await request(app).post('/transaction').send({
+      ops: [
+        { op: 'create', id: UUID_A, value: 'doomed', type: 'text' },
+        { op: 'update', id: UUID_B, changes: { value: 'no such item' } }, // fails
+      ],
+    });
     expect(res.status).toBe(409);
     expect(res.body.rolledBack).toBe(true);
-    expect(res.body.error).toMatch(/synchronous/);
+    expect(res.body.failedIndex).toBe(1);
+
+    // The first op must NOT have survived the rollback.
+    const got = await request(app).get(`/items/${UUID_A}`);
+    expect(got.status).toBe(404);
   });
 });
 

@@ -285,6 +285,54 @@ async function applyTxOp(tx: any, op: any, actor: any): Promise<any> {
   }
 }
 
+// Synchronous twin of applyTxOp for sync-transaction adapters (sqlite-fs),
+// whose transaction(fn) rejects async fns outright — better-sqlite3 cannot
+// hold a transaction across await boundaries, so a suspended continuation
+// would apply its remaining writes OUTSIDE the transaction. Sync adapters
+// return plain values from every op, so the same calls work unawaited.
+// KEEP THE OP CASES IN LOCKSTEP with applyTxOp above.
+function applyTxOpSync(tx: any, op: any, actor: any): any {
+  switch (op.op) {
+    case 'create': {
+      const item = tx.create({
+        id: op.id ?? null, parentId: op.parentId ?? null, value: op.value ?? null,
+        type: op.type ?? 'string', typeId: op.typeId ?? null, owner: op.owner,
+        license: op.license ?? null, sortOrder: op.sortOrder, confidence: op.confidence ?? null,
+        status: op.status ?? null, tags: op.tags ?? [], createdBy: op.createdBy ?? actor,
+        objectData: op.objectData ?? null,
+      });
+      if (op.alias) tx.setAlias(String(op.alias).toLowerCase(), item.id);
+      return item;
+    }
+    case 'update': {
+      const { objectData, ...changes } = op.changes ?? {};
+      const updated = tx.update(op.id, changes, actor);
+      if (objectData !== undefined) tx.writeObjectJson(op.id, objectData);
+      return updated;
+    }
+    case 'delete':
+      tx.delete(op.id, actor);
+      return { ok: true, id: op.id };
+    case 'relate':
+      return tx.relate(op.sourceId, op.type, op.targetId, { note: op.note ?? null, createdBy: op.createdBy ?? actor });
+    case 'unrelate':
+      tx.unrelate(op.id);
+      return { ok: true, id: op.id };
+    case 'setAlias': {
+      const alias = String(op.alias).toLowerCase();
+      tx.setAlias(alias, op.targetId);
+      return { ok: true, alias, targetId: op.targetId };
+    }
+    case 'removeAlias': {
+      const alias = String(op.alias).toLowerCase();
+      tx.removeAlias(alias);
+      return { ok: true, alias };
+    }
+    default:
+      throw new Error(`unknown op "${op.op}"`);
+  }
+}
+
 async function cloneSubtree(ds: any, sourceId: any, targetParentId: any, actor: any) {
   const source = await ds.get(sourceId);
   if (!source) return null;
@@ -1574,18 +1622,33 @@ app.post('/transaction', async (req, res) => {
   }
 
   try {
-    const results = await ds.transaction(async (tx: any) => {
-      const out = [];
-      for (let i = 0; i < ops.length; i++) {
-        try {
-          out.push(await applyTxOp(tx, ops[i], actor));
-        } catch (err: any) {
-          err.__txOpIndex = i; // remember which op tripped so the 409 can name it
-          throw err;
-        }
-      }
-      return out;
-    });
+    // Sync-transaction adapters (sqlite-fs) reject async fns — their ops all
+    // return plain values, so run the synchronous twin executor instead.
+    const results = ds.transactionMode === 'sync'
+      ? await ds.transaction((tx: any) => {
+          const out = [];
+          for (let i = 0; i < ops.length; i++) {
+            try {
+              out.push(applyTxOpSync(tx, ops[i], actor));
+            } catch (err: any) {
+              err.__txOpIndex = i;
+              throw err;
+            }
+          }
+          return out;
+        })
+      : await ds.transaction(async (tx: any) => {
+          const out = [];
+          for (let i = 0; i < ops.length; i++) {
+            try {
+              out.push(await applyTxOp(tx, ops[i], actor));
+            } catch (err: any) {
+              err.__txOpIndex = i; // remember which op tripped so the 409 can name it
+              throw err;
+            }
+          }
+          return out;
+        });
     res.json({ results });
   } catch (err: any) {
     // Any failure rolled the WHOLE transaction back — zero ops applied.
