@@ -51,6 +51,42 @@ describe('GET /working-sets/:name/branches/:branch/diff', () => {
     expect(res.body.deletes).toBe(0);
   });
 
+  it('returns the item-level review payload (the "PR diff"), not just counts', async () => {
+    const item = await ds.create({ type: 'string', value: 'v0' });
+    ds.createBranch('feature/detail', { fill: 'sparse', upstream: { branch: 'main' } });
+    ds.useBranch('feature/detail');
+    await ds.update(item.id, { value: 'v1 on branch' }, 'test@example.com');
+    const added = await ds.create({ type: 'string', value: 'brand new' });
+
+    const res = await request(app).get('/working-sets/default/branches/feature%2Fdetail/diff');
+    expect(res.status).toBe(200);
+    // counts stay backward-compatible…
+    expect(res.body).toMatchObject({ adds: 1, edits: 1, deletes: 0 });
+    // …and detail carries per-item before/after for review
+    expect(res.body.detail.adds).toHaveLength(1);
+    expect(res.body.detail.adds[0]).toMatchObject({ id: added.id });
+    expect(res.body.detail.adds[0].after.value).toBe('brand new');
+    expect(res.body.detail.edits).toHaveLength(1);
+    expect(res.body.detail.edits[0].id).toBe(item.id);
+    expect(res.body.detail.edits[0].before.value).toBe('v0');
+    expect(res.body.detail.edits[0].after.value).toBe('v1 on branch');
+    // the adapter's internal doc is not leaked
+    expect(res.body.detail.adds[0].doc).toBeUndefined();
+    expect(res.body.detail.edits[0].doc).toBeUndefined();
+  });
+
+  it('merge-preview carries the same detail payload alongside conflicts/blastRadius', async () => {
+    ds.createBranch('feature/pv', { fill: 'sparse', upstream: { branch: 'main' } });
+    ds.useBranch('feature/pv');
+    const added = await ds.create({ type: 'string', value: 'preview me' });
+
+    const res = await request(app).get('/working-sets/default/branches/feature%2Fpv/merge-preview');
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ adds: 1, conflicts: [], blastRadius: [] });
+    expect(res.body.detail.adds[0]).toMatchObject({ id: added.id });
+    expect(res.body.detail.adds[0].after.value).toBe('preview me');
+  });
+
   it('404s for an unknown working set', async () => {
     const res = await request(app).get('/working-sets/nope/branches/main/diff');
     expect(res.status).toBe(404);

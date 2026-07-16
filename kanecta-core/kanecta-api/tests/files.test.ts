@@ -1,8 +1,9 @@
 // File byte endpoints (POST/GET/DELETE /items/:id/files/:name, GET
-// /items/:id/files). Validation + the 501 path run against the default local
-// (sqlite-fs) datastore, which has no file store. The real byte round-trip is a
-// gated integration test (KANECTA_TEST_FILE_CONFIG = a cloud config dir with an
-// S3/MinIO remote) — exercised end-to-end by the community-hub harness too.
+// /items/:id/files). Validation + a full byte round-trip run against the
+// default local (sqlite-fs) datastore — its file store is item-folder sidecars.
+// The cloud round-trip is a gated integration test (KANECTA_TEST_FILE_CONFIG =
+// a cloud config dir with an S3/MinIO remote) — exercised end-to-end by the
+// community-hub harness too.
 
 import os from 'os';
 import path from 'path';
@@ -50,9 +51,17 @@ describe('file endpoints — validation + unsupported datastore', () => {
     expect(res.status).toBe(400);
   });
 
-  it('POST returns 501 when the datastore cannot store bytes (sqlite-fs putFile)', async () => {
+  it('full byte round-trip over the local sqlite-fs datastore (sidecar file store)', async () => {
     const put = await request(app).post(`/items/${VALID_ID}/files/x.txt`).set('content-type', 'text/plain').send('hi');
-    expect(put.status).toBe(501);
+    expect(put.status).toBe(201);
+    const get = await request(app).get(`/items/${VALID_ID}/files/x.txt`);
+    expect(get.status).toBe(200);
+    expect(get.body.toString()).toBe('hi');
+    const list = await request(app).get(`/items/${VALID_ID}/files`);
+    expect(list.body.files).toEqual(['x.txt']);
+    const del = await request(app).delete(`/items/${VALID_ID}/files/x.txt`);
+    expect(del.status).toBe(200);
+    expect((await request(app).get(`/items/${VALID_ID}/files/x.txt`)).status).toBe(404);
   });
 
   it('GET a missing file is 404, LIST is an empty array (read stubs are supported)', async () => {

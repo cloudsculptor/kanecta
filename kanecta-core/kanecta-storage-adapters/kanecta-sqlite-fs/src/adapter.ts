@@ -337,6 +337,10 @@ class SqliteFsAdapter {
   _branch: string;
   _iconCache: any = null;
   _tx: any = null;   // active transaction() context — see transaction()/_withWrite
+  // better-sqlite3 cannot hold a transaction across await boundaries; the
+  // Datastore facade uses this to reject async fns BEFORE invoking them (its
+  // sync wrapper arrow would otherwise hide the fn's asyncness from us).
+  transactionMode = 'sync';
 
   constructor(root: any) {
     this.root      = path.resolve(root);
@@ -503,6 +507,13 @@ class SqliteFsAdapter {
   // loudly rather than committing before its work runs. Nested transaction()
   // calls flatten into the outer one.
   transaction(fn: any) {
+    // Reject an async fn BEFORE invoking it. If we only detected the returned
+    // thenable, the fn's sync prefix would already have run and — worse — its
+    // continuation would resume after our rollback and apply the remaining
+    // writes OUTSIDE the transaction. Refusing up front prevents any of it.
+    if (fn?.constructor?.name === 'AsyncFunction') {
+      throw new Error('transaction(fn) must be synchronous on sqlite-fs — an async fn would commit before its writes run');
+    }
     if (this._tx) return fn(this);
     const guard = this._guard();
     guard.acquire();

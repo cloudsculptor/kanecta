@@ -78,12 +78,19 @@ describe('transaction(fn)', () => {
     expect(a.get(keep.id).value).toBe('v0');
   });
 
-  test('an async fn is rejected loudly and rolls back', () => {
+  test('an async fn is rejected BEFORE running — no writes, no post-rollback leaks', async () => {
     const keep = a.create({ value: 'sync-only' });
     expect(() => a.transaction(async (tx: any) => {
       tx.update(keep.id, { value: 'should not survive' });
+      tx.create({ value: 'leak-1' });
+      await Promise.resolve();
+      tx.create({ value: 'leak-2' });   // would apply OUTSIDE the tx if fn ever ran
     })).toThrow(/synchronous/);
+    await new Promise((r) => setTimeout(r, 10)); // let any leaked continuation drain
     expect(a.get(keep.id).value).toBe('sync-only');
+    const values = a.query({ limit: 100 }).map((i: any) => i.value);
+    expect(values).not.toContain('leak-1');
+    expect(values).not.toContain('leak-2');
   });
 
   test('first-touch pre-image wins: multiple updates to one item roll back to the ORIGINAL', () => {

@@ -188,6 +188,17 @@ class Datastore {
         'does not implement atomic multi-op transactions.',
       );
     }
+    // A sync-transaction adapter (sqlite-fs) cannot hold a transaction across
+    // await boundaries. Reject an async fn BEFORE invoking it — if it ran, its
+    // continuation would resume after rollback and apply the remaining writes
+    // OUTSIDE the transaction. The sync wrapper arrow below would hide the
+    // fn's asyncness from the adapter's own guard, so the check lives here.
+    if (this._adapter.transactionMode === 'sync' && (fn as any)?.constructor?.name === 'AsyncFunction') {
+      throw new Error(
+        'transaction(fn) must be synchronous on this working set — the ' +
+        'sqlite-fs adapter cannot hold a transaction across await boundaries.',
+      );
+    }
     return this._adapter.transaction(() => fn(this));
   }
 

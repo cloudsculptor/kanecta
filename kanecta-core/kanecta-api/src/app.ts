@@ -465,6 +465,13 @@ app.get('/working-sets/:name/branches/:branch/diff', async (req, res) => {
       adds: diff.adds.length,
       edits: diff.edits.length,
       deletes: diff.deletes.length,
+      // Item-level review payload (the "PR diff" the Studio review step renders).
+      // before/after are item shapes; the adapter's internal `doc` is not exposed.
+      detail: {
+        adds:    diff.adds.map((e: any) => ({ id: e.id, after: e.after })),
+        edits:   diff.edits.map((e: any) => ({ id: e.id, before: e.before, after: e.after })),
+        deletes: diff.deletes.map((e: any) => ({ id: e.id, before: e.before })),
+      },
     });
   } catch (err: any) {
     res.status(400).json({ error: err.message });
@@ -491,6 +498,13 @@ app.get('/working-sets/:name/branches/:branch/merge-preview', async (req, res) =
       deletes: preview.deletes.length,
       conflicts: preview.conflicts,
       blastRadius: preview.blastRadius,
+      // Item-level review payload, same shape as /diff — so the merge dialog
+      // can show WHAT changes, not just how many.
+      detail: {
+        adds:    preview.adds.map((e: any) => ({ id: e.id, after: e.after })),
+        edits:   preview.edits.map((e: any) => ({ id: e.id, before: e.before, after: e.after })),
+        deletes: preview.deletes.map((e: any) => ({ id: e.id, before: e.before })),
+      },
     });
   } catch (err: any) {
     res.status(400).json({ error: err.message });
@@ -1614,7 +1628,8 @@ async function withFileStore(ds: any, res: any, fn: (ds: any) => Promise<any>) {
 // POST /items/:id/files/:name — store raw bytes (request body) as `name` on item
 // `:id`. Content-Type header is preserved as the object's mime type. Body is read
 // raw (any content type) up to 50mb.
-app.post('/items/:id/files/:name', express.raw({ type: () => true, limit: '50mb' }), async (req, res) => {
+// (express.raw exists at runtime; this @types/express version omits it — cast.)
+app.post('/items/:id/files/:name', (express as any).raw({ type: () => true, limit: '50mb' }), async (req, res) => {
   const { id, name } = req.params;
   if (!isValidId(id)) return res.status(400).json({ error: 'Invalid ID format' });
   if (!isValidFilename(name)) return res.status(400).json({ error: 'Invalid filename' });

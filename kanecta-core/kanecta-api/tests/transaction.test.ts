@@ -164,11 +164,14 @@ describe('POST /transaction — validation', () => {
 // ─── Deferred-fs guard (real fs datastore has no transaction support) ─────────
 
 describe('POST /transaction — unsupported working set', () => {
-  it('409 rolledBack when the working set has no transaction support (fs)', async () => {
+  it('409 rolledBack on an fs working set: the endpoint\'s async executor cannot run on a sync-transaction adapter', async () => {
+    // sqlite-fs HAS transaction(fn) now, but only for synchronous fns — the
+    // endpoint applies ops through an async executor, so the facade rejects it
+    // up front (nothing applied). Wiring a sync executor is a known follow-up.
     const res = await request(app).post('/transaction').send({ ops: [{ op: 'create', value: 'x' }] });
     expect(res.status).toBe(409);
     expect(res.body.rolledBack).toBe(true);
-    expect(res.body.error).toMatch(/not supported on this working set/);
+    expect(res.body.error).toMatch(/synchronous/);
   });
 });
 
