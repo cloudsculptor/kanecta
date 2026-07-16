@@ -12,6 +12,7 @@
   },
   "workspaces": [
     "kanecta-core/kanecta-specification",
+    "kanecta-core/kanecta-storage-adapters/kanecta-embeddings",
     "kanecta-core/kanecta-storage-adapters/kanecta-postgres",
     "kanecta-core/kanecta-auth-adapters/kanecta-keycloak",
     "kanecta-core/kanecta-storage-adapters/kanecta-database",

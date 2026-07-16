@@ -5,6 +5,7 @@ import Database from 'better-sqlite3';
 import * as spec from '@kanecta/specification';
 import { deriveSqlSchema, deriveIndexDdl, objTableName } from '@kanecta/schema-compiler';
 import { validateItem } from '@kanecta/specification/validator';
+import { createEmbeddingProvider } from '@kanecta/embeddings';
 import { WriteGuard } from './write-integrity.ts';
 
 // Minimal structural type for the better-sqlite3 handle (the package ships no
@@ -184,6 +185,16 @@ class UnknownTypeError extends Error {
 // index.db mirrors the five-section item.json format across five tables.
 // The filesystem (items/**/*.json) is the source of truth; this is the index.
 
+// Cosine distance between two vectors (1 − cosine similarity, matching
+// pgvector's `<=>` so semanticSearch ranks identically on both adapters).
+function cosineDistance(a: ArrayLike<number>, b: ArrayLike<number>) {
+  let dot = 0, na = 0, nb = 0;
+  const n = Math.min(a.length, b.length);
+  for (let i = 0; i < n; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+  const denom = Math.sqrt(na) * Math.sqrt(nb);
+  return denom ? 1 - dot / denom : 1;
+}
+
 const SCHEMA_SQL = `
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
@@ -285,6 +296,28 @@ CREATE TABLE IF NOT EXISTS perf_backlinks (
 );
 CREATE INDEX IF NOT EXISTS idx_backlinks_target ON perf_backlinks(target_id);
 
+-- Derived vector store: float32 BLOBs loaded from each item's embedding.bin
+-- sidecar (the source of truth per spec «Search» — a vector is never inlined
+-- into item.json). perf_-prefixed because index.db is disposable: a rebuild
+-- re-ingests every sidecar with no embedding-API calls. content_hash is the
+-- item's search.corpusHash (sha256 of the embedded text).
+-- NOTE: the Postgres adapter calls its equivalent table item_embeddings — a
+-- name the four-table law doesn't sanction; divergence recorded in
+-- plans/spec-changes-to-approve.md.
+CREATE TABLE IF NOT EXISTS perf_embeddings (
+  item_id      TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+  model        TEXT NOT NULL,
+  embedding    BLOB NOT NULL,
+  content_hash TEXT NOT NULL,
+  embedded_at  TEXT NOT NULL,
+  PRIMARY KEY (item_id, model)
+);
+
+CREATE TABLE IF NOT EXISTS perf_embedding_queue (
+  item_id   TEXT PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
+  queued_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS item_history (
   seq         INTEGER PRIMARY KEY AUTOINCREMENT,
   item_id     TEXT NOT NULL,
@@ -335,6 +368,8 @@ class SqliteFsAdapter {
   _mem: Map<string, any>;
   _roots: any;
   _branch: string;
+  _embeddingProvider: any;
+  _embeddingsEnabled = true;
   _iconCache: any = null;
   _tx: any = null;   // active transaction() context — see transaction()/_withWrite
   // better-sqlite3 cannot hold a transaction across await boundaries; the
@@ -342,7 +377,7 @@ class SqliteFsAdapter {
   // sync wrapper arrow would otherwise hide the fn's asyncness from us).
   transactionMode = 'sync';
 
-  constructor(root: any) {
+  constructor(root: any, { embeddings = null }: any = {}) {
     this.root      = path.resolve(root);
     this.k         = path.join(this.root, '.kanecta');
     this._db       = null;
@@ -351,6 +386,11 @@ class SqliteFsAdapter {
     this._mem      = new Map();
     this._roots    = null;
     this._branch   = 'main';
+    // Same config block as the Postgres adapter ({ provider, apiKey, model,
+    // dimensions, enabled }). No provider → semantic search unavailable;
+    // enabled: false → keep generating embeddings but refuse to serve queries.
+    this._embeddingProvider = createEmbeddingProvider(embeddings);
+    this._embeddingsEnabled = embeddings?.enabled !== false;
   }
 
   // ─── Filesystem helpers ────────────────────────────────────────────────────
@@ -658,7 +698,7 @@ class SqliteFsAdapter {
     return fs.existsSync(path.join(root, '.kanecta', 'branches', 'main', 'items'));
   }
 
-  static init(root: any, owner: any) {
+  static init(root: any, owner: any, { embeddings = null }: any = {}) {
     const k        = path.join(root, '.kanecta');
     const mainRoot = path.join(k, 'branches', 'main');
     fs.mkdirSync(path.join(mainRoot, 'items'), { recursive: true });
@@ -672,7 +712,7 @@ class SqliteFsAdapter {
       'utf8',
     );
 
-    const adapter     = new SqliteFsAdapter(root);
+    const adapter     = new SqliteFsAdapter(root, { embeddings });
     const rootPayload = {
       owner, specVersion: '1.4.0', itemHistory: 'EXTERNAL', activity: 'NONE',
     };
@@ -693,9 +733,9 @@ class SqliteFsAdapter {
     return adapter;
   }
 
-  static open(root: any) {
+  static open(root: any, { embeddings = null }: any = {}) {
     if (!SqliteFsAdapter.isDatastore(root)) throw new Error(`Not a Kanecta datastore: ${root}`);
-    const adapter = new SqliteFsAdapter(root);
+    const adapter = new SqliteFsAdapter(root, { embeddings });
     // _openDb rebuilds the active branch's index from its items/ if empty.
     adapter._openDb();
     // Resolve any write-ahead journal/lock left by a crashed writer before
@@ -707,6 +747,9 @@ class SqliteFsAdapter {
     adapter._ensureRelationshipTypeItems();
     adapter._ensureSystemItems();
     adapter._loadRoots();
+    // Queue items that don't yet have this provider's embedding (parity with
+    // the Postgres adapter's _ensureEmbeddingTable seed).
+    adapter._seedEmbeddingQueue();
     return adapter;
   }
 
@@ -907,6 +950,17 @@ class SqliteFsAdapter {
         VALUES (?, ?, ?, ?, ?)
       `).run(id, search.corpusHash ?? null, search.embedding?.model ?? null,
              search.embedding?.dimensions ?? null, search.embedding?.generatedAt ?? null);
+    }
+
+    // Embedding upkeep. The sidecar ingest runs on live writes AND rebuilds
+    // (both route through here), so perf_embeddings — like every perf_ table —
+    // repopulates from the filesystem for free, with no embedding-API calls.
+    // The enqueue mirrors Postgres's insert/update triggers; embedItem
+    // hash-skips unchanged content, so over-queueing is cheap.
+    this._ingestEmbeddingSidecar(db, id, doc);
+    if (this._embeddingProvider && !meta.deletedAt) {
+      db.prepare('INSERT OR REPLACE INTO perf_embedding_queue (item_id, queued_at) VALUES (?, ?)')
+        .run(id, new Date().toISOString());
     }
 
     if (time != null) {
@@ -2312,6 +2366,189 @@ class SqliteFsAdapter {
       }
     }
     return [...names].sort();
+  }
+
+  // ─── Semantic search (embeddings) ───────────────────────────────────────────
+  // Same surface and semantics as the Postgres adapter (embeddingsEnabled,
+  // embedItem, processPendingEmbeddings, semanticSearch), with the storage
+  // model the spec mandates for a filesystem adapter: the vector is a raw
+  // float32 `embedding.bin` sidecar next to item.json (never inlined), its
+  // metadata lives in the doc's `search` section, and perf_embeddings is just
+  // the derived in-index copy. Similarity is brute-force cosine in JS — fine
+  // for local datastores; swapping in sqlite-vec is a tracked follow-up.
+  // hybridSearch is NOT ported: it fuses FTS + vectors, and sqlite-fs has no
+  // FTS search() yet.
+
+  get embeddingsEnabled() {
+    return !!this._embeddingProvider && this._embeddingsEnabled;
+  }
+
+  _requireEmbeddingProvider() {
+    if (!this._embeddingProvider) {
+      throw new Error(
+        'Semantic search requires an embedding provider — set `cloud.embeddings` in the workspace config',
+      );
+    }
+    return this._embeddingProvider;
+  }
+
+  _requireEmbeddingsEnabled() {
+    const provider = this._requireEmbeddingProvider();
+    if (!this._embeddingsEnabled) {
+      throw new Error(
+        'Semantic search is disabled (`cloud.embeddings.enabled: false`) — typically because the backfill is still running',
+      );
+    }
+    return provider;
+  }
+
+  // Load an item's embedding.bin sidecar into perf_embeddings. Runs from
+  // _insertIndexTx, so live writes and full/sparse rebuilds both repopulate
+  // the vector table from the filesystem source of truth.
+  _ingestEmbeddingSidecar(db: SqlDatabase, id: any, doc: any) {
+    const name  = doc?.meta?.files?.embedding;
+    const model = doc?.search?.embedding?.model;
+    if (!name || !model || !this._validSidecarName(name)) return;
+    let bytes: Buffer | null = null;
+    for (const dir of this._sidecarDirs(id)) {
+      try { bytes = fs.readFileSync(path.join(dir, name)); break; }
+      catch { /* not in this dir — fall through */ }
+    }
+    if (!bytes || bytes.length === 0) return;
+    db.prepare(`
+      INSERT OR REPLACE INTO perf_embeddings (item_id, model, embedding, content_hash, embedded_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(id, model, bytes, doc?.search?.corpusHash ?? '',
+           doc?.search?.embedding?.generatedAt ?? new Date().toISOString());
+  }
+
+  // Queue every item that doesn't yet have this provider's embedding —
+  // parity with the Postgres adapter's _ensureEmbeddingTable seed.
+  _seedEmbeddingQueue() {
+    const provider = this._embeddingProvider;
+    if (!provider) return;
+    this._openDb().prepare(`
+      INSERT OR IGNORE INTO perf_embedding_queue (item_id, queued_at)
+      SELECT i.id, ? FROM items i
+      WHERE NOT EXISTS (
+        SELECT 1 FROM perf_embeddings e WHERE e.item_id = i.id AND e.model = ?
+      )
+    `).run(new Date().toISOString(), provider.model);
+  }
+
+  _embeddingContent(item: any) {
+    const parts = [];
+    if (item.value) parts.push(String(item.value));
+    if (item.typeId) {
+      const data = this.readObjectJson(item.id);
+      if (data) {
+        for (const [field, value] of Object.entries(data)) {
+          if (value != null && value !== '') parts.push(`${field}: ${value}`);
+        }
+      }
+    }
+    return parts.join('\n');
+  }
+
+  // (Re-)embed one item. Returns false when the item is gone or its content
+  // hash is unchanged. Writes files first (embedding.bin sidecar + the doc's
+  // search section — the source of truth sync ships to other nodes), then the
+  // derived index rows.
+  async embedItem(id: any) {
+    const provider = this._requireEmbeddingProvider();
+    const doc = this._readItemJson(id);
+    const item = doc ? this.get(id) : null;
+    if (!doc || !item) return false;
+    const content     = this._embeddingContent(item);
+    const contentHash = crypto.createHash('sha256').update(content).digest('hex');
+    const db = this._openDb();
+    const existing = db.prepare(
+      'SELECT content_hash FROM perf_embeddings WHERE item_id = ? AND model = ?',
+    ).get(id, provider.model);
+    if (existing?.content_hash === contentHash) {
+      db.prepare('DELETE FROM perf_embedding_queue WHERE item_id = ?').run(id);
+      return false;
+    }
+
+    const [embedding] = await provider.embed([content]);
+    const bytes = Buffer.from(new Float32Array(embedding).buffer);
+    const now = new Date().toISOString();
+
+    // Files first (copy-on-write into the active branch), then the index.
+    this.putFile(id, 'embedding.bin', bytes);
+    doc.search = {
+      ...(doc.search ?? {}),
+      corpusHash: contentHash,
+      embedding: { model: provider.model, dimensions: provider.dimensions, generatedAt: now },
+    };
+    doc.meta = { ...doc.meta, files: { ...(doc.meta?.files ?? {}), embedding: 'embedding.bin' } };
+    this._writeItemJson(id, doc);
+
+    db.prepare(`
+      INSERT OR REPLACE INTO perf_embeddings (item_id, model, embedding, content_hash, embedded_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(id, provider.model, bytes, contentHash, now);
+    db.prepare(`
+      INSERT OR REPLACE INTO items_search (item_id, corpus_hash, embedding_model, embedding_dimensions, embedding_generated_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(id, contentHash, provider.model, provider.dimensions, now);
+    db.prepare('UPDATE items_meta SET files = ? WHERE item_id = ?')
+      .run(JSON.stringify(doc.meta.files), id);
+    db.prepare('DELETE FROM perf_embedding_queue WHERE item_id = ?').run(id);
+    this._mem.delete(id);
+    return true;
+  }
+
+  async processPendingEmbeddings({ limit = 50 }: any = {}) {
+    this._requireEmbeddingProvider();
+    const rows = this._openDb().prepare(
+      'SELECT item_id FROM perf_embedding_queue ORDER BY queued_at LIMIT ?',
+    ).all(limit);
+    let embedded = 0, skipped = 0, failed = 0;
+    for (const { item_id } of rows) {
+      try {
+        if (await this.embedItem(item_id)) embedded++; else skipped++;
+        this._openDb().prepare('DELETE FROM perf_embedding_queue WHERE item_id = ?').run(item_id);
+      } catch (e: any) {
+        failed++;
+        console.warn(`processPendingEmbeddings: failed to embed ${item_id}:`, e.message);
+      }
+    }
+    return { processed: rows.length, embedded, skipped, failed };
+  }
+
+  async semanticSearch(query: any, { rootId = null, limit = 10 }: any = {}) {
+    const provider = this._requireEmbeddingsEnabled();
+    const [queryEmbedding] = await provider.embed([query]);
+    const db = this._openDb();
+
+    let sql = 'SELECT e.item_id, e.embedding FROM perf_embeddings e JOIN items i ON i.id = e.item_id WHERE e.model = ?';
+    const params: any[] = [provider.model];
+    if (rootId) {
+      // Same subtree reachability as query(): unconditional seed, cycles
+      // terminate via UNION, self-parent edges skipped.
+      sql += ` AND i.id IN (
+        WITH RECURSIVE sub(id) AS (
+          SELECT ?
+          UNION
+          SELECT i2.id FROM items i2 JOIN sub s ON i2.parent_id = s.id AND i2.id != i2.parent_id
+        ) SELECT id FROM sub
+      )`;
+      params.push(rootId);
+    }
+
+    const scored = db.prepare(sql).all(...params)
+      .map((row: any) => ({
+        id: row.item_id,
+        distance: cosineDistance(
+          queryEmbedding,
+          new Float32Array(row.embedding.buffer, row.embedding.byteOffset, row.embedding.byteLength / 4),
+        ),
+      }))
+      .sort((a: any, b: any) => a.distance - b.distance)
+      .slice(0, limit);
+
+    return scored.map((s: any) => this.get(s.id)).filter(Boolean);
   }
 
   // ─── Type definitions ─────────────────────────────────────────────────────
