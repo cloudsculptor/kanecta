@@ -2135,12 +2135,87 @@ class SqliteFsAdapter {
     return rows.map(r => this._rowToItem(r));
   }
 
-  // ─── File store stubs ──────────────────────────────────────────────────────
+  // ─── File store (sidecars) ─────────────────────────────────────────────────
+  // Spec «Files and Sidecars»: heavy/binary content lives as sidecar files
+  // alongside item.json in the item's folder; item.json stays small. Same byte
+  // -store surface as the S3 adapter (putFile/getFile/deleteFile/listFiles keyed
+  // by itemId + filename), so kanecta-api's /items/:id/files/* endpoints work
+  // identically over a sqlite-fs datastore. Hard delete already removes the whole
+  // item folder (_deleteItemDir), so sidecar bytes are cleaned up with the item.
 
-  putFile()    { throw new Error('putFile is not supported in sqlite-fs mode'); }
-  getFile()    { return null; }
-  deleteFile() {}
-  listFiles()  { return []; }
+  // A sidecar name is a single path segment and never the item.json itself or a
+  // .tmp staging file (those are the atomic-write intermediates).
+  _validSidecarName(filename: any) {
+    return typeof filename === 'string' && filename.length > 0
+      && filename !== 'item.json' && !filename.endsWith('.tmp')
+      && !filename.includes('/') && !filename.includes('\\')
+      && filename !== '.' && filename !== '..';
+  }
+
+  // Directories a sidecar for `id` may physically live in, in read precedence:
+  // the active branch's item dir, then (sparse branch) the upstream's — the same
+  // local-wins fall-through as _readItemJson.
+  _sidecarDirs(id: any) {
+    const dirs = [this._itemDir(id)];
+    const up = this._localUpstream();
+    if (up) dirs.push(path.dirname(this._branchItemPath(up, id)));
+    return dirs;
+  }
+
+  // Write sidecar bytes for an existing item. Always writes into the ACTIVE
+  // branch's item dir (copy-on-write for sparse branches: the local sidecar wins
+  // on read; the upstream branch is never touched). Atomic: temp file + rename,
+  // mirroring _writeItemJson. `body` is Buffer/TypedArray/string — streams are
+  // rejected (buffer at the caller); opts.mimeType is accepted for S3-adapter
+  // signature parity but the filesystem stores no content type (the extension
+  // carries it).
+  putFile(itemId: any, filename: any, body: any, _opts: any = {}) {
+    if (!this._validSidecarName(filename)) throw new Error(`putFile: invalid sidecar filename '${filename}'`);
+    if (body == null || typeof body.pipe === 'function' || typeof body.getReader === 'function') {
+      throw new Error('putFile: body must be a Buffer, TypedArray, or string');
+    }
+    if (!this._readItemJson(itemId)) throw new Error(`putFile: item ${itemId} not found`);
+    const dir = this._itemDir(itemId);
+    fs.mkdirSync(dir, { recursive: true });
+    const p = path.join(dir, filename);
+    const tmp = p + '.tmp';
+    fs.writeFileSync(tmp, Buffer.isBuffer(body) ? body : Buffer.from(body));
+    fs.renameSync(tmp, p);
+  }
+
+  // Read sidecar bytes: Buffer, or null when absent (parity with the S3 adapter,
+  // which maps NoSuchKey/404 → null). Local branch dir first, then the sparse
+  // upstream's.
+  getFile(itemId: any, filename: any) {
+    if (!this._validSidecarName(filename)) return null;
+    for (const dir of this._sidecarDirs(itemId)) {
+      try { return fs.readFileSync(path.join(dir, filename)); }
+      catch { /* not in this dir — fall through */ }
+    }
+    return null;
+  }
+
+  // Delete a sidecar from the ACTIVE branch only (idempotent). On a sparse
+  // branch an upstream sidecar is not masked — deleting inherited bytes is a
+  // branch-merge concern, not a byte-store one.
+  deleteFile(itemId: any, filename: any) {
+    if (!this._validSidecarName(filename)) return;
+    try { fs.unlinkSync(path.join(this._itemDir(itemId), filename)); }
+    catch { /* already absent */ }
+  }
+
+  // List sidecar filenames (deduped across local + sparse upstream, sorted).
+  listFiles(itemId: any) {
+    const names = new Set<string>();
+    for (const dir of this._sidecarDirs(itemId)) {
+      let entries: string[];
+      try { entries = fs.readdirSync(dir); } catch { continue; }
+      for (const name of entries) {
+        if (name !== 'item.json' && !name.endsWith('.tmp')) names.add(name);
+      }
+    }
+    return [...names].sort();
+  }
 
   // ─── Type definitions ─────────────────────────────────────────────────────
 
