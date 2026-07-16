@@ -2781,30 +2781,54 @@ class SqliteFsAdapter {
     }
   }
 
+  // The envelope pipeline (metadata exclusion, soft-delete, expiry, subtree,
+  // type) runs as ONE SQL statement over the index — never a loadAll() scan —
+  // so the DB is the read/query surface (spec: the SQLite adapter must serve
+  // the full query surface DB-only). Payload `where` predicates then evaluate
+  // in JS over readObjectJson of the SQL-narrowed set, exactly like the
+  // Postgres adapter's query().
   query({
     type, where, rootId, sort, limit, strictTypes,
     includeDeleted = false, excludeExpired = false, expiredOnly = false,
   }: any = {}) {
-    let items       = this.loadAll();
     let typeWarning = null;
 
-    if (!includeDeleted) items = items.filter(i => i.deletedAt == null);
+    // Node filters shared by the result set AND the subtree traversal: the old
+    // in-JS walk operated on the already-filtered item list, so a deleted or
+    // expired intermediate node breaks the path to its descendants. `alias`
+    // must match loadAll()'s content-item exclusion list.
+    const nodeConds = (i: string, m: string) => {
+      const conds = [
+        `${i}.type NOT IN ('alias', 'relationship', 'relationship-type', 'annotation', 'licence', 'item_history', 'type')`,
+      ];
+      const params: any[] = [];
+      if (!includeDeleted) conds.push(`${m}.deleted_at IS NULL`);
+      if (expiredOnly)       { conds.push(`${m}.expires_at IS NOT NULL AND ${m}.expires_at <= ?`); params.push(now); }
+      else if (excludeExpired) { conds.push(`(${m}.expires_at IS NULL OR ${m}.expires_at > ?)`);   params.push(now); }
+      return { conds, params };
+    };
 
     const now = new Date().toISOString();
-    if (expiredOnly)       items = items.filter(i => i.expiresAt != null && i.expiresAt <= now);
-    else if (excludeExpired) items = items.filter(i => i.expiresAt == null || i.expiresAt > now);
+    const outer = nodeConds('i', 'm');
+    const conditions = [...outer.conds];
+    const params: any[] = [...outer.params];
 
     if (rootId) {
-      const byP = new Map();
-      for (const item of items) {
-        if (item.id === item.parentId) continue;
-        if (!byP.has(item.parentId)) byP.set(item.parentId, []);
-        byP.get(item.parentId).push(item.id);
-      }
-      const subtree = new Set();
-      const walk    = (id: any): void => { if (subtree.has(id)) return; subtree.add(id); for (const c of (byP.get(id) || [])) walk(c); };
-      walk(rootId);
-      items = items.filter(i => subtree.has(i.id));
+      // Same reachability as the old walk: the seed is unconditional, every
+      // hop requires the CHILD node to pass the node filters, self-parent
+      // edges are skipped, and UNION (not UNION ALL) makes cycles terminate.
+      const hop = nodeConds('i2', 'm2');
+      conditions.push(`i.id IN (
+        WITH RECURSIVE sub(id) AS (
+          SELECT ?
+          UNION
+          SELECT i2.id FROM items i2
+          LEFT JOIN items_meta m2 ON m2.item_id = i2.id
+          JOIN sub s ON i2.parent_id = s.id AND i2.id != i2.parent_id
+          WHERE ${hop.conds.join(' AND ')}
+        ) SELECT id FROM sub
+      )`);
+      params.push(rootId, ...hop.params);
     }
 
     if (type) {
@@ -2812,13 +2836,25 @@ class SqliteFsAdapter {
       if (resolved.unknown) {
         if (strictTypes) throw new UnknownTypeError(type);
         typeWarning = `unknown type "${type}" — not a registered type definition; run \`kanecta doctor\``;
-        items = [];
+        conditions.push('0');
       } else if (resolved.id !== undefined) {
-        items = items.filter(i => i.type === 'object' && i.typeId === resolved.id);
+        conditions.push(`i.type = 'object' AND i.type_id = ?`);
+        params.push(resolved.id);
       } else {
-        items = items.filter(i => i.type === type && !(i.type === 'object' && i.typeId));
+        conditions.push(`i.type = ? AND NOT (i.type = 'object' AND i.type_id IS NOT NULL)`);
+        params.push(type);
       }
     }
+
+    let items = this._openDb().prepare(`
+      SELECT i.*, m.owner, m.license, m.visibility, m.confidence, m.status, m.tags,
+             m.created_at, m.modified_at, m.created_by, m.modified_by,
+             m.completed_at, m.due_at, m.expires_at, m.deleted_at, m.cached_at,
+             m.connector_id, m.materialized, m.files, m.layer,
+             m.source_system, m.source_external_id, m.icon
+      FROM items i LEFT JOIN items_meta m ON m.item_id = i.id
+      WHERE ${conditions.join(' AND ')}
+    `).all(...params).map((r: any) => this._rowToItem(r));
 
     items = items.map(item => {
       if (item.type === 'object') return { ...item, objectData: this.readObjectJson(item.id) };

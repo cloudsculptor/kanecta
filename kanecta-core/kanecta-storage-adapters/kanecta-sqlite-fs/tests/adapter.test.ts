@@ -1563,6 +1563,30 @@ describe('query', () => {
     expect(results.some(i => i.value === 'c2')).toBe(false);
   });
 
+  it('rootId traversal does not pass through a soft-deleted intermediate node', () => {
+    // r -> mid -> leaf; deleting mid makes leaf unreachable from r (the walk
+    // only traverses surviving nodes), even though leaf itself is not deleted.
+    const r    = ds.create({ value: 'walk-root' });
+    const mid  = ds.create({ value: 'walk-mid',  parentId: r.id });
+    const leaf = ds.create({ value: 'walk-leaf', parentId: mid.id });
+    ds.softDelete(mid.id);
+    const results = ds.query({ rootId: r.id, limit: 100 });
+    expect(results.some(i => i.id === leaf.id)).toBe(false);
+    // includeDeleted restores the path: mid is traversable again
+    const withDeleted = ds.query({ rootId: r.id, includeDeleted: true, limit: 100 });
+    expect(withDeleted.some(i => i.id === leaf.id)).toBe(true);
+  });
+
+  it('rootId traversal terminates on a parent cycle', () => {
+    const a = ds.create({ value: 'cyc-a' });
+    const b = ds.create({ value: 'cyc-b', parentId: a.id });
+    // Force a cycle directly in the index (a -> b -> a); the traversal must not hang.
+    ds._openDb().prepare('UPDATE items SET parent_id = ? WHERE id = ?').run(b.id, a.id);
+    const results = ds.query({ rootId: a.id, limit: 100 });
+    expect(results.some(i => i.id === a.id)).toBe(true);
+    expect(results.some(i => i.id === b.id)).toBe(true);
+  });
+
   it('sort by field ascending', () => {
     const { metadata: t } = ds.createType('Item', { icon: 'Category' });
     ds.create({ value: 'z', type: 'object', typeId: t.id, objectData: { rank: 3 } });
