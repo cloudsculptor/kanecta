@@ -122,6 +122,25 @@ describeOrSkip('requireAuth / requireRole (real Keycloak)', () => {
     expect(res.status).toBe(200);
   });
 
+  test('KEYCLOAK_AUDIENCE rejects a token whose aud does not match (401)', async () => {
+    process.env.KEYCLOAK_AUDIENCE = 'some-other-client';
+    try {
+      const app2 = express();
+      app2.get('/whoami', requireAuth, (req, res) => res.json(req.user));
+      const res = await request(app2).get('/whoami').set('Authorization', `Bearer ${adminToken}`);
+      expect(res.status).toBe(401);
+    } finally {
+      delete process.env.KEYCLOAK_AUDIENCE;
+    }
+  });
+
+  // NOTE: the positive KEYCLOAK_AUDIENCE case (token carrying the configured
+  // aud is accepted) needs an audience protocol mapper on the client — the
+  // kanecta-test realm export doesn't define one, and its access tokens carry
+  // NO aud claim at all. Production realms must add the mapper (see the
+  // deployment runbook); until the dev realm export gains one, only the
+  // enforcement path is integration-tested here.
+
   test('decodes roles, name and email_verified for the admin user', async () => {
     const app2 = express();
     app2.get('/whoami', requireAuth, (req, res) => res.json(req.user));
