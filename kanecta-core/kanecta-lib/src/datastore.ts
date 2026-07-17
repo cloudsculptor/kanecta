@@ -315,6 +315,9 @@ class Datastore {
   branchDiff(name: any)               { return this._adapter.branchDiff(name); }
   previewMerge(name: any)             { return this._adapter.previewMerge(name); }
   mergeBranchLocally(name: any, opts?: any) { return this._adapter.mergeBranchLocally(name, opts); }
+  // Parcels — the exchange format (PROVISIONAL v0.1, plans/parcel-format-design.md)
+  exportParcel(name: any, outPath: any, opts?: any) { return this._adapter.exportParcel(name, outPath, opts); }
+  importParcel(zipPath: any, opts?: any)            { return this._adapter.importParcel(zipPath, opts); }
 
   // ─── Search (FTS + semantic) — same surface on every adapter ───────────────
   get embeddingsEnabled()             { return this._adapter.embeddingsEnabled; }

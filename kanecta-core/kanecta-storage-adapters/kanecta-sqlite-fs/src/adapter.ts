@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import AdmZip from 'adm-zip';
 import Database from 'better-sqlite3';
 import * as spec from '@kanecta/specification';
 import { deriveSqlSchema, deriveIndexDdl, objTableName } from '@kanecta/schema-compiler';
@@ -3772,6 +3773,143 @@ class SqliteFsAdapter {
     return out;
   }
 
+  // ─── Parcels — the exchange format (PROVISIONAL v0.1) ──────────────────────
+  // One portable artifact carrying a set of changes between datastores: the
+  // same payload a PR review sees, in a file (git-bundle-style — one payload,
+  // two transports). A sparse branch's items/ tree already IS the payload
+  // (docs + tombstones + sidecars + .tombstone.* markers), and bases.json
+  // carries the content fingerprints that make conflict detection work on a
+  // receiver with a different clock and no shared history. Layout + trust
+  // posture: plans/parcel-format-design.md. The manifest field set is
+  // PROVISIONAL pending owner review — expect additive changes before 1.0.
+
+  // Export a sparse branch's delta as a .kanecta-parcel zip at outPath.
+  // Non-core type items referenced by the payload travel as ordinary docs in
+  // items/ — on import, sparse-diff semantics make them a no-op when the
+  // receiver has them identically, a reviewable EDIT when they drifted, and
+  // an add when missing.
+  exportParcel(branchName: any, outPath: any, opts: any = {}) {
+    branchName = (branchName ?? '').trim();
+    if (!branchName || branchName === 'main') throw new Error('exportParcel: a non-main branch name is required');
+    if (!this._branchExists(branchName)) throw new Error(`Branch "${branchName}" not found`);
+    const branchManifest = this._branchManifest(branchName);
+    if (branchManifest.fill !== 'sparse')
+      throw new Error('exportParcel: only sparse branches can be exported (their items/ tree is the delta)');
+    if (!outPath || typeof outPath !== 'string') throw new Error('exportParcel: outPath is required');
+
+    const diff        = this.branchDiff(branchName);
+    const fileChanges = this.fileChanges(branchName);
+    const bases       = this._baseFingerprints(branchName);
+
+    const zip = new AdmZip();
+    const branchItemsDir = path.join(this._branchRoot(branchName), 'items');
+    if (fs.existsSync(branchItemsDir)) {
+      zip.addLocalFolder(branchItemsDir, 'items', (p: string) => !p.endsWith('.tmp'));
+    }
+
+    // Non-core type dependencies not already in the branch tree.
+    const typeIds: string[] = [];
+    const seenTypes = new Set<string>();
+    for (const e of [...diff.adds, ...diff.edits]) {
+      const tid = e.doc?.item?.typeId;
+      if (!tid || !UUID_RE.test(tid) || seenTypes.has(tid)) continue;
+      seenTypes.add(tid);
+      const [s1, s2] = this._shard(tid);
+      const inBranch = fs.existsSync(path.join(branchItemsDir, s1, s2, tid, 'item.json'));
+      const doc = inBranch ? null : this._upstreamDocOf(branchName, tid);
+      if (!inBranch && (!doc || doc.meta?.layer === 'core')) continue; // core types are seeded everywhere
+      typeIds.push(tid);
+      if (doc) zip.addFile(`items/${s1}/${s2}/${tid}/item.json`, Buffer.from(JSON.stringify(doc, null, 2)));
+    }
+
+    const filePuts    = fileChanges.reduce((n: number, f: any) => n + f.puts.length, 0);
+    const fileDeletes = fileChanges.reduce((n: number, f: any) => n + f.deletes.length, 0);
+    const manifest = {
+      format: 'kanecta-parcel',
+      formatVersion: '0.1',
+      specVersion,
+      createdAt: new Date().toISOString(),
+      intent: opts.intent ?? 'share',
+      source: {
+        owner: this.config?.owner ?? null,
+        branch: branchName,
+        branchPoint: branchManifest.branchPoint ?? null,
+      },
+      counts: { adds: diff.adds.length, edits: diff.edits.length, deletes: diff.deletes.length, filePuts, fileDeletes },
+      requires: { typeIds },
+    };
+    zip.addFile('manifest.json', Buffer.from(JSON.stringify(manifest, null, 2)));
+    zip.addFile('bases.json', Buffer.from(JSON.stringify(bases, null, 2)));
+
+    const summarise = (e: any) => `- ${e.after?.value ?? e.before?.value ?? e.id}`;
+    zip.addFile('README.md', Buffer.from([
+      `# Kanecta parcel — ${branchName}`,
+      '',
+      `Created ${manifest.createdAt} by ${manifest.source.owner ?? 'unknown'}.`,
+      `${diff.adds.length} add(s), ${diff.edits.length} edit(s), ${diff.deletes.length} delete(s), ` +
+      `${filePuts} file put(s), ${fileDeletes} file delete(s).`,
+      '',
+      ...diff.adds.slice(0, 20).map(summarise),
+      ...diff.edits.slice(0, 20).map(summarise),
+      '',
+      'Import with importParcel(); review with the merge preview before applying.',
+      '',
+    ].join('\n')));
+
+    zip.writeZip(outPath);
+    return { path: outPath, manifest };
+  }
+
+  // Import a parcel as a NEW sparse branch (the "inbox" entry). Nothing is
+  // applied — review with previewMerge and apply with mergeBranchLocally,
+  // exactly like a locally-created branch. The receiver-side branchPoint is
+  // import time (fallback only); real conflict detection rides the parcel's
+  // bases.json content fingerprints, which need no shared clock.
+  importParcel(zipPath: any, opts: any = {}) {
+    if (!zipPath || typeof zipPath !== 'string') throw new Error('importParcel: zipPath is required');
+    const zip = new AdmZip(zipPath);
+    const manifestEntry = zip.getEntry('manifest.json');
+    if (!manifestEntry) throw new Error('importParcel: manifest.json missing — not a kanecta parcel');
+    let manifest: any;
+    try { manifest = JSON.parse(manifestEntry.getData().toString('utf8')); }
+    catch { throw new Error('importParcel: manifest.json is not valid JSON'); }
+    if (manifest.format !== 'kanecta-parcel')
+      throw new Error(`importParcel: unknown format "${manifest.format}"`);
+    if (manifest.formatVersion !== '0.1')
+      throw new Error(`importParcel: unsupported formatVersion "${manifest.formatVersion}"`);
+
+    const name = (opts.name
+      ?? `parcel/${path.basename(zipPath).replace(/\.kanecta-parcel$|\.zip$/i, '')}`).trim();
+    this.createBranch(name, { fill: 'sparse' }); // rejects duplicates/invalid names
+
+    // Zip-slip hardening: only the exact shard structure is written, nothing
+    // else — no '..', no absolute paths, no writes outside the branch root.
+    const SAFE_ITEM = /^items\/[0-9a-f]{2}\/[0-9a-f]{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[^/\\]+$/i;
+    const destRoot = this._branchRoot(name);
+    try {
+      for (const entry of zip.getEntries()) {
+        if (entry.isDirectory) continue;
+        const n = entry.entryName.replace(/\\/g, '/');
+        if (n === 'manifest.json' || n === 'README.md') continue;
+        if (n === 'bases.json') {
+          fs.writeFileSync(path.join(destRoot, 'bases.json'), entry.getData());
+          continue;
+        }
+        if (n.includes('..') || path.isAbsolute(n) || !SAFE_ITEM.test(n))
+          throw new Error(`importParcel: unsafe entry path "${entry.entryName}"`);
+        const dest = path.join(destRoot, n);
+        fs.mkdirSync(path.dirname(dest), { recursive: true });
+        fs.writeFileSync(dest, entry.getData());
+      }
+    } catch (e) {
+      // Leave no half-imported branch behind.
+      try { fs.rmSync(destRoot, { recursive: true, force: true }); } catch { /* best effort */ }
+      throw e;
+    }
+
+    return { branch: name, manifest };
+  }
+
   // Classify a branch's changes against its CURRENT upstream using the per-item
   // watermark. `branchPoint.at` (else the branch's `createdAt`) is the instant the
   // branch forked; any upstream item whose `modifiedAt` is NEWER than that was
@@ -3849,15 +3987,24 @@ class SqliteFsAdapter {
       if (upstreamMoved(d.id, d.before?.modifiedAt))
         conflicts.push({ id: d.id, kind: 'delete-edit', before: d.before });
     }
-    // Edit-vs-upstream-delete: an "add" (present locally, absent upstream) whose
-    // item was CREATED before the fork can only be an item that existed at the
-    // fork and has since been deleted upstream — the branch kept/edited it while
-    // upstream removed it. Left unflagged, a blind merge would silently resurrect
-    // it. (A genuine branch add is created after the fork, so createdAt >= watermark.)
+    // Edit-vs-upstream-delete: an "add" (present locally, absent upstream) that
+    // the branch MATERIALISED from upstream can only be an item that existed at
+    // the fork and has since been deleted upstream — the branch kept/edited it
+    // while upstream removed it. Left unflagged, a blind merge would silently
+    // resurrect it. Discriminator: when the branch has a bases.json (the
+    // fingerprint mechanism), a kept item HAS a recorded base and a genuine add
+    // does NOT — robust even for parcel-imported branches, whose adds carry the
+    // SENDER's createdAt (always before the receiver-side watermark). Branches
+    // predating bases.json fall back to the createdAt-vs-watermark heuristic.
+    const hasBasesFile = fs.existsSync(this._basesPath(name));
     for (const add of diff.adds) {
-      const created = add.after?.createdAt ?? add.doc?.meta?.createdAt ?? null;
-      if (watermark && created && String(created) < String(watermark))
-        conflicts.push({ id: add.id, kind: 'add-delete', after: add.after });
+      const kept = hasBasesFile
+        ? !!bases[add.id]
+        : (() => {
+            const created = add.after?.createdAt ?? add.doc?.meta?.createdAt ?? null;
+            return !!watermark && !!created && String(created) < String(watermark);
+          })();
+      if (kept) conflicts.push({ id: add.id, kind: 'add-delete', after: add.after });
     }
 
     // Blast radius of the branch's deletions. Computed against the ACTIVE branch's
