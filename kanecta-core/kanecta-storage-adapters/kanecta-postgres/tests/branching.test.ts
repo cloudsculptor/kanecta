@@ -819,3 +819,72 @@ describe('previewMerge / conflict-aware mergeBranch', () => {
     });
   }, 30_000);
 });
+
+// ─── Reverse blast radius — danglingRefs ──────────────────────────────────────
+
+describe('previewMerge danglingRefs (reverse blast radius)', () => {
+  const past   = (ms) => new Date(Date.now() - ms).toISOString();
+  const future = (ms) => new Date(Date.now() + ms).toISOString();
+
+  test('adds/edits pointing at branch-deleted or missing targets are flagged; gate blocks', async () => {
+    await withAdapter(async (adapter) => {
+      const victim = await createItem(adapter, { value: 'deleted-by-branch', parentId: ROOT_ID });
+      // Watermark = the victim's own modifiedAt: the strict `>` comparison makes
+      // its delete CLEAN, while the staged adds get later createdAt stamps so
+      // they read as genuine post-fork adds. Deterministic — no clock races.
+      const br = await adapter.createBranch('dangling', { branchPointAt: victim.modifiedAt });
+      const afterFork = future(3_600_000);
+
+      const linkerId = 'dddd1001-0000-0000-0000-000000000001';
+      const orphanId = 'dddd1002-0000-0000-0000-000000000002';
+      const ghostParent = 'dddd1003-0000-0000-0000-000000000003'; // never existed
+      await adapter.applyBranchChanges(br.id, [
+        { itemId: victim.id, changeType: 'delete', section: 'item', data: null },
+        { itemId: linkerId, changeType: 'create', section: 'item',
+          data: { value: `see [[${victim.id}]]`, type: 'text', parentId: ROOT_ID, sortOrder: 0 } },
+        { itemId: linkerId, changeType: 'create', section: 'meta',
+          data: { specVersion: '1.4.0', createdBy: OWNER, visibility: 'private', tags: [], createdAt: afterFork } },
+        { itemId: orphanId, changeType: 'create', section: 'item',
+          data: { value: 'orphan-to-be', type: 'text', parentId: ghostParent, sortOrder: 0 } },
+        { itemId: orphanId, changeType: 'create', section: 'meta',
+          data: { specVersion: '1.4.0', createdBy: OWNER, visibility: 'private', tags: [], createdAt: afterFork } },
+      ]);
+
+      const preview = await adapter.previewMerge(br.id);
+      const byId = Object.fromEntries(preview.danglingRefs.map(d => [d.id, d.refs]));
+      expect(byId[linkerId]).toEqual([{ targetId: victim.id, via: 'link' }]);
+      expect(byId[orphanId]).toEqual([{ targetId: ghostParent, via: 'parent' }]);
+
+      await expect(adapter.mergeBranch(br.id, { blockOnDanglingRefs: true }))
+        .rejects.toMatchObject({ code: 'MERGE_DANGLING_REFS' });
+      // Branch preserved.
+      expect((await adapter.getBranch('dangling')).mergedAt).toBeNull();
+    });
+  }, 30_000);
+
+  test('refs satisfied by the branch\'s own adds are NOT flagged', async () => {
+    await withAdapter(async (adapter) => {
+      const br = await adapter.createBranch('dangling-clean', { branchPointAt: past(3_600_000) });
+      const parentId = 'dddd2001-0000-0000-0000-000000000001';
+      const childId  = 'dddd2002-0000-0000-0000-000000000002';
+      const now = new Date().toISOString();
+      await adapter.applyBranchChanges(br.id, [
+        { itemId: parentId, changeType: 'create', section: 'item',
+          data: { value: 'new parent', type: 'text', parentId: ROOT_ID, sortOrder: 0 } },
+        { itemId: parentId, changeType: 'create', section: 'meta',
+          data: { specVersion: '1.4.0', createdBy: OWNER, visibility: 'private', tags: [], createdAt: now } },
+        { itemId: childId, changeType: 'create', section: 'item',
+          data: { value: `child of [[${parentId}]]`, type: 'text', parentId, sortOrder: 0 } },
+        { itemId: childId, changeType: 'create', section: 'meta',
+          data: { specVersion: '1.4.0', createdBy: OWNER, visibility: 'private', tags: [], createdAt: now } },
+      ]);
+
+      const preview = await adapter.previewMerge(br.id);
+      expect(preview.danglingRefs).toEqual([]);
+
+      const result = await adapter.mergeBranch(br.id, { blockOnDanglingRefs: true });
+      expect(result.merged).toBe(2);
+      expect(result.danglingRefs).toEqual([]);
+    });
+  }, 30_000);
+});

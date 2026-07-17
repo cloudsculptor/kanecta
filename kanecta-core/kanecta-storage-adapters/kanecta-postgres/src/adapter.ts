@@ -3312,7 +3312,50 @@ class PostgresAdapter {
     }
 
     const blastRadius = await this._blastRadiusFor(deletes.map(d => d.id));
-    return { adds, edits, deletes, watermark, conflicts, blastRadius };
+
+    // REVERSE blast radius: adds/edits whose OUTBOUND references (parentId,
+    // [[uuid]] links, payload target/source) point at an item that will not
+    // exist after the merge — deleted on main since the fork, deleted by this
+    // same branch, or never existed. New referrers are invisible to the forward
+    // scan, so without this a merge could create dangling references in the
+    // very act of applying. Shape: [{ id, refs: [{ targetId, via }] }].
+    const branchWrites  = new Set([...adds, ...edits].map((e: any) => e.id));
+    const branchDeletes = new Set(deletes.map((d: any) => d.id));
+    const candidates: any[] = [];
+    for (const e of [...adds, ...edits]) {
+      const entry = byItem.get(e.id);
+      const item    = entry?.sections?.item ?? {};
+      const payload = entry?.sections?.payload ?? {};
+      const seen = new Set<string>();
+      const push = (targetId: any, via: string) => {
+        if (!targetId || typeof targetId !== 'string' || !UUID_RE.test(targetId)) return;
+        if (targetId === e.id || seen.has(`${targetId}|${via}`)) return;
+        seen.add(`${targetId}|${via}`);
+        candidates.push({ id: e.id, targetId, via });
+      };
+      push(item.parentId, 'parent');
+      for (const link of parseLinks(item.value)) push(link, 'link');
+      push(payload.targetId, 'payload');
+      push(payload.sourceId, 'payload');
+    }
+    const unknownTargets = [...new Set(
+      candidates.map(c => c.targetId).filter(t => !branchWrites.has(t) && !branchDeletes.has(t)))];
+    let existing = new Set<any>();
+    if (unknownTargets.length) {
+      const { rows } = await this._exec('SELECT id FROM items WHERE id = ANY($1)', [unknownTargets]);
+      existing = new Set(rows.map(r => r.id));
+    }
+    const targetSurvives = (t: any) =>
+      !branchDeletes.has(t) && (branchWrites.has(t) || existing.has(t));
+    const danglingByItem = new Map<any, any[]>();
+    for (const c of candidates) {
+      if (targetSurvives(c.targetId)) continue;
+      if (!danglingByItem.has(c.id)) danglingByItem.set(c.id, []);
+      danglingByItem.get(c.id)!.push({ targetId: c.targetId, via: c.via });
+    }
+    const danglingRefs = [...danglingByItem.entries()].map(([id, refs]) => ({ id, refs }));
+
+    return { adds, edits, deletes, watermark, conflicts, blastRadius, danglingRefs };
   }
 
   // Facade-uniform alias: the sqlite-fs adapter merges by NAME via
@@ -3370,6 +3413,18 @@ class PostgresAdapter {
         `references first.`);
       err.code = 'MERGE_BLAST_RADIUS';
       err.blastRadius = blastRadius;
+      throw err;
+    }
+
+    // Reverse blast radius — same opt-in gate posture as blastRadius (see the
+    // sqlite-fs twin): surfaced always, blocking only on request.
+    const danglingRefs = (preview.danglingRefs ?? []).filter((d: any) => !skip(d.id));
+    if (opts.blockOnDanglingRefs && danglingRefs.length) {
+      const err: any = new Error(
+        `Merge of "${branchRows[0].name}" would apply ${danglingRefs.length} item(s) referencing target(s) that ` +
+        `will not exist after the merge. Re-run without { blockOnDanglingRefs } to merge anyway, or fix the references first.`);
+      err.code = 'MERGE_DANGLING_REFS';
+      err.danglingRefs = danglingRefs;
       throw err;
     }
 
@@ -3478,7 +3533,7 @@ class PostgresAdapter {
       client.release();
     }
 
-    return { merged: applied, skipped, conflicts, blastRadius, branchName: branchRows[0].name };
+    return { merged: applied, skipped, conflicts, blastRadius, danglingRefs, branchName: branchRows[0].name };
   }
 
   async deleteBranch(name: any) {

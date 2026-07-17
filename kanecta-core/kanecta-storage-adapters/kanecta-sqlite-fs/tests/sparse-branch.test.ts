@@ -421,3 +421,69 @@ describe('sparse branch merge blast radius', () => {
     cleanup(a);
   });
 });
+
+// ─── Reverse blast radius — danglingRefs ──────────────────────────────────────
+// The forward blastRadius scans referrers of branch DELETES; danglingRefs is
+// the mirror: branch adds/edits whose OUTBOUND refs (parent, [[uuid]] link,
+// payload target/source) point at an item that will not exist after the merge.
+
+describe('reverse blast radius — danglingRefs', () => {
+  test('an edit linking to an item the same branch deletes is flagged; gate blocks the merge', () => {
+    const { a, onMain, child } = withSparseBranch();
+    a.delete(child.id); // tombstone on the sparse branch
+    a.update(onMain.id, { value: `see [[${child.id}]]` });
+    a.useBranch('main');
+
+    const preview = a.previewMerge('feature/sparse');
+    expect(preview.danglingRefs).toEqual([
+      { id: onMain.id, refs: [{ targetId: child.id, via: 'link' }] },
+    ]);
+
+    expect(() => a.mergeBranchLocally('feature/sparse', { blockOnDanglingRefs: true }))
+      .toThrow(/will not exist after the merge/);
+    try { a.mergeBranchLocally('feature/sparse', { blockOnDanglingRefs: true }); }
+    catch (err) {
+      expect(err.code).toBe('MERGE_DANGLING_REFS');
+      expect(err.danglingRefs[0].id).toBe(onMain.id);
+    }
+    // Branch preserved by the gate.
+    expect(a.listBranches().map(b => b.name)).toContain('feature/sparse');
+    cleanup(a);
+  });
+
+  test('a branch add under a parent deleted upstream after the fork is flagged as via:parent', () => {
+    const a = tmpAdapter();
+    const standalone = a.create({ value: 'doomed parent', type: 'text' });
+    a.createBranch('feature/sparse', { fill: 'sparse' });
+    a.useBranch('feature/sparse');
+    const added = a.create({ value: 'orphan-to-be', type: 'text', parentId: standalone.id });
+
+    a.useBranch('main');
+    tick();
+    a.delete(standalone.id); // upstream deletes the parent after the fork
+
+    const preview = a.previewMerge('feature/sparse');
+    expect(preview.danglingRefs).toEqual([
+      { id: added.id, refs: [{ targetId: standalone.id, via: 'parent' }] },
+    ]);
+    cleanup(a);
+  });
+
+  test('refs satisfied by the branch\'s own adds are NOT flagged', () => {
+    const a = tmpAdapter();
+    a.createBranch('feature/sparse', { fill: 'sparse' });
+    a.useBranch('feature/sparse');
+    const parent = a.create({ value: 'new parent', type: 'text' });
+    const child  = a.create({ value: `child of [[${parent.id}]]`, type: 'text', parentId: parent.id });
+
+    a.useBranch('main');
+    const preview = a.previewMerge('feature/sparse');
+    expect(preview.danglingRefs).toEqual([]);
+    expect(preview.adds.map(x => x.id).sort()).toEqual([parent.id, child.id].sort());
+
+    const result = a.mergeBranchLocally('feature/sparse', { blockOnDanglingRefs: true });
+    expect(result.merged).toBe(2);
+    expect(result.danglingRefs).toEqual([]);
+    cleanup(a);
+  });
+});

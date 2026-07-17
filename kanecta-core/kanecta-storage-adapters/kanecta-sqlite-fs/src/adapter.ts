@@ -3702,7 +3702,53 @@ class SqliteFsAdapter {
     // merge itself always recomputes on main before applying.
     const blastRadius = this._computeBlastRadius(diff.deletes.map(d => d.id));
 
-    return { ...diff, watermark, conflicts, blastRadius };
+    // REVERSE blast radius: the branch's adds/edits whose OUTBOUND references
+    // (parentId, [[uuid]] links, payload target/source) point at an item that
+    // will not exist after the merge — deleted upstream since the fork, deleted
+    // by this same branch, or never existed. The forward scan above cannot see
+    // these (they are new referrers, not existing ones), so without this a
+    // merge could create dangling references in the very act of applying.
+    const danglingRefs = this._computeDanglingRefs(diff);
+
+    return { ...diff, watermark, conflicts, blastRadius, danglingRefs };
+  }
+
+  // For each add/edit in a branch diff, check its outbound references against
+  // what main will look like AFTER the merge: a target satisfied by the branch's
+  // own adds/edits is fine; a target the branch deletes is dangling even if it
+  // exists on main today; otherwise the ACTIVE branch's index (main at merge
+  // time) decides. Returns [{ id, refs: [{ targetId, via }] }].
+  _computeDanglingRefs(diff: any) {
+    const branchWrites  = new Set([...diff.adds, ...diff.edits].map((e: any) => e.id));
+    const branchDeletes = new Set(diff.deletes.map((d: any) => d.id));
+    const db  = this._openDb();
+    const has = db.prepare('SELECT 1 FROM items WHERE id = ?');
+    const targetSurvives = (t: any) => {
+      if (branchDeletes.has(t)) return false;
+      if (branchWrites.has(t))  return true;
+      return !!has.get(t);
+    };
+
+    const out: any[] = [];
+    for (const e of [...diff.adds, ...diff.edits]) {
+      const doc  = e.doc ?? {};
+      const item = doc.item ?? e.after ?? {};
+      const refs: any[] = [];
+      const seen = new Set<string>();
+      const check = (targetId: any, via: string) => {
+        if (!targetId || typeof targetId !== 'string' || !UUID_RE.test(targetId)) return;
+        if (targetId === e.id || seen.has(`${targetId}|${via}`)) return;
+        seen.add(`${targetId}|${via}`);
+        if (!targetSurvives(targetId)) refs.push({ targetId, via });
+      };
+      check(item.parentId, 'parent');
+      for (const link of this._parseLinks(item.value)) check(link, 'link');
+      const payload = doc.payload ?? {};
+      check(payload.targetId, 'payload');
+      check(payload.sourceId, 'payload');
+      if (refs.length) out.push({ id: e.id, refs });
+    }
+    return out;
   }
 
   // Merge a local branch into main by applying its full-folder diff to main's
@@ -3761,6 +3807,21 @@ class SqliteFsAdapter {
       throw err;
     }
 
+    // Reverse blast radius — the branch's own adds/edits pointing at items that
+    // won't exist after the merge (upstream deleted them since the fork, or the
+    // branch deletes them itself). Same opt-in gate posture as blastRadius:
+    // surfaced always, blocking only on request — a dangling ref is sometimes
+    // intentional; silent breakage is the failure mode being prevented.
+    const danglingRefs = (preview.danglingRefs ?? []).filter((d: any) => !skip(d.id));
+    if (opts.blockOnDanglingRefs && danglingRefs.length) {
+      const err: any = new Error(
+        `Merge of "${name}" would apply ${danglingRefs.length} item(s) referencing target(s) that will not ` +
+        `exist after the merge. Re-run without { blockOnDanglingRefs } to merge anyway, or fix the references first.`);
+      err.code = 'MERGE_DANGLING_REFS';
+      err.danglingRefs = danglingRefs;
+      throw err;
+    }
+
     const mainItemsDir = path.join(this._branchRoot('main'), 'items');
 
     // Apply onto main's items/ tree (note: _itemPath/_itemDir target the ACTIVE
@@ -3805,7 +3866,7 @@ class SqliteFsAdapter {
     const dir = this._branchRoot(name);
     if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
 
-    return { merged, skipped, conflicts, blastRadius };
+    return { merged, skipped, conflicts, blastRadius, danglingRefs };
   }
 
   // ─── Integrity checks ─────────────────────────────────────────────────────
