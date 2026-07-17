@@ -36,7 +36,8 @@ const ITEM_METHODS = [
   'recordActivity', 'activityFor', 'listActivity',
   'search', 'semanticSearch', 'hybridSearch', 'embedItem', 'processPendingEmbeddings',
   'createBranch', 'listBranches', 'getBranch', 'getBranchChanges',
-  'applyBranchChanges', 'preFlightScan', 'mergeBranch', 'deleteBranch',
+  'applyBranchChanges', 'preFlightScan', 'previewMerge', 'mergeBranch',
+  'mergeBranchLocally', 'deleteBranch',
   'listProjectedRelations', 'graphNeighbors', 'countProjectedGraphEdges',
   'rebuildGraphProjection', 'dropGraphProjection',
 ];

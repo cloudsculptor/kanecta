@@ -603,3 +603,219 @@ describe('multiple branches isolation', () => {
     });
   }, 30_000);
 });
+
+// ─── previewMerge / conflict-aware mergeBranch ────────────────────────────────
+// The postgres twin of the sqlite-fs conflict matrix (spec «Conflict-aware
+// merge»): classification runs against CURRENT main using the fork watermark
+// (branches.branch_point_at). Tests pin the watermark explicitly so timing can
+// never make them flake.
+
+describe('previewMerge / conflict-aware mergeBranch', () => {
+  const past   = (ms) => new Date(Date.now() - ms).toISOString();
+  const future = (ms) => new Date(Date.now() + ms).toISOString();
+
+  test('createBranch records branchPointAt (defaults to now, accepts override, rejects non-main base)', async () => {
+    await withAdapter(async (adapter) => {
+      const a = await adapter.createBranch('wm-default');
+      expect(a.branchPointAt).toBeTruthy();
+      expect(Math.abs(new Date(a.branchPointAt).getTime() - Date.now())).toBeLessThan(60_000);
+
+      const point = past(3_600_000);
+      const b = await adapter.createBranch('wm-explicit', { branchPointAt: point });
+      expect(b.branchPointAt).toBe(point);
+      const fetched = await adapter.getBranch('wm-explicit');
+      expect(fetched.branchPointAt).toBe(point);
+
+      await expect(adapter.createBranch('wm-base', { base: 'other' })).rejects.toThrow(/main/);
+      await expect(adapter.createBranch('wm-bad', { branchPointAt: 'not-a-date' })).rejects.toThrow(/ISO-8601/);
+    });
+  }, 30_000);
+
+  test('clean edit — main untouched since fork — no conflict, merge applies', async () => {
+    await withAdapter(async (adapter, pool) => {
+      const item = await createItem(adapter, { value: 'original', parentId: ROOT_ID });
+      // Fork "after" the item's last modification → clean.
+      const br = await adapter.createBranch('clean-edit', { branchPointAt: future(60_000) });
+      await adapter.applyBranchChanges(br.id, [
+        { itemId: item.id, changeType: 'update', section: 'item', data: { value: 'edited' } },
+      ]);
+
+      const preview = await adapter.previewMerge(br.id);
+      expect(preview.edits).toHaveLength(1);
+      expect(preview.edits[0].before.value).toBe('original');
+      expect(preview.edits[0].after.value).toBe('edited');
+      expect(preview.conflicts).toHaveLength(0);
+      expect(preview.watermark).toBe((await adapter.getBranch('clean-edit')).branchPointAt);
+
+      const result = await adapter.mergeBranch(br.id);
+      expect(result.merged).toBe(1);
+      expect(result.skipped).toBe(0);
+      const { rows } = await pool.query('SELECT value FROM items WHERE id = $1', [item.id]);
+      expect(rows[0].value).toBe('edited');
+    });
+  }, 30_000);
+
+  test('edit-edit conflict — default merge ABORTS with MERGE_CONFLICT, nothing applied', async () => {
+    await withAdapter(async (adapter, pool) => {
+      const item = await createItem(adapter, { value: 'main-v1', parentId: ROOT_ID });
+      // Fork BEFORE the item's modification → main moved after the fork.
+      const br = await adapter.createBranch('ee-conflict', { branchPointAt: past(3_600_000) });
+      await adapter.applyBranchChanges(br.id, [
+        { itemId: item.id, changeType: 'update', section: 'item', data: { value: 'branch-v2' } },
+      ]);
+
+      const preview = await adapter.previewMerge('ee-conflict'); // by NAME
+      expect(preview.conflicts).toHaveLength(1);
+      expect(preview.conflicts[0].kind).toBe('edit-edit');
+      expect(preview.conflicts[0].id).toBe(item.id);
+
+      await expect(adapter.mergeBranch(br.id)).rejects.toMatchObject({ code: 'MERGE_CONFLICT' });
+      // Nothing applied; branch preserved.
+      const { rows } = await pool.query('SELECT value FROM items WHERE id = $1', [item.id]);
+      expect(rows[0].value).toBe('main-v1');
+      expect(await adapter.getBranchChanges(br.id)).toHaveLength(1);
+      expect((await adapter.getBranch('ee-conflict')).mergedAt).toBeNull();
+    });
+  }, 30_000);
+
+  test("strategy 'theirs' — branch wins the edit-edit conflict", async () => {
+    await withAdapter(async (adapter, pool) => {
+      const item = await createItem(adapter, { value: 'main-v1', parentId: ROOT_ID });
+      const br = await adapter.createBranch('ee-theirs', { branchPointAt: past(3_600_000) });
+      await adapter.applyBranchChanges(br.id, [
+        { itemId: item.id, changeType: 'update', section: 'item', data: { value: 'branch-v2' } },
+      ]);
+
+      const result = await adapter.mergeBranch(br.id, { strategy: 'theirs' });
+      expect(result.merged).toBe(1);
+      expect(result.conflicts).toHaveLength(1);
+      const { rows } = await pool.query('SELECT value FROM items WHERE id = $1', [item.id]);
+      expect(rows[0].value).toBe('branch-v2');
+    });
+  }, 30_000);
+
+  test("strategy 'ours' — main wins the conflicting item, clean changes still apply", async () => {
+    await withAdapter(async (adapter, pool) => {
+      const conflicted = await createItem(adapter, { value: 'keep-main', parentId: ROOT_ID });
+      const br = await adapter.createBranch('ee-ours', { branchPointAt: past(3_600_000) });
+      const cleanAddId = 'abcd0001-0000-0000-0000-000000000001';
+      await adapter.applyBranchChanges(br.id, [
+        { itemId: conflicted.id, changeType: 'update', section: 'item', data: { value: 'branch-loses' } },
+        { itemId: cleanAddId, changeType: 'create', section: 'item',
+          data: { value: 'clean-add', type: 'text', parentId: ROOT_ID, sortOrder: 0 } },
+        { itemId: cleanAddId, changeType: 'create', section: 'meta',
+          data: { specVersion: '1.4.0', createdBy: OWNER, visibility: 'private', tags: [], createdAt: new Date().toISOString() } },
+      ]);
+
+      const result = await adapter.mergeBranch(br.id, { strategy: 'ours' });
+      expect(result.merged).toBe(1);
+      expect(result.skipped).toBe(1);
+      const { rows: keep } = await pool.query('SELECT value FROM items WHERE id = $1', [conflicted.id]);
+      expect(keep[0].value).toBe('keep-main');
+      const { rows: added } = await pool.query('SELECT value FROM items WHERE id = $1', [cleanAddId]);
+      expect(added[0].value).toBe('clean-add');
+    });
+  }, 30_000);
+
+  test('delete-edit conflict — staged delete of an item main modified after the fork', async () => {
+    await withAdapter(async (adapter) => {
+      const item = await createItem(adapter, { value: 'moved-on-main', parentId: ROOT_ID });
+      const br = await adapter.createBranch('de-conflict', { branchPointAt: past(3_600_000) });
+      await adapter.applyBranchChanges(br.id, [
+        { itemId: item.id, changeType: 'delete', section: 'item', data: null },
+      ]);
+
+      const preview = await adapter.previewMerge(br.id);
+      expect(preview.deletes).toHaveLength(1);
+      expect(preview.conflicts).toHaveLength(1);
+      expect(preview.conflicts[0].kind).toBe('delete-edit');
+      await expect(adapter.mergeBranch(br.id)).rejects.toMatchObject({ code: 'MERGE_CONFLICT' });
+    });
+  }, 30_000);
+
+  test("add-delete conflict — branch kept an item main deleted; 'theirs' resurrects it", async () => {
+    await withAdapter(async (adapter, pool) => {
+      const item = await createItem(adapter, { value: 'kept-on-branch', parentId: ROOT_ID });
+      const br = await adapter.createBranch('ad-conflict', { branchPointAt: future(60_000) });
+      // Branch edits the item (staged update carries the full doc, as SyncEngine pushes it)…
+      await adapter.applyBranchChanges(br.id, [
+        { itemId: item.id, changeType: 'update', section: 'item',
+          data: { value: 'kept-and-edited', type: 'text', parentId: ROOT_ID, sortOrder: 0 } },
+        { itemId: item.id, changeType: 'update', section: 'meta',
+          data: { specVersion: '1.4.0', createdBy: OWNER, visibility: 'private', tags: [], createdAt: item.createdAt } },
+      ]);
+      // …then main deletes it after the fork.
+      await pool.query('DELETE FROM items WHERE id = $1', [item.id]);
+
+      const preview = await adapter.previewMerge(br.id);
+      expect(preview.adds).toHaveLength(1); // the branch's kept version, absent on main
+      expect(preview.conflicts).toHaveLength(1);
+      expect(preview.conflicts[0].kind).toBe('add-delete');
+
+      await expect(adapter.mergeBranch(br.id)).rejects.toMatchObject({ code: 'MERGE_CONFLICT' });
+
+      const result = await adapter.mergeBranch(br.id, { strategy: 'theirs' });
+      expect(result.merged).toBe(1);
+      const { rows } = await pool.query('SELECT value FROM items WHERE id = $1', [item.id]);
+      expect(rows).toHaveLength(1); // resurrected
+      expect(rows[0].value).toBe('kept-and-edited');
+    });
+  }, 30_000);
+
+  test('genuine add (created after fork) is never a conflict; no-op delete is dropped', async () => {
+    await withAdapter(async (adapter) => {
+      const br = await adapter.createBranch('genuine-add', { branchPointAt: past(3_600_000) });
+      const addId  = 'abcd0002-0000-0000-0000-000000000002';
+      const goneId = 'abcd0003-0000-0000-0000-000000000003'; // never existed on main
+      await adapter.applyBranchChanges(br.id, [
+        { itemId: addId, changeType: 'create', section: 'item',
+          data: { value: 'new', type: 'text', parentId: ROOT_ID, sortOrder: 0 } },
+        { itemId: addId, changeType: 'create', section: 'meta',
+          data: { specVersion: '1.4.0', createdBy: OWNER, visibility: 'private', tags: [], createdAt: new Date().toISOString() } },
+        { itemId: goneId, changeType: 'delete', section: 'item', data: null },
+      ]);
+
+      const preview = await adapter.previewMerge(br.id);
+      expect(preview.adds).toHaveLength(1);
+      expect(preview.deletes).toHaveLength(0); // already absent → no-op, not a delete
+      expect(preview.conflicts).toHaveLength(0);
+    });
+  }, 30_000);
+
+  test('blockOnBlastRadius aborts with MERGE_BLAST_RADIUS when a delete leaves live referrers', async () => {
+    await withAdapter(async (adapter, pool) => {
+      const parent = await createItem(adapter, { value: 'parent', parentId: ROOT_ID });
+      const child  = await createItem(adapter, { value: 'child', parentId: parent.id });
+      const br = await adapter.createBranch('blast-gate', { branchPointAt: future(60_000) });
+      await adapter.applyBranchChanges(br.id, [
+        { itemId: parent.id, changeType: 'delete', section: 'item', data: null },
+      ]);
+
+      const preview = await adapter.previewMerge(br.id);
+      expect(preview.blastRadius).toHaveLength(1);
+      expect(preview.blastRadius[0].id).toBe(parent.id);
+      expect(preview.blastRadius[0].referencedBy.map(r => r.id)).toContain(child.id);
+      expect(preview.blastRadius[0].referencedBy[0].via).toBe('parent');
+
+      await expect(adapter.mergeBranch(br.id, { blockOnBlastRadius: true }))
+        .rejects.toMatchObject({ code: 'MERGE_BLAST_RADIUS' });
+      // Branch preserved for resolution.
+      expect(await adapter.getBranchChanges(br.id)).toHaveLength(1);
+    });
+  }, 30_000);
+
+  test('mergeBranchLocally is the facade-uniform alias (by name, same opts)', async () => {
+    await withAdapter(async (adapter, pool) => {
+      const item = await createItem(adapter, { value: 'v1', parentId: ROOT_ID });
+      await adapter.createBranch('alias-merge', { branchPointAt: future(60_000) });
+      const br = await adapter.getBranch('alias-merge');
+      await adapter.applyBranchChanges(br.id, [
+        { itemId: item.id, changeType: 'update', section: 'item', data: { value: 'v2' } },
+      ]);
+      const result = await adapter.mergeBranchLocally('alias-merge');
+      expect(result.merged).toBe(1);
+      const { rows } = await pool.query('SELECT value FROM items WHERE id = $1', [item.id]);
+      expect(rows[0].value).toBe('v2');
+    });
+  }, 30_000);
+});

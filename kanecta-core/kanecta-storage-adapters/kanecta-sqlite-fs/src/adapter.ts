@@ -3544,6 +3544,7 @@ class SqliteFsAdapter {
         baseBranch: manifest?.base ?? 'main',
         fill: manifest?.fill ?? 'full',
         upstream: manifest?.upstream ?? null,
+        branchPoint: manifest?.branchPoint ?? null,
         createdAt: manifest?.createdAt ?? null,
       });
     }

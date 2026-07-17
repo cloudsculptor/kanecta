@@ -44,10 +44,18 @@ class SyncEngine {
       throw new Error('remoteAdapter does not implement applyBranchChanges()');
     }
 
-    // Get or create the remote branch
+    // Get or create the remote branch. A new remote branch inherits the LOCAL
+    // fork watermark (branchPoint.at), not push time — upstream may have moved
+    // between fork and push, which is exactly the window the remote's
+    // conflict-aware merge needs to see.
     let remoteBranch = await remoteAdapter.getBranch(branchName);
     if (!remoteBranch) {
-      remoteBranch = await remoteAdapter.createBranch(branchName);
+      let branchPointAt = null;
+      if (typeof localAdapter.listBranches === 'function') {
+        const localBranch = ((await localAdapter.listBranches()) ?? []).find((b: any) => b.name === branchName);
+        branchPointAt = localBranch?.branchPoint?.at ?? localBranch?.createdAt ?? null;
+      }
+      remoteBranch = await remoteAdapter.createBranch(branchName, branchPointAt ? { branchPointAt } : {});
     }
     const branchId = remoteBranch.id;
 
@@ -93,8 +101,16 @@ class SyncEngine {
   // Throws if the branch is blocked (blockingRefs.length > 0) unless
   // `force: true` is passed.
   //
-  // Returns { merged: number, branchName } from the remote adapter.
-  static async merge(remoteAdapter: any, branchName: any, { force = false }: any = {}) {
+  // Conflict handling rides on the remote adapter's mergeBranch contract:
+  // by default any watermark conflict aborts (MERGE_CONFLICT); pass
+  // `strategy: 'theirs' | 'ours'` to resolve, `blockOnBlastRadius: true` to
+  // hard-gate on dangling references. `force: true` keeps its historical
+  // meaning — skip the blocking-reference scan AND merge branch-wins — and is
+  // equivalent to `strategy: 'theirs'` for the conflict half.
+  //
+  // Returns { merged, skipped, conflicts, blastRadius, branchName } from the
+  // remote adapter.
+  static async merge(remoteAdapter: any, branchName: any, { force = false, strategy = null, blockOnBlastRadius = false }: any = {}) {
     if (typeof remoteAdapter.mergeBranch !== 'function') {
       throw new Error('remoteAdapter does not implement mergeBranch()');
     }
@@ -111,7 +127,10 @@ class SyncEngine {
       }
     }
 
-    return remoteAdapter.mergeBranch(remoteBranch.id);
+    return remoteAdapter.mergeBranch(remoteBranch.id, {
+      strategy: strategy ?? (force ? 'theirs' : null),
+      blockOnBlastRadius,
+    });
   }
 
   // fullSync() — convenience: diff → push → preFlightScan → merge in one call.

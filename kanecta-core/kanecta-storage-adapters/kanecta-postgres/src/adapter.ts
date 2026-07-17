@@ -2999,26 +2999,46 @@ class PostgresAdapter {
 
   // ─── Branching ──────────────────────────────────────────────────────────────
 
-  async createBranch(name: any) {
+  // opts.branchPointAt — the fork watermark (ISO string). A branch pushed from a
+  // local sqlite-fs branch passes the LOCAL fork point (SyncEngine.push does);
+  // upstream may have moved between fork and push, which is exactly the window
+  // conflict detection exists for. Defaults to now() for a branch born here.
+  // opts.base — must be 'main': branch_changes rows physically apply onto the
+  // main tables, so no other base has meaning in this adapter's delta model.
+  // The parameter exists so the constraint is an explicit error, not a silent
+  // hard-code.
+  async createBranch(name: any, opts: any = {}) {
     if (!name || typeof name !== 'string' || !name.trim()) throw new Error('branch name is required');
     name = name.trim();
     if (name === 'main') throw new Error('Cannot create a branch named "main"');
+    if (opts.base != null && opts.base !== 'main')
+      throw new Error(`Postgres branches can only be based on "main" (got "${opts.base}") — the branch_changes delta model applies onto the main tables`);
+    let branchPoint = new Date();
+    if (opts.branchPointAt != null) {
+      branchPoint = new Date(opts.branchPointAt);
+      if (isNaN(branchPoint.getTime())) throw new Error(`Invalid branchPointAt "${opts.branchPointAt}" — expected an ISO-8601 timestamp`);
+    }
     const existing = await this._exec('SELECT id FROM branches WHERE name = $1 AND deleted_at IS NULL', [name]);
     if (existing.rows.length) throw new Error(`Branch "${name}" already exists`);
     const { rows } = await this._exec(
-      'INSERT INTO branches (name, base_branch) VALUES ($1, $2) RETURNING id, name, base_branch, created_at',
-      [name, 'main'],
+      'INSERT INTO branches (name, base_branch, branch_point_at) VALUES ($1, $2, $3) RETURNING id, name, base_branch, branch_point_at, created_at',
+      [name, 'main', branchPoint],
     );
     const r = rows[0];
-    return { id: r.id, name: r.name, baseBranch: r.base_branch, createdAt: r.created_at.toISOString() };
+    return {
+      id: r.id, name: r.name, baseBranch: r.base_branch,
+      branchPointAt: r.branch_point_at?.toISOString() ?? null,
+      createdAt: r.created_at.toISOString(),
+    };
   }
 
   async listBranches() {
     const { rows } = await this._exec(
-      'SELECT id, name, base_branch, created_at, merged_at, deleted_at FROM branches WHERE deleted_at IS NULL ORDER BY created_at',
+      'SELECT id, name, base_branch, branch_point_at, created_at, merged_at, deleted_at FROM branches WHERE deleted_at IS NULL ORDER BY created_at',
     );
     return rows.map(r => ({
       id: r.id, name: r.name, baseBranch: r.base_branch,
+      branchPointAt: r.branch_point_at?.toISOString() ?? null,
       createdAt: r.created_at.toISOString(),
       mergedAt:  r.merged_at?.toISOString() ?? null,
       deletedAt: r.deleted_at?.toISOString() ?? null,
@@ -3027,12 +3047,36 @@ class PostgresAdapter {
 
   async getBranch(name: any) {
     const { rows } = await this._exec(
-      'SELECT id, name, base_branch, created_at, merged_at, deleted_at FROM branches WHERE name = $1 AND deleted_at IS NULL',
+      'SELECT id, name, base_branch, branch_point_at, created_at, merged_at, deleted_at FROM branches WHERE name = $1 AND deleted_at IS NULL',
       [name],
     );
     if (!rows.length) return null;
     const r = rows[0];
-    return { id: r.id, name: r.name, baseBranch: r.base_branch, createdAt: r.created_at.toISOString(), mergedAt: r.merged_at?.toISOString() ?? null };
+    return {
+      id: r.id, name: r.name, baseBranch: r.base_branch,
+      branchPointAt: r.branch_point_at?.toISOString() ?? null,
+      createdAt: r.created_at.toISOString(), mergedAt: r.merged_at?.toISOString() ?? null,
+    };
+  }
+
+  // Resolve a branch by name or id (unmerged, undeleted). The facade and the
+  // sqlite-fs adapter address branches by NAME; SyncEngine and older callers
+  // hold ids — accept both so the cross-adapter surface stays uniform.
+  async _resolveBranch(nameOrId: any) {
+    if (!nameOrId || typeof nameOrId !== 'string') throw new Error('branch name or id is required');
+    const byId = UUID_RE.test(nameOrId)
+      ? await this._exec('SELECT id, name, base_branch, branch_point_at, created_at FROM branches WHERE id = $1 AND deleted_at IS NULL AND merged_at IS NULL', [nameOrId])
+      : { rows: [] };
+    const rows = byId.rows.length
+      ? byId.rows
+      : (await this._exec('SELECT id, name, base_branch, branch_point_at, created_at FROM branches WHERE name = $1 AND deleted_at IS NULL AND merged_at IS NULL', [nameOrId])).rows;
+    if (!rows.length) throw new Error(`Branch ${nameOrId} not found or already merged`);
+    const r = rows[0];
+    return {
+      id: r.id, name: r.name, baseBranch: r.base_branch,
+      branchPointAt: r.branch_point_at?.toISOString() ?? null,
+      createdAt: r.created_at.toISOString(),
+    };
   }
 
   // Write an array of change entries to branch_changes. Each entry: { itemId, changeType, section, data }.
@@ -3128,17 +3172,8 @@ class PostgresAdapter {
     };
   }
 
-  // Atomically merge all branch_changes into main tables, then mark branch merged.
-  async mergeBranch(branchId: any) {
-    const { rows: branchRows } = await this._exec(
-      'SELECT id, name FROM branches WHERE id = $1 AND deleted_at IS NULL AND merged_at IS NULL',
-      [branchId],
-    );
-    if (!branchRows.length) throw new Error(`Branch ${branchId} not found or already merged`);
-
-    const changeRows = await this.getBranchChanges(branchId);
-
-    // Group by item
+  // Group a branch's change rows by item: { changeType, sections: {item, meta, ...} }.
+  _groupBranchChanges(changeRows: any[]) {
     const byItem = new Map<any, any>();
     for (const r of changeRows) {
       if (!byItem.has(r.itemId)) byItem.set(r.itemId, { changeType: r.changeType, sections: {} });
@@ -3146,12 +3181,215 @@ class PostgresAdapter {
       if (r.changeType === 'delete') entry.changeType = 'delete';
       if (r.data) entry.sections[r.section] = r.data;
     }
+    return byItem;
+  }
+
+  // Flatten a staged entry's item+meta sections into the flat item shape the
+  // sqlite-fs previewMerge reports (enough for a review UI's before/after).
+  _stagedToItem(itemId: any, sections: any) {
+    const item = sections.item ?? {};
+    const meta = sections.meta ?? {};
+    return { id: itemId, ...item, ...meta, payload: sections.payload ?? undefined };
+  }
+
+  // Blast radius of deleting `deleteIds`, in the sqlite-fs shape:
+  // [{ id, referencedBy: [{ id, via }] }] with the fs `via` vocabulary
+  // (parent | link | relationship | alias | payload). Computed LIVE from the
+  // main tables — children via items.parent_id, [[uuid]] backlinks via
+  // perf_backlinks, inbound relationships via obj_<relationship>, alias items
+  // via obj_<alias> — because perf_references is only seeded by migration 022
+  // and not maintained on writes (stale for anything created since; it is
+  // still unioned in best-effort for payload-field refs). Referrers that are
+  // themselves in the delete set are excluded (no dangling ref is created).
+  async _blastRadiusFor(deleteIds: any[]) {
+    if (!deleteIds?.length) return [];
+    const delSet   = new Set(deleteIds);
+    const byTarget = new Map<any, any[]>();
+    const addRef = (targetId: any, sourceId: any, via: string) => {
+      if (!sourceId || delSet.has(sourceId) || sourceId === targetId) return;
+      if (!byTarget.has(targetId)) byTarget.set(targetId, []);
+      const refs = byTarget.get(targetId)!;
+      if (!refs.some(r => r.id === sourceId && r.via === via)) refs.push({ id: sourceId, via });
+    };
+
+    // Children (structural parent references)
+    const { rows: children } = await this._exec(
+      'SELECT id, parent_id FROM items WHERE parent_id = ANY($1) AND id != parent_id', [deleteIds],
+    );
+    for (const r of children) addRef(r.parent_id, r.id, 'parent');
+
+    // [[uuid]] inline links (derived backlink index, maintained on writes)
+    const { rows: links } = await this._exec(
+      'SELECT source_id, target_id FROM perf_backlinks WHERE target_id = ANY($1)', [deleteIds],
+    );
+    for (const r of links) addRef(r.target_id, r.source_id, 'link');
+
+    // Inbound relationships (relationship items are first-class, obj-projected)
+    try {
+      const relObj = objTableName(RELATIONSHIP_TYPE_ID);
+      const { rows: rels } = await this._exec(
+        `SELECT o.item_id AS id, o.target_id FROM "${relObj}" o
+           JOIN items i ON i.id = o.item_id
+          WHERE o.target_id = ANY($1) AND i.deleted_at IS NULL`, [deleteIds],
+      );
+      for (const r of rels) addRef(r.target_id, r.id, 'relationship');
+    } catch { /* obj_<relationship> not materialised yet → none */ }
+
+    // Alias items targeting a deleted id
+    try {
+      const aliasTable = objTableName(BUILT_IN_TYPE_ID_BY_NAME['alias']);
+      const { rows: aliases } = await this._exec(
+        `SELECT a.item_id AS id, a.target_id FROM "${aliasTable}" a
+           JOIN items i ON i.id = a.item_id
+          WHERE a.target_id = ANY($1) AND i.deleted_at IS NULL`, [deleteIds],
+      );
+      for (const r of aliases) addRef(r.target_id, r.id, 'alias');
+    } catch { /* obj_<alias> not materialised yet → none */ }
+
+    // Best-effort union of the seeded structural index (payload-field refs).
+    try {
+      const { rows } = await this._exec(
+        'SELECT source_item_id, target_item_id, reference_type FROM perf_references WHERE target_item_id = ANY($1)',
+        [deleteIds],
+      );
+      const VIA: any = { parent: 'parent', 'inline-link': 'link', relationship: 'relationship', 'payload-field': 'payload' };
+      for (const r of rows) addRef(r.target_item_id, r.source_item_id, VIA[r.reference_type] ?? r.reference_type);
+    } catch { /* older schemas without the index */ }
+
+    return [...byTarget.entries()].map(([id, referencedBy]) => ({ id, referencedBy }));
+  }
+
+  // Classify the branch's staged changes against CURRENT main using the fork
+  // watermark — the postgres twin of sqlite-fs previewMerge, same result shape:
+  // { adds, edits, deletes, watermark, conflicts, blastRadius }. Pure read.
+  //
+  // Conflict kinds (spec «Conflict-aware merge»):
+  //   edit-edit    staged create/update of an item main also modified after the fork
+  //   delete-edit  staged delete of an item main modified after the fork
+  //   add-delete   the branch kept/edited an item main has deleted since the fork
+  //                (staged update with no main row, or staged create whose
+  //                createdAt predates the fork), OR a never-merged genuine add is
+  //                impossible to confuse: its createdAt >= watermark.
+  // A staged delete of an already-gone item is a no-op, not a delete and not a
+  // conflict.
+  async previewMerge(nameOrId: any) {
+    const branch    = await this._resolveBranch(nameOrId);
+    const watermark = branch.branchPointAt ?? branch.createdAt ?? null;
+    const byItem    = this._groupBranchChanges(await this.getBranchChanges(branch.id));
+
+    const ids = [...byItem.keys()];
+    let current = new Map<any, any>();
+    if (ids.length) {
+      const { rows } = await this._exec('SELECT * FROM items WHERE id = ANY($1)', [ids]);
+      current = new Map(rows.map(r => [r.id, r]));
+    }
+
+    // ISO-8601 UTC timestamps sort correctly as plain strings.
+    const movedSinceFork = (modifiedAt: any) =>
+      !!watermark && !!modifiedAt && String(modifiedAt) > String(watermark);
+
+    const adds: any[] = [], edits: any[] = [], deletes: any[] = [], conflicts: any[] = [];
+    for (const [itemId, entry] of byItem) {
+      const before = rowToItem(current.get(itemId) ?? null);
+      const after  = this._stagedToItem(itemId, entry.sections);
+      if (entry.changeType === 'delete') {
+        if (!before) continue; // already gone on main — no-op
+        deletes.push({ id: itemId, before });
+        if (movedSinceFork(before.modifiedAt)) conflicts.push({ id: itemId, kind: 'delete-edit', before });
+      } else if (!before) {
+        adds.push({ id: itemId, after });
+        const created = entry.sections.meta?.createdAt ?? null;
+        if (entry.changeType === 'update' || (watermark && created && String(created) < String(watermark))) {
+          // update-with-no-row: main deleted it after the fork; create-with-old
+          // createdAt: same story seen from a re-pushed diff. Either way the
+          // branch kept an item main removed — never resurrect silently.
+          conflicts.push({ id: itemId, kind: 'add-delete', after });
+        }
+      } else {
+        edits.push({ id: itemId, before, after });
+        if (movedSinceFork(before.modifiedAt)) conflicts.push({ id: itemId, kind: 'edit-edit', before, after });
+      }
+    }
+
+    const blastRadius = await this._blastRadiusFor(deletes.map(d => d.id));
+    return { adds, edits, deletes, watermark, conflicts, blastRadius };
+  }
+
+  // Facade-uniform alias: the sqlite-fs adapter merges by NAME via
+  // mergeBranchLocally(name, opts); postgres resolves either name or id.
+  async mergeBranchLocally(nameOrId: any, opts: any = {}) {
+    const branch = await this._resolveBranch(nameOrId);
+    return this.mergeBranch(branch.id, opts);
+  }
+
+  // Atomically merge all branch_changes into main tables, then mark branch merged.
+  //
+  // Conflict handling (same contract as sqlite-fs mergeBranchLocally):
+  //   * default — ANY conflict aborts before anything is applied; throws with
+  //     `.code = 'MERGE_CONFLICT'` and `.conflicts`; the branch is preserved.
+  //   * { strategy: 'theirs' } — the branch wins: force-apply everything,
+  //     including resurrecting an add-delete item main removed.
+  //   * { strategy: 'ours' } — main wins for conflicting items: apply only the
+  //     clean changes; conflicting ones are skipped (and discarded with the
+  //     branch's change rows).
+  //   * { blockOnBlastRadius: true } — abort with `.code = 'MERGE_BLAST_RADIUS'`
+  //     if the applied deletes would leave live referrers on main.
+  async mergeBranch(branchId: any, opts: any = {}) {
+    const strategy = opts.strategy ?? null; // null | 'theirs' | 'ours'
+    if (strategy && strategy !== 'theirs' && strategy !== 'ours')
+      throw new Error(`Unknown merge strategy "${strategy}" (expected 'theirs' or 'ours')`);
+
+    const { rows: branchRows } = await this._exec(
+      'SELECT id, name FROM branches WHERE id = $1 AND deleted_at IS NULL AND merged_at IS NULL',
+      [branchId],
+    );
+    if (!branchRows.length) throw new Error(`Branch ${branchId} not found or already merged`);
+
+    const preview   = await this.previewMerge(branchId);
+    const conflicts = preview.conflicts;
+
+    if (conflicts.length && !strategy) {
+      const err: any = new Error(
+        `Merge of "${branchRows[0].name}" has ${conflicts.length} conflict(s): main item(s) changed after the ` +
+        `branch point. Re-run with { strategy: 'theirs' } (branch wins) or { strategy: 'ours' } ` +
+        `(keep main) to resolve.`);
+      err.code = 'MERGE_CONFLICT';
+      err.conflicts = conflicts;
+      throw err;
+    }
+
+    const conflictIds = new Set(conflicts.map((c: any) => c.id));
+    const skip = (id: any) => strategy === 'ours' && conflictIds.has(id);
+
+    const appliedDeleteIds = preview.deletes.filter((d: any) => !skip(d.id)).map((d: any) => d.id);
+    const blastRadius = await this._blastRadiusFor(appliedDeleteIds);
+    if (opts.blockOnBlastRadius && blastRadius.length) {
+      const err: any = new Error(
+        `Merge of "${branchRows[0].name}" would break ${blastRadius.length} reference target(s): deleted item(s) are ` +
+        `still referenced on main. Re-run without { blockOnBlastRadius } to merge anyway, or resolve the ` +
+        `references first.`);
+      err.code = 'MERGE_BLAST_RADIUS';
+      err.blastRadius = blastRadius;
+      throw err;
+    }
+
+    const changeRows = await this.getBranchChanges(branchId);
+    const byItem     = this._groupBranchChanges(changeRows);
+
+    // Items main has deleted since the fork have no row to UPDATE — under
+    // 'theirs' the branch's kept version must be resurrected, so route those
+    // staged updates through the INSERT path (their sections carry the full doc).
+    const resurrectIds = new Set(
+      preview.conflicts.filter((c: any) => c.kind === 'add-delete').map((c: any) => c.id));
 
     const client = await this._pool.connect();
+    let applied = 0, skipped = 0;
     try {
       await client.query('BEGIN');
 
       for (const [itemId, entry] of byItem) {
+        if (skip(itemId)) { skipped++; continue; }
+        applied++;
         if (entry.changeType === 'delete') {
           await client.query('DELETE FROM items WHERE id = $1', [itemId]);
         } else {
@@ -3159,7 +3397,7 @@ class PostgresAdapter {
           const meta    = entry.sections.meta    ?? {};
           const payload = entry.sections.payload ?? null;
 
-          if (entry.changeType === 'create') {
+          if (entry.changeType === 'create' || resurrectIds.has(itemId)) {
             // Insert into items table
             await client.query(`
               INSERT INTO items (id, parent_id, value, type, type_id, sort_order, aspect, spec_version,
@@ -3240,7 +3478,7 @@ class PostgresAdapter {
       client.release();
     }
 
-    return { merged: byItem.size, branchName: branchRows[0].name };
+    return { merged: applied, skipped, conflicts, blastRadius, branchName: branchRows[0].name };
   }
 
   async deleteBranch(name: any) {
