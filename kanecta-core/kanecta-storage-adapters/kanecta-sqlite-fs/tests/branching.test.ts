@@ -29,19 +29,21 @@ describe('branch lifecycle', () => {
     cleanup(a);
   });
 
-  test('createBranch returns manifest with name, base, fill, createdAt', () => {
+  test('createBranch returns manifest with name, base, fill, createdAt — default fill is SPARSE', () => {
     const a = tmpAdapter();
     const b = a.createBranch('feature/foo');
     expect(b.name).toBe('feature/foo');
     expect(b.base).toBe('main');
-    expect(b.fill).toBe('full');
+    expect(b.fill).toBe('sparse'); // scale-correct default (spec «Branch operations»)
+    expect(b.upstream).toEqual({ branch: 'main' });
     expect(b.createdAt).toBeTruthy();
+    expect(() => a.createBranch('feature/bad', { fill: 'partial' })).toThrow(/Unknown fill/);
     cleanup(a);
   });
 
   test('createBranch creates a full self-contained branch folder', () => {
     const a   = tmpAdapter();
-    a.createBranch('feature/foo');
+    a.createBranch('feature/foo', { fill: 'full' });
     const dir = path.join(a.k, 'branches', 'feature__foo');
     expect(fs.existsSync(dir)).toBe(true);
     expect(fs.existsSync(path.join(dir, 'branch.json'))).toBe(true);
@@ -58,7 +60,7 @@ describe('branch lifecycle', () => {
   test('createBranch is a full copy — base items appear in the new branch', () => {
     const a    = tmpAdapter();
     const item = a.create({ value: 'on main', type: 'text' });
-    a.createBranch('feature/foo');
+    a.createBranch('feature/foo', { fill: 'full' });
     // Item file copied into the branch's own items/ tree.
     expect(fs.existsSync(itemPathOn(a, 'feature__foo', item.id))).toBe(true);
     a.switchBranch('feature/foo');
@@ -202,7 +204,7 @@ describe('branch write path', () => {
   test('delete on branch of a copied item leaves main file intact', () => {
     const a    = tmpAdapter();
     const item = a.create({ value: 'to delete', type: 'text' });
-    a.createBranch('feature/foo');
+    a.createBranch('feature/foo', { fill: 'full' });
     a.switchBranch('feature/foo');
     a.delete(item.id);
     // Removed from the branch folder, still present on main.
@@ -545,7 +547,7 @@ describe('multiple branches', () => {
 
   test('a write on a branch does not appear on main and vice versa', () => {
     const a = tmpAdapter();
-    a.createBranch('feature/foo');
+    a.createBranch('feature/foo', { fill: 'full' });
 
     a.switchBranch('feature/foo');
     const onBranch = a.create({ value: 'branch only', type: 'text' });

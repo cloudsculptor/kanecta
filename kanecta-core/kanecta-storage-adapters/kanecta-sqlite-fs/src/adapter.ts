@@ -3542,10 +3542,13 @@ class SqliteFsAdapter {
   }
 
   // createBranch(name, { fill, upstream })
-  //   fill: 'full' (default) → recursive copy of the base branch folder.
-  //   fill: 'sparse'         → empty items/ that reads through to an upstream
-  //                            branch; only local changes (and tombstones for
-  //                            deletes) live in this branch's items/.
+  //   fill: 'sparse' (default) → empty items/ that reads through to an upstream
+  //                              branch; only local changes (and tombstones for
+  //                              deletes) live in this branch's items/. O(1) at
+  //                              any datastore size — the scale-correct default
+  //                              (owner decision 2026-07-18; spec updated).
+  //   fill: 'full'             → recursive copy of the base branch folder.
+  //                              Explicit opt-in for mirrors/localisation.
   //   upstream: { branch } for a LOCAL full branch (default { branch: base }),
   //             or { remote, branch } for a remote (federated at query time).
   createBranch(name: any, opts: any = {}) {
@@ -3553,11 +3556,14 @@ class SqliteFsAdapter {
     name = name.trim();
     if (name === 'main') throw new Error('Cannot create a branch named "main"');
     if (this._branchExists(name)) throw new Error(`Branch "${name}" already exists`);
+    const fill = opts.fill ?? 'sparse';
+    if (fill !== 'sparse' && fill !== 'full')
+      throw new Error(`Unknown fill "${fill}" (expected 'sparse' or 'full')`);
 
     const base = this._branch;
     const now  = new Date().toISOString();
 
-    if (opts.fill === 'sparse') {
+    if (fill === 'sparse') {
       const upstream = opts.upstream ?? { branch: base };
       const destDir  = this._branchRoot(name);
       fs.mkdirSync(path.join(destDir, 'items'), { recursive: true });
