@@ -877,7 +877,8 @@ describe('byTag / byType', () => {
   test('byType returns items with matching typeId', async () => {
     const { metadata: t } = await adapter.createType('TagByType', {
       schema: {
-        meta: {}, jsonSchema: { type: 'object', properties: {}, required: [], additionalProperties: false }, sqlSchema: [],
+        meta: { description: 'TagByType test type' },
+        jsonSchema: { '$schema': 'http://json-schema.org/draft-07/schema#', type: 'object', properties: {}, required: [], additionalProperties: false },
       },
     });
     const item = await adapter.create({ value: 'bytype-item', type: 'object', typeId: t.id });
@@ -969,10 +970,10 @@ describe('query', () => {
 describe('type definitions', () => {
   function makeTypeSchema(tableName, title) {
     return {
-      meta: { icon: '', description: '', details: '', keywords: '', tags: '', skills: { claude: '' } },
+      meta: { icon: '', description: 'a test type', details: '', keywords: '', tags: '', skills: { claude: '' } },
       jsonSchema: {
         '$schema': 'http://json-schema.org/draft-07/schema#', '$id': '',
-        title, type: 'object', properties: { label: { type: 'string' } },
+        title, type: 'object', properties: { label: { type: 'string', 'x-id': '66666666-6666-4666-8666-000000000001' } },
         required: [], additionalProperties: false,
       },
       sqlSchema: [
@@ -1118,9 +1119,8 @@ describe('type registry cutover (types -> obj_<type-type>)', () => {
         meta: { icon: 'Star', description: 'post-cutover type', skills: { claude: '' } },
         jsonSchema: {
           '$schema': 'http://json-schema.org/draft-07/schema#', title: 'CutoverWidget',
-          type: 'object', properties: { label: { type: 'string' } }, required: [], additionalProperties: false,
+          type: 'object', properties: { label: { type: 'string', 'x-id': '77777777-7777-4777-8777-000000000001' } }, required: [], additionalProperties: false,
         },
-        sqlSchema: [],
       },
       id,
     });
@@ -1143,7 +1143,15 @@ describe('objectData round-trip', () => {
     tableName = `obj_${typeId.replace(/-/g, '_')}`;
     await adapter.createType('DataType', {
       schema: {
-        meta: {}, jsonSchema: { type: 'object', properties: { label: { type: 'string' }, rank: { type: 'integer' } }, required: [], additionalProperties: false },
+        meta: { description: 'DataType test type' },
+        jsonSchema: {
+          '$schema': 'http://json-schema.org/draft-07/schema#', type: 'object',
+          properties: {
+            label: { type: 'string', 'x-id': '88888888-8888-4888-8888-000000000001' },
+            rank:  { type: 'integer', 'x-id': '88888888-8888-4888-8888-000000000002' },
+          },
+          required: [], additionalProperties: false,
+        },
         sqlSchema: [
           `CREATE TABLE "${tableName}" (
              item_id UUID NOT NULL, "label" TEXT, "rank" INTEGER,
@@ -1198,10 +1206,13 @@ describe('object payload validation', () => {
     tableName = `obj_${typeId.replace(/-/g, '_')}`;
     await adapter.createType('ValidatedBug', {
       schema: {
-        meta: {},
+        meta: { description: 'ValidatedBug test type' },
         jsonSchema: {
-          type: 'object',
-          properties: { severity: { type: 'string' }, count: { type: 'integer' } },
+          '$schema': 'http://json-schema.org/draft-07/schema#', type: 'object',
+          properties: {
+            severity: { type: 'string', 'x-id': '99999999-9999-4999-8999-000000000001' },
+            count:    { type: 'integer', 'x-id': '99999999-9999-4999-8999-000000000002' },
+          },
           required: ['severity'], additionalProperties: false,
         },
         sqlSchema: [
@@ -1261,14 +1272,15 @@ describe('per-type table projection', () => {
     await adapter.createType('Person', {
       id,
       schema: {
-        meta: { icon: 'Person' },
+        meta: { icon: 'Person', description: 'A test person type' },
         jsonSchema: {
+          '$schema': 'http://json-schema.org/draft-07/schema#',
           type: 'object',
           properties: {
-            fullName: { type: 'string' },
-            age:      { type: 'integer' },
-            active:   { type: 'boolean' },
-            tags:     { type: 'array', items: { type: 'string' } },
+            fullName: { type: 'string', 'x-id': '11111111-1111-4111-8111-000000000001' },
+            age:      { type: 'integer', 'x-id': '11111111-1111-4111-8111-000000000002' },
+            active:   { type: 'boolean', 'x-id': '11111111-1111-4111-8111-000000000003' },
+            tags:     { type: 'array', items: { type: 'string' }, 'x-id': '11111111-1111-4111-8111-000000000004' },
           },
         },
         indexes: [{ fields: ['fullName'] }],
@@ -1338,7 +1350,14 @@ describe('per-type table projection', () => {
     const robotTable = `obj_${robotId.replace(/-/g, '_')}`;
     await adapter.createType('Robot', {
       id: robotId,
-      schema: { meta: { icon: 'SmartToy' }, jsonSchema: { type: 'object', properties: { model: { type: 'string' } } } },
+      schema: {
+        meta: { icon: 'SmartToy', description: 'A test robot type' },
+        jsonSchema: {
+          '$schema': 'http://json-schema.org/draft-07/schema#',
+          type: 'object',
+          properties: { model: { type: 'string', 'x-id': '55555555-5555-4555-8555-000000000001' } },
+        },
+      },
     });
     const p = await adapter.create({ type: 'object', typeId: personId, value: 'Ada', objectData: { fullName: 'Ada' } });
     expect(await regclass(personTable)).toBe(personTable);
@@ -1647,7 +1666,12 @@ test('the first instance materialises the obj_* table with the FTS trigger', asy
   const tableName = `obj_${id.replace(/-/g, '_')}`;
   await adapter.createType('Doohickey', {
     schema: {
-      meta: {}, jsonSchema: { type: 'object', properties: { label: { type: 'string' } }, required: [], additionalProperties: false },
+      meta: { description: 'Doohickey test type' },
+      jsonSchema: {
+        '$schema': 'http://json-schema.org/draft-07/schema#', type: 'object',
+        properties: { label: { type: 'string', 'x-id': 'aaaaaaaa-0000-4000-8000-000000000001' } },
+        required: [], additionalProperties: false,
+      },
     },
     id,
   });
@@ -1690,7 +1714,12 @@ describe('full-text search', () => {
     const tableName = `obj_${id.replace(/-/g, '_')}`;
     await adapter.createType('Searchable', {
       schema: {
-        meta: {}, jsonSchema: { type: 'object', properties: { description: { type: 'string' } }, required: [], additionalProperties: false },
+        meta: { description: 'Searchable test type' },
+        jsonSchema: {
+          '$schema': 'http://json-schema.org/draft-07/schema#', type: 'object',
+          properties: { description: { type: 'string', 'x-id': 'bbbbbbbb-0000-4000-8000-000000000001' } },
+          required: [], additionalProperties: false,
+        },
         sqlSchema: [`CREATE TABLE "${tableName}" (item_id UUID NOT NULL, "description" TEXT, CONSTRAINT "pk_${tableName}" PRIMARY KEY (item_id), CONSTRAINT "fk_${tableName}_item" FOREIGN KEY (item_id) REFERENCES items(id))`],
       },
       id,
@@ -1728,7 +1757,12 @@ test('checkIntegrity flags orphan-type-id', async () => {
   const tableName = `obj_${id.replace(/-/g, '_')}`;
   await adapter.createType('IntegChk', {
     schema: {
-      meta: {}, jsonSchema: { type: 'object', properties: { label: { type: 'string' } }, required: [], additionalProperties: false },
+      meta: { description: 'IntegChk test type' },
+      jsonSchema: {
+        '$schema': 'http://json-schema.org/draft-07/schema#', type: 'object',
+        properties: { label: { type: 'string', 'x-id': 'cccccccc-0000-4000-8000-000000000001' } },
+        required: [], additionalProperties: false,
+      },
       sqlSchema: [`CREATE TABLE "${tableName}" (item_id UUID NOT NULL, "label" TEXT, CONSTRAINT "pk_${tableName}" PRIMARY KEY (item_id), CONSTRAINT "fk_${tableName}_item" FOREIGN KEY (item_id) REFERENCES items(id))`],
     },
     id,

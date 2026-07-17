@@ -34,11 +34,11 @@ describe('full-text search (FTS5)', () => {
     const typeItem = a.createType('contact', {
       icon: 'Person',
       schema: {
-        meta: { icon: 'Person', description: '', details: '', keywords: '', tags: '', 'ai-instructions': { claude: '' } },
+        meta: { icon: 'Person', description: 'a contact', details: '', keywords: '', tags: '', 'ai-instructions': { claude: '' } },
         jsonSchema: {
           '$schema': 'http://json-schema.org/draft-07/schema#', '$id': '',
           title: 'contact', type: 'object',
-          properties: { organisation: { type: 'string' } },
+          properties: { organisation: { type: 'string', 'x-id': '44444444-4444-4444-8444-000000000001' } },
           required: [], additionalProperties: false,
         },
       },

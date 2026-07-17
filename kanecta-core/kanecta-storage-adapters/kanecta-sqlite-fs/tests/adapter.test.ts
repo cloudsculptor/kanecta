@@ -538,7 +538,7 @@ describe('get', () => {
   it('returns icon from type schema when present', () => {
     const { metadata: t } = ds.createType('Flagged', {
       schema: {
-        meta: { icon: '🚩', description: '', details: '', keywords: '', tags: '', 'ai-instructions': { claude: '' } },
+        meta: { icon: '🚩', description: 'a flagged item', details: '', keywords: '', tags: '', 'ai-instructions': { claude: '' } },
         jsonSchema: { '$schema': 'http://json-schema.org/draft-07/schema#', '$id': '', title: 'Flagged', type: 'object', properties: {}, required: [], additionalProperties: false },
       },
     });
@@ -557,7 +557,10 @@ describe('object payload validation', () => {
         jsonSchema: {
           '$schema': 'http://json-schema.org/draft-07/schema#', '$id': '', title: 'ValidatedBug',
           type: 'object',
-          properties: { severity: { type: 'string' }, count: { type: 'integer' } },
+          properties: {
+            severity: { type: 'string', 'x-id': '22222222-2222-4222-8222-000000000001' },
+            count:    { type: 'integer', 'x-id': '22222222-2222-4222-8222-000000000002' },
+          },
           required: ['severity'], additionalProperties: false,
         },
       },
@@ -1308,7 +1311,7 @@ describe('type definitions', () => {
   it('createType() with explicit schema', () => {
     const schema = {
       meta: { icon: '🐛', description: 'A bug', details: '', keywords: '', tags: '', 'ai-instructions': { claude: '' } },
-      jsonSchema: { '$schema': 'http://json-schema.org/draft-07/schema#', '$id': '', title: 'Bug', type: 'object', properties: { severity: { type: 'string' } }, required: [], additionalProperties: false },
+      jsonSchema: { '$schema': 'http://json-schema.org/draft-07/schema#', '$id': '', title: 'Bug', type: 'object', properties: { severity: { type: 'string', 'x-id': '33333333-3333-4333-8333-000000000001' } }, required: [], additionalProperties: false },
     };
     const { metadata: m } = ds.createType('Bug', { schema });
     expect(ds.readTypeJson(m.id).meta.icon).toBe('🐛');

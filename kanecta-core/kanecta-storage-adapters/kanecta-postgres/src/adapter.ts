@@ -19,7 +19,7 @@ import {
   typeSeedMetaschema,
   relationshipTypeSeedMetaschema,
 } from '@kanecta/specification';
-import { validateItem } from '@kanecta/specification/validator';
+import { validateItem, validateType } from '@kanecta/specification/validator';
 import { deriveSqlSchema, deriveIndexDdl } from '@kanecta/schema-compiler';
 import { Pool } from 'pg';
 import type { PoolClient, QueryResult } from 'pg';
@@ -1883,6 +1883,20 @@ class PostgresAdapter {
   // persisted. Skips silently when the type has no resolvable jsonSchema (nothing
   // to validate against). Throws a PayloadValidationError on a schema violation so
   // invalid typed objects never reach the obj_<typeId> table.
+  _validateTypeSchema(typeId: any, typeJson: any) {
+    const result = validateType(typeJson);
+    if (!result.valid) {
+      const err: any = new Error(
+        `Type definition failed validation for type ${typeId}: ` +
+        result.errors.map((e: any) => `${e.path || '(root)'}: ${e.message}`).join('; '),
+      );
+      err.name = 'TypeValidationError';
+      err.code = 'INVALID_TYPE';
+      err.validationErrors = result.errors;
+      throw err;
+    }
+  }
+
   async _validateObjectPayload(typeId: any, data: any) {
     if (!typeId || data == null) return;
     const typeJson = await this.readTypeJson(typeId);
@@ -2343,19 +2357,10 @@ class PostgresAdapter {
     const owner = this.config.owner;
     const actor = createdBy || owner;
 
-    await this._exec(
-      `INSERT INTO items (id, spec_version, parent_id, path, value, type, owner, license, sort_order,
-         created_at, modified_at, created_by, modified_by)
-       VALUES ($1, $2, $1, $7, $3, 'type', $4, $5, 0, $6, $6, $4, $4)
-       ON CONFLICT (id) DO NOTHING`,
-      // $7 is the text `path` (a type item's path is its own id). It is a
-      // separate parameter from $1 (uuid id/parent_id) so PG doesn't try to
-      // deduce one type for a value used as both uuid and text.
-      [id, specVersion, value.trim(), owner, DEFAULT_LICENSE, now, String(id)],
-    );
-
     const resolvedSchema = schema || {
-      meta: { icon: '', description: '', details: '', keywords: '', tags: '', skills: { claude: '' } },
+      // description defaults to the type's name — validateType requires a
+      // non-empty description on every type definition.
+      meta: { icon: '', description: value.trim(), details: '', keywords: '', tags: '', skills: { claude: '' } },
       jsonSchema: {
         '$schema': 'http://json-schema.org/draft-07/schema#',
         '$id': '',
@@ -2366,6 +2371,21 @@ class PostgresAdapter {
         additionalProperties: false,
       },
     };
+
+    // Spec: the adapter enforces correctness at write time — a type definition
+    // is validated BEFORE anything persists, exactly like object payloads.
+    this._validateTypeSchema(id, resolvedSchema);
+
+    await this._exec(
+      `INSERT INTO items (id, spec_version, parent_id, path, value, type, owner, license, sort_order,
+         created_at, modified_at, created_by, modified_by)
+       VALUES ($1, $2, $1, $7, $3, 'type', $4, $5, 0, $6, $6, $4, $4)
+       ON CONFLICT (id) DO NOTHING`,
+      // $7 is the text `path` (a type item's path is its own id). It is a
+      // separate parameter from $1 (uuid id/parent_id) so PG doesn't try to
+      // deduce one type for a value used as both uuid and text.
+      [id, specVersion, value.trim(), owner, DEFAULT_LICENSE, now, String(id)],
+    );
 
     const meta = resolvedSchema.meta ?? {};
     // The type registry is the type-type's own projection obj_<type-type> (spec

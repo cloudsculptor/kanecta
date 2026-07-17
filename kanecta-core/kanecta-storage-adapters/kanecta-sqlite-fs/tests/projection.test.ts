@@ -21,14 +21,15 @@ function definePerson(a: any) {
   return a.createType('Person', {
     id: PERSON_ID,
     schema: {
-      meta: { icon: 'Person' },
+      meta: { icon: 'Person', description: 'A test person type' },
       jsonSchema: {
+        '$schema': 'http://json-schema.org/draft-07/schema#',
         type: 'object',
         properties: {
-          fullName: { type: 'string' },
-          age:      { type: 'integer' },
-          active:   { type: 'boolean' },
-          tags:     { type: 'array', items: { type: 'string' } },
+          fullName: { type: 'string', 'x-id': '11111111-1111-4111-8111-000000000001' },
+          age:      { type: 'integer', 'x-id': '11111111-1111-4111-8111-000000000002' },
+          active:   { type: 'boolean', 'x-id': '11111111-1111-4111-8111-000000000003' },
+          tags:     { type: 'array', items: { type: 'string' }, 'x-id': '11111111-1111-4111-8111-000000000004' },
         },
       },
       indexes: [{ fields: ['fullName'] }],
@@ -178,7 +179,14 @@ describe('per-type projection — update', () => {
     const OTHER_ID = 'ffffffff-1111-2222-3333-444444444444';
     a.createType('Robot', {
       id: OTHER_ID,
-      schema: { meta: { icon: 'SmartToy' }, jsonSchema: { type: 'object', properties: { model: { type: 'string' } } } },
+      schema: {
+        meta: { icon: 'SmartToy', description: 'A test robot type' },
+        jsonSchema: {
+          '$schema': 'http://json-schema.org/draft-07/schema#',
+          type: 'object',
+          properties: { model: { type: 'string', 'x-id': '55555555-5555-4555-8555-000000000001' } },
+        },
+      },
     });
     const p = addPerson(a, { fullName: 'Ada' });
     expect(tableExists(a)).toBe(true);

@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import Database from 'better-sqlite3';
 import * as spec from '@kanecta/specification';
 import { deriveSqlSchema, deriveIndexDdl, objTableName } from '@kanecta/schema-compiler';
-import { validateItem } from '@kanecta/specification/validator';
+import { validateItem, validateType } from '@kanecta/specification/validator';
 import { createEmbeddingProvider, reciprocalRankFusion } from '@kanecta/embeddings';
 import { WriteGuard } from './write-integrity.ts';
 
@@ -2107,6 +2107,20 @@ class SqliteFsAdapter {
   // persisted. Skips silently when there is no payload or no resolvable jsonSchema
   // (nothing to validate against). Throws a PayloadValidationError on a schema
   // violation so invalid typed objects never reach items_payload.
+  _validateTypeSchema(typeId: any, typeJson: any) {
+    const result = validateType(typeJson);
+    if (!result.valid) {
+      const err: any = new Error(
+        `Type definition failed validation for type ${typeId}: ` +
+        result.errors.map((e: any) => `${e.path || '(root)'}: ${e.message}`).join('; '),
+      );
+      err.name = 'TypeValidationError';
+      err.code = 'INVALID_TYPE';
+      err.validationErrors = result.errors;
+      throw err;
+    }
+  }
+
   _validateObjectPayload(typeId: any, data: any) {
     if (!typeId || data == null) return;
     const typeJson = this.readTypeJson(typeId);
@@ -2654,7 +2668,9 @@ class SqliteFsAdapter {
     const actor = createdBy || owner;
     const resolvedSchema = schema || {
       meta: {
-        icon: resolvedIcon.trim(), description: '', details: '', keywords: '', tags: '',
+        // description defaults to the type's name — validateType requires a
+        // non-empty description on every type definition.
+        icon: resolvedIcon.trim(), description: value.trim(), details: '', keywords: '', tags: '',
         'ai-instructions': { claude: '' },
       },
       jsonSchema: {
@@ -2663,6 +2679,10 @@ class SqliteFsAdapter {
         additionalProperties: false,
       },
     };
+
+    // Spec: the adapter enforces correctness at write time — a type definition
+    // is validated BEFORE anything persists, exactly like object payloads.
+    this._validateTypeSchema(id, resolvedSchema);
 
     const item: any = {
       id, specVersion, parentId: TYPES_NODE,
