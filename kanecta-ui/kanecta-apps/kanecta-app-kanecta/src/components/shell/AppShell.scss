@@ -1,0 +1,64 @@
+.AppShell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface-raised);
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+
+  &__login {
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
+    border-radius: 4px;
+    padding: 0.35rem 0.9rem;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--color-hover);
+    }
+  }
+
+  &__account {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+
+    &-name {
+      color: var(--color-text-secondary);
+      font-size: 0.9rem;
+    }
+
+    &-logout {
+      border: 1px solid var(--color-border);
+      background: var(--color-surface);
+      color: var(--color-text);
+      border-radius: 4px;
+      padding: 0.35rem 0.9rem;
+      cursor: pointer;
+
+      &:hover {
+        background: var(--color-hover);
+      }
+    }
+  }
+
+  &__content {
+    flex: 1;
+    overflow: auto;
+  }
+}
