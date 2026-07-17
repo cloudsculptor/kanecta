@@ -487,3 +487,87 @@ describe('reverse blast radius — danglingRefs', () => {
     cleanup(a);
   });
 });
+
+// ─── Content-fingerprint conflict detection (bases.json) ──────────────────────
+// The durable, clock-free mechanism (owner decision 2026-07-18): materialising
+// an upstream item on a sparse branch records a sha256 of the base doc; merge
+// compares the CURRENT upstream doc's content hash to that base hash. The
+// timestamp watermark remains the fallback for items without a fingerprint.
+
+describe('sparse branch base fingerprints', () => {
+  test('materialising an edit records the base fingerprint in bases.json', () => {
+    const { a, onMain } = withSparseBranch();
+    a.update(onMain.id, { value: 'edited on branch' });
+
+    const bases = JSON.parse(
+      fs.readFileSync(path.join(a.k, 'branches', 'feature__sparse', 'bases.json'), 'utf8'));
+    expect(bases[onMain.id].sha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(bases[onMain.id].modifiedAt).toBeTruthy();
+    cleanup(a);
+  });
+
+  test('upstream touched-then-REVERTED reads clean under the fingerprint (timestamps would flag it)', () => {
+    const { a, onMain } = withSparseBranch();
+    a.update(onMain.id, { value: 'edited on branch' });
+
+    // Upstream: change the value, then change it back. modifiedAt has moved
+    // past the watermark (the old check would cry conflict) but the CONTENT is
+    // identical to the branch's base.
+    a.useBranch('main');
+    tick();
+    a.update(onMain.id, { value: 'temporarily different' });
+    tick();
+    a.update(onMain.id, { value: 'on main' });
+
+    const preview = a.previewMerge('feature/sparse');
+    expect(preview.conflicts).toEqual([]);
+    const result = a.mergeBranchLocally('feature/sparse');
+    expect(result.merged).toBe(1);
+    expect(a.get(onMain.id).value).toBe('edited on branch');
+    cleanup(a);
+  });
+
+  test('a REAL upstream content change still conflicts under the fingerprint', () => {
+    const { a, onMain } = withSparseBranch();
+    a.update(onMain.id, { value: 'edited on branch' });
+
+    a.useBranch('main');
+    tick();
+    a.update(onMain.id, { value: 'moved on main' });
+
+    const preview = a.previewMerge('feature/sparse');
+    expect(preview.conflicts).toHaveLength(1);
+    expect(preview.conflicts[0].kind).toBe('edit-edit');
+    expect(() => a.mergeBranchLocally('feature/sparse')).toThrow(/conflict/);
+    cleanup(a);
+  });
+
+  test('a tombstone delete records the base too — delete-edit via content hash', () => {
+    const { a, child } = withSparseBranch();
+    a.delete(child.id); // tombstone on the branch → base fingerprint captured
+
+    const bases = JSON.parse(
+      fs.readFileSync(path.join(a.k, 'branches', 'feature__sparse', 'bases.json'), 'utf8'));
+    expect(bases[child.id].sha256).toMatch(/^[0-9a-f]{64}$/);
+
+    a.useBranch('main');
+    tick();
+    a.update(child.id, { value: 'edited after branch deleted it' });
+
+    const preview = a.previewMerge('feature/sparse');
+    expect(preview.conflicts).toHaveLength(1);
+    expect(preview.conflicts[0].kind).toBe('delete-edit');
+    cleanup(a);
+  });
+
+  test('genuine branch adds never get a fingerprint (nothing upstream to base on)', () => {
+    const { a } = withSparseBranch();
+    a.create({ value: 'born on branch', type: 'text' });
+    const basesPath = path.join(a.k, 'branches', 'feature__sparse', 'bases.json');
+    if (fs.existsSync(basesPath)) {
+      const bases = JSON.parse(fs.readFileSync(basesPath, 'utf8'));
+      expect(Object.keys(bases)).toHaveLength(0);
+    }
+    cleanup(a);
+  });
+});

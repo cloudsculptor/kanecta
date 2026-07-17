@@ -462,13 +462,75 @@ class SqliteFsAdapter {
   }
 
   // Atomic write: temp file + rename so item.json is never partially written.
+  // On a sparse branch, the FIRST write for an upstream-inherited item (edit
+  // materialisation or tombstone) records the base version's content
+  // fingerprint — see _recordBaseFingerprint.
   _writeItemJson(id: any, doc: any, store: any = 'items') {
+    if (store === 'items') this._recordBaseFingerprint(id);
     const dir = this._itemDir(id, store);
     fs.mkdirSync(dir, { recursive: true });
     const p   = this._itemPath(id, store);
     const tmp = p + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify(doc, null, 2), 'utf8');
     fs.renameSync(tmp, p);
+  }
+
+  // ─── Base fingerprints (content-hash conflict detection) ───────────────────
+  // The durable conflict mechanism (owner decision 2026-07-18): when a sparse
+  // branch first materialises an upstream item (edit) or tombstones it
+  // (delete), the branch records a sha256 of the base doc it forked from, in
+  // the branch root's bases.json ({ id: { sha256, modifiedAt, capturedAt } }).
+  // Merge then detects a conflict by comparing the CURRENT upstream doc's hash
+  // to the recorded base hash — clock-free (no shared-clock assumption, no
+  // skew), and a touched-then-reverted upstream item correctly reads as clean.
+  // The branchPoint timestamp watermark remains the fast-path fallback for
+  // branches/items without a fingerprint (pre-existing branches).
+
+  // CONTENT hash: bookkeeping stamps (meta.modifiedAt/modifiedBy) are excluded
+  // so a conflict means "upstream content differs from my base", not "upstream
+  // was written to" — an item edited and then reverted hashes clean.
+  _docHash(doc: any) {
+    let d = doc;
+    if (d?.meta && ('modifiedAt' in d.meta || 'modifiedBy' in d.meta)) {
+      const { modifiedAt: _ma, modifiedBy: _mb, ...meta } = d.meta;
+      d = { ...d, meta };
+    }
+    return crypto.createHash('sha256').update(JSON.stringify(d)).digest('hex');
+  }
+
+  _basesPath(name?: any) { return path.join(this._branchRoot(name ?? this._branch), 'bases.json'); }
+
+  _baseFingerprints(name?: any) {
+    try { return JSON.parse(fs.readFileSync(this._basesPath(name), 'utf8')); }
+    catch { return {}; }
+  }
+
+  _recordBaseFingerprint(id: any) {
+    if (!this._isSparse()) return;
+    if (fs.existsSync(this._itemPath(id))) return; // already materialised — base already captured
+    const up = this._localUpstream();
+    if (!up) return;
+    let upDoc: any = null;
+    try { upDoc = JSON.parse(fs.readFileSync(this._branchItemPath(up, id), 'utf8')); }
+    catch { return; } // genuine add — no base to fingerprint
+    const bases = this._baseFingerprints();
+    if (bases[id]) return;
+    bases[id] = {
+      sha256:     this._docHash(upDoc),
+      modifiedAt: upDoc?.meta?.modifiedAt ?? null,
+      capturedAt: new Date().toISOString(),
+    };
+    const p = this._basesPath(), tmp = p + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(bases, null, 2), 'utf8');
+    fs.renameSync(tmp, p);
+  }
+
+  // Current doc for `id` in the named branch's UPSTREAM tree (null if absent).
+  _upstreamDocOf(branchName: any, id: any) {
+    const m  = this._branchManifest(branchName);
+    const up = m.fill === 'sparse' ? (m.upstream?.branch ?? m.base ?? 'main') : 'main';
+    try { return JSON.parse(fs.readFileSync(this._branchItemPath(up, id), 'utf8')); }
+    catch { return null; }
   }
 
   _deleteItemDir(id: any, store: any = 'items') {
@@ -3751,18 +3813,34 @@ class SqliteFsAdapter {
     const diff     = this.branchDiff(name);
     const manifest = this._branchManifest(name) || {};
     const watermark = manifest.branchPoint?.at ?? manifest.createdAt ?? null;
+    const bases     = this._baseFingerprints(name);
 
     // ISO-8601 UTC timestamps sort correctly as plain strings.
     const movedSinceFork = (upstreamModifiedAt: any) =>
       !!watermark && !!upstreamModifiedAt && String(upstreamModifiedAt) > String(watermark);
 
+    // Did the upstream move since the fork, for an item the branch touched?
+    // Content fingerprint first (durable, clock-free: the CURRENT upstream
+    // doc's hash vs the base hash recorded at materialisation — and an
+    // upstream item touched-then-reverted correctly reads as clean); the
+    // timestamp watermark is the fallback for items without a fingerprint
+    // (branches created before bases.json existed).
+    const upstreamMoved = (id: any, upstreamModifiedAt: any) => {
+      const base = bases[id];
+      if (base?.sha256) {
+        const upDoc = this._upstreamDocOf(name, id);
+        return !!upDoc && this._docHash(upDoc) !== base.sha256;
+      }
+      return movedSinceFork(upstreamModifiedAt);
+    };
+
     const conflicts: any[] = [];
     for (const e of diff.edits) {
-      if (movedSinceFork(e.before?.modifiedAt))
+      if (upstreamMoved(e.id, e.before?.modifiedAt))
         conflicts.push({ id: e.id, kind: 'edit-edit', before: e.before, after: e.after });
     }
     for (const d of diff.deletes) {
-      if (movedSinceFork(d.before?.modifiedAt))
+      if (upstreamMoved(d.id, d.before?.modifiedAt))
         conflicts.push({ id: d.id, kind: 'delete-edit', before: d.before });
     }
     // Edit-vs-upstream-delete: an "add" (present locally, absent upstream) whose
