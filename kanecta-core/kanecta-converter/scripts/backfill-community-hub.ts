@@ -18,7 +18,16 @@ import { planBackfill } from '../src/backfill.ts';
 import { applyBackfillPlan } from '../src/backfill-executor.ts';
 import { PostgresAdapter } from '../../kanecta-storage-adapters/kanecta-postgres/src/adapter.ts';
 
-const SOURCE = { host: 'localhost', port: 45433, database: 'communityhub', user: 'kanecta', password: 'kanecta' };
+// Source defaults to the LOCAL prod-copy container (:45433). For the real
+// cutover run, point SOURCE_PG_* at the production database (read-only use).
+const SOURCE = {
+  host:     process.env.SOURCE_PG_HOST     || 'localhost',
+  port:     Number(process.env.SOURCE_PG_PORT || 45433),
+  database: process.env.SOURCE_PG_DATABASE || 'communityhub',
+  user:     process.env.SOURCE_PG_USER     || 'kanecta',
+  password: process.env.SOURCE_PG_PASSWORD || 'kanecta',
+  ...(process.env.SOURCE_PG_SSL ? { ssl: { rejectUnauthorized: false } } : {}),
+};
 const TARGET_CONN = process.env.KANECTA_TEST_PG_URL || 'postgres://kanecta:kanecta@localhost:45432/kanecta';
 const SOURCE_SYSTEM = 'community-hub';
 const OWNER = 'community-hub-backfill';
