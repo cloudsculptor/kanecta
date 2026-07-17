@@ -91,6 +91,10 @@ const REL_TYPE_ID_BY_NAME: Record<string, string> = Object.fromEntries(
   builtInRelationshipTypeItems.map((i: any) => [i.item.value, i.item.id]),
 );
 const UUID_RE      = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Reserved marker-name prefix for file tombstones (sparse branches masking an
+// inherited upstream sidecar). Never a valid user sidecar name.
+const FILE_TOMBSTONE_PREFIX = '.tombstone.';
 const DEFAULT_LICENSE = 'bb3bf137-d8a9-4264-9fb7-ac373b1d4739';
 const LINK_SOURCE  = '\\[\\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\\]\\]';
 
@@ -2337,13 +2341,25 @@ class SqliteFsAdapter {
   // identically over a sqlite-fs datastore. Hard delete already removes the whole
   // item folder (_deleteItemDir), so sidecar bytes are cleaned up with the item.
 
-  // A sidecar name is a single path segment and never the item.json itself or a
-  // .tmp staging file (those are the atomic-write intermediates).
+  // A sidecar name is a single path segment and never the item.json itself, a
+  // .tmp staging file (atomic-write intermediates), or a reserved
+  // `.tombstone.*` marker (file tombstones — see deleteFile).
   _validSidecarName(filename: any) {
     return typeof filename === 'string' && filename.length > 0
       && filename !== 'item.json' && !filename.endsWith('.tmp')
+      && !filename.startsWith(FILE_TOMBSTONE_PREFIX)
       && !filename.includes('/') && !filename.includes('\\')
       && filename !== '.' && filename !== '..';
+  }
+
+  // Path of the file-tombstone marker masking `filename` for `id` on the ACTIVE
+  // branch. The marker is the file twin of the item tombstone: a sparse branch
+  // cannot physically remove an inherited upstream sidecar, so an empty
+  // `.tombstone.<filename>` in the branch's item dir masks it on read and
+  // applies the deletion at merge. The `.tombstone.` namespace is reserved
+  // (rejected by _validSidecarName) so it can never collide with user files.
+  _fileTombstonePath(id: any, filename: any) {
+    return path.join(this._itemDir(id), FILE_TOMBSTONE_PREFIX + filename);
   }
 
   // Directories a sidecar for `id` may physically live in, in read precedence:
@@ -2375,6 +2391,8 @@ class SqliteFsAdapter {
     const tmp = p + '.tmp';
     fs.writeFileSync(tmp, Buffer.isBuffer(body) ? body : Buffer.from(body));
     fs.renameSync(tmp, p);
+    // Re-adding a file un-deletes it: clear any tombstone masking this name.
+    try { fs.unlinkSync(this._fileTombstonePath(itemId, filename)); } catch { /* none */ }
   }
 
   // Read sidecar bytes: Buffer, or null when absent (parity with the S3 adapter,
@@ -2382,30 +2400,52 @@ class SqliteFsAdapter {
   // upstream's.
   getFile(itemId: any, filename: any) {
     if (!this._validSidecarName(filename)) return null;
-    for (const dir of this._sidecarDirs(itemId)) {
+    const [localDir, ...upstreamDirs] = this._sidecarDirs(itemId);
+    try { return fs.readFileSync(path.join(localDir, filename)); }
+    catch { /* not local — check the mask, then fall through */ }
+    if (fs.existsSync(this._fileTombstonePath(itemId, filename))) return null; // masked
+    for (const dir of upstreamDirs) {
       try { return fs.readFileSync(path.join(dir, filename)); }
       catch { /* not in this dir — fall through */ }
     }
     return null;
   }
 
-  // Delete a sidecar from the ACTIVE branch only (idempotent). On a sparse
-  // branch an upstream sidecar is not masked — deleting inherited bytes is a
-  // branch-merge concern, not a byte-store one.
+  // Delete a sidecar (idempotent). Removes the ACTIVE branch's copy; on a
+  // sparse branch, an inherited upstream sidecar is additionally MASKED with a
+  // file tombstone (the byte twin of the item tombstone) so the delete is
+  // visible on the branch and applied to the upstream at merge. The upstream's
+  // bytes are never touched here.
   deleteFile(itemId: any, filename: any) {
     if (!this._validSidecarName(filename)) return;
     try { fs.unlinkSync(path.join(this._itemDir(itemId), filename)); }
     catch { /* already absent */ }
+    const [, ...upstreamDirs] = this._sidecarDirs(itemId);
+    if (upstreamDirs.some(dir => fs.existsSync(path.join(dir, filename)))) {
+      const marker = this._fileTombstonePath(itemId, filename);
+      fs.mkdirSync(path.dirname(marker), { recursive: true });
+      fs.writeFileSync(marker, '');
+    }
   }
 
   // List sidecar filenames (deduped across local + sparse upstream, sorted).
+  // Tombstone markers are never listed and mask the upstream name they cover.
   listFiles(itemId: any) {
-    const names = new Set<string>();
-    for (const dir of this._sidecarDirs(itemId)) {
+    const [localDir, ...upstreamDirs] = this._sidecarDirs(itemId);
+    const names  = new Set<string>();
+    const masked = new Set<string>();
+    let localEntries: string[] = [];
+    try { localEntries = fs.readdirSync(localDir); } catch { /* no local dir */ }
+    for (const name of localEntries) {
+      if (name.startsWith(FILE_TOMBSTONE_PREFIX)) { masked.add(name.slice(FILE_TOMBSTONE_PREFIX.length)); continue; }
+      if (name !== 'item.json' && !name.endsWith('.tmp')) names.add(name);
+    }
+    for (const dir of upstreamDirs) {
       let entries: string[];
       try { entries = fs.readdirSync(dir); } catch { continue; }
       for (const name of entries) {
-        if (name !== 'item.json' && !name.endsWith('.tmp')) names.add(name);
+        if (name === 'item.json' || name.endsWith('.tmp') || name.startsWith(FILE_TOMBSTONE_PREFIX)) continue;
+        if (!masked.has(name)) names.add(name);
       }
     }
     return [...names].sort();
@@ -3625,6 +3665,45 @@ class SqliteFsAdapter {
     return { adds, edits, deletes };
   }
 
+  // The branch's FILE-sidecar delta vs its upstream: for every item dir in a
+  // sparse branch, local non-tombstone sidecars are puts (new or CoW-modified
+  // bytes) and `.tombstone.*` markers are deletes of inherited upstream bytes.
+  // Item docs are irrelevant here — an item dir holding only sidecars (a
+  // file-only change to an inherited item) is precisely the case item-level
+  // branchDiff cannot see. Returns [{ id, puts: [names], deletes: [names] }].
+  // Full branches return [] — their merge semantics predate file tracking and
+  // a byte-level tree compare is O(all files); sparse is the working-branch
+  // model (and the default).
+  fileChanges(name: any) {
+    name = (name ?? this._branch).trim();
+    if (name === 'main' || !this._branchExists(name)) return [];
+    if (this._branchManifest(name)?.fill !== 'sparse') return [];
+    const itemsDir = path.join(this._branchRoot(name), 'items');
+    const out: any[] = [];
+    let l1: string[] = [];
+    try { l1 = fs.readdirSync(itemsDir); } catch { return []; }
+    for (const s1 of l1) {
+      let l2: string[] = [];
+      try { l2 = fs.readdirSync(path.join(itemsDir, s1)); } catch { continue; }
+      for (const s2 of l2) {
+        let ids: string[] = [];
+        try { ids = fs.readdirSync(path.join(itemsDir, s1, s2)); } catch { continue; }
+        for (const id of ids) {
+          let entries: string[] = [];
+          try { entries = fs.readdirSync(path.join(itemsDir, s1, s2, id)); } catch { continue; }
+          const puts: string[] = [], deletes: string[] = [];
+          for (const e of entries) {
+            if (e === 'item.json' || e.endsWith('.tmp')) continue;
+            if (e.startsWith(FILE_TOMBSTONE_PREFIX)) deletes.push(e.slice(FILE_TOMBSTONE_PREFIX.length));
+            else puts.push(e);
+          }
+          if (puts.length || deletes.length) out.push({ id, puts: puts.sort(), deletes: deletes.sort() });
+        }
+      }
+    }
+    return out;
+  }
+
   // Classify a branch's changes against its CURRENT upstream using the per-item
   // watermark. `branchPoint.at` (else the branch's `createdAt`) is the instant the
   // branch forked; any upstream item whose `modifiedAt` is NEWER than that was
@@ -3710,7 +3789,11 @@ class SqliteFsAdapter {
     // merge could create dangling references in the very act of applying.
     const danglingRefs = this._computeDanglingRefs(diff);
 
-    return { ...diff, watermark, conflicts, blastRadius, danglingRefs };
+    // File-sidecar delta (sparse branches): byte puts + tombstoned deletes the
+    // merge will apply alongside the item changes.
+    const fileChanges = this.fileChanges(name);
+
+    return { ...diff, watermark, conflicts, blastRadius, danglingRefs, fileChanges };
   }
 
   // For each add/edit in a branch diff, check its outbound references against
@@ -3859,6 +3942,28 @@ class SqliteFsAdapter {
       merged++;
     }
 
+    // Apply the branch's file-sidecar delta onto main: copy put bytes, unlink
+    // tombstoned names. Runs after the doc writes (an added item's dir now
+    // exists) and before the index rebuild (so FTS/embedding ingest sees the
+    // final bytes). Items skipped by 'ours' skip their file changes too; an
+    // item deleted in this merge (or absent from main) has no dir to update.
+    const files = { put: 0, deleted: 0 };
+    const branchItemsDir = path.join(this._branchRoot(name), 'items');
+    for (const fc of (preview.fileChanges ?? [])) {
+      if (skip(fc.id)) continue;
+      const [s1, s2] = this._shard(fc.id);
+      const mainDir  = path.join(mainItemsDir, s1, s2, fc.id);
+      if (!fs.existsSync(path.join(mainDir, 'item.json'))) continue;
+      const branchDir = path.join(branchItemsDir, s1, s2, fc.id);
+      for (const f of fc.puts) {
+        fs.copyFileSync(path.join(branchDir, f), path.join(mainDir, f));
+        files.put++;
+      }
+      for (const f of fc.deletes) {
+        try { fs.unlinkSync(path.join(mainDir, f)); files.deleted++; } catch { /* already absent */ }
+      }
+    }
+
     // index.db is fully derived — rebuild main's index from its files.
     this.rebuildIndexes();
 
@@ -3866,7 +3971,7 @@ class SqliteFsAdapter {
     const dir = this._branchRoot(name);
     if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
 
-    return { merged, skipped, conflicts, blastRadius, danglingRefs };
+    return { merged, skipped, conflicts, blastRadius, danglingRefs, files };
   }
 
   // ─── Integrity checks ─────────────────────────────────────────────────────

@@ -102,3 +102,79 @@ describe('file store (sidecars)', () => {
     expect(a.getFile(item.id, 'main-only.bin')).not.toBeNull();
   });
 });
+
+// ─── File tombstones — sparse branches deleting inherited bytes ───────────────
+// The byte twin of the item tombstone: a sparse branch masks an inherited
+// upstream sidecar with a reserved `.tombstone.<filename>` marker, and the
+// merge applies the deletion (and copies branch-written bytes) onto main.
+
+describe('sparse branch file tombstones + merge', () => {
+  let a: any;
+  let item: any;
+  const bytes = Buffer.from('inherited-bytes');
+
+  beforeEach(() => {
+    a = tmpAdapter();
+    item = a.create({ value: 'holder', type: 'text' });
+    a.putFile(item.id, 'doc.pdf', bytes);
+    a.createBranch('feature/files', { fill: 'sparse' });
+    a.useBranch('feature/files');
+  });
+  afterEach(() => cleanup(a));
+
+  test('deleteFile on a sparse branch masks the inherited sidecar without touching upstream', () => {
+    expect(a.getFile(item.id, 'doc.pdf')).toEqual(bytes); // read-through first
+    a.deleteFile(item.id, 'doc.pdf');
+    expect(a.getFile(item.id, 'doc.pdf')).toBeNull();
+    expect(a.listFiles(item.id)).toEqual([]);
+
+    a.useBranch('main'); // upstream bytes untouched
+    expect(a.getFile(item.id, 'doc.pdf')).toEqual(bytes);
+  });
+
+  test('putFile after deleteFile un-masks (re-add wins over the tombstone)', () => {
+    a.deleteFile(item.id, 'doc.pdf');
+    const fresh = Buffer.from('fresh-bytes');
+    a.putFile(item.id, 'doc.pdf', fresh);
+    expect(a.getFile(item.id, 'doc.pdf')).toEqual(fresh);
+    expect(a.listFiles(item.id)).toEqual(['doc.pdf']);
+  });
+
+  test('reserved .tombstone.* names are rejected as sidecar names', () => {
+    expect(() => a.putFile(item.id, '.tombstone.doc.pdf', 'x')).toThrow(/invalid sidecar/);
+    expect(a.getFile(item.id, '.tombstone.doc.pdf')).toBeNull();
+  });
+
+  test('merge applies file puts AND tombstoned deletes onto main (file-only changes)', () => {
+    // File-only changes to an INHERITED item: no item.json ever materialises on
+    // the branch, which is exactly what item-level branchDiff cannot see.
+    const added = Buffer.from('branch-added-bytes');
+    a.putFile(item.id, 'new.txt', added);
+    a.deleteFile(item.id, 'doc.pdf');
+
+    const preview = a.previewMerge('feature/files');
+    expect(preview.fileChanges).toEqual([
+      { id: item.id, puts: ['new.txt'], deletes: ['doc.pdf'] },
+    ]);
+
+    a.useBranch('main');
+    const result = a.mergeBranchLocally('feature/files');
+    expect(result.files).toEqual({ put: 1, deleted: 1 });
+
+    expect(a.getFile(item.id, 'new.txt')).toEqual(added);
+    expect(a.getFile(item.id, 'doc.pdf')).toBeNull();
+    expect(a.listFiles(item.id)).toEqual(['new.txt']);
+  });
+
+  test('merge copies sidecars written on a branch-ADDED item (bytes no longer dropped)', () => {
+    const img = Buffer.from([1, 2, 3]);
+    const fresh = a.create({ value: 'born on branch', type: 'text' });
+    a.putFile(fresh.id, 'img.bin', img);
+
+    a.useBranch('main');
+    const result = a.mergeBranchLocally('feature/files');
+    expect(result.merged).toBe(1);
+    expect(result.files.put).toBe(1);
+    expect(a.getFile(fresh.id, 'img.bin')).toEqual(img);
+  });
+});
