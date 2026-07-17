@@ -5,8 +5,14 @@
   "registrationAllowed": false,
   "roles": {
     "realm": [
-      { "name": "admin", "description": "Full access" },
-      { "name": "member", "description": "Standard member access" }
+      {
+        "name": "admin",
+        "description": "Full access"
+      },
+      {
+        "name": "member",
+        "description": "Standard member access"
+      }
     ]
   },
   "clients": [
@@ -19,8 +25,19 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": false,
-      "redirectUris": ["http://localhost:9743/*", "http://localhost:5173/*"],
-      "webOrigins": ["http://localhost:9743", "http://localhost:5173"]
+      "redirectUris": [
+        "http://localhost:9743/*",
+        "http://localhost:5173/*"
+      ],
+      "webOrigins": [
+        "http://localhost:9743",
+        "http://localhost:5173"
+      ],
+      "defaultClientScopes": [
+        "profile",
+        "email",
+        "kanecta-api"
+      ]
     }
   ],
   "users": [
@@ -32,9 +49,15 @@
       "firstName": "Kanecta",
       "lastName": "Admin",
       "credentials": [
-        { "type": "password", "value": "kanecta-admin-password", "temporary": false }
+        {
+          "type": "password",
+          "value": "kanecta-admin-password",
+          "temporary": false
+        }
       ],
-      "realmRoles": ["admin"]
+      "realmRoles": [
+        "admin"
+      ]
     },
     {
       "username": "kanecta-member",
@@ -44,9 +67,39 @@
       "firstName": "Kanecta",
       "lastName": "Member",
       "credentials": [
-        { "type": "password", "value": "kanecta-member-password", "temporary": false }
+        {
+          "type": "password",
+          "value": "kanecta-member-password",
+          "temporary": false
+        }
       ],
-      "realmRoles": ["member"]
+      "realmRoles": [
+        "member"
+      ]
+    }
+  ],
+  "clientScopes": [
+    {
+      "name": "kanecta-api",
+      "description": "Adds aud=kanecta-api to access tokens so kanecta-api can verify audience",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "kanecta-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "kanecta-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
     }
   ]
 }
