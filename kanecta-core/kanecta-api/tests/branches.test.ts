@@ -31,6 +31,100 @@ afterEach(() => {
   delete process.env.AUTH_DISABLED;
 });
 
+// ─── Branch lifecycle entry points (create / activate / switch) ───────────────
+// The Studio branch workflow STARTS here — NewBranchDialog posts create, the
+// WorkingSetSelector posts activate/switch — so these routes get HTTP-layer
+// coverage alongside the diff/merge review steps below.
+
+describe('POST /working-sets/:name/branches (create)', () => {
+  it('creates a full branch by default', async () => {
+    const res = await request(app)
+      .post('/working-sets/default/branches')
+      .send({ branchName: 'feature/full' });
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(ds.listBranches().map((b) => b.name)).toContain('feature/full');
+  });
+
+  it('creates a sparse branch reading through to an upstream', async () => {
+    const res = await request(app)
+      .post('/working-sets/default/branches')
+      .send({ branchName: 'feature/sparse', fill: 'sparse', upstream: { branch: 'main' } });
+    expect(res.status).toBe(200);
+    const created = ds.listBranches().find((b) => b.name === 'feature/sparse');
+    expect(created).toBeDefined();
+  });
+
+  it('400 without a branchName and on an invalid fill', async () => {
+    const noName = await request(app).post('/working-sets/default/branches').send({});
+    expect(noName.status).toBe(400);
+    expect(noName.body.error).toMatch(/branchName/);
+
+    const badFill = await request(app)
+      .post('/working-sets/default/branches')
+      .send({ branchName: 'x', fill: 'partial' });
+    expect(badFill.status).toBe(400);
+    expect(badFill.body.error).toMatch(/full.*sparse|sparse.*full/);
+  });
+
+  it('400 on a duplicate branch name (adapter error surfaced, nothing clobbered)', async () => {
+    ds.createBranch('feature/taken');
+    const res = await request(app)
+      .post('/working-sets/default/branches')
+      .send({ branchName: 'feature/taken' });
+    expect(res.status).toBe(400);
+  });
+
+  it('404 on an unknown working set', async () => {
+    const res = await request(app)
+      .post('/working-sets/nope/branches')
+      .send({ branchName: 'x' });
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('POST /working-sets/:name/activate', () => {
+  it('activates a known working set and reports it in the listing', async () => {
+    const res = await request(app).post('/working-sets/default/activate');
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ ok: true, activeWorkingSet: 'default' });
+
+    const list = await request(app).get('/working-sets');
+    expect(list.body.activeWorkingSet).toBe('default');
+  });
+
+  it('404 on an unknown working set', async () => {
+    const res = await request(app).post('/working-sets/nope/activate');
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('POST /working-sets/:name/branches/:branch/switch', () => {
+  it('switches the active branch — subsequent requests read/write that branch', async () => {
+    ds.createBranch('feature/x', { fill: 'sparse', upstream: { branch: 'main' } });
+
+    const res = await request(app).post('/working-sets/default/branches/feature%2Fx/switch');
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ ok: true, branch: 'feature/x' });
+
+    // A write through the API lands on the branch, not main.
+    const created = await request(app).post('/items').send({ value: 'branch only', type: 'text' });
+    expect(created.status).toBe(201);
+    ds.useBranch('main');
+    expect(await ds.get(created.body.id)).toBeNull();
+
+    // Switch back — the item disappears from reads again.
+    await request(app).post('/working-sets/default/branches/main/switch');
+    const gone = await request(app).get(`/items/${created.body.id}`);
+    expect(gone.status).toBe(404);
+  });
+
+  it('404 on an unknown working set', async () => {
+    const res = await request(app).post('/working-sets/nope/branches/main/switch');
+    expect(res.status).toBe(404);
+  });
+});
+
 describe('GET /working-sets/:name/branches/:branch/diff', () => {
   it('reports zero changes for main', async () => {
     const res = await request(app).get('/working-sets/default/branches/main/diff');

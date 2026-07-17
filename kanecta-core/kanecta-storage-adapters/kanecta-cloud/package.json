@@ -1,13 +1,13 @@
 {
   "name": "@kanecta/cloud",
   "version": "1.4.0",
-  "description": "Kanecta cloud adapter — composes @kanecta/database (items) and @kanecta/s3 (files) behind a single storage interface for kanecta-lib",
+  "description": "Kanecta cloud adapter \u2014 composes @kanecta/database (items) and @kanecta/s3 (files) behind a single storage interface for kanecta-lib",
   "main": "src/index.ts",
   "files": [
     "src/"
   ],
   "scripts": {
-    "test": "echo \"No tests yet\" && exit 0",
+    "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
