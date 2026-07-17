@@ -1,9 +1,9 @@
 'use strict';
 
-// Parcels — the exchange format (PROVISIONAL v0.1). A sparse branch's delta
+// Packages — the exchange format (PROVISIONAL v0.1). A sparse branch's delta
 // zipped for transport; import materialises it as a fresh sparse branch on the
 // receiver, and the EXISTING merge machinery (preview → conflicts → merge) is
-// the review surface. Design: plans/parcel-format-design.md.
+// the review surface. Design: plans/package-format-design.md.
 
 import fs from 'fs';
 import path from 'path';
@@ -20,12 +20,12 @@ function cleanup(a: any) { fs.rmSync(a.root, { recursive: true, force: true }); 
 // base (same item ids — two community groups that started from a shared
 // dataset), created by copying the datastore root before any branch work.
 function senderAndReceiver() {
-  const aRoot = tmpRoot('kanecta-parcel-a-');
+  const aRoot = tmpRoot('kanecta-package-a-');
   const a = SqliteFsAdapter.init(aRoot, 'sender@example.com');
   const shared = a.create({ value: 'shared doc', type: 'text' });
   const doomed = a.create({ value: 'doomed', type: 'text' });
 
-  const bRoot = tmpRoot('kanecta-parcel-b-');
+  const bRoot = tmpRoot('kanecta-package-b-');
   fs.rmSync(bRoot, { recursive: true, force: true });
   fs.cpSync(aRoot, bRoot, { recursive: true });
   const b = SqliteFsAdapter.open(bRoot);
@@ -34,8 +34,8 @@ function senderAndReceiver() {
   return { a, b, shared, doomed };
 }
 
-describe('parcel export', () => {
-  test('exportParcel zips the branch delta with manifest, bases, README', () => {
+describe('package export', () => {
+  test('exportPackage zips the branch delta with manifest, bases, README', () => {
     const { a, b, shared, doomed } = senderAndReceiver();
     a.createBranch('outbox'); // sparse by default
     a.useBranch('outbox');
@@ -44,10 +44,10 @@ describe('parcel export', () => {
     a.putFile(added.id, 'photo.jpg', Buffer.from('jpeg-bytes'));
     a.delete(doomed.id);
 
-    const out = path.join(os.tmpdir(), `test-${Date.now()}.kanecta-parcel`);
-    const { manifest } = a.exportParcel('outbox', out);
+    const out = path.join(os.tmpdir(), `test-${Date.now()}.kanecta-package`);
+    const { manifest } = a.exportPackage('outbox', out);
 
-    expect(manifest.format).toBe('kanecta-parcel');
+    expect(manifest.format).toBe('kanecta-package');
     expect(manifest.formatVersion).toBe('0.1');
     expect(manifest.source.owner).toBe('sender@example.com');
     expect(manifest.source.branch).toBe('outbox');
@@ -64,17 +64,17 @@ describe('parcel export', () => {
     fs.rmSync(out); cleanup(a); cleanup(b);
   });
 
-  test('exportParcel refuses main and full branches', () => {
+  test('exportPackage refuses main and full branches', () => {
     const { a, b } = senderAndReceiver();
     a.createBranch('mirror', { fill: 'full' });
-    expect(() => a.exportParcel('main', '/tmp/x.zip')).toThrow(/non-main/);
-    expect(() => a.exportParcel('mirror', '/tmp/x.zip')).toThrow(/sparse/);
+    expect(() => a.exportPackage('main', '/tmp/x.zip')).toThrow(/non-main/);
+    expect(() => a.exportPackage('mirror', '/tmp/x.zip')).toThrow(/sparse/);
     cleanup(a); cleanup(b);
   });
 });
 
-describe('parcel import → review → merge (the inbox flow)', () => {
-  test('round-trip: receiver stages the parcel as a branch, preview is clean, merge applies everything', () => {
+describe('package import → review → merge (the inbox flow)', () => {
+  test('round-trip: receiver stages the package as a branch, preview is clean, merge applies everything', () => {
     const { a, b, shared, doomed } = senderAndReceiver();
     a.createBranch('outbox');
     a.useBranch('outbox');
@@ -82,11 +82,11 @@ describe('parcel import → review → merge (the inbox flow)', () => {
     const added = a.create({ value: 'brand new', type: 'text' });
     a.putFile(added.id, 'photo.jpg', Buffer.from('jpeg-bytes'));
     a.delete(doomed.id);
-    const out = path.join(os.tmpdir(), `test-rt-${Date.now()}.kanecta-parcel`);
-    a.exportParcel('outbox', out);
+    const out = path.join(os.tmpdir(), `test-rt-${Date.now()}.kanecta-package`);
+    a.exportPackage('outbox', out);
 
-    const { branch, manifest } = b.importParcel(out);
-    expect(branch).toMatch(/^parcel\//);
+    const { branch, manifest } = b.importPackage(out);
+    expect(branch).toMatch(/^package\//);
     expect(manifest.counts.adds).toBe(1);
 
     const preview = b.previewMerge(branch);
@@ -112,15 +112,15 @@ describe('parcel import → review → merge (the inbox flow)', () => {
     a.createBranch('outbox');
     a.useBranch('outbox');
     a.update(shared.id, { value: 'sender version' });
-    const out = path.join(os.tmpdir(), `test-cf-${Date.now()}.kanecta-parcel`);
-    a.exportParcel('outbox', out);
+    const out = path.join(os.tmpdir(), `test-cf-${Date.now()}.kanecta-package`);
+    a.exportPackage('outbox', out);
 
     // The receiver moved the same item AFTER the shared base — a genuine
     // cross-org conflict no timestamp comparison could see (different clocks,
     // no shared branchPoint).
     b.update(shared.id, { value: 'receiver version' });
 
-    const { branch } = b.importParcel(out);
+    const { branch } = b.importPackage(out);
     const preview = b.previewMerge(branch);
     expect(preview.conflicts).toHaveLength(1);
     expect(preview.conflicts[0]).toMatchObject({ id: shared.id, kind: 'edit-edit' });
@@ -134,35 +134,35 @@ describe('parcel import → review → merge (the inbox flow)', () => {
     fs.rmSync(out); cleanup(a); cleanup(b);
   });
 
-  test('importParcel rejects foreign formats, bad versions, and zip-slip paths', () => {
+  test('importPackage rejects foreign formats, bad versions, and zip-slip paths', () => {
     const { a, b } = senderAndReceiver();
 
-    const notParcel = new AdmZip();
-    notParcel.addFile('whatever.txt', Buffer.from('x'));
+    const notPackage = new AdmZip();
+    notPackage.addFile('whatever.txt', Buffer.from('x'));
     const p1 = path.join(os.tmpdir(), `test-np-${Date.now()}.zip`);
-    notParcel.writeZip(p1);
-    expect(() => b.importParcel(p1)).toThrow(/manifest\.json missing/);
+    notPackage.writeZip(p1);
+    expect(() => b.importPackage(p1)).toThrow(/manifest\.json missing/);
 
     const evil = new AdmZip();
-    evil.addFile('manifest.json', Buffer.from(JSON.stringify({ format: 'kanecta-parcel', formatVersion: '0.1' })));
+    evil.addFile('manifest.json', Buffer.from(JSON.stringify({ format: 'kanecta-package', formatVersion: '0.1' })));
     evil.addFile('items/../../../../escape.txt', Buffer.from('gotcha'));
     const p2 = path.join(os.tmpdir(), `test-evil-${Date.now()}.zip`);
     evil.writeZip(p2);
-    expect(() => b.importParcel(p2, { name: 'parcel/evil' })).toThrow(/unsafe entry path/);
+    expect(() => b.importPackage(p2, { name: 'package/evil' })).toThrow(/unsafe entry path/);
     // The half-imported branch was cleaned up.
-    expect(b.listBranches().map((x: any) => x.name)).not.toContain('parcel/evil');
+    expect(b.listBranches().map((x: any) => x.name)).not.toContain('package/evil');
 
     const badVersion = new AdmZip();
-    badVersion.addFile('manifest.json', Buffer.from(JSON.stringify({ format: 'kanecta-parcel', formatVersion: '9.9' })));
+    badVersion.addFile('manifest.json', Buffer.from(JSON.stringify({ format: 'kanecta-package', formatVersion: '9.9' })));
     const p3 = path.join(os.tmpdir(), `test-bv-${Date.now()}.zip`);
     badVersion.writeZip(p3);
-    expect(() => b.importParcel(p3)).toThrow(/unsupported formatVersion/);
+    expect(() => b.importPackage(p3)).toThrow(/unsupported formatVersion/);
 
     for (const p of [p1, p2, p3]) fs.rmSync(p);
     cleanup(a); cleanup(b);
   });
 
-  test('user-defined type items travel with the parcel (add on a receiver that lacks the type)', () => {
+  test('user-defined type items travel with the package (add on a receiver that lacks the type)', () => {
     const { a, b } = senderAndReceiver();
     // Sender defines a type ON MAIN (so it is upstream of the branch), then
     // adds an instance on the branch.
@@ -181,11 +181,11 @@ describe('parcel import → review → merge (the inbox flow)', () => {
     a.useBranch('outbox');
     const inst = a.create({ value: 'INV-1', type: 'object', typeId: typeItem.id, parentId: typeItem.id, objectData: { total: 42 } });
 
-    const out = path.join(os.tmpdir(), `test-ty-${Date.now()}.kanecta-parcel`);
-    const { manifest } = a.exportParcel('outbox', out);
+    const out = path.join(os.tmpdir(), `test-ty-${Date.now()}.kanecta-package`);
+    const { manifest } = a.exportPackage('outbox', out);
     expect(manifest.requires.typeIds).toContain(typeItem.id);
 
-    const { branch } = b.importParcel(out);
+    const { branch } = b.importPackage(out);
     const preview = b.previewMerge(branch);
     // Both the instance AND the type item arrive as adds (receiver lacks both).
     expect(preview.adds.map((x: any) => x.id).sort()).toEqual([inst.id, typeItem.id].sort());

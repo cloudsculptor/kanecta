@@ -3773,29 +3773,29 @@ class SqliteFsAdapter {
     return out;
   }
 
-  // ─── Parcels — the exchange format (PROVISIONAL v0.1) ──────────────────────
+  // ─── Packages — the exchange format (PROVISIONAL v0.1) ──────────────────────
   // One portable artifact carrying a set of changes between datastores: the
   // same payload a PR review sees, in a file (git-bundle-style — one payload,
   // two transports). A sparse branch's items/ tree already IS the payload
   // (docs + tombstones + sidecars + .tombstone.* markers), and bases.json
   // carries the content fingerprints that make conflict detection work on a
   // receiver with a different clock and no shared history. Layout + trust
-  // posture: plans/parcel-format-design.md. The manifest field set is
+  // posture: plans/package-format-design.md. The manifest field set is
   // PROVISIONAL pending owner review — expect additive changes before 1.0.
 
-  // Export a sparse branch's delta as a .kanecta-parcel zip at outPath.
+  // Export a sparse branch's delta as a .kanecta-package zip at outPath.
   // Non-core type items referenced by the payload travel as ordinary docs in
   // items/ — on import, sparse-diff semantics make them a no-op when the
   // receiver has them identically, a reviewable EDIT when they drifted, and
   // an add when missing.
-  exportParcel(branchName: any, outPath: any, opts: any = {}) {
+  exportPackage(branchName: any, outPath: any, opts: any = {}) {
     branchName = (branchName ?? '').trim();
-    if (!branchName || branchName === 'main') throw new Error('exportParcel: a non-main branch name is required');
+    if (!branchName || branchName === 'main') throw new Error('exportPackage: a non-main branch name is required');
     if (!this._branchExists(branchName)) throw new Error(`Branch "${branchName}" not found`);
     const branchManifest = this._branchManifest(branchName);
     if (branchManifest.fill !== 'sparse')
-      throw new Error('exportParcel: only sparse branches can be exported (their items/ tree is the delta)');
-    if (!outPath || typeof outPath !== 'string') throw new Error('exportParcel: outPath is required');
+      throw new Error('exportPackage: only sparse branches can be exported (their items/ tree is the delta)');
+    if (!outPath || typeof outPath !== 'string') throw new Error('exportPackage: outPath is required');
 
     const diff        = this.branchDiff(branchName);
     const fileChanges = this.fileChanges(branchName);
@@ -3825,7 +3825,7 @@ class SqliteFsAdapter {
     const filePuts    = fileChanges.reduce((n: number, f: any) => n + f.puts.length, 0);
     const fileDeletes = fileChanges.reduce((n: number, f: any) => n + f.deletes.length, 0);
     const manifest = {
-      format: 'kanecta-parcel',
+      format: 'kanecta-package',
       formatVersion: '0.1',
       specVersion,
       createdAt: new Date().toISOString(),
@@ -3843,7 +3843,7 @@ class SqliteFsAdapter {
 
     const summarise = (e: any) => `- ${e.after?.value ?? e.before?.value ?? e.id}`;
     zip.addFile('README.md', Buffer.from([
-      `# Kanecta parcel — ${branchName}`,
+      `# Kanecta package — ${branchName}`,
       '',
       `Created ${manifest.createdAt} by ${manifest.source.owner ?? 'unknown'}.`,
       `${diff.adds.length} add(s), ${diff.edits.length} edit(s), ${diff.deletes.length} delete(s), ` +
@@ -3852,7 +3852,7 @@ class SqliteFsAdapter {
       ...diff.adds.slice(0, 20).map(summarise),
       ...diff.edits.slice(0, 20).map(summarise),
       '',
-      'Import with importParcel(); review with the merge preview before applying.',
+      'Import with importPackage(); review with the merge preview before applying.',
       '',
     ].join('\n')));
 
@@ -3860,26 +3860,26 @@ class SqliteFsAdapter {
     return { path: outPath, manifest };
   }
 
-  // Import a parcel as a NEW sparse branch (the "inbox" entry). Nothing is
+  // Import a package as a NEW sparse branch (the "inbox" entry). Nothing is
   // applied — review with previewMerge and apply with mergeBranchLocally,
   // exactly like a locally-created branch. The receiver-side branchPoint is
-  // import time (fallback only); real conflict detection rides the parcel's
+  // import time (fallback only); real conflict detection rides the package's
   // bases.json content fingerprints, which need no shared clock.
-  importParcel(zipPath: any, opts: any = {}) {
-    if (!zipPath || typeof zipPath !== 'string') throw new Error('importParcel: zipPath is required');
+  importPackage(zipPath: any, opts: any = {}) {
+    if (!zipPath || typeof zipPath !== 'string') throw new Error('importPackage: zipPath is required');
     const zip = new AdmZip(zipPath);
     const manifestEntry = zip.getEntry('manifest.json');
-    if (!manifestEntry) throw new Error('importParcel: manifest.json missing — not a kanecta parcel');
+    if (!manifestEntry) throw new Error('importPackage: manifest.json missing — not a kanecta package');
     let manifest: any;
     try { manifest = JSON.parse(manifestEntry.getData().toString('utf8')); }
-    catch { throw new Error('importParcel: manifest.json is not valid JSON'); }
-    if (manifest.format !== 'kanecta-parcel')
-      throw new Error(`importParcel: unknown format "${manifest.format}"`);
+    catch { throw new Error('importPackage: manifest.json is not valid JSON'); }
+    if (manifest.format !== 'kanecta-package')
+      throw new Error(`importPackage: unknown format "${manifest.format}"`);
     if (manifest.formatVersion !== '0.1')
-      throw new Error(`importParcel: unsupported formatVersion "${manifest.formatVersion}"`);
+      throw new Error(`importPackage: unsupported formatVersion "${manifest.formatVersion}"`);
 
     const name = (opts.name
-      ?? `parcel/${path.basename(zipPath).replace(/\.kanecta-parcel$|\.zip$/i, '')}`).trim();
+      ?? `package/${path.basename(zipPath).replace(/\.kanecta-package$|\.zip$/i, '')}`).trim();
     this.createBranch(name, { fill: 'sparse' }); // rejects duplicates/invalid names
 
     // Zip-slip hardening: only the exact shard structure is written, nothing
@@ -3896,7 +3896,7 @@ class SqliteFsAdapter {
           continue;
         }
         if (n.includes('..') || path.isAbsolute(n) || !SAFE_ITEM.test(n))
-          throw new Error(`importParcel: unsafe entry path "${entry.entryName}"`);
+          throw new Error(`importPackage: unsafe entry path "${entry.entryName}"`);
         const dest = path.join(destRoot, n);
         fs.mkdirSync(path.dirname(dest), { recursive: true });
         fs.writeFileSync(dest, entry.getData());
@@ -3993,7 +3993,7 @@ class SqliteFsAdapter {
     // while upstream removed it. Left unflagged, a blind merge would silently
     // resurrect it. Discriminator: when the branch has a bases.json (the
     // fingerprint mechanism), a kept item HAS a recorded base and a genuine add
-    // does NOT — robust even for parcel-imported branches, whose adds carry the
+    // does NOT — robust even for package-imported branches, whose adds carry the
     // SENDER's createdAt (always before the receiver-side watermark). Branches
     // predating bases.json fall back to the createdAt-vs-watermark heuristic.
     const hasBasesFile = fs.existsSync(this._basesPath(name));
