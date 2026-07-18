@@ -62,7 +62,7 @@ describe('the strict gate: a live index.db conforms', () => {
     const report = checkConformance(tableNames(a));
     expect(report.violations).toEqual([]);
     expect(report.conformant).toBe(true);
-    expect(report.counts.items).toBe(5);           // spine + 4 sections
+    expect(report.counts.items).toBe(10);          // spine + 4 sections + the 5 item_archive twins
     expect(report.counts.obj).toBeGreaterThan(0);  // ConfThing (+ built-ins)
     expect(report.counts.perf).toBeGreaterThan(0);
     cleanup(a);

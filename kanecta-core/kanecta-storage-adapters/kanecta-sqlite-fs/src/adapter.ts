@@ -453,6 +453,9 @@ class SqliteFsAdapter {
     } catch { /* no local file — maybe fall through below */ }
 
     if (!localExists && store === 'items') {
+      // A branch-local archive entry masks the upstream LIVE copy: the item is
+      // soft-deleted on this branch even though the upstream still has it live.
+      if (this._archiveFileExistsLocal(id)) return null;
       const up = this._localUpstream();
       if (up) {
         try { return JSON.parse(fs.readFileSync(this._branchItemPath(up, id), 'utf8')); }
@@ -537,6 +540,117 @@ class SqliteFsAdapter {
   _deleteItemDir(id: any, store: any = 'items') {
     const dir = this._itemDir(id, store);
     if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
+  }
+
+  // ─── Archive store (soft delete = physical folder move) ────────────────────
+  // A soft delete moves the ENTIRE item folder — item.json + every sidecar +
+  // embedding.bin — from items/ into the sibling archive/ tree (same 2+2+full
+  // sharding); restore moves it back. Copy-then-delete (not rename) so a
+  // mid-operation failure rolls back cleanly: until the source dir is removed
+  // (the last step), the live folder is still intact and _rollback only has to
+  // remove the copy.
+  _copyItemDirBetweenStores(id: any, fromStore: any, toStore: any) {
+    const src = this._itemDir(id, fromStore);
+    if (!fs.existsSync(src)) return false;
+    const dst = this._itemDir(id, toStore);
+    fs.rmSync(dst, { recursive: true, force: true });
+    fs.mkdirSync(path.dirname(dst), { recursive: true });
+    fs.cpSync(src, dst, { recursive: true });
+    return true;
+  }
+
+  // Does THIS branch's archive/ hold the item (tombstones count — they mask)?
+  _archiveFileExistsLocal(id: any) {
+    return fs.existsSync(this._itemPath(id, 'archive'));
+  }
+
+  // Read an archived item.json with the same local-wins layering as live reads:
+  // the branch's own archive/ wins (a tombstone there masks a purge); an item
+  // that is locally LIVE or locally hard-deleted (items/ file or tombstone)
+  // masks any upstream archive copy; otherwise fall through to the upstream's
+  // archive/. Returns null when the item is not archived from this branch's
+  // point of view.
+  _readArchiveJson(id: any) {
+    try {
+      const doc = JSON.parse(fs.readFileSync(this._itemPath(id, 'archive'), 'utf8'));
+      return this._isTombstone(doc) ? null : doc;
+    } catch { /* not locally archived */ }
+    const up = this._localUpstream();
+    if (!up) return null;
+    if (fs.existsSync(this._itemPath(id, 'items'))) return null;   // locally live or tombstoned
+    try {
+      const doc = JSON.parse(fs.readFileSync(this._branchItemPath(up, id, 'archive'), 'utf8'));
+      return this._isTombstone(doc) ? null : doc;
+    } catch { return null; }
+  }
+
+  // Single-item lookup against the archive index twins.
+  _getArchiveRow(db: SqlDatabase, id: any) {
+    return db.prepare(`
+      SELECT i.*, m.owner, m.license, m.visibility, m.confidence, m.status, m.tags,
+             m.created_at, m.modified_at, m.created_by, m.modified_by,
+             m.completed_at, m.due_at, m.expires_at, m.deleted_at, m.cached_at,
+             m.connector_id, m.materialized, m.files, m.layer,
+             m.source_system, m.source_external_id, m.icon
+      FROM item_archive i LEFT JOIN item_archive_meta m ON m.item_id = i.id
+      WHERE i.id = ?
+    `).get(id);
+  }
+
+  // Index an archived doc into the item_archive* twins. Deliberately narrower
+  // than _insertIndexTx: NO obj_ projection row, NO FTS row, NO tags/backlink
+  // rows, NO embedding ingest or queueing — archived content leaves every
+  // derived read accelerator (spec draft: search/embeddings never contain
+  // archived items; includeDeleted queries scan the archive directly).
+  _insertArchiveIndexTx(db: SqlDatabase, id: any, doc: any, itemPath: any) {
+    const { item, meta, search, payload, time } = doc;
+    db.prepare(`
+      INSERT OR REPLACE INTO item_archive (id, parent_id, type, type_id, value, sort_order, aspect, spec_version, path)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, item.parentId, item.type, item.typeId ?? null, item.value ?? null,
+           item.sortOrder ?? 0, item.aspect ?? null, meta.specVersion || specVersion, itemPath ?? null);
+    db.prepare(`
+      INSERT OR REPLACE INTO item_archive_meta
+        (item_id, owner, license, visibility, confidence, status, tags, created_at, modified_at,
+         created_by, modified_by, completed_at, due_at, expires_at, deleted_at, cached_at,
+         connector_id, materialized, files, layer, source_system, source_external_id, icon)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id, meta.owner ?? null, meta.license ?? null, meta.visibility || 'private',
+      meta.confidence ?? null, meta.status ?? null, JSON.stringify(Array.isArray(meta.tags) ? meta.tags : []),
+      meta.createdAt, meta.modifiedAt, meta.createdBy ?? null, meta.modifiedBy ?? null,
+      meta.completedAt ?? null, meta.dueAt ?? null, meta.expiresAt ?? null, meta.deletedAt ?? null,
+      meta.cachedAt ?? null, meta.connectorId ?? null,
+      meta.materialized === null || meta.materialized === undefined ? null : (meta.materialized ? 1 : 0),
+      JSON.stringify(meta.files ?? {}), meta.layer ?? null,
+      meta.sourceSystem ?? null, meta.sourceExternalId ?? null, meta.icon ?? null,
+    );
+    if (payload != null)
+      db.prepare('INSERT OR REPLACE INTO item_archive_payload (item_id, payload) VALUES (?, ?)').run(id, JSON.stringify(payload));
+    if (search != null)
+      db.prepare(`
+        INSERT OR REPLACE INTO item_archive_search (item_id, corpus_hash, embedding_model, embedding_dimensions, embedding_generated_at)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(id, search.corpusHash ?? null, search.embedding?.model ?? null,
+             search.embedding?.dimensions ?? null, search.embedding?.generatedAt ?? null);
+    if (time != null) {
+      db.prepare('DELETE FROM item_archive_time WHERE item_id = ?').run(id);
+      const ins = db.prepare(`
+        INSERT INTO item_archive_time (item_id, key, start_at, end_at, recurrence_rule, recurrence_exceptions, next_occurrence_at, completed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      for (const [key, entry] of Object.entries<any>(time)) {
+        if (!entry) continue;
+        ins.run(id, key, entry.startAt ?? null, entry.endAt ?? null, entry.recurrenceRule ?? null,
+                JSON.stringify(entry.recurrenceExceptions ?? []), entry.nextOccurrenceAt ?? null, entry.completedAt ?? null);
+      }
+    }
+  }
+
+  // Remove an item's archive index rows (the section twins cascade off the
+  // archive spine row via their rewritten FKs).
+  _deleteArchiveIndexRows(db: SqlDatabase, id: any) {
+    db.prepare('DELETE FROM item_archive WHERE id = ?').run(id);
   }
 
   // ─── Branch filesystem helpers ─────────────────────────────────────────────
@@ -707,6 +821,47 @@ class SqliteFsAdapter {
     }
   }
 
+  // ── Legacy flag-deleted items → archive (auto-upgrade on open) ─────────────
+  // Pre-archive datastores hold soft-deleted items as flagged rows/files inside
+  // the live store. Move them into archive/ through (almost) the normal
+  // archive-move path — same folder move, same index moves — but with NO new
+  // history event (this is not a new delete; deletedAt keeps its original
+  // stamp). Idempotent: once no flagged live rows remain it is a no-op, and
+  // it re-runs per branch on first open/switch (the 0e5898f8 upgrade pattern).
+  _migratedBranches = new Set<string>();
+
+  _migrateFlaggedToArchive() {
+    if (this._migratedBranches.has(this._branch)) return;
+    this._migratedBranches.add(this._branch);
+    const db = this._openDb();
+    const flagged = db.prepare(
+      'SELECT item_id FROM items_meta WHERE deleted_at IS NOT NULL',
+    ).all() as any[];
+    for (const { item_id: id } of flagged) {
+      // Only migrate docs physically in THIS branch's items/ — a flagged doc
+      // inherited through a sparse upstream is the upstream's to migrate (its
+      // own open moves it; this branch then reads it through upstream archive).
+      if (!fs.existsSync(this._itemPath(id, 'items'))) continue;
+      const doc = this._readItemJson(id);
+      if (!doc) continue;
+      const oldPath = (db.prepare('SELECT path FROM items WHERE id = ?').get(id) as any)?.path ?? id;
+      this._withWrite([{ id, store: 'items' }, { id, store: 'archive' }], () => {
+        this._copyItemDirBetweenStores(id, 'items', 'archive');
+        this._mem.delete(id);
+        db.transaction(() => {
+          db.prepare('DELETE FROM perf_search WHERE item_id = ?').run(id);
+          db.prepare('DELETE FROM perf_tags WHERE item_id = ?').run(id);
+          db.prepare('DELETE FROM perf_backlinks WHERE source_id = ?').run(id);
+          const projTypeId = this._projectionTypeId(doc.item?.type, doc.item?.typeId);
+          if (projTypeId) this._unprojectObjectRow(db, projTypeId, id);
+          db.prepare('DELETE FROM items WHERE id = ?').run(id);
+          this._insertArchiveIndexTx(db, id, doc, oldPath);
+        })();
+        this._deleteItemDir(id, 'items');
+      });
+    }
+  }
+
   // Restore each op's item.json to its pre-image (or delete it if it was created).
   _rollback(opRecs: any) {
     for (const op of opRecs) {
@@ -762,6 +917,7 @@ class SqliteFsAdapter {
     }
 
     this._db.exec(SCHEMA_SQL);
+    this._ensureArchiveSchema(this._db);
     this._dbBranch = this._branch;
 
     // Rebuild if the index is empty (fresh clone, deleted index.db, new copy).
@@ -771,6 +927,65 @@ class SqliteFsAdapter {
       else if (fs.existsSync(path.join(branchRoot, 'items')))   this._rebuildFromFs(this._db);
     }
     return this._db;
+  }
+
+  // ─── item_archive twins (soft delete = physical move) ──────────────────────
+  // The archive twins are DERIVED from the live section tables' DDL at open —
+  // never hand-written — so `items*` and `item_archive*` cannot drift: any
+  // future change to SCHEMA_SQL propagates automatically, and the conformance
+  // drift test double-checks the pair stays column-identical (the spec's
+  // primary item_archive constraint). Section FKs are rewritten to reference
+  // the archive spine so a purge cascades exactly as a hard delete does.
+  static get ARCHIVE_TWINS() {
+    return [
+      ['items',         'item_archive'],
+      ['items_meta',    'item_archive_meta'],
+      ['items_search',  'item_archive_search'],
+      ['items_payload', 'item_archive_payload'],
+      ['items_time',    'item_archive_time'],
+    ];
+  }
+
+  _archiveTwinDdl(db: SqlDatabase, live: string, twin: string) {
+    const row: any = db.prepare(
+      `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?`,
+    ).get(live);
+    if (!row?.sql) throw new Error(`archive schema: live table ${live} missing`);
+    return row.sql
+      .replace(/CREATE TABLE (IF NOT EXISTS )?"?[A-Za-z_]+"?/, `CREATE TABLE IF NOT EXISTS ${twin}`)
+      .replace(/REFERENCES items\s*\(/g, 'REFERENCES item_archive(');
+  }
+
+  _ensureArchiveSchema(db: SqlDatabase) {
+    for (const [live, twin] of SqliteFsAdapter.ARCHIVE_TWINS) {
+      const ddl = this._archiveTwinDdl(db, live, twin);
+      const existing: any = db.prepare(
+        `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?`,
+      ).get(twin);
+      if (existing?.sql) {
+        // Self-heal drift: the twins are pure index state (the archive/ folder
+        // is the source of truth), so a stale twin is dropped and recreated
+        // from the CURRENT live DDL, then re-ingested by the next rebuild.
+        if (this._archiveColumns(db, twin).join('|') === this._archiveColumns(db, live).join('|')) continue;
+        db.exec(`DROP TABLE IF EXISTS "${twin}"`);
+      }
+      db.exec(ddl);
+      // Mirror the live table's indexes under an arch_ prefix.
+      for (const idx of db.prepare(
+        `SELECT sql FROM sqlite_master WHERE type = 'index' AND tbl_name = ? AND sql IS NOT NULL`,
+      ).all(live) as any[]) {
+        const rewritten = idx.sql
+          .replace(/CREATE (UNIQUE )?INDEX (IF NOT EXISTS )?"?([A-Za-z_]+)"?/, `CREATE $1INDEX IF NOT EXISTS arch_$3`)
+          .replace(new RegExp(` ON "?${live}"?\\s*\\(`), ` ON ${twin}(`);
+        try { db.exec(rewritten); } catch { /* index mirror is best-effort */ }
+      }
+    }
+  }
+
+  // Column signatures (name+type+notnull+default+pk, in order) for drift checks.
+  _archiveColumns(db: SqlDatabase, table: string) {
+    return (db.prepare(`PRAGMA table_info("${table}")`).all() as any[])
+      .map((c) => `${c.name}:${c.type}:${c.notnull}:${c.dflt_value ?? ''}:${c.pk}`);
   }
 
   static isDatastore(root: any) {
@@ -820,6 +1035,9 @@ class SqliteFsAdapter {
     // Resolve any write-ahead journal/lock left by a crashed writer before
     // serving anything (roll forward if the data landed, else roll back).
     adapter._recover();
+    // Auto-upgrade: flag-soft-deleted items from pre-archive stores move into
+    // the archive (runs after recovery so a rolled-back write can't resurrect).
+    adapter._migrateFlaggedToArchive();
     // Backfill the built-in type items on datastores created before they existed
     // (idempotent — a no-op once present), so icon resolution always has them.
     adapter._ensureBuiltInTypes();
@@ -1172,15 +1390,15 @@ class SqliteFsAdapter {
     catch { /* table absent — nothing to remove */ }
   }
 
-  // Drop the type table when it has no remaining live (non-soft-deleted)
-  // instances. Called only on hard-delete / typeId reassignment — soft-delete
-  // keeps the table so a restore can repopulate it.
+  // Drop the type table when the type has no remaining instances — counting
+  // BOTH live and archived (spec: a soft-deleted/archived last instance keeps
+  // the relation so restore does not have to recreate it; only hard-deleting
+  // the last instance, including purging the last archived one, drops it).
   _dropProjectionIfEmpty(db: SqlDatabase, typeId: any) {
     const row = db.prepare(
-      `SELECT COUNT(*) AS n FROM items i
-         LEFT JOIN items_meta m ON m.item_id = i.id
-        WHERE i.type_id = ? AND m.deleted_at IS NULL`,
-    ).get(typeId);
+      `SELECT (SELECT COUNT(*) FROM items        WHERE type_id = ?) +
+              (SELECT COUNT(*) FROM item_archive WHERE type_id = ?) AS n`,
+    ).get(typeId, typeId);
     if (!row || row.n === 0) db.exec(`DROP TABLE IF EXISTS "${objTableName(typeId)}"`);
   }
 
@@ -1294,6 +1512,43 @@ class SqliteFsAdapter {
       } catch { /* skip corrupt files */ }
     }
     this._indexDocs(db, docs);
+    this._indexArchiveDocs(db, this._collectArchiveDocs());
+  }
+
+  // Archived docs visible from THIS branch: its own archive/ overlaid on the
+  // upstream's (sparse) — a local archive tombstone (purge) or a local LIVE
+  // copy (restore / edit) masks the upstream's archived version.
+  _collectArchiveDocs() {
+    const docById = new Map();
+    const up = this._localUpstream();
+    if (up) {
+      for (const jsonPath of this._scanItemFiles(path.join(this._branchRoot(up), 'archive'))) {
+        try {
+          const doc = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+          if (!doc?.item?.id || this._isTombstone(doc)) continue;
+          if (fs.existsSync(this._itemPath(doc.item.id, 'items'))) continue;  // locally live/tombstoned
+          docById.set(doc.item.id, doc);
+        } catch { /* skip corrupt files */ }
+      }
+    }
+    for (const jsonPath of this._scanItemFiles(path.join(this._branchRoot(), 'archive'))) {
+      try {
+        const doc = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+        const id  = doc?.item?.id;
+        if (!id) continue;
+        if (this._isTombstone(doc)) docById.delete(id);
+        else                        docById.set(id, doc);
+      } catch { /* skip corrupt files */ }
+    }
+    return [...docById.values()];
+  }
+
+  _indexArchiveDocs(db: SqlDatabase, docs: any[]) {
+    if (!docs.length) return;
+    db.transaction(() => {
+      for (const doc of docs)
+        this._insertArchiveIndexTx(db, doc.item.id, doc, doc.item.id);
+    })();
   }
 
   // Rebuild a SPARSE branch's index by projecting its local upstream (a full
@@ -1324,7 +1579,17 @@ class SqliteFsAdapter {
         else                        docById.set(id, doc);
       } catch { /* skip corrupt files */ }
     }
+    // A branch-local archive entry (soft delete of an upstream-inherited item)
+    // masks the upstream LIVE copy — those ids leave the live set and are
+    // indexed into the archive twins below instead.
+    for (const jsonPath of this._scanItemFiles(path.join(this._branchRoot(), 'archive'))) {
+      try {
+        const id = JSON.parse(fs.readFileSync(jsonPath, 'utf8'))?.item?.id;
+        if (id && !fs.existsSync(this._itemPath(id, 'items'))) docById.delete(id);
+      } catch { /* skip corrupt files */ }
+    }
     this._indexDocs(db, [...docById.values()]);
+    this._indexArchiveDocs(db, this._collectArchiveDocs());
   }
 
   // Index a resolved set of item docs: compute materialized paths in
@@ -1878,16 +2143,18 @@ class SqliteFsAdapter {
     // 1. Memory cache
     if (this._mem.has(id)) return this._mem.get(id);
 
-    // 2. Index
-    const row = this._getRow(this._openDb(), id);
+    // 2. Index (live, then archive — point reads by id resolve the archive
+    //    transparently; set-returning queries never touch it uninvited)
+    const db = this._openDb();
+    const row = this._getRow(db, id) ?? this._getArchiveRow(db, id);
     if (row) {
       const item = this._rowToItem(row);
       this._mem.set(id, item);
       return item;
     }
 
-    // 3. Filesystem fallback
-    const doc = this._readItemJson(id);
+    // 3. Filesystem fallback (live, then archive)
+    const doc = this._readItemJson(id) ?? this._readArchiveJson(id);
     if (!doc) return null;
     const item = this._docToItem(doc);
     if (item) this._mem.set(id, item);
@@ -1908,6 +2175,14 @@ class SqliteFsAdapter {
   update(id: any, changes: any, actor: any, { strict }: any = {}) {
     const current = this.get(id);
     if (!current) throw new Error(`Item not found: ${id}`);
+    // Archived items are read-only: restore first (a live-store write while the
+    // archive copy exists would split the item across the two stores).
+    if (current.deletedAt && !this._readItemJson(id))
+      throw new Error(`Item ${id} is archived (soft-deleted) — restore() it before updating`);
+    // deletedAt transitions are the archive's job — update() may not flag-set
+    // them (the live store must never contain a deleted row by construction).
+    if ('deletedAt' in changes && (changes.deletedAt ?? null) !== (current.deletedAt ?? null))
+      throw new Error(`deletedAt cannot be changed via update() — use softDelete()/restore()`);
     // The root node is renamable — its `value` (and other descriptive fields)
     // may be edited so a datastore can be given a meaningful name — but its
     // structural fields stay locked so it remains the self-parented type:'root'
@@ -2050,6 +2325,31 @@ class SqliteFsAdapter {
     this._assertDeletable(item, id);
     actor = actor || this.config.owner;
     const now      = new Date();
+
+    // Hard delete of an ARCHIVED item = purge: remove the archive copy for
+    // good. The item left every live/derived structure when it was archived,
+    // so only the archive folder + archive index rows (+ history) remain.
+    if (item.deletedAt && !this._readItemJson(id)) {
+      const db = this._openDb();
+      const sparseUpstreamOnly = !this._archiveFileExistsLocal(id) && !!this._localUpstream();
+      this._withWrite([{ id, store: 'archive' }], () => {
+        // Sparse branch purging an upstream-archived item: a tombstone in the
+        // branch's archive/ masks it locally and applies the purge at merge.
+        if (sparseUpstreamOnly) this._writeItemJson(id, this._makeTombstone(id, item.parentId, actor, now), 'archive');
+        else                    this._deleteItemDir(id, 'archive');
+        this._mem.delete(id);
+        db.transaction(() => {
+          this._snapshot(db, item, 'delete', actor, now);
+          this._deleteArchiveIndexRows(db, id);
+          // Same sparse rule as live hard deletes: only a full branch drops an
+          // emptied projection table (sparse indexes are projected overlays).
+          const projTypeId = this._projectionTypeId(item.type, item.typeId);
+          if (!this._isSparse() && projTypeId) this._dropProjectionIfEmpty(db, projTypeId);
+        })();
+      });
+      return { warnings: [] };
+    }
+
     const warnings = this.deleteWarnings(id);
 
     const db = this._openDb();
@@ -2106,9 +2406,19 @@ class SqliteFsAdapter {
     return [...ids].map(x => ({ id: x, store: 'items' }));
   }
 
+  // Soft delete = physical move into the archive store: stamp deletedAt, move
+  // the whole item folder items/ → archive/, drop every derived row (obj_ row,
+  // FTS, tags, outbound backlinks, embeddings — all rebuildable on restore),
+  // and mirror the envelope into the item_archive* index twins. Live queries
+  // then never see the item by construction. Idempotent on an already-archived
+  // item. On a sparse branch an upstream-inherited item is materialised
+  // directly into the branch's archive/ (copy-on-write; the upstream is never
+  // touched) — the local archive entry masks the upstream live copy on read
+  // and applies as a real archive move at merge.
   softDelete(id: any, actor: any) {
     const item = this.get(id);
     this._assertEditable(item, id);
+    if (item.deletedAt && !this._readItemJson(id)) return item;   // already archived
     actor = actor || this.config.owner;
     const now     = new Date();
     const updated = { ...item, deletedAt: now.toISOString(), modifiedAt: now.toISOString(), modifiedBy: actor };
@@ -2117,23 +2427,42 @@ class SqliteFsAdapter {
     const newDoc      = this._itemToDoc(updated, existingDoc);
 
     const db = this._openDb();
-    this._withWrite([{ id, store: 'items' }], () => {
-      this._writeItemJson(id, newDoc);
+    const oldPath = (db.prepare('SELECT path FROM items WHERE id = ?').get(id) as any)?.path ?? id;
+    this._withWrite([{ id, store: 'items' }, { id, store: 'archive' }], () => {
+      // Sparse fingerprint: a soft delete of an upstream-inherited item is a
+      // branch change against a base version, exactly like an edit/tombstone.
+      this._recordBaseFingerprint(id);
+      // Copy the folder (sidecars included) into archive/, then stamp the
+      // archived item.json. The live folder is removed only as the last step
+      // so a mid-operation failure rolls back without losing sidecars.
+      this._copyItemDirBetweenStores(id, 'items', 'archive');
+      this._writeItemJson(id, newDoc, 'archive');
       this._mem.delete(id);
       db.transaction(() => {
         this._snapshot(db, item, 'soft-delete', actor, now);
-        db.prepare('UPDATE items_meta SET deleted_at = ?, modified_at = ?, modified_by = ? WHERE item_id = ?')
-          .run(now.toISOString(), now.toISOString(), actor, id);
-        // No longer live: drop its type-table row but keep the table (a restore
-        // can repopulate it).
-        if (item.type === 'object' && item.typeId)
-          this._unprojectObjectRow(db, item.typeId, id);
+        db.prepare('DELETE FROM perf_search WHERE item_id = ?').run(id);
+        db.prepare('DELETE FROM perf_tags WHERE item_id = ?').run(id);
+        // Outbound backlinks describe the archived item's own content — drop
+        // and rebuild on restore. Inbound rows describe LIVE items and stay.
+        db.prepare('DELETE FROM perf_backlinks WHERE source_id = ?').run(id);
+        const projTypeId = this._projectionTypeId(item.type, item.typeId);
+        if (projTypeId) this._unprojectObjectRow(db, projTypeId, id);
+        // Cascades meta/search/payload/time/perf_embeddings/queue rows.
+        db.prepare('DELETE FROM items WHERE id = ?').run(id);
+        this._insertArchiveIndexTx(db, id, newDoc, oldPath);
       })();
+      this._deleteItemDir(id, 'items');
     });
 
     return updated;
   }
 
+  // Restore = clear deletedAt and move the item folder back out of archive/.
+  // Every derived row (obj_ projection, FTS, tags, backlinks, embedding — the
+  // embedding byte-identically from the moved embedding.bin sidecar) is
+  // repopulated by the normal index insert. On a live item this stays the
+  // pre-archive no-op-equivalent: clear the (already-null) flag and touch
+  // modifiedAt, exactly as before.
   restore(id: any, actor: any) {
     const item = this.get(id);
     if (!item) throw new Error(`Item not found: ${id}`);
@@ -2141,21 +2470,45 @@ class SqliteFsAdapter {
     const now     = new Date();
     const updated = { ...item, deletedAt: null, modifiedAt: now.toISOString(), modifiedBy: actor };
 
-    const existingDoc = this._readItemJson(id);
-    const newDoc      = this._itemToDoc(updated, existingDoc);
-
+    const liveDoc = this._readItemJson(id);
     const db = this._openDb();
-    this._withWrite([{ id, store: 'items' }], () => {
-      this._writeItemJson(id, newDoc);
+
+    if (liveDoc) {
+      // Live item — pre-archive semantics preserved verbatim.
+      const newDoc = this._itemToDoc(updated, liveDoc);
+      this._withWrite([{ id, store: 'items' }], () => {
+        this._writeItemJson(id, newDoc);
+        this._mem.delete(id);
+        db.transaction(() => {
+          this._snapshot(db, item, 'restore', actor, now);
+          db.prepare('UPDATE items_meta SET deleted_at = NULL, modified_at = ?, modified_by = ? WHERE item_id = ?')
+            .run(now.toISOString(), actor, id);
+          if (item.type === 'object' && item.typeId)
+            this._projectObjectRow(db, id, item.typeId, liveDoc?.payload ?? {});
+        })();
+      });
+      return updated;
+    }
+
+    const archivedDoc = this._readArchiveJson(id);
+    if (!archivedDoc) throw new Error(`Item not found: ${id}`);
+    const newDoc = this._itemToDoc(updated, archivedDoc);
+
+    // Recompute the materialized path from the CURRENT live parent (the tree
+    // may have moved while the item was archived).
+    const parentRow: any = db.prepare('SELECT path FROM items WHERE id = ?').get(updated.parentId);
+    const newPath = parentRow?.path ? `${parentRow.path}/${id}` : id;
+
+    this._withWrite([{ id, store: 'archive' }, { id, store: 'items' }], () => {
+      this._copyItemDirBetweenStores(id, 'archive', 'items');
+      this._writeItemJson(id, newDoc, 'items');
       this._mem.delete(id);
       db.transaction(() => {
         this._snapshot(db, item, 'restore', actor, now);
-        db.prepare('UPDATE items_meta SET deleted_at = NULL, modified_at = ?, modified_by = ? WHERE item_id = ?')
-          .run(now.toISOString(), actor, id);
-        // Live again: recreate the table if it was dropped and re-add the row.
-        if (item.type === 'object' && item.typeId)
-          this._projectObjectRow(db, id, item.typeId, existingDoc?.payload ?? {});
+        this._deleteArchiveIndexRows(db, id);
+        this._insertIndexTx(db, id, newDoc, newPath);
       })();
+      this._deleteItemDir(id, 'archive');
     });
 
     return updated;
@@ -2165,7 +2518,9 @@ class SqliteFsAdapter {
 
   readObjectJson(id: any) {
     if (this._isSyntheticId(id)) return null;
-    const doc = this._readItemJson(id);
+    // Point read by id: archived items keep serving their payload (restore
+    // tooling, includeDeleted query hydration).
+    const doc = this._readItemJson(id) ?? this._readArchiveJson(id);
     if (!doc) return null;
     return doc.payload ?? null;
   }
@@ -2231,7 +2586,7 @@ class SqliteFsAdapter {
 
   readFunctionJson(id: any) {
     if (this._isSyntheticId(id)) return null;
-    const doc = this._readItemJson(id);
+    const doc = this._readItemJson(id) ?? this._readArchiveJson(id);
     return doc?.payload ?? null;
   }
 
@@ -2429,9 +2784,15 @@ class SqliteFsAdapter {
   // the active branch's item dir, then (sparse branch) the upstream's — the same
   // local-wins fall-through as _readItemJson.
   _sidecarDirs(id: any) {
-    const dirs = [this._itemDir(id)];
+    // Archive dirs are included so by-id file reads keep serving bytes for
+    // soft-deleted items (e.g. page-history images through a public proxy) —
+    // the sidecars move into archive/ with the item folder.
+    const dirs = [this._itemDir(id), this._itemDir(id, 'archive')];
     const up = this._localUpstream();
-    if (up) dirs.push(path.dirname(this._branchItemPath(up, id)));
+    if (up) {
+      dirs.push(path.dirname(this._branchItemPath(up, id)));
+      dirs.push(path.dirname(this._branchItemPath(up, id, 'archive')));
+    }
     return dirs;
   }
 
@@ -2447,8 +2808,12 @@ class SqliteFsAdapter {
     if (body == null || typeof body.pipe === 'function' || typeof body.getReader === 'function') {
       throw new Error('putFile: body must be a Buffer, TypedArray, or string');
     }
-    if (!this._readItemJson(itemId)) throw new Error(`putFile: item ${itemId} not found`);
-    const dir = this._itemDir(itemId);
+    // Live items take sidecars in items/; archived items in archive/ (their
+    // whole folder lives there — bytes stay addressable by item id throughout).
+    const store = this._readItemJson(itemId) ? 'items'
+      : (this._readArchiveJson(itemId) ? 'archive' : null);
+    if (!store) throw new Error(`putFile: item ${itemId} not found`);
+    const dir = this._itemDir(itemId, store);
     fs.mkdirSync(dir, { recursive: true });
     const p = path.join(dir, filename);
     const tmp = p + '.tmp';
@@ -3168,14 +3533,20 @@ class SqliteFsAdapter {
     return row ? this.get(row.item_id) : null;
   }
 
-  loadAll() {
+  loadAll({ includeDeleted = false }: any = {}) {
+    const itemsSrc = includeDeleted
+      ? '(SELECT * FROM items UNION ALL SELECT * FROM item_archive)'
+      : 'items';
+    const metaSrc = includeDeleted
+      ? '(SELECT * FROM items_meta UNION ALL SELECT * FROM item_archive_meta)'
+      : 'items_meta';
     return this._openDb().prepare(`
       SELECT i.*, m.owner, m.license, m.visibility, m.confidence, m.status, m.tags,
              m.created_at, m.modified_at, m.created_by, m.modified_by,
              m.completed_at, m.due_at, m.expires_at, m.deleted_at, m.cached_at,
              m.connector_id, m.materialized, m.files, m.layer,
              m.source_system, m.source_external_id, m.icon
-      FROM items i LEFT JOIN items_meta m ON m.item_id = i.id
+      FROM ${itemsSrc} i LEFT JOIN ${metaSrc} m ON m.item_id = i.id
       WHERE i.type NOT IN ('alias', 'relationship', 'relationship-type', 'annotation', 'licence', 'item_history', 'type')
     `).all().map(r => this._rowToItem(r));
   }
@@ -3410,6 +3781,18 @@ class SqliteFsAdapter {
     const conditions = [...outer.conds];
     const params: any[] = [...outer.params];
 
+    // Live tables contain no deleted rows (soft delete is a physical move to
+    // the item_archive twins), so the default query needs no exclusion filter.
+    // includeDeleted UNIONS the archive back in: every table reference below
+    // goes through these live∪archive views so the whole pipeline — node
+    // filters, type filter, subtree CTE — works identically over both stores.
+    const itemsSrc = includeDeleted
+      ? '(SELECT * FROM items UNION ALL SELECT * FROM item_archive)'
+      : 'items';
+    const metaSrc = includeDeleted
+      ? '(SELECT * FROM items_meta UNION ALL SELECT * FROM item_archive_meta)'
+      : 'items_meta';
+
     if (rootId) {
       // Same reachability as the old walk: the seed is unconditional, every
       // hop requires the CHILD node to pass the node filters, self-parent
@@ -3419,8 +3802,8 @@ class SqliteFsAdapter {
         WITH RECURSIVE sub(id) AS (
           SELECT ?
           UNION
-          SELECT i2.id FROM items i2
-          LEFT JOIN items_meta m2 ON m2.item_id = i2.id
+          SELECT i2.id FROM ${itemsSrc} i2
+          LEFT JOIN ${metaSrc} m2 ON m2.item_id = i2.id
           JOIN sub s ON i2.parent_id = s.id AND i2.id != i2.parent_id
           WHERE ${hop.conds.join(' AND ')}
         ) SELECT id FROM sub
@@ -3449,7 +3832,7 @@ class SqliteFsAdapter {
              m.completed_at, m.due_at, m.expires_at, m.deleted_at, m.cached_at,
              m.connector_id, m.materialized, m.files, m.layer,
              m.source_system, m.source_external_id, m.icon
-      FROM items i LEFT JOIN items_meta m ON m.item_id = i.id
+      FROM ${itemsSrc} i LEFT JOIN ${metaSrc} m ON m.item_id = i.id
       WHERE ${conditions.join(' AND ')}
     `).all(...params).map((r: any) => this._rowToItem(r));
 
@@ -3519,6 +3902,11 @@ class SqliteFsAdapter {
       db.prepare('DELETE FROM item_history').run();
       db.prepare('DELETE FROM activity').run();
       db.prepare('DELETE FROM items').run();
+      db.prepare('DELETE FROM item_archive_time').run();
+      db.prepare('DELETE FROM item_archive_search').run();
+      db.prepare('DELETE FROM item_archive_payload').run();
+      db.prepare('DELETE FROM item_archive_meta').run();
+      db.prepare('DELETE FROM item_archive').run();
       if (this._isSparse()) this._rebuildFromFsSparse(db);
       else                  this._rebuildFromFs(db);
     })();
@@ -3633,6 +4021,7 @@ class SqliteFsAdapter {
     this._iconCache = null;   // type items are per-branch
     // A crashed writer may have left a journal on the branch we're switching to.
     this._recover();
+    this._migrateFlaggedToArchive();
   }
 
   // The branch registry is the branches/ directory: one branch.json per branch.
@@ -3715,6 +4104,18 @@ class SqliteFsAdapter {
         else if (JSON.stringify(upDoc) !== JSON.stringify(doc))
           edits.push({ id, before: this._docToItem(upDoc), after: this._docToItem(doc), doc });
       }
+      // Branch-local archive entries: a soft delete of an upstream-live item is
+      // a delete change with `soft: true` — merge applies it as a real archive
+      // move (not a hard file removal). An archived item with no upstream live
+      // counterpart (created-then-archived on the branch, or archived upstream
+      // too) contributes no upstream-visible change and is skipped.
+      for (const jsonPath of this._scanItemFiles(path.join(this._branchRoot(name), 'archive'))) {
+        let doc; try { doc = JSON.parse(fs.readFileSync(jsonPath, 'utf8')); } catch { continue; }
+        const id = doc?.item?.id;
+        if (!id || this._isTombstone(doc)) continue;
+        const upDoc = upDocs.get(id);
+        if (upDoc) deletes.push({ id, before: this._docToItem(upDoc), soft: true, doc });
+      }
       return { adds, edits, deletes };
     }
 
@@ -3729,7 +4130,16 @@ class SqliteFsAdapter {
       }
     }
     for (const [id, upDoc] of upDocs) {
-      if (!branchDocs.has(id)) deletes.push({ id, before: this._docToItem(upDoc) });
+      if (branchDocs.has(id)) continue;
+      // Absent from the branch's live tree but present in its archive/ — the
+      // branch soft-deleted it; merge as an archive move, not a hard delete.
+      let archDoc = null;
+      try {
+        const d = JSON.parse(fs.readFileSync(this._branchItemPath(name, id, 'archive'), 'utf8'));
+        if (!this._isTombstone(d)) archDoc = d;
+      } catch { /* not archived on the branch */ }
+      if (archDoc) deletes.push({ id, before: this._docToItem(upDoc), soft: true, doc: archDoc });
+      else         deletes.push({ id, before: this._docToItem(upDoc) });
     }
     return { adds, edits, deletes };
   }
@@ -4162,12 +4572,37 @@ class SqliteFsAdapter {
     // their item.json removal here — mirroring the normal delete cascade and the
     // Postgres adapter (deleting an item removes its aliases). The blast radius was
     // already surfaced above for the caller; this only reconciles the tree.
+    const mainArchiveDir = path.join(this._branchRoot('main'), 'archive');
+    // Apply a branch soft delete as a REAL archive move on main: main's item
+    // folder (sidecars included) moves into main's archive/, and the branch's
+    // archived item.json (which carries the deletedAt stamp) becomes the
+    // archived doc. No metadata cascade — soft delete keeps relationships
+    // (the spec's type-relation-survives rule), exactly like live softDelete().
+    const archiveMainDoc = (id: any, archDoc: any) => {
+      const [s1, s2] = this._shard(id);
+      const liveDir = path.join(mainItemsDir, s1, s2, id);
+      const archDir = path.join(mainArchiveDir, s1, s2, id);
+      fs.rmSync(archDir, { recursive: true, force: true });
+      fs.mkdirSync(path.dirname(archDir), { recursive: true });
+      if (fs.existsSync(liveDir)) fs.cpSync(liveDir, archDir, { recursive: true });
+      else fs.mkdirSync(archDir, { recursive: true });
+      const p = path.join(archDir, 'item.json'), tmp = p + '.tmp';
+      fs.writeFileSync(tmp, JSON.stringify(archDoc, null, 2), 'utf8');
+      fs.renameSync(tmp, p);
+      fs.rmSync(liveDir, { recursive: true, force: true });
+    };
+
     const mainDb = this._openDb();
     let merged = 0, skipped = 0;
     for (const a of preview.adds)    { if (skip(a.id)) { skipped++; continue; } writeMainDoc(a.id, a.doc); merged++; }
     for (const e of preview.edits)   { if (skip(e.id)) { skipped++; continue; } writeMainDoc(e.id, e.doc); merged++; }
     for (const d of preview.deletes) {
       if (skip(d.id)) { skipped++; continue; }
+      if ((d as any).soft && (d as any).doc) {
+        archiveMainDoc(d.id, (d as any).doc);
+        merged++;
+        continue;
+      }
       for (const op of this._cascadeMetadataOps(mainDb, d.id)) deleteMainDoc(op.id);
       deleteMainDoc(d.id);
       merged++;

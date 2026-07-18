@@ -24,8 +24,14 @@ export type TableKind = 'items' | 'item_history' | 'activity' | 'obj' | 'perf' |
 
 // The item spine and its sanctioned physical sections (spec: envelope sections
 // decomposed 1:1 off `items` are not a fifth kind; items_payload is the
-// write-side payload store, never a read surface).
-const SPINE = new Set(['items', 'items_meta', 'items_search', 'items_time', 'items_payload']);
+// write-side payload store, never a read surface). The item_archive* twins are
+// the spine's ARCHIVE half (soft delete = physical move; spec §item_archive
+// draft): schema-identical to their live counterparts — enforced by the
+// archive-schema drift test — and derived from the archive/ folder.
+const SPINE = new Set([
+  'items', 'items_meta', 'items_search', 'items_time', 'items_payload',
+  'item_archive', 'item_archive_meta', 'item_archive_search', 'item_archive_time', 'item_archive_payload',
+]);
 
 // obj_<uuid-with-underscores>, optionally with a _<field> scalar-array child suffix.
 const OBJ_RE = /^obj_[0-9a-f]{8}_[0-9a-f]{4}_[0-9a-f]{4}_[0-9a-f]{4}_[0-9a-f]{12}(_[a-z0-9_]+)?$/;
