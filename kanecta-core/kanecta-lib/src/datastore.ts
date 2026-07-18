@@ -260,7 +260,7 @@ class Datastore {
 
   // ─── Tree ──────────────────────────────────────────────────────────────────
 
-  async loadAll()                            { return this._adapter.loadAll(); }
+  async loadAll(opts?: any)                  { return this._adapter.loadAll(opts); }
   async children(parentId: any, aspect?: any)           { return this._adapter.children(parentId, aspect); }
   async tree(rootId: any, maxDepth?: any)               { return this._adapter.tree(rootId, maxDepth); }
   async getDocument(id: any)                      { return this._adapter.getDocument(id); }

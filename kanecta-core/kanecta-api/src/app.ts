@@ -673,7 +673,11 @@ app.get('/search', async (req, res) => {
   const queryLower = q.toLowerCase();
   const showDeleted = includeDeleted === 'true' || includeDeleted === '1';
 
-  const allItems = (await ds.loadAll()).filter((i: any) => showDeleted || i.deletedAt == null);
+  // item_archive model: soft-deleted items physically leave the live store,
+  // so a bare loadAll() can no longer see them — includeDeleted asks the
+  // adapter to union the archive in. The flag filter stays as belt-and-braces.
+  const allItems = (await ds.loadAll(showDeleted ? { includeDeleted: true } : undefined))
+    .filter((i: any) => showDeleted || i.deletedAt == null);
   let candidates = [];
   for (const i of allItems) {
     if (i.value && typeof i.value === 'string' && i.value.toLowerCase().includes(queryLower)) {
