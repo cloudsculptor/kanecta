@@ -417,30 +417,35 @@ describe('mergeBranch', () => {
 
   test('merge is atomic: if one change fails the whole merge rolls back', async () => {
     await withAdapter(async (adapter, pool) => {
+      // The deferred failure is now the items delete guard — it replaced
+      // fk_items_parent under the item_archive model (references may point
+      // into the archive, so the FK is gone) with the same end-of-transaction
+      // timing: hard-deleting a parent whose live child survives the merge
+      // raises at COMMIT, rolling the whole merge back.
+      const parent = await createItem(adapter, { value: 'kept parent', parentId: ROOT_ID, type: 'text' });
+      await createItem(adapter, { value: 'dependent child', parentId: parent.id, type: 'text' });
+
       const br     = await adapter.createBranch('atomic-merge');
       const goodId = 'cccc0003-0000-0000-0000-000000000003';
-      const badId  = 'cccc0003-0000-0000-0000-000000000099';
-      // non-existent parent — FK (DEFERRABLE INITIALLY DEFERRED) fires at COMMIT
-      const GHOST_PARENT = '99999999-9999-9999-9999-999999999999';
 
       await adapter.applyBranchChanges(br.id, [
-        // valid create — should be rolled back if the second fails
+        // valid create — should be rolled back if the delete fails
         { itemId: goodId, changeType: 'create', section: 'item',
           data: { value: 'good', type: 'text', parentId: ROOT_ID, sortOrder: 0 } },
         { itemId: goodId, changeType: 'create', section: 'meta',
           data: { specVersion: '1.4.0', visibility: 'private', tags: [] } },
-        // create referencing a non-existent parent → FK violation at commit
-        { itemId: badId, changeType: 'create', section: 'item',
-          data: { value: 'bad', type: 'text', parentId: GHOST_PARENT, sortOrder: 0 } },
-        { itemId: badId, changeType: 'create', section: 'meta',
-          data: { specVersion: '1.4.0', visibility: 'private', tags: [] } },
+        // delete of a parent with a live child → guard raises at commit
+        { itemId: parent.id, changeType: 'delete', section: 'item', data: {} },
       ]);
 
-      await expect(adapter.mergeBranch(br.id)).rejects.toThrow();
+      await expect(adapter.mergeBranch(br.id, { strategy: 'theirs' })).rejects.toThrow(/fk_items_parent|orphan/);
 
-      // Verify the good item was NOT inserted (transaction rolled back)
+      // Verify the good item was NOT inserted (transaction rolled back) and
+      // the parent survived.
       const { rows } = await pool.query('SELECT id FROM items WHERE id = $1', [goodId]);
       expect(rows).toHaveLength(0);
+      const { rows: kept } = await pool.query('SELECT id FROM items WHERE id = $1', [parent.id]);
+      expect(kept).toHaveLength(1);
     });
   }, 30_000);
 

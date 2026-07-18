@@ -376,6 +376,7 @@ class PostgresAdapter {
     await adapter._ensureRelationshipTypes();
     await adapter._loadRelTypes();
     if (adapter._embeddingProvider) await adapter._ensureEmbeddingTable();
+    await adapter._migrateFlaggedRowsToArchive();
     return adapter;
   }
 
@@ -391,6 +392,7 @@ class PostgresAdapter {
     await adapter._ensureRelationshipTypes();
     await adapter._loadRelTypes();
     if (adapter._embeddingProvider) await adapter._ensureEmbeddingTable();
+    await adapter._migrateFlaggedRowsToArchive();
     return adapter;
   }
 
@@ -455,6 +457,40 @@ class PostgresAdapter {
       await this._exec(fs.readFileSync(path.join(dir, file), 'utf8'));
       await this._exec('INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING', [file]);
     }
+  }
+
+  // ── Legacy flag-deleted rows → item_archive (auto-upgrade catch-up) ────────
+  // Pre-archive datastores hold soft-deleted items as flagged live rows.
+  // Move them through the normal archive path — payload capture, backlink
+  // cleanup, cascaded derived rows — but with NO new history event (this is
+  // not a new delete; deleted_at keeps its original stamp). Idempotent and
+  // cheap once no flagged rows remain (043's partial deleted_at index).
+  // Also runs after a branch merge: applied branch changes may carry
+  // meta.deletedAt stamps (e.g. a sync-pushed soft delete), which land as
+  // flagged rows and are normalised into the archive here.
+  async _migrateFlaggedRowsToArchive() {
+    const { rows: has } = await this._exec("SELECT to_regclass('item_archive') IS NOT NULL AS ok");
+    if (!has[0]?.ok) return 0;   // pre-043 schema (migrations not yet applied)
+    const { rows: flagged } = await this._exec(
+      'SELECT id, type, type_id FROM items WHERE deleted_at IS NOT NULL',
+    );
+    for (const row of flagged) {
+      await this._withTx(async () => {
+        const projTypeId = projectionTypeId(row.type, row.type_id);
+        const payload = projTypeId ? await this.readObjectJson(row.id, projTypeId) : null;
+        await this._exec('DELETE FROM perf_backlinks WHERE source_id = $1', [row.id]);
+        await this._exec(
+          'INSERT INTO item_archive SELECT * FROM items WHERE id = $1 ON CONFLICT (id) DO NOTHING', [row.id],
+        );
+        if (payload != null) await this._exec(
+          `INSERT INTO item_archive_payload (item_id, payload) VALUES ($1, $2)
+           ON CONFLICT (item_id) DO UPDATE SET payload = EXCLUDED.payload`,
+          [row.id, JSON.stringify(payload)],
+        );
+        await this._exec('DELETE FROM items WHERE id = $1', [row.id]);
+      });
+    }
+    return flagged.length;
   }
 
   // Whether schema-mutating operations (migrations, built-in-type seeding) are
@@ -895,8 +931,14 @@ class PostgresAdapter {
   // ─── Item CRUD ───────────────────────────────────────────────────────────────
 
   async get(id: any) {
+    // Point reads by id resolve the archive transparently (restore tooling,
+    // MCP contracts, byte proxies for soft-deleted files). Set-returning
+    // queries never touch item_archive unless includeDeleted asks for it.
     const { rows } = await this._exec('SELECT * FROM items WHERE id = $1', [id]);
-    return rowToItem(rows[0] ?? null);
+    if (rows[0]) return rowToItem(rows[0]);
+    const arch = await this._execTry('SELECT * FROM item_archive WHERE id = $1', [id])
+      .catch(() => ({ rows: [] }));   // pre-043 schema: no archive yet
+    return rowToItem(arch.rows[0] ?? null);
   }
 
   async _typeDefExists(typeId: any) {
@@ -1038,6 +1080,17 @@ class PostgresAdapter {
   async _updateImpl(id: any, changes: any, actor?: any, { strict }: any = {}) {
     const current = await this.get(id);
     if (!current) throw new Error(`Item not found: ${id}`);
+    // Archived items are read-only: restore first (a live-store write while
+    // the archive row exists would split the item across the two tables).
+    if (current.deletedAt) {
+      const { rows: live } = await this._exec('SELECT 1 FROM items WHERE id = $1', [id]);
+      if (!live.length)
+        throw new Error(`Item ${id} is archived (soft-deleted) — restore() it before updating`);
+    }
+    // deletedAt transitions are the archive's job — update() may not flag-set
+    // them (the live table never contains a deleted row by construction).
+    if ('deletedAt' in changes && (changes.deletedAt ?? null) !== (current.deletedAt ?? null))
+      throw new Error('deletedAt cannot be changed via update() — use softDelete()/restore()');
     // The root node is renamable — its `value` (and other descriptive fields)
     // may be edited so a datastore can be given a meaningful name — but its
     // structural fields stay locked so it remains the self-parented type:'root'
@@ -1174,6 +1227,22 @@ class PostgresAdapter {
     this._assertDeletable(item, id);
     actor = actor || this.config.owner;
     const now = new Date();
+
+    // Hard delete of an ARCHIVED item = purge: the item already left every
+    // live/derived structure when it was archived — remove the archive copy
+    // (payload cascades), any remaining inbound backlink rows, and drop the
+    // projection table if this purged the type's last instance anywhere.
+    if (item.deletedAt) {
+      const { rows: live } = await this._exec('SELECT 1 FROM items WHERE id = $1', [id]);
+      if (!live.length) {
+        await this._snapshot(item, 'delete', actor, now);
+        await this._exec('DELETE FROM perf_backlinks WHERE source_id = $1 OR target_id = $1', [id]);
+        await this._exec('DELETE FROM item_archive WHERE id = $1', [id]);
+        if (item.typeId) await this._dropProjectionIfEmpty(item.typeId);
+        return { warnings: [] };
+      }
+    }
+
     const warnings = await this.deleteWarnings(id);
     await this._snapshot(item, 'delete', actor, now);
     // Alias items pointing at this item would dangle (and their target_id FK would
@@ -1197,32 +1266,105 @@ class PostgresAdapter {
     return { warnings };
   }
 
-  // ─── Soft delete / restore ───────────────────────────────────────────────────
+  // ─── Soft delete / restore (item_archive: delete = physical row move) ───────
 
+  // Stamp deletedAt and MOVE the row items → item_archive (verbatim —
+  // identical schemas, INSERT … SELECT *). The obj_ projection row, FTS row,
+  // embedding and queue rows all cascade away with the items row (spine FKs);
+  // the payload is captured into item_archive_payload first so restore can
+  // repopulate the projection. Outbound backlinks (this item's own links) are
+  // dropped and rebuilt on restore; inbound rows describe LIVE items' content
+  // and stay. Live queries then never see the item by construction.
   async softDelete(id: any, actor?: any) {
+    return this._withTx(() => this._softDeleteImpl(id, actor));
+  }
+
+  async _softDeleteImpl(id: any, actor?: any) {
     const item = await this.get(id);
     if (!item) throw new Error(`Item not found: ${id}`);
     this._assertDeletable(item, id);
+    if (item.deletedAt) {
+      const { rows: live } = await this._exec('SELECT 1 FROM items WHERE id = $1', [id]);
+      if (!live.length) return item;   // already archived — idempotent
+    }
     actor = actor || this.config.owner;
     const now = new Date();
     await this._snapshot(item, 'soft-delete', actor, now);
+    // Capture the payload BEFORE the obj_ row cascades away with the items row.
+    const projTypeId = projectionTypeId(item.type, item.typeId);
+    const payload = projTypeId ? await this.readObjectJson(id, projTypeId) : null;
     await this._exec(
       'UPDATE items SET deleted_at = $1, modified_at = $1, modified_by = $2 WHERE id = $3',
       [now, actor, id],
     );
+    await this._exec('DELETE FROM perf_backlinks WHERE source_id = $1', [id]);
+    await this._exec(
+      'INSERT INTO item_archive SELECT * FROM items WHERE id = $1 ON CONFLICT (id) DO NOTHING', [id],
+    );
+    if (payload != null) await this._exec(
+      `INSERT INTO item_archive_payload (item_id, payload) VALUES ($1, $2)
+       ON CONFLICT (item_id) DO UPDATE SET payload = EXCLUDED.payload`,
+      [id, JSON.stringify(payload)],
+    );
+    await this._exec('DELETE FROM items WHERE id = $1', [id]);
     return this.get(id);
   }
 
+  // Clear deletedAt and move the row back. The items INSERT re-fires the FTS
+  // trigger; the obj_ projection repopulates from the captured payload (table
+  // recreated if it was dropped); outbound backlinks re-derive from value.
+  // On a LIVE item this stays the pre-archive no-op-equivalent: clear the
+  // (already-null) flag and touch modifiedAt, exactly as before.
   async restore(id: any, actor?: any) {
+    return this._withTx(() => this._restoreImpl(id, actor));
+  }
+
+  async _restoreImpl(id: any, actor?: any) {
     const item = await this.get(id);
     if (!item) throw new Error(`Item not found: ${id}`);
     actor = actor || this.config.owner;
     const now = new Date();
     await this._snapshot(item, 'restore', actor, now);
+
+    const { rows: live } = await this._exec('SELECT 1 FROM items WHERE id = $1', [id]);
+    if (live.length) {
+      await this._exec(
+        'UPDATE items SET deleted_at = NULL, modified_at = $1, modified_by = $2 WHERE id = $3',
+        [now, actor, id],
+      );
+      return this.get(id);
+    }
+
+    await this._exec(
+      'INSERT INTO items SELECT * FROM item_archive WHERE id = $1 ON CONFLICT (id) DO NOTHING', [id],
+    );
     await this._exec(
       'UPDATE items SET deleted_at = NULL, modified_at = $1, modified_by = $2 WHERE id = $3',
       [now, actor, id],
     );
+    const projTypeId = projectionTypeId(item.type, item.typeId);
+    if (projTypeId) {
+      const { rows } = await this._exec(
+        'SELECT payload FROM item_archive_payload WHERE item_id = $1', [id],
+      );
+      const payload = rows[0]?.payload ?? null;
+      const projected = await this._ensureProjection(projTypeId);
+      if (projected && payload != null) await this.writeObjectJson(id, projTypeId, payload);
+      else if (projected) await this._exec(
+        `INSERT INTO "${objTableName(projTypeId)}" (item_id) VALUES ($1) ON CONFLICT (item_id) DO NOTHING`, [id],
+      );
+    }
+    for (const link of parseLinks(item.value)) {
+      await this._exec(
+        'INSERT INTO perf_backlinks (source_id, target_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
+        [id, link],
+      );
+    }
+    if (this._embeddingProvider) await this._execTry(
+      `INSERT INTO perf_embedding_queue (item_id, queued_at) VALUES ($1, now())
+       ON CONFLICT (item_id) DO UPDATE SET queued_at = now()`, [id],
+    ).catch(() => { /* embeddings table not provisioned */ });
+    await this._exec('DELETE FROM item_archive WHERE id = $1', [id]);
     return this.get(id);
   }
 
@@ -1692,8 +1834,11 @@ class PostgresAdapter {
     return rows.length ? rowToItem(rows[0]) : null;
   }
 
-  async loadAll() {
-    const { rows } = await this._exec('SELECT * FROM items ORDER BY sort_order');
+  async loadAll({ includeDeleted = false }: any = {}) {
+    const src = includeDeleted
+      ? '(SELECT * FROM items UNION ALL SELECT * FROM item_archive)'
+      : 'items';
+    const { rows } = await this._exec(`SELECT * FROM ${src} q ORDER BY sort_order`);
     return rows.map(rowToItem);
   }
 
@@ -1736,8 +1881,14 @@ class PostgresAdapter {
       }
     }
 
-    // Soft-delete filter
+    // The live table contains no deleted rows (soft delete physically moves
+    // them to item_archive), so the default query needs no exclusion filter —
+    // the vacuous condition is kept as belt-and-braces. includeDeleted UNIONS
+    // the archive back in via the source relation below.
     if (!includeDeleted) conditions.push('deleted_at IS NULL');
+    const itemsSrc = includeDeleted
+      ? '(SELECT * FROM items UNION ALL SELECT * FROM item_archive)'
+      : 'items';
 
     // Expiry filters
     if (expiredOnly) {
@@ -1756,9 +1907,9 @@ class PostgresAdapter {
         conditions.push(
           `id IN (
             WITH RECURSIVE sub AS (
-              SELECT id FROM items WHERE id = $${p}
+              SELECT id FROM ${itemsSrc} src0 WHERE id = $${p}
               UNION ALL
-              SELECT i.id FROM items i JOIN sub s ON i.parent_id = s.id AND i.id != i.parent_id
+              SELECT i.id FROM ${itemsSrc} i JOIN sub s ON i.parent_id = s.id AND i.id != i.parent_id
             ) SELECT id FROM sub
           )`,
         );
@@ -1779,7 +1930,7 @@ class PostgresAdapter {
 
     const whereClause = conditions.length ? ' WHERE ' + conditions.join(' AND ') : '';
     const { rows } = await this._exec(
-      `SELECT * FROM items${whereClause}`, params,
+      `SELECT * FROM ${itemsSrc} q${whereClause}`, params,
     );
     let items = rows.map(rowToItem);
 
@@ -1863,7 +2014,7 @@ class PostgresAdapter {
       const result = await this._execTry(
         `SELECT * FROM "${table}" WHERE item_id = $1`, [id],
       );
-      if (!result.rows[0]) return null;
+      if (!result.rows[0]) return this._readArchivedPayload(id);
       // The compiler maps jsonSchema `integer` to BIGINT, which node-pg returns
       // as a string; coerce those columns back to numbers so the payload keeps
       // its JS types. (int4/float8/bool/arrays already come back correctly.)
@@ -1876,6 +2027,18 @@ class PostgresAdapter {
           return [k.replace(/_([a-z])/g, (_, c) => c.toUpperCase()), val];
         }),
       );
+    } catch { return this._readArchivedPayload(id); }
+  }
+
+  // Archived items keep serving their payload by id (point-read contract):
+  // the obj_ row left with the archive move, but the capture in
+  // item_archive_payload holds the writeObjectJson-shaped (camelCase) object.
+  async _readArchivedPayload(id: any) {
+    try {
+      const { rows } = await this._execTry(
+        'SELECT payload FROM item_archive_payload WHERE item_id = $1', [id],
+      );
+      return rows[0]?.payload ?? null;
     } catch { return null; }
   }
 
@@ -2552,13 +2715,20 @@ class PostgresAdapter {
     // type='object' would under-count and drop a live table.
     // The type-type is the exception: type items are its instances but carry
     // type_id=NULL (type='type' is their identity), so count them by type.
+    // Count live AND archived instances: an archived last instance keeps the
+    // relation so restore does not have to recreate it (spec type-relation
+    // rule); only hard-deleting the last instance anywhere — including purging
+    // the last archived one — drops the table.
     const { rows } = String(typeId) === TYPE_TYPE_ID
-      ? await this._exec("SELECT COUNT(*)::int AS n FROM items WHERE type = 'type'")
+      ? await this._exec(
+          `SELECT (SELECT COUNT(*) FROM items        WHERE type = 'type') +
+                  (SELECT COUNT(*) FROM item_archive WHERE type = 'type') AS n`)
       : await this._exec(
-          'SELECT COUNT(*)::int AS n FROM items WHERE type_id = $1',
+          `SELECT (SELECT COUNT(*) FROM items        WHERE type_id = $1) +
+                  (SELECT COUNT(*) FROM item_archive WHERE type_id = $1) AS n`,
           [typeId],
         );
-    if (!rows[0] || rows[0].n === 0)
+    if (!rows[0] || Number(rows[0].n) === 0)
       await this._exec(`DROP TABLE IF EXISTS "${objTableName(typeId)}"`);
   }
 
@@ -3532,6 +3702,13 @@ class PostgresAdapter {
     } finally {
       client.release();
     }
+
+    // Applied changes may carry meta.deletedAt stamps (a sync-pushed soft
+    // delete lands as a flagged live row) — normalise them into the archive
+    // so the live table stays deleted-free by construction. Idempotent; a
+    // crash between commit and this pass is caught by the open()/init()
+    // catch-up.
+    await this._migrateFlaggedRowsToArchive();
 
     return { merged: applied, skipped, conflicts, blastRadius, danglingRefs, branchName: branchRows[0].name };
   }

@@ -1333,14 +1333,20 @@ describe('per-type table projection', () => {
     expect(await regclass(table)).toBeNull();
   });
 
-  test('soft-delete of the last instance KEEPS the table and its row (pg payload store); restore works', async () => {
+  test('soft-delete of the last instance KEEPS the table; the row moves to the archive capture; restore repopulates', async () => {
     const { id, table } = await definePerson();
     const p = await adapter.create({ type: 'object', typeId: id, value: 'Ada', objectData: { fullName: 'Ada', age: 36 } });
     await adapter.softDelete(p.id);
-    // The row must persist — the obj_ table IS the payload store, so restore can recover it.
+    // item_archive model: the obj_ row leaves with the archived items row (it
+    // cascades off the spine), but the TABLE stays while an archived instance
+    // exists, and the payload is captured in item_archive_payload — so restore
+    // can rebuild the row without recreating the table.
     expect(await regclass(table)).toBe(table);
-    expect(await rowCount(table)).toBe(1);
+    expect(await rowCount(table)).toBe(0);
+    const { rows } = await pool.query('SELECT payload FROM item_archive_payload WHERE item_id = $1', [p.id]);
+    expect(rows[0].payload).toMatchObject({ fullName: 'Ada', age: 36 });
     await adapter.restore(p.id);
+    expect(await rowCount(table)).toBe(1);
     expect(await adapter.readObjectJson(p.id, id)).toMatchObject({ fullName: 'Ada', age: 36 });
   });
 
