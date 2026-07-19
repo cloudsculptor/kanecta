@@ -79,6 +79,7 @@ const publicComing = [
   {
     title: "Buy, Sell & Swap",
     blurb: "Buy, sell, swap, or give away items locally.",
+    image: "/buy-sell-and-swap-160x160.png",
   },
   {
     title: "Visitor Activities",
@@ -103,10 +104,12 @@ const publicComing = [
   {
     title: "Arts & Culture",
     blurb: "Local artists, galleries, Booktown festival, and performances.",
+    image: "/arts-and-culture-160x160.jpg",
   },
   {
     title: "Food & Drink",
     blurb: "Cafes, restaurants, local producers, and farmers markets.",
+    image: "/food-and-drink-160x160.png",
   },
   {
     title: "Jobs & Volunteering",
@@ -131,14 +134,16 @@ const publicComing = [
   {
     title: "Pets & Animals",
     blurb: "Vets, lost pets, and animal services in the area.",
-  },  
+    image: "/pets-and-animals-160x160.jpg",
+  },
   {
     title: "Local Accommodation",
     blurb: "Places to stay in and around Featherston.",
-  },  
+  },
   {
     title: "History",
     blurb: "The history of Featherston and the surrounding district.",
+    image: "/history-160x160.jpg",
   },
 ];
 
@@ -206,7 +211,7 @@ export default function Home() {
         <NavCard
           title="About this site"
           blurb="Our kaupapa, open governance, and how this site works."
-          image="/site-160x160.jpg"
+          image="/about-this-site-160x160.jpg"
           path="/about"
         />
         <NavCard
