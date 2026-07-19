@@ -139,6 +139,7 @@ const publicComing = [
   {
     title: "Local Accommodation",
     blurb: "Places to stay in and around Featherston.",
+    image: "/about-this-site-160x160.jpg",
   },
   {
     title: "History",
@@ -211,7 +212,7 @@ export default function Home() {
         <NavCard
           title="About this site"
           blurb="Our kaupapa, open governance, and how this site works."
-          image="/about-this-site-160x160.jpg"
+          image="/site-160x160.jpg"
           path="/about"
         />
         <NavCard
