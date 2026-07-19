@@ -55,10 +55,17 @@ export function NavCard({ title, blurb, path, image, attribution, featured, acce
   );
 }
 
-export function ComingCard({ title, blurb }: { title: string; blurb: string }) {
+export function ComingCard({ title, blurb, image }: { title: string; blurb: string; image?: string }) {
   return (
     <div className="nav-card nav-card--coming">
-      <div className="nav-card__image" />
+      <div
+        className="nav-card__image"
+        style={
+          image
+            ? { backgroundImage: `url(${image})`, backgroundSize: "cover", backgroundPosition: "center" }
+            : undefined
+        }
+      />
       <div className="nav-card__content">
         <h2 className="nav-card__title">{title}</h2>
         <p className="nav-card__blurb">{blurb}</p>

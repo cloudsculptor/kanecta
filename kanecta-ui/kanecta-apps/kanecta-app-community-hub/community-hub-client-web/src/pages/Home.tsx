@@ -13,7 +13,7 @@ const publicActive = [
     title: "Events",
     blurb: "Find local events, gatherings, and activities happening in Featherston.",
     path: "/events",
-    image: "/events-real.jpg",
+    image: "/events-160x160.jpg",
   },
   {
     title: "Transport",
@@ -35,43 +35,43 @@ const publicActive = [
     title: "Community Groups",
     blurb: "Discover local community groups",
     path: "/groups",
-    image: "/community-groups-real.jpg",
+    image: "/community-groups-160x160.jpg",
   },
   {
     title: "Local Businesses",
     blurb: "Support and explore local businesses in Featherston and the South Wairarapa.",
     path: "/local-businesses",
-    image: "/local-business-real.jpg",
+    image: "/local-business-160x160.jpg",
   },
   {
     title: "Social Services",
     blurb: "Access social support, welfare, and community care services.",
     path: "/social-services",
-    image: "/social-services-real.jpg",
+    image: "/social-services-160x160.jpg",
   },
   {
     title: "Community Resilience",
     blurb: "Resources and networks for when things get tough.",
     path: "/community-resilience",
-    image: "/community-resilience-real.jpg",
+    image: "/resilience-160x160.jpg",
   },
   {
     title: "Communication Networks",
     blurb: "Stay connected with local networks, groups, and channels.",
     path: "/communication-networks",
-    image: "/communication-networks-real.jpg",
+    image: "/comm-networks-160x160.jpg",
   },
   {
     title: "Local Government",
     blurb: "Local and regional government services for Featherston.",
     path: "/local-government",
-    image: "/local-government-real.jpg",
+    image: "/local-government-160x160.jpg",
   },
   {
     title: "Education",
     blurb: "Schools, early childhood services, and learning resources in Featherston.",
     path: "/education",
-    image: "/education-real.jpg",
+    image: "/education-160x160.jpg",
   },
 ];
 
@@ -83,18 +83,22 @@ const publicComing = [
   {
     title: "Visitor Activities",
     blurb: "Things to do and see in Featherston and the South Wairarapa.",
+    image: "/visitor-activities-160x160.jpg",
   },
   {
     title: "Health & Wellbeing",
     blurb: "GPs, pharmacy, dentist, mental health, and healthcare access in Featherston.",
+    image: "/health-and-wellbeing-160x160.jpg",
   },
   {
     title: "Sport & Recreation",
     blurb: "Sports clubs, facilities, courts, and fitness groups.",
+    image: "/sports-and-rec-160x160.jpg",
   },
   {
     title: "Environment & Outdoors",
     blurb: "Remutaka Rail Trail, Lake Wairarapa, conservation, and local walks.",
+    image: "/outdoors-160x160.jpg",
   },
   {
     title: "Arts & Culture",
@@ -107,18 +111,22 @@ const publicComing = [
   {
     title: "Jobs & Volunteering",
     blurb: "Local employment opportunities and ways to contribute your skills.",
+    image: "/jobs-160x160.jpg",
   },
   {
     title: "Property & Housing",
     blurb: "Rentals, real estate, and local housing information.",
+    image: "/housing-160x160.jpg",
   },
   {
     title: "Youth",
     blurb: "Services, activities, and resources for young people in Featherston.",
+    image: "/youth-160x160.jpg",
   },
   {
     title: "Seniors",
     blurb: "Services, activities, and support for older residents.",
+    image: "/seniors-160x160.jpg",
   },
   {
     title: "Pets & Animals",
