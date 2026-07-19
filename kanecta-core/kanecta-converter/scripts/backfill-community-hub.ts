@@ -176,11 +176,18 @@ async function main() {
     const { rows: existing } = await pool.query(`SELECT source_id, target_id, note FROM "${relObjName}"`);
     for (const r of existing) seen.add(`${r.source_id}|${r.target_id}|${r.note ?? ''}`);
   }
+  // Sequential relate() calls: LAN-fast, but over a WAN/tunnel each edge is
+  // several round-trips — log progress so a long run is visibly alive.
+  log(`\nrelating ${edges.length} FK edges...`);
   let edgeOk = 0, edgeSkip = 0;
   for (const e of edges) {
-    if (seen.has(`${e.sourceId}|${e.targetId}|${e.fk}`)) { edgeSkip++; continue; }
-    try { await adapter.relate(e.sourceId, 'relates-to', e.targetId, { note: e.fk }); seen.add(`${e.sourceId}|${e.targetId}|${e.fk}`); edgeOk++; }
-    catch { edgeSkip++; }
+    if (seen.has(`${e.sourceId}|${e.targetId}|${e.fk}`)) {
+      edgeSkip++;
+    } else {
+      try { await adapter.relate(e.sourceId, 'relates-to', e.targetId, { note: e.fk }); seen.add(`${e.sourceId}|${e.targetId}|${e.fk}`); edgeOk++; }
+      catch { edgeSkip++; }
+    }
+    if ((edgeOk + edgeSkip) % 50 === 0) log(`  [edges] ${edgeOk + edgeSkip}/${edges.length} (${edgeOk} created, ${edgeSkip} skipped)`);
   }
   totals.relationships = edgeOk;
   log(`\nrelationship edges: ${edgeOk} created, ${edgeSkip} skipped (of ${edges.length})`);
