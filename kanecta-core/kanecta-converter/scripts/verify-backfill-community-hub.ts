@@ -62,8 +62,20 @@ async function main() {
 
   // ── 3. Relationship-edge integrity: every edge target is a real item ──────────
   console.log('\n3. Relationship edges (relates-to items) resolve to real items:');
+  // Expected = one edge per non-null FK value whose target table is introspected —
+  // mirrors planBackfill's edge planning; derived from the source, never hard-coded
+  // (a literal count goes stale the moment the source dataset moves).
+  const tableNames = new Set(tables.map((t) => t.name));
+  let expectedEdges = 0;
+  for (const t of tables) {
+    for (const fk of t.foreignKeys ?? []) {
+      if (!tableNames.has(fk.references.table)) continue;
+      const { rows } = await source.query(`SELECT count(*)::int n FROM "${t.name}" WHERE "${fk.column}" IS NOT NULL`);
+      expectedEdges += rows[0].n;
+    }
+  }
   const { rows: relCount } = await target.query(`SELECT count(*)::int n FROM items WHERE type='relationship'`);
-  line(relCount[0].n === 603, `${relCount[0].n} relationship items (expected 603)`);
+  line(relCount[0].n === expectedEdges, `${relCount[0].n} relationship items (expected ${expectedEdges} from source FKs)`);
 
   // dangling-target check via the relationship projection table
   const relObj = await target.query(`
