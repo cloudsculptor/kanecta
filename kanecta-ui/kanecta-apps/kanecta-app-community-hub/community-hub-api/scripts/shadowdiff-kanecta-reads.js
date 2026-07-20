@@ -370,6 +370,38 @@ const CASES = [
     fn: () => download.listPublicPagesForExport() },
 ];
 
+// Deep field-level diff: every leaf path where the two structures differ.
+// Failing cases used to dump both payloads whole — megabytes for the
+// file-bearing cases, where the ONLY acceptable diff is storage_key. This
+// makes the pass-state check ("storage_key-only") readable at a glance.
+function diffLeaves(a, b, path = "", out = []) {
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) out.push({ path: `${path}.length`, src: a.length, kan: b.length });
+    for (let i = 0; i < Math.min(a.length, b.length); i++) diffLeaves(a[i], b[i], `${path}[${i}]`, out);
+    return out;
+  }
+  if (a && b && typeof a === "object" && typeof b === "object" && !(a instanceof Date) && !(b instanceof Date)) {
+    for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) diffLeaves(a[k], b[k], path ? `${path}.${k}` : k, out);
+    return out;
+  }
+  if (JSON.stringify(a) !== JSON.stringify(b)) out.push({ path, src: a, kan: b });
+  return out;
+}
+const short = (v) => { const s = JSON.stringify(v); return s && s.length > 80 ? s.slice(0, 77) + "..." : s; };
+function reportDiff(name, a, b, extra = "") {
+  const byField = new Map();
+  for (const d of diffLeaves(a, b)) {
+    const f = d.path.replace(/\[\d+\]/g, "[]");
+    if (!byField.has(f)) byField.set(f, []);
+    byField.get(f).push(d);
+  }
+  const fields = [...byField.entries()].map(([f, ds]) => `${f} (x${ds.length})`).join(", ");
+  console.log(`  ✗ ${name}${extra}  differing fields: ${fields || "(none at leaf level)"}`);
+  for (const [, ds] of byField) {
+    for (const d of ds.slice(0, 2)) console.log(`      ${d.path}: src=${short(d.src)} kan=${short(d.kan)}`);
+  }
+}
+
 let pass = 0, fail = 0;
 for (const c of CASES) {
   try {
@@ -380,7 +412,7 @@ for (const c of CASES) {
     if (c.check) {
       const okc = c.check(rows, kres);
       if (okc) { console.log(`  ✓ ${c.name}`); pass++; }
-      else { console.log(`  ✗ ${c.name}  src=${JSON.stringify(rows)} kan=${JSON.stringify(kres)}`); fail++; }
+      else { reportDiff(c.name, rows, kres); fail++; }
       continue;
     }
     const krows = kres;
@@ -390,11 +422,7 @@ for (const c of CASES) {
       console.log(`  ✓ ${c.name}  (${a.length} rows)`);
       pass++;
     } else {
-      console.log(`  ✗ ${c.name}  source=${a.length} kanecta=${b.length}`);
-      const n = Math.max(a.length, b.length);
-      for (let i = 0; i < n; i++) {
-        if (!eq(a[i], b[i])) { console.log(`      row ${i} SRC: ${JSON.stringify(a[i])}`); console.log(`      row ${i} KAN: ${JSON.stringify(b[i])}`); break; }
-      }
+      reportDiff(c.name, a, b, `  source=${a.length} kanecta=${b.length}`);
       fail++;
     }
   } catch (e) {
