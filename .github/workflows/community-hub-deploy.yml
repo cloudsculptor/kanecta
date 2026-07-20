@@ -51,4 +51,4 @@ jobs:
             kanecta-ui/kanecta-apps/kanecta-app-community-hub/community-hub-api/ \
             root@${{ secrets.DEPLOY_HOST }}:/opt/featherston-api/
           ssh -i ~/.ssh/deploy_key root@${{ secrets.DEPLOY_HOST }} \
-            "cd /opt/featherston-api && npm install --omit=dev && pm2 restart featherston-api && pm2 save"
+            "cd /opt/featherston-api && npm install --omit=dev && pm2 startOrReload ecosystem.config.cjs --update-env && pm2 save"
