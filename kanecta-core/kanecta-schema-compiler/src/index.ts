@@ -224,7 +224,13 @@ export const DIALECTS: Record<DialectName, Dialect> = {
   },
 };
 
-const snake = (k: string): string => k.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase());
+/**
+ * The compiler's one column-naming rule: camelCase property → snake_case
+ * column. Exported so consumers that must PREDICT column names (integrity
+ * checks, introspection diffing) share the exact rule instead of copying it.
+ */
+export const sqlColumnName = (k: string): string => k.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase());
+const snake = sqlColumnName;
 
 /** obj_<typeId> with hyphens as underscores. */
 export function objTableName(typeId: string): string {

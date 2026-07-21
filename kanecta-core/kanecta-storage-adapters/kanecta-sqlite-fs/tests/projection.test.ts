@@ -223,6 +223,54 @@ describe('per-type projection — rebuildIndexes', () => {
   });
 });
 
+// ─── Manual projection refresh (rebuildProjections) ───────────────────────────
+// Spec §"Rebuildability guarantee": index.db — obj_ and perf_ tables included —
+// is 100% derivable from items/. rebuildProjections is the manual surface.
+
+describe('per-type projection — rebuildProjections', () => {
+  test('regenerates obj_ rows after the whole index is blown away', () => {
+    const a = tmpAdapter();
+    definePerson(a);
+    addPerson(a, { fullName: 'Ada' });
+    addPerson(a, { fullName: 'Grace' });
+    // Simulate corruption: drop the projected table behind the adapter's back.
+    a._openDb().exec(`DROP TABLE "${PERSON_TABLE}"`);
+    expect(tableExists(a)).toBe(false);
+
+    const report = a.rebuildProjections();
+    expect(report.storage).toBe('filesystem');
+    expect(report.ok).toBe(true);
+    expect(report.items).toBeGreaterThan(0);
+    expect(tableExists(a)).toBe(true);
+    expect(rows(a).length).toBe(2);          // rows restored from item.json
+    const objs = report.structures.find((s: any) => s.name === 'obj-tables');
+    expect(objs.status).toBe('rebuilt');
+    expect(objs.tables).toBeGreaterThan(0);
+    cleanup(a);
+  });
+
+  test('opts.only filters the reported structures (rebuild is monolithic)', () => {
+    const a = tmpAdapter();
+    definePerson(a);
+    addPerson(a, { fullName: 'Ada' });
+    const report = a.rebuildProjections({ only: ['perf_backlinks'] });
+    expect(report.structures.map((s: any) => s.name)).toEqual(['perf_backlinks']);
+    expect(report.ok).toBe(true);
+    cleanup(a);
+  });
+
+  test('describeProjectedRelation returns schema-derived columns', () => {
+    const a = tmpAdapter();
+    definePerson(a);
+    addPerson(a, { fullName: 'Ada' });
+    const cols = a.describeProjectedRelation(PERSON_TABLE);
+    expect(cols.map((c: any) => c.name).sort())
+      .toEqual(['active', 'age', 'full_name', 'item_id', 'tags'].sort());
+    expect(a.describeProjectedRelation('obj_nope')).toEqual([]);
+    cleanup(a);
+  });
+});
+
 // ─── Exemptions ────────────────────────────────────────────────────────────────
 
 describe('per-type projection — exemptions', () => {

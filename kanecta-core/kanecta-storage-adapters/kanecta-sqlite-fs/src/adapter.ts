@@ -1411,6 +1411,25 @@ class SqliteFsAdapter {
       .map((r: any) => r.name);
   }
 
+  // Row count of one materialised per-type table. The name is validated so only
+  // obj_ relations are addressable. Mirrors the Postgres adapter's handle surface.
+  countProjectedRows(table: any) {
+    if (!/^obj_[0-9a-f_]+$/.test(String(table)))
+      throw new Error(`not a projected relation: ${table}`);
+    const row = this._openDb().prepare(`SELECT COUNT(*) AS n FROM "${table}"`).get();
+    return Number(row?.n ?? 0);
+  }
+
+  // Column shape of one materialised per-type table, in ordinal order. Used by
+  // integrity checks (obj-table-matches-sqlschema) and the projection rebuild;
+  // mirrors the Postgres adapter's handle surface.
+  describeProjectedRelation(table: any) {
+    return this._openDb()
+      .prepare(`SELECT name, type FROM pragma_table_info(?) ORDER BY cid`)
+      .all(table)
+      .map((r: any) => ({ name: r.name, dataType: String(r.type ?? '').toLowerCase() }));
+  }
+
   // Write a metadata item (alias/relationship/annotation) as a real item.json in
   // items/ — the source of truth — and project it into its derived lookup table.
   // No history snapshot is taken for metadata items.
@@ -3914,6 +3933,35 @@ class SqliteFsAdapter {
     this._iconCache = null;
     const cnt = db.prepare('SELECT COUNT(*) AS n FROM items').get();
     return cnt?.n ?? 0;
+  }
+
+  // ─── Projection rebuild ─────────────────────────────────────────────────────
+  //
+  // Manual refresh of every derived structure (spec §"CQRS projections": obj_/
+  // perf_ relations are "strictly derived — always rebuildable"; §"Rebuildability
+  // guarantee": index.db is 100% derivable from items/). On this adapter the
+  // item.json files are the source of truth, so — unlike Postgres, where obj_
+  // rows are the payload store — EVERYTHING regenerates, obj_ rows included:
+  // the rebuild is the existing full re-ingest (rebuildIndexes), which drops
+  // all obj_ tables and every index table and replays the filesystem.
+  //
+  // opts.only is accepted for cross-adapter signature parity but the rebuild
+  // here is monolithic (one atomic re-ingest); it filters only the reported
+  // structure list.
+  rebuildProjections(opts: any = {}) {
+    const only = Array.isArray(opts.only) && opts.only.length
+      ? new Set(opts.only.map(String)) : null;
+    const items = this.rebuildIndexes();
+    const tables = this.listProjectedRelations();
+    const all = [
+      { name: 'obj-tables',     status: 'rebuilt', tables: tables.length },
+      { name: 'perf_backlinks', status: 'rebuilt' },
+      { name: 'perf_search',    status: 'rebuilt' },
+      { name: 'perf_tags',      status: 'rebuilt' },
+      { name: 'graph',          status: 'skipped', detail: 'no graph surface on the filesystem adapter' },
+    ];
+    const structures = only ? all.filter(s => only.has(s.name)) : all;
+    return { storage: 'filesystem', structures, items, ok: true };
   }
 
   // ─── Branching ────────────────────────────────────────────────────────────

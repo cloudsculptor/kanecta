@@ -2542,12 +2542,15 @@ class PostgresAdapter {
     await this._exec(
       `INSERT INTO items (id, spec_version, parent_id, path, value, type, owner, license, sort_order,
          created_at, modified_at, created_by, modified_by)
-       VALUES ($1, $2, $1, $7, $3, 'type', $4, $5, 0, $6, $6, $4, $4)
+       VALUES ($1, $2, $8, $7, $3, 'type', $4, $5, 0, $6, $6, $4, $4)
        ON CONFLICT (id) DO NOTHING`,
-      // $7 is the text `path` (a type item's path is its own id). It is a
-      // separate parameter from $1 (uuid id/parent_id) so PG doesn't try to
-      // deduce one type for a value used as both uuid and text.
-      [id, specVersion, value.trim(), owner, DEFAULT_LICENSE, now, String(id)],
+      // Universal parentId rule: a type item lives under the well-known types
+      // node, with the seeder's path convention root/types/<id> — exactly how
+      // the built-in type items are written. (This previously self-parented the
+      // item, which the root-singleton / no-parentid-cycles integrity checks
+      // flag as corruption and rebuildPaths cannot reach.)
+      [id, specVersion, value.trim(), owner, DEFAULT_LICENSE, now,
+       `${ROOT_ID}/${TYPES_CONTAINER_ID}/${id}`, TYPES_CONTAINER_ID],
     );
 
     const meta = resolvedSchema.meta ?? {};
@@ -2740,6 +2743,28 @@ class PostgresAdapter {
         WHERE table_schema = current_schema() AND table_name LIKE 'obj\\_%'`,
     );
     return rows.map((r: any) => r.table_name);
+  }
+
+  // Row count of one materialised per-type table. The name is validated so only
+  // obj_ relations are addressable. Mirrors the sqlite-fs handle surface.
+  async countProjectedRows(table: any) {
+    if (!/^obj_[0-9a-f_]+$/.test(String(table)))
+      throw new Error(`not a projected relation: ${table}`);
+    const { rows } = await this._exec(`SELECT COUNT(*) AS n FROM "${table}"`);
+    return Number(rows[0].n);
+  }
+
+  // Column shape of one materialised per-type table, in ordinal order. Used by
+  // integrity checks (obj-table-matches-sqlschema) and the projection rebuild;
+  // mirrors the sqlite-fs handle surface.
+  async describeProjectedRelation(table: any) {
+    const { rows } = await this._exec(
+      `SELECT column_name, data_type FROM information_schema.columns
+        WHERE table_schema = current_schema() AND table_name = $1
+        ORDER BY ordinal_position`,
+      [table],
+    );
+    return rows.map((r: any) => ({ name: r.column_name, dataType: r.data_type }));
   }
 
   // ─── Graph projection (Apache AGE) ───────────────────────────────────────────
@@ -3165,6 +3190,206 @@ class PostgresAdapter {
       )
       UPDATE items SET path = paths.path FROM paths WHERE items.id = paths.id
     `);
+  }
+
+  // ─── Projection rebuild ─────────────────────────────────────────────────────
+  //
+  // Manual refresh of every derived structure, callable at any time (spec
+  // §"CQRS projections": obj_/perf_ relations are "strictly derived — always
+  // rebuildable"). One asymmetry is architectural, not an omission: on this
+  // adapter the obj_<typeId> row IS the payload store (there is no write-side
+  // items_payload), so obj_ tables are ensured/verified structurally — a
+  // missing table is recreated EMPTY and reported as a warning, because its
+  // rows cannot be conjured back from `items` alone (restore from backup or
+  // item history). Everything else — perf_backlinks, perf_references,
+  // perf_search, the embedding queue, the children[] cache, materialized
+  // paths, the AGE graph — is recomputed wholesale from items + obj_.
+  //
+  // opts.only — array of structure names to rebuild; omitted = all of them.
+
+  async rebuildProjections(opts: any = {}) {
+    const only = Array.isArray(opts.only) && opts.only.length
+      ? new Set(opts.only.map(String)) : null;
+    const want = (name: string) => !only || only.has(name);
+    const structures: any[] = [];
+    const guard = async (name: string, fn: () => Promise<any>) => {
+      if (!want(name)) return;
+      try {
+        structures.push(await fn());
+      } catch (e: any) {
+        structures.push({ name, status: 'error', detail: e?.message ?? String(e) });
+      }
+    };
+
+    await guard('obj-tables', () => this._rebuildObjTables());
+    await guard('perf_backlinks', async () => {
+      await this.rebuildIndexes();
+      const { rows: [b] } = await this._exec('SELECT COUNT(*) AS n FROM perf_backlinks');
+      return { name: 'perf_backlinks', status: 'rebuilt', rows: Number(b.n) };
+    });
+    await guard('perf_references', () => this._rebuildReferences());
+    await guard('perf_search', () => this._rebuildSearchIndex());
+    await guard('embedding-queue', () => this._rebuildEmbeddingQueue());
+    await guard('children', async () => {
+      await this._exec(`
+        UPDATE items i SET children = COALESCE(
+          (SELECT array_agg(c.id ORDER BY c.sort_order, c.created_at, c.id)
+             FROM items c WHERE c.parent_id = i.id AND c.id <> i.id), '{}')`);
+      return { name: 'children', status: 'rebuilt' };
+    });
+    await guard('paths', async () => {
+      await this.rebuildPaths();
+      return { name: 'paths', status: 'rebuilt' };
+    });
+    await guard('graph', async () => {
+      if (!this.graphEnabled)
+        return { name: 'graph', status: 'skipped', detail: 'Apache AGE not available on this database' };
+      const g = await this.rebuildGraphProjection();
+      return { name: 'graph', status: 'rebuilt', rows: g?.edges ?? 0 };
+    });
+
+    return {
+      storage: 'postgres',
+      structures,
+      ok: !structures.some((s: any) => s.status === 'error'),
+    };
+  }
+
+  // Reconcile the obj_<typeId> relation set with the instance set: ensure a
+  // table for every projection key with ≥1 live-or-archived instance, drop
+  // tables whose key has none. Keys are derived with the same projectionTypeId
+  // mapping the write path uses, so built-in structured types and the
+  // type/relationship-type meta-types reconcile identically to how they
+  // project. A recreated table starts EMPTY — its rows were the payload store.
+  async _rebuildObjTables() {
+    const { rows: kinds } = await this._exec(`
+      SELECT type, type_id, COUNT(*) AS n FROM (
+        SELECT type, type_id FROM items
+        UNION ALL
+        SELECT type, type_id FROM item_archive
+      ) t GROUP BY type, type_id`);
+    const wanted = new Map<string, number>();
+    for (const r of kinds) {
+      const key = projectionTypeId(r.type, r.type_id);
+      if (key) wanted.set(String(key), (wanted.get(String(key)) ?? 0) + Number(r.n));
+    }
+
+    const before = new Set(await this.listProjectedRelations());
+    const created: any[] = [];
+    for (const [typeId, n] of wanted) {
+      if (before.has(objTableName(typeId))) continue;
+      const ok = await this._ensureProjection(typeId);
+      if (ok) created.push({ table: objTableName(typeId), instances: n });
+    }
+    for (const table of before) {
+      const typeId = table.slice('obj_'.length).replace(/_/g, '-');
+      if (!wanted.has(typeId)) await this._dropProjectionIfEmpty(typeId);
+    }
+
+    const after = new Set(await this.listProjectedRelations());
+    const dropped = [...before].filter(t => !after.has(t));
+    return {
+      name: 'obj-tables',
+      status: created.length ? 'warning' : 'verified',
+      tables: after.size,
+      created,
+      dropped,
+      ...(created.length ? {
+        detail: 'missing per-type tables were recreated EMPTY — on Postgres the obj_ row is the payload store, so rows are not recoverable from items alone (restore from backup or item history)',
+      } : {}),
+    };
+  }
+
+  // Full recompute of perf_references from live data (it is only seeded by
+  // migration 022 and not maintained on writes — this rebuild is how it gets
+  // fresh). Sources, in the spec's reference_type vocabulary: parent edges from
+  // items.parent_id, inline-link from [[uuid]] in items.value,
+  // relationship-source/-target from obj_<relationship>,
+  // view-item/-component/-context from obj_<view>, and every other uuid-typed
+  // obj_ column as payload-field (field_name = the column).
+  async _rebuildReferences() {
+    await this._exec('DELETE FROM perf_references');
+    await this._exec(`
+      INSERT INTO perf_references (source_item_id, target_item_id, reference_type)
+      SELECT id, parent_id, 'parent' FROM items
+       WHERE parent_id IS NOT NULL AND id <> parent_id
+      ON CONFLICT DO NOTHING`);
+    const { rows: valued } = await this._exec('SELECT id, value FROM items WHERE value IS NOT NULL');
+    for (const row of valued) {
+      for (const link of parseLinks(row.value)) {
+        await this._exec(
+          `INSERT INTO perf_references (source_item_id, target_item_id, reference_type)
+           VALUES ($1, $2, 'inline-link') ON CONFLICT DO NOTHING`,
+          [row.id, link],
+        );
+      }
+    }
+    const SPECIAL: Record<string, Record<string, string>> = {
+      [objTableName(RELATIONSHIP_TYPE_ID)]: {
+        source_id: 'relationship-source',
+        target_id: 'relationship-target',
+      },
+      [objTableName(BUILT_IN_TYPE_ID_BY_NAME['view'])]: {
+        viewed_item_id: 'view-item',
+        component_id:   'view-component',
+        context_id:     'view-context',
+      },
+    };
+    for (const table of await this.listProjectedRelations()) {
+      for (const col of await this.describeProjectedRelation(table)) {
+        if (col.dataType !== 'uuid' || col.name === 'item_id') continue;
+        const refType = SPECIAL[table]?.[col.name] ?? 'payload-field';
+        await this._exec(`
+          INSERT INTO perf_references (source_item_id, target_item_id, reference_type, field_name)
+          SELECT t.item_id, t."${col.name}", '${refType}', '${col.name}'
+            FROM "${table}" t JOIN items i ON i.id = t.item_id
+           WHERE t."${col.name}" IS NOT NULL
+          ON CONFLICT DO NOTHING`);
+      }
+    }
+    const { rows: [c] } = await this._exec('SELECT COUNT(*) AS n FROM perf_references');
+    return { name: 'perf_references', status: 'rebuilt', rows: Number(c.n) };
+  }
+
+  // Recompute perf_search wholesale with the same kanecta_row_to_tsvector
+  // derivation the write triggers use (migration 013/033), so a rebuilt index
+  // is byte-identical to an organically maintained one.
+  async _rebuildSearchIndex() {
+    await this._exec('DELETE FROM perf_search');
+    await this._exec(`
+      INSERT INTO perf_search (item_id, item_tsv)
+      SELECT i.id, kanecta_row_to_tsvector(to_jsonb(i)) FROM items i
+      ON CONFLICT (item_id) DO UPDATE SET item_tsv = EXCLUDED.item_tsv`);
+    for (const table of await this.listProjectedRelations()) {
+      await this._exec(`
+        INSERT INTO perf_search (item_id, object_tsv)
+        SELECT t.item_id, kanecta_row_to_tsvector(to_jsonb(t) - 'item_id')
+          FROM "${table}" t JOIN items i ON i.id = t.item_id
+        ON CONFLICT (item_id) DO UPDATE SET object_tsv = EXCLUDED.object_tsv`);
+    }
+    const { rows: [c] } = await this._exec('SELECT COUNT(*) AS n FROM perf_search');
+    return { name: 'perf_search', status: 'rebuilt', rows: Number(c.n) };
+  }
+
+  // Re-queue every item lacking a current-model embedding. Only meaningful
+  // when a provider is configured — an unconfigured queue would never drain.
+  // perf_embeddings itself is not rebuilt here: embeddings need the external
+  // provider, and the drained queue regenerates them.
+  async _rebuildEmbeddingQueue() {
+    if (!this._embeddingProvider)
+      return { name: 'embedding-queue', status: 'skipped', detail: 'no embedding provider configured' };
+    await this._ensureEmbeddingTable();
+    const { rows } = await this._exec(`
+      INSERT INTO perf_embedding_queue (item_id)
+      SELECT i.id FROM items i
+       WHERE NOT EXISTS (
+         SELECT 1 FROM item_embeddings e WHERE e.item_id = i.id AND e.model = $1
+       )
+      ON CONFLICT (item_id) DO UPDATE SET queued_at = now()
+      RETURNING item_id`,
+      [this._embeddingProvider.model],
+    );
+    return { name: 'embedding-queue', status: 'rebuilt', rows: rows.length };
   }
 
   // ─── Branching ──────────────────────────────────────────────────────────────

@@ -1002,6 +1002,16 @@ const TOOLS: any[] = [
       },
     },
   },
+  {
+    name: 'kanecta_rebuild_projections',
+    description: 'Manually regenerate the datastore\'s derived structures (spec: projections are strictly derived — always rebuildable). Postgres: reconciles the per-type obj_<typeId> tables and rebuilds perf_backlinks, perf_references, perf_search, the embedding queue, the children cache, materialized paths and the AGE graph. Filesystem: full re-ingest of every item.json (obj_ + perf_ tables included). Returns a per-structure report; ok=false when any structure errored. Use after manual database surgery, a partial restore, or when derived indexes are suspected stale.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        only: { type: 'array', items: { type: 'string' }, description: 'Optional: restrict to these structures (obj-tables, perf_backlinks, perf_references, perf_search, embedding-queue, children, paths, graph).' },
+      },
+    },
+  },
 ];
 
 // Every tool accepts optional `workingSet` and `branch` selectors, injected here so
@@ -1652,6 +1662,12 @@ async function dispatch(name: string, args: any): Promise<any> {
       if (Array.isArray(args.groups) && args.groups.length) opts.groups = args.groups;
       // stdio JSON-RPC can't stream, so return the collected report.
       return checkIntegrity(ds, opts);
+    }
+
+    case 'kanecta_rebuild_projections': {
+      const opts: any = {};
+      if (Array.isArray(args.only) && args.only.length) opts.only = args.only;
+      return ds.rebuildProjections(opts);
     }
 
     case 'kanecta_create_type': {
