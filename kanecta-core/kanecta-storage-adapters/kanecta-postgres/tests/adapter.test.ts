@@ -995,6 +995,18 @@ describe('type definitions', () => {
     expect(schema.jsonSchema.title).toBe('Widget');
   });
 
+  test('createType parents the type item under the types node with the seeder path', async () => {
+    // Regression: createType used to write the type item SELF-PARENTED
+    // (parent_id = id), which root-singleton / no-parentid-cycles flag as
+    // corruption and rebuildPaths can never reach.
+    const id        = crypto.randomUUID();
+    const tableName = `obj_${id.replace(/-/g, '_')}`;
+    await adapter.createType('PlacementChk', { schema: makeTypeSchema(tableName, 'PlacementChk'), id });
+    const { rows: [row] } = await pool.query('SELECT parent_id, path FROM items WHERE id = $1', [id]);
+    expect(row.parent_id).toBe('11111111-1111-1111-1111-111111111111');
+    expect(row.path).toBe(`00000000-0000-0000-0000-000000000000/11111111-1111-1111-1111-111111111111/${id}`);
+  });
+
   test('createType does NOT create the obj_<typeId> table (N=0); the first instance does', async () => {
     const id        = crypto.randomUUID();
     const tableName = `obj_${id.replace(/-/g, '_')}`;
