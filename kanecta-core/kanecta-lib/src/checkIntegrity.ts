@@ -25,6 +25,7 @@ import {
 } from '@kanecta/specification/validator';
 
 import { ROOT_ID, TYPES_NODE, UUID_RE, VALID_CONFIDENCES } from '@kanecta/sqlite-fs';
+import { sqlColumnName } from '@kanecta/schema-compiler';
 
 // ─── Result model ─────────────────────────────────────────────────────────────
 
@@ -575,13 +576,13 @@ const CHECKS: IntegrityCheckDef[] = [
       const seen = new Map<string, string[]>();
       for (const it of ctx.items) {
         if (!it.sourceSystem || !it.sourceExternalId) continue;
-        const key = `${it.sourceSystem} ${it.sourceExternalId}`;
+        const key = `${it.sourceSystem}\x00${it.sourceExternalId}`;
         (seen.get(key) ?? seen.set(key, []).get(key)!).push(it.id);
       }
       const findings: Finding[] = [];
       for (const [key, ids] of seen) {
         if (ids.length > 1) {
-          const [system, ext] = key.split(' ');
+          const [system, ext] = key.split('\x00');
           findings.push(err(`source (${system}, ${ext}) is used by ${ids.length} items: ${ids.join(', ')}`,
             ids[0], 'deduplicate: ingestion must upsert on (sourceSystem, sourceExternalId)'));
         }
@@ -812,6 +813,156 @@ const CHECKS: IntegrityCheckDef[] = [
     },
   },
   {
+    id: 'grant-governed-resolves', group: 'references',
+    title: 'Every grant governs an existing item',
+    specRef: 'specification.adoc §grantPayload (governedItemId resolves, L1997–2014)',
+    async run(ctx) {
+      const findings: Finding[] = [];
+      for (const it of objectsOfType(ctx, 'grant')) {
+        const payload = await safe(() => ctx.ds.readObjectJson(it.id), null);
+        const target = payload?.governedItemId;
+        if (target == null) continue;
+        if (!(await ctx.has(target))) {
+          findings.push(err(`grant ${it.id} governs ${target}, which does not exist`, it.id,
+            'remove the orphaned grant or restore the governed item', { governedItemId: target }));
+        }
+      }
+      return findings;
+    },
+  },
+  {
+    id: 'query-returntype-resolves', group: 'references',
+    title: 'Every query returnType resolves to a type item',
+    specRef: 'specification.adoc §queryPayload (returnType → type item, L2663)',
+    async run(ctx) {
+      const typeIds = new Set(ctx.typeDefs.map((t) => t.id));
+      const findings: Finding[] = [];
+      for (const it of objectsOfType(ctx, 'query')) {
+        const payload = await safe(() => ctx.ds.readObjectJson(it.id), null);
+        const ret = payload?.returnType;
+        if (ret == null) continue;
+        if (!typeIds.has(ret)) {
+          findings.push(err(`query ${it.id} returnType ${ret} is not a registered type item`, it.id,
+            'point returnType at a type item or clear it', { returnType: ret }));
+        }
+      }
+      return findings;
+    },
+  },
+  {
+    id: 'action-pipeline-resolves', group: 'references',
+    title: 'Every action references an existing pipeline and type targets',
+    specRef: 'specification.adoc §actionPayload (pipelineId → pipeline; targetTypes[] → type items, L2715)',
+    async run(ctx) {
+      const typeIds = new Set(ctx.typeDefs.map((t) => t.id));
+      const findings: Finding[] = [];
+      for (const it of objectsOfType(ctx, 'action')) {
+        const payload = await safe(() => ctx.ds.readObjectJson(it.id), null);
+        if (!payload) continue;
+        if (payload.pipelineId != null && !(await ctx.has(payload.pipelineId))) {
+          findings.push(err(`action ${it.id} pipelineId ${payload.pipelineId} does not exist`, it.id,
+            'repoint the action at an existing pipeline', { pipelineId: payload.pipelineId }));
+        }
+        for (const t of Array.isArray(payload.targetTypes) ? payload.targetTypes : []) {
+          if (!typeIds.has(t)) {
+            findings.push(err(`action ${it.id} targetTypes entry ${t} is not a registered type item`, it.id,
+              'remove or fix the targetTypes entry', { targetType: t }));
+          }
+        }
+      }
+      return findings;
+    },
+  },
+  {
+    id: 'schedule-action-resolves', group: 'references',
+    title: 'Every schedule references an existing action and target',
+    specRef: 'specification.adoc §schedulePayload (actionId resolves; targetItemId resolves or null, L2998)',
+    async run(ctx) {
+      const findings: Finding[] = [];
+      for (const it of objectsOfType(ctx, 'schedule')) {
+        const payload = await safe(() => ctx.ds.readObjectJson(it.id), null);
+        if (!payload) continue;
+        if (payload.actionId != null && !(await ctx.has(payload.actionId))) {
+          findings.push(err(`schedule ${it.id} actionId ${payload.actionId} does not exist`, it.id,
+            'repoint the schedule at an existing function/pipeline', { actionId: payload.actionId }));
+        }
+        if (payload.targetItemId != null && !(await ctx.has(payload.targetItemId))) {
+          findings.push(err(`schedule ${it.id} targetItemId ${payload.targetItemId} does not exist`, it.id,
+            'repoint or clear the schedule target', { targetItemId: payload.targetItemId }));
+        }
+      }
+      return findings;
+    },
+  },
+  {
+    id: 'alias-lowercase-normalised', group: 'references',
+    title: 'Alias lookup keys are stored lowercase',
+    specRef: 'specification.adoc §Constraints (aliases always lowercase, L5033)',
+    async run(ctx) {
+      const findings: Finding[] = [];
+      for (const a of ctx.aliases) {
+        if (typeof a.alias === 'string' && a.alias !== a.alias.toLowerCase()) {
+          findings.push(err(`alias "${a.alias}" is not lowercase`, a.targetId,
+            'aliases must be normalised to lowercase before writing', { alias: a.alias }));
+        }
+      }
+      return findings;
+    },
+  },
+  {
+    id: 'payload-ref-keywords-resolve', group: 'references',
+    title: 'Payload UUID fields with reference keywords resolve to existing items',
+    specRef: 'specification.adoc §jsonSchema rules (typeId / x-kanecta-itemType reference enforcement, L1641–1648)',
+    async run(ctx) {
+      // One pass covers the three F-group invariants: the referenced item must
+      // EXIST; a `typeId`-keyword field must point at an object of that exact
+      // type; an `x-kanecta-itemType`-keyword field must point at an item of
+      // that built-in type ("item" admits any item).
+      const nameById = new Map(ctx.typeDefs.map((t) => [t.id, t.value]));
+      const findings: Finding[] = [];
+      for (const it of ctx.items) {
+        if (it.type !== 'object' || !it.typeId) continue;
+        const def = await ctx.getType(it.typeId);
+        const props = def?.jsonSchema?.properties;
+        if (!props) continue;
+        const payload = await safe(() => ctx.ds.readObjectJson(it.id), null);
+        if (!payload) continue;
+        for (const [field, prop] of Object.entries<any>(props)) {
+          const wantTypeId = prop?.typeId;
+          const wantItemType = prop?.['x-kanecta-itemType'];
+          if (!wantTypeId && !wantItemType) continue;
+          const ref = payload[field];
+          if (ref == null) continue;
+          if (!isUuid(ref)) {
+            findings.push(err(`${it.id} field "${field}" carries "${ref}", which is not a UUID`, it.id,
+              'reference-keyword fields hold item UUIDs', { field, ref }));
+            continue;
+          }
+          const target = await safe(() => ctx.ds.get(ref), null);
+          if (!target) {
+            findings.push(err(`${it.id} field "${field}" references ${ref}, which does not exist`, it.id,
+              'repoint or clear the dangling payload reference', { field, ref }));
+            continue;
+          }
+          if (wantTypeId && !(target.type === 'object' && target.typeId === wantTypeId)) {
+            findings.push(err(
+              `${it.id} field "${field}" references ${ref}, which is not an object of type ${wantTypeId}`,
+              it.id, 'point the field at an instance of the declared type', { field, ref, expectedTypeId: wantTypeId }));
+          } else if (wantItemType && wantItemType !== 'item') {
+            const matches = target.type === wantItemType ||
+              (target.type === 'object' && nameById.get(target.typeId) === wantItemType);
+            if (!matches) {
+              findings.push(err(
+                `${it.id} field "${field}" references ${ref}, which is not a "${wantItemType}" item`,
+                it.id, 'point the field at an item of the declared built-in type', { field, ref, expectedType: wantItemType }));
+            }
+          }
+        }
+      }
+      return findings;
+    },
+  },
+  {
     id: 'cell-parent-is-grid', group: 'tree',
     title: 'Every grid cell is parented under a grid',
     specRef: 'specification.adoc §cellPayload NOTE (cell.parentId → a grid item, L2839)',
@@ -831,16 +982,139 @@ const CHECKS: IntegrityCheckDef[] = [
     },
   },
 
-  // ── storage-specific (Postgres) — recorded here, skipped on filesystem ────────
+  // ── storage — the projected relations vs the instance set, both adapters ─────
+  //
+  // These run through the projection-introspection handle surface
+  // (listProjectedRelations / describeProjectedRelation / countProjectedRows),
+  // which both adapters implement; an adapter without it skips cleanly.
+  // One adapter divergence is load-bearing (see per-type-table-projection.md):
+  // sqlite-fs projects one row per LIVE item, while on Postgres the obj_ row IS
+  // the payload store, so soft-deleted instances legitimately keep their rows.
   {
     id: 'obj-table-matches-sqlschema', group: 'storage',
-    title: 'Postgres obj_<typeId> tables match the derived sqlSchema',
-    specRef: 'specification.adoc §sqlSchema rules (Postgres projection)',
+    title: 'obj_<typeId> tables match the schema-derived column set',
+    specRef: 'specification.adoc §sqlSchema rules / §CQRS projections',
     async run(ctx) {
-      if (ctx.storage !== 'cloud') return skip('only applies to the Postgres (cloud) adapter');
-      // Introspecting live DDL requires adapter-internal access not on the public
-      // handle; deferred until the Postgres adapter exposes schema introspection.
-      return skip('Postgres schema introspection not yet exposed on the datastore handle');
+      if (typeof ctx.ds.listProjectedRelations !== 'function' ||
+          typeof ctx.ds.describeProjectedRelation !== 'function')
+        return skip('adapter does not expose projected-relation introspection');
+      const tables: string[] = (await safe(() => ctx.ds.listProjectedRelations(), [])) ?? [];
+      // The meta-types compile from flat seed metaschemas (their own payload
+      // schemas are circular) — their column sets are not derivable from
+      // readTypeJson, so they are exempt here.
+      const seeded = new Set([typeIdByName(ctx, 'type'), typeIdByName(ctx, 'relationship-type')]);
+      const findings: Finding[] = [];
+      for (const table of tables) {
+        const typeId = table.slice('obj_'.length).replace(/_/g, '-');
+        if (seeded.has(typeId)) continue;
+        const def = await ctx.getType(typeId);
+        const props = def?.jsonSchema?.properties;
+        if (!props) continue; // orphan table — obj-table-exists-iff-instances reports it
+        const expected = new Set(['item_id', ...Object.keys(props).map(sqlColumnName)]);
+        const cols = (await safe(() => ctx.ds.describeProjectedRelation(table), [])) ?? [];
+        const actual = new Set<string>(cols.map((c: any) => c.name));
+        for (const col of expected) {
+          if (!actual.has(col)) {
+            findings.push(err(`${table} is missing column "${col}" derived from the type schema`, typeId,
+              'run rebuildProjections() to reconcile the table, or re-run migrations', { table, column: col }));
+          }
+        }
+        for (const col of actual) {
+          if (!expected.has(col)) {
+            findings.push(warn(`${table} has extra column "${col}" not derived from the type schema`, typeId,
+              'verify the column is intentional (manual DDL is a spec violation)', { table, column: col }));
+          }
+        }
+      }
+      return findings;
+    },
+  },
+  {
+    id: 'obj-table-1to1-items', group: 'storage',
+    title: 'obj_<typeId> rows correspond 1:1 with instances of the type',
+    specRef: 'specification.adoc §CQRS projections (guaranteed lifecycle)',
+    async run(ctx) {
+      if (typeof ctx.ds.listProjectedRelations !== 'function' ||
+          typeof ctx.ds.countProjectedRows !== 'function')
+        return skip('adapter does not expose projected-row counting');
+      const tables = new Set<string>((await safe(() => ctx.ds.listProjectedRelations(), [])) ?? []);
+      const findings: Finding[] = [];
+      // User object types only: their live instances are fully enumerated by
+      // loadAll(); built-in structured instances are covered by their own
+      // resolve checks and the table-existence check.
+      const liveByType = new Map<string, number>();
+      for (const it of ctx.items) {
+        if (it.type !== 'object' || !it.typeId) continue;
+        liveByType.set(it.typeId, (liveByType.get(it.typeId) ?? 0) + 1);
+      }
+      for (const [typeId, live] of liveByType) {
+        const table = `obj_${typeId.replace(/-/g, '_')}`;
+        if (!tables.has(table)) continue; // reported by obj-table-exists-iff-instances
+        const rows = await safe(() => ctx.ds.countProjectedRows(table), null);
+        if (rows == null) continue;
+        if (rows < live) {
+          findings.push(err(
+            `${table} has ${rows} row(s) but ${live} live instance(s) of the type exist — projection rows are missing`,
+            typeId, 'run rebuildProjections() (filesystem) or restore the missing rows (Postgres: obj_ is the payload store)',
+            { table, rows, live }));
+        } else if (rows > live && ctx.storage === 'filesystem') {
+          // sqlite-fs projects live rows only; Postgres legitimately keeps
+          // soft-deleted rows (the obj_ row is the payload store).
+          findings.push(err(
+            `${table} has ${rows} row(s) but only ${live} live instance(s) of the type exist — stale projection rows`,
+            typeId, 'run rebuildProjections() to re-derive the table from item.json',
+            { table, rows, live }));
+        }
+      }
+      return findings;
+    },
+  },
+  {
+    id: 'obj-table-exists-iff-instances', group: 'storage',
+    title: 'A per-type table exists exactly when the type has instances',
+    specRef: 'specification.adoc §CQRS projections (relation exists ⇔ N(T) ≥ 1)',
+    async run(ctx) {
+      if (typeof ctx.ds.listProjectedRelations !== 'function')
+        return skip('adapter does not expose projected-relation introspection');
+      const tables = new Set<string>((await safe(() => ctx.ds.listProjectedRelations(), [])) ?? []);
+      const findings: Finding[] = [];
+      const liveByType = new Map<string, number>();
+      for (const it of ctx.items) {
+        if (it.type !== 'object' || !it.typeId) continue;
+        liveByType.set(it.typeId, (liveByType.get(it.typeId) ?? 0) + 1);
+      }
+      // Forward direction (both adapters): N(T) ≥ 1 ⇒ the relation exists.
+      for (const [typeId, live] of liveByType) {
+        const table = `obj_${typeId.replace(/-/g, '_')}`;
+        if (!tables.has(table)) {
+          findings.push(err(
+            `type ${typeId} has ${live} live instance(s) but no ${table} relation — the projection is missing`,
+            typeId, 'run rebuildProjections() to recreate the relation', { table, live }));
+        }
+      }
+      // Reverse direction: a relation whose USER type has no live instances.
+      // Only decidable on the filesystem adapter — Postgres keeps the relation
+      // while soft-deleted/archived instances remain, which the public handle
+      // cannot see. Built-in tables (grant, alias, …) are exempt: their
+      // instances are not in loadAll().
+      if (ctx.storage === 'filesystem') {
+        const userTypeIds = new Set(ctx.typeDefs.map((t) => t.id));
+        const builtinIds = new Set(
+          ['type', 'relationship-type', 'relationship', 'alias', 'grant', 'query', 'function', 'document',
+           'file', 'licence', 'reference', 'subscription', 'view', 'aspect-type', 'annotation', 'component',
+           'context', 'formula', 'property', 'action', 'grid', 'cell', 'channel', 'root']
+            .map((n) => typeIdByName(ctx, n)).filter(Boolean) as string[]);
+        for (const table of tables) {
+          const typeId = table.slice('obj_'.length).replace(/_/g, '-');
+          if (!userTypeIds.has(typeId) || builtinIds.has(typeId)) continue;
+          if (!liveByType.has(typeId)) {
+            findings.push(warn(
+              `${table} exists but type ${typeId} has no live instances — the relation should have been dropped`,
+              typeId, 'run rebuildProjections() to drop the empty relation', { table }));
+          }
+        }
+      }
+      return findings;
     },
   },
 ];

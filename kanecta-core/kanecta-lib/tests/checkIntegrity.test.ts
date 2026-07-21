@@ -101,12 +101,14 @@ describe('clean datastore', () => {
     expect(rep.summary.errorCount).toBe(0);
   });
 
-  test('storage-specific Postgres check is skipped on filesystem', async () => {
+  test('storage checks run (not skip) on the filesystem adapter', async () => {
+    // Since both adapters expose projected-relation introspection, the storage
+    // group runs everywhere — the old always-skip behaviour is retired.
     const ds = tmpDs();
     const rep = await report(ds);
-    const pg = byId(rep, 'obj-table-matches-sqlschema');
-    expect(pg.status).toBe('skip');
-    expect(pg.skipped).toMatch(/Postgres|cloud/i);
+    expect(byId(rep, 'obj-table-matches-sqlschema').status).toBe('pass');
+    expect(byId(rep, 'obj-table-1to1-items').status).toBe('pass');
+    expect(byId(rep, 'obj-table-exists-iff-instances').status).toBe('pass');
   });
 });
 
@@ -524,5 +526,198 @@ describe('reference-type payload resolution', () => {
     await ds.create({ type: 'object', typeId: await typeId(ds, 'cell'), value: 'c', parentId: grid.id,
       objectData: { row: 0, column: 'A' } });
     expect(byId(await report(ds, { checks: ['cell-parent-is-grid'] }), 'cell-parent-is-grid').status).toBe('pass');
+  });
+});
+
+// ─── storage checks (projected relations, both adapters via the fs handle) ─────
+
+describe('storage checks — obj_ projections', () => {
+  const XID = '77777777-7777-4777-8777-000000000001';
+
+  // A user type with one string property and one live instance, so its
+  // obj_<typeId> table materialises with columns (item_id, name).
+  async function makeProjectedType(ds: any) {
+    const { metadata } = await ds.createType('StorageChk', { icon: 'Star' });
+    await ds.writeTypeJson(metadata.id, {
+      meta: { icon: 'Star', description: 'storage check fixture', primaryField: 'name' },
+      jsonSchema: {
+        $schema: 'http://json-schema.org/draft-07/schema#', $id: '', title: 'StorageChk',
+        type: 'object', properties: { name: { type: 'string', 'x-id': XID } },
+        required: [], additionalProperties: false,
+      },
+    });
+    await ds.create({ type: 'object', typeId: metadata.id, value: 'one', objectData: { name: 'one' } });
+    return { typeId: metadata.id, table: `obj_${metadata.id.replace(/-/g, '_')}` };
+  }
+  const db = (ds: any) => ds._adapter._openDb();
+
+  test('a clean store passes all three storage checks', async () => {
+    const ds = tmpDs();
+    await makeProjectedType(ds);
+    const rep = await report(ds, { groups: ['storage'] });
+    expect(byId(rep, 'obj-table-matches-sqlschema').status).toBe('pass');
+    expect(byId(rep, 'obj-table-1to1-items').status).toBe('pass');
+    expect(byId(rep, 'obj-table-exists-iff-instances').status).toBe('pass');
+  });
+
+  test('a missing schema-derived column fails obj-table-matches-sqlschema', async () => {
+    const ds = tmpDs();
+    const { table } = await makeProjectedType(ds);
+    db(ds).exec(`ALTER TABLE "${table}" DROP COLUMN "name"`);
+    const r = byId(await report(ds, { checks: ['obj-table-matches-sqlschema'] }), 'obj-table-matches-sqlschema');
+    expect(r.status).toBe('fail');
+    expect(r.findings[0].message).toMatch(/missing column "name"/);
+  });
+
+  test('an extra hand-added column warns (but does not fail)', async () => {
+    const ds = tmpDs();
+    const { table } = await makeProjectedType(ds);
+    db(ds).exec(`ALTER TABLE "${table}" ADD COLUMN rogue TEXT`);
+    const r = byId(await report(ds, { checks: ['obj-table-matches-sqlschema'] }), 'obj-table-matches-sqlschema');
+    expect(r.status).toBe('pass');
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0].severity).toBe('warn');
+    expect(r.findings[0].message).toMatch(/extra column "rogue"/);
+  });
+
+  test('a deleted projection row fails obj-table-1to1-items', async () => {
+    const ds = tmpDs();
+    const { table } = await makeProjectedType(ds);
+    db(ds).prepare(`DELETE FROM "${table}"`).run();
+    const r = byId(await report(ds, { checks: ['obj-table-1to1-items'] }), 'obj-table-1to1-items');
+    expect(r.status).toBe('fail');
+    expect(r.findings[0].message).toMatch(/projection rows are missing/);
+  });
+
+  test('a stale extra projection row fails obj-table-1to1-items on filesystem', async () => {
+    const ds = tmpDs();
+    const { table } = await makeProjectedType(ds);
+    // Simulate corruption: FK enforcement off for the rogue row, exactly as a
+    // partial restore or manual surgery would leave the table.
+    db(ds).pragma('foreign_keys = OFF');
+    db(ds).prepare(`INSERT INTO "${table}" (item_id, "name") VALUES (?, ?)`).run(RANDOM_UUID, 'ghost');
+    db(ds).pragma('foreign_keys = ON');
+    const r = byId(await report(ds, { checks: ['obj-table-1to1-items'] }), 'obj-table-1to1-items');
+    expect(r.status).toBe('fail');
+    expect(r.findings[0].message).toMatch(/stale projection rows/);
+  });
+
+  test('a dropped table for a live type fails obj-table-exists-iff-instances', async () => {
+    const ds = tmpDs();
+    const { table } = await makeProjectedType(ds);
+    db(ds).exec(`DROP TABLE "${table}"`);
+    const r = byId(await report(ds, { checks: ['obj-table-exists-iff-instances'] }), 'obj-table-exists-iff-instances');
+    expect(r.status).toBe('fail');
+    expect(r.findings[0].message).toMatch(/projection is missing/);
+  });
+
+  test('a lingering table for an instance-less user type warns on filesystem', async () => {
+    const ds = tmpDs();
+    const { metadata } = await ds.createType('NeverUsed', { icon: 'Star' });
+    const ghost = `obj_${metadata.id.replace(/-/g, '_')}`;
+    db(ds).exec(`CREATE TABLE "${ghost}" (item_id TEXT PRIMARY KEY)`);
+    const r = byId(await report(ds, { checks: ['obj-table-exists-iff-instances'] }), 'obj-table-exists-iff-instances');
+    expect(r.status).toBe('pass');
+    expect(r.findings.some((f: any) => f.severity === 'warn' && /should have been dropped/.test(f.message))).toBe(true);
+  });
+});
+
+// ─── reference batch 3: grant / query / action / schedule / alias case / F-group ─
+
+describe('reference checks — batch 3', () => {
+  async function builtinTypeId(ds: any, name: string) {
+    const t = (await ds.listTypeDefs()).find((d: any) => d.value === name);
+    if (!t) throw new Error(`built-in type "${name}" is not seeded`);
+    return t.id;
+  }
+
+  test('grant governing a missing item fails; a real one passes', async () => {
+    const ds = tmpDs();
+    const real = await ds.create({ value: 'governed', type: 'text' });
+    const gid = await builtinTypeId(ds, 'grant');
+    await ds.create({ type: 'object', typeId: gid, value: 'g-ok',
+      objectData: { governedItemId: real.id, principal: 'user:a', permissions: ['read'] } });
+    expect(byId(await report(ds, { checks: ['grant-governed-resolves'] }), 'grant-governed-resolves').status).toBe('pass');
+    await ds.create({ type: 'object', typeId: gid, value: 'g-bad',
+      objectData: { governedItemId: RANDOM_UUID, principal: 'user:a', permissions: ['read'] } });
+    expect(byId(await report(ds, { checks: ['grant-governed-resolves'] }), 'grant-governed-resolves').status).toBe('fail');
+  });
+
+  test('query returnType must be a registered type item', async () => {
+    const ds = tmpDs();
+    const qid = await builtinTypeId(ds, 'query');
+    await ds.create({ type: 'object', typeId: qid, value: 'q-bad',
+      objectData: { language: 'sql', expression: 'SELECT 1', returnType: RANDOM_UUID } });
+    const r = byId(await report(ds, { checks: ['query-returntype-resolves'] }), 'query-returntype-resolves');
+    expect(r.status).toBe('fail');
+    expect(r.findings[0].message).toMatch(/not a registered type item/);
+  });
+
+  test('action pipelineId must exist; targetTypes must be type items', async () => {
+    const ds = tmpDs();
+    const aid = await builtinTypeId(ds, 'action');
+    await ds.create({ type: 'object', typeId: aid, value: 'a-bad',
+      objectData: { pipelineId: RANDOM_UUID, targetTypes: [RANDOM_UUID] } });
+    const r = byId(await report(ds, { checks: ['action-pipeline-resolves'] }), 'action-pipeline-resolves');
+    expect(r.status).toBe('fail');
+    expect(r.findings).toHaveLength(2);
+  });
+
+  test('schedule actionId/targetItemId must resolve (user-registered schedule type)', async () => {
+    const ds = tmpDs();
+    // schedule is not a seeded 1.4.0 built-in — register it as a user type with
+    // the spec's field names so the check exercises real instances.
+    const sid = await makeUserType(ds, 'schedule', {
+      jsonSchema: {
+        $schema: 'http://json-schema.org/draft-07/schema#', $id: '', title: 'schedule',
+        type: 'object', properties: {
+          actionId:     { type: 'string', format: 'uuid', 'x-id': '88888888-8888-4888-8888-000000000001' },
+          targetItemId: { type: ['string', 'null'], format: 'uuid', 'x-id': '88888888-8888-4888-8888-000000000002' },
+        }, required: [], additionalProperties: false,
+      },
+    });
+    await ds.create({ type: 'object', typeId: sid, value: 's-bad',
+      objectData: { actionId: RANDOM_UUID } });
+    const r = byId(await report(ds, { checks: ['schedule-action-resolves'] }), 'schedule-action-resolves');
+    expect(r.status).toBe('fail');
+    expect(r.findings[0].message).toMatch(/actionId/);
+  });
+
+  test('a non-lowercase alias key fails alias-lowercase-normalised', async () => {
+    const ds = tmpDs();
+    const target = await ds.create({ value: 'aliased', type: 'text' });
+    await ds.setAlias('goodalias', target.id);
+    expect(byId(await report(ds, { checks: ['alias-lowercase-normalised'] }), 'alias-lowercase-normalised').status).toBe('pass');
+    // Corrupt the stored key the way a manual edit would (setAlias normalises).
+    ds._adapter._openDb().prepare(`UPDATE items SET value = 'MixedCase' WHERE type = 'alias' AND value = 'goodalias'`).run();
+    expect(byId(await report(ds, { checks: ['alias-lowercase-normalised'] }), 'alias-lowercase-normalised').status).toBe('fail');
+  });
+
+  test('payload-ref-keywords-resolve: dangling and mistyped references fail', async () => {
+    const ds = tmpDs();
+    const other = await makeUserType(ds, 'RefTargetType', {});
+    const ref = await makeUserType(ds, 'RefHolder', {
+      jsonSchema: {
+        $schema: 'http://json-schema.org/draft-07/schema#', $id: '', title: 'RefHolder',
+        type: 'object', properties: {
+          friend: { type: 'string', format: 'uuid', typeId: other, 'x-id': '99999999-9999-4999-8999-000000000001' },
+          doc:    { type: 'string', format: 'uuid', 'x-kanecta-itemType': 'text', 'x-id': '99999999-9999-4999-8999-000000000002' },
+        }, required: [], additionalProperties: false,
+      },
+    });
+    const textItem = await ds.create({ value: 'plain', type: 'text' });
+    const otherInst = await ds.create({ type: 'object', typeId: other, value: 'target-inst', objectData: {} });
+
+    // Clean: friend → instance of the declared type, doc → a text item.
+    await ds.create({ type: 'object', typeId: ref, value: 'ok',
+      objectData: { friend: otherInst.id, doc: textItem.id } });
+    expect(byId(await report(ds, { checks: ['payload-ref-keywords-resolve'] }), 'payload-ref-keywords-resolve').status).toBe('pass');
+
+    // Dangling friend + doc pointing at a non-text item → two errors.
+    await ds.create({ type: 'object', typeId: ref, value: 'bad',
+      objectData: { friend: RANDOM_UUID, doc: otherInst.id } });
+    const r = byId(await report(ds, { checks: ['payload-ref-keywords-resolve'] }), 'payload-ref-keywords-resolve');
+    expect(r.status).toBe('fail');
+    expect(r.findings).toHaveLength(2);
   });
 });

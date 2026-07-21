@@ -1411,6 +1411,15 @@ class SqliteFsAdapter {
       .map((r: any) => r.name);
   }
 
+  // Row count of one materialised per-type table. The name is validated so only
+  // obj_ relations are addressable. Mirrors the Postgres adapter's handle surface.
+  countProjectedRows(table: any) {
+    if (!/^obj_[0-9a-f_]+$/.test(String(table)))
+      throw new Error(`not a projected relation: ${table}`);
+    const row = this._openDb().prepare(`SELECT COUNT(*) AS n FROM "${table}"`).get();
+    return Number(row?.n ?? 0);
+  }
+
   // Column shape of one materialised per-type table, in ordinal order. Used by
   // integrity checks (obj-table-matches-sqlschema) and the projection rebuild;
   // mirrors the Postgres adapter's handle surface.

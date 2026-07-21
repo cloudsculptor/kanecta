@@ -302,6 +302,11 @@ class Datastore {
     return this._adapter.describeProjectedRelation(table);
   }
 
+  async countProjectedRows(table: any) {
+    if (typeof this._adapter.countProjectedRows !== 'function') return null;
+    return this._adapter.countProjectedRows(table);
+  }
+
   // Manual refresh of every derived structure (spec: obj_/perf_ projections are
   // strictly derived — always rebuildable). Returns a per-structure report:
   // { storage, structures: [{ name, status, ... }], ok }.
