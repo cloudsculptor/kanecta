@@ -228,3 +228,20 @@ describe('rebuildProjections — obj-tables reconcile', () => {
     expect(Number(rows[0].n)).toBe(0);
   });
 });
+
+// ─── createType placement (bug found by the integrity run 2026-07-21) ─────────
+// createType used to write the type item SELF-PARENTED (parent_id = id), which
+// root-singleton / no-parentid-cycles flag as corruption and rebuildPaths can
+// never reach. The rule: type items live under the well-known types node with
+// the seeder's path convention.
+
+describe('createType placement', () => {
+  test('a created type item is parented under the types node with the seeder path', async () => {
+    const id = crypto.randomUUID();
+    const tableName = `obj_${id.replace(/-/g, '_')}`;
+    await adapter.createType('PlacementChk', { schema: makeTypeSchema(tableName, 'PlacementChk'), id });
+    const { rows: [row] } = await pool.query('SELECT parent_id, path FROM items WHERE id = $1', [id]);
+    expect(row.parent_id).toBe('11111111-1111-1111-1111-111111111111');
+    expect(row.path).toBe(`00000000-0000-0000-0000-000000000000/11111111-1111-1111-1111-111111111111/${id}`);
+  });
+});

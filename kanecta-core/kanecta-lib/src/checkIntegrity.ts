@@ -26,6 +26,19 @@ import {
 
 import { ROOT_ID, TYPES_NODE, UUID_RE, VALID_CONFIDENCES } from '@kanecta/sqlite-fs';
 import { sqlColumnName } from '@kanecta/schema-compiler';
+import { builtInTypeItems } from '@kanecta/specification';
+
+// The two meta-types whose obj_ tables compile from flat seed metaschemas
+// (their own payload schemas are circular — spec §cqrs-projections). Resolved
+// from the specification package's FIXED UUIDs, not by name lookup: on the
+// Postgres adapter listTypeDefs does not surface them the way the filesystem
+// adapter does, and a name miss must not un-exempt them.
+const SEED_METASCHEMA_TYPE_IDS = new Set<string>(
+  (builtInTypeItems as any[])
+    .map((doc) => doc?.item ?? doc)
+    .filter((it) => it?.value === 'type' || it?.value === 'relationship-type')
+    .map((it) => it.id),
+);
 
 // ─── Result model ─────────────────────────────────────────────────────────────
 
@@ -1001,12 +1014,11 @@ const CHECKS: IntegrityCheckDef[] = [
       const tables: string[] = (await safe(() => ctx.ds.listProjectedRelations(), [])) ?? [];
       // The meta-types compile from flat seed metaschemas (their own payload
       // schemas are circular) — their column sets are not derivable from
-      // readTypeJson, so they are exempt here.
-      const seeded = new Set([typeIdByName(ctx, 'type'), typeIdByName(ctx, 'relationship-type')]);
+      // readTypeJson, so they are exempt here (fixed UUIDs, adapter-agnostic).
       const findings: Finding[] = [];
       for (const table of tables) {
         const typeId = table.slice('obj_'.length).replace(/_/g, '-');
-        if (seeded.has(typeId)) continue;
+        if (SEED_METASCHEMA_TYPE_IDS.has(typeId)) continue;
         const def = await ctx.getType(typeId);
         const props = def?.jsonSchema?.properties;
         if (!props) continue; // orphan table — obj-table-exists-iff-instances reports it

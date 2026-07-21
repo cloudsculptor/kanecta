@@ -2542,12 +2542,15 @@ class PostgresAdapter {
     await this._exec(
       `INSERT INTO items (id, spec_version, parent_id, path, value, type, owner, license, sort_order,
          created_at, modified_at, created_by, modified_by)
-       VALUES ($1, $2, $1, $7, $3, 'type', $4, $5, 0, $6, $6, $4, $4)
+       VALUES ($1, $2, $8, $7, $3, 'type', $4, $5, 0, $6, $6, $4, $4)
        ON CONFLICT (id) DO NOTHING`,
-      // $7 is the text `path` (a type item's path is its own id). It is a
-      // separate parameter from $1 (uuid id/parent_id) so PG doesn't try to
-      // deduce one type for a value used as both uuid and text.
-      [id, specVersion, value.trim(), owner, DEFAULT_LICENSE, now, String(id)],
+      // Universal parentId rule: a type item lives under the well-known types
+      // node, with the seeder's path convention root/types/<id> — exactly how
+      // the built-in type items are written. (This previously self-parented the
+      // item, which the root-singleton / no-parentid-cycles integrity checks
+      // flag as corruption and rebuildPaths cannot reach.)
+      [id, specVersion, value.trim(), owner, DEFAULT_LICENSE, now,
+       `${ROOT_ID}/${TYPES_CONTAINER_ID}/${id}`, TYPES_CONTAINER_ID],
     );
 
     const meta = resolvedSchema.meta ?? {};
