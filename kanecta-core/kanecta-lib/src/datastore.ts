@@ -288,6 +288,33 @@ class Datastore {
 
   async rebuildIndexes()                     { return this._adapter.rebuildIndexes(); }
 
+  // ─── Projections (obj_<typeId> + perf_* derived structures) ────────────────
+
+  // Both adapters implement these; the guards keep the facade honest against
+  // a future adapter that doesn't (same pattern as transaction()).
+  async listProjectedRelations() {
+    if (typeof this._adapter.listProjectedRelations !== 'function') return [];
+    return this._adapter.listProjectedRelations();
+  }
+
+  async describeProjectedRelation(table: any) {
+    if (typeof this._adapter.describeProjectedRelation !== 'function') return null;
+    return this._adapter.describeProjectedRelation(table);
+  }
+
+  // Manual refresh of every derived structure (spec: obj_/perf_ projections are
+  // strictly derived — always rebuildable). Returns a per-structure report:
+  // { storage, structures: [{ name, status, ... }], ok }.
+  async rebuildProjections(opts?: any) {
+    if (typeof this._adapter.rebuildProjections !== 'function') {
+      throw new Error(
+        'rebuildProjections() is not supported on this working set — the ' +
+        'adapter does not implement the projection rebuild surface.',
+      );
+    }
+    return this._adapter.rebuildProjections(opts);
+  }
+
   // ─── Integrity checks ────────────────────────────────────────────────────────
 
   async checkIntegrity(opts?: any)                 { return this._adapter.checkIntegrity(opts); }

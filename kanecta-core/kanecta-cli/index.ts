@@ -130,6 +130,13 @@ COMMANDS
     Rebuild all index caches (links/, tags/, types/) by scanning data/.
     Use after manual edits or a partial import.
 
+  rebuild-projections [--only <name>]... [--json]
+    Manually regenerate the derived projections: reconcile the per-type
+    obj_<typeId> tables and rebuild perf_backlinks, perf_references,
+    perf_search, the embedding queue, the children cache, materialized paths
+    and the AGE graph (Postgres) — or fully re-ingest from item.json files
+    (filesystem). --only limits the structures. Exits non-zero on error.
+
   doctor [--check <name>]... [--json]
     Read-only integrity scan. Reports inconsistencies the store accepts silently.
     Exits non-zero if any error-severity finding is present (CI-usable).
@@ -174,6 +181,7 @@ EXAMPLES
   kanecta search "work process" --limit 10
   kanecta by-type f1a00001-b45e-4c3d-9e7f-000000000002
   kanecta rebuild-indexes
+  kanecta rebuild-projections --only perf_references
   kanecta doctor
   kanecta doctor --check orphan-type-id --json
 `.trimStart();
@@ -732,6 +740,33 @@ async function cmdRebuildIndexes(positional: string[], flags: Flags) {
   console.log(`Rebuilt indexes from ${count} items.`);
 }
 
+// `kanecta rebuild-projections` — manual refresh of every derived structure
+// (obj_ reconcile + perf_backlinks/references/search, embedding queue,
+// children cache, paths, AGE graph). Spec: projections are strictly derived —
+// always rebuildable. --only <name> limits the structures (repeatable).
+async function cmdRebuildProjections(positional: string[], flags: Flags) {
+  const ds = await openDatastore(flags);
+  const only = asArray(flags['only']);
+  const report = await ds.rebuildProjections(only?.length ? { only } : {});
+  if (flags['json']) {
+    console.log(JSON.stringify(report, null, 2));
+  } else {
+    const MARK: Record<string, string> = { rebuilt: '✓', verified: '✓', warning: '!', skipped: '○', error: '✗' };
+    for (const s of report.structures) {
+      const extra = [
+        s.rows != null ? `${s.rows} rows` : null,
+        s.tables != null ? `${s.tables} tables` : null,
+        s.created?.length ? `${s.created.length} recreated EMPTY` : null,
+        s.dropped?.length ? `${s.dropped.length} dropped` : null,
+        s.detail ?? null,
+      ].filter(Boolean).join(', ');
+      console.log(`${MARK[s.status] ?? '?'} ${s.name} — ${s.status}${extra ? ` (${extra})` : ''}`);
+    }
+    if (report.items != null) console.log(`Re-ingested ${report.items} items from the filesystem.`);
+  }
+  process.exitCode = report.ok ? 0 : 1;
+}
+
 function printDoctorFindings(findings: any[]) {
   if (findings.length === 0) {
     console.log('✓ No integrity problems found.');
@@ -858,6 +893,7 @@ async function main() {
     case 'search':         await cmdSearch(rest, flags); break;
     case 'by-type':        await cmdByType(rest, flags); break;
     case 'rebuild-indexes': await cmdRebuildIndexes(rest, flags); break;
+    case 'rebuild-projections': await cmdRebuildProjections(rest, flags); break;
     case 'doctor':         await cmdDoctor(rest, flags); break;
     case 'integrity':      await cmdIntegrity(rest, flags); break;
     default:
