@@ -89,8 +89,8 @@
     "tsx": "^4.23.1"
   },
   "dependencies": {
-    "@tiptap/core": "^3.27.4",
-    "@tiptap/pm": "^3.27.4",
-    "@tiptap/starter-kit": "^3.27.4"
+    "@tiptap/core": "^3.28.0",
+    "@tiptap/pm": "^3.28.0",
+    "@tiptap/starter-kit": "^3.28.0"
   }
 }
