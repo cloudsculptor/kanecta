@@ -18,6 +18,7 @@ const PAGES: PageSummary[] = [
     version: 3,
     owner_type: "group",
     owner_id: "g1",
+    archived_at: null,
   },
   {
     id: "p2",
@@ -31,6 +32,7 @@ const PAGES: PageSummary[] = [
     version: 1,
     owner_type: "group",
     owner_id: "g1",
+    archived_at: null,
   },
 ];
 
