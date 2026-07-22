@@ -9,6 +9,8 @@ const {
   getPageBySlug,
   getPageIdBySlug,
   softDeletePage,
+  archivePage,
+  unarchivePage,
   createPageWithHistory,
   updatePageWithHistory,
 } = await import("../../repositories/pages.js");
@@ -32,13 +34,44 @@ function fakeClient(scriptedResults = []) {
 }
 
 describe("pages repository — reads", () => {
-  test("listPages filters non-deleted, newest first", async () => {
+  test("listPages filters non-deleted by default, newest first, exposes archived_at", async () => {
     mockQuery.mockResolvedValueOnce({ rows: [] });
     await listPages();
-    const [sql] = mockQuery.mock.calls[0];
+    const [sql, params] = mockQuery.mock.calls[0];
     expect(sql).toMatch(/FROM pages p/);
-    expect(sql).toMatch(/WHERE p\.deleted_at IS NULL/);
+    expect(sql).toMatch(/WHERE \(\$1 OR p\.deleted_at IS NULL\)/);
+    expect(sql).toMatch(/p\.deleted_at AS archived_at/);
     expect(sql).toMatch(/ORDER BY p\.updated_at DESC/);
+    expect(params).toEqual([false]);
+  });
+
+  test("listPages includeArchived=true lifts the deleted_at filter", async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    await listPages(true);
+    const [, params] = mockQuery.mock.calls[0];
+    expect(params).toEqual([true]);
+  });
+
+  test("archivePage stamps deleted_at on the live row only", async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [{ id: "p1" }] });
+    expect(await archivePage("s")).toEqual({ id: "p1" });
+    const [sql, params] = mockQuery.mock.calls[0];
+    expect(sql).toMatch(/SET deleted_at = NOW\(\)/);
+    expect(sql).toMatch(/deleted_at IS NULL/);
+    expect(params).toEqual(["s"]);
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    expect(await archivePage("missing")).toBeNull();
+  });
+
+  test("unarchivePage clears deleted_at on the archived row only", async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [{ id: "p1" }] });
+    expect(await unarchivePage("s")).toEqual({ id: "p1" });
+    const [sql, params] = mockQuery.mock.calls[0];
+    expect(sql).toMatch(/SET deleted_at = NULL/);
+    expect(sql).toMatch(/deleted_at IS NOT NULL/);
+    expect(params).toEqual(["s"]);
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    expect(await unarchivePage("missing")).toBeNull();
   });
 
   test("getPageBySlug joins licence + group and returns the row or null", async () => {
