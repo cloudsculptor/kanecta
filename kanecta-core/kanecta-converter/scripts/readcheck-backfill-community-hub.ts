@@ -6,7 +6,14 @@
 import pg from 'pg';
 import { PostgresAdapter } from '../../kanecta-storage-adapters/kanecta-postgres/src/adapter.ts';
 
-const SOURCE = { host: 'localhost', port: 45433, database: 'communityhub', user: 'kanecta', password: 'kanecta' };
+const SOURCE = {
+  host:     process.env.SOURCE_PG_HOST     || 'localhost',
+  port:     Number(process.env.SOURCE_PG_PORT || 45433),
+  database: process.env.SOURCE_PG_DATABASE || 'communityhub',
+  user:     process.env.SOURCE_PG_USER     || 'kanecta',
+  password: process.env.SOURCE_PG_PASSWORD || 'kanecta',
+  ...(process.env.SOURCE_PG_SSL ? { ssl: { rejectUnauthorized: false } } : {}),
+};
 const TARGET_CONN = process.env.KANECTA_TEST_PG_URL || 'postgres://kanecta:kanecta@localhost:45432/kanecta';
 const argSchema = process.argv.find((a) => a.startsWith('--schema='));
 const SCHEMA = argSchema ? argSchema.split('=')[1] : 'communityhub_backfill';

@@ -137,13 +137,16 @@ describe('corrupted datastores', () => {
     expect(isValueOverLong({})).toBe(false);
   });
 
-  test('the alias projection FK rejects a dangling target; valid aliases resolve', async () => {
+  test('a dangling alias target is caught by alias-targets-resolve; valid aliases pass', async () => {
     const ds = tmpDs();
-    // Aliases now project to obj_<alias> whose target_id → items(id): a dangling
-    // alias can no longer be created via the API (the FK rejects it) — a stronger
-    // guarantee than the alias-targets-resolve check, which still guards
-    // hand-edited stores / rebuilds. (Mirrors the Postgres reference/view cutover.)
-    await expect(ds.setAlias('ghost', RANDOM_UUID)).rejects.toThrow();
+    // item_archive model: reference columns carry NO FK (a reference may
+    // legitimately point at an archived item, and one FK cannot span the
+    // items ∪ item_archive union), so a dangling alias is creatable again —
+    // and this integrity check is the enforcement mechanism that flags it.
+    await ds.setAlias('ghost', RANDOM_UUID);
+    const bad = await report(ds, { checks: ['alias-targets-resolve'] });
+    expect(byId(bad, 'alias-targets-resolve').status).toBe('fail');
+    await ds.removeAlias('ghost');
     // A valid alias projects and passes the check.
     const real = await ds.create({ value: 'real', type: 'string' });
     await ds.setAlias('good', real.id);
@@ -477,10 +480,14 @@ describe('reference-type payload resolution', () => {
     expect(byId(await report(ds, { checks: ['reference-target-resolves'] }), 'reference-target-resolves').status).toBe('pass');
   });
 
-  test('a dangling reference cannot be created — the projection FK rejects it', async () => {
+  test('a dangling reference is caught by reference-target-resolves (no FK under item_archive)', async () => {
     const ds = tmpDs();
-    await expect(ds.create({ type: 'object', typeId: await typeId(ds, 'reference'), value: 'ref',
-      objectData: { targetId: RANDOM_UUID, kind: 'link' } })).rejects.toThrow();
+    // Reference columns carry no FK any more (a reference may point into the
+    // archive) — the integrity check is the enforcement mechanism now.
+    await ds.create({ type: 'object', typeId: await typeId(ds, 'reference'), value: 'ref',
+      objectData: { targetId: RANDOM_UUID, kind: 'link' } });
+    const rep = await report(ds, { checks: ['reference-target-resolves'] });
+    expect(byId(rep, 'reference-target-resolves').status).toBe('fail');
   });
 
   test('resolvable subscription target passes', async () => {

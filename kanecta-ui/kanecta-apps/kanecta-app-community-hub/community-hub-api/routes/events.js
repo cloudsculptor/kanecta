@@ -8,7 +8,7 @@ import { notify } from "../lib/notification-templates.js";
 import * as eventsRepo from "../repositories/events.js";
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 const requireModerator = requireRole("moderator", "admin");
 const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 

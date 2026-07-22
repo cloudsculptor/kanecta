@@ -600,10 +600,105 @@ export interface WorkingSet {
   isActive: boolean;
 }
 
+/** How to fill a new branch: a full copy, or a sparse read-through overlay. */
+export type BranchFill = 'full' | 'sparse';
+
+export interface CreateBranchOptions {
+  fill?: BranchFill;
+  /** For a sparse branch, the branch it reads through to (defaults to current). */
+  upstream?: { branch: string };
+}
+
+/**
+ * Flat item snapshot as `/diff` and `/merge-preview` carry it in `detail` —
+ * the adapter's read-model item shape (id, value, type, tags, timestamps…).
+ */
+export interface DiffItemSnapshot {
+  id: string;
+  value?: unknown;
+  type?: string;
+  parentId?: string | null;
+  tags?: string[];
+  [field: string]: unknown;
+}
+
+/** Item-level review payload: what a branch adds, edits, and deletes. */
+export interface DiffDetail {
+  adds: Array<{ id: string; after: DiffItemSnapshot }>;
+  edits: Array<{ id: string; before: DiffItemSnapshot; after: DiffItemSnapshot }>;
+  deletes: Array<{ id: string; before: DiffItemSnapshot }>;
+}
+
+/** `GET .../diff` — a branch's changes vs its upstream. */
+export interface BranchDiff {
+  branch: string;
+  adds: number;
+  edits: number;
+  deletes: number;
+  /** Absent on older servers. */
+  detail?: DiffDetail;
+}
+
+/** How merging conflicts are resolved: branch wins, or keep the upstream (main). */
+export type MergeStrategy = 'theirs' | 'ours';
+
+/**
+ * One item that changed on both sides since the branch forked. `kind`:
+ *  - `edit-edit`   both edited it
+ *  - `delete-edit` the branch deleted an item main modified
+ *  - `add-delete`  the branch kept/edited an item main has since deleted
+ */
+export interface MergeConflict {
+  id: string;
+  kind: 'edit-edit' | 'delete-edit' | 'add-delete';
+}
+
+/** A deleted item that other items on main still reference (would dangle). */
+export interface BlastRadiusEntry {
+  id: string;
+  referencedBy: Array<{ id: string; via: 'parent' | 'link' | 'relationship' | 'alias' }>;
+}
+
+/** `GET .../merge-preview` — what a merge into main would do, applying nothing. */
+export interface MergePreview {
+  branch: string;
+  adds: number;
+  edits: number;
+  deletes: number;
+  conflicts: MergeConflict[];
+  blastRadius: BlastRadiusEntry[];
+  /** Absent on older servers. */
+  detail?: DiffDetail;
+}
+
+/** Options for `POST .../merge`. */
+export interface MergeOptions {
+  strategy?: MergeStrategy;
+  blockOnBlastRadius?: boolean;
+}
+
+/** `POST .../merge` success result. */
+export interface MergeResult {
+  ok: boolean;
+  merged: number;
+  skipped?: number;
+  conflicts?: MergeConflict[];
+  blastRadius?: BlastRadiusEntry[];
+}
+
 export interface WorkingSetsApi {
-  list(): Promise<{ workingSets: WorkingSet[]; activeWorkspace: string }>;
-  createBranch(workspaceName: string, branchName: string): Promise<{ ok: boolean; branch: WorkingSetBranch }>;
-  switchBranch(workspaceName: string, branch: string): Promise<{ ok: boolean; branch: string }>;
+  /** `activeWorkspace` is the legacy name of `activeWorkingSet`; servers send one or the other. */
+  list(): Promise<{ workingSets: WorkingSet[]; activeWorkingSet?: string; activeWorkspace?: string }>;
+  /** Make a working set the active one. */
+  activate(name: string): Promise<{ ok: boolean }>;
+  createBranch(name: string, branchName: string, options?: CreateBranchOptions): Promise<{ ok: boolean; branch: WorkingSetBranch }>;
+  switchBranch(name: string, branch: string): Promise<{ ok: boolean; branch: string }>;
+  /** A branch's changes vs its upstream, with the item-level review payload. */
+  branchDiff(name: string, branch: string): Promise<BranchDiff>;
+  /** Conflicts + blast radius a merge into main would produce — applies nothing. */
+  mergePreview(name: string, branch: string): Promise<MergePreview>;
+  /** Merge a branch into main. Conflicting merges reject with a 409 ApiError. */
+  merge(name: string, branch: string, options?: MergeOptions): Promise<MergeResult>;
 }
 
 // ─── Client config ────────────────────────────────────────────────────────────
@@ -911,12 +1006,24 @@ export class KanectaApiClient {
 
   get workingSets(): WorkingSetsApi {
     const c = this;
+    const enc = encodeURIComponent;
     return {
       list: () => c._fetch('GET', '/working-sets'),
-      createBranch: (workspaceName, branchName) =>
-        c._fetch('POST', `/working-sets/${encodeURIComponent(workspaceName)}/branches`, { branchName }),
-      switchBranch: (workspaceName, branch) =>
-        c._fetch('POST', `/working-sets/${encodeURIComponent(workspaceName)}/branches/${encodeURIComponent(branch)}/switch`),
+      activate: (name) => c._fetch('POST', `/working-sets/${enc(name)}/activate`),
+      createBranch: (name, branchName, options) =>
+        c._fetch('POST', `/working-sets/${enc(name)}/branches`, {
+          branchName,
+          ...(options?.fill ? { fill: options.fill } : {}),
+          ...(options?.upstream ? { upstream: options.upstream } : {}),
+        }),
+      switchBranch: (name, branch) =>
+        c._fetch('POST', `/working-sets/${enc(name)}/branches/${enc(branch)}/switch`),
+      branchDiff: (name, branch) =>
+        c._fetch('GET', `/working-sets/${enc(name)}/branches/${enc(branch)}/diff`),
+      mergePreview: (name, branch) =>
+        c._fetch('GET', `/working-sets/${enc(name)}/branches/${enc(branch)}/merge-preview`),
+      merge: (name, branch, options) =>
+        c._fetch('POST', `/working-sets/${enc(name)}/branches/${enc(branch)}/merge`, options ?? {}),
     };
   }
 }

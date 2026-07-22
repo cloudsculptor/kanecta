@@ -17,10 +17,13 @@
  * just stores the definition.
  */
 
+import { createHash } from 'node:crypto';
+
 export const TYPE_IDS = {
-  // `property` is a CORE built-in (canonical id from the spec's built-in-types).
-  // The importer seeds it here only until the bootstrapper seeds built-in type
-  // items; the fixed id + schema keep that future seeding idempotent.
+  // `property` is a CORE built-in (canonical id from the spec's built-in-types
+  // manifest). Both adapters' bootstrappers seed it with every other built-in
+  // type item, so the importer no longer self-seeds it — this constant remains
+  // only as the reference id the importer parents property items under.
   property: '105354a8-4bd9-4333-9b54-68192f44599c',
   session: '0a9f1e00-0000-4000-8000-000000000002',
   turn: '0a9f1e00-0000-4000-8000-000000000003',
@@ -40,6 +43,14 @@ export interface TypeDef {
 const snake = (k: string): string => k.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase());
 const objTable = (id: string): string => `obj_${id.replace(/-/g, '_')}`;
 
+// Deterministic per-field x-id (validateType requires one per property so
+// fields survive renames): same (typeId, fieldKey) → same UUID, every run,
+// every machine — seeding stays idempotent.
+function fieldXId(typeId: string, key: string): string {
+  const h = createHash('sha256').update(`${typeId}:${key}`).digest('hex');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+
 /**
  * Build a type definition from a flat column spec.
  * cols: [camelKey, sqlType, jsonType][] — jsonType is a JSON-schema primitive.
@@ -54,8 +65,8 @@ function buildType(id: string, title: string, icon: string, description: string,
     `  CONSTRAINT "pk_${table}" PRIMARY KEY (item_id),\n` +
     `  CONSTRAINT "fk_${table}_item" FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE\n` +
     `)`;
-  const properties: Record<string, { type: string }> = {};
-  for (const [k, , json] of cols) properties[k] = { type: json };
+  const properties: Record<string, { type: string; 'x-id': string }> = {};
+  for (const [k, , json] of cols) properties[k] = { type: json, 'x-id': fieldXId(id, k) };
   return {
     id,
     title,
@@ -81,14 +92,6 @@ function buildType(id: string, title: string, icon: string, description: string,
     },
   };
 }
-
-const PROPERTY = buildType(
-  TYPE_IDS.property, 'property', 'DataObject',
-  'One entry of an arbitrary key-value map. The key is item.value; this payload holds the value.',
-  [
-    ['value', 'TEXT', 'string'],
-  ],
-);
 
 const SESSION = buildType(
   TYPE_IDS.session, 'Claude Session', 'Forum',
@@ -139,7 +142,10 @@ const TOOL_CALL = buildType(
   ],
 );
 
-export const ALL_TYPES: TypeDef[] = [PROPERTY, SESSION, TURN, TOOL_CALL];
+// `property` is NOT here: it's a core built-in seeded by the adapters'
+// bootstrappers (_ensureBuiltInTypes / its postgres equivalent) from the
+// spec's built-in-types manifest — the importer only references its id.
+export const ALL_TYPES: TypeDef[] = [SESSION, TURN, TOOL_CALL];
 
 /**
  * Idempotently ensure all transcript types exist in `ds`. Safe to call every

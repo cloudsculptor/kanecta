@@ -312,8 +312,17 @@ export function deriveSqlSchema(jsonSchema: JsonSchema, opts: DeriveOptions = {}
     }
 
     const { sql, ref } = scalarType(prop, d);
-    // A UUID reference to another item gets a foreign key to items(id).
-    columns.push(`  ${q(col)} ${sql}${ref ? ' REFERENCES items(id)' : ''}`);
+    // A UUID reference to another item is a plain UUID column — deliberately
+    // NOT a foreign key to items(id). Under the item_archive model a reference
+    // may legitimately point at an ARCHIVED item (soft delete physically moves
+    // the row out of `items`; the relation survives per the spec's
+    // type-relation rule), and one FK cannot span the items ∪ item_archive
+    // union. Referential integrity for reference columns is verified by the
+    // integrity checker over the union instead. The spine FK (item_id → items,
+    // ON DELETE CASCADE) below is unaffected — an obj_ row's own item can
+    // never be archived while the row exists (the archive move removes it).
+    void ref;
+    columns.push(`  ${q(col)} ${sql}`);
   }
 
   // Generated/computed columns are emitted inline in the CREATE TABLE, after the

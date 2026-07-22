@@ -15,6 +15,16 @@ interface UiState {
   filtersByPanel: Record<string, FilterState>;
   sortsByPanel: Record<string, SortState>;
   vscodeAvailable: boolean;
+  /**
+   * Per-panel view state for soft-coded view components (host side of the
+   * state contract — see `lib/componentLoader.ts` `ViewComponentProps` and
+   * `lib/viewRegistry.ts` `resolveSoftView`). Opaque to the host: a soft view
+   * reads its own last-persisted state via `state` and calls `onStateChange`
+   * to persist the next one; the host just stores whatever it's handed,
+   * keyed by panel id, and persists it the same way as everything else in
+   * this store (see the `persist` middleware below).
+   */
+  viewStateByPanel: Record<string, unknown>;
 
   addPanel: (config?: Partial<PanelConfig>) => void;
   removePanel: (id: string) => void;
@@ -26,6 +36,7 @@ interface UiState {
   setPanelFilter: (panelId: string, filter: FilterState) => void;
   setPanelSort: (panelId: string, sort: SortState) => void;
   setVscodeAvailable: (available: boolean) => void;
+  setPanelViewState: (panelId: string, state: unknown) => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -38,6 +49,7 @@ export const useUiStore = create<UiState>()(
       filtersByPanel: {},
       sortsByPanel: {},
       vscodeAvailable: false,
+      viewStateByPanel: {},
 
       addPanel: (config = {}) =>
         set((s) => {
@@ -81,6 +93,9 @@ export const useUiStore = create<UiState>()(
         set((s) => ({ sortsByPanel: { ...s.sortsByPanel, [panelId]: sort } })),
 
       setVscodeAvailable: (vscodeAvailable) => set({ vscodeAvailable }),
+
+      setPanelViewState: (panelId, state) =>
+        set((s) => ({ viewStateByPanel: { ...s.viewStateByPanel, [panelId]: state } })),
     }),
     { name: 'kanecta-ui' },
   ),

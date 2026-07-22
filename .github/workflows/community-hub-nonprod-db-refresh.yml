@@ -1,4 +1,4 @@
-name: Nonprod DB Refresh
+name: Nonprod DB and S3 Refresh
 
 on:
   workflow_dispatch:

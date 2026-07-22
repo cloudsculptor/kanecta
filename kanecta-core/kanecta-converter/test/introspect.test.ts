@@ -64,6 +64,15 @@ test('UUID-PK table: id becomes the item id, columns become camelCase properties
   assert.ok(report.seams.some((s) => s.kind === 'non-deterministic-seed-uuid'));
 });
 
+test('exposeSoftDelete surfaces soft-delete/archive columns as normal GraphQL fields', () => {
+  const { typeItem } = introspect(threads, { exposeSoftDelete: true });
+  const props = typeItem.payload.jsonSchema.properties;
+  // The column is still emitted, but no longer carries the { expose: false } marker —
+  // so a consumer can filter `archived_at IS NOT NULL` over GraphQL.
+  assert.ok(props.archivedAt);
+  assert.equal(props.archivedAt['x-graphql'], undefined);
+});
+
 test('composite-PK table: surrogate item_id + a UNIQUE index (Seam 2)', () => {
   const { typeItem, report } = introspect(reactions);
   assert.ok(report.seams.some((s) => s.kind === 'composite-pk-surrogate'));

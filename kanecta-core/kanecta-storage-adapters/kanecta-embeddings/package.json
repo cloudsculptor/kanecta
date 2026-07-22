@@ -1,0 +1,25 @@
+{
+  "name": "@kanecta/embeddings",
+  "version": "1.4.0",
+  "description": "Kanecta embedding-provider abstraction — shared by every storage adapter's semantic search",
+  "main": "index.ts",
+  "files": [
+    "index.ts"
+  ],
+  "scripts": {
+    "test": "echo \"No standalone tests — exercised via the adapters' semantic-search suites\" && exit 0",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "kanecta",
+    "embeddings",
+    "semantic-search"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}

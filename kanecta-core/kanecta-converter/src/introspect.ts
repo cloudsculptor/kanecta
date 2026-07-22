@@ -142,8 +142,13 @@ export function introspect(table: SourceTable, opts: IntrospectOptions = {}): In
       seams.push({ kind: 'fk-to-items', detail: `FK "${col.name}" → items(id) (target type ${resolved ? 'resolved' : 'UNRESOLVED — second pass'}: ${fk.references.table}).` });
     }
 
-    // Soft-delete columns are stored but hidden from GraphQL.
-    if (SOFT_DELETE_COLUMNS.has(col.name)) xGraphqlFieldsByProp[propName] = { expose: false };
+    // Soft-delete / archive columns: hidden from GraphQL by default (steer toward
+    // native soft-delete), but exposed as normal filterable fields when
+    // `exposeSoftDelete` is set — a faithful mirror whose consumer reproduces the
+    // legacy app's own `deleted_at IS NULL` / `archived_at IS NOT NULL` filters.
+    if (SOFT_DELETE_COLUMNS.has(col.name) && !opts.exposeSoftDelete) {
+      xGraphqlFieldsByProp[propName] = { expose: false };
+    }
 
     // Envelope candidates kept as columns (faithful mirror) — reported only.
     if (ENVELOPE_CANDIDATES.has(col.name) && col.name !== 'id') {

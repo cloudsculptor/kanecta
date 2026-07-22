@@ -9,12 +9,15 @@
 // `db` seam; that is only needed for the S3-interleaved event/page writes).
 // Part of the repository seam — see repositories/licences.js.
 import pool from "../db.js";
+import { USE_KANECTA } from "./backend.js";
+import * as kanecta from "./kanecta/discussions.js";
 
 // ── Message files ─────────────────────────────────────────────────────────────
 
 // Attach already-uploaded files (owned by the uploader) to a message. No-op for
 // an empty/absent file list so no query fires — preserves route call order.
 export async function attachFilesToMessage(messageId, fileIds, uploaderId) {
+  if (USE_KANECTA) return kanecta.attachFilesToMessage(messageId, fileIds, uploaderId);
   if (!fileIds?.length) return;
   await pool.query(
     `INSERT INTO discussions_message_files (message_id, file_id)
@@ -28,6 +31,7 @@ export async function attachFilesToMessage(messageId, fileIds, uploaderId) {
 // Raw (dmf + file) rows for one message, oldest attachment first. The route adds
 // the public URL from SPACES_PUBLIC_URL.
 export async function getMessageFiles(messageId) {
+  if (USE_KANECTA) return kanecta.getMessageFiles(messageId);
   const { rows } = await pool.query(
     `SELECT dmf.id, f.id AS file_id, f.name, f.mime_type, f.size_bytes, f.storage_key, dmf.show_preview
      FROM discussions_message_files dmf
@@ -41,6 +45,7 @@ export async function getMessageFiles(messageId) {
 
 // { name, storage_key, mime_type } for a file, or undefined (download endpoint).
 export async function getFileForDownload(fileId) {
+  if (USE_KANECTA) return kanecta.getFileForDownload(fileId);
   const { rows } = await pool.query(
     "SELECT name, storage_key, mime_type FROM files WHERE id = $1",
     [fileId]
@@ -50,6 +55,7 @@ export async function getFileForDownload(fileId) {
 
 // { id, storage_key, uploaded_by_id } for a file, or undefined (delete endpoint).
 export async function getFileForDelete(fileId) {
+  if (USE_KANECTA) return kanecta.getFileForDelete(fileId);
   const { rows } = await pool.query(
     "SELECT id, storage_key, uploaded_by_id FROM files WHERE id = $1",
     [fileId]
@@ -60,6 +66,7 @@ export async function getFileForDelete(fileId) {
 // Toggle a message file's preview flag, scoped to the message author. Returns the
 // { id } row, or undefined if not found / not authorised.
 export async function setMessageFilePreview(id, showPreview, userId) {
+  if (USE_KANECTA) return kanecta.setMessageFilePreview(id, showPreview, userId);
   const { rows } = await pool.query(
     `UPDATE discussions_message_files dmf
      SET show_preview = $1
@@ -75,6 +82,7 @@ export async function setMessageFilePreview(id, showPreview, userId) {
 
 // Does this user have any thread-read rows yet? (First-visit seeding gate.)
 export async function hasThreadReads(userId) {
+  if (USE_KANECTA) return kanecta.hasThreadReads(userId);
   const { rows } = await pool.query(
     "SELECT 1 FROM discussions_thread_reads WHERE user_id = $1 LIMIT 1",
     [userId]
@@ -84,6 +92,7 @@ export async function hasThreadReads(userId) {
 
 // Seed a first-time visitor's read state so they start with everything read.
 export async function seedThreadReads(userId) {
+  if (USE_KANECTA) return kanecta.seedThreadReads(userId);
   await pool.query(
     `INSERT INTO discussions_thread_reads (user_id, thread_id, last_read_at)
      SELECT $1, id, COALESCE(latest_message_at, NOW())
@@ -95,6 +104,7 @@ export async function seedThreadReads(userId) {
 
 // Live threads with per-user unread + notification-subscription flags.
 export async function listThreads(userId) {
+  if (USE_KANECTA) return kanecta.listThreads(userId);
   const { rows } = await pool.query(
     `SELECT t.id, t.name, t.description, t.created_by_name, t.created_by_user_id, t.created_at,
             CASE WHEN t.latest_message_at IS NOT NULL
@@ -114,6 +124,7 @@ export async function listThreads(userId) {
 // Live threads whose whitespace-insensitive lowercased name matches `normalized`
 // (duplicate-name guard). The route computes `normalized` from the input name.
 export async function findDuplicateThreads(normalized) {
+  if (USE_KANECTA) return kanecta.findDuplicateThreads(normalized);
   const { rows } = await pool.query(
     `SELECT id, name, description FROM discussions_threads
      WHERE archived_at IS NULL
@@ -124,6 +135,7 @@ export async function findDuplicateThreads(normalized) {
 }
 
 export async function createThread({ name, description, createdByUserId, createdByName }) {
+  if (USE_KANECTA) return kanecta.createThread({ name, description, createdByUserId, createdByName });
   const { rows } = await pool.query(
     `INSERT INTO discussions_threads (name, description, created_by_user_id, created_by_name)
      VALUES ($1, $2, $3, $4) RETURNING *`,
@@ -134,6 +146,7 @@ export async function createThread({ name, description, createdByUserId, created
 
 // { created_by_user_id, created_by_name } for a live thread, or undefined.
 export async function getThreadForArchive(threadId) {
+  if (USE_KANECTA) return kanecta.getThreadForArchive(threadId);
   const { rows } = await pool.query(
     `SELECT created_by_user_id, created_by_name FROM discussions_threads
      WHERE id = $1 AND archived_at IS NULL`,
@@ -143,6 +156,7 @@ export async function getThreadForArchive(threadId) {
 }
 
 export async function archiveThread(threadId) {
+  if (USE_KANECTA) return kanecta.archiveThread(threadId);
   await pool.query(
     "UPDATE discussions_threads SET archived_at = NOW() WHERE id = $1",
     [threadId]
@@ -151,6 +165,7 @@ export async function archiveThread(threadId) {
 
 // The thread's display name, or undefined (used by realtime notifications).
 export async function getThreadName(threadId) {
+  if (USE_KANECTA) return kanecta.getThreadName(threadId);
   const { rows } = await pool.query(
     "SELECT name FROM discussions_threads WHERE id = $1",
     [threadId]
@@ -160,6 +175,7 @@ export async function getThreadName(threadId) {
 
 // Bump a thread's latest_message_at (drives unread + ordering).
 export async function touchThreadLatestMessage(threadId, at) {
+  if (USE_KANECTA) return kanecta.touchThreadLatestMessage(threadId, at);
   await pool.query(
     "UPDATE discussions_threads SET latest_message_at = $1 WHERE id = $2",
     [at, threadId]
@@ -172,6 +188,7 @@ export async function touchThreadLatestMessage(threadId, at) {
 // files as a JSON array. Optional `before` (ISO timestamp) paginates backwards.
 // The route adds public URLs to the returned files.
 export async function listThreadMessages(threadId, limit, before) {
+  if (USE_KANECTA) return kanecta.listThreadMessages(threadId, limit, before);
   const { rows } = await pool.query(
     `SELECT m.id, m.thread_id, m.user_id, m.user_name, m.content, m.created_at, m.edited_at, m.deleted_at,
             (SELECT COUNT(*) FROM discussions_messages r WHERE r.parent_message_id = m.id)::int AS reply_count,
@@ -199,6 +216,7 @@ export async function listThreadMessages(threadId, limit, before) {
 
 // Insert a top-level message; RETURNING includes a literal 0 reply_count.
 export async function createMessage({ threadId, userId, userName, content }) {
+  if (USE_KANECTA) return kanecta.createMessage({ threadId, userId, userName, content });
   const { rows } = await pool.query(
     `INSERT INTO discussions_messages (thread_id, user_id, user_name, content)
      VALUES ($1, $2, $3, $4) RETURNING *, 0 AS reply_count`,
@@ -209,6 +227,7 @@ export async function createMessage({ threadId, userId, userName, content }) {
 
 // Advance a user's read marker for a thread, but never move it backwards.
 export async function upsertThreadRead(userId, threadId, at) {
+  if (USE_KANECTA) return kanecta.upsertThreadRead(userId, threadId, at);
   await pool.query(
     `INSERT INTO discussions_thread_reads (user_id, thread_id, last_read_at)
      VALUES ($1, $2, $3)
@@ -221,6 +240,7 @@ export async function upsertThreadRead(userId, threadId, at) {
 // Edit a message's content, scoped to its author + not-deleted. Returns the
 // updated row, or undefined if not found / not owned.
 export async function updateMessage(id, content, userId) {
+  if (USE_KANECTA) return kanecta.updateMessage(id, content, userId);
   const { rows } = await pool.query(
     `UPDATE discussions_messages
      SET content = $1, edited_at = NOW()
@@ -234,6 +254,7 @@ export async function updateMessage(id, content, userId) {
 // Soft-delete a message (blanks content). Moderators skip the author filter;
 // team members can only delete their own. Returns the row, or undefined.
 export async function deleteMessage(id, userId, isModerator) {
+  if (USE_KANECTA) return kanecta.deleteMessage(id, userId, isModerator);
   const { rows } = await pool.query(
     `UPDATE discussions_messages
      SET deleted_at = NOW(), content = ''
@@ -249,6 +270,7 @@ export async function deleteMessage(id, userId, isModerator) {
 // Replies to a message, oldest first, with attached files as a JSON array. The
 // route adds public URLs.
 export async function listReplies(parentId) {
+  if (USE_KANECTA) return kanecta.listReplies(parentId);
   const { rows } = await pool.query(
     `SELECT m.id, m.thread_id, m.parent_message_id, m.user_id, m.user_name, m.content,
             m.created_at, m.edited_at, m.deleted_at,
@@ -273,6 +295,7 @@ export async function listReplies(parentId) {
 
 // { id, thread_id } for a top-level (non-reply) message, or undefined.
 export async function getParentMessage(id) {
+  if (USE_KANECTA) return kanecta.getParentMessage(id);
   const { rows } = await pool.query(
     "SELECT id, thread_id FROM discussions_messages WHERE id = $1 AND parent_message_id IS NULL",
     [id]
@@ -281,6 +304,7 @@ export async function getParentMessage(id) {
 }
 
 export async function createReply({ threadId, parentMessageId, userId, userName, content }) {
+  if (USE_KANECTA) return kanecta.createReply({ threadId, parentMessageId, userId, userName, content });
   const { rows } = await pool.query(
     `INSERT INTO discussions_messages (thread_id, parent_message_id, user_id, user_name, content)
      VALUES ($1, $2, $3, $4, $5) RETURNING *`,
@@ -292,6 +316,7 @@ export async function createReply({ threadId, parentMessageId, userId, userName,
 // ── Notification subscriptions ────────────────────────────────────────────────
 
 export async function subscribeThreadNotifications(userId, threadId) {
+  if (USE_KANECTA) return kanecta.subscribeThreadNotifications(userId, threadId);
   await pool.query(
     `INSERT INTO thread_notification_subscriptions (user_id, thread_id)
      VALUES ($1, $2) ON CONFLICT DO NOTHING`,
@@ -300,6 +325,7 @@ export async function subscribeThreadNotifications(userId, threadId) {
 }
 
 export async function unsubscribeThreadNotifications(userId, threadId) {
+  if (USE_KANECTA) return kanecta.unsubscribeThreadNotifications(userId, threadId);
   await pool.query(
     "DELETE FROM thread_notification_subscriptions WHERE user_id = $1 AND thread_id = $2",
     [userId, threadId]
@@ -311,6 +337,7 @@ export async function unsubscribeThreadNotifications(userId, threadId) {
 // Threads with messages the user hasn't read (own messages excluded), each with
 // its unread messages (and parents of new replies) as a JSON array.
 export async function listUnreads(userId) {
+  if (USE_KANECTA) return kanecta.listUnreads(userId);
   const { rows } = await pool.query(
     `SELECT t.id AS thread_id, t.name, rd.last_read_at,
             COALESCE(
@@ -362,6 +389,7 @@ export async function listUnreads(userId) {
 
 // Mark a thread read up to its latest message (or now if empty).
 export async function markThreadRead(userId, threadId) {
+  if (USE_KANECTA) return kanecta.markThreadRead(userId, threadId);
   await pool.query(
     `INSERT INTO discussions_thread_reads (user_id, thread_id, last_read_at)
      VALUES ($1, $2, COALESCE(
@@ -378,6 +406,7 @@ export async function markThreadRead(userId, threadId) {
 
 // Reaction rows for every message in a thread (route groups them by message_id).
 export async function getThreadReactions(threadId) {
+  if (USE_KANECTA) return kanecta.getThreadReactions(threadId);
   const { rows } = await pool.query(
     `SELECT dr.message_id, dr.emoji, COUNT(*) AS count,
             array_agg(dr.user_id) AS user_ids, array_agg(dr.user_name) AS user_names
@@ -391,6 +420,7 @@ export async function getThreadReactions(threadId) {
 }
 
 export async function addReaction(messageId, userId, userName, emoji) {
+  if (USE_KANECTA) return kanecta.addReaction(messageId, userId, userName, emoji);
   await pool.query(
     `INSERT INTO discussions_reactions (message_id, user_id, user_name, emoji) VALUES ($1, $2, $3, $4)
      ON CONFLICT DO NOTHING`,
@@ -399,6 +429,7 @@ export async function addReaction(messageId, userId, userName, emoji) {
 }
 
 export async function removeReaction(messageId, userId, emoji) {
+  if (USE_KANECTA) return kanecta.removeReaction(messageId, userId, emoji);
   await pool.query(
     "DELETE FROM discussions_reactions WHERE message_id = $1 AND user_id = $2 AND emoji = $3",
     [messageId, userId, emoji]
@@ -407,6 +438,7 @@ export async function removeReaction(messageId, userId, emoji) {
 
 // Aggregated reaction counts (emoji → count + user arrays) for one message.
 export async function getMessageReactions(messageId) {
+  if (USE_KANECTA) return kanecta.getMessageReactions(messageId);
   const { rows } = await pool.query(
     `SELECT emoji, COUNT(*) AS count, array_agg(user_id) AS user_ids, array_agg(user_name) AS user_names
      FROM discussions_reactions WHERE message_id = $1 GROUP BY emoji`,
@@ -417,6 +449,7 @@ export async function getMessageReactions(messageId) {
 
 // The thread a message belongs to (for scoping realtime reaction updates).
 export async function getMessageThreadId(messageId) {
+  if (USE_KANECTA) return kanecta.getMessageThreadId(messageId);
   const { rows } = await pool.query(
     "SELECT thread_id FROM discussions_messages WHERE id = $1",
     [messageId]

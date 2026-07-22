@@ -19,9 +19,10 @@ import {
   typeSeedMetaschema,
   relationshipTypeSeedMetaschema,
 } from '@kanecta/specification';
-import { validateItem } from '@kanecta/specification/validator';
+import { validateItem, validateType } from '@kanecta/specification/validator';
 import { deriveSqlSchema, deriveIndexDdl } from '@kanecta/schema-compiler';
-import { Pool, PoolClient, QueryResult } from 'pg';
+import { Pool } from 'pg';
+import type { PoolClient, QueryResult } from 'pg';
 import { AsyncLocalStorage } from 'async_hooks';
 import { createEmbeddingProvider, reciprocalRankFusion } from './embeddings.ts';
 
@@ -325,16 +326,29 @@ class PostgresAdapter {
   async _withTx(fn: any) {
     if (this._txStore.getStore()?.client) return fn();
     const client = await this._pool.connect();
+    // If we can't cleanly ROLLBACK a failed transaction, the connection is still
+    // mid-transaction (aborted) — returning it to the pool would poison the NEXT
+    // caller with "current transaction is aborted, commands ignored until end of
+    // transaction block". Track that and DESTROY the connection instead of
+    // recycling it: `client.release(err)` with a truthy arg tells pg to discard
+    // the client rather than return it to the pool.
+    let broken = false;
     try {
       await client.query('BEGIN');
       const result = await this._txStore.run({ client }, fn);
       await client.query('COMMIT');
       return result;
     } catch (err) {
-      try { await client.query('ROLLBACK'); } catch { /* connection already broken */ }
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        broken = true; // connection couldn't be reset — must not go back to the pool
+      }
       throw err;
     } finally {
-      client.release();
+      // pg's runtime release(err) discards the connection instead of pooling it;
+      // this @types/pg version declares release() argless, hence the cast.
+      (client.release as any)(broken ? new Error('discarding connection: rollback failed') : undefined);
     }
   }
 
@@ -362,6 +376,7 @@ class PostgresAdapter {
     await adapter._ensureRelationshipTypes();
     await adapter._loadRelTypes();
     if (adapter._embeddingProvider) await adapter._ensureEmbeddingTable();
+    await adapter._migrateFlaggedRowsToArchive();
     return adapter;
   }
 
@@ -377,6 +392,7 @@ class PostgresAdapter {
     await adapter._ensureRelationshipTypes();
     await adapter._loadRelTypes();
     if (adapter._embeddingProvider) await adapter._ensureEmbeddingTable();
+    await adapter._migrateFlaggedRowsToArchive();
     return adapter;
   }
 
@@ -441,6 +457,40 @@ class PostgresAdapter {
       await this._exec(fs.readFileSync(path.join(dir, file), 'utf8'));
       await this._exec('INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING', [file]);
     }
+  }
+
+  // ── Legacy flag-deleted rows → item_archive (auto-upgrade catch-up) ────────
+  // Pre-archive datastores hold soft-deleted items as flagged live rows.
+  // Move them through the normal archive path — payload capture, backlink
+  // cleanup, cascaded derived rows — but with NO new history event (this is
+  // not a new delete; deleted_at keeps its original stamp). Idempotent and
+  // cheap once no flagged rows remain (043's partial deleted_at index).
+  // Also runs after a branch merge: applied branch changes may carry
+  // meta.deletedAt stamps (e.g. a sync-pushed soft delete), which land as
+  // flagged rows and are normalised into the archive here.
+  async _migrateFlaggedRowsToArchive() {
+    const { rows: has } = await this._exec("SELECT to_regclass('item_archive') IS NOT NULL AS ok");
+    if (!has[0]?.ok) return 0;   // pre-043 schema (migrations not yet applied)
+    const { rows: flagged } = await this._exec(
+      'SELECT id, type, type_id FROM items WHERE deleted_at IS NOT NULL',
+    );
+    for (const row of flagged) {
+      await this._withTx(async () => {
+        const projTypeId = projectionTypeId(row.type, row.type_id);
+        const payload = projTypeId ? await this.readObjectJson(row.id, projTypeId) : null;
+        await this._exec('DELETE FROM perf_backlinks WHERE source_id = $1', [row.id]);
+        await this._exec(
+          'INSERT INTO item_archive SELECT * FROM items WHERE id = $1 ON CONFLICT (id) DO NOTHING', [row.id],
+        );
+        if (payload != null) await this._exec(
+          `INSERT INTO item_archive_payload (item_id, payload) VALUES ($1, $2)
+           ON CONFLICT (item_id) DO UPDATE SET payload = EXCLUDED.payload`,
+          [row.id, JSON.stringify(payload)],
+        );
+        await this._exec('DELETE FROM items WHERE id = $1', [row.id]);
+      });
+    }
+    return flagged.length;
   }
 
   // Whether schema-mutating operations (migrations, built-in-type seeding) are
@@ -881,8 +931,14 @@ class PostgresAdapter {
   // ─── Item CRUD ───────────────────────────────────────────────────────────────
 
   async get(id: any) {
+    // Point reads by id resolve the archive transparently (restore tooling,
+    // MCP contracts, byte proxies for soft-deleted files). Set-returning
+    // queries never touch item_archive unless includeDeleted asks for it.
     const { rows } = await this._exec('SELECT * FROM items WHERE id = $1', [id]);
-    return rowToItem(rows[0] ?? null);
+    if (rows[0]) return rowToItem(rows[0]);
+    const arch = await this._execTry('SELECT * FROM item_archive WHERE id = $1', [id])
+      .catch(() => ({ rows: [] }));   // pre-043 schema: no archive yet
+    return rowToItem(arch.rows[0] ?? null);
   }
 
   async _typeDefExists(typeId: any) {
@@ -1024,6 +1080,17 @@ class PostgresAdapter {
   async _updateImpl(id: any, changes: any, actor?: any, { strict }: any = {}) {
     const current = await this.get(id);
     if (!current) throw new Error(`Item not found: ${id}`);
+    // Archived items are read-only: restore first (a live-store write while
+    // the archive row exists would split the item across the two tables).
+    if (current.deletedAt) {
+      const { rows: live } = await this._exec('SELECT 1 FROM items WHERE id = $1', [id]);
+      if (!live.length)
+        throw new Error(`Item ${id} is archived (soft-deleted) — restore() it before updating`);
+    }
+    // deletedAt transitions are the archive's job — update() may not flag-set
+    // them (the live table never contains a deleted row by construction).
+    if ('deletedAt' in changes && (changes.deletedAt ?? null) !== (current.deletedAt ?? null))
+      throw new Error('deletedAt cannot be changed via update() — use softDelete()/restore()');
     // The root node is renamable — its `value` (and other descriptive fields)
     // may be edited so a datastore can be given a meaningful name — but its
     // structural fields stay locked so it remains the self-parented type:'root'
@@ -1160,6 +1227,22 @@ class PostgresAdapter {
     this._assertDeletable(item, id);
     actor = actor || this.config.owner;
     const now = new Date();
+
+    // Hard delete of an ARCHIVED item = purge: the item already left every
+    // live/derived structure when it was archived — remove the archive copy
+    // (payload cascades), any remaining inbound backlink rows, and drop the
+    // projection table if this purged the type's last instance anywhere.
+    if (item.deletedAt) {
+      const { rows: live } = await this._exec('SELECT 1 FROM items WHERE id = $1', [id]);
+      if (!live.length) {
+        await this._snapshot(item, 'delete', actor, now);
+        await this._exec('DELETE FROM perf_backlinks WHERE source_id = $1 OR target_id = $1', [id]);
+        await this._exec('DELETE FROM item_archive WHERE id = $1', [id]);
+        if (item.typeId) await this._dropProjectionIfEmpty(item.typeId);
+        return { warnings: [] };
+      }
+    }
+
     const warnings = await this.deleteWarnings(id);
     await this._snapshot(item, 'delete', actor, now);
     // Alias items pointing at this item would dangle (and their target_id FK would
@@ -1183,32 +1266,105 @@ class PostgresAdapter {
     return { warnings };
   }
 
-  // ─── Soft delete / restore ───────────────────────────────────────────────────
+  // ─── Soft delete / restore (item_archive: delete = physical row move) ───────
 
+  // Stamp deletedAt and MOVE the row items → item_archive (verbatim —
+  // identical schemas, INSERT … SELECT *). The obj_ projection row, FTS row,
+  // embedding and queue rows all cascade away with the items row (spine FKs);
+  // the payload is captured into item_archive_payload first so restore can
+  // repopulate the projection. Outbound backlinks (this item's own links) are
+  // dropped and rebuilt on restore; inbound rows describe LIVE items' content
+  // and stay. Live queries then never see the item by construction.
   async softDelete(id: any, actor?: any) {
+    return this._withTx(() => this._softDeleteImpl(id, actor));
+  }
+
+  async _softDeleteImpl(id: any, actor?: any) {
     const item = await this.get(id);
     if (!item) throw new Error(`Item not found: ${id}`);
     this._assertDeletable(item, id);
+    if (item.deletedAt) {
+      const { rows: live } = await this._exec('SELECT 1 FROM items WHERE id = $1', [id]);
+      if (!live.length) return item;   // already archived — idempotent
+    }
     actor = actor || this.config.owner;
     const now = new Date();
     await this._snapshot(item, 'soft-delete', actor, now);
+    // Capture the payload BEFORE the obj_ row cascades away with the items row.
+    const projTypeId = projectionTypeId(item.type, item.typeId);
+    const payload = projTypeId ? await this.readObjectJson(id, projTypeId) : null;
     await this._exec(
       'UPDATE items SET deleted_at = $1, modified_at = $1, modified_by = $2 WHERE id = $3',
       [now, actor, id],
     );
+    await this._exec('DELETE FROM perf_backlinks WHERE source_id = $1', [id]);
+    await this._exec(
+      'INSERT INTO item_archive SELECT * FROM items WHERE id = $1 ON CONFLICT (id) DO NOTHING', [id],
+    );
+    if (payload != null) await this._exec(
+      `INSERT INTO item_archive_payload (item_id, payload) VALUES ($1, $2)
+       ON CONFLICT (item_id) DO UPDATE SET payload = EXCLUDED.payload`,
+      [id, JSON.stringify(payload)],
+    );
+    await this._exec('DELETE FROM items WHERE id = $1', [id]);
     return this.get(id);
   }
 
+  // Clear deletedAt and move the row back. The items INSERT re-fires the FTS
+  // trigger; the obj_ projection repopulates from the captured payload (table
+  // recreated if it was dropped); outbound backlinks re-derive from value.
+  // On a LIVE item this stays the pre-archive no-op-equivalent: clear the
+  // (already-null) flag and touch modifiedAt, exactly as before.
   async restore(id: any, actor?: any) {
+    return this._withTx(() => this._restoreImpl(id, actor));
+  }
+
+  async _restoreImpl(id: any, actor?: any) {
     const item = await this.get(id);
     if (!item) throw new Error(`Item not found: ${id}`);
     actor = actor || this.config.owner;
     const now = new Date();
     await this._snapshot(item, 'restore', actor, now);
+
+    const { rows: live } = await this._exec('SELECT 1 FROM items WHERE id = $1', [id]);
+    if (live.length) {
+      await this._exec(
+        'UPDATE items SET deleted_at = NULL, modified_at = $1, modified_by = $2 WHERE id = $3',
+        [now, actor, id],
+      );
+      return this.get(id);
+    }
+
+    await this._exec(
+      'INSERT INTO items SELECT * FROM item_archive WHERE id = $1 ON CONFLICT (id) DO NOTHING', [id],
+    );
     await this._exec(
       'UPDATE items SET deleted_at = NULL, modified_at = $1, modified_by = $2 WHERE id = $3',
       [now, actor, id],
     );
+    const projTypeId = projectionTypeId(item.type, item.typeId);
+    if (projTypeId) {
+      const { rows } = await this._exec(
+        'SELECT payload FROM item_archive_payload WHERE item_id = $1', [id],
+      );
+      const payload = rows[0]?.payload ?? null;
+      const projected = await this._ensureProjection(projTypeId);
+      if (projected && payload != null) await this.writeObjectJson(id, projTypeId, payload);
+      else if (projected) await this._exec(
+        `INSERT INTO "${objTableName(projTypeId)}" (item_id) VALUES ($1) ON CONFLICT (item_id) DO NOTHING`, [id],
+      );
+    }
+    for (const link of parseLinks(item.value)) {
+      await this._exec(
+        'INSERT INTO perf_backlinks (source_id, target_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
+        [id, link],
+      );
+    }
+    if (this._embeddingProvider) await this._execTry(
+      `INSERT INTO perf_embedding_queue (item_id, queued_at) VALUES ($1, now())
+       ON CONFLICT (item_id) DO UPDATE SET queued_at = now()`, [id],
+    ).catch(() => { /* embeddings table not provisioned */ });
+    await this._exec('DELETE FROM item_archive WHERE id = $1', [id]);
     return this.get(id);
   }
 
@@ -1463,6 +1619,57 @@ class PostgresAdapter {
     }));
   }
 
+  // ─── Activity log ────────────────────────────────────────────────────────────
+  // The second append-only exempt log (spec §activityPayload): item_history
+  // tracks what CHANGED, activity tracks what HAPPENED (item viewed, search
+  // performed, sync completed). Events are application-level — callers record
+  // them; the adapter only gates, stores, and reads. Gated by
+  // rootPayload.activity: 'NONE' → recording is a no-op. Events are
+  // append-only, never themselves logged, and have no history.
+
+  _activityRowToEvent(r: any) {
+    return {
+      id: r.id, eventType: r.event_type, actor: r.actor,
+      targetId: r.target_id ?? null, data: r.data ?? null,
+      occurredAt: r.occurred_at?.toISOString(),
+    };
+  }
+
+  // Record a workspace event. Returns the stored event, or null when
+  // rootPayload.activity === 'NONE'.
+  async recordActivity({ eventType, actor, targetId = null, data = null }: any = {}) {
+    if ((this.config.activity ?? 'EXTERNAL') === 'NONE') return null;
+    if (!eventType || typeof eventType !== 'string') throw new Error('recordActivity: eventType is required');
+    if (!actor || typeof actor !== 'string')         throw new Error('recordActivity: actor is required');
+    const id = crypto.randomUUID();
+    const { rows } = await this._exec(
+      `INSERT INTO activity (id, event_type, actor, target_id, data)
+       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      [id, eventType, actor, targetId, data == null ? null : JSON.stringify(data)],
+    );
+    return this._activityRowToEvent(rows[0]);
+  }
+
+  // Events for one item, newest first.
+  async activityFor(targetId: any, { limit = 50 }: any = {}) {
+    const { rows } = await this._exec(
+      `SELECT * FROM activity WHERE target_id = $1 ORDER BY occurred_at DESC, id LIMIT $2`,
+      [targetId, limit],
+    );
+    return rows.map(r => this._activityRowToEvent(r));
+  }
+
+  // Recent events across the workspace, optionally filtered by eventType.
+  async listActivity({ eventType = null, limit = 50 }: any = {}) {
+    const { rows } = eventType
+      ? await this._exec(
+          `SELECT * FROM activity WHERE event_type = $1 ORDER BY occurred_at DESC, id LIMIT $2`,
+          [eventType, limit])
+      : await this._exec(
+          `SELECT * FROM activity ORDER BY occurred_at DESC, id LIMIT $1`, [limit]);
+    return rows.map(r => this._activityRowToEvent(r));
+  }
+
   // ─── Tree / navigation ───────────────────────────────────────────────────────
 
   async children(parentId: any, aspect: any = undefined) {
@@ -1627,9 +1834,24 @@ class PostgresAdapter {
     return rows.length ? rowToItem(rows[0]) : null;
   }
 
-  async loadAll() {
-    const { rows } = await this._exec('SELECT * FROM items ORDER BY sort_order');
+  async loadAll({ includeDeleted = false }: any = {}) {
+    const src = includeDeleted
+      ? '(SELECT * FROM items UNION ALL SELECT * FROM item_archive)'
+      : 'items';
+    const { rows } = await this._exec(`SELECT * FROM ${src} q ORDER BY sort_order`);
     return rows.map(rowToItem);
+  }
+
+  // List every registered type definition (id + value), ordered by name. This is
+  // the pg parity of the sqlite-fs `_listTypeDefs` — kanecta-api's GraphQL schema
+  // builder (loadTypeItems) and the `/types` endpoint call it through the
+  // Datastore facade, so a Postgres-backed working set needs it too. Soft-deleted
+  // types are excluded: a deleted type must not generate GraphQL schema.
+  async _listTypeDefs() {
+    const { rows } = await this._exec(
+      `SELECT id, value FROM items WHERE type = 'type' AND deleted_at IS NULL ORDER BY value`,
+    );
+    return rows;
   }
 
   async resolveTypeId(name: any) {
@@ -1659,8 +1881,14 @@ class PostgresAdapter {
       }
     }
 
-    // Soft-delete filter
+    // The live table contains no deleted rows (soft delete physically moves
+    // them to item_archive), so the default query needs no exclusion filter —
+    // the vacuous condition is kept as belt-and-braces. includeDeleted UNIONS
+    // the archive back in via the source relation below.
     if (!includeDeleted) conditions.push('deleted_at IS NULL');
+    const itemsSrc = includeDeleted
+      ? '(SELECT * FROM items UNION ALL SELECT * FROM item_archive)'
+      : 'items';
 
     // Expiry filters
     if (expiredOnly) {
@@ -1679,9 +1907,9 @@ class PostgresAdapter {
         conditions.push(
           `id IN (
             WITH RECURSIVE sub AS (
-              SELECT id FROM items WHERE id = $${p}
+              SELECT id FROM ${itemsSrc} src0 WHERE id = $${p}
               UNION ALL
-              SELECT i.id FROM items i JOIN sub s ON i.parent_id = s.id AND i.id != i.parent_id
+              SELECT i.id FROM ${itemsSrc} i JOIN sub s ON i.parent_id = s.id AND i.id != i.parent_id
             ) SELECT id FROM sub
           )`,
         );
@@ -1702,7 +1930,7 @@ class PostgresAdapter {
 
     const whereClause = conditions.length ? ' WHERE ' + conditions.join(' AND ') : '';
     const { rows } = await this._exec(
-      `SELECT * FROM items${whereClause}`, params,
+      `SELECT * FROM ${itemsSrc} q${whereClause}`, params,
     );
     let items = rows.map(rowToItem);
 
@@ -1786,7 +2014,7 @@ class PostgresAdapter {
       const result = await this._execTry(
         `SELECT * FROM "${table}" WHERE item_id = $1`, [id],
       );
-      if (!result.rows[0]) return null;
+      if (!result.rows[0]) return this._readArchivedPayload(id);
       // The compiler maps jsonSchema `integer` to BIGINT, which node-pg returns
       // as a string; coerce those columns back to numbers so the payload keeps
       // its JS types. (int4/float8/bool/arrays already come back correctly.)
@@ -1799,6 +2027,18 @@ class PostgresAdapter {
           return [k.replace(/_([a-z])/g, (_, c) => c.toUpperCase()), val];
         }),
       );
+    } catch { return this._readArchivedPayload(id); }
+  }
+
+  // Archived items keep serving their payload by id (point-read contract):
+  // the obj_ row left with the archive move, but the capture in
+  // item_archive_payload holds the writeObjectJson-shaped (camelCase) object.
+  async _readArchivedPayload(id: any) {
+    try {
+      const { rows } = await this._execTry(
+        'SELECT payload FROM item_archive_payload WHERE item_id = $1', [id],
+      );
+      return rows[0]?.payload ?? null;
     } catch { return null; }
   }
 
@@ -1806,6 +2046,20 @@ class PostgresAdapter {
   // persisted. Skips silently when the type has no resolvable jsonSchema (nothing
   // to validate against). Throws a PayloadValidationError on a schema violation so
   // invalid typed objects never reach the obj_<typeId> table.
+  _validateTypeSchema(typeId: any, typeJson: any) {
+    const result = validateType(typeJson);
+    if (!result.valid) {
+      const err: any = new Error(
+        `Type definition failed validation for type ${typeId}: ` +
+        result.errors.map((e: any) => `${e.path || '(root)'}: ${e.message}`).join('; '),
+      );
+      err.name = 'TypeValidationError';
+      err.code = 'INVALID_TYPE';
+      err.validationErrors = result.errors;
+      throw err;
+    }
+  }
+
   async _validateObjectPayload(typeId: any, data: any) {
     if (!typeId || data == null) return;
     const typeJson = await this.readTypeJson(typeId);
@@ -1850,7 +2104,17 @@ class PostgresAdapter {
         [id, ...vals],
       );
     } catch (e: any) {
-      console.warn(`writeObjectJson: table ${table} not found for type ${typeId}:`, e.message);
+      // Only tolerate a genuinely-missing projection table (42P01): the payload
+      // just isn't projected. Any OTHER error (unique/constraint violation,
+      // not-null, type mismatch) is real — swallowing it here would leave the
+      // enclosing transaction ABORTED (so every later statement fails with
+      // "current transaction is aborted…") and orphan the items row. Propagate it
+      // so the write rolls back cleanly and the caller gets a proper error.
+      if (e?.code === '42P01') {
+        console.warn(`writeObjectJson: table ${table} not found for type ${typeId}:`, e.message);
+        return;
+      }
+      throw e;
     }
   }
 
@@ -2256,19 +2520,10 @@ class PostgresAdapter {
     const owner = this.config.owner;
     const actor = createdBy || owner;
 
-    await this._exec(
-      `INSERT INTO items (id, spec_version, parent_id, path, value, type, owner, license, sort_order,
-         created_at, modified_at, created_by, modified_by)
-       VALUES ($1, $2, $1, $7, $3, 'type', $4, $5, 0, $6, $6, $4, $4)
-       ON CONFLICT (id) DO NOTHING`,
-      // $7 is the text `path` (a type item's path is its own id). It is a
-      // separate parameter from $1 (uuid id/parent_id) so PG doesn't try to
-      // deduce one type for a value used as both uuid and text.
-      [id, specVersion, value.trim(), owner, DEFAULT_LICENSE, now, String(id)],
-    );
-
     const resolvedSchema = schema || {
-      meta: { icon: '', description: '', details: '', keywords: '', tags: '', skills: { claude: '' } },
+      // description defaults to the type's name — validateType requires a
+      // non-empty description on every type definition.
+      meta: { icon: '', description: value.trim(), details: '', keywords: '', tags: '', skills: { claude: '' } },
       jsonSchema: {
         '$schema': 'http://json-schema.org/draft-07/schema#',
         '$id': '',
@@ -2279,6 +2534,24 @@ class PostgresAdapter {
         additionalProperties: false,
       },
     };
+
+    // Spec: the adapter enforces correctness at write time — a type definition
+    // is validated BEFORE anything persists, exactly like object payloads.
+    this._validateTypeSchema(id, resolvedSchema);
+
+    await this._exec(
+      `INSERT INTO items (id, spec_version, parent_id, path, value, type, owner, license, sort_order,
+         created_at, modified_at, created_by, modified_by)
+       VALUES ($1, $2, $8, $7, $3, 'type', $4, $5, 0, $6, $6, $4, $4)
+       ON CONFLICT (id) DO NOTHING`,
+      // Universal parentId rule: a type item lives under the well-known types
+      // node, with the seeder's path convention root/types/<id> — exactly how
+      // the built-in type items are written. (This previously self-parented the
+      // item, which the root-singleton / no-parentid-cycles integrity checks
+      // flag as corruption and rebuildPaths cannot reach.)
+      [id, specVersion, value.trim(), owner, DEFAULT_LICENSE, now,
+       `${ROOT_ID}/${TYPES_CONTAINER_ID}/${id}`, TYPES_CONTAINER_ID],
+    );
 
     const meta = resolvedSchema.meta ?? {};
     // The type registry is the type-type's own projection obj_<type-type> (spec
@@ -2445,13 +2718,20 @@ class PostgresAdapter {
     // type='object' would under-count and drop a live table.
     // The type-type is the exception: type items are its instances but carry
     // type_id=NULL (type='type' is their identity), so count them by type.
+    // Count live AND archived instances: an archived last instance keeps the
+    // relation so restore does not have to recreate it (spec type-relation
+    // rule); only hard-deleting the last instance anywhere — including purging
+    // the last archived one — drops the table.
     const { rows } = String(typeId) === TYPE_TYPE_ID
-      ? await this._exec("SELECT COUNT(*)::int AS n FROM items WHERE type = 'type'")
+      ? await this._exec(
+          `SELECT (SELECT COUNT(*) FROM items        WHERE type = 'type') +
+                  (SELECT COUNT(*) FROM item_archive WHERE type = 'type') AS n`)
       : await this._exec(
-          'SELECT COUNT(*)::int AS n FROM items WHERE type_id = $1',
+          `SELECT (SELECT COUNT(*) FROM items        WHERE type_id = $1) +
+                  (SELECT COUNT(*) FROM item_archive WHERE type_id = $1) AS n`,
           [typeId],
         );
-    if (!rows[0] || rows[0].n === 0)
+    if (!rows[0] || Number(rows[0].n) === 0)
       await this._exec(`DROP TABLE IF EXISTS "${objTableName(typeId)}"`);
   }
 
@@ -2892,26 +3172,46 @@ class PostgresAdapter {
 
   // ─── Branching ──────────────────────────────────────────────────────────────
 
-  async createBranch(name: any) {
+  // opts.branchPointAt — the fork watermark (ISO string). A branch pushed from a
+  // local sqlite-fs branch passes the LOCAL fork point (SyncEngine.push does);
+  // upstream may have moved between fork and push, which is exactly the window
+  // conflict detection exists for. Defaults to now() for a branch born here.
+  // opts.base — must be 'main': branch_changes rows physically apply onto the
+  // main tables, so no other base has meaning in this adapter's delta model.
+  // The parameter exists so the constraint is an explicit error, not a silent
+  // hard-code.
+  async createBranch(name: any, opts: any = {}) {
     if (!name || typeof name !== 'string' || !name.trim()) throw new Error('branch name is required');
     name = name.trim();
     if (name === 'main') throw new Error('Cannot create a branch named "main"');
+    if (opts.base != null && opts.base !== 'main')
+      throw new Error(`Postgres branches can only be based on "main" (got "${opts.base}") — the branch_changes delta model applies onto the main tables`);
+    let branchPoint = new Date();
+    if (opts.branchPointAt != null) {
+      branchPoint = new Date(opts.branchPointAt);
+      if (isNaN(branchPoint.getTime())) throw new Error(`Invalid branchPointAt "${opts.branchPointAt}" — expected an ISO-8601 timestamp`);
+    }
     const existing = await this._exec('SELECT id FROM branches WHERE name = $1 AND deleted_at IS NULL', [name]);
     if (existing.rows.length) throw new Error(`Branch "${name}" already exists`);
     const { rows } = await this._exec(
-      'INSERT INTO branches (name, base_branch) VALUES ($1, $2) RETURNING id, name, base_branch, created_at',
-      [name, 'main'],
+      'INSERT INTO branches (name, base_branch, branch_point_at) VALUES ($1, $2, $3) RETURNING id, name, base_branch, branch_point_at, created_at',
+      [name, 'main', branchPoint],
     );
     const r = rows[0];
-    return { id: r.id, name: r.name, baseBranch: r.base_branch, createdAt: r.created_at.toISOString() };
+    return {
+      id: r.id, name: r.name, baseBranch: r.base_branch,
+      branchPointAt: r.branch_point_at?.toISOString() ?? null,
+      createdAt: r.created_at.toISOString(),
+    };
   }
 
   async listBranches() {
     const { rows } = await this._exec(
-      'SELECT id, name, base_branch, created_at, merged_at, deleted_at FROM branches WHERE deleted_at IS NULL ORDER BY created_at',
+      'SELECT id, name, base_branch, branch_point_at, created_at, merged_at, deleted_at FROM branches WHERE deleted_at IS NULL ORDER BY created_at',
     );
     return rows.map(r => ({
       id: r.id, name: r.name, baseBranch: r.base_branch,
+      branchPointAt: r.branch_point_at?.toISOString() ?? null,
       createdAt: r.created_at.toISOString(),
       mergedAt:  r.merged_at?.toISOString() ?? null,
       deletedAt: r.deleted_at?.toISOString() ?? null,
@@ -2920,12 +3220,36 @@ class PostgresAdapter {
 
   async getBranch(name: any) {
     const { rows } = await this._exec(
-      'SELECT id, name, base_branch, created_at, merged_at, deleted_at FROM branches WHERE name = $1 AND deleted_at IS NULL',
+      'SELECT id, name, base_branch, branch_point_at, created_at, merged_at, deleted_at FROM branches WHERE name = $1 AND deleted_at IS NULL',
       [name],
     );
     if (!rows.length) return null;
     const r = rows[0];
-    return { id: r.id, name: r.name, baseBranch: r.base_branch, createdAt: r.created_at.toISOString(), mergedAt: r.merged_at?.toISOString() ?? null };
+    return {
+      id: r.id, name: r.name, baseBranch: r.base_branch,
+      branchPointAt: r.branch_point_at?.toISOString() ?? null,
+      createdAt: r.created_at.toISOString(), mergedAt: r.merged_at?.toISOString() ?? null,
+    };
+  }
+
+  // Resolve a branch by name or id (unmerged, undeleted). The facade and the
+  // sqlite-fs adapter address branches by NAME; SyncEngine and older callers
+  // hold ids — accept both so the cross-adapter surface stays uniform.
+  async _resolveBranch(nameOrId: any) {
+    if (!nameOrId || typeof nameOrId !== 'string') throw new Error('branch name or id is required');
+    const byId = UUID_RE.test(nameOrId)
+      ? await this._exec('SELECT id, name, base_branch, branch_point_at, created_at FROM branches WHERE id = $1 AND deleted_at IS NULL AND merged_at IS NULL', [nameOrId])
+      : { rows: [] };
+    const rows = byId.rows.length
+      ? byId.rows
+      : (await this._exec('SELECT id, name, base_branch, branch_point_at, created_at FROM branches WHERE name = $1 AND deleted_at IS NULL AND merged_at IS NULL', [nameOrId])).rows;
+    if (!rows.length) throw new Error(`Branch ${nameOrId} not found or already merged`);
+    const r = rows[0];
+    return {
+      id: r.id, name: r.name, baseBranch: r.base_branch,
+      branchPointAt: r.branch_point_at?.toISOString() ?? null,
+      createdAt: r.created_at.toISOString(),
+    };
   }
 
   // Write an array of change entries to branch_changes. Each entry: { itemId, changeType, section, data }.
@@ -3021,17 +3345,8 @@ class PostgresAdapter {
     };
   }
 
-  // Atomically merge all branch_changes into main tables, then mark branch merged.
-  async mergeBranch(branchId: any) {
-    const { rows: branchRows } = await this._exec(
-      'SELECT id, name FROM branches WHERE id = $1 AND deleted_at IS NULL AND merged_at IS NULL',
-      [branchId],
-    );
-    if (!branchRows.length) throw new Error(`Branch ${branchId} not found or already merged`);
-
-    const changeRows = await this.getBranchChanges(branchId);
-
-    // Group by item
+  // Group a branch's change rows by item: { changeType, sections: {item, meta, ...} }.
+  _groupBranchChanges(changeRows: any[]) {
     const byItem = new Map<any, any>();
     for (const r of changeRows) {
       if (!byItem.has(r.itemId)) byItem.set(r.itemId, { changeType: r.changeType, sections: {} });
@@ -3039,12 +3354,270 @@ class PostgresAdapter {
       if (r.changeType === 'delete') entry.changeType = 'delete';
       if (r.data) entry.sections[r.section] = r.data;
     }
+    return byItem;
+  }
+
+  // Flatten a staged entry's item+meta sections into the flat item shape the
+  // sqlite-fs previewMerge reports (enough for a review UI's before/after).
+  _stagedToItem(itemId: any, sections: any) {
+    const item = sections.item ?? {};
+    const meta = sections.meta ?? {};
+    return { id: itemId, ...item, ...meta, payload: sections.payload ?? undefined };
+  }
+
+  // Blast radius of deleting `deleteIds`, in the sqlite-fs shape:
+  // [{ id, referencedBy: [{ id, via }] }] with the fs `via` vocabulary
+  // (parent | link | relationship | alias | payload). Computed LIVE from the
+  // main tables — children via items.parent_id, [[uuid]] backlinks via
+  // perf_backlinks, inbound relationships via obj_<relationship>, alias items
+  // via obj_<alias> — because perf_references is only seeded by migration 022
+  // and not maintained on writes (stale for anything created since; it is
+  // still unioned in best-effort for payload-field refs). Referrers that are
+  // themselves in the delete set are excluded (no dangling ref is created).
+  async _blastRadiusFor(deleteIds: any[]) {
+    if (!deleteIds?.length) return [];
+    const delSet   = new Set(deleteIds);
+    const byTarget = new Map<any, any[]>();
+    const addRef = (targetId: any, sourceId: any, via: string) => {
+      if (!sourceId || delSet.has(sourceId) || sourceId === targetId) return;
+      if (!byTarget.has(targetId)) byTarget.set(targetId, []);
+      const refs = byTarget.get(targetId)!;
+      if (!refs.some(r => r.id === sourceId && r.via === via)) refs.push({ id: sourceId, via });
+    };
+
+    // Children (structural parent references)
+    const { rows: children } = await this._exec(
+      'SELECT id, parent_id FROM items WHERE parent_id = ANY($1) AND id != parent_id', [deleteIds],
+    );
+    for (const r of children) addRef(r.parent_id, r.id, 'parent');
+
+    // [[uuid]] inline links (derived backlink index, maintained on writes)
+    const { rows: links } = await this._exec(
+      'SELECT source_id, target_id FROM perf_backlinks WHERE target_id = ANY($1)', [deleteIds],
+    );
+    for (const r of links) addRef(r.target_id, r.source_id, 'link');
+
+    // Inbound relationships (relationship items are first-class, obj-projected)
+    try {
+      const relObj = objTableName(RELATIONSHIP_TYPE_ID);
+      const { rows: rels } = await this._exec(
+        `SELECT o.item_id AS id, o.target_id FROM "${relObj}" o
+           JOIN items i ON i.id = o.item_id
+          WHERE o.target_id = ANY($1) AND i.deleted_at IS NULL`, [deleteIds],
+      );
+      for (const r of rels) addRef(r.target_id, r.id, 'relationship');
+    } catch { /* obj_<relationship> not materialised yet → none */ }
+
+    // Alias items targeting a deleted id
+    try {
+      const aliasTable = objTableName(BUILT_IN_TYPE_ID_BY_NAME['alias']);
+      const { rows: aliases } = await this._exec(
+        `SELECT a.item_id AS id, a.target_id FROM "${aliasTable}" a
+           JOIN items i ON i.id = a.item_id
+          WHERE a.target_id = ANY($1) AND i.deleted_at IS NULL`, [deleteIds],
+      );
+      for (const r of aliases) addRef(r.target_id, r.id, 'alias');
+    } catch { /* obj_<alias> not materialised yet → none */ }
+
+    // Best-effort union of the seeded structural index (payload-field refs).
+    try {
+      const { rows } = await this._exec(
+        'SELECT source_item_id, target_item_id, reference_type FROM perf_references WHERE target_item_id = ANY($1)',
+        [deleteIds],
+      );
+      const VIA: any = { parent: 'parent', 'inline-link': 'link', relationship: 'relationship', 'payload-field': 'payload' };
+      for (const r of rows) addRef(r.target_item_id, r.source_item_id, VIA[r.reference_type] ?? r.reference_type);
+    } catch { /* older schemas without the index */ }
+
+    return [...byTarget.entries()].map(([id, referencedBy]) => ({ id, referencedBy }));
+  }
+
+  // Classify the branch's staged changes against CURRENT main using the fork
+  // watermark — the postgres twin of sqlite-fs previewMerge, same result shape:
+  // { adds, edits, deletes, watermark, conflicts, blastRadius }. Pure read.
+  //
+  // Conflict kinds (spec «Conflict-aware merge»):
+  //   edit-edit    staged create/update of an item main also modified after the fork
+  //   delete-edit  staged delete of an item main modified after the fork
+  //   add-delete   the branch kept/edited an item main has deleted since the fork
+  //                (staged update with no main row, or staged create whose
+  //                createdAt predates the fork), OR a never-merged genuine add is
+  //                impossible to confuse: its createdAt >= watermark.
+  // A staged delete of an already-gone item is a no-op, not a delete and not a
+  // conflict.
+  async previewMerge(nameOrId: any) {
+    const branch    = await this._resolveBranch(nameOrId);
+    const watermark = branch.branchPointAt ?? branch.createdAt ?? null;
+    const byItem    = this._groupBranchChanges(await this.getBranchChanges(branch.id));
+
+    const ids = [...byItem.keys()];
+    let current = new Map<any, any>();
+    if (ids.length) {
+      const { rows } = await this._exec('SELECT * FROM items WHERE id = ANY($1)', [ids]);
+      current = new Map(rows.map(r => [r.id, r]));
+    }
+
+    // ISO-8601 UTC timestamps sort correctly as plain strings.
+    const movedSinceFork = (modifiedAt: any) =>
+      !!watermark && !!modifiedAt && String(modifiedAt) > String(watermark);
+
+    const adds: any[] = [], edits: any[] = [], deletes: any[] = [], conflicts: any[] = [];
+    for (const [itemId, entry] of byItem) {
+      const before = rowToItem(current.get(itemId) ?? null);
+      const after  = this._stagedToItem(itemId, entry.sections);
+      if (entry.changeType === 'delete') {
+        if (!before) continue; // already gone on main — no-op
+        deletes.push({ id: itemId, before });
+        if (movedSinceFork(before.modifiedAt)) conflicts.push({ id: itemId, kind: 'delete-edit', before });
+      } else if (!before) {
+        adds.push({ id: itemId, after });
+        const created = entry.sections.meta?.createdAt ?? null;
+        if (entry.changeType === 'update' || (watermark && created && String(created) < String(watermark))) {
+          // update-with-no-row: main deleted it after the fork; create-with-old
+          // createdAt: same story seen from a re-pushed diff. Either way the
+          // branch kept an item main removed — never resurrect silently.
+          conflicts.push({ id: itemId, kind: 'add-delete', after });
+        }
+      } else {
+        edits.push({ id: itemId, before, after });
+        if (movedSinceFork(before.modifiedAt)) conflicts.push({ id: itemId, kind: 'edit-edit', before, after });
+      }
+    }
+
+    const blastRadius = await this._blastRadiusFor(deletes.map(d => d.id));
+
+    // REVERSE blast radius: adds/edits whose OUTBOUND references (parentId,
+    // [[uuid]] links, payload target/source) point at an item that will not
+    // exist after the merge — deleted on main since the fork, deleted by this
+    // same branch, or never existed. New referrers are invisible to the forward
+    // scan, so without this a merge could create dangling references in the
+    // very act of applying. Shape: [{ id, refs: [{ targetId, via }] }].
+    const branchWrites  = new Set([...adds, ...edits].map((e: any) => e.id));
+    const branchDeletes = new Set(deletes.map((d: any) => d.id));
+    const candidates: any[] = [];
+    for (const e of [...adds, ...edits]) {
+      const entry = byItem.get(e.id);
+      const item    = entry?.sections?.item ?? {};
+      const payload = entry?.sections?.payload ?? {};
+      const seen = new Set<string>();
+      const push = (targetId: any, via: string) => {
+        if (!targetId || typeof targetId !== 'string' || !UUID_RE.test(targetId)) return;
+        if (targetId === e.id || seen.has(`${targetId}|${via}`)) return;
+        seen.add(`${targetId}|${via}`);
+        candidates.push({ id: e.id, targetId, via });
+      };
+      push(item.parentId, 'parent');
+      for (const link of parseLinks(item.value)) push(link, 'link');
+      push(payload.targetId, 'payload');
+      push(payload.sourceId, 'payload');
+    }
+    const unknownTargets = [...new Set(
+      candidates.map(c => c.targetId).filter(t => !branchWrites.has(t) && !branchDeletes.has(t)))];
+    let existing = new Set<any>();
+    if (unknownTargets.length) {
+      const { rows } = await this._exec('SELECT id FROM items WHERE id = ANY($1)', [unknownTargets]);
+      existing = new Set(rows.map(r => r.id));
+    }
+    const targetSurvives = (t: any) =>
+      !branchDeletes.has(t) && (branchWrites.has(t) || existing.has(t));
+    const danglingByItem = new Map<any, any[]>();
+    for (const c of candidates) {
+      if (targetSurvives(c.targetId)) continue;
+      if (!danglingByItem.has(c.id)) danglingByItem.set(c.id, []);
+      danglingByItem.get(c.id)!.push({ targetId: c.targetId, via: c.via });
+    }
+    const danglingRefs = [...danglingByItem.entries()].map(([id, refs]) => ({ id, refs }));
+
+    return { adds, edits, deletes, watermark, conflicts, blastRadius, danglingRefs };
+  }
+
+  // Facade-uniform alias: the sqlite-fs adapter merges by NAME via
+  // mergeBranchLocally(name, opts); postgres resolves either name or id.
+  async mergeBranchLocally(nameOrId: any, opts: any = {}) {
+    const branch = await this._resolveBranch(nameOrId);
+    return this.mergeBranch(branch.id, opts);
+  }
+
+  // Atomically merge all branch_changes into main tables, then mark branch merged.
+  //
+  // Conflict handling (same contract as sqlite-fs mergeBranchLocally):
+  //   * default — ANY conflict aborts before anything is applied; throws with
+  //     `.code = 'MERGE_CONFLICT'` and `.conflicts`; the branch is preserved.
+  //   * { strategy: 'theirs' } — the branch wins: force-apply everything,
+  //     including resurrecting an add-delete item main removed.
+  //   * { strategy: 'ours' } — main wins for conflicting items: apply only the
+  //     clean changes; conflicting ones are skipped (and discarded with the
+  //     branch's change rows).
+  //   * { blockOnBlastRadius: true } — abort with `.code = 'MERGE_BLAST_RADIUS'`
+  //     if the applied deletes would leave live referrers on main.
+  async mergeBranch(branchId: any, opts: any = {}) {
+    const strategy = opts.strategy ?? null; // null | 'theirs' | 'ours'
+    if (strategy && strategy !== 'theirs' && strategy !== 'ours')
+      throw new Error(`Unknown merge strategy "${strategy}" (expected 'theirs' or 'ours')`);
+
+    const { rows: branchRows } = await this._exec(
+      'SELECT id, name FROM branches WHERE id = $1 AND deleted_at IS NULL AND merged_at IS NULL',
+      [branchId],
+    );
+    if (!branchRows.length) throw new Error(`Branch ${branchId} not found or already merged`);
+
+    const preview   = await this.previewMerge(branchId);
+    const conflicts = preview.conflicts;
+
+    if (conflicts.length && !strategy) {
+      const err: any = new Error(
+        `Merge of "${branchRows[0].name}" has ${conflicts.length} conflict(s): main item(s) changed after the ` +
+        `branch point. Re-run with { strategy: 'theirs' } (branch wins) or { strategy: 'ours' } ` +
+        `(keep main) to resolve.`);
+      err.code = 'MERGE_CONFLICT';
+      err.conflicts = conflicts;
+      throw err;
+    }
+
+    const conflictIds = new Set(conflicts.map((c: any) => c.id));
+    const skip = (id: any) => strategy === 'ours' && conflictIds.has(id);
+
+    const appliedDeleteIds = preview.deletes.filter((d: any) => !skip(d.id)).map((d: any) => d.id);
+    const blastRadius = await this._blastRadiusFor(appliedDeleteIds);
+    if (opts.blockOnBlastRadius && blastRadius.length) {
+      const err: any = new Error(
+        `Merge of "${branchRows[0].name}" would break ${blastRadius.length} reference target(s): deleted item(s) are ` +
+        `still referenced on main. Re-run without { blockOnBlastRadius } to merge anyway, or resolve the ` +
+        `references first.`);
+      err.code = 'MERGE_BLAST_RADIUS';
+      err.blastRadius = blastRadius;
+      throw err;
+    }
+
+    // Reverse blast radius — same opt-in gate posture as blastRadius (see the
+    // sqlite-fs twin): surfaced always, blocking only on request.
+    const danglingRefs = (preview.danglingRefs ?? []).filter((d: any) => !skip(d.id));
+    if (opts.blockOnDanglingRefs && danglingRefs.length) {
+      const err: any = new Error(
+        `Merge of "${branchRows[0].name}" would apply ${danglingRefs.length} item(s) referencing target(s) that ` +
+        `will not exist after the merge. Re-run without { blockOnDanglingRefs } to merge anyway, or fix the references first.`);
+      err.code = 'MERGE_DANGLING_REFS';
+      err.danglingRefs = danglingRefs;
+      throw err;
+    }
+
+    const changeRows = await this.getBranchChanges(branchId);
+    const byItem     = this._groupBranchChanges(changeRows);
+
+    // Items main has deleted since the fork have no row to UPDATE — under
+    // 'theirs' the branch's kept version must be resurrected, so route those
+    // staged updates through the INSERT path (their sections carry the full doc).
+    const resurrectIds = new Set(
+      preview.conflicts.filter((c: any) => c.kind === 'add-delete').map((c: any) => c.id));
 
     const client = await this._pool.connect();
+    let applied = 0, skipped = 0;
     try {
       await client.query('BEGIN');
 
       for (const [itemId, entry] of byItem) {
+        if (skip(itemId)) { skipped++; continue; }
+        applied++;
         if (entry.changeType === 'delete') {
           await client.query('DELETE FROM items WHERE id = $1', [itemId]);
         } else {
@@ -3052,7 +3625,7 @@ class PostgresAdapter {
           const meta    = entry.sections.meta    ?? {};
           const payload = entry.sections.payload ?? null;
 
-          if (entry.changeType === 'create') {
+          if (entry.changeType === 'create' || resurrectIds.has(itemId)) {
             // Insert into items table
             await client.query(`
               INSERT INTO items (id, parent_id, value, type, type_id, sort_order, aspect, spec_version,
@@ -3133,7 +3706,14 @@ class PostgresAdapter {
       client.release();
     }
 
-    return { merged: byItem.size, branchName: branchRows[0].name };
+    // Applied changes may carry meta.deletedAt stamps (a sync-pushed soft
+    // delete lands as a flagged live row) — normalise them into the archive
+    // so the live table stays deleted-free by construction. Idempotent; a
+    // crash between commit and this pass is caught by the open()/init()
+    // catch-up.
+    await this._migrateFlaggedRowsToArchive();
+
+    return { merged: applied, skipped, conflicts, blastRadius, danglingRefs, branchName: branchRows[0].name };
   }
 
   async deleteBranch(name: any) {

@@ -538,7 +538,7 @@ describe('get', () => {
   it('returns icon from type schema when present', () => {
     const { metadata: t } = ds.createType('Flagged', {
       schema: {
-        meta: { icon: '🚩', description: '', details: '', keywords: '', tags: '', 'ai-instructions': { claude: '' } },
+        meta: { icon: '🚩', description: 'a flagged item', details: '', keywords: '', tags: '', 'ai-instructions': { claude: '' } },
         jsonSchema: { '$schema': 'http://json-schema.org/draft-07/schema#', '$id': '', title: 'Flagged', type: 'object', properties: {}, required: [], additionalProperties: false },
       },
     });
@@ -557,7 +557,10 @@ describe('object payload validation', () => {
         jsonSchema: {
           '$schema': 'http://json-schema.org/draft-07/schema#', '$id': '', title: 'ValidatedBug',
           type: 'object',
-          properties: { severity: { type: 'string' }, count: { type: 'integer' } },
+          properties: {
+            severity: { type: 'string', 'x-id': '22222222-2222-4222-8222-000000000001' },
+            count:    { type: 'integer', 'x-id': '22222222-2222-4222-8222-000000000002' },
+          },
           required: ['severity'], additionalProperties: false,
         },
       },
@@ -1308,7 +1311,7 @@ describe('type definitions', () => {
   it('createType() with explicit schema', () => {
     const schema = {
       meta: { icon: '🐛', description: 'A bug', details: '', keywords: '', tags: '', 'ai-instructions': { claude: '' } },
-      jsonSchema: { '$schema': 'http://json-schema.org/draft-07/schema#', '$id': '', title: 'Bug', type: 'object', properties: { severity: { type: 'string' } }, required: [], additionalProperties: false },
+      jsonSchema: { '$schema': 'http://json-schema.org/draft-07/schema#', '$id': '', title: 'Bug', type: 'object', properties: { severity: { type: 'string', 'x-id': '33333333-3333-4333-8333-000000000001' } }, required: [], additionalProperties: false },
     };
     const { metadata: m } = ds.createType('Bug', { schema });
     expect(ds.readTypeJson(m.id).meta.icon).toBe('🐛');
@@ -1563,6 +1566,30 @@ describe('query', () => {
     expect(results.some(i => i.value === 'c2')).toBe(false);
   });
 
+  it('rootId traversal does not pass through a soft-deleted intermediate node', () => {
+    // r -> mid -> leaf; deleting mid makes leaf unreachable from r (the walk
+    // only traverses surviving nodes), even though leaf itself is not deleted.
+    const r    = ds.create({ value: 'walk-root' });
+    const mid  = ds.create({ value: 'walk-mid',  parentId: r.id });
+    const leaf = ds.create({ value: 'walk-leaf', parentId: mid.id });
+    ds.softDelete(mid.id);
+    const results = ds.query({ rootId: r.id, limit: 100 });
+    expect(results.some(i => i.id === leaf.id)).toBe(false);
+    // includeDeleted restores the path: mid is traversable again
+    const withDeleted = ds.query({ rootId: r.id, includeDeleted: true, limit: 100 });
+    expect(withDeleted.some(i => i.id === leaf.id)).toBe(true);
+  });
+
+  it('rootId traversal terminates on a parent cycle', () => {
+    const a = ds.create({ value: 'cyc-a' });
+    const b = ds.create({ value: 'cyc-b', parentId: a.id });
+    // Force a cycle directly in the index (a -> b -> a); the traversal must not hang.
+    ds._openDb().prepare('UPDATE items SET parent_id = ? WHERE id = ?').run(b.id, a.id);
+    const results = ds.query({ rootId: a.id, limit: 100 });
+    expect(results.some(i => i.id === a.id)).toBe(true);
+    expect(results.some(i => i.id === b.id)).toBe(true);
+  });
+
   it('sort by field ascending', () => {
     const { metadata: t } = ds.createType('Item', { icon: 'Category' });
     ds.create({ value: 'z', type: 'object', typeId: t.id, objectData: { rank: 3 } });
@@ -1605,7 +1632,7 @@ describe('rebuildIndexes', () => {
   it('re-populates item_tags', () => {
     const item = ds.create({ value: 'x', tags: ['important'] });
     // Manually corrupt by deleting the tag row
-    ds._openDb().prepare('DELETE FROM item_tags WHERE item_id = ?').run(item.id);
+    ds._openDb().prepare('DELETE FROM perf_tags WHERE item_id = ?').run(item.id);
     expect(ds.byTag('important')).not.toContain(item.id);
     // Rebuild
     ds.rebuildIndexes();
@@ -1616,7 +1643,7 @@ describe('rebuildIndexes', () => {
     const target = ds.create({ value: 'target' });
     const linker = ds.create({ value: `[[${target.id}]]` });
     // Corrupt
-    ds._openDb().prepare('DELETE FROM backlinks WHERE source_id = ?').run(linker.id);
+    ds._openDb().prepare('DELETE FROM perf_backlinks WHERE source_id = ?').run(linker.id);
     expect(ds.backlinks(target.id)).not.toContain(linker.id);
     // Rebuild
     ds.rebuildIndexes();

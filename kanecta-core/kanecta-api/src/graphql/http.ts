@@ -24,6 +24,7 @@ import type {
   FragmentDefinitionNode,
   ExecutionResult,
 } from 'graphql';
+import { allTypes } from '@kanecta/specification';
 import { emitSDL } from './sdl.ts';
 import { Executor } from './execute.ts';
 import type { DataSource, ExecContext, Selection } from './execute.ts';
@@ -129,6 +130,15 @@ function mergeSelectionSet(
 /** Load a datastore's `type` items in the shape buildSchemaModel expects
  *  (`{ item: { id, type:'type', value }, payload: { jsonSchema, … } }`).
  *  `readTypeJson` returns the payload; we wrap it with a minimal item envelope. */
+// Built-in type names (primitive + structured + well-known) never become GraphQL
+// query roots: they are infrastructure (object/function/query/view/…), not user
+// data collections, and their naive plural collides with same-stem user types —
+// e.g. the built-in `file` type's list field `files` clashes with a user `files`
+// type's singular field, and `licence` with `licences`. Excluding them keeps the
+// generated schema to the user's own data types (the only ones with real obj_
+// tables worth querying) and makes it collision-free on any datastore.
+const BUILT_IN_TYPE_NAMES = new Set<string>(allTypes as string[]);
+
 export async function loadTypeItems(ds: {
   listTypeDefs(): Promise<any[]>;
   readTypeJson(id: string): Promise<any>;
@@ -136,6 +146,7 @@ export async function loadTypeItems(ds: {
   const defs = await ds.listTypeDefs();
   const out: any[] = [];
   for (const def of defs) {
+    if (BUILT_IN_TYPE_NAMES.has(def.value)) continue;
     const payload = await ds.readTypeJson(def.id).catch(() => null);
     if (!payload?.jsonSchema) continue;
     out.push({ item: { id: def.id, type: 'type', value: def.value }, payload });

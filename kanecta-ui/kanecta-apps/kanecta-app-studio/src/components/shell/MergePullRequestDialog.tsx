@@ -13,6 +13,7 @@ import Radio from '@mui/material/Radio';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '../../api';
 import type { BranchDiffSummary, MergeStrategy } from '../../api/workingSets';
+import { BranchDiffList } from './BranchDiffList';
 import './MergePullRequestDialog.scss';
 
 interface MergePullRequestDialogProps {
@@ -79,7 +80,7 @@ export function MergePullRequestDialog({
     (!hasConflicts || strategy !== '');
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>Create pull request</DialogTitle>
       <DialogContent className="MergePullRequestDialog__content">
         <p className="MergePullRequestDialog__summary">
@@ -102,6 +103,10 @@ export function MergePullRequestDialog({
           <p className="MergePullRequestDialog__empty">
             This branch has no changes to merge.
           </p>
+        )}
+
+        {preview.data?.detail && (
+          <BranchDiffList detail={preview.data.detail} />
         )}
 
         {preview.isLoading && (

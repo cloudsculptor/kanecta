@@ -11,8 +11,11 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@kanecta/embeddings": "^1.4.0",
     "@kanecta/schema-compiler": "^1.4.0",
     "@kanecta/specification": "^1.4.0",
+    "@types/adm-zip": "^0.5.8",
+    "adm-zip": "^0.6.0",
     "better-sqlite3": "^12.11.1"
   },
   "devDependencies": {

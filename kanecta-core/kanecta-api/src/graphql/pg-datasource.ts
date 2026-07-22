@@ -84,10 +84,23 @@ export class PgDataSource implements DataSource {
     return `SELECT o.*, i.parent_id AS __parent_id FROM ${obj} o JOIN ${items} i ON i.id = o.item_id WHERE ${filter}`;
   }
 
+  // Run a read query, tolerating a MISSING obj_<type> projection table: a type
+  // with zero projected rows has no table (kanecta-postgres drops it when the last
+  // row is deleted — see _dropProjectionIfEmpty), and a query over an empty type
+  // must return no rows, not throw "relation does not exist" (pg code 42P01).
+  private async safeQuery(sql: string, params: unknown[]): Promise<{ rows: Record<string, unknown>[] }> {
+    try {
+      return await this.client.query(sql, params);
+    } catch (e: any) {
+      if (e?.code === '42P01') return { rows: [] };
+      throw e;
+    }
+  }
+
   async getById(typeName: string, id: string): Promise<StoredRow | null> {
     const obj = q(this.tableFor(typeName));
     const items = q(this.items);
-    const { rows } = await this.client.query(
+    const { rows } = await this.safeQuery(
       `SELECT o.*, i.parent_id AS __parent_id FROM ${obj} o JOIN ${items} i ON i.id = o.item_id WHERE o.item_id = $1`,
       [id],
     );
@@ -99,11 +112,11 @@ export class PgDataSource implements DataSource {
     if (!type) throw new Error(`PgDataSource: unknown type "${typeName}"`);
     // G1: compile where/sort/limit/offset → a parameterised SELECT of item ids...
     const compiled = compileSelect(type, args);
-    const { rows: idRows } = await this.client.query(compiled.sql, compiled.params as unknown[]);
+    const { rows: idRows } = await this.safeQuery(compiled.sql, compiled.params as unknown[]);
     const ids = idRows.map((r) => String(r.item_id));
     if (!ids.length) return [];
     // ...then load the rows and restore the compiled order.
-    const { rows } = await this.client.query(this.selectRowsSql(typeName, true), [ids]);
+    const { rows } = await this.safeQuery(this.selectRowsSql(typeName, true), [ids]);
     const byId = new Map(rows.map((r) => [String(r.item_id), this.toRow(r)]));
     return ids.map((id) => byId.get(id)).filter((r): r is StoredRow => r != null);
   }
@@ -112,7 +125,7 @@ export class PgDataSource implements DataSource {
     const obj = q(this.tableFor(targetTypeName));
     const items = q(this.items);
     const del = optsC.includeDeleted ? '' : 'AND i.deleted_at IS NULL';
-    const { rows } = await this.client.query(
+    const { rows } = await this.safeQuery(
       `SELECT o.*, i.parent_id AS __parent_id FROM ${obj} o JOIN ${items} i ON i.id = o.item_id WHERE i.parent_id = $1 ${del} ORDER BY o.item_id`,
       [parentId],
     );
@@ -130,7 +143,7 @@ export class PgDataSource implements DataSource {
     // item via o.type_id → items.value. `relationshipType` undefined = any type.
     const slugFilter = relationshipType === undefined ? '' : 'AND rt.value = $2';
     const params: unknown[] = relationshipType === undefined ? [id] : [id, relationshipType];
-    const { rows: relRows } = await this.client.query(
+    const { rows: relRows } = await this.safeQuery(
       `SELECT o.${toCol} AS oid
          FROM ${rels} o
          JOIN ${items} ri ON ri.id = o.item_id AND ri.deleted_at IS NULL
@@ -140,7 +153,7 @@ export class PgDataSource implements DataSource {
     );
     const ids = relRows.map((r) => String(r.oid));
     if (!ids.length) return [];
-    const { rows } = await this.client.query(this.selectRowsSql(targetTypeName, true), [ids]);
+    const { rows } = await this.safeQuery(this.selectRowsSql(targetTypeName, true), [ids]);
     const byId = new Map(rows.map((r) => [String(r.item_id), this.toRow(r)]));
     return ids.map((i) => byId.get(i)).filter((r): r is StoredRow => r != null);
   }

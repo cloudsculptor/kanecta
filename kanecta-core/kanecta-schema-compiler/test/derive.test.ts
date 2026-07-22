@@ -59,8 +59,13 @@ test('uuid reference fields get a column + FK to items(id)', () => {
     },
     { typeId: TYPE_ID, dialect: 'postgres' },
   );
-  assert.match(ddl, /"manager_id" UUID REFERENCES items\(id\)/);
-  assert.match(ddl, /"pipeline_id" UUID REFERENCES items\(id\)/);
+  // Reference columns are plain UUID columns — NO FK to items(id): under the
+  // item_archive model a reference may point at an archived item (the row has
+  // physically left `items`), so union integrity is the integrity checker's
+  // job, not a declarative FK's. The spine item_id FK is asserted elsewhere.
+  assert.match(ddl, /"manager_id" UUID,/);
+  assert.match(ddl, /"pipeline_id" UUID,/);
+  assert.doesNotMatch(ddl, /"manager_id" UUID REFERENCES/);
 });
 
 test('sqlite dialect maps to sqlite scalar types', () => {
@@ -81,7 +86,7 @@ test('ansi dialect uses portable scalar types (CLOB, CHAR(36))', () => {
   );
   assert.match(ddl, /item_id CHAR\(36\) NOT NULL/);
   assert.match(ddl, /"text" CLOB/); // large text of any size
-  assert.match(ddl, /"ref" CHAR\(36\) REFERENCES items\(id\)/);
+  assert.match(ddl, /"ref" CHAR\(36\),/);      // reference column, no FK (item_archive model)
 });
 
 test('scalar array → native array column on postgres', () => {

@@ -285,6 +285,54 @@ async function applyTxOp(tx: any, op: any, actor: any): Promise<any> {
   }
 }
 
+// Synchronous twin of applyTxOp for sync-transaction adapters (sqlite-fs),
+// whose transaction(fn) rejects async fns outright — better-sqlite3 cannot
+// hold a transaction across await boundaries, so a suspended continuation
+// would apply its remaining writes OUTSIDE the transaction. Sync adapters
+// return plain values from every op, so the same calls work unawaited.
+// KEEP THE OP CASES IN LOCKSTEP with applyTxOp above.
+function applyTxOpSync(tx: any, op: any, actor: any): any {
+  switch (op.op) {
+    case 'create': {
+      const item = tx.create({
+        id: op.id ?? null, parentId: op.parentId ?? null, value: op.value ?? null,
+        type: op.type ?? 'string', typeId: op.typeId ?? null, owner: op.owner,
+        license: op.license ?? null, sortOrder: op.sortOrder, confidence: op.confidence ?? null,
+        status: op.status ?? null, tags: op.tags ?? [], createdBy: op.createdBy ?? actor,
+        objectData: op.objectData ?? null,
+      });
+      if (op.alias) tx.setAlias(String(op.alias).toLowerCase(), item.id);
+      return item;
+    }
+    case 'update': {
+      const { objectData, ...changes } = op.changes ?? {};
+      const updated = tx.update(op.id, changes, actor);
+      if (objectData !== undefined) tx.writeObjectJson(op.id, objectData);
+      return updated;
+    }
+    case 'delete':
+      tx.delete(op.id, actor);
+      return { ok: true, id: op.id };
+    case 'relate':
+      return tx.relate(op.sourceId, op.type, op.targetId, { note: op.note ?? null, createdBy: op.createdBy ?? actor });
+    case 'unrelate':
+      tx.unrelate(op.id);
+      return { ok: true, id: op.id };
+    case 'setAlias': {
+      const alias = String(op.alias).toLowerCase();
+      tx.setAlias(alias, op.targetId);
+      return { ok: true, alias, targetId: op.targetId };
+    }
+    case 'removeAlias': {
+      const alias = String(op.alias).toLowerCase();
+      tx.removeAlias(alias);
+      return { ok: true, alias };
+    }
+    default:
+      throw new Error(`unknown op "${op.op}"`);
+  }
+}
+
 async function cloneSubtree(ds: any, sourceId: any, targetParentId: any, actor: any) {
   const source = await ds.get(sourceId);
   if (!source) return null;
@@ -465,6 +513,13 @@ app.get('/working-sets/:name/branches/:branch/diff', async (req, res) => {
       adds: diff.adds.length,
       edits: diff.edits.length,
       deletes: diff.deletes.length,
+      // Item-level review payload (the "PR diff" the Studio review step renders).
+      // before/after are item shapes; the adapter's internal `doc` is not exposed.
+      detail: {
+        adds:    diff.adds.map((e: any) => ({ id: e.id, after: e.after })),
+        edits:   diff.edits.map((e: any) => ({ id: e.id, before: e.before, after: e.after })),
+        deletes: diff.deletes.map((e: any) => ({ id: e.id, before: e.before })),
+      },
     });
   } catch (err: any) {
     res.status(400).json({ error: err.message });
@@ -491,6 +546,13 @@ app.get('/working-sets/:name/branches/:branch/merge-preview', async (req, res) =
       deletes: preview.deletes.length,
       conflicts: preview.conflicts,
       blastRadius: preview.blastRadius,
+      // Item-level review payload, same shape as /diff — so the merge dialog
+      // can show WHAT changes, not just how many.
+      detail: {
+        adds:    preview.adds.map((e: any) => ({ id: e.id, after: e.after })),
+        edits:   preview.edits.map((e: any) => ({ id: e.id, before: e.before, after: e.after })),
+        deletes: preview.deletes.map((e: any) => ({ id: e.id, before: e.before })),
+      },
     });
   } catch (err: any) {
     res.status(400).json({ error: err.message });
@@ -611,7 +673,11 @@ app.get('/search', async (req, res) => {
   const queryLower = q.toLowerCase();
   const showDeleted = includeDeleted === 'true' || includeDeleted === '1';
 
-  const allItems = (await ds.loadAll()).filter((i: any) => showDeleted || i.deletedAt == null);
+  // item_archive model: soft-deleted items physically leave the live store,
+  // so a bare loadAll() can no longer see them — includeDeleted asks the
+  // adapter to union the archive in. The flag filter stays as belt-and-braces.
+  const allItems = (await ds.loadAll(showDeleted ? { includeDeleted: true } : undefined))
+    .filter((i: any) => showDeleted || i.deletedAt == null);
   let candidates = [];
   for (const i of allItems) {
     if (i.value && typeof i.value === 'string' && i.value.toLowerCase().includes(queryLower)) {
@@ -758,7 +824,7 @@ app.patch('/items/bulk', async (req, res) => {
 app.get('/items/stats', async (req, res) => {
   const ds = await openDatastore(res);
   if (!ds) return;
-  // Build typeId → { name, icon } from type_defs table
+  // Build typeId → { name, icon } from the registered type definitions
   const typeInfo: Record<string, any> = {};
   const defs = await ds.listTypeDefs();
   for (const def of defs) {
@@ -1560,18 +1626,33 @@ app.post('/transaction', async (req, res) => {
   }
 
   try {
-    const results = await ds.transaction(async (tx: any) => {
-      const out = [];
-      for (let i = 0; i < ops.length; i++) {
-        try {
-          out.push(await applyTxOp(tx, ops[i], actor));
-        } catch (err: any) {
-          err.__txOpIndex = i; // remember which op tripped so the 409 can name it
-          throw err;
-        }
-      }
-      return out;
-    });
+    // Sync-transaction adapters (sqlite-fs) reject async fns — their ops all
+    // return plain values, so run the synchronous twin executor instead.
+    const results = ds.transactionMode === 'sync'
+      ? await ds.transaction((tx: any) => {
+          const out = [];
+          for (let i = 0; i < ops.length; i++) {
+            try {
+              out.push(applyTxOpSync(tx, ops[i], actor));
+            } catch (err: any) {
+              err.__txOpIndex = i;
+              throw err;
+            }
+          }
+          return out;
+        })
+      : await ds.transaction(async (tx: any) => {
+          const out = [];
+          for (let i = 0; i < ops.length; i++) {
+            try {
+              out.push(await applyTxOp(tx, ops[i], actor));
+            } catch (err: any) {
+              err.__txOpIndex = i; // remember which op tripped so the 409 can name it
+              throw err;
+            }
+          }
+          return out;
+        });
     res.json({ results });
   } catch (err: any) {
     // Any failure rolled the WHOLE transaction back — zero ops applied.
@@ -1579,6 +1660,99 @@ app.post('/transaction', async (req, res) => {
     if (typeof err.__txOpIndex === 'number') body.failedIndex = err.__txOpIndex;
     res.status(409).json(body);
   }
+});
+
+// ─── Files (item byte attachments) ────────────────────────────────────────────
+// Surface the datastore's file store (CloudAdapter's S3 backend) over HTTP so
+// callers can attach/serve/list the raw bytes belonging to an item. Uniform over
+// items: an item id + a filename, no domain words. Only datastores whose adapter
+// composes a file backend (cloud working sets) support these; others answer 501.
+
+// A filename must be a single path segment — no separators or traversal, so it
+// can't escape the item's S3 key prefix.
+const isValidFilename = (name: string) =>
+  typeof name === 'string' && name.length > 0 && name.length <= 255 &&
+  !name.includes('/') && !name.includes('\\') && name !== '.' && name !== '..';
+
+// Run a file-store operation, mapping a datastore that doesn't support files
+// (method absent, or sqlite-fs' throwing stub) to a 501 rather than a 500.
+async function withFileStore(ds: any, res: any, fn: (ds: any) => Promise<any>) {
+  if (typeof ds?.putFile !== 'function' || typeof ds?.getFile !== 'function') {
+    res.status(501).json({ error: 'This datastore has no file store (not a cloud working set)' });
+    return { handled: true };
+  }
+  try {
+    return { handled: false, value: await fn(ds) };
+  } catch (err: any) {
+    if (/not supported/i.test(err?.message ?? '')) {
+      res.status(501).json({ error: 'This datastore has no file store (not a cloud working set)' });
+      return { handled: true };
+    }
+    throw err;
+  }
+}
+
+// POST /items/:id/files/:name — store raw bytes (request body) as `name` on item
+// `:id`. Content-Type header is preserved as the object's mime type. Body is read
+// raw (any content type) up to 50mb.
+// (express.raw exists at runtime; this @types/express version omits it — cast.)
+app.post('/items/:id/files/:name', (express as any).raw({ type: () => true, limit: '50mb' }), async (req, res) => {
+  const { id, name } = req.params;
+  if (!isValidId(id)) return res.status(400).json({ error: 'Invalid ID format' });
+  if (!isValidFilename(name)) return res.status(400).json({ error: 'Invalid filename' });
+  const ds = await openDatastore(res);
+  if (!ds) return;
+  const body = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body ?? '');
+  const mimeType = req.headers['content-type'] && req.headers['content-type'] !== 'application/octet-stream'
+    ? req.headers['content-type'] : undefined;
+  const { handled } = await withFileStore(ds, res, (d) => d.putFile(id, name, body, { mimeType }));
+  if (handled) return;
+  res.status(201).json({ ok: true, id, name, size: body.length });
+});
+
+// GET /items/:id/files/:name — stream the bytes back (404 if absent). The stored
+// mime type isn't recovered by getFile, so the response is octet-stream unless the
+// caller passes ?mime= (community-hub's serving route sets it from the file record).
+app.get('/items/:id/files/:name', async (req, res) => {
+  const { id, name } = req.params;
+  if (!isValidId(id)) return res.status(400).json({ error: 'Invalid ID format' });
+  if (!isValidFilename(name)) return res.status(400).json({ error: 'Invalid filename' });
+  const ds = await openDatastore(res);
+  if (!ds) return;
+  const { handled, value: buf } = await withFileStore(ds, res, (d) => d.getFile(id, name));
+  if (handled) return;
+  if (buf == null) return res.status(404).json({ error: 'File not found' });
+  const mime = typeof req.query.mime === 'string' ? req.query.mime : 'application/octet-stream';
+  res.set('Content-Type', mime);
+  res.set('Content-Length', String(buf.length));
+  res.send(buf);
+});
+
+// DELETE /items/:id/files/:name — remove the object (idempotent; S3 delete of a
+// missing key is a no-op).
+app.delete('/items/:id/files/:name', async (req, res) => {
+  const { id, name } = req.params;
+  if (!isValidId(id)) return res.status(400).json({ error: 'Invalid ID format' });
+  if (!isValidFilename(name)) return res.status(400).json({ error: 'Invalid filename' });
+  const ds = await openDatastore(res);
+  if (!ds) return;
+  const { handled } = await withFileStore(ds, res, (d) => d.deleteFile(id, name));
+  if (handled) return;
+  res.json({ ok: true, id, name });
+});
+
+// GET /items/:id/files — list the filenames attached to an item.
+app.get('/items/:id/files', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidId(id)) return res.status(400).json({ error: 'Invalid ID format' });
+  const ds = await openDatastore(res);
+  if (!ds) return;
+  if (typeof ds?.listFiles !== 'function') {
+    return res.status(501).json({ error: 'This datastore has no file store (not a cloud working set)' });
+  }
+  const { handled, value } = await withFileStore(ds, res, (d) => d.listFiles(id));
+  if (handled) return;
+  res.json({ files: value });
 });
 
 // ─── Tags ─────────────────────────────────────────────────────────────────────
@@ -1592,7 +1766,7 @@ app.get('/tags/:tag', async (req, res) => {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-// GET /types — list all type definitions from type_defs table
+// GET /types — list all registered type definitions
 app.get('/types', async (req, res) => {
   const ds = await openDatastore(res);
   if (!ds) return;

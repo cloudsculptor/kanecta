@@ -6,6 +6,8 @@
 // `updatePageWithHistory` methods the swap plan calls for.
 // Part of the repository seam — see repositories/licences.js.
 import pool from "../db.js";
+import { USE_KANECTA } from "./backend.js";
+import * as kanecta from "./kanecta/pages.js";
 
 const PUBLIC_URL = process.env.SPACES_PUBLIC_URL;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -50,6 +52,7 @@ async function insertHistory(client, { pageId, action, version, contentJson, lic
 }
 
 export async function listPages() {
+  if (USE_KANECTA) return kanecta.listPages();
   const { rows } = await pool.query(
     `SELECT p.id, p.slug, p.title, p.created_by_name, p.created_at, p.updated_at,
             p.public, p.licence_id, p.version, p.owner_type, p.owner_id
@@ -61,6 +64,7 @@ export async function listPages() {
 }
 
 export async function listPublicPages() {
+  if (USE_KANECTA) return kanecta.listPublicPages();
   const { rows } = await pool.query(
     `SELECT p.id, p.slug, p.title, p.created_by_name, p.created_at, p.updated_at,
             p.public, p.licence_id, p.version, p.owner_type, p.owner_id
@@ -72,6 +76,7 @@ export async function listPublicPages() {
 }
 
 export async function getPublicPageBySlug(slug) {
+  if (USE_KANECTA) return kanecta.getPublicPageBySlug(slug);
   const { rows } = await pool.query(
     `SELECT p.*, l.name AS licence_name, g.name AS group_name
      FROM pages p
@@ -84,6 +89,7 @@ export async function getPublicPageBySlug(slug) {
 }
 
 export async function getPageBySlug(slug) {
+  if (USE_KANECTA) return kanecta.getPageBySlug(slug);
   const { rows } = await pool.query(
     `SELECT p.*, l.name AS licence_name, g.name AS group_name
      FROM pages p
@@ -97,18 +103,21 @@ export async function getPageBySlug(slug) {
 
 // { id } for any page with this slug (history lookup), or null.
 export async function getPageIdBySlug(slug) {
+  if (USE_KANECTA) return kanecta.getPageIdBySlug(slug);
   const { rows } = await pool.query("SELECT id FROM pages WHERE slug = $1", [slug]);
   return rows[0] ?? null;
 }
 
 // { id, title } for any page with this slug (version lookup), or null.
 export async function getPageIdTitleBySlug(slug) {
+  if (USE_KANECTA) return kanecta.getPageIdTitleBySlug(slug);
   const { rows } = await pool.query("SELECT id, title FROM pages WHERE slug = $1", [slug]);
   return rows[0] ?? null;
 }
 
 // { id } for a LIVE (non-deleted) page with this slug (delete lookup), or null.
 export async function getLivePageIdBySlug(slug) {
+  if (USE_KANECTA) return kanecta.getLivePageIdBySlug(slug);
   const { rows } = await pool.query(
     "SELECT id FROM pages WHERE slug = $1 AND deleted_at IS NULL", [slug]
   );
@@ -116,6 +125,7 @@ export async function getLivePageIdBySlug(slug) {
 }
 
 export async function getPageHistory(pageId) {
+  if (USE_KANECTA) return kanecta.getPageHistory(pageId);
   const { rows } = await pool.query(
     `SELECT ph.id, ph.action, ph.version, ph.user_name, ph.created_at,
             l.name AS licence_name
@@ -129,6 +139,7 @@ export async function getPageHistory(pageId) {
 }
 
 export async function getPageVersion(pageId, version) {
+  if (USE_KANECTA) return kanecta.getPageVersion(pageId, version);
   const { rows } = await pool.query(
     `SELECT ph.version, ph.action, ph.content_json, ph.user_name, ph.created_at,
             l.name AS licence_name
@@ -141,6 +152,7 @@ export async function getPageVersion(pageId, version) {
 }
 
 export async function softDeletePage(slug) {
+  if (USE_KANECTA) return kanecta.softDeletePage(slug);
   await pool.query("UPDATE pages SET deleted_at = NOW() WHERE slug = $1", [slug]);
 }
 
@@ -149,6 +161,7 @@ export async function softDeletePage(slug) {
 export async function createPageWithHistory({
   slug, title, contentJson, createdById, createdByName, licenceId, ownerType, ownerId,
 }) {
+  if (USE_KANECTA) return kanecta.createPageWithHistory({ slug, title, contentJson, createdById, createdByName, licenceId, ownerType, ownerId });
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -183,6 +196,7 @@ export async function createPageWithHistory({
 export async function updatePageWithHistory({
   currentSlug, targetSlug, title, contentJson, licenceId, isPublic, ownerType, ownerId, userId, userName,
 }) {
+  if (USE_KANECTA) return kanecta.updatePageWithHistory({ currentSlug, targetSlug, title, contentJson, licenceId, isPublic, ownerType, ownerId, userId, userName });
   const client = await pool.connect();
   try {
     await client.query("BEGIN");

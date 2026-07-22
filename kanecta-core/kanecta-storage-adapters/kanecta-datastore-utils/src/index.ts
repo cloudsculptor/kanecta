@@ -30,7 +30,11 @@ export function createFilesystemAdapter(location: string, owner?: any) {
   return adapter;
 }
 
-export function openFilesystemAdapter(location: string) {
+export function openFilesystemAdapter(location: string, options: any = {}) {
+  // An options-carrying open (e.g. an embeddings provider) gets its own
+  // uncached handle: the interned one stays the plain-config instance other
+  // consumers of this path expect.
+  if (options.embeddings) return FilesystemAdapter.open(location, options);
   const key = _key(location);
   let adapter = _adapters.get(key);
   if (!adapter) {
@@ -60,6 +64,7 @@ export async function openCloudAdapter(cloudConfig: any) {
 
   const pgOpts: any = { connectionString: cloudConfig.pg.connectionString };
   if (cloudConfig.pg.ssl) pgOpts.ssl = cloudConfig.pg.ssl;
+  if (cloudConfig.pg.options) pgOpts.options = cloudConfig.pg.options;
   const pool = new Pool(pgOpts);
   const items = await PostgresAdapter.open(pool, { embeddings: cloudConfig.embeddings ?? null });
 
@@ -84,6 +89,7 @@ export async function createCloudAdapter(cloudConfig: any, owner?: any) {
 
   const pgOpts: any = { connectionString: cloudConfig.pg.connectionString };
   if (cloudConfig.pg.ssl) pgOpts.ssl = cloudConfig.pg.ssl;
+  if (cloudConfig.pg.options) pgOpts.options = cloudConfig.pg.options;
   const pool = new Pool(pgOpts);
   const items = await PostgresAdapter.init(pool, owner, { embeddings: cloudConfig.embeddings ?? null });
 

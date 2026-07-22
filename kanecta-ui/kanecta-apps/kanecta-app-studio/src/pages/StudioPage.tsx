@@ -39,6 +39,8 @@ import { useUiStore } from '../store/ui';
 import { useLiveActivity } from '../hooks/useLiveActivity';
 import { flattenTree } from '../lib/items';
 import { useLocation } from '../context/LocationContext';
+import { SOFT_COMPONENTS_ENABLED, resolveSoftView } from '../lib/viewRegistry';
+import { SoftViewBoundary } from '../components/workspace/SoftViewBoundary';
 
 const qc = new QueryClient({
   defaultOptions: { queries: { staleTime: 10_000, retry: 1 } },
@@ -54,7 +56,14 @@ function StudioInner() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const { getApi, activeWorkingSetId } = useWorkingSetStore();
   const { applyTheme } = useSettingsStore();
-  const { setVscodeAvailable, focusedItemId, setFocusedItem, vscodeAvailable } = useUiStore();
+  const {
+    setVscodeAvailable,
+    focusedItemId,
+    setFocusedItem,
+    vscodeAvailable,
+    viewStateByPanel,
+    setPanelViewState,
+  } = useUiStore();
   const { setItemId, openOverlay } = useLocation();
 
   useLiveActivity();
@@ -99,7 +108,28 @@ function StudioInner() {
     setItemId(item.id);
   };
 
-  const renderView = (panelId: string, viewType: string) => {
+  // Soft-coded resolution, behind VITE_SOFT_COMPONENTS (OFF by default). When
+  // enabled, a viewType resolves through the bundled component registry
+  // first (host state contract: state + onStateChange + api — see
+  // `lib/viewRegistry.ts`); any viewType not yet in the registry (or when the
+  // flag is off) falls through to the hardcoded switch below unchanged. This
+  // is a per-view fallback, not a module-wide one — one missing/broken soft
+  // view degrades only that view.
+  const renderSoftView = (panelId: string, viewType: string) => {
+    if (!SOFT_COMPONENTS_ENABLED) return undefined;
+    const SoftComponent = resolveSoftView(viewType);
+    if (!SoftComponent) return undefined;
+    return (
+      <SoftComponent
+        panelId={panelId}
+        state={viewStateByPanel[panelId]}
+        onStateChange={(next: unknown) => setPanelViewState(panelId, next)}
+        api={getApi()}
+      />
+    );
+  };
+
+  const renderHardcodedView = (panelId: string, viewType: string) => {
     switch (viewType) {
       case 'tree': return (
         <TreeView
@@ -144,6 +174,22 @@ function StudioInner() {
           </div>
         );
     }
+  };
+
+  const renderView = (panelId: string, viewType: string) => {
+    const hardcoded = renderHardcodedView(panelId, viewType);
+    if (!SOFT_COMPONENTS_ENABLED) return hardcoded;
+    const soft = renderSoftView(panelId, viewType);
+    if (!soft) return hardcoded;
+    // Views haven't been migrated off stores/onto the state contract yet
+    // (that's future per-view work) — a resolved soft component may still
+    // throw because it expects different props than {state, onStateChange,
+    // api}. Isolate that per panel rather than let it crash all of Studio.
+    return (
+      <SoftViewBoundary key={`${panelId}:${viewType}`} fallback={hardcoded}>
+        {soft}
+      </SoftViewBoundary>
+    );
   };
 
   return (

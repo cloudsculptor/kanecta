@@ -287,8 +287,8 @@ test('rebuildIndexes repopulates indexes from filesystem', async () => {
   const target = await ds.create({ value: 'target' });
   const src    = await ds.create({ value: `[[${target.id}]]`, tags: ['mytag'] });
   // Corrupt the SQLite index directly — backlinks and tags derived from item.json files
-  ds._adapter._openDb().prepare('DELETE FROM item_tags WHERE item_id = ?').run(src.id);
-  ds._adapter._openDb().prepare('DELETE FROM backlinks WHERE source_id = ?').run(src.id);
+  ds._adapter._openDb().prepare('DELETE FROM perf_tags WHERE item_id = ?').run(src.id);
+  ds._adapter._openDb().prepare('DELETE FROM perf_backlinks WHERE source_id = ?').run(src.id);
   await ds.rebuildIndexes();
   expect(await ds.backlinks(target.id)).toContain(src.id);
   expect(await ds.byTag('mytag')).toContain(src.id);
@@ -676,8 +676,37 @@ describe('transaction(fn) facade', () => {
   });
 
   test('throws on a working set whose adapter has no transaction support', async () => {
-    const ds = tmpDs(); // fs/sqlite adapter — transaction is deferred
+    const ds = new Datastore({}); // an adapter with no transaction()
     await expect(ds.transaction(async () => {})).rejects.toThrow(/not supported on this working set/);
+  });
+
+  test('sqlite-fs working set: transaction commits atomically and rejects an async fn', async () => {
+    const ds = tmpDs();
+    // sync fn: multi-op atomic commit. The tx handle is the SYNC surface
+    // (plain returns, sync throws) — no reaching into _adapter needed.
+    const id = await ds.transaction((tx) => {
+      const a = tx.create({ value: 'tx-a' });
+      tx.update(a.id, { value: 'tx-a2' });
+      return a.id;
+    });
+    expect((await ds.get(id)).value).toBe('tx-a2');
+    // async fn: rejected loudly (better-sqlite3 is synchronous), nothing written
+    await expect(ds.transaction(async (tx) => { await tx.create({ value: 'lost' }); }))
+      .rejects.toThrow(/synchronous/);
+    fs.rmSync(ds.root, { recursive: true, force: true });
+  });
+
+  test('sqlite-fs working set: a failing op inside the fn rolls the whole transaction back', async () => {
+    const ds = tmpDs();
+    // The tx handle throws SYNCHRONOUSLY on a failing op — with the async
+    // facade as the handle this surfaced as a floating rejected promise after
+    // commit, and the earlier ops stayed applied (the bug this test pins).
+    let createdId: any = null;
+    await expect(ds.transaction((tx) => {
+      createdId = tx.create({ value: 'doomed' }).id;
+      tx.update('99999999-9999-4999-8999-999999999999', { value: 'no such item' });
+    })).rejects.toThrow(/not found/i);
+    expect(await ds.get(createdId)).toBeNull();
     fs.rmSync(ds.root, { recursive: true, force: true });
   });
 });

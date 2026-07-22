@@ -55,6 +55,11 @@ function cloudConfigFromRemote(origin: any): any {
   }
   const cloudConfig: any = { pg: { connectionString: buildPgConnectionString(pg) } };
   if (pg.ssl) cloudConfig.pg.ssl = pg.ssl;
+  // Optional `schema` scopes every connection's search_path — lets one Postgres
+  // database host several isolated Kanecta datastores side by side (e.g. a
+  // backfilled app copy in its own schema). Passed as a libpq `options` startup
+  // parameter, which node-postgres forwards per connection.
+  if (pg.schema) cloudConfig.pg.options = `-c search_path="${pg.schema}"`;
   cloudConfig.s3 = {
     endpoint:        s3.endpoint,
     region:          s3.region,
@@ -108,11 +113,11 @@ class Datastore {
     return new Datastore(datastoreUtils.createFilesystemAdapter(location, owner));
   }
 
-  static open(location: any, { items = 'FILE', files = 'FILE' }: any = {}) {
+  static open(location: any, { items = 'FILE', files = 'FILE', embeddings = null }: any = {}) {
     if (items === 'REMOTE' || files === 'REMOTE') {
       throw new Error('Use Datastore.openCloud(cloudConfig) for cloud mode.');
     }
-    return new Datastore(datastoreUtils.openFilesystemAdapter(location));
+    return new Datastore(datastoreUtils.openFilesystemAdapter(location, embeddings ? { embeddings } : {}));
   }
 
   // Open a datastore from a working-set config — see ~/.config/kanecta/config.json
@@ -171,19 +176,52 @@ class Datastore {
   // inside `fn` automatically runs on the transaction's connection.
   //
   // Generic over items: the CALLER decides what belongs in one transaction —
-  // Kanecta stays domain-agnostic (no "page + revision" awareness). Postgres-only
-  // for now; the fs/sqlite lock-file equivalent is deferred, so a working set whose
-  // adapter has no `transaction` throws here rather than silently writing
-  // non-atomically.
+  // Kanecta stays domain-agnostic (no "page + revision" awareness). Supported by
+  // both the Postgres adapter (BEGIN…COMMIT on a pinned connection) and the
+  // sqlite-fs adapter (one write-ahead journal of pre-images + one db
+  // transaction; `fn` must be synchronous there). An adapter without
+  // `transaction` throws here rather than silently writing non-atomically.
+  // 'sync' when the adapter cannot hold a transaction across await boundaries
+  // (sqlite-fs / better-sqlite3) — callers pick a synchronous fn accordingly.
+  get transactionMode() { return this._adapter.transactionMode ?? 'async'; }
+
   async transaction(fn: (tx: Datastore) => any) {
     if (typeof this._adapter.transaction !== 'function') {
       throw new Error(
-        'transaction(fn) is not supported on this working set — atomic multi-op ' +
-        'transactions require the Postgres working set (fs/sqlite is deferred).',
+        'transaction(fn) is not supported on this working set — the adapter ' +
+        'does not implement atomic multi-op transactions.',
       );
+    }
+    // A sync-transaction adapter (sqlite-fs) cannot hold a transaction across
+    // await boundaries. Reject an async fn BEFORE invoking it — if it ran, its
+    // continuation would resume after rollback and apply the remaining writes
+    // OUTSIDE the transaction. The sync wrapper arrow below would hide the
+    // fn's asyncness from the adapter's own guard, so the check lives here.
+    if (this._adapter.transactionMode === 'sync') {
+      if ((fn as any)?.constructor?.name === 'AsyncFunction') {
+        throw new Error(
+          'transaction(fn) must be synchronous on this working set — the ' +
+          'sqlite-fs adapter cannot hold a transaction across await boundaries.',
+        );
+      }
+      // Hand fn the RAW adapter, not this facade: the facade's methods are
+      // async wrappers, so inside a sync fn a failing op would surface as a
+      // floating rejected promise AFTER the commit decision instead of a
+      // synchronous throw that rolls the transaction back. The adapter's own
+      // methods are synchronous — same names, same args, sync throws.
+      return this._adapter.transaction(() => fn(this._adapter));
     }
     return this._adapter.transaction(() => fn(this));
   }
+
+  // ─── Activity log ──────────────────────────────────────────────────────────
+  // The second append-only exempt log (spec §activityPayload): item_history
+  // tracks what changed; activity tracks what happened. Gated by
+  // rootPayload.activity — recordActivity is a no-op returning null when 'NONE'.
+
+  async recordActivity(event: any)                { return this._adapter.recordActivity(event); }
+  async activityFor(targetId: any, opts?: any)    { return this._adapter.activityFor(targetId, opts); }
+  async listActivity(opts?: any)                  { return this._adapter.listActivity(opts); }
 
   // ─── Aliases ───────────────────────────────────────────────────────────────
 
@@ -222,7 +260,7 @@ class Datastore {
 
   // ─── Tree ──────────────────────────────────────────────────────────────────
 
-  async loadAll()                            { return this._adapter.loadAll(); }
+  async loadAll(opts?: any)                  { return this._adapter.loadAll(opts); }
   async children(parentId: any, aspect?: any)           { return this._adapter.children(parentId, aspect); }
   async tree(rootId: any, maxDepth?: any)               { return this._adapter.tree(rootId, maxDepth); }
   async getDocument(id: any)                      { return this._adapter.getDocument(id); }
@@ -277,6 +315,17 @@ class Datastore {
   branchDiff(name: any)               { return this._adapter.branchDiff(name); }
   previewMerge(name: any)             { return this._adapter.previewMerge(name); }
   mergeBranchLocally(name: any, opts?: any) { return this._adapter.mergeBranchLocally(name, opts); }
+  // Packages — the exchange format (PROVISIONAL v0.1, plans/package-format-design.md)
+  exportPackage(name: any, outPath: any, opts?: any) { return this._adapter.exportPackage(name, outPath, opts); }
+  importPackage(zipPath: any, opts?: any)            { return this._adapter.importPackage(zipPath, opts); }
+
+  // ─── Search (FTS + semantic) — same surface on every adapter ───────────────
+  get embeddingsEnabled()             { return this._adapter.embeddingsEnabled; }
+  search(query: any, opts?: any)      { return this._adapter.search(query, opts); }
+  semanticSearch(query: any, opts?: any) { return this._adapter.semanticSearch(query, opts); }
+  hybridSearch(query: any, opts?: any)   { return this._adapter.hybridSearch(query, opts); }
+  embedItem(id: any)                  { return this._adapter.embedItem(id); }
+  processPendingEmbeddings(opts?: any) { return this._adapter.processPendingEmbeddings(opts); }
 }
 
 export { Datastore, cloudConfigFromRemote, buildPgConnectionString, ROOT_ID, TYPES_NODE, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE, DEFAULT_LICENSE };

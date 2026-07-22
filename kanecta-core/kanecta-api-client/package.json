@@ -7,7 +7,7 @@
     "index.ts"
   ],
   "scripts": {
-    "test": "echo \"No tests yet\"",
+    "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "engines": {

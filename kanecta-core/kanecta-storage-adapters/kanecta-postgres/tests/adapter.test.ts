@@ -877,7 +877,8 @@ describe('byTag / byType', () => {
   test('byType returns items with matching typeId', async () => {
     const { metadata: t } = await adapter.createType('TagByType', {
       schema: {
-        meta: {}, jsonSchema: { type: 'object', properties: {}, required: [], additionalProperties: false }, sqlSchema: [],
+        meta: { description: 'TagByType test type' },
+        jsonSchema: { '$schema': 'http://json-schema.org/draft-07/schema#', type: 'object', properties: {}, required: [], additionalProperties: false },
       },
     });
     const item = await adapter.create({ value: 'bytype-item', type: 'object', typeId: t.id });
@@ -969,10 +970,10 @@ describe('query', () => {
 describe('type definitions', () => {
   function makeTypeSchema(tableName, title) {
     return {
-      meta: { icon: '', description: '', details: '', keywords: '', tags: '', skills: { claude: '' } },
+      meta: { icon: '', description: 'a test type', details: '', keywords: '', tags: '', skills: { claude: '' } },
       jsonSchema: {
         '$schema': 'http://json-schema.org/draft-07/schema#', '$id': '',
-        title, type: 'object', properties: { label: { type: 'string' } },
+        title, type: 'object', properties: { label: { type: 'string', 'x-id': '66666666-6666-4666-8666-000000000001' } },
         required: [], additionalProperties: false,
       },
       sqlSchema: [
@@ -992,6 +993,18 @@ describe('type definitions', () => {
     expect(metadata.value).toBe('Widget');
     expect(metadata.id).toBe(id);
     expect(schema.jsonSchema.title).toBe('Widget');
+  });
+
+  test('createType parents the type item under the types node with the seeder path', async () => {
+    // Regression: createType used to write the type item SELF-PARENTED
+    // (parent_id = id), which root-singleton / no-parentid-cycles flag as
+    // corruption and rebuildPaths can never reach.
+    const id        = crypto.randomUUID();
+    const tableName = `obj_${id.replace(/-/g, '_')}`;
+    await adapter.createType('PlacementChk', { schema: makeTypeSchema(tableName, 'PlacementChk'), id });
+    const { rows: [row] } = await pool.query('SELECT parent_id, path FROM items WHERE id = $1', [id]);
+    expect(row.parent_id).toBe('11111111-1111-1111-1111-111111111111');
+    expect(row.path).toBe(`00000000-0000-0000-0000-000000000000/11111111-1111-1111-1111-111111111111/${id}`);
   });
 
   test('createType does NOT create the obj_<typeId> table (N=0); the first instance does', async () => {
@@ -1035,6 +1048,24 @@ describe('type definitions', () => {
     expect(await adapter.resolveTypeId('text')).toEqual({ primitive: true });
     expect(await adapter.resolveTypeId('ResolveTest')).toEqual({ id });
     expect(await adapter.resolveTypeId('Nonexistent')).toEqual({ unknown: true });
+  });
+
+  // _listTypeDefs is the pg parity of the sqlite-fs method kanecta-api's GraphQL
+  // schema builder + /types endpoint call through the Datastore facade — without
+  // it a Postgres-backed working set could not build its GraphQL schema.
+  test('_listTypeDefs returns {id,value} for every registered type, ordered by value', async () => {
+    const id        = crypto.randomUUID();
+    const tableName = `obj_${id.replace(/-/g, '_')}`;
+    await adapter.createType('ZzzListDefsProbe', { schema: makeTypeSchema(tableName, 'ZzzListDefsProbe'), id });
+    const defs = await adapter._listTypeDefs();
+    const probe = defs.find((d: any) => d.value === 'ZzzListDefsProbe');
+    expect(probe).toEqual({ id, value: 'ZzzListDefsProbe' });
+    // Rows carry only id + value.
+    expect(Object.keys(probe).sort()).toEqual(['id', 'value']);
+    // Ordered by value (Postgres collation) and free of duplicates.
+    const values = defs.map((d: any) => d.value);
+    expect(values).toEqual([...values].sort((a: string, b: string) => a.localeCompare(b)));
+    expect(new Set(values).size).toBe(values.length);
   });
 });
 
@@ -1100,9 +1131,8 @@ describe('type registry cutover (types -> obj_<type-type>)', () => {
         meta: { icon: 'Star', description: 'post-cutover type', skills: { claude: '' } },
         jsonSchema: {
           '$schema': 'http://json-schema.org/draft-07/schema#', title: 'CutoverWidget',
-          type: 'object', properties: { label: { type: 'string' } }, required: [], additionalProperties: false,
+          type: 'object', properties: { label: { type: 'string', 'x-id': '77777777-7777-4777-8777-000000000001' } }, required: [], additionalProperties: false,
         },
-        sqlSchema: [],
       },
       id,
     });
@@ -1125,7 +1155,15 @@ describe('objectData round-trip', () => {
     tableName = `obj_${typeId.replace(/-/g, '_')}`;
     await adapter.createType('DataType', {
       schema: {
-        meta: {}, jsonSchema: { type: 'object', properties: { label: { type: 'string' }, rank: { type: 'integer' } }, required: [], additionalProperties: false },
+        meta: { description: 'DataType test type' },
+        jsonSchema: {
+          '$schema': 'http://json-schema.org/draft-07/schema#', type: 'object',
+          properties: {
+            label: { type: 'string', 'x-id': '88888888-8888-4888-8888-000000000001' },
+            rank:  { type: 'integer', 'x-id': '88888888-8888-4888-8888-000000000002' },
+          },
+          required: [], additionalProperties: false,
+        },
         sqlSchema: [
           `CREATE TABLE "${tableName}" (
              item_id UUID NOT NULL, "label" TEXT, "rank" INTEGER,
@@ -1180,10 +1218,13 @@ describe('object payload validation', () => {
     tableName = `obj_${typeId.replace(/-/g, '_')}`;
     await adapter.createType('ValidatedBug', {
       schema: {
-        meta: {},
+        meta: { description: 'ValidatedBug test type' },
         jsonSchema: {
-          type: 'object',
-          properties: { severity: { type: 'string' }, count: { type: 'integer' } },
+          '$schema': 'http://json-schema.org/draft-07/schema#', type: 'object',
+          properties: {
+            severity: { type: 'string', 'x-id': '99999999-9999-4999-8999-000000000001' },
+            count:    { type: 'integer', 'x-id': '99999999-9999-4999-8999-000000000002' },
+          },
           required: ['severity'], additionalProperties: false,
         },
         sqlSchema: [
@@ -1243,14 +1284,15 @@ describe('per-type table projection', () => {
     await adapter.createType('Person', {
       id,
       schema: {
-        meta: { icon: 'Person' },
+        meta: { icon: 'Person', description: 'A test person type' },
         jsonSchema: {
+          '$schema': 'http://json-schema.org/draft-07/schema#',
           type: 'object',
           properties: {
-            fullName: { type: 'string' },
-            age:      { type: 'integer' },
-            active:   { type: 'boolean' },
-            tags:     { type: 'array', items: { type: 'string' } },
+            fullName: { type: 'string', 'x-id': '11111111-1111-4111-8111-000000000001' },
+            age:      { type: 'integer', 'x-id': '11111111-1111-4111-8111-000000000002' },
+            active:   { type: 'boolean', 'x-id': '11111111-1111-4111-8111-000000000003' },
+            tags:     { type: 'array', items: { type: 'string' }, 'x-id': '11111111-1111-4111-8111-000000000004' },
           },
         },
         indexes: [{ fields: ['fullName'] }],
@@ -1303,14 +1345,20 @@ describe('per-type table projection', () => {
     expect(await regclass(table)).toBeNull();
   });
 
-  test('soft-delete of the last instance KEEPS the table and its row (pg payload store); restore works', async () => {
+  test('soft-delete of the last instance KEEPS the table; the row moves to the archive capture; restore repopulates', async () => {
     const { id, table } = await definePerson();
     const p = await adapter.create({ type: 'object', typeId: id, value: 'Ada', objectData: { fullName: 'Ada', age: 36 } });
     await adapter.softDelete(p.id);
-    // The row must persist — the obj_ table IS the payload store, so restore can recover it.
+    // item_archive model: the obj_ row leaves with the archived items row (it
+    // cascades off the spine), but the TABLE stays while an archived instance
+    // exists, and the payload is captured in item_archive_payload — so restore
+    // can rebuild the row without recreating the table.
     expect(await regclass(table)).toBe(table);
-    expect(await rowCount(table)).toBe(1);
+    expect(await rowCount(table)).toBe(0);
+    const { rows } = await pool.query('SELECT payload FROM item_archive_payload WHERE item_id = $1', [p.id]);
+    expect(rows[0].payload).toMatchObject({ fullName: 'Ada', age: 36 });
     await adapter.restore(p.id);
+    expect(await rowCount(table)).toBe(1);
     expect(await adapter.readObjectJson(p.id, id)).toMatchObject({ fullName: 'Ada', age: 36 });
   });
 
@@ -1320,7 +1368,14 @@ describe('per-type table projection', () => {
     const robotTable = `obj_${robotId.replace(/-/g, '_')}`;
     await adapter.createType('Robot', {
       id: robotId,
-      schema: { meta: { icon: 'SmartToy' }, jsonSchema: { type: 'object', properties: { model: { type: 'string' } } } },
+      schema: {
+        meta: { icon: 'SmartToy', description: 'A test robot type' },
+        jsonSchema: {
+          '$schema': 'http://json-schema.org/draft-07/schema#',
+          type: 'object',
+          properties: { model: { type: 'string', 'x-id': '55555555-5555-4555-8555-000000000001' } },
+        },
+      },
     });
     const p = await adapter.create({ type: 'object', typeId: personId, value: 'Ada', objectData: { fullName: 'Ada' } });
     expect(await regclass(personTable)).toBe(personTable);
@@ -1629,7 +1684,12 @@ test('the first instance materialises the obj_* table with the FTS trigger', asy
   const tableName = `obj_${id.replace(/-/g, '_')}`;
   await adapter.createType('Doohickey', {
     schema: {
-      meta: {}, jsonSchema: { type: 'object', properties: { label: { type: 'string' } }, required: [], additionalProperties: false },
+      meta: { description: 'Doohickey test type' },
+      jsonSchema: {
+        '$schema': 'http://json-schema.org/draft-07/schema#', type: 'object',
+        properties: { label: { type: 'string', 'x-id': 'aaaaaaaa-0000-4000-8000-000000000001' } },
+        required: [], additionalProperties: false,
+      },
     },
     id,
   });
@@ -1672,7 +1732,12 @@ describe('full-text search', () => {
     const tableName = `obj_${id.replace(/-/g, '_')}`;
     await adapter.createType('Searchable', {
       schema: {
-        meta: {}, jsonSchema: { type: 'object', properties: { description: { type: 'string' } }, required: [], additionalProperties: false },
+        meta: { description: 'Searchable test type' },
+        jsonSchema: {
+          '$schema': 'http://json-schema.org/draft-07/schema#', type: 'object',
+          properties: { description: { type: 'string', 'x-id': 'bbbbbbbb-0000-4000-8000-000000000001' } },
+          required: [], additionalProperties: false,
+        },
         sqlSchema: [`CREATE TABLE "${tableName}" (item_id UUID NOT NULL, "description" TEXT, CONSTRAINT "pk_${tableName}" PRIMARY KEY (item_id), CONSTRAINT "fk_${tableName}_item" FOREIGN KEY (item_id) REFERENCES items(id))`],
       },
       id,
@@ -1710,7 +1775,12 @@ test('checkIntegrity flags orphan-type-id', async () => {
   const tableName = `obj_${id.replace(/-/g, '_')}`;
   await adapter.createType('IntegChk', {
     schema: {
-      meta: {}, jsonSchema: { type: 'object', properties: { label: { type: 'string' } }, required: [], additionalProperties: false },
+      meta: { description: 'IntegChk test type' },
+      jsonSchema: {
+        '$schema': 'http://json-schema.org/draft-07/schema#', type: 'object',
+        properties: { label: { type: 'string', 'x-id': 'cccccccc-0000-4000-8000-000000000001' } },
+        required: [], additionalProperties: false,
+      },
       sqlSchema: [`CREATE TABLE "${tableName}" (item_id UUID NOT NULL, "label" TEXT, CONSTRAINT "pk_${tableName}" PRIMARY KEY (item_id), CONSTRAINT "fk_${tableName}_item" FOREIGN KEY (item_id) REFERENCES items(id))`],
     },
     id,
@@ -2345,5 +2415,112 @@ describe('transactions', () => {
     // The items INSERT ran before the crash; rollback must have removed it.
     const { rows } = await pool.query('SELECT id FROM items WHERE id = $1', [attemptedId]);
     expect(rows).toHaveLength(0);
+  });
+
+  // Regression (#3): a transaction that fails on a REAL Postgres error leaves the
+  // connection mid-transaction (aborted). `_withTx` must ROLLBACK and hand the
+  // pool a usable connection — never a poisoned one, or the NEXT caller gets
+  // "current transaction is aborted, commands ignored until end of transaction
+  // block". A single-connection pool makes the leak observable: the same
+  // connection is reused, so a poisoned one would fail the very next query.
+  test('a failed transaction does not poison the pooled connection (single-conn pool)', async () => {
+    const soloPool = new Pool({
+      connectionString: CONNECTION_STRING,
+      options: `-c search_path="${SCHEMA}"`,
+      max: 1, // exactly one connection — reused across requests, so poisoning shows
+    });
+    const solo = await PostgresAdapter.open(soloPool);
+    try {
+      // Force a genuine DB-level failure INSIDE the transaction so the tx enters
+      // the aborted state (a plain JS throw before any SQL wouldn't reproduce it).
+      let startedId;
+      await expect(
+        solo.transaction(async (tx) => {
+          const a = await tx.create({ value: 'poison-check-a' });
+          startedId = a.id;
+          await tx._exec('SELECT * FROM a_table_that_does_not_exist_xyz');
+        }),
+      ).rejects.toThrow(/does not exist/i);
+
+      // The SAME single connection is now back in the pool. If it were still
+      // aborted, this would throw "current transaction is aborted…". It must not.
+      const after = await solo.create({ value: 'poison-check-after' });
+      expect(after.id).toBeTruthy();
+      expect((await solo.get(after.id))?.value).toBe('poison-check-after');
+
+      // And the failed transaction rolled back cleanly — the create it started
+      // before the DB error must have unwound (no partial write survived).
+      expect(startedId).toBeTruthy();
+      expect(await solo.get(startedId)).toBeNull();
+    } finally {
+      await soloPool.end();
+    }
+  });
+
+  // Regression (#3), discard path: if the tx is aborted AND the ROLLBACK meant to
+  // reset it can't run (a genuinely broken connection), `_withTx` must DISCARD the
+  // connection — `client.release(err)` with a truthy arg tells pg to destroy it —
+  // rather than recycle a poisoned one back into the pool. Driven with a stub pool
+  // so the "ROLLBACK fails" case is exercised deterministically without a real
+  // network fault.
+  test('a failed transaction whose ROLLBACK also fails discards the connection (release with error)', async () => {
+    const queries: string[] = [];
+    let releasedWith: any = 'NOT_RELEASED';
+    const fakeClient = {
+      query: (text: any) => {
+        const sql = String(text);
+        queries.push(sql);
+        if (/^\s*ROLLBACK/i.test(sql)) return Promise.reject(new Error('connection is dead'));
+        return Promise.resolve({ rows: [] });
+      },
+      release: (err?: any) => { releasedWith = err; },
+    };
+    const fakePool = { connect: async () => fakeClient };
+
+    const origPool = adapter._pool;
+    adapter._pool = fakePool as any;
+    try {
+      await expect(
+        adapter.transaction(async () => { throw new Error('op blew up'); }),
+      ).rejects.toThrow('op blew up');
+    } finally {
+      adapter._pool = origPool;
+    }
+
+    // BEGIN then an attempted (failing) ROLLBACK; COMMIT must NOT have run.
+    expect(queries.some((q) => /^\s*BEGIN/i.test(q))).toBe(true);
+    expect(queries.some((q) => /^\s*ROLLBACK/i.test(q))).toBe(true);
+    expect(queries.some((q) => /^\s*COMMIT/i.test(q))).toBe(false);
+    // The key assertion: the connection was released WITH an error, so pg discards
+    // it instead of handing the next caller a poisoned connection.
+    expect(releasedWith).not.toBe('NOT_RELEASED');
+    expect(releasedWith).toBeInstanceOf(Error);
+  });
+
+  // writeObjectJson's projection INSERT tolerates ONLY a missing table (42P01, a
+  // type with no projection yet). Any other pg error (unique/constraint, not-null)
+  // must PROPAGATE: swallowing it would leave the enclosing transaction aborted
+  // and orphan the items row, and the next request fails with "current transaction
+  // is aborted, commands ignored…".
+  test('writeObjectJson rethrows real projection errors but swallows only 42P01', async () => {
+    const origExec = adapter._exec.bind(adapter);
+    const fakeTypeId = crypto.randomUUID(); // unknown type → validation is skipped
+    try {
+      // A unique-violation (23505) on the projection INSERT must propagate.
+      adapter._exec = async (text: any, params?: any) => {
+        if (/^\s*INSERT INTO/i.test(String(text))) { const e: any = new Error('duplicate key'); e.code = '23505'; throw e; }
+        return origExec(text, params);
+      };
+      await expect(adapter.writeObjectJson(ROOT_ID, fakeTypeId, { a: 1 })).rejects.toThrow('duplicate key');
+
+      // A genuinely-missing projection table (42P01) is tolerated (resolves).
+      adapter._exec = async (text: any, params?: any) => {
+        if (/^\s*INSERT INTO/i.test(String(text))) { const e: any = new Error('no such table'); e.code = '42P01'; throw e; }
+        return origExec(text, params);
+      };
+      await expect(adapter.writeObjectJson(ROOT_ID, fakeTypeId, { a: 1 })).resolves.toBeUndefined();
+    } finally {
+      adapter._exec = origExec;
+    }
   });
 });

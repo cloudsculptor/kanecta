@@ -8,7 +8,7 @@ import { notify } from "../lib/notification-templates.js";
 import { uploadFile, deleteFile, getFileStream } from "../lib/spaces.js";
 import * as discussionsRepo from "../repositories/discussions.js";
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 const PUBLIC_URL = process.env.SPACES_PUBLIC_URL;
 
 const router = Router();
