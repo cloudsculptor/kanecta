@@ -5,9 +5,9 @@
   "main": "src/index.ts",
   "peerDependencies": {
     "@kanecta/component-type-list": "*",
-    "@tanstack/react-query": "^5.101.2",
-    "ag-grid-community": "^36.0.1",
-    "ag-grid-react": "^36.0.1",
-    "react": ">=19"
+    "@tanstack/react-query": "^5.101.4",
+    "ag-grid-community": "^36.0.2",
+    "ag-grid-react": "^36.0.2",
+    "react": "^19.2.8"
   }
 }

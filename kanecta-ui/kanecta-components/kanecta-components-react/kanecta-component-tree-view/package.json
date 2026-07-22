@@ -14,9 +14,9 @@
     "@kanecta/specification": "^1.4.0",
     "@mui/icons-material": "^9.2.0",
     "@mui/material": ">=9",
-    "@tanstack/react-query": "^5.101.2",
-    "react": ">=19",
-    "react-dom": ">=19",
+    "@tanstack/react-query": "^5.101.4",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "sass": "^1.101.0"
   },
   "devDependencies": {
