@@ -13,7 +13,7 @@
   },
   "devDependencies": {
     "@kanecta/schema-compiler": "*",
-    "tsx": "^4.23.0"
+    "tsx": "^4.23.1"
   },
   "keywords": [
     "kanecta",
