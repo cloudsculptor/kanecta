@@ -487,7 +487,18 @@ class PostgresAdapter {
   // to the legacy config table for datastores not yet migrated past 037. Returns
   // an object carrying at least { owner, spec_version } — the shape every
   // this.config consumer expects.
+  //
+  // Only "the relation isn't there" errors take the fallback path. Everything
+  // else — auth failures, DNS, TLS, timeouts — rethrows: swallowing those used
+  // to surface as open()'s "Not a Kanecta database: config missing or empty",
+  // hiding the real connection problem behind a misleading diagnosis.
+  static _MISSING_RELATION_CODES = new Set([
+    '42P01', // undefined_table
+    '3F000', // invalid_schema_name (search_path points at a schema that doesn't exist)
+  ]);
   async _loadConfig() {
+    const missingRelation = (err: any) =>
+      PostgresAdapter._MISSING_RELATION_CODES.has(err?.code);
     try {
       const { rows } = await this._exec(
         `SELECT owner, spec_version, item_history, activity, entry_point
@@ -495,11 +506,17 @@ class PostgresAdapter {
         [ROOT_ID],
       );
       if (rows.length) return { ...rows[0] };
-    } catch { /* obj_<root> not present yet — fall back to the legacy table */ }
+    } catch (err) {
+      if (!missingRelation(err)) throw err;
+      /* obj_<root> not present yet — fall back to the legacy table */
+    }
     try {
       const { rows } = await this._exec('SELECT key, value FROM config');
       if (rows.length) return Object.fromEntries(rows.map(r => [r.key, r.value]));
-    } catch { /* no config table either */ }
+    } catch (err) {
+      if (!missingRelation(err)) throw err;
+      /* no config table either */
+    }
     return null;
   }
 
