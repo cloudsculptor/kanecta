@@ -5,19 +5,23 @@ import pool from "../db.js";
 import { notifyThreadSubscribers } from "./push.js";
 import { broadcastFcm, notifyThreadSubscribersFcm } from "../lib/fcm.js";
 import { notify } from "../lib/notification-templates.js";
-import { uploadFile, deleteFile, getFileStream } from "../lib/spaces.js";
+import { uploadFile, deleteFile, getFileStream, fileUrl } from "../lib/spaces.js";
 import * as discussionsRepo from "../repositories/discussions.js";
+import { USE_KANECTA } from "../repositories/backend.js";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
-const PUBLIC_URL = process.env.SPACES_PUBLIC_URL;
 
 const router = Router();
 const canAccess = requireRole("team", "moderator");
 
+// Backend-aware URL: pg → Spaces CDN key, kanecta → file proxy (a CDN URL built
+// from the kanecta storage_key 403s — same bug as the events images).
+const withUrl = (f) => ({ ...f, url: fileUrl({ fileId: f.file_id, storageKey: f.storage_key, mimeType: f.mime_type }) });
+
 async function fetchMessageFiles(messageId) {
-  if (!PUBLIC_URL) return [];
+  if (!USE_KANECTA && !process.env.SPACES_PUBLIC_URL) return [];
   const rows = await discussionsRepo.getMessageFiles(messageId);
-  return rows.map(f => ({ ...f, url: `${PUBLIC_URL}/${f.storage_key}` }));
+  return rows.map(withUrl);
 }
 
 // ── File upload / delete / preview toggle ─────────────────────────────────────
@@ -157,10 +161,9 @@ router.get("/threads/:threadId/messages", requireAuth, canAccess, async (req, re
   const before = req.query.before;
   try {
     const rows = await discussionsRepo.listThreadMessages(threadId, limit, before);
-    const publicUrl = PUBLIC_URL || "";
     res.json(rows.map(m => ({
       ...m,
-      files: (m.files || []).map(f => ({ ...f, url: `${publicUrl}/${f.storage_key}` })),
+      files: (m.files || []).map(withUrl),
     })));
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch messages" });
@@ -231,10 +234,9 @@ router.delete("/messages/:id", requireAuth, canAccess, async (req, res) => {
 router.get("/messages/:id/replies", requireAuth, canAccess, async (req, res) => {
   try {
     const rows = await discussionsRepo.listReplies(req.params.id);
-    const publicUrl = PUBLIC_URL || "";
     res.json(rows.map(m => ({
       ...m,
-      files: (m.files || []).map(f => ({ ...f, url: `${publicUrl}/${f.storage_key}` })),
+      files: (m.files || []).map(withUrl),
     })));
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch replies" });
