@@ -1,40 +1,91 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import PageLayout from "../components/PageLayout";
-
-const policies = [
-  {
-    group: "Custodian Board",
-    items: [
-      { title: "Bylaws", path: "/governance/policies/custodian-bylaws", description: "Formal, binding rules for how the Custodian Board operates." },
-      { title: "Guidelines", path: "/governance/policies/custodian-guidelines", description: "Practical guidance for Board members on running meetings, working with volunteers, and handing over." },
-    ],
-  },
-  {
-    group: "Volunteers",
-    items: [
-      { title: "Bylaws", path: "/governance/policies/volunteer-bylaws", description: "Formal expectations for volunteers — minimal by design." },
-      { title: "Guidelines", path: "/governance/policies/volunteer-guidelines", description: "Practical guidance on how work gets done, decisions get made, and concerns get raised." },
-    ],
-  },
-];
+import { getSiteNodeTree, swapSiteNodeOrder, deleteSiteNode, type SiteNode } from "../api/site-nodes";
+import { listPublicPages } from "../api/pages";
+import { useUserRoles, hasRole } from "../auth/useUserRole";
+import SiteNodeEditor from "../components/SiteNodeEditor";
+import SiteNodeMenu from "../components/SiteNodeMenu";
 
 export default function PoliciesIndex() {
+  const roles = useUserRoles();
+  const isModerator = hasRole(roles, "moderator");
+  const [tree, setTree] = useState<SiteNode | null>(null);
+  const [pageCounts, setPageCounts] = useState<Record<string, number>>({});
+  const [error, setError] = useState("");
+
+  function reload() {
+    getSiteNodeTree("policies")
+      .then(setTree)
+      .catch((err: Error) => setError(err.message));
+    listPublicPages().then((pages) => {
+      const counts: Record<string, number> = {};
+      pages.forEach((p) => {
+        const m = p.owner_type?.match(/^gov-pol-(.+)$/);
+        if (m) counts[m[1]] = (counts[m[1]] ?? 0) + 1;
+      });
+      setPageCounts(counts);
+    });
+  }
+
+  useEffect(reload, []);
+
+  const groups = tree?.children ?? [];
+
   return (
-    <PageLayout pageName="Policies" showComingSoon={false} wip parents={[{ name: "Governance", path: "/governance" }]}>
-      {policies.map(({ group, items }) => (
-        <div key={group} className="policy-group">
-          <h3 className="policy-group__heading">{group}</h3>
+    <PageLayout pageName="Policies" showComingSoon={false} parents={[{ name: "Governance", path: "/governance" }]}>
+      {error && <p className="pages-error">{error}</p>}
+      {groups.map((group, gi) => (
+        <div key={group.id} className="policy-group">
+          <div className="policy-group__heading-row">
+            <h3 className="policy-group__heading">{group.title}</h3>
+            {isModerator && (
+              <SiteNodeMenu
+                node={group}
+                siblings={groups}
+                index={gi}
+                govType="policy"
+                onMove={async (dir) => { await swapSiteNodeOrder(groups, group.id, dir); reload(); }}
+                onDelete={async () => { await deleteSiteNode(group.id); reload(); }}
+                onSaved={reload}
+              />
+            )}
+          </div>
           <div className="role-index">
-            {items.map(({ title, path, description }) => (
-              <Link key={path} to={path} className="role-index__item">
-                <span className="role-index__title">{title}</span>
-                <span className="role-index__description">{description}</span>
-                <span className="role-index__arrow">→</span>
-              </Link>
-            ))}
+            {group.children.map((cat, ci) => {
+              const count = pageCounts[cat.slug] ?? 0;
+              return (
+                <div key={cat.id} className="role-index__item-wrap">
+                  <Link to={`/governance/policies/${cat.slug}`} className="role-index__item">
+                    <span className="role-index__title">{cat.title}</span>
+                    {cat.metadata.description && (
+                      <span className="role-index__description">{cat.metadata.description}</span>
+                    )}
+                  </Link>
+                  <div className="role-index__right">
+                    {isModerator ? (
+                      <SiteNodeMenu
+                        node={cat}
+                        siblings={group.children}
+                        index={ci}
+                        pageCount={count}
+                        onMove={async (dir) => { await swapSiteNodeOrder(group.children, cat.id, dir); reload(); }}
+                        onDelete={async () => { await deleteSiteNode(cat.id); reload(); }}
+                        onSaved={reload}
+                      />
+                    ) : (
+                      <span className="role-index__arrow">→</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       ))}
+      {isModerator && (
+        <SiteNodeEditor mode="add-group" parentNode={tree ?? undefined} onSaved={reload} />
+      )}
     </PageLayout>
   );
 }
