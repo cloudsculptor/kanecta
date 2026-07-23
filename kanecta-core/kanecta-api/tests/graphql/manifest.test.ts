@@ -43,6 +43,12 @@ describe('community-hub manifest → schema', () => {
     expect(sdl).toMatch(/chThread\(id: ID!\): ChThread/);
     expect(sdl).toMatch(/chMessages\(where: ChMessageWhere/);
     expect(sdl).toMatch(/messages: \[ChMessage!\]!/);
+    // threadId is REQUIRED in the manifest, but FK-reference object fields must
+    // still render nullable: the target item can be unresolvable at read time
+    // (no DB FK without typeId/x-kanecta-itemType; item_archive moves rows out
+    // of items). Non-null here would let one dangling ref error the whole query.
+    expect(sdl).toMatch(/threadId: ChThread\n/);
+    expect(sdl).not.toMatch(/threadId: ChThread!/);
   });
 });
 
