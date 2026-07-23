@@ -11,6 +11,9 @@
     "test": "node --import tsx --test test/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
+  "dependencies": {
+    "@kanecta/specification": "^1.4.0"
+  },
   "devDependencies": {
     "@kanecta/schema-compiler": "*",
     "tsx": "^4.23.1"

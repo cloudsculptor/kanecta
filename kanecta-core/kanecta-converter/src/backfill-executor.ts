@@ -22,6 +22,7 @@
 // relationships (whose FK to items(id) is not deferrable); the parent_id FK is
 // DEFERRABLE INITIALLY DEFERRED so child-before-parent within the txn is fine.
 
+import { version as specVersion } from '@kanecta/specification';
 import type { BackfillPlan, ItemUpsert } from './backfill.ts';
 
 /** Anything that runs a query — a checked-out connection. */
@@ -74,11 +75,14 @@ function objTable(typeId: string): string {
 
 async function upsertItem(client: Queryable, u: ItemUpsert, items: string, owner: string, actor: string): Promise<void> {
   await client.query(
+    // spec_version is stamped explicitly from the lib — the column's historical
+    // DEFAULT ('1.3.0') is a one-time backfill value, not "current version".
     `INSERT INTO ${q(items)}
-       (id, parent_id, value, type, type_id, owner, sort_order, created_at, modified_at,
+       (id, spec_version, parent_id, value, type, type_id, owner, sort_order, created_at, modified_at,
         created_by, modified_by, tags, deleted_at, source_system, source_external_id)
-     VALUES ($1,$2,NULL,'object',$3,$4,0, now(), now(), $5,$5,'{}',$6,$7,$8)
+     VALUES ($1,$2,$3,NULL,'object',$4,$5,0, now(), now(), $6,$6,'{}',$7,$8,$9)
      ON CONFLICT (id) DO UPDATE SET
+       spec_version = EXCLUDED.spec_version,
        parent_id = EXCLUDED.parent_id,
        type_id = EXCLUDED.type_id,
        deleted_at = EXCLUDED.deleted_at,
@@ -86,7 +90,7 @@ async function upsertItem(client: Queryable, u: ItemUpsert, items: string, owner
        source_external_id = EXCLUDED.source_external_id,
        modified_at = now(),
        modified_by = EXCLUDED.modified_by`,
-    [u.id, u.parentId, u.typeId, owner, actor, u.deletedAt, u.sourceSystem, u.sourceExternalId],
+    [u.id, specVersion, u.parentId, u.typeId, owner, actor, u.deletedAt, u.sourceSystem, u.sourceExternalId],
   );
 }
 
