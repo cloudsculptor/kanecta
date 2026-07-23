@@ -12,6 +12,9 @@
 // the adapter is opened in-process from another package's test. The real consumers
 // (kanecta-api/mcp/cli) run under node/tsx, where `__dirname` resolves, so the tsx
 // script is the faithful end-to-end check.
+import os from 'os';
+import path from 'path';
+import fs from 'fs';
 import { Datastore, cloudConfigFromRemote, buildPgConnectionString } from '../src/index.ts';
 
 // ─── buildPgConnectionString ────────────────────────────────────────────────
@@ -63,6 +66,34 @@ test('cloudConfigFromRemote omits pg.ssl when not requested', () => {
     s3: S3_BLOCK,
   });
   expect('ssl' in cfg.pg).toBe(false);
+});
+
+test('cloudConfigFromRemote resolves ssl.caFile into a pinned ca (no caFile passthrough)', () => {
+  const caPath = path.join(os.tmpdir(), `kanecta-test-ca-${process.pid}.crt`);
+  fs.writeFileSync(caPath, '-----BEGIN CERTIFICATE-----\nFAKE\n-----END CERTIFICATE-----\n');
+  try {
+    const cfg = cloudConfigFromRemote({
+      type: 'cloud',
+      postgres: {
+        host: 'h', database: 'kanecta', user: 'kanecta',
+        ssl: { caFile: caPath, rejectUnauthorized: true },
+      },
+      s3: S3_BLOCK,
+    });
+    expect(cfg.pg.ssl.ca).toMatch(/BEGIN CERTIFICATE/);
+    expect(cfg.pg.ssl.rejectUnauthorized).toBe(true);
+    expect('caFile' in cfg.pg.ssl).toBe(false);
+  } finally {
+    fs.unlinkSync(caPath);
+  }
+});
+
+test('cloudConfigFromRemote fails loudly on an unreadable ssl.caFile', () => {
+  expect(() => cloudConfigFromRemote({
+    type: 'cloud',
+    postgres: { host: 'h', database: 'd', user: 'u', ssl: { caFile: '/nonexistent/ca.crt' } },
+    s3: S3_BLOCK,
+  })).toThrow(/ssl\.caFile is unreadable/);
 });
 
 test('cloudConfigFromRemote requires both halves of the pair', () => {
