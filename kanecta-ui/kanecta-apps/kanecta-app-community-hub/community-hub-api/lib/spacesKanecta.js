@@ -19,7 +19,7 @@ import {
 const FILE_URL_BASE = process.env.KANECTA_FILE_URL_BASE
   || `${process.env.KANECTA_API_URL || "http://127.0.0.1:3001"}/items`;
 
-function fileUrl(fileId, mimeType) {
+export function fileUrl(fileId, mimeType) {
   // Default base → the raw kanecta-api endpoint (…/items/:id/files/blob); a custom
   // base is treated as `${base}/${fileId}`.
   if (!process.env.KANECTA_FILE_URL_BASE) {
