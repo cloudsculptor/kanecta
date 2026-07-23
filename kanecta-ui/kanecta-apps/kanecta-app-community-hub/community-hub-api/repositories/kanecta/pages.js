@@ -4,22 +4,21 @@
 // edge; here we resolve the display name via the id.
 import { graphql, transaction, updateObject, getItem, resolveTypeId, newId, ROOT_ID, OWNER } from "../../lib/kanectaClient.js";
 import { coerceRow, selectionFor } from "../../lib/kanectaMap.js";
-
-const PUBLIC_URL = process.env.SPACES_PUBLIC_URL;
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { fileIdFromUrl } from "../../lib/fileRefs.js";
 
 // Walk a Lexical JSON tree for the file UUIDs referenced by image nodes (mirrors
-// the pg repo's extractFileIds — the file id is the 3rd path segment after the
-// public URL prefix).
+// the pg repo's extractFileIds). fileIdFromUrl recognises CDN and kanecta
+// file-proxy URL shapes alike — kanecta uploads embed proxy URLs, so matching
+// only the CDN prefix would make every kanecta-uploaded image invisible to
+// removed-image soft-delete.
 function extractFileIds(contentJson) {
   const ids = new Set();
-  if (!PUBLIC_URL || !contentJson?.root) return ids;
-  const prefix = PUBLIC_URL + "/";
+  if (!contentJson?.root) return ids;
   const walk = (node) => {
     if (!node) return;
-    if (node.type === "image" && typeof node.src === "string" && node.src.startsWith(prefix)) {
-      const id = node.src.slice(prefix.length).split("/")[2];
-      if (id && UUID_RE.test(id)) ids.add(id);
+    if (node.type === "image") {
+      const id = fileIdFromUrl(node.src);
+      if (id) ids.add(id);
     }
     if (Array.isArray(node.children)) node.children.forEach(walk);
   };

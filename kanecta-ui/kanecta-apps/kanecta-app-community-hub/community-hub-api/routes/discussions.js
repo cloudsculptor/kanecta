@@ -66,6 +66,7 @@ router.delete("/files/:fileId", requireAuth, canAccess, async (req, res) => {
     if (!isModerator && file.uploaded_by_id !== req.user.id) {
       return res.status(403).json({ error: "Not authorised to delete this file" });
     }
+    await discussionsRepo.deleteFileLinks(file.id);
     await deleteFile({ storageKey: file.storage_key, fileId: file.id, pool });
     res.json({ ok: true });
   } catch (err) {

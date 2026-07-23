@@ -8,21 +8,20 @@
 import pool from "../db.js";
 import { USE_KANECTA } from "./backend.js";
 import * as kanecta from "./kanecta/pages.js";
-
-const PUBLIC_URL = process.env.SPACES_PUBLIC_URL;
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { fileIdFromUrl } from "../lib/fileRefs.js";
 
 // Walks a Lexical JSON tree and returns all file UUIDs referenced by image nodes.
+// fileIdFromUrl recognises both CDN URLs (legacy pg uploads) and kanecta file-proxy
+// URLs, so removed-image soft-delete works regardless of which backend wrote the src.
 function extractFileIds(contentJson) {
   const ids = new Set();
-  if (!PUBLIC_URL || !contentJson?.root) return ids;
-  const prefix = PUBLIC_URL + "/";
+  if (!contentJson?.root) return ids;
 
   function walk(node) {
     if (!node) return;
-    if (node.type === "image" && typeof node.src === "string" && node.src.startsWith(prefix)) {
-      const id = node.src.slice(prefix.length).split("/")[2];
-      if (id && UUID_RE.test(id)) ids.add(id);
+    if (node.type === "image") {
+      const id = fileIdFromUrl(node.src);
+      if (id) ids.add(id);
     }
     if (Array.isArray(node.children)) node.children.forEach(walk);
   }

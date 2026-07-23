@@ -559,6 +559,17 @@ export async function attachFilesToMessage(messageId, fileIds, uploaderId) {
   }
 }
 
+// pg cascade equivalent: delete every discussions-message-files item referencing
+// the file. Run BEFORE the file item is deleted — links must never outlive files.
+export async function deleteFileLinks(fileId) {
+  const data = await graphql(
+    `query($f:ID){ discussionsMessageFileses(where:{fileId:{eq:$f}}, limit:500){ id } }`, { f: fileId },
+  );
+  for (const d of data.discussionsMessageFileses) {
+    await deleteItem(d.id, { force: true });
+  }
+}
+
 // pg: SELECT id, storage_key, uploaded_by_id FROM files WHERE id=$1 -> row or undefined
 export async function getFileForDelete(fileId) {
   const data = await graphql(

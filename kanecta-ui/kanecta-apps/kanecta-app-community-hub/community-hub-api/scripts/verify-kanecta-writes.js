@@ -446,5 +446,29 @@ const ok = (name, cond, detail) => {
   ok("deleteFile → record gone", (await download.getFilesByIds([file.id])).length === 0);
 }
 
+// ── file delete leaves no dangling dmf links (pg cascade equivalent) ──────────
+{
+  const bytes = Buffer.from("PHASE4 link-cascade probe");
+  const UPLOADER = "111f6452-1c13-4251-b937-4c7696906d50";
+  const { file } = await nativeFiles.uploadFile({
+    buffer: bytes, mimeType: "text/plain", originalName: "cascade-probe.txt",
+    uploadedById: UPLOADER, uploadedByName: "Owner",
+  });
+  const thread = await disc.createThread({ name: "PHASE4 cascade thread", description: "d", createdByUserId: UPLOADER, createdByName: "Owner" });
+  const msg = await disc.createMessage({ threadId: thread.id, userId: UPLOADER, userName: "Owner", content: "attached" });
+  await disc.attachFilesToMessage(msg.id, [file.id], UPLOADER);
+  ok("cascade probe attached", (await disc.getMessageFiles(msg.id)).length === 1);
+
+  // Route order: links first, then the file — the dangling-dmf incident guard.
+  await disc.deleteFileLinks(file.id);
+  await nativeFiles.deleteFile({ storageKey: file.storage_key, fileId: file.id });
+  const left = await graphql(`query($f:ID){ discussionsMessageFileses(where:{fileId:{eq:$f}},limit:10){ id } }`, { f: file.id });
+  ok("deleteFileLinks → no dangling dmf rows", left.discussionsMessageFileses.length === 0);
+  ok("deleteFileLinks → message file list empty, not erroring", (await disc.getMessageFiles(msg.id)).length === 0);
+
+  await deleteItem(msg.id, { force: true });
+  await deleteItem(thread.id, { force: true });
+}
+
 console.log(`\n${pass}/${pass + fail} write checks passed.`);
 process.exit(fail ? 1 : 0);
