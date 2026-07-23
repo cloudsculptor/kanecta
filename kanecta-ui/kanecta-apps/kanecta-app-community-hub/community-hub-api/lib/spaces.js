@@ -17,6 +17,17 @@ const client = new S3Client({
   forcePathStyle: false,
 });
 
+// The public URL for an already-stored file row, backend-aware. The pg path's
+// storage_key is a real bucket key (sharded since migrate-storage-keys) served by
+// the Spaces CDN; the kanecta path's storage_key is the file ITEM id and the bytes
+// live in Kanecta's object store, only reachable through the file proxy — a CDN
+// URL built from it 403s (the events-images bug). Routes must use this instead of
+// hand-building `${SPACES_PUBLIC_URL}/${storage_key}`.
+export function fileUrl({ fileId, storageKey, mimeType }) {
+  if (USE_KANECTA) return kanecta.fileUrl(fileId ?? storageKey, mimeType);
+  return `${PUBLIC_URL}/${storageKey}`;
+}
+
 export async function uploadFile({ buffer, mimeType, originalName, uploadedById, uploadedByName, pool }) {
   if (USE_KANECTA) return kanecta.uploadFile({ buffer, mimeType, originalName, uploadedById, uploadedByName });
   const id = randomUUID();
