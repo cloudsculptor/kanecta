@@ -18,7 +18,7 @@ on:
         description: Instance to deploy
         type: choice
         default: all
-        options: [all, prod, internal, springfarm, organiser]
+        options: [all, prod, internal, team, organiser]
       deploy_studio:
         description: Also rebuild + deploy the Studio SPA
         type: boolean
@@ -54,7 +54,7 @@ jobs:
         include:
           - { instance: prod,       dir: kanecta-prod,       pm2: kanecta-api-prod,       port: 3101 }
           - { instance: internal,   dir: kanecta-internal,   pm2: kanecta-api-internal,   port: 3102 }
-          - { instance: springfarm, dir: kanecta-springfarm, pm2: kanecta-api-springfarm, port: 3103 }
+          - { instance: team, dir: kanecta-team, pm2: kanecta-api-team, port: 3103 }
           - { instance: organiser,    dir: kanecta-organiser,    pm2: kanecta-api-organiser,    port: 3104 }
     steps:
       - name: Gate on selected instance
