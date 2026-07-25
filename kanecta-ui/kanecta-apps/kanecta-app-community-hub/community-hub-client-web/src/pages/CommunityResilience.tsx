@@ -1,9 +1,11 @@
 import { Link } from "react-router-dom";
 import PageLayout from "../components/PageLayout";
+import SiteEditablePage from "../components/SiteEditablePage";
 
 export default function CommunityResilience() {
   return (
-    <PageLayout pageName="Community Resilience" showComingSoon={false}>
+    <PageLayout pageName="Community Resilience" showComingSoon={false} showHeading={false}>
+      <SiteEditablePage slug="community-resilience" title="Community Resilience">
       <p>
         Featherston has faced its share of disruptions — the Remutaka Hill road closing due to slips
         or extreme weather, flooding, power outages, and the broader challenges that affect us all:
@@ -52,6 +54,7 @@ export default function CommunityResilience() {
           {" "}— working documents, research, and resources developed by the group
         </li>
       </ul>
+      </SiteEditablePage>
     </PageLayout>
   );
 }
