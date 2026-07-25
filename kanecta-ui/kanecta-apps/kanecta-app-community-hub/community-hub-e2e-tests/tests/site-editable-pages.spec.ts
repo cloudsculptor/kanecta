@@ -29,6 +29,15 @@ test.describe("site-editable pages", () => {
       const link = page.locator(".site-page__edit-link");
       await expect(link).toBeVisible();
       await expect(link).toHaveAttribute("href", `/site-pages/${slug}/edit`);
+      // styled as the outlined button, not a bare anchor — guards the
+      // .site-page SCSS block (also lost once in the 0629 merge)
+      const style = await link.evaluate((el) => {
+        const c = getComputedStyle(el);
+        return { display: c.display, borderStyle: c.borderStyle, textDecorationLine: c.textDecorationLine };
+      });
+      expect(style.display).toBe("inline-flex");
+      expect(style.borderStyle).toBe("solid");
+      expect(style.textDecorationLine).toBe("none");
     });
   }
 
