@@ -344,6 +344,10 @@ $bp-tablet: 768px;
     cursor: default;
     pointer-events: none;
     filter: grayscale(1);
+
+    .nav-card__image {
+      pointer-events: auto;
+    }
   }
 
   &--featured {

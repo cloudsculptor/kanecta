@@ -3,7 +3,7 @@ import Tooltip from "@mui/material/Tooltip";
 
 interface Attribution {
   label: string;
-  url: string;
+  url?: string;
 }
 
 export interface NavCardProps {
@@ -23,15 +23,19 @@ export function NavCard({ title, blurb, path, image, attribution, featured, acce
       <Tooltip
         title={
           attribution ? (
-            <a
-              href={attribution.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              style={{ color: "inherit", textDecoration: "underline" }}
-            >
-              {attribution.label}
-            </a>
+            attribution.url ? (
+              <a
+                href={attribution.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                style={{ color: "inherit", textDecoration: "underline" }}
+              >
+                {attribution.label}
+              </a>
+            ) : (
+              attribution.label
+            )
           ) : ""
         }
         enterDelay={1500}
@@ -68,14 +72,18 @@ export function ComingCard({ title, blurb, image, attribution }: ComingCardProps
       <Tooltip
         title={
           attribution ? (
-            <a
-              href={attribution.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: "inherit", textDecoration: "underline" }}
-            >
-              {attribution.label}
-            </a>
+            attribution.url ? (
+              <a
+                href={attribution.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "inherit", textDecoration: "underline" }}
+              >
+                {attribution.label}
+              </a>
+            ) : (
+              attribution.label
+            )
           ) : ""
         }
         enterDelay={1500}
