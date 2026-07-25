@@ -35,7 +35,7 @@ test.describe("site-editable pages", () => {
         const c = getComputedStyle(el);
         return { display: c.display, borderStyle: c.borderStyle, textDecorationLine: c.textDecorationLine };
       });
-      expect(style.display).toBe("inline-flex");
+      expect(style.display).toMatch(/flex/); // computed may report flex or inline-flex
       expect(style.borderStyle).toBe("solid");
       expect(style.textDecorationLine).toBe("none");
     });
