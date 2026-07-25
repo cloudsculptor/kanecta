@@ -11,7 +11,7 @@
   "peerDependencies": {
     "@kanecta/component-core": "*",
     "@kanecta/component-filter-bar": "*",
-    "react": ">=19"
+    "react": "^19.2.8"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
