@@ -57,11 +57,14 @@ async function main() {
     }
   }
 
-  // ── children(root) sees the loaded content items ──────────────────────────────
-  console.log('\n3. children(root) exposes loaded items in the tree:');
+  // ── root is NOT flooded: content lives under type items, not root (spec §parentid-rules) ──
+  // Post root-parenting fix, root holds only the structural types node (never a flood of
+  // content objects). Content reachability is covered by section 1 (query by type) and
+  // section 4 (relationship navigation); here we assert root is deliberately sparse.
+  console.log('\n3. root holds only structural children; content lives under type items:');
   const rootChildren: any = await ds.children('00000000-0000-0000-0000-000000000000');
   const kids = Array.isArray(rootChildren) ? rootChildren : rootChildren.items ?? [];
-  line(kids.length >= 600, `root has ${kids.length} children (expected ≥600 content items)`);
+  line(kids.length <= 5, `root has ${kids.length} children (expected a small structural set, not a content flood)`);
 
   // ── getRelationships on a message returns its thread edge ─────────────────────
   console.log('\n4. relationship edges are navigable via the adapter:');
