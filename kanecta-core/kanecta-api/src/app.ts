@@ -2322,6 +2322,38 @@ app.get('/integrity/stream', async (req, res) => {
   }
 });
 
+// ─── Projections ──────────────────────────────────────────────────────────────
+
+// The materialised per-type relations of the active working set.
+app.get('/projections', async (req, res) => {
+  const ds = await openDatastore(res, req);
+  if (!ds) return;
+  try {
+    const tables = await ds.listProjectedRelations();
+    res.json({ tables });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Manual refresh of the derived structures (obj_ reconcile + every perf_*,
+// children cache, paths, AGE graph). Spec: projections are strictly derived —
+// always rebuildable. Body/query `only` (CSV or array) limits the structures.
+app.post('/projections/rebuild', async (req, res) => {
+  const ds = await openDatastore(res, req);
+  if (!ds) return;
+  const raw = req.body?.only ?? req.query.only;
+  const only = Array.isArray(raw)
+    ? raw
+    : typeof raw === 'string' ? raw.split(',').map((s) => s.trim()).filter(Boolean) : undefined;
+  try {
+    const report = await ds.rebuildProjections(only?.length ? { only } : {});
+    res.json(report);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── GraphQL — the uniform type-items → GraphQL surface ─────────────────────────
 //
 // POST /graphql exposes the generic engine (src/graphql): the active working set's

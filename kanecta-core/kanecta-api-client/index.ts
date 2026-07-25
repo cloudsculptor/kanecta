@@ -577,6 +577,32 @@ export interface IntegrityApi {
   stream(query?: IntegrityQuery): Promise<Response>;
 }
 
+/** One derived structure's outcome in a projection rebuild report. */
+export interface ProjectionStructureResult {
+  name: string;
+  status: 'rebuilt' | 'verified' | 'warning' | 'skipped' | 'error';
+  rows?: number;
+  tables?: number;
+  created?: Array<{ table: string; instances: number }>;
+  dropped?: string[];
+  detail?: string;
+}
+
+export interface ProjectionRebuildReport {
+  storage: string;
+  structures: ProjectionStructureResult[];
+  /** Filesystem adapter only — items re-ingested from item.json. */
+  items?: number;
+  ok: boolean;
+}
+
+export interface ProjectionsApi {
+  /** The materialised per-type relations of the active working set. */
+  list(): Promise<{ tables: string[] }>;
+  /** Manually regenerate derived structures; `only` limits which. */
+  rebuild(only?: string[]): Promise<ProjectionRebuildReport>;
+}
+
 export interface WorkingSetBranch {
   name: string;
   active: boolean;
@@ -999,6 +1025,17 @@ export class KanectaApiClient {
         if (token) headers['Authorization'] = `Bearer ${token}`;
         return fetch(`${c._base}/integrity/stream${qs(query)}`, { headers });
       },
+    };
+  }
+
+  // ─── Projections ─────────────────────────────────────────────────────────────
+
+  get projections(): ProjectionsApi {
+    const c = this;
+    return {
+      list: () => c._fetch('GET', '/projections'),
+      rebuild: (only) =>
+        c._fetch('POST', '/projections/rebuild', only?.length ? { only } : {}),
     };
   }
 
