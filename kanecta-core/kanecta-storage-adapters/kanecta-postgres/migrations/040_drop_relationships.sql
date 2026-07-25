@@ -1,0 +1,30 @@
+-- Kanecta postgres schema — spec version 1.4.0
+--
+-- Uniform-projection modernisation (spec §cqrs-projections, the four-table law):
+-- retire the bespoke `relationships` table. A relationship is now a first-class
+-- `relationship` item (spec §relationshipPayload): its payload {typeId, sourceId,
+-- targetId, data, confidence, note} projects to obj_<relationship>. There is no
+-- bespoke `relationships` table (spec §cqrs-projections lists it as a prohibited
+-- relation). Bidirectional multi-hop traversal is served by the additive AGE
+-- `perf_` graph projection, rebuildable from obj_<relationship>.
+--
+-- obj_<relationship>'s columns are compiler-derived from relationship.json's
+-- jsonSchema (type_id/source_id/target_id UUID FKs + data JSONB + confidence/note).
+-- As with 036–039 the adapter — not this migration — creates and populates
+-- obj_<relationship>: relate() writes a relationship item + its projection row on
+-- first use; relationships()/backlinks()/listRelationships()/rebuildGraphProjection
+-- read obj_<relationship>. The table is created lazily (first relationship), so a
+-- fresh datastore has no obj_<relationship> until one is created — the four-table
+-- invariant (a type projects a table iff it has ≥1 live instance).
+--
+-- BACKFILL CAVEAT (READ BEFORE APPLYING TO A DATA-BEARING DATABASE): `relationships`
+-- holds real relationship rows. This migration does NOT convert them into
+-- `relationship` items — the adapter seeds nothing here. A deployment with existing
+-- relationships MUST run a scripted backfill (for each row: create a `relationship`
+-- item under the relationship type container + an obj_<relationship> row, resolving
+-- the type slug to its relationship-type item UUID) and verify it BEFORE applying
+-- this drop, and back up first. Fresh / test databases have no such rows, so the
+-- drop is a clean no-op there. The schema-change guard (KANECTA_ALLOW_SCHEMA_CHANGES)
+-- means this only runs on deliberate authorisation.
+
+DROP TABLE IF EXISTS relationships;

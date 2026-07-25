@@ -37,7 +37,6 @@ export type {
   ItemStats,
   BulkCreateResult,
   BulkUpdateResult,
-  SyncSystemItem,
   CreateItemPayload,
   UpdateItemPayload,
   CloneItemPayload,

@@ -590,7 +590,7 @@ test('rebuildIndexes: repopulates tag index', async () => {
   const item = await ds.create({ value: 'x', tags: ['mytag'] });
   // 1.4.0: the index is index.db, rebuilt from item.json. Wipe the derived tag
   // rows, then rebuild and confirm byTag is repopulated.
-  ds._adapter._openDb().prepare('DELETE FROM item_tags').run();
+  ds._adapter._openDb().prepare('DELETE FROM perf_tags').run();
   await ds.rebuildIndexes();
   assert.ok((await ds.byTag('mytag')).includes(item.id));
 });
@@ -600,7 +600,7 @@ test('rebuildIndexes: repopulates backlinks index', async () => {
   const target = await ds.create({ value: 'target' });
   const src = await ds.create({ value: `[[${target.id}]]` });
   // 1.4.0: wipe the derived backlinks rows, then rebuild from item.json.
-  ds._adapter._openDb().prepare('DELETE FROM backlinks').run();
+  ds._adapter._openDb().prepare('DELETE FROM perf_backlinks').run();
   await ds.rebuildIndexes();
   assert.ok((await ds.backlinks(target.id)).includes(src.id));
 });

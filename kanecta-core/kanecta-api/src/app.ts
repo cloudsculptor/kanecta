@@ -9,6 +9,9 @@ import {
 import * as claude from '@kanecta/ai';
 import { generateFunctionScaffold, getRuntimeDir, computeBundleHash, toCamelCase, toPythonName, VALID_RUNTIME_RE } from '@kanecta/lib';
 import { requireAuth } from './middleware/auth.ts';
+import { buildSchemaModel, buildGraphqlEngine, loadTypeItems, buildComputedMap, PgDataSource, type GraphqlEngine } from './graphql/index.ts';
+import { principalsFromToken, can } from './authz/index.ts';
+import { PgAuthzSource } from './authz/pg-authz-source.ts';
 import { spawnSync, spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
@@ -186,6 +189,150 @@ async function collectSubtreeIds(ds: any, id: any) {
   return ids;
 }
 
+// ─── POST /transaction op vocabulary ──────────────────────────────────────────
+// Generic item ops for the atomic /transaction endpoint. Each op mirrors the
+// arg shape of its single-op route (create = POST /items body, update = {id,
+// changes}, relate = POST /relationships, …). NO domain words — the caller
+// decides what belongs together; Kanecta just executes ordered generic ops.
+
+const VALID_TX_OPS = new Set(['create', 'update', 'delete', 'relate', 'unrelate', 'setAlias', 'removeAlias']);
+
+// Structural validation only (shape + well-formed UUIDs) — returns an error
+// string or null. Existence is NOT checked here: a later op may reference an item
+// an earlier op creates, so referential failures surface inside the transaction
+// (which then rolls the whole list back), never as a false pre-flight 400.
+function validateTxOp(op: any, ds: any): string | null {
+  switch (op.op) {
+    case 'create': {
+      const type = op.type ?? 'string';
+      if (!VALID_TYPES.includes(type)) return `invalid type "${type}"`;
+      if (op.id != null && !isUuid(op.id)) return `invalid id "${op.id}"`;
+      if (op.parentId != null && !isUuid(op.parentId)) return `invalid parentId "${op.parentId}"`;
+      if (op.confidence != null && !VALID_CONFIDENCES.includes(op.confidence)) return `invalid confidence "${op.confidence}"`;
+      return null;
+    }
+    case 'update':
+      if (!op.id || !isUuid(op.id)) return 'update requires a valid id';
+      if (op.changes != null && typeof op.changes !== 'object') return 'changes must be an object';
+      if (op.changes?.type != null && !VALID_TYPES.includes(op.changes.type)) return `invalid type "${op.changes.type}"`;
+      return null;
+    case 'delete':
+      if (!op.id || !isUuid(op.id)) return 'delete requires a valid id';
+      return null;
+    case 'relate':
+      if (!op.sourceId || !isUuid(op.sourceId)) return 'relate requires a valid sourceId';
+      if (!op.targetId || !isUuid(op.targetId)) return 'relate requires a valid targetId';
+      if (!op.type) return 'relate requires a type';
+      if (!ds.relTypes.includes(op.type)) return `invalid relationship type "${op.type}"`;
+      return null;
+    case 'unrelate':
+      if (!op.id || !isUuid(op.id)) return 'unrelate requires a valid relationship id';
+      return null;
+    case 'setAlias':
+      if (!op.alias || typeof op.alias !== 'string') return 'setAlias requires an alias';
+      if (!op.targetId || !isUuid(op.targetId)) return 'setAlias requires a valid targetId';
+      return null;
+    case 'removeAlias':
+      if (!op.alias || typeof op.alias !== 'string') return 'removeAlias requires an alias';
+      return null;
+    default:
+      return `unknown op "${op.op}"`;
+  }
+}
+
+// Execute one op on the transaction handle `tx`. Any throw propagates and rolls
+// back the whole transaction. Returns the op's result (created/updated item,
+// relationship, or an { ok, id/alias } envelope for delete/alias ops).
+async function applyTxOp(tx: any, op: any, actor: any): Promise<any> {
+  switch (op.op) {
+    case 'create': {
+      const item = await tx.create({
+        id: op.id ?? null, parentId: op.parentId ?? null, value: op.value ?? null,
+        type: op.type ?? 'string', typeId: op.typeId ?? null, owner: op.owner,
+        license: op.license ?? null, sortOrder: op.sortOrder, confidence: op.confidence ?? null,
+        status: op.status ?? null, tags: op.tags ?? [], createdBy: op.createdBy ?? actor,
+        objectData: op.objectData ?? null,
+      });
+      if (op.alias) await tx.setAlias(String(op.alias).toLowerCase(), item.id);
+      return item;
+    }
+    case 'update': {
+      const { objectData, ...changes } = op.changes ?? {};
+      const updated = await tx.update(op.id, changes, actor);
+      if (objectData !== undefined) await tx.writeObjectJson(op.id, objectData);
+      return updated;
+    }
+    case 'delete':
+      await tx.delete(op.id, actor);
+      return { ok: true, id: op.id };
+    case 'relate':
+      return tx.relate(op.sourceId, op.type, op.targetId, { note: op.note ?? null, createdBy: op.createdBy ?? actor });
+    case 'unrelate':
+      await tx.unrelate(op.id);
+      return { ok: true, id: op.id };
+    case 'setAlias': {
+      const alias = String(op.alias).toLowerCase();
+      await tx.setAlias(alias, op.targetId);
+      return { ok: true, alias, targetId: op.targetId };
+    }
+    case 'removeAlias': {
+      const alias = String(op.alias).toLowerCase();
+      await tx.removeAlias(alias);
+      return { ok: true, alias };
+    }
+    default:
+      throw new Error(`unknown op "${op.op}"`);
+  }
+}
+
+// Synchronous twin of applyTxOp for sync-transaction adapters (sqlite-fs),
+// whose transaction(fn) rejects async fns outright — better-sqlite3 cannot
+// hold a transaction across await boundaries, so a suspended continuation
+// would apply its remaining writes OUTSIDE the transaction. Sync adapters
+// return plain values from every op, so the same calls work unawaited.
+// KEEP THE OP CASES IN LOCKSTEP with applyTxOp above.
+function applyTxOpSync(tx: any, op: any, actor: any): any {
+  switch (op.op) {
+    case 'create': {
+      const item = tx.create({
+        id: op.id ?? null, parentId: op.parentId ?? null, value: op.value ?? null,
+        type: op.type ?? 'string', typeId: op.typeId ?? null, owner: op.owner,
+        license: op.license ?? null, sortOrder: op.sortOrder, confidence: op.confidence ?? null,
+        status: op.status ?? null, tags: op.tags ?? [], createdBy: op.createdBy ?? actor,
+        objectData: op.objectData ?? null,
+      });
+      if (op.alias) tx.setAlias(String(op.alias).toLowerCase(), item.id);
+      return item;
+    }
+    case 'update': {
+      const { objectData, ...changes } = op.changes ?? {};
+      const updated = tx.update(op.id, changes, actor);
+      if (objectData !== undefined) tx.writeObjectJson(op.id, objectData);
+      return updated;
+    }
+    case 'delete':
+      tx.delete(op.id, actor);
+      return { ok: true, id: op.id };
+    case 'relate':
+      return tx.relate(op.sourceId, op.type, op.targetId, { note: op.note ?? null, createdBy: op.createdBy ?? actor });
+    case 'unrelate':
+      tx.unrelate(op.id);
+      return { ok: true, id: op.id };
+    case 'setAlias': {
+      const alias = String(op.alias).toLowerCase();
+      tx.setAlias(alias, op.targetId);
+      return { ok: true, alias, targetId: op.targetId };
+    }
+    case 'removeAlias': {
+      const alias = String(op.alias).toLowerCase();
+      tx.removeAlias(alias);
+      return { ok: true, alias };
+    }
+    default:
+      throw new Error(`unknown op "${op.op}"`);
+  }
+}
+
 async function cloneSubtree(ds: any, sourceId: any, targetParentId: any, actor: any) {
   const source = await ds.get(sourceId);
   if (!source) return null;
@@ -255,6 +402,24 @@ app.get('/config', async (req, res) => {
   res.json({ datastorePath, workingSetName: name, vscodeAvailable: vscodeCheck.status === 0 });
 });
 
+// Credential-bearing keys anywhere in a remote's config (pg password, s3
+// secretAccessKey, embeddings apiKey, …). The API must never echo their VALUES;
+// the redacted placeholder keeps the key present so clients can still show
+// "configured" without ever holding the secret.
+const SECRET_KEY_RE = /password|secret|token|api[-_]?key|credential/i;
+function redactSecrets(value: any): any {
+  if (Array.isArray(value)) return value.map(redactSecrets);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([k, v]) => [
+        k,
+        SECRET_KEY_RE.test(k) && typeof v !== 'object' ? '***' : redactSecrets(v),
+      ]),
+    );
+  }
+  return value;
+}
+
 // GET /working-sets — all configured working sets with branch info
 app.get('/working-sets', async (req, res) => {
   const appCfg = readAppConfig();
@@ -287,7 +452,7 @@ app.get('/working-sets', async (req, res) => {
       return {
         name,
         local: local ? { path: local.localPath, ok: Datastore.isDatastore(local.localPath) } : null,
-        remotes,
+        remotes: redactSecrets(remotes),
         branch: currentBranch,
         branches,
         isActive: name === activeWorkingSet,
@@ -366,6 +531,13 @@ app.get('/working-sets/:name/branches/:branch/diff', async (req, res) => {
       adds: diff.adds.length,
       edits: diff.edits.length,
       deletes: diff.deletes.length,
+      // Item-level review payload (the "PR diff" the Studio review step renders).
+      // before/after are item shapes; the adapter's internal `doc` is not exposed.
+      detail: {
+        adds:    diff.adds.map((e: any) => ({ id: e.id, after: e.after })),
+        edits:   diff.edits.map((e: any) => ({ id: e.id, before: e.before, after: e.after })),
+        deletes: diff.deletes.map((e: any) => ({ id: e.id, before: e.before })),
+      },
     });
   } catch (err: any) {
     res.status(400).json({ error: err.message });
@@ -392,6 +564,13 @@ app.get('/working-sets/:name/branches/:branch/merge-preview', async (req, res) =
       deletes: preview.deletes.length,
       conflicts: preview.conflicts,
       blastRadius: preview.blastRadius,
+      // Item-level review payload, same shape as /diff — so the merge dialog
+      // can show WHAT changes, not just how many.
+      detail: {
+        adds:    preview.adds.map((e: any) => ({ id: e.id, after: e.after })),
+        edits:   preview.edits.map((e: any) => ({ id: e.id, before: e.before, after: e.after })),
+        deletes: preview.deletes.map((e: any) => ({ id: e.id, before: e.before })),
+      },
     });
   } catch (err: any) {
     res.status(400).json({ error: err.message });
@@ -512,7 +691,11 @@ app.get('/search', async (req, res) => {
   const queryLower = q.toLowerCase();
   const showDeleted = includeDeleted === 'true' || includeDeleted === '1';
 
-  const allItems = (await ds.loadAll()).filter((i: any) => showDeleted || i.deletedAt == null);
+  // item_archive model: soft-deleted items physically leave the live store,
+  // so a bare loadAll() can no longer see them — includeDeleted asks the
+  // adapter to union the archive in. The flag filter stays as belt-and-braces.
+  const allItems = (await ds.loadAll(showDeleted ? { includeDeleted: true } : undefined))
+    .filter((i: any) => showDeleted || i.deletedAt == null);
   let candidates = [];
   for (const i of allItems) {
     if (i.value && typeof i.value === 'string' && i.value.toLowerCase().includes(queryLower)) {
@@ -600,7 +783,7 @@ app.post('/items/bulk', async (req, res) => {
 app.post('/items', async (req, res) => {
   const ds = await openDatastore(res);
   if (!ds) return;
-  const { parentId = null, value = null, type = 'string', typeId = null,
+  const { id = null, parentId = null, value = null, type = 'string', typeId = null,
     owner, license = null, sortOrder, confidence = null, status = null, tags = [],
     alias, createdBy, objectData = null } = req.body;
 
@@ -608,16 +791,24 @@ app.post('/items', async (req, res) => {
     return res.status(400).json({ error: `Invalid type: ${type}. Valid: ${VALID_TYPES.join(', ')}` });
   if (confidence && !VALID_CONFIDENCES.includes(confidence))
     return res.status(400).json({ error: `Invalid confidence: ${confidence}. Valid: ${VALID_CONFIDENCES.join(', ')}` });
+  // Optional caller-supplied id: backfill preserving prod UUIDs, or an intra-
+  // transaction reference. Adapter enforces uniqueness (409 below).
+  if (id !== null && !isUuid(id))
+    return res.status(400).json({ error: `Invalid id: ${id}` });
   if (parentId !== null && !isUuid(parentId))
     return res.status(400).json({ error: `Invalid parentId: ${parentId}` });
   if (parentId && !await ds.get(parentId))
     return res.status(404).json({ error: `Parent not found: ${parentId}` });
 
   try {
-    const item = await ds.create({ parentId, value, type, typeId, owner, license, sortOrder, confidence, status, tags, createdBy, objectData });
+    const item = await ds.create({ id, parentId, value, type, typeId, owner, license, sortOrder, confidence, status, tags, createdBy, objectData });
     if (alias) await ds.setAlias(alias, item.id);
     res.status(201).json(item);
   } catch (err: any) {
+    if (/id already exists/i.test(err.message)) return res.status(409).json({ error: err.message });
+    // spec §parentid-rules: a derivable-or-required placement violation is a
+    // bad request, not a server fault
+    if (/parentId is required|Invalid parentId/i.test(err.message)) return res.status(400).json({ error: err.message });
     res.status(500).json({ error: err.message });
   }
 });
@@ -654,7 +845,7 @@ app.patch('/items/bulk', async (req, res) => {
 app.get('/items/stats', async (req, res) => {
   const ds = await openDatastore(res);
   if (!ds) return;
-  // Build typeId → { name, icon } from type_defs table
+  // Build typeId → { name, icon } from the registered type definitions
   const typeInfo: Record<string, any> = {};
   const defs = await ds.listTypeDefs();
   for (const def of defs) {
@@ -1431,6 +1622,160 @@ app.post('/relationships', async (req, res) => {
   res.status(201).json(rel);
 });
 
+// ─── Transactions ─────────────────────────────────────────────────────────────
+
+// POST /transaction — run an ordered list of GENERIC item ops as ONE atomic
+// transaction. All-or-nothing: every op commits together, or the whole list
+// rolls back and ZERO ops apply. The op vocabulary is create/update/delete/
+// relate/unrelate/setAlias/removeAlias over ITEMS — no domain words (uniform-
+// item-API rule). Ops run in array order; a later op can reference an item an
+// earlier op created via a client-supplied `id`. Distinct from /items/bulk,
+// which is best-effort (per-item errors, 207 partial success); this is atomic.
+app.post('/transaction', async (req, res) => {
+  const ds = await openDatastore(res);
+  if (!ds) return;
+  const { ops, actor } = req.body ?? {};
+  if (!Array.isArray(ops) || ops.length === 0)
+    return res.status(400).json({ error: 'ops must be a non-empty array' });
+
+  // Fail fast on a malformed op BEFORE opening the transaction (no partial work).
+  for (const [i, op] of ops.entries()) {
+    if (!op || typeof op !== 'object' || !VALID_TX_OPS.has(op.op))
+      return res.status(400).json({ error: `ops[${i}]: unknown op "${op?.op}". Valid: ${[...VALID_TX_OPS].join(', ')}` });
+    const bad = validateTxOp(op, ds);
+    if (bad) return res.status(400).json({ error: `ops[${i}]: ${bad}` });
+  }
+
+  try {
+    // Sync-transaction adapters (sqlite-fs) reject async fns — their ops all
+    // return plain values, so run the synchronous twin executor instead.
+    const results = ds.transactionMode === 'sync'
+      ? await ds.transaction((tx: any) => {
+          const out = [];
+          for (let i = 0; i < ops.length; i++) {
+            try {
+              out.push(applyTxOpSync(tx, ops[i], actor));
+            } catch (err: any) {
+              err.__txOpIndex = i;
+              throw err;
+            }
+          }
+          return out;
+        })
+      : await ds.transaction(async (tx: any) => {
+          const out = [];
+          for (let i = 0; i < ops.length; i++) {
+            try {
+              out.push(await applyTxOp(tx, ops[i], actor));
+            } catch (err: any) {
+              err.__txOpIndex = i; // remember which op tripped so the 409 can name it
+              throw err;
+            }
+          }
+          return out;
+        });
+    res.json({ results });
+  } catch (err: any) {
+    // Any failure rolled the WHOLE transaction back — zero ops applied.
+    const body: any = { error: err.message, rolledBack: true };
+    if (typeof err.__txOpIndex === 'number') body.failedIndex = err.__txOpIndex;
+    res.status(409).json(body);
+  }
+});
+
+// ─── Files (item byte attachments) ────────────────────────────────────────────
+// Surface the datastore's file store (CloudAdapter's S3 backend) over HTTP so
+// callers can attach/serve/list the raw bytes belonging to an item. Uniform over
+// items: an item id + a filename, no domain words. Only datastores whose adapter
+// composes a file backend (cloud working sets) support these; others answer 501.
+
+// A filename must be a single path segment — no separators or traversal, so it
+// can't escape the item's S3 key prefix.
+const isValidFilename = (name: string) =>
+  typeof name === 'string' && name.length > 0 && name.length <= 255 &&
+  !name.includes('/') && !name.includes('\\') && name !== '.' && name !== '..';
+
+// Run a file-store operation, mapping a datastore that doesn't support files
+// (method absent, or sqlite-fs' throwing stub) to a 501 rather than a 500.
+async function withFileStore(ds: any, res: any, fn: (ds: any) => Promise<any>) {
+  if (typeof ds?.putFile !== 'function' || typeof ds?.getFile !== 'function') {
+    res.status(501).json({ error: 'This datastore has no file store (not a cloud working set)' });
+    return { handled: true };
+  }
+  try {
+    return { handled: false, value: await fn(ds) };
+  } catch (err: any) {
+    if (/not supported/i.test(err?.message ?? '')) {
+      res.status(501).json({ error: 'This datastore has no file store (not a cloud working set)' });
+      return { handled: true };
+    }
+    throw err;
+  }
+}
+
+// POST /items/:id/files/:name — store raw bytes (request body) as `name` on item
+// `:id`. Content-Type header is preserved as the object's mime type. Body is read
+// raw (any content type) up to 50mb.
+// (express.raw exists at runtime; this @types/express version omits it — cast.)
+app.post('/items/:id/files/:name', (express as any).raw({ type: () => true, limit: '50mb' }), async (req, res) => {
+  const { id, name } = req.params;
+  if (!isValidId(id)) return res.status(400).json({ error: 'Invalid ID format' });
+  if (!isValidFilename(name)) return res.status(400).json({ error: 'Invalid filename' });
+  const ds = await openDatastore(res);
+  if (!ds) return;
+  const body = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body ?? '');
+  const mimeType = req.headers['content-type'] && req.headers['content-type'] !== 'application/octet-stream'
+    ? req.headers['content-type'] : undefined;
+  const { handled } = await withFileStore(ds, res, (d) => d.putFile(id, name, body, { mimeType }));
+  if (handled) return;
+  res.status(201).json({ ok: true, id, name, size: body.length });
+});
+
+// GET /items/:id/files/:name — stream the bytes back (404 if absent). The stored
+// mime type isn't recovered by getFile, so the response is octet-stream unless the
+// caller passes ?mime= (community-hub's serving route sets it from the file record).
+app.get('/items/:id/files/:name', async (req, res) => {
+  const { id, name } = req.params;
+  if (!isValidId(id)) return res.status(400).json({ error: 'Invalid ID format' });
+  if (!isValidFilename(name)) return res.status(400).json({ error: 'Invalid filename' });
+  const ds = await openDatastore(res);
+  if (!ds) return;
+  const { handled, value: buf } = await withFileStore(ds, res, (d) => d.getFile(id, name));
+  if (handled) return;
+  if (buf == null) return res.status(404).json({ error: 'File not found' });
+  const mime = typeof req.query.mime === 'string' ? req.query.mime : 'application/octet-stream';
+  res.set('Content-Type', mime);
+  res.set('Content-Length', String(buf.length));
+  res.send(buf);
+});
+
+// DELETE /items/:id/files/:name — remove the object (idempotent; S3 delete of a
+// missing key is a no-op).
+app.delete('/items/:id/files/:name', async (req, res) => {
+  const { id, name } = req.params;
+  if (!isValidId(id)) return res.status(400).json({ error: 'Invalid ID format' });
+  if (!isValidFilename(name)) return res.status(400).json({ error: 'Invalid filename' });
+  const ds = await openDatastore(res);
+  if (!ds) return;
+  const { handled } = await withFileStore(ds, res, (d) => d.deleteFile(id, name));
+  if (handled) return;
+  res.json({ ok: true, id, name });
+});
+
+// GET /items/:id/files — list the filenames attached to an item.
+app.get('/items/:id/files', async (req, res) => {
+  const { id } = req.params;
+  if (!isValidId(id)) return res.status(400).json({ error: 'Invalid ID format' });
+  const ds = await openDatastore(res);
+  if (!ds) return;
+  if (typeof ds?.listFiles !== 'function') {
+    return res.status(501).json({ error: 'This datastore has no file store (not a cloud working set)' });
+  }
+  const { handled, value } = await withFileStore(ds, res, (d) => d.listFiles(id));
+  if (handled) return;
+  res.json({ files: value });
+});
+
 // ─── Tags ─────────────────────────────────────────────────────────────────────
 
 // GET /tags/:tag — list item IDs with this tag
@@ -1442,7 +1787,7 @@ app.get('/tags/:tag', async (req, res) => {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-// GET /types — list all type definitions from type_defs table
+// GET /types — list all registered type definitions
 app.get('/types', async (req, res) => {
   const ds = await openDatastore(res);
   if (!ds) return;
@@ -1759,105 +2104,6 @@ app.put('/app/studio/view/:id', async (req, res) => {
   res.json({ ok: true });
 });
 
-// ─── Sync Types ──────────────────────────────────────────────────────────────
-
-app.get('/app/studio/sync-system-items', async (_req, res) => {
-  const commonDir = process.env.KANECTA_SYSTEM_ITEMS_DIR;
-  if (!commonDir || !fs.existsSync(commonDir)) return res.json([]);
-
-  // Step 1: load all items from system-items
-  const allItems = [];
-  try {
-    for (const s1 of fs.readdirSync(commonDir)) {
-      const d1 = path.join(commonDir, s1);
-      if (!fs.statSync(d1).isDirectory()) continue;
-      for (const s2 of fs.readdirSync(d1)) {
-        const d2 = path.join(d1, s2);
-        if (!fs.statSync(d2).isDirectory()) continue;
-        for (const id of fs.readdirSync(d2)) {
-          const metaPath = path.join(d2, id, 'metadata.json');
-          if (!fs.existsSync(metaPath)) continue;
-          try {
-            const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-            allItems.push({ id, meta, dir: path.join(d2, id) });
-          } catch {}
-        }
-      }
-    }
-  } catch (err: any) { return res.status(500).json({ error: err.message }); }
-
-  // Step 2: find non-type items (instances)
-  const instances = allItems.filter(({ meta }) => meta.type !== 'type');
-
-  // Step 3: collect typeIds used by those instances
-  const usedTypeIds = new Set(instances.map(({ meta }) => meta.typeId).filter(Boolean));
-
-  // Step 4: type definitions NOT used internally by system-items instances
-  const typeDefs = allItems.filter(({ id, meta }) => meta.type === 'type' && !usedTypeIds.has(id));
-
-  const results = [];
-  for (const { id, dir } of typeDefs) {
-    const typePath = path.join(dir, 'type.json');
-    if (!fs.existsSync(typePath)) continue;
-    try {
-      const schema = JSON.parse(fs.readFileSync(typePath, 'utf8'));
-      const title = schema.jsonSchema?.title || id;
-      results.push({ folderId: id, title, schema });
-    } catch {}
-  }
-
-  results.sort((a, b) => a.title.localeCompare(b.title));
-  res.json(results);
-});
-
-app.post('/app/studio/sync-system-items/import', async (req, res) => {
-  const commonDir = process.env.KANECTA_SYSTEM_ITEMS_DIR;
-  if (!commonDir) return res.status(400).json({ error: 'KANECTA_SYSTEM_ITEMS_DIR not configured' });
-  const ds = await openDatastore(res);
-  if (!ds) return;
-  const { folderIds } = req.body;
-  if (!Array.isArray(folderIds) || folderIds.length === 0) return res.status(400).json({ error: 'folderIds required' });
-  const imported = [];
-  const errors = [];
-  for (const folderId of folderIds) {
-    try {
-      const s1 = folderId.slice(0, 2);
-      const s2 = folderId.slice(2, 4);
-      const typePath = path.join(commonDir, s1, s2, folderId, 'type.json');
-      if (!fs.existsSync(typePath)) { errors.push({ folderId, error: 'type.json not found' }); continue; }
-      const schema = JSON.parse(fs.readFileSync(typePath, 'utf8'));
-      const title = schema.jsonSchema?.title || folderId;
-      const { metadata } = await ds.createType(title, { schema, id: folderId });
-      imported.push({ id: metadata.id, value: title });
-    } catch (err: any) { errors.push({ folderId, error: err.message }); }
-  }
-  res.json({ imported, errors });
-});
-
-app.post('/app/studio/sync-system-items/export', async (req, res) => {
-  const commonDir = process.env.KANECTA_SYSTEM_ITEMS_DIR;
-  if (!commonDir) return res.status(400).json({ error: 'KANECTA_SYSTEM_ITEMS_DIR not configured' });
-  const { typeIds } = req.body;
-  if (!Array.isArray(typeIds) || typeIds.length === 0) return res.status(400).json({ error: 'typeIds required' });
-  const root = activeRoot(res, req); if (!root) return;
-  const exported = [];
-  const errors = [];
-  for (const id of typeIds) {
-    try {
-      const shard1 = id.slice(0, 2);
-      const shard2 = id.slice(2, 4);
-      const srcDir = path.join(root, '.kanecta', 'types', shard1, shard2, id);
-      if (!fs.existsSync(srcDir)) { errors.push({ id, error: 'type directory not found' }); continue; }
-      const destDir = path.join(commonDir, shard1, shard2, id);
-      fs.mkdirSync(destDir, { recursive: true });
-      for (const file of fs.readdirSync(srcDir)) {
-        fs.copyFileSync(path.join(srcDir, file), path.join(destDir, file));
-      }
-      exported.push({ id });
-    } catch (err: any) { errors.push({ id, error: err.message }); }
-  }
-  res.json({ exported, errors });
-});
 
 // ─── Settings ────────────────────────────────────────────────────────────────
 
@@ -2094,6 +2340,107 @@ app.get('/integrity/stream', async (req, res) => {
     if (!closed) res.write(`data: ${JSON.stringify({ type: 'error', error: err.message })}\n\n`);
   } finally {
     if (!closed) res.end();
+  }
+});
+
+// ─── Projections ──────────────────────────────────────────────────────────────
+
+// The materialised per-type relations of the active working set.
+app.get('/projections', async (req, res) => {
+  const ds = await openDatastore(res, req);
+  if (!ds) return;
+  try {
+    const tables = await ds.listProjectedRelations();
+    res.json({ tables });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Manual refresh of the derived structures (obj_ reconcile + every perf_*,
+// children cache, paths, AGE graph). Spec: projections are strictly derived —
+// always rebuildable. Body/query `only` (CSV or array) limits the structures.
+app.post('/projections/rebuild', async (req, res) => {
+  const ds = await openDatastore(res, req);
+  if (!ds) return;
+  const raw = req.body?.only ?? req.query.only;
+  const only = Array.isArray(raw)
+    ? raw
+    : typeof raw === 'string' ? raw.split(',').map((s) => s.trim()).filter(Boolean) : undefined;
+  try {
+    const report = await ds.rebuildProjections(only?.length ? { only } : {});
+    res.json(report);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── GraphQL — the uniform type-items → GraphQL surface ─────────────────────────
+//
+// POST /graphql exposes the generic engine (src/graphql): the active working set's
+// `type` items become a GraphQL schema over their obj_<type> tables. It is the ONE
+// query surface for typed data — no per-domain routes. Postgres-backed only (the
+// generic executor runs SQL via PgDataSource); other adapters get a clear 501.
+//
+// The built engine is cached per Postgres pool (keyed by the pool object, so a
+// reopened datastore automatically gets a fresh engine and stale ones are GC'd)
+// and rebuilt only when that pool's set of type items changes, so repeated
+// requests skip schema (re)generation.
+// NOTE: `context.authorize` (the G4 per-item read gate) is not wired here yet — it
+// needs a Postgres AuthzSource; until then /graphql sits behind the same auth wall
+// as the REST routes but does not enforce per-item grants. principals are computed
+// so wiring the gate is a one-line change once that source lands.
+const _gqlEngineByPool = new WeakMap<object, { sig: string; engine: GraphqlEngine }>();
+
+app.post('/graphql', async (req, res) => {
+  const { query, variables, operationName } = req.body ?? {};
+  if (typeof query !== 'string' || !query.trim()) {
+    return res.status(400).json({ errors: [{ message: 'A GraphQL "query" string is required' }] });
+  }
+  const ds = await openDatastore(res, req);
+  if (!ds) return; // openDatastore already sent a 503
+  const pool = (ds as any)?._adapter?._pool;
+  if (!pool) {
+    return res.status(501).json({ errors: [{ message: 'GraphQL is only available on a Postgres-backed working set' }] });
+  }
+  try {
+    const typeItems = await loadTypeItems(ds);
+    const sig = typeItems.map((t: any) => t.item.id).sort().join(',');
+    let cached = _gqlEngineByPool.get(pool);
+    if (!cached || cached.sig !== sig) {
+      const model = buildSchemaModel(typeItems);
+      // Resolve each computed field's backing query/formula item so computed
+      // fields (replyCount, hasUnread) run declaratively; unresolved backings just
+      // throw when that field is selected (the honest pre-runner behaviour).
+      // Backing items are read from their per-type projected table via readObjectJson
+      // (spec §cqrs-projections) — never a generic JSON store. NB: built-in `query`/
+      // `formula` types are not auto-projected to obj_ yet in this adapter (built-ins
+      // treated as primitive), so these resolve once that per-type projection lands.
+      const { map: computed } = await buildComputedMap(model, (id: string) => ds.readObjectJson(id));
+      cached = { sig, engine: buildGraphqlEngine(model, new PgDataSource(pool, model, { computed })) };
+      _gqlEngineByPool.set(pool, cached);
+    }
+    const principals = req.user ? principalsFromToken({ sub: req.user.id, roles: req.user.roles }) : [];
+    // Per-item read gate (opt-in via KANECTA_GRAPHQL_AUTHZ=on). Enforces the
+    // visibility (public/organisation) + owner layers via PgAuthzSource; the
+    // grant-cascade layer awaits the payload_grant derived table. Default OFF so it
+    // is not enabled before backfilled items carry correct visibility (they default
+    // to 'private'). inOrganisation: a single-tenant community treats any
+    // authenticated viewer as in-org.
+    let authorize: ((id: string) => Promise<boolean>) | undefined;
+    if (process.env.KANECTA_GRAPHQL_AUTHZ === 'on') {
+      const authz = new PgAuthzSource(pool);
+      authorize = (id: string) => can(authz, principals, id, 'read', { inOrganisation: !!req.user });
+    }
+    const result = await cached.engine.execute({
+      source: query,
+      variableValues: variables,
+      operationName,
+      context: { viewer: req.user?.id, principals, ...(authorize ? { authorize } : {}) },
+    });
+    res.status(200).json(result); // GraphQL-over-HTTP: 200 even with field errors
+  } catch (err: any) {
+    res.status(500).json({ errors: [{ message: err?.message ?? String(err) }] });
   }
 });
 

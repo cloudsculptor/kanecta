@@ -1,0 +1,53 @@
+{
+  "item": {
+    "id": "0c8a7b10-1111-4a00-8000-000000000101",
+    "parentId": "0c8a7b10-1111-4a00-8000-000000000001",
+    "type": "type",
+    "typeId": null,
+    "value": "ch-thread",
+    "sortOrder": 1
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-07-09T00:00:00.000Z",
+    "modifiedAt": "2026-07-09T00:00:00.000Z",
+    "visibility": "public",
+    "tags": ["community-hub", "discussions"]
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "icon": "Forum",
+      "description": "A discussion thread in community-hub.",
+      "details": "Container for messages. Messages hang off the thread via parentId; a thread is soft-deleted by setting archivedAt. Per-viewer flags (hasUnread, isNotificationsEnabled) are computed.",
+      "primaryField": "name"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$id": "https://kanecta.org/types/ch-thread",
+      "title": "ChThread",
+      "type": "object",
+      "x-graphql": {
+        "name": "ChThread",
+        "fields": {
+          "messages": { "kind": "containment", "type": "ChMessage", "list": true },
+          "hasUnread": { "kind": "computed", "type": "Boolean", "backedBy": "0c8a7b10-1111-4a00-8000-000000000201", "scope": "perViewer" },
+          "isNotificationsEnabled": { "kind": "computed", "type": "Boolean", "backedBy": "0c8a7b10-1111-4a00-8000-000000000202", "scope": "perViewer" }
+        }
+      },
+      "properties": {
+        "name": { "x-id": "0c8a7b10-1111-4a00-8000-0000000a0001", "type": "string", "description": "Thread name." },
+        "description": { "x-id": "0c8a7b10-1111-4a00-8000-0000000a0002", "type": "string", "description": "Optional thread description." },
+        "createdByName": { "x-id": "0c8a7b10-1111-4a00-8000-0000000a0003", "type": "string", "description": "Denormalised author display name." },
+        "createdByUserId": { "x-id": "0c8a7b10-1111-4a00-8000-0000000a0004", "type": "string", "description": "Keycloak sub of the author." },
+        "createdAt": { "x-id": "0c8a7b10-1111-4a00-8000-0000000a0005", "type": "string", "format": "date-time" },
+        "latestMessageAt": { "x-id": "0c8a7b10-1111-4a00-8000-0000000a0006", "type": "string", "format": "date-time", "description": "Timestamp of the newest message; drives hasUnread and ordering." },
+        "sortOrder": { "x-id": "0c8a7b10-1111-4a00-8000-0000000a0007", "type": "integer", "description": "Manual sort position; NULLS LAST then name." },
+        "archivedAt": { "x-id": "0c8a7b10-1111-4a00-8000-0000000a0008", "type": "string", "format": "date-time", "description": "Soft-delete marker. Stored, not exposed on the GraphQL surface.", "x-graphql": { "expose": false } }
+      },
+      "required": ["name"]
+    }
+  }
+}

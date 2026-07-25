@@ -13,6 +13,10 @@ import { importSession, SOURCE_SYSTEM, TYPE_IDS } from '../src/import.js';
 const CONN = process.env.KANECTA_TEST_PG_URL || 'postgres://kanecta:kanecta@localhost:45432/kanecta';
 const SCHEMA = `ts_import_${crypto.randomBytes(4).toString('hex')}`;
 
+// This test creates a throwaway schema and applies migrations; opt into the
+// adapter's fail-closed schema-change guard.
+process.env.KANECTA_ALLOW_SCHEMA_CHANGES ??= '1';
+
 let Pool: any, PostgresAdapter: any, admin: any, pool: any, ds: any, available = false;
 
 const BASE = [

@@ -10,7 +10,6 @@ import { typesApi } from './types';
 import { breadcrumbApi } from './breadcrumb';
 import { starredApi } from './starred';
 import { settingsApi } from './settings';
-import { systemItemsApi } from './systemItems';
 import { skillsApi } from './skills';
 import { claudeApi } from './claude';
 import { integrityApi } from './integrity';
@@ -67,7 +66,6 @@ export function createApi(baseUrl: string) {
     claude: claudeApi(client),
     integrity: integrityApi(client),
     settings: settingsApi(client),
-    systemItems: systemItemsApi(client),
     view: viewApi(client),
     layouts: layoutsApi(client),
     workingSets: workingSetsApi(client),

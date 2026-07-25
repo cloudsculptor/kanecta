@@ -1,0 +1,95 @@
+{
+  "item": {
+    "id": "f94eaf19-b880-403f-8d93-bed168308efe",
+    "parentId": "11111111-1111-1111-1111-111111111111",
+    "type": "type",
+    "typeId": null,
+    "value": "group-chat-config",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "Runtime config for a group-chat agent (multi-agent deliberation).",
+      "confidence": "locked",
+      "icon": "Groups"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "groupChatConfigPayload",
+      "type": "object",
+      "required": [
+        "participants"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "participants": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid",
+            "x-kanecta-itemType": "agent"
+          },
+          "minItems": 1,
+          "description": "UUIDs of the agent items that participate, in round-robin order."
+        },
+        "maxTurns": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "Hard cap on total turns across all participants. Default 10."
+        },
+        "terminationCondition": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "explicit",
+            "max-turns",
+            null
+          ],
+          "description": "How the conversation ends: 'explicit' (a participant calls kanecta_conclude_discussion) or 'max-turns'."
+        },
+        "outputAgent": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid",
+          "x-kanecta-itemType": "agent",
+          "description": "UUID of the agent re-invoked to synthesise final items after 'max-turns' termination. Null for 'explicit'."
+        }
+      }
+    },
+    "sqlSchema": [
+      "-- Built-in type: adapter handles storage natively."
+    ]
+  }
+}

@@ -9,16 +9,61 @@
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
-import { version as specVersion } from '@kanecta/specification';
-import { validateItem } from '@kanecta/specification/validator';
+import {
+  version as specVersion,
+  primitiveTypes,
+  structuredTypes,
+  builtInTypeItems,
+  builtInSystemItems,
+  builtInRelationshipTypeItems,
+  typeSeedMetaschema,
+  relationshipTypeSeedMetaschema,
+} from '@kanecta/specification';
+import { validateItem, validateType } from '@kanecta/specification/validator';
 import { deriveSqlSchema, deriveIndexDdl } from '@kanecta/schema-compiler';
 import { Pool } from 'pg';
+import type { PoolClient, QueryResult } from 'pg';
+import { AsyncLocalStorage } from 'async_hooks';
 import { createEmbeddingProvider, reciprocalRankFusion } from './embeddings.ts';
 
 const ROOT_ID         = '00000000-0000-0000-0000-000000000000';
 const DEFAULT_LICENSE = 'bb3bf137-d8a9-4264-9fb7-ac373b1d4739';
+// The root TYPE item (distinct from the root ITEM 0000…). root is both a
+// well-known lifecycle anchor and a projected structured type: its payload is the
+// datastore config record (spec §rootPayload), projected to obj_<root-type>.
+const ROOT_TYPE_ID    = '73068dfc-e56b-4c4b-a8e6-f623f9ad9ab9';
+// The `type` meta-type's own type-item UUID (from type.json). The type registry
+// lives in obj_<type-type> — there is no bespoke `types` table (spec
+// §cqrs-projections / four-table law). obj_<type-type>'s columns can't be derived
+// from type.json's own (nested) payload — that's circular — so the adapter builds
+// it from the flat seed metaschema (rootPayload.seedMetaschema / typeSeedMetaschema).
+const TYPE_TYPE_ID    = 'abbd7b52-92aa-4fca-b458-d9c4e1a60061';
+// The `relationship` type item's UUID — every relationship item projects to
+// obj_<relationship> (spec §relationshipPayload; no bespoke `relationships` table).
+const RELATIONSHIP_TYPE_ID = '334ea5f6-6bfa-43e5-b77f-5d811642d897';
+// The `relationship-type` meta-type's own type-item UUID. relationship-type items
+// (the relationship vocabulary) live in obj_<relationship-type> — no bespoke
+// `rel_types` table. Like `type`, it EXTENDS the nested type payload so it can't
+// derive its own columns; obj_<relationship-type> is built from the flat seed
+// metaschema (relationshipTypeSeedMetaschema) — see _ensureProjection.
+const RELATIONSHIP_TYPE_TYPE_ID = '15861dd7-e54c-4209-bceb-bdd65de4f472';
 const WELL_KNOWN_TYPES = new Set(['root']);
+// Placement/tree-structural built-ins whose parent is a real tree position,
+// NOT a type bucket (spec §parentid-rules cases: node → parent node/tree,
+// cell → grid, tree → root or parent node, symlink → its tree position). They
+// have a type item so instances CAN be queried by type, but their canonical
+// home is the tree, so create() must not derive a bucket or reject root.
+const PLACEMENT_TYPES = new Set(['node', 'cell', 'tree', 'symlink']);
 const WELL_KNOWN_ORDER: string[] = [];
+
+// Meta-types whose obj_<typeId> columns can't be derived from their own (nested,
+// self-referential) payload schema, so the adapter builds them from a flat seed
+// metaschema instead. `type` extends nothing but describes types; `relationship-type`
+// extends the type payload — both are circular. See _ensureProjection.
+const SEED_METASCHEMA_BY_TYPE_ID: Record<string, any> = {
+  [TYPE_TYPE_ID]: typeSeedMetaschema,
+  [RELATIONSHIP_TYPE_TYPE_ID]: relationshipTypeSeedMetaschema,
+};
 const UUID_RE  = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const LINK_RE  = /\[\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]\]/gi;
 
@@ -36,12 +81,15 @@ const BUILT_IN_TYPES = new Set([
   // Primitive value types
   'string', 'number', 'text', 'heading', 'url', 'image', 'markdown',
   // Structured built-in types
-  'object', 'file', 'function', 'runner', 'symlink',
+  'object', 'file', 'function', 'function-throw', 'runner', 'symlink',
   'action', 'activity', 'agent', 'alias', 'annotation', 'aspect-type',
-  'cell', 'component', 'connector', 'context', 'eval', 'eval-run',
-  'document', 'formula', 'grant', 'grid', 'item_history', 'pipeline', 'pipeline-run',
-  'query', 'reference', 'relationship', 'relationship-type', 'subscription',
-  'tree', 'node', 'view', 'type',
+  'cell', 'channel', 'component', 'connector', 'context', 'eval', 'eval-run',
+  'claude-api-config', 'claude-code-config', 'python-config',
+  'kanecta-function-config', 'group-chat-config', 'http-config',
+  'document', 'document-expand-exception', 'document-role-by-depth', 'document-role-by-type',
+  'formula', 'grant', 'grid', 'item_history', 'licence', 'pipeline', 'pipeline-run',
+  'parameter', 'property', 'query', 'query-param', 'reference', 'relationship', 'relationship-type',
+  'subscription', 'type-parameter', 'tree', 'node', 'view', 'type',
   // Well-known root types
   'root',
 ]);
@@ -49,6 +97,89 @@ const BUILT_IN_TYPES = new Set([
 // Keep the old export name for backward compatibility.
 const PRIMITIVE_TYPES = BUILT_IN_TYPES;
 const VALID_REL_TYPES = BUILT_IN_REL_TYPES;
+
+// ─── Built-in type projection (spec §cqrs-projections: the four-table law) ─────
+// The spec splits built-ins into scalar PRIMITIVES (carried on the item row) and
+// STRUCTURED types (an ordinary type with typed columns, projected to
+// obj_<typeId> exactly like a user 'object' type). Sourced from
+// @kanecta/specification so both adapters agree on the classification.
+const PRIMITIVE_TYPE_SET       = new Set<string>(primitiveTypes as string[]);
+const STRUCTURED_BUILT_IN_TYPES = new Set<string>(structuredTypes as string[]);
+
+// The synthetic types-container node every built-in type item is parented under
+// (spec / core manifest). Mirrors sqlite-fs's TYPES_NODE.
+const TYPES_CONTAINER_ID = '11111111-1111-1111-1111-111111111111';
+
+// name → fixed type-item UUID for every seeded built-in type, from the core
+// manifest items. Lets create()/update() resolve a structured built-in
+// instance's typeId so it projects to obj_<typeId>.
+const BUILT_IN_TYPE_ID_BY_NAME: Record<string, string> = Object.fromEntries(
+  (builtInTypeItems as any[]).map(t => [t.item.value, t.item.id]),
+);
+
+// Structured built-ins whose instance payloads are ALREADY projected to
+// obj_<typeId> (the target model). This grows type-by-type as each bespoke
+// table is retired (see plans/uniform-projection-modernisation.md). A type not
+// listed here keeps its legacy storage untouched, so the switch is staged and
+// reversible. `grant`/`query` lead: grant's read side (PgAuthzSource) already
+// targets obj_<grant-type>, and neither has a conflicting dedicated table.
+const PROJECTED_BUILT_IN_TYPES = new Set<string>([
+  'grant', 'reference', 'file', 'formula', 'context', 'cell', 'view',
+  'channel', 'subscription', 'aspect-type', 'agent', 'action',
+  'claude-api-config', 'claude-code-config', 'python-config',
+  'kanecta-function-config', 'group-chat-config', 'http-config',
+  // query.params is normalised to query-param children (array-of-objects rule).
+  'query', 'query-param',
+  // component.props -> parameter children; bundleHash -> property children.
+  'component', 'parameter', 'property',
+  // function.parameters -> parameter children; typeParameters -> type-parameter
+  // children; throws -> function-throw children; bundleHash -> property children.
+  'function', 'type-parameter', 'function-throw',
+  // document scalars project; expandState.exceptions -> document-expand-exception
+  // children; roleMap.byDepth/byType -> document-role-by-depth/document-role-by-type
+  // children (expandState.defaultDepth is flattened onto the document scalar row).
+  'document', 'document-expand-exception', 'document-role-by-depth', 'document-role-by-type',
+  // annotation: a payload-dimension type — item lives under the annotation type
+  // container, associates via payload.targetId, threads via payload.parentAnnotationId.
+  'annotation',
+  // alias: a payload-dimension type — item lives under the alias type container, string
+  // is item.value, associates via payload.targetId, scoped by payload.assignedBy.
+  'alias',
+  // licence: a first-class item like any structured built-in — meta.license (a
+  // UUID) resolves to a licence item whose {spdxId,name,url,text} projects to
+  // obj_<licence-type>, never a bespoke licences table. Instances are the 19
+  // built-in licences seeded by _ensureSystemItems from @kanecta/specification.
+  'licence',
+  // root: the datastore config record. The one root item (0000…) projects its
+  // rootPayload {owner, specVersion, itemHistory, activity, entryPoint} to
+  // obj_<root-type> — spec §rootPayload replaces the bespoke config table.
+  'root',
+  // type: the type registry. Every type item (built-in + user-defined) projects
+  // to obj_<type-type> — spec §cqrs-projections replaces the bespoke `types`
+  // table. obj_<type-type> is built from the flat seed metaschema (not type.json's
+  // own nested payload, which would be circular) — see _ensureProjection.
+  'type',
+  // relationship-type: the relationship vocabulary. Each relationship-type item
+  // (the 9 canonical + any user-defined) projects to obj_<relationship-type> —
+  // spec §cqrs-projections replaces the bespoke `rel_types` table. Like `type`,
+  // it extends the nested type payload, so obj_<relationship-type> is built from
+  // the flat seed metaschema (relationshipTypeSeedMetaschema) — see _ensureProjection.
+  'relationship-type',
+  // relationship: a typed edge is a first-class item. relate() creates a
+  // `relationship` item whose payload {typeId, sourceId, targetId, data, confidence,
+  // note} projects to obj_<relationship> — spec §relationshipPayload replaces the
+  // bespoke `relationships` table. The AGE graph is a purely additive perf_ mirror.
+  'relationship',
+]);
+
+// The obj_<typeId> the given item projects to, or null if it doesn't project.
+// A user 'object' carries its typeId on the row; a projection-enabled structured
+// built-in resolves its fixed type-item UUID from the manifest.
+function projectionTypeId(type: string, typeId: any): string | null {
+  if (type === 'object') return typeId ?? null;
+  if (PROJECTED_BUILT_IN_TYPES.has(type)) return BUILT_IN_TYPE_ID_BY_NAME[type] ?? null;
+  return null;
+}
 
 class UnknownTypeError extends Error {
   code: string;
@@ -125,6 +256,10 @@ class PostgresAdapter {
   _pool: Pool;
   _config: any;
   _relTypesCache: string[] | null;
+  // name (slug) → relationship-type item UUID, from the relationship-type items
+  // (obj_<relationship-type>). Lets relate() resolve the string API to a payload
+  // typeId. Rebuilt by _loadRelTypes alongside _relTypesCache.
+  _relTypeIdByName: Map<string, string>;
   _embeddingProvider: any;
   _embeddingsEnabled: boolean;
   // Apache AGE graph projection (lazy, capability-gated). `undefined` = unprobed;
@@ -133,14 +268,101 @@ class PostgresAdapter {
   _ageAvailable?: boolean;
   _graphName?: string;
   _graphReady: boolean;
+  // Carries the active transaction client (and its savepoint counter) through the
+  // async call chain so every query in a `transaction(fn)` / `_withTx` scope runs
+  // on ONE connection inside ONE BEGIN…COMMIT. `client` is a checked-out pg
+  // PoolClient; `spSeq` is a per-transaction monotonic counter for `_execTry`'s
+  // savepoint names. See `_exec` / `_execTry` / `_withTx`.
+  _txStore: AsyncLocalStorage<{ client: PoolClient; spSeq?: number }>;
 
   constructor(pool: Pool, { embeddings = null }: any = {}) {
     this._pool              = pool;
     this._config            = null;
     this._relTypesCache     = null;
+    this._relTypeIdByName   = new Map();
     this._embeddingProvider = createEmbeddingProvider(embeddings);
     this._embeddingsEnabled = embeddings?.enabled !== false;
     this._graphReady        = false;
+    // Carries the active transaction client (if any) through the async call chain
+    // so every query in a `transaction(fn)` / `_withTx(fn)` scope runs on ONE
+    // connection inside ONE BEGIN…COMMIT — without threading a client param through
+    // every helper. Concurrency-safe: each transaction gets its own async store.
+    this._txStore           = new AsyncLocalStorage();
+  }
+
+  // Run a query on the active transaction client if one is in scope, else on the
+  // pool. All adapter reads/writes go through this, so a call made inside
+  // `transaction(fn)` both sees its own uncommitted writes and commits atomically.
+  _exec(text: any, params?: any): Promise<QueryResult> {
+    const runner = this._txStore.getStore()?.client ?? this._pool;
+    return runner.query(text, params);
+  }
+
+  // Like `_exec`, but for the handful of queries that intentionally tolerate a
+  // failure (a missing table/relation: the legacy `types` table, an un-materialised
+  // obj_<typeId> projection) and swallow the error at the call site. Under autocommit
+  // (no active transaction) a failed statement is naturally isolated — the next
+  // query starts a fresh implicit transaction — so this was harmless before writes
+  // became atomic. Inside a `transaction(fn)` / `_withTx` scope every statement now
+  // shares ONE connection in ONE BEGIN…COMMIT, so a raw failure poisons the whole
+  // transaction ("current transaction is aborted, commands ignored until end of
+  // transaction block") and every subsequent write throws. Fencing the tolerant
+  // query in a SAVEPOINT and rolling back to it on error contains the failure to
+  // just that statement, leaving the enclosing transaction intact.
+  async _execTry(text: any, params?: any): Promise<QueryResult> {
+    const store = this._txStore.getStore();
+    if (!store?.client) return this._pool.query(text, params);
+    const client = store.client;
+    const sp = `kx_sp_${(store.spSeq = (store.spSeq ?? 0) + 1)}`;
+    await client.query(`SAVEPOINT ${sp}`);
+    try {
+      const result = await client.query(text, params);
+      await client.query(`RELEASE SAVEPOINT ${sp}`);
+      return result;
+    } catch (err) {
+      await client.query(`ROLLBACK TO SAVEPOINT ${sp}`);
+      throw err;
+    }
+  }
+
+  // Join-or-begin: if already inside a transaction, run `fn` in it (no nested
+  // BEGIN); otherwise check out a client, wrap `fn` in BEGIN…COMMIT, and roll back
+  // on any error. This gives per-write atomicity (Level 1) AND lets a caller batch
+  // many writes atomically (Level 2) via the public `transaction` below.
+  async _withTx(fn: any) {
+    if (this._txStore.getStore()?.client) return fn();
+    const client = await this._pool.connect();
+    // If we can't cleanly ROLLBACK a failed transaction, the connection is still
+    // mid-transaction (aborted) — returning it to the pool would poison the NEXT
+    // caller with "current transaction is aborted, commands ignored until end of
+    // transaction block". Track that and DESTROY the connection instead of
+    // recycling it: `client.release(err)` with a truthy arg tells pg to discard
+    // the client rather than return it to the pool.
+    let broken = false;
+    try {
+      await client.query('BEGIN');
+      const result = await this._txStore.run({ client }, fn);
+      await client.query('COMMIT');
+      return result;
+    } catch (err) {
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        broken = true; // connection couldn't be reset — must not go back to the pool
+      }
+      throw err;
+    } finally {
+      // pg's runtime release(err) discards the connection instead of pooling it;
+      // this @types/pg version declares release() argless, hence the cast.
+      (client.release as any)(broken ? new Error('discarding connection: rollback failed') : undefined);
+    }
+  }
+
+  // Public: run `fn` as ONE atomic transaction. Every adapter write `fn` performs
+  // (directly or via the facade) enlists in the same BEGIN…COMMIT and commits
+  // together, or all roll back. Generic over items — no domain awareness.
+  async transaction(fn: any) {
+    return this._withTx(() => fn(this));
   }
 
   // ─── Lifecycle ──────────────────────────────────────────────────────────────
@@ -148,10 +370,19 @@ class PostgresAdapter {
   static async init(pool: Pool, owner: any, { embeddings = null }: any = {}) {
     const adapter = new PostgresAdapter(pool, { embeddings });
     await adapter._migrate();
-    await adapter._ensureConfig(owner);
+    // Config lives in rootPayload (obj_<root>) per spec §rootPayload, not a config
+    // table. Hold owner in memory so _initRoots / _ensureBuiltInTypes can stamp it
+    // on seeded rows; _ensureConfig persists it once the root item, the root type,
+    // and its projection all exist.
+    adapter._config = { owner, spec_version: specVersion };
     await adapter._initRoots();
+    await adapter._ensureBuiltInTypes();
+    await adapter._ensureConfig();
+    await adapter._ensureSystemItems();
+    await adapter._ensureRelationshipTypes();
     await adapter._loadRelTypes();
     if (adapter._embeddingProvider) await adapter._ensureEmbeddingTable();
+    await adapter._migrateFlaggedRowsToArchive();
     return adapter;
   }
 
@@ -160,8 +391,14 @@ class PostgresAdapter {
     const cfg = await adapter._loadConfig();
     if (!cfg) throw new Error('Not a Kanecta database: config missing or empty');
     adapter._config = cfg;
+    // Idempotent backfill: seed any built-in type definitions a pre-existing
+    // datastore is missing, so open() and init() converge on the same shape.
+    await adapter._ensureBuiltInTypes();
+    await adapter._ensureSystemItems();
+    await adapter._ensureRelationshipTypes();
     await adapter._loadRelTypes();
     if (adapter._embeddingProvider) await adapter._ensureEmbeddingTable();
+    await adapter._migrateFlaggedRowsToArchive();
     return adapter;
   }
 
@@ -183,7 +420,7 @@ class PostgresAdapter {
     // Migrations are forward-only and run exactly once, in filename order. A
     // ledger records what's been applied so reopening a datastore does not
     // re-run (and fail on) non-idempotent statements like ADD CONSTRAINT.
-    await this._pool.query(
+    await this._exec(
       `CREATE TABLE IF NOT EXISTS schema_migrations (
          filename   TEXT PRIMARY KEY,
          applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -193,64 +430,288 @@ class PostgresAdapter {
     // Baseline: a schema that was already migrated before this ledger existed
     // (items table present, no ledger rows) is recorded as fully applied so we
     // never re-run migrations against a live database.
-    const { rows: count } = await this._pool.query('SELECT COUNT(*)::int AS n FROM schema_migrations');
+    const { rows: count } = await this._exec('SELECT COUNT(*)::int AS n FROM schema_migrations');
     if (count[0].n === 0) {
-      const { rows: has } = await this._pool.query("SELECT to_regclass('items') IS NOT NULL AS has_items");
+      const { rows: has } = await this._exec("SELECT to_regclass('items') IS NOT NULL AS has_items");
       if (has[0].has_items) {
         for (const file of files) {
-          await this._pool.query('INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING', [file]);
+          await this._exec('INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING', [file]);
         }
         return;
       }
     }
 
-    const { rows } = await this._pool.query('SELECT filename FROM schema_migrations');
+    const { rows } = await this._exec('SELECT filename FROM schema_migrations');
     const applied = new Set(rows.map(r => r.filename));
-    for (const file of files) {
-      if (applied.has(file)) continue;
-      await this._pool.query(fs.readFileSync(path.join(dir, file), 'utf8'));
-      await this._pool.query('INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING', [file]);
+    const pending = files.filter(f => !applied.has(f));
+
+    // Fail-closed schema-change guard. Applying a migration MUTATES the database
+    // (create/drop tables, alter constraints) and could destroy production data.
+    // Refuse unless explicitly authorised, so a deploy can never silently modify
+    // a prod datastore. Dev/test and any deliberate migrate opt in via
+    // KANECTA_ALLOW_SCHEMA_CHANGES=1 (after taking a backup).
+    if (pending.length && !PostgresAdapter._schemaChangesAllowed()) {
+      throw new Error(
+        `Refusing to apply ${pending.length} pending schema migration(s): this would modify ` +
+        `the database schema and may affect production data.\n` +
+        `  Pending: ${pending.join(', ')}\n` +
+        `Back up the database, then set KANECTA_ALLOW_SCHEMA_CHANGES=1 to apply.`,
+      );
+    }
+
+    for (const file of pending) {
+      await this._exec(fs.readFileSync(path.join(dir, file), 'utf8'));
+      await this._exec('INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING', [file]);
     }
   }
 
-  async _ensureConfig(owner: any) {
-    await this._pool.query(
-      `INSERT INTO config (key, value) VALUES ('owner', $1), ('spec_version', '1.4.0')
-       ON CONFLICT (key) DO NOTHING`,
-      [owner],
+  // ── Legacy flag-deleted rows → item_archive (auto-upgrade catch-up) ────────
+  // Pre-archive datastores hold soft-deleted items as flagged live rows.
+  // Move them through the normal archive path — payload capture, backlink
+  // cleanup, cascaded derived rows — but with NO new history event (this is
+  // not a new delete; deleted_at keeps its original stamp). Idempotent and
+  // cheap once no flagged rows remain (043's partial deleted_at index).
+  // Also runs after a branch merge: applied branch changes may carry
+  // meta.deletedAt stamps (e.g. a sync-pushed soft delete), which land as
+  // flagged rows and are normalised into the archive here.
+  async _migrateFlaggedRowsToArchive() {
+    const { rows: has } = await this._exec("SELECT to_regclass('item_archive') IS NOT NULL AS ok");
+    if (!has[0]?.ok) return 0;   // pre-043 schema (migrations not yet applied)
+    const { rows: flagged } = await this._exec(
+      'SELECT id, type, type_id FROM items WHERE deleted_at IS NOT NULL',
     );
-    this._config = await this._loadConfig();
+    for (const row of flagged) {
+      await this._withTx(async () => {
+        const projTypeId = projectionTypeId(row.type, row.type_id);
+        const payload = projTypeId ? await this.readObjectJson(row.id, projTypeId) : null;
+        await this._exec('DELETE FROM perf_backlinks WHERE source_id = $1', [row.id]);
+        await this._exec(
+          'INSERT INTO item_archive SELECT * FROM items WHERE id = $1 ON CONFLICT (id) DO NOTHING', [row.id],
+        );
+        if (payload != null) await this._exec(
+          `INSERT INTO item_archive_payload (item_id, payload) VALUES ($1, $2)
+           ON CONFLICT (item_id) DO UPDATE SET payload = EXCLUDED.payload`,
+          [row.id, JSON.stringify(payload)],
+        );
+        await this._exec('DELETE FROM items WHERE id = $1', [row.id]);
+      });
+    }
+    return flagged.length;
   }
 
+  // Whether schema-mutating operations (migrations, built-in-type seeding) are
+  // authorised on this process. Fail-closed: only KANECTA_ALLOW_SCHEMA_CHANGES=1
+  // (or 'true') opts in. Prod deploys leave it unset, so an accidental init /
+  // migrate against production fails loudly instead of silently changing it.
+  static _schemaChangesAllowed(): boolean {
+    const v = process.env.KANECTA_ALLOW_SCHEMA_CHANGES;
+    return v === '1' || v === 'true';
+  }
+
+  // Persist the datastore config record into the root node's payload (obj_<root>)
+  // — spec §rootPayload replaces the config table. Requires the root item
+  // (_initRoots), the root type + its projection (_ensureBuiltInTypes) to exist
+  // first. Guarded like the other seeders so an unauthorised connect never mutates
+  // schema/data; the in-memory this._config (set from the init owner arg) keeps the
+  // adapter usable regardless.
+  async _ensureConfig() {
+    if (!PostgresAdapter._schemaChangesAllowed()) return;
+    const cfg = this._config ?? {};
+    await this._ensureProjection(ROOT_TYPE_ID);
+    // rootPayload now carries the type-type seed metaschema (spec §rootPayload /
+    // §cqrs-projections) — the irreducible bootstrap, stored as data so the
+    // datastore is self-describing rather than relying only on adapter code. A
+    // datastore whose obj_<root> predates this field (created before the root
+    // schema gained seedMetaschema) lacks the column; _ensureProjection's IF NOT
+    // EXISTS create won't evolve an existing table, so reconcile it here. No-op on
+    // a fresh datastore (the column is already present from the current schema).
+    await this._exec(
+      `ALTER TABLE "${objTableName(ROOT_TYPE_ID)}" ADD COLUMN IF NOT EXISTS seed_metaschema JSONB`,
+    );
+    await this.writeObjectJson(ROOT_ID, ROOT_TYPE_ID, {
+      owner:          cfg.owner,
+      specVersion:    cfg.spec_version ?? specVersion,
+      itemHistory:    cfg.item_history ?? 'EXTERNAL',
+      activity:       cfg.activity ?? 'EXTERNAL',
+      seedMetaschema: typeSeedMetaschema,
+      ...(cfg.entry_point ? { entryPoint: cfg.entry_point } : {}),
+    });
+    this._config = (await this._loadConfig()) ?? this._config;
+  }
+
+  // Read the datastore config from the root node's payload (obj_<root>). Falls back
+  // to the legacy config table for datastores not yet migrated past 037. Returns
+  // an object carrying at least { owner, spec_version } — the shape every
+  // this.config consumer expects.
+  //
+  // Only "the relation isn't there" errors take the fallback path. Everything
+  // else — auth failures, DNS, TLS, timeouts — rethrows: swallowing those used
+  // to surface as open()'s "Not a Kanecta database: config missing or empty",
+  // hiding the real connection problem behind a misleading diagnosis.
+  static _MISSING_RELATION_CODES = new Set([
+    '42P01', // undefined_table
+    '3F000', // invalid_schema_name (search_path points at a schema that doesn't exist)
+  ]);
   async _loadConfig() {
+    const missingRelation = (err: any) =>
+      PostgresAdapter._MISSING_RELATION_CODES.has(err?.code);
     try {
-      const { rows } = await this._pool.query('SELECT key, value FROM config');
-      if (!rows.length) return null;
-      return Object.fromEntries(rows.map(r => [r.key, r.value]));
-    } catch { return null; }
+      const { rows } = await this._exec(
+        `SELECT owner, spec_version, item_history, activity, entry_point
+           FROM "${objTableName(ROOT_TYPE_ID)}" WHERE item_id = $1`,
+        [ROOT_ID],
+      );
+      if (rows.length) return { ...rows[0] };
+    } catch (err) {
+      if (!missingRelation(err)) throw err;
+      /* obj_<root> not present yet — fall back to the legacy table */
+    }
+    try {
+      const { rows } = await this._exec('SELECT key, value FROM config');
+      if (rows.length) return Object.fromEntries(rows.map(r => [r.key, r.value]));
+    } catch (err) {
+      if (!missingRelation(err)) throw err;
+      /* no config table either */
+    }
+    return null;
   }
 
   // ─── Relationship types ──────────────────────────────────────────────────────
 
+  // The relationship vocabulary is the set of relationship-type ITEMS (spec
+  // §cqrs-projections — no bespoke `rel_types` table). Cache the slugs (item.value)
+  // and a name→UUID map so relate() can resolve the preserved string API to a
+  // payload typeId. Falls back to the built-in slugs when the items aren't seeded
+  // yet (e.g. an unauthorised open where _ensureRelationshipTypes was skipped).
   async _loadRelTypes() {
     try {
-      const { rows } = await this._pool.query('SELECT type FROM rel_types ORDER BY type');
-      this._relTypesCache = rows.map(r => r.type);
-    } catch {
-      this._relTypesCache = [...BUILT_IN_REL_TYPES];
-    }
+      const { rows } = await this._exec(
+        `SELECT id, value FROM items WHERE type = 'relationship-type' AND deleted_at IS NULL
+         ORDER BY value`,
+      );
+      if (rows.length) {
+        this._relTypesCache   = rows.map(r => r.value);
+        this._relTypeIdByName = new Map(rows.map(r => [r.value, r.id]));
+        return;
+      }
+    } catch { /* items table not queryable — fall back */ }
+    this._relTypesCache   = [...BUILT_IN_REL_TYPES];
+    this._relTypeIdByName = new Map();
   }
 
+  // Add user-defined relationship types by creating `relationship-type` items
+  // (directional by default, no inverse) projecting to obj_<relationship-type>.
   async addRelTypes(names: any) {
+    if (!PostgresAdapter._schemaChangesAllowed())
+      throw new Error('Refusing to create relationship-type items: set KANECTA_ALLOW_SCHEMA_CHANGES=1');
     const invalid = names.filter((n: any) => !/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(n));
     if (invalid.length)
       throw new Error(`Invalid relationship type name(s): ${invalid.join(', ')} — must be lowercase kebab-case starting with a letter`);
+    await this._ensureProjection(RELATIONSHIP_TYPE_TYPE_ID);
+    await this._loadRelTypes();
+    const now = new Date();
     for (const name of names) {
-      await this._pool.query(
-        'INSERT INTO rel_types (type) VALUES ($1) ON CONFLICT DO NOTHING', [name],
-      );
+      if (this._relTypeIdByName.has(name)) continue;   // already exists
+      const id = crypto.randomUUID();
+      await this._writeRelationshipTypeItem(id, {
+        value: name,
+        meta: { description: `User-defined relationship type: ${name}`, directional: true, inverse: null },
+        jsonSchema: { '$schema': 'http://json-schema.org/draft-07/schema#', title: name, type: 'object', properties: {}, additionalProperties: true },
+        sqlSchema: [],
+      }, now);
     }
     await this._loadRelTypes();
+  }
+
+  // Seed the 9 canonical relationship-type items (spec §relationshipPayload) from
+  // @kanecta/specification's builtInRelationshipTypeItems, each projecting to
+  // obj_<relationship-type>. Runs AFTER _ensureBuiltInTypes so the relationship-type
+  // type item (its items row + registry def) exists. Same fail-closed schema-change
+  // guard as the other seeders. Idempotent (ON CONFLICT / UPSERT).
+  //
+  // Two passes: insert every items row first, THEN write every projection row —
+  // meta_inverse is a self-referential FK to items(id) (depends-on ↔ enables), so a
+  // one-pass insert would violate the FK before the partner row exists.
+  async _ensureRelationshipTypes() {
+    if (!PostgresAdapter._schemaChangesAllowed()) return;
+    const rtypeId  = RELATIONSHIP_TYPE_TYPE_ID;
+    const projected = await this._ensureProjection(rtypeId);
+    const typePath  = `${ROOT_ID}/${TYPES_CONTAINER_ID}/${rtypeId}`;
+    const now       = new Date();
+    const owner     = this.config.owner;
+
+    // Pass 1: items rows.
+    for (const src of builtInRelationshipTypeItems as any[]) {
+      const id = src.item.id;
+      await this._exec(
+        `INSERT INTO items (id, spec_version, parent_id, path, value, type, type_id, owner,
+           license, sort_order, created_at, modified_at, created_by, modified_by)
+         VALUES ($1,$2,$3,$4,$5,'relationship-type',$6,$7,$8,$9,$10,$10,$7,$7)
+         ON CONFLICT (id) DO NOTHING`,
+        [id, specVersion, rtypeId, `${typePath}/${id}`, src.item.value, rtypeId,
+         owner, src.meta?.license ?? DEFAULT_LICENSE, src.item.sortOrder ?? 0, now],
+      );
+    }
+
+    // Pass 2: projection rows (now every meta_inverse target exists).
+    if (projected) {
+      for (const src of builtInRelationshipTypeItems as any[]) {
+        await this._writeRelationshipTypeProjection(src.item.id, src.payload ?? {});
+      }
+    }
+  }
+
+  // Insert a single relationship-type item (items row + obj_<relationship-type>
+  // projection). Used by addRelTypes; the seeder uses two explicit passes instead
+  // because of the meta_inverse FK ordering.
+  async _writeRelationshipTypeItem(id: any, payload: any, now: Date) {
+    const rtypeId  = RELATIONSHIP_TYPE_TYPE_ID;
+    const typePath = `${ROOT_ID}/${TYPES_CONTAINER_ID}/${rtypeId}`;
+    await this._exec(
+      `INSERT INTO items (id, spec_version, parent_id, path, value, type, type_id, owner,
+         license, sort_order, created_at, modified_at, created_by, modified_by)
+       VALUES ($1,$2,$3,$4,$5,'relationship-type',$6,$7,$8,0,$9,$9,$7,$7)
+       ON CONFLICT (id) DO NOTHING`,
+      [id, specVersion, rtypeId, `${typePath}/${id}`, payload.value, rtypeId,
+       this.config.owner, DEFAULT_LICENSE, now],
+    );
+    await this._writeRelationshipTypeProjection(id, payload);
+    await this._snapshot(id, 'create', this.config.owner, now);
+  }
+
+  // Write a relationship-type item's nested payload to its flat obj_<relationship-type>
+  // row (upsert). Mirrors _ensureBuiltInTypes' type-registry write, plus the two
+  // directional-semantics columns (meta_directional, meta_inverse).
+  async _writeRelationshipTypeProjection(id: any, payload: any) {
+    const meta = payload.meta ?? {};
+    await this._exec(
+      `INSERT INTO "${objTableName(RELATIONSHIP_TYPE_TYPE_ID)}" (
+         item_id,
+         meta_icon, meta_description, meta_details, meta_keywords, meta_tags,
+         meta_primary_field, meta_ai_instructions_claude,
+         meta_functions_consumed_by, meta_functions_produced_by,
+         meta_directional, meta_inverse,
+         json_schema, sql_schema, sync, superseded_by, implements, extends, indexes
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+       ON CONFLICT (item_id) DO UPDATE SET
+         meta_icon = $2, meta_description = $3, meta_details = $4, meta_keywords = $5, meta_tags = $6,
+         meta_primary_field = $7, meta_ai_instructions_claude = $8,
+         meta_functions_consumed_by = $9, meta_functions_produced_by = $10,
+         meta_directional = $11, meta_inverse = $12,
+         json_schema = $13, sql_schema = $14, sync = $15, superseded_by = $16, implements = $17,
+         extends = $18, indexes = $19`,
+      [
+        id,
+        meta.icon ?? null, meta.description ?? '', meta.details ?? null,
+        meta.keywords ?? null, meta.tags ?? null,
+        meta.primaryField ?? null, meta.skills?.claude ?? null,
+        meta.functions?.consumedBy ?? [], meta.functions?.producedBy ?? [],
+        meta.directional ?? true, meta.inverse ?? null,
+        JSON.stringify(payload.jsonSchema ?? {}), payload.sqlSchema ?? [],
+        meta.sync ?? [], meta.supersededBy ?? [], meta.implements ?? [], meta.extends ?? [],
+        JSON.stringify(payload.indexes ?? []),
+      ],
+    );
   }
 
   // ─── Well-known root nodes ───────────────────────────────────────────────────
@@ -280,7 +741,7 @@ class PostgresAdapter {
       const parentPath = await this._getPath(parentId);
       path = parentPath != null ? `${parentPath}/${id}` : id;
     }
-    await this._pool.query(
+    await this._exec(
       `INSERT INTO items (id, spec_version, parent_id, path, value, type, owner, license, sort_order,
          created_at, modified_at, created_by, modified_by)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10,$7,$7)
@@ -291,10 +752,144 @@ class PostgresAdapter {
     return this.get(id);
   }
 
+  // Seed the core manifest of built-in type items (grant, query, file, …) under
+  // the synthetic types-container node, with their fixed UUIDs, from
+  // @kanecta/specification. These are ordinary type items (type='type' in items,
+  // a 1:1 registry row in obj_<type-type> carrying the jsonSchema) — so
+  // readTypeJson/_ensureProjection work on a built-in exactly as on a user type.
+  // Idempotent: skips the items-row for any type item already present but re-upserts
+  // its obj_<type-type> row, so it safely backfills existing datastores on open (and
+  // completes the `types` -> obj_<type-type> cutover on the first authorised open
+  // after migration 038) as well as seeding fresh ones at init. The one obj_ table
+  // it materialises is the registry itself, obj_<type-type> — a type with zero
+  // *instances* still projects nothing (the four-table invariant); type items ARE
+  // the instances of the type-type, so its projection is always live.
+  async _ensureBuiltInTypes() {
+    // Seeding inserts the built-in type items + their type rows — a bootstrap
+    // mutation of the datastore. Same fail-closed guard as migrations: on an
+    // unauthorised open() (e.g. a prod app connecting) skip silently so the
+    // datastore is never modified on connect. A deliberate init/migrate with
+    // KANECTA_ALLOW_SCHEMA_CHANGES=1 seeds it.
+    if (!PostgresAdapter._schemaChangesAllowed()) return;
+
+    const owner = this.config.owner;
+    const now   = new Date();
+
+    // The types-container node. Parented under root; its own children are the
+    // built-in type items. Direct insert (create() forbids reserved types).
+    await this._exec(
+      `INSERT INTO items (id, spec_version, parent_id, path, value, type, owner, license,
+         sort_order, created_at, modified_at, created_by, modified_by)
+       VALUES ($1,$2,$3,$4,'types','types',$5,$6,0,$7,$7,$5,$5)
+       ON CONFLICT (id) DO NOTHING`,
+      [TYPES_CONTAINER_ID, specVersion, ROOT_ID,
+       `${ROOT_ID}/${TYPES_CONTAINER_ID}`, owner, DEFAULT_LICENSE, now],
+    );
+
+    // The type registry is obj_<type-type> (spec §cqrs-projections — no bespoke
+    // `types` table; migration 038 drops it). Materialise obj_<type-type> from the
+    // flat seed metaschema before seeding any type rows into it — the type-type
+    // can't derive its own columns (that's circular; see _ensureProjection).
+    // Idempotent (IF NOT EXISTS).
+    const typeObj = objTableName(TYPE_TYPE_ID);
+    await this._ensureProjection(TYPE_TYPE_ID);
+
+    for (const src of builtInTypeItems as any[]) {
+      const id      = src.item.id;
+      const value   = src.item.value;
+      const payload = src.payload ?? {};
+      if (!payload.jsonSchema) continue;             // nothing to project against
+
+      // The items row is inserted once (skip if present); the obj_<type-type> row
+      // is upserted UNCONDITIONALLY so an existing datastore — whose built-in type
+      // items predate the `types` -> obj_<type-type> cutover — gets its registry
+      // rows re-seeded into the new projection after migration 038 drops `types`.
+      const { rows } = await this._exec('SELECT 1 FROM items WHERE id = $1', [id]);
+      if (!rows.length) {
+        const parentId = src.item.parentId ?? TYPES_CONTAINER_ID;
+        await this._exec(
+          `INSERT INTO items (id, spec_version, parent_id, path, value, type, owner, license,
+             sort_order, created_at, modified_at, created_by, modified_by)
+           VALUES ($1,$2,$3,$4,$5,'type',$6,$7,0,$8,$8,$6,$6)
+           ON CONFLICT (id) DO NOTHING`,
+          [id, specVersion, parentId, `${ROOT_ID}/${TYPES_CONTAINER_ID}/${id}`,
+           value, owner, DEFAULT_LICENSE, now],
+        );
+      }
+
+      const meta = payload.meta ?? {};
+      await this._exec(
+        `INSERT INTO "${typeObj}" (
+           item_id,
+           meta_icon, meta_description, meta_details, meta_keywords, meta_tags,
+           meta_primary_field, meta_ai_instructions_claude,
+           meta_functions_consumed_by, meta_functions_produced_by,
+           json_schema, sql_schema, sync, superseded_by, implements, extends, indexes
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+         ON CONFLICT (item_id) DO NOTHING`,
+        [
+          id,
+          meta.icon ?? null, meta.description ?? '', meta.details ?? null,
+          meta.keywords ?? null, meta.tags ?? null,
+          meta.primaryField ?? null, meta.skills?.claude ?? null,
+          meta.functions?.consumedBy ?? [], meta.functions?.producedBy ?? [],
+          JSON.stringify(payload.jsonSchema), payload.sqlSchema ?? [],
+          meta.sync ?? [], meta.supersededBy ?? [], meta.implements ?? [], meta.extends ?? [],
+          JSON.stringify(payload.indexes ?? []),
+        ],
+      );
+    }
+  }
+
+  // Seed the mandatory system INSTANCES the platform depends on — currently the
+  // 19 built-in licences (spec §licencePayload) — from @kanecta/specification's
+  // builtInSystemItems. Each becomes a `licence` item under the licence type
+  // container, projecting {spdxId,name,url,text} to obj_<licence-type>. Runs
+  // AFTER _ensureBuiltInTypes so the licence type + its projection def exist.
+  // Idempotent (ON CONFLICT / UPSERT) so it backfills existing datastores on open
+  // as well as seeding fresh ones. Same fail-closed guard as the type seeding.
+  //
+  // The default licence (bb3bf137) was seeded self-parented by migration 036 so
+  // the items.license -> items(id) FK could retarget; here we write its
+  // projection and reparent it under the licence type — its canonical home.
+  async _ensureSystemItems() {
+    if (!PostgresAdapter._schemaChangesAllowed()) return;
+
+    const licenceTypeId = BUILT_IN_TYPE_ID_BY_NAME['licence'];
+    if (!licenceTypeId) return;                       // licence type not seeded
+
+    const projected = await this._ensureProjection(licenceTypeId);
+    const typePath  = `${ROOT_ID}/${TYPES_CONTAINER_ID}/${licenceTypeId}`;
+    const now       = new Date();
+
+    for (const src of builtInSystemItems as any[]) {
+      const id       = src.item.id;
+      const parentId = src.item.parentId ?? licenceTypeId;
+      const owner    = src.meta?.owner ?? this.config.owner;
+      const license  = src.meta?.license ?? DEFAULT_LICENSE;
+      await this._exec(
+        `INSERT INTO items (id, spec_version, parent_id, path, value, type, type_id, owner,
+           license, sort_order, created_at, modified_at, created_by, modified_by)
+         VALUES ($1,$2,$3,$4,$5,'licence',$6,$7,$8,0,$9,$9,$7,$7)
+         ON CONFLICT (id) DO NOTHING`,
+        [id, specVersion, parentId, `${typePath}/${id}`, src.item.value,
+         licenceTypeId, owner, license, now],
+      );
+      if (projected) await this.writeObjectJson(id, licenceTypeId, src.payload ?? {});
+    }
+
+    // Reparent the default licence out of its self-parented bootstrap state (only
+    // while still self-parented, so this is a no-op on already-seeded datastores).
+    await this._exec(
+      `UPDATE items SET parent_id = $1, path = $2 WHERE id = $3 AND parent_id = $3`,
+      [licenceTypeId, `${typePath}/${DEFAULT_LICENSE}`, DEFAULT_LICENSE],
+    );
+  }
+
   async getRoot()     { return this._getByType('root'); }
 
   async _getByType(type: any) {
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       'SELECT * FROM items WHERE type = $1 LIMIT 1', [type],
     );
     return rowToItem(rows[0] ?? null);
@@ -316,7 +911,7 @@ class PostgresAdapter {
 
   async _getPath(id: any) {
     if (!id) return null;
-    const { rows } = await this._pool.query('SELECT path FROM items WHERE id = $1', [id]);
+    const { rows } = await this._exec('SELECT path FROM items WHERE id = $1', [id]);
     return rows[0]?.path ?? null;
   }
 
@@ -327,12 +922,12 @@ class PostgresAdapter {
 
   async _cascadePathUpdate(id: any, newPath: any) {
     const oldPath = await this._getPath(id);
-    await this._pool.query('UPDATE items SET path = $1 WHERE id = $2', [newPath, id]);
+    await this._exec('UPDATE items SET path = $1 WHERE id = $2', [newPath, id]);
     if (oldPath) {
       const oldPrefix = oldPath + '/';
       // Update all descendants whose path starts with the old prefix.
       // SUBSTRING(path FROM length) extracts the part after the old prefix.
-      await this._pool.query(
+      await this._exec(
         // $2::int forces SUBSTRING's positional form; without the cast an
         // untyped parameter is treated as the regex-pattern form and returns
         // null, wiping every descendant's path.
@@ -349,8 +944,8 @@ class PostgresAdapter {
   async _snapshot(idOrItem: any, changeType: any, changedBy: any, now?: any) {
     const item = typeof idOrItem === 'string' ? await this.get(idOrItem) : idOrItem;
     if (!item) return;
-    await this._pool.query(
-      `INSERT INTO history (id, item_id, snapshot, snapshot_at, changed_by, change_type)
+    await this._exec(
+      `INSERT INTO item_history (id, item_id, snapshot, snapshot_at, changed_by, change_type)
        VALUES ($1,$2,$3,$4,$5,$6)`,
       [crypto.randomUUID(), item.id, JSON.stringify(item), now ?? new Date(), changedBy, changeType],
     );
@@ -359,13 +954,19 @@ class PostgresAdapter {
   // ─── Item CRUD ───────────────────────────────────────────────────────────────
 
   async get(id: any) {
-    const { rows } = await this._pool.query('SELECT * FROM items WHERE id = $1', [id]);
-    return rowToItem(rows[0] ?? null);
+    // Point reads by id resolve the archive transparently (restore tooling,
+    // MCP contracts, byte proxies for soft-deleted files). Set-returning
+    // queries never touch item_archive unless includeDeleted asks for it.
+    const { rows } = await this._exec('SELECT * FROM items WHERE id = $1', [id]);
+    if (rows[0]) return rowToItem(rows[0]);
+    const arch = await this._execTry('SELECT * FROM item_archive WHERE id = $1', [id])
+      .catch(() => ({ rows: [] }));   // pre-043 schema: no archive yet
+    return rowToItem(arch.rows[0] ?? null);
   }
 
   async _typeDefExists(typeId: any) {
     if (!typeId) return false;
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       `SELECT 1 FROM items WHERE id = $1 AND type = 'type' LIMIT 1`, [typeId],
     );
     return rows.length > 0;
@@ -383,7 +984,15 @@ class PostgresAdapter {
     return `typeId ${typeId} has no type definition — node written anyway; run \`kanecta doctor\``;
   }
 
-  async create({
+  // Public write ops are atomic across all their projection/log writes: each wraps
+  // its implementation in `_withTx` (a standalone BEGIN…COMMIT), or joins the
+  // caller's `transaction(fn)` if one is already open.
+  async create(args: any = {}) {
+    return this._withTx(() => this._createImpl(args));
+  }
+
+  async _createImpl({
+    id: providedId = null,
     parentId, value = null, type = 'string', typeId = null,
     owner, license = null, sortOrder, confidence = null, status = null,
     tags = [], createdBy, objectData = null, dueAt = null, aspect = null,
@@ -393,23 +1002,60 @@ class PostgresAdapter {
   }: any = {}) {
     if (WELL_KNOWN_TYPES.has(type))
       throw new Error(`Type '${type}' is well-known and cannot be created via create()`);
+    // Optional caller-supplied id (backfill preserving source UUIDs; intra-
+    // transaction references where a later op points at this item). Must be a valid
+    // UUID that is not already taken; otherwise ids are server-minted.
+    if (providedId != null) {
+      if (!UUID_RE.test(providedId))
+        throw new Error(`Invalid id (must be a UUID): ${providedId}`);
+      const { rows } = await this._exec('SELECT 1 FROM items WHERE id = $1', [providedId]);
+      if (rows.length) throw new Error(`Item id already exists: ${providedId}`);
+    }
 
     let typeWarning: any = null;
     if (type === 'object' && typeId && !(await this._typeDefExists(typeId))) {
       typeWarning = this._guardTypeIdRef(typeId, strict);
     }
 
+    // The projection table this item belongs to (obj_<typeId>): a user 'object'
+    // carries its typeId; a projection-enabled structured built-in (grant, query)
+    // resolves its fixed type-item UUID. null for primitives / not-yet-cut-over
+    // built-ins — they keep type_id NULL and project nothing.
+    const rowTypeId = projectionTypeId(type, typeId);
+
     // Validate a supplied payload up-front, before the item row is inserted, so a
     // schema violation can never leave a dangling item with no (or invalid) payload.
-    if (type === 'object' && typeId && objectData != null) {
-      await this._validateObjectPayload(typeId, objectData);
+    if (rowTypeId && objectData != null) {
+      await this._validateObjectPayload(rowTypeId, objectData);
     }
 
-    if (parentId == null) {
-      parentId = ROOT_ID;
+    // Spec §parentid-rules — hard constraints, enforced here at write time:
+    // nothing ever defaults to root. A missing parentId is derivable only for
+    // bucket-homed items (objects → their custom type item; type items → the
+    // types node; bucketed structured built-ins → their synthetic type item).
+    // Placement/content items — primitives, aspects, and the explicit tree
+    // exceptions (node → parent node/tree, cell → grid, tree → root or a
+    // parent node, symlink → its tree position) — have a real tree position
+    // only the caller knows: require it, and allow root when the caller means
+    // root (a tree grouping, a root-level content item).
+    if (aspect == null) {
+      const bucketId =
+        type === 'type'   ? TYPES_CONTAINER_ID :
+        type === 'object' ? typeId :
+        PLACEMENT_TYPES.has(type) ? null :
+        BUILT_IN_TYPE_ID_BY_NAME[type] ?? null;
+      if (parentId == null) {
+        if (bucketId == null)
+          throw new Error(`parentId is required: '${type}' items have no type bucket to default to (spec §parentid-rules — nothing defaults to root)`);
+        parentId = bucketId;
+      } else if (parentId === ROOT_ID && bucketId != null) {
+        throw new Error(`Invalid parentId: '${type}' items live under ${type === 'type' ? 'the types node' : 'their type item'} (${bucketId}), never under root (spec §parentid-rules)`);
+      }
+    } else if (parentId == null) {
+      throw new Error('parentId is required for aspect items: the item this is an aspect of (spec §parentid-rules)');
     }
 
-    const id       = crypto.randomUUID();
+    const id       = providedId ?? crypto.randomUUID();
     const now      = new Date();
     const ownerVal = owner || this.config.owner;
     const actor    = createdBy || ownerVal;
@@ -423,7 +1069,7 @@ class PostgresAdapter {
     const parentPath = parentId ? await this._getPath(parentId) : null;
     const itemPath   = parentPath != null ? `${parentPath}/${id}` : id;
 
-    await this._pool.query(
+    await this._exec(
       `INSERT INTO items
          (id, spec_version, parent_id, path, value, type, type_id, owner, license, sort_order,
           confidence, status, tags, created_at, modified_at, created_by, modified_by,
@@ -432,7 +1078,7 @@ class PostgresAdapter {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$14,$15,$15,$16,'private',$17,$18,$19,$20,$21,$22,$23)`,
       [
         id, specVersion, parentId, itemPath, value,
-        type, type === 'object' ? typeId : null,
+        type, rowTypeId,
         ownerVal, license ?? DEFAULT_LICENSE,
         sortOrder, confidence, status, tags,
         now, actor, dueAt, aspect,
@@ -442,21 +1088,23 @@ class PostgresAdapter {
     );
 
     for (const link of parseLinks(value)) {
-      await this._pool.query(
-        'INSERT INTO links (source_id, target_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
+      await this._exec(
+        'INSERT INTO perf_backlinks (source_id, target_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
         [id, link],
       );
     }
 
     // Per-type table projection: the first live instance of a type materialises
     // its obj_<typeId> table, and every instance holds a row there (one row per
-    // live item). ensureProjection is a no-op for an orphan typeId (no def).
-    if (type === 'object' && typeId) {
-      const projected = await this._ensureProjection(typeId);
+    // live item). Applies to user 'object' types AND projection-enabled
+    // structured built-ins (both resolved to rowTypeId). ensureProjection is a
+    // no-op for an orphan typeId (no def).
+    if (rowTypeId) {
+      const projected = await this._ensureProjection(rowTypeId);
       if (projected) {
-        if (objectData) await this.writeObjectJson(id, typeId, objectData);
-        else await this._pool.query(
-          `INSERT INTO "${objTableName(typeId)}" (item_id) VALUES ($1) ON CONFLICT (item_id) DO NOTHING`,
+        if (objectData) await this.writeObjectJson(id, rowTypeId, objectData);
+        else await this._exec(
+          `INSERT INTO "${objTableName(rowTypeId)}" (item_id) VALUES ($1) ON CONFLICT (item_id) DO NOTHING`,
           [id],
         );
       }
@@ -470,9 +1118,24 @@ class PostgresAdapter {
     return item;
   }
 
-  async update(id: any, changes: any, actor?: any, { strict }: any = {}) {
+  async update(id: any, changes: any, actor?: any, opts: any = {}) {
+    return this._withTx(() => this._updateImpl(id, changes, actor, opts));
+  }
+
+  async _updateImpl(id: any, changes: any, actor?: any, { strict }: any = {}) {
     const current = await this.get(id);
     if (!current) throw new Error(`Item not found: ${id}`);
+    // Archived items are read-only: restore first (a live-store write while
+    // the archive row exists would split the item across the two tables).
+    if (current.deletedAt) {
+      const { rows: live } = await this._exec('SELECT 1 FROM items WHERE id = $1', [id]);
+      if (!live.length)
+        throw new Error(`Item ${id} is archived (soft-deleted) — restore() it before updating`);
+    }
+    // deletedAt transitions are the archive's job — update() may not flag-set
+    // them (the live table never contains a deleted row by construction).
+    if ('deletedAt' in changes && (changes.deletedAt ?? null) !== (current.deletedAt ?? null))
+      throw new Error('deletedAt cannot be changed via update() — use softDelete()/restore()');
     // The root node is renamable — its `value` (and other descriptive fields)
     // may be edited so a datastore can be given a meaningful name — but its
     // structural fields stay locked so it remains the self-parented type:'root'
@@ -509,14 +1172,18 @@ class PostgresAdapter {
       const oldLinks = parseLinks(current.value);
       const newLinks = parseLinks(changes.value);
       for (const l of oldLinks) if (!newLinks.includes(l))
-        await this._pool.query('DELETE FROM links WHERE source_id=$1 AND target_id=$2', [id, l]);
+        await this._exec('DELETE FROM perf_backlinks WHERE source_id=$1 AND target_id=$2', [id, l]);
       for (const l of newLinks) if (!oldLinks.includes(l))
-        await this._pool.query('INSERT INTO links (source_id, target_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [id, l]);
+        await this._exec('INSERT INTO perf_backlinks (source_id, target_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [id, l]);
       maybeSet('value', changes.value);
     }
 
     if ('type' in changes)        maybeSet('type',         changes.type);
-    if ('typeId' in changes)      maybeSet('type_id',      changes.typeId);
+    // Keep type_id in lockstep with the projection identity: recompute it
+    // whenever type or typeId changes so a structured built-in gains/keeps its
+    // fixed UUID and a primitive clears it (projectionTypeId encodes both).
+    if ('type' in changes || 'typeId' in changes)
+      maybeSet('type_id', projectionTypeId(newType, newTypeId));
     if ('sortOrder' in changes)   maybeSet('sort_order',   changes.sortOrder);
     if ('confidence' in changes)  maybeSet('confidence',   changes.confidence);
     if ('status' in changes)      maybeSet('status',       changes.status);
@@ -546,27 +1213,28 @@ class PostgresAdapter {
     maybeSet('modified_by', actor);
 
     if (sets.length) {
-      await this._pool.query(
+      await this._exec(
         `UPDATE items SET ${sets.join(', ')} WHERE id = $${p}`,
         [...params, id],
       );
     }
 
-    // Per-type projection: reconcile membership when the item's type/typeId
-    // changes. The items row is already updated above, so N(T) on the old type
-    // no longer counts this item. A pure soft-delete (deletedAt only) leaves
-    // type/typeId unchanged and keeps the obj_ row (pg's payload store).
-    const prevObj = current.type === 'object' && current.typeId;
-    const nextObj = newType === 'object' && newTypeId;
-    if (prevObj && (!nextObj || current.typeId !== newTypeId)) {
-      try { await this._pool.query(`DELETE FROM "${objTableName(current.typeId)}" WHERE item_id = $1`, [id]); }
+    // Per-type projection: reconcile membership when the item's projection
+    // identity changes. Both sides resolve through projectionTypeId so user
+    // 'object' types and projection-enabled structured built-ins are handled
+    // uniformly. The items row is already updated above. A pure soft-delete
+    // (deletedAt only) leaves type/typeId unchanged and keeps the obj_ row.
+    const prevProj = projectionTypeId(current.type, current.typeId);
+    const nextProj = projectionTypeId(newType, newTypeId);
+    if (prevProj && prevProj !== nextProj) {
+      try { await this._exec(`DELETE FROM "${objTableName(prevProj)}" WHERE item_id = $1`, [id]); }
       catch { /* old table already absent */ }
-      await this._dropProjectionIfEmpty(current.typeId);
+      await this._dropProjectionIfEmpty(prevProj);
     }
-    if (nextObj && (!prevObj || current.typeId !== newTypeId)) {
-      const projected = await this._ensureProjection(newTypeId);
-      if (projected) await this._pool.query(
-        `INSERT INTO "${objTableName(newTypeId)}" (item_id) VALUES ($1) ON CONFLICT (item_id) DO NOTHING`,
+    if (nextProj && prevProj !== nextProj) {
+      const projected = await this._ensureProjection(nextProj);
+      if (projected) await this._exec(
+        `INSERT INTO "${objTableName(nextProj)}" (item_id) VALUES ($1) ON CONFLICT (item_id) DO NOTHING`,
         [id],
       );
     }
@@ -579,12 +1247,14 @@ class PostgresAdapter {
   }
 
   async deleteWarnings(id: any) {
-    const { rows: linkRows } = await this._pool.query(
-      'SELECT COUNT(*) FROM links WHERE target_id = $1', [id],
+    const { rows: linkRows } = await this._exec(
+      'SELECT COUNT(*) FROM perf_backlinks WHERE target_id = $1', [id],
     );
-    const { rows: relRows } = await this._pool.query(
-      'SELECT COUNT(*) FROM relationships WHERE target_id = $1', [id],
-    );
+    const relRows = await this._execTry(
+      `SELECT COUNT(*) FROM "${objTableName(RELATIONSHIP_TYPE_ID)}" o
+         JOIN items i ON i.id = o.item_id
+        WHERE o.target_id = $1 AND i.deleted_at IS NULL`, [id],
+    ).then(r => r.rows).catch(() => [{ count: '0' }]);   // obj_<relationship> not materialised
     const warnings = [];
     if (parseInt(linkRows[0].count) > 0)
       warnings.push(`${linkRows[0].count} item(s) link to this via [[uuid]] syntax`);
@@ -594,59 +1264,176 @@ class PostgresAdapter {
   }
 
   async delete(id: any, actor?: any) {
+    return this._withTx(() => this._deleteImpl(id, actor));
+  }
+
+  async _deleteImpl(id: any, actor?: any) {
     const item = await this.get(id);
     this._assertDeletable(item, id);
     actor = actor || this.config.owner;
     const now = new Date();
+
+    // Hard delete of an ARCHIVED item = purge: the item already left every
+    // live/derived structure when it was archived — remove the archive copy
+    // (payload cascades), any remaining inbound backlink rows, and drop the
+    // projection table if this purged the type's last instance anywhere.
+    if (item.deletedAt) {
+      const { rows: live } = await this._exec('SELECT 1 FROM items WHERE id = $1', [id]);
+      if (!live.length) {
+        await this._snapshot(item, 'delete', actor, now);
+        await this._exec('DELETE FROM perf_backlinks WHERE source_id = $1 OR target_id = $1', [id]);
+        await this._exec('DELETE FROM item_archive WHERE id = $1', [id]);
+        if (item.typeId) await this._dropProjectionIfEmpty(item.typeId);
+        return { warnings: [] };
+      }
+    }
+
     const warnings = await this.deleteWarnings(id);
     await this._snapshot(item, 'delete', actor, now);
-    await this._pool.query('DELETE FROM aliases WHERE target_id = $1', [id]);
+    // Alias items pointing at this item would dangle (and their target_id FK would
+    // block the delete), so remove them first. Their obj_<alias> rows cascade via the
+    // item_id FK. (Aliases are now first-class items — no `aliases` table.)
+    const aliasTable = objTableName(BUILT_IN_TYPE_ID_BY_NAME['alias']);
+    await this._execTry(
+      `DELETE FROM items WHERE id IN (
+         SELECT i.id FROM items i JOIN "${aliasTable}" a ON a.item_id = i.id
+         WHERE i.type = 'alias' AND a.target_id = $1)`,
+      [id],
+    ).catch(() => { /* obj_<alias> not materialised yet */ });
     // Derived backlink rows reference items via FK in both directions — clear
     // them before removing the item.
-    await this._pool.query('DELETE FROM links WHERE source_id = $1 OR target_id = $1', [id]);
-    await this._pool.query('DELETE FROM items WHERE id = $1', [id]);
+    await this._exec('DELETE FROM perf_backlinks WHERE source_id = $1 OR target_id = $1', [id]);
+    await this._exec('DELETE FROM items WHERE id = $1', [id]);
     // The obj_ row cascaded away with the items row (FK ON DELETE CASCADE). Drop
     // the type table if this hard delete removed the last remaining instance.
-    if (item.type === 'object' && item.typeId) await this._dropProjectionIfEmpty(item.typeId);
+    // typeId is the projection key (object OR structured built-in).
+    if (item.typeId) await this._dropProjectionIfEmpty(item.typeId);
     return { warnings };
   }
 
-  // ─── Soft delete / restore ───────────────────────────────────────────────────
+  // ─── Soft delete / restore (item_archive: delete = physical row move) ───────
 
+  // Stamp deletedAt and MOVE the row items → item_archive (verbatim —
+  // identical schemas, INSERT … SELECT *). The obj_ projection row, FTS row,
+  // embedding and queue rows all cascade away with the items row (spine FKs);
+  // the payload is captured into item_archive_payload first so restore can
+  // repopulate the projection. Outbound backlinks (this item's own links) are
+  // dropped and rebuilt on restore; inbound rows describe LIVE items' content
+  // and stay. Live queries then never see the item by construction.
   async softDelete(id: any, actor?: any) {
+    return this._withTx(() => this._softDeleteImpl(id, actor));
+  }
+
+  async _softDeleteImpl(id: any, actor?: any) {
     const item = await this.get(id);
     if (!item) throw new Error(`Item not found: ${id}`);
     this._assertDeletable(item, id);
+    if (item.deletedAt) {
+      const { rows: live } = await this._exec('SELECT 1 FROM items WHERE id = $1', [id]);
+      if (!live.length) return item;   // already archived — idempotent
+    }
     actor = actor || this.config.owner;
     const now = new Date();
     await this._snapshot(item, 'soft-delete', actor, now);
-    await this._pool.query(
+    // Capture the payload BEFORE the obj_ row cascades away with the items row.
+    const projTypeId = projectionTypeId(item.type, item.typeId);
+    const payload = projTypeId ? await this.readObjectJson(id, projTypeId) : null;
+    await this._exec(
       'UPDATE items SET deleted_at = $1, modified_at = $1, modified_by = $2 WHERE id = $3',
       [now, actor, id],
     );
+    await this._exec('DELETE FROM perf_backlinks WHERE source_id = $1', [id]);
+    await this._exec(
+      'INSERT INTO item_archive SELECT * FROM items WHERE id = $1 ON CONFLICT (id) DO NOTHING', [id],
+    );
+    if (payload != null) await this._exec(
+      `INSERT INTO item_archive_payload (item_id, payload) VALUES ($1, $2)
+       ON CONFLICT (item_id) DO UPDATE SET payload = EXCLUDED.payload`,
+      [id, JSON.stringify(payload)],
+    );
+    await this._exec('DELETE FROM items WHERE id = $1', [id]);
     return this.get(id);
   }
 
+  // Clear deletedAt and move the row back. The items INSERT re-fires the FTS
+  // trigger; the obj_ projection repopulates from the captured payload (table
+  // recreated if it was dropped); outbound backlinks re-derive from value.
+  // On a LIVE item this stays the pre-archive no-op-equivalent: clear the
+  // (already-null) flag and touch modifiedAt, exactly as before.
   async restore(id: any, actor?: any) {
+    return this._withTx(() => this._restoreImpl(id, actor));
+  }
+
+  async _restoreImpl(id: any, actor?: any) {
     const item = await this.get(id);
     if (!item) throw new Error(`Item not found: ${id}`);
     actor = actor || this.config.owner;
     const now = new Date();
     await this._snapshot(item, 'restore', actor, now);
-    await this._pool.query(
+
+    const { rows: live } = await this._exec('SELECT 1 FROM items WHERE id = $1', [id]);
+    if (live.length) {
+      await this._exec(
+        'UPDATE items SET deleted_at = NULL, modified_at = $1, modified_by = $2 WHERE id = $3',
+        [now, actor, id],
+      );
+      return this.get(id);
+    }
+
+    await this._exec(
+      'INSERT INTO items SELECT * FROM item_archive WHERE id = $1 ON CONFLICT (id) DO NOTHING', [id],
+    );
+    await this._exec(
       'UPDATE items SET deleted_at = NULL, modified_at = $1, modified_by = $2 WHERE id = $3',
       [now, actor, id],
     );
+    const projTypeId = projectionTypeId(item.type, item.typeId);
+    if (projTypeId) {
+      const { rows } = await this._exec(
+        'SELECT payload FROM item_archive_payload WHERE item_id = $1', [id],
+      );
+      const payload = rows[0]?.payload ?? null;
+      const projected = await this._ensureProjection(projTypeId);
+      if (projected && payload != null) await this.writeObjectJson(id, projTypeId, payload);
+      else if (projected) await this._exec(
+        `INSERT INTO "${objTableName(projTypeId)}" (item_id) VALUES ($1) ON CONFLICT (item_id) DO NOTHING`, [id],
+      );
+    }
+    for (const link of parseLinks(item.value)) {
+      await this._exec(
+        'INSERT INTO perf_backlinks (source_id, target_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
+        [id, link],
+      );
+    }
+    if (this._embeddingProvider) await this._execTry(
+      `INSERT INTO perf_embedding_queue (item_id, queued_at) VALUES ($1, now())
+       ON CONFLICT (item_id) DO UPDATE SET queued_at = now()`, [id],
+    ).catch(() => { /* embeddings table not provisioned */ });
+    await this._exec('DELETE FROM item_archive WHERE id = $1', [id]);
     return this.get(id);
   }
 
   // ─── Aliases ─────────────────────────────────────────────────────────────────
 
+  // An alias is a payload-dimension item (spec §"Well-known payload dimension names"):
+  // the item lives under the alias type-UUID container, the alias STRING is item.value
+  // (case-insensitive), and it points at its target via payload.targetId. payload.assignedBy
+  // scopes it to an owning entity (null = unscoped); membership-graph visibility resolution
+  // is deferred (see plan) — resolveAlias returns the matching target as before.
+  // setAlias/resolveAlias/listAliases/removeAlias keep their signatures; no `aliases` table.
   async resolveAlias(alias: any) {
-    const { rows } = await this._pool.query(
-      'SELECT target_id FROM aliases WHERE alias = $1', [alias.toLowerCase()],
-    );
-    return rows[0]?.target_id ?? null;
+    const table = objTableName(BUILT_IN_TYPE_ID_BY_NAME['alias']);
+    try {
+      const { rows } = await this._exec(
+        `SELECT a.target_id FROM items i JOIN "${table}" a ON a.item_id = i.id
+         WHERE i.type = 'alias' AND lower(i.value) = $1 AND i.deleted_at IS NULL
+         ORDER BY (a.assigned_by IS NULL) DESC, i.created_at LIMIT 1`,
+        [String(alias).toLowerCase()],
+      );
+      return rows[0]?.target_id ?? null;
+    } catch {
+      return null;
+    }
   }
 
   async resolve(idOrAlias: any) {
@@ -656,111 +1443,218 @@ class PostgresAdapter {
   }
 
   async setAlias(alias: any, id: any) {
-    await this._pool.query(
-      'INSERT INTO aliases (alias, target_id) VALUES ($1,$2) ON CONFLICT (alias) DO UPDATE SET target_id = $2',
-      [alias.toLowerCase(), id],
-    );
+    const value       = String(alias).toLowerCase();
+    const aliasTypeId = BUILT_IN_TYPE_ID_BY_NAME['alias'];
+    const table       = objTableName(aliasTypeId);
+    const payload     = {
+      targetId: id, assignedBy: null, provisional: false,
+      confirmedAt: new Date().toISOString(), computedFromFormulaId: null,
+    };
+    // Upsert the default (unscoped) alias for this string — preserves the prior
+    // one-target-per-string behaviour of setAlias.
+    let existingId: any = null;
+    try {
+      const { rows } = await this._exec(
+        `SELECT i.id FROM items i JOIN "${table}" a ON a.item_id = i.id
+         WHERE i.type = 'alias' AND lower(i.value) = $1 AND a.assigned_by IS NULL
+           AND i.deleted_at IS NULL LIMIT 1`,
+        [value],
+      );
+      existingId = rows[0]?.id ?? null;
+    } catch { /* obj_<alias> not materialised yet */ }
+
+    if (existingId) {
+      await this.writeObjectJson(existingId, aliasTypeId, payload);
+    } else {
+      await this.create({ type: 'alias', parentId: aliasTypeId, value, owner: this.config.owner, objectData: payload });
+    }
   }
 
   async removeAlias(alias: any) {
-    await this._pool.query('DELETE FROM aliases WHERE alias = $1', [alias.toLowerCase()]);
+    const { rows } = await this._exec(
+      `SELECT id FROM items WHERE type = 'alias' AND lower(value) = $1 AND deleted_at IS NULL`,
+      [String(alias).toLowerCase()],
+    );
+    for (const r of rows) await this.delete(r.id);
   }
 
   async listAliases() {
-    const { rows } = await this._pool.query('SELECT alias, target_id FROM aliases ORDER BY alias');
-    return rows.map(r => ({ alias: r.alias, targetId: r.target_id }));
+    const table = objTableName(BUILT_IN_TYPE_ID_BY_NAME['alias']);
+    try {
+      const { rows } = await this._exec(
+        `SELECT i.value AS alias, a.target_id FROM items i JOIN "${table}" a ON a.item_id = i.id
+         WHERE i.type = 'alias' AND i.deleted_at IS NULL ORDER BY i.value`,
+      );
+      return rows.map((r: any) => ({ alias: r.alias, targetId: r.target_id }));
+    } catch {
+      return [];
+    }
   }
 
   // ─── Annotations ─────────────────────────────────────────────────────────────
 
+  // An annotation is a payload-dimension item (spec §"Well-known payload dimension
+  // names"): the item lives under the annotation type-UUID container, associates with
+  // its target via payload.targetId, and threads via payload.parentAnnotationId. The
+  // author is the item's createdBy, the timestamp is createdAt, and item.value mirrors
+  // the body. annotate()/annotations() keep their signatures — they now create/read
+  // `annotation` items projected to obj_<annotation-type>; there is no `annotations` table.
   async annotate(targetId: any, { author, content, parentAnnotationId = null }: any = {}) {
-    const id  = crypto.randomUUID();
-    const now = new Date();
-    await this._pool.query(
-      `INSERT INTO annotations (id, target_id, author, content, created_at, parent_annotation_id)
-       VALUES ($1,$2,$3,$4,$5,$6)`,
-      [id, targetId, author || this.config.owner, content, now, parentAnnotationId],
-    );
-    return { id, targetId, author: author || this.config.owner, content, createdAt: now.toISOString(), parentAnnotationId };
+    const actor = author || this.config.owner;
+    const item = await this.create({
+      type: 'annotation',
+      parentId: BUILT_IN_TYPE_ID_BY_NAME['annotation'],
+      value: content,
+      owner: actor,
+      createdBy: actor,
+      objectData: { targetId, body: content, parentAnnotationId },
+    });
+    return {
+      id:                 item.id,
+      targetId,
+      author:             item.createdBy,
+      content,
+      createdAt:          item.createdAt,
+      parentAnnotationId,
+    };
   }
 
   async annotations(targetId: any) {
-    const { rows } = await this._pool.query(
-      `SELECT * FROM annotations WHERE target_id = $1 ORDER BY created_at, id`,
-      [targetId],
-    );
-    return rows.map(r => ({
-      id:                 r.id,
-      targetId:           r.target_id,
-      author:             r.author,
-      content:            r.content,
-      createdAt:          r.created_at?.toISOString(),
-      parentAnnotationId: r.parent_annotation_id,
-    }));
+    const table = objTableName(BUILT_IN_TYPE_ID_BY_NAME['annotation']);
+    try {
+      const { rows } = await this._exec(
+        `SELECT i.id, i.created_at, i.created_by, a.target_id, a.body, a.parent_annotation_id
+         FROM items i JOIN "${table}" a ON a.item_id = i.id
+         WHERE i.type = 'annotation' AND a.target_id = $1 AND i.deleted_at IS NULL
+         ORDER BY i.created_at, i.id`,
+        [targetId],
+      );
+      return rows.map((r: any) => ({
+        id:                 r.id,
+        targetId:           r.target_id,
+        author:             r.created_by,
+        content:            r.body,
+        createdAt:          r.created_at?.toISOString(),
+        parentAnnotationId: r.parent_annotation_id,
+      }));
+    } catch {
+      // obj_<annotation> not materialised yet (no annotations created) → none.
+      return [];
+    }
   }
 
   // ─── Relationships ────────────────────────────────────────────────────────────
 
+  // Create a typed relationship. A relationship is a first-class `relationship`
+  // item (spec §relationshipPayload — no bespoke `relationships` table): its
+  // payload {typeId, sourceId, targetId, data, confidence, note} projects to
+  // obj_<relationship>. The string API is preserved: `type` is a slug resolved to
+  // its relationship-type item UUID (payload.typeId). The AGE edge is an additive
+  // perf_ mirror; a graph error never fails the authoritative SQL write.
   async relate(sourceId: any, type: any, targetId: any, { createdBy, note = null }: any = {}) {
     const validTypes = this._relTypesCache ?? BUILT_IN_REL_TYPES;
     if (!validTypes.includes(type))
       throw new Error(`Invalid relationship type: ${type}. Valid: ${validTypes.join(', ')}`);
-    const id    = crypto.randomUUID();
-    const now   = new Date();
-    const actor = createdBy || this.config.owner;
-    await this._pool.query(
-      `INSERT INTO relationships (id, source_id, target_id, type, created_at, created_by, note)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-      [id, sourceId, targetId, type, now, actor, note],
+    const typeId = this._relTypeIdByName.get(type) ?? null;
+    const id     = crypto.randomUUID();
+    const now    = new Date();
+    const actor  = createdBy || this.config.owner;
+    const relPath = `${ROOT_ID}/${TYPES_CONTAINER_ID}/${RELATIONSHIP_TYPE_ID}/${id}`;
+    // The relationship item lives under the relationship type container (universal
+    // placement rule); item.value is the slug label, item.type_id is the
+    // relationship type (334ea5f6) so it projects to / counts against obj_<relationship>.
+    await this._exec(
+      `INSERT INTO items (id, spec_version, parent_id, path, value, type, type_id, owner,
+         license, sort_order, created_at, modified_at, created_by, modified_by)
+       VALUES ($1,$2,$3,$4,$5,'relationship',$6,$7,$8,0,$9,$9,$7,$7)`,
+      [id, specVersion, RELATIONSHIP_TYPE_ID, relPath, type, RELATIONSHIP_TYPE_ID,
+       actor, DEFAULT_LICENSE, now],
     );
-    // Additive graph projection: mirror the relationship as an AGE edge when the
-    // graph is enabled. Never let a graph error fail the (authoritative) SQL write.
+    await this._ensureProjection(RELATIONSHIP_TYPE_ID);
+    await this.writeObjectJson(id, RELATIONSHIP_TYPE_ID, {
+      typeId, sourceId, targetId, data: null, confidence: null, note,
+    });
+    await this._snapshot(id, 'create', actor, now);
     await this._projectRelationshipToGraph({ id, sourceId, targetId, type });
     return { id, sourceId, targetId, type, createdAt: now.toISOString(), createdBy: actor, note };
   }
 
-  // Remove a relationship by id (and its mirrored AGE edge, if any). Returns
-  // true if a row was deleted. There is no cascade from item delete, so this is
-  // the supported way to retract a relationship.
+  // Retract a relationship by hard-deleting its item (its obj_<relationship> row
+  // cascades via the item_id FK) and its mirrored AGE edge. Returns true if an
+  // item was removed. Endpoint items are never touched (spec §relationshipPayload).
   async unrelate(id: any) {
-    const { rowCount } = await this._pool.query('DELETE FROM relationships WHERE id = $1', [id]);
+    const { rowCount } = await this._exec(
+      `DELETE FROM items WHERE id = $1 AND type = 'relationship'`, [id],
+    );
     await this._unprojectRelationshipFromGraph(id);
+    if ((rowCount ?? 0) > 0) await this._dropProjectionIfEmpty(RELATIONSHIP_TYPE_ID);
     return (rowCount ?? 0) > 0;
   }
 
   async relationships(id: any) {
-    const { rows: out } = await this._pool.query(
-      `SELECT * FROM relationships WHERE source_id = $1 ORDER BY created_at`, [id],
-    );
-    const { rows: inn } = await this._pool.query(
-      `SELECT * FROM relationships WHERE target_id = $1 ORDER BY created_at`, [id],
-    );
-    return {
-      outbound: out.map(r => ({ id: r.id, targetId: r.target_id, type: r.type, createdAt: r.created_at?.toISOString(), createdBy: r.created_by, note: r.note })),
-      inbound:  inn.map(r => ({ id: r.id, sourceId: r.source_id, type: r.type, createdAt: r.created_at?.toISOString(), createdBy: r.created_by, note: r.note })),
-    };
+    const relObj = objTableName(RELATIONSHIP_TYPE_ID);
+    try {
+      const { rows: out } = await this._exec(
+        `SELECT o.item_id AS id, o.source_id, o.target_id, rt.value AS type, o.note,
+                i.created_at, i.created_by
+           FROM "${relObj}" o
+           JOIN items i        ON i.id = o.item_id
+           LEFT JOIN items rt  ON rt.id = o.type_id
+          WHERE o.source_id = $1 AND i.deleted_at IS NULL
+          ORDER BY i.created_at`, [id],
+      );
+      const { rows: inn } = await this._exec(
+        `SELECT o.item_id AS id, o.source_id, o.target_id, rt.value AS type, o.note,
+                i.created_at, i.created_by
+           FROM "${relObj}" o
+           JOIN items i        ON i.id = o.item_id
+           LEFT JOIN items rt  ON rt.id = o.type_id
+          WHERE o.target_id = $1 AND i.deleted_at IS NULL
+          ORDER BY i.created_at`, [id],
+      );
+      return {
+        outbound: out.map(r => ({ id: r.id, targetId: r.target_id, type: r.type, createdAt: r.created_at?.toISOString(), createdBy: r.created_by, note: r.note })),
+        inbound:  inn.map(r => ({ id: r.id, sourceId: r.source_id, type: r.type, createdAt: r.created_at?.toISOString(), createdBy: r.created_by, note: r.note })),
+      };
+    } catch {
+      // obj_<relationship> not materialised yet (no relationships created) → none.
+      return { outbound: [], inbound: [] };
+    }
   }
 
   async backlinks(id: any) {
-    const { rows } = await this._pool.query(
-      'SELECT source_id FROM links WHERE target_id = $1', [id],
+    const { rows } = await this._exec(
+      'SELECT source_id FROM perf_backlinks WHERE target_id = $1', [id],
     );
     return rows.map(r => r.source_id);
   }
 
   async listRelationships() {
-    const { rows } = await this._pool.query('SELECT * FROM relationships ORDER BY created_at');
-    return rows.map(r => ({
-      id: r.id, sourceId: r.source_id, targetId: r.target_id,
-      type: r.type, createdAt: r.created_at?.toISOString(), createdBy: r.created_by, note: r.note,
-    }));
+    const relObj = objTableName(RELATIONSHIP_TYPE_ID);
+    try {
+      const { rows } = await this._exec(
+        `SELECT o.item_id AS id, o.source_id, o.target_id, rt.value AS type, o.note,
+                i.created_at, i.created_by
+           FROM "${relObj}" o
+           JOIN items i        ON i.id = o.item_id
+           LEFT JOIN items rt  ON rt.id = o.type_id
+          WHERE i.deleted_at IS NULL
+          ORDER BY i.created_at`,
+      );
+      return rows.map(r => ({
+        id: r.id, sourceId: r.source_id, targetId: r.target_id,
+        type: r.type, createdAt: r.created_at?.toISOString(), createdBy: r.created_by, note: r.note,
+      }));
+    } catch {
+      return [];
+    }
   }
 
   // ─── History ─────────────────────────────────────────────────────────────────
 
   async history(id: any) {
-    const { rows } = await this._pool.query(
-      `SELECT * FROM history WHERE item_id = $1 ORDER BY snapshot_at`, [id],
+    const { rows } = await this._exec(
+      `SELECT * FROM item_history WHERE item_id = $1 ORDER BY snapshot_at`, [id],
     );
     return rows.map(r => ({
       ...r.snapshot,
@@ -770,12 +1664,63 @@ class PostgresAdapter {
     }));
   }
 
+  // ─── Activity log ────────────────────────────────────────────────────────────
+  // The second append-only exempt log (spec §activityPayload): item_history
+  // tracks what CHANGED, activity tracks what HAPPENED (item viewed, search
+  // performed, sync completed). Events are application-level — callers record
+  // them; the adapter only gates, stores, and reads. Gated by
+  // rootPayload.activity: 'NONE' → recording is a no-op. Events are
+  // append-only, never themselves logged, and have no history.
+
+  _activityRowToEvent(r: any) {
+    return {
+      id: r.id, eventType: r.event_type, actor: r.actor,
+      targetId: r.target_id ?? null, data: r.data ?? null,
+      occurredAt: r.occurred_at?.toISOString(),
+    };
+  }
+
+  // Record a workspace event. Returns the stored event, or null when
+  // rootPayload.activity === 'NONE'.
+  async recordActivity({ eventType, actor, targetId = null, data = null }: any = {}) {
+    if ((this.config.activity ?? 'EXTERNAL') === 'NONE') return null;
+    if (!eventType || typeof eventType !== 'string') throw new Error('recordActivity: eventType is required');
+    if (!actor || typeof actor !== 'string')         throw new Error('recordActivity: actor is required');
+    const id = crypto.randomUUID();
+    const { rows } = await this._exec(
+      `INSERT INTO activity (id, event_type, actor, target_id, data)
+       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      [id, eventType, actor, targetId, data == null ? null : JSON.stringify(data)],
+    );
+    return this._activityRowToEvent(rows[0]);
+  }
+
+  // Events for one item, newest first.
+  async activityFor(targetId: any, { limit = 50 }: any = {}) {
+    const { rows } = await this._exec(
+      `SELECT * FROM activity WHERE target_id = $1 ORDER BY occurred_at DESC, id LIMIT $2`,
+      [targetId, limit],
+    );
+    return rows.map(r => this._activityRowToEvent(r));
+  }
+
+  // Recent events across the workspace, optionally filtered by eventType.
+  async listActivity({ eventType = null, limit = 50 }: any = {}) {
+    const { rows } = eventType
+      ? await this._exec(
+          `SELECT * FROM activity WHERE event_type = $1 ORDER BY occurred_at DESC, id LIMIT $2`,
+          [eventType, limit])
+      : await this._exec(
+          `SELECT * FROM activity ORDER BY occurred_at DESC, id LIMIT $1`, [limit]);
+    return rows.map(r => this._activityRowToEvent(r));
+  }
+
   // ─── Tree / navigation ───────────────────────────────────────────────────────
 
   async children(parentId: any, aspect: any = undefined) {
     if (aspect === undefined) {
       // No aspect filter: return all children (aspect IS NULL)
-      const { rows } = await this._pool.query(
+      const { rows } = await this._exec(
         `SELECT * FROM items WHERE parent_id = $1 AND id != $1 AND aspect IS NULL
          ORDER BY sort_order`,
         [parentId],
@@ -784,7 +1729,7 @@ class PostgresAdapter {
     }
     if (aspect === null) {
       // Explicit null: only items with no aspect (same as above for normal use)
-      const { rows } = await this._pool.query(
+      const { rows } = await this._exec(
         `SELECT * FROM items WHERE parent_id = $1 AND id != $1 AND aspect IS NULL
          ORDER BY sort_order`,
         [parentId],
@@ -792,7 +1737,7 @@ class PostgresAdapter {
       return rows.map(rowToItem);
     }
     // Named aspect filter
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       `SELECT * FROM items WHERE parent_id = $1 AND id != $1 AND aspect = $2
        ORDER BY sort_order`,
       [parentId, aspect],
@@ -801,13 +1746,13 @@ class PostgresAdapter {
   }
 
   async ancestors(id: any) {
-    const { rows } = await this._pool.query('SELECT path FROM items WHERE id = $1', [id]);
+    const { rows } = await this._exec('SELECT path FROM items WHERE id = $1', [id]);
     if (!rows.length || !rows[0].path) return [];
     const segments    = rows[0].path.split('/');
     const ancestorIds = segments.slice(0, -1);
     if (!ancestorIds.length) return [];
     const placeholders = ancestorIds.map((_: any, i: number) => `$${i + 1}`).join(', ');
-    const { rows: aRows } = await this._pool.query(
+    const { rows: aRows } = await this._exec(
       `SELECT * FROM items WHERE id IN (${placeholders})`, ancestorIds,
     );
     const byId = new Map(aRows.map(r => [r.id, rowToItem(r)]));
@@ -815,10 +1760,10 @@ class PostgresAdapter {
   }
 
   async subtreeCount(rootId: any) {
-    const { rows } = await this._pool.query('SELECT path FROM items WHERE id = $1', [rootId]);
+    const { rows } = await this._exec('SELECT path FROM items WHERE id = $1', [rootId]);
     if (!rows.length || !rows[0].path) return 0;
     const rootPath = rows[0].path;
-    const { rows: cnt } = await this._pool.query(
+    const { rows: cnt } = await this._exec(
       'SELECT COUNT(*) AS n FROM items WHERE path = $1 OR path LIKE $2',
       [rootPath, rootPath + '/%'],
     );
@@ -830,7 +1775,7 @@ class PostgresAdapter {
       rootId = ROOT_ID;
     }
 
-    const { rows: rootRows } = await this._pool.query(
+    const { rows: rootRows } = await this._exec(
       'SELECT path FROM items WHERE id = $1', [rootId],
     );
     if (!rootRows.length) return [];
@@ -844,14 +1789,14 @@ class PostgresAdapter {
     let rows;
 
     if (maxDepth === Infinity) {
-      const { rows: r } = await this._pool.query(
+      const { rows: r } = await this._exec(
         `SELECT * FROM items WHERE path = $1 OR path LIKE $2 ORDER BY path`,
         [rootPath, rootPath + '/%'],
       );
       rows = r;
     } else {
       const maxSlashes = rootDepth + maxDepth;
-      const { rows: r } = await this._pool.query(
+      const { rows: r } = await this._exec(
         `SELECT * FROM items
          WHERE (path = $1 OR path LIKE $2)
            AND (LENGTH(path) - LENGTH(REPLACE(path, '/', ''))) <= $3
@@ -889,7 +1834,7 @@ class PostgresAdapter {
 
   async _treeSlow(rootId: any, maxDepth: any = Infinity) {
     const depthLimit = Number.isFinite(maxDepth) ? maxDepth : 100;
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       `WITH RECURSIVE subtree AS (
          SELECT *, 0 AS depth FROM items WHERE id = $1
          UNION ALL
@@ -907,14 +1852,14 @@ class PostgresAdapter {
   // ─── Queries ──────────────────────────────────────────────────────────────────
 
   async byTag(tag: any) {
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       'SELECT id FROM items WHERE $1 = ANY(tags)', [tag],
     );
     return rows.map(r => r.id);
   }
 
   async byType(typeId: any) {
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       'SELECT id FROM items WHERE type_id = $1', [typeId],
     );
     return rows.map(r => r.id);
@@ -927,22 +1872,37 @@ class PostgresAdapter {
   // item or null.
   async bySource(sourceSystem: any, sourceExternalId: any) {
     if (!sourceSystem || !sourceExternalId) return null;
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       'SELECT * FROM items WHERE source_system = $1 AND source_external_id = $2 LIMIT 1',
       [sourceSystem, sourceExternalId],
     );
     return rows.length ? rowToItem(rows[0]) : null;
   }
 
-  async loadAll() {
-    const { rows } = await this._pool.query('SELECT * FROM items ORDER BY sort_order');
+  async loadAll({ includeDeleted = false }: any = {}) {
+    const src = includeDeleted
+      ? '(SELECT * FROM items UNION ALL SELECT * FROM item_archive)'
+      : 'items';
+    const { rows } = await this._exec(`SELECT * FROM ${src} q ORDER BY sort_order`);
     return rows.map(rowToItem);
+  }
+
+  // List every registered type definition (id + value), ordered by name. This is
+  // the pg parity of the sqlite-fs `_listTypeDefs` — kanecta-api's GraphQL schema
+  // builder (loadTypeItems) and the `/types` endpoint call it through the
+  // Datastore facade, so a Postgres-backed working set needs it too. Soft-deleted
+  // types are excluded: a deleted type must not generate GraphQL schema.
+  async _listTypeDefs() {
+    const { rows } = await this._exec(
+      `SELECT id, value FROM items WHERE type = 'type' AND deleted_at IS NULL ORDER BY value`,
+    );
+    return rows;
   }
 
   async resolveTypeId(name: any) {
     if (!name) return { unknown: true };
     if (BUILT_IN_TYPES.has(name)) return { primitive: true };
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       `SELECT id FROM items WHERE value = $1 AND type = 'type' LIMIT 1`, [name],
     );
     if (rows.length) return { id: rows[0].id };
@@ -966,8 +1926,14 @@ class PostgresAdapter {
       }
     }
 
-    // Soft-delete filter
+    // The live table contains no deleted rows (soft delete physically moves
+    // them to item_archive), so the default query needs no exclusion filter —
+    // the vacuous condition is kept as belt-and-braces. includeDeleted UNIONS
+    // the archive back in via the source relation below.
     if (!includeDeleted) conditions.push('deleted_at IS NULL');
+    const itemsSrc = includeDeleted
+      ? '(SELECT * FROM items UNION ALL SELECT * FROM item_archive)'
+      : 'items';
 
     // Expiry filters
     if (expiredOnly) {
@@ -986,9 +1952,9 @@ class PostgresAdapter {
         conditions.push(
           `id IN (
             WITH RECURSIVE sub AS (
-              SELECT id FROM items WHERE id = $${p}
+              SELECT id FROM ${itemsSrc} src0 WHERE id = $${p}
               UNION ALL
-              SELECT i.id FROM items i JOIN sub s ON i.parent_id = s.id AND i.id != i.parent_id
+              SELECT i.id FROM ${itemsSrc} i JOIN sub s ON i.parent_id = s.id AND i.id != i.parent_id
             ) SELECT id FROM sub
           )`,
         );
@@ -1008,15 +1974,16 @@ class PostgresAdapter {
     }
 
     const whereClause = conditions.length ? ' WHERE ' + conditions.join(' AND ') : '';
-    const { rows } = await this._pool.query(
-      `SELECT * FROM items${whereClause}`, params,
+    const { rows } = await this._exec(
+      `SELECT * FROM ${itemsSrc} q${whereClause}`, params,
     );
     let items = rows.map(rowToItem);
 
     // where clause: in-JS filtering on objectData fields
     if (where && Object.keys(where).length) {
       const withData = await Promise.all(items.map(async (item: any) => {
-        if (item.type !== 'object' || !item.typeId) return { ...item, objectData: null };
+        // type_id is the projection key for user objects AND structured built-ins.
+        if (!item.typeId) return { ...item, objectData: null };
         const objectData = await this.readObjectJson(item.id, item.typeId);
         return { ...item, objectData };
       }));
@@ -1061,7 +2028,7 @@ class PostgresAdapter {
   // ─── Full-text search ─────────────────────────────────────────────────────────
 
   async search(query: any, { rootId = null, limit = 10 }: any = {}) {
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       `WITH RECURSIVE subtree AS (
          SELECT id FROM items WHERE id = $2
          UNION ALL
@@ -1069,7 +2036,7 @@ class PostgresAdapter {
        )
        SELECT i.*, ts_rank(si.tsv, plainto_tsquery('english', $1)) AS rank
        FROM items i
-       JOIN search_index si ON si.item_id = i.id
+       JOIN perf_search si ON si.item_id = i.id
        WHERE si.tsv @@ plainto_tsquery('english', $1)
          AND ($2::uuid IS NULL OR i.id IN (SELECT id FROM subtree))
        ORDER BY rank DESC
@@ -1089,10 +2056,10 @@ class PostgresAdapter {
     if (!typeId) return null;
     const table = objTableName(typeId);
     try {
-      const result = await this._pool.query(
+      const result = await this._execTry(
         `SELECT * FROM "${table}" WHERE item_id = $1`, [id],
       );
-      if (!result.rows[0]) return null;
+      if (!result.rows[0]) return this._readArchivedPayload(id);
       // The compiler maps jsonSchema `integer` to BIGINT, which node-pg returns
       // as a string; coerce those columns back to numbers so the payload keeps
       // its JS types. (int4/float8/bool/arrays already come back correctly.)
@@ -1105,6 +2072,18 @@ class PostgresAdapter {
           return [k.replace(/_([a-z])/g, (_, c) => c.toUpperCase()), val];
         }),
       );
+    } catch { return this._readArchivedPayload(id); }
+  }
+
+  // Archived items keep serving their payload by id (point-read contract):
+  // the obj_ row left with the archive move, but the capture in
+  // item_archive_payload holds the writeObjectJson-shaped (camelCase) object.
+  async _readArchivedPayload(id: any) {
+    try {
+      const { rows } = await this._execTry(
+        'SELECT payload FROM item_archive_payload WHERE item_id = $1', [id],
+      );
+      return rows[0]?.payload ?? null;
     } catch { return null; }
   }
 
@@ -1112,6 +2091,20 @@ class PostgresAdapter {
   // persisted. Skips silently when the type has no resolvable jsonSchema (nothing
   // to validate against). Throws a PayloadValidationError on a schema violation so
   // invalid typed objects never reach the obj_<typeId> table.
+  _validateTypeSchema(typeId: any, typeJson: any) {
+    const result = validateType(typeJson);
+    if (!result.valid) {
+      const err: any = new Error(
+        `Type definition failed validation for type ${typeId}: ` +
+        result.errors.map((e: any) => `${e.path || '(root)'}: ${e.message}`).join('; '),
+      );
+      err.name = 'TypeValidationError';
+      err.code = 'INVALID_TYPE';
+      err.validationErrors = result.errors;
+      throw err;
+    }
+  }
+
   async _validateObjectPayload(typeId: any, data: any) {
     if (!typeId || data == null) return;
     const typeJson = await this.readTypeJson(typeId);
@@ -1150,75 +2143,105 @@ class PostgresAdapter {
     const sets         = entries.map(([k], i) => `"${k}" = $${i + 2}`).join(', ');
     const placeholders = vals.map((_, i) => `$${i + 2}`).join(', ');
     try {
-      await this._pool.query(
+      await this._exec(
         `INSERT INTO "${table}" (item_id, ${cols}) VALUES ($1, ${placeholders})
          ON CONFLICT (item_id) DO UPDATE SET ${sets}`,
         [id, ...vals],
       );
     } catch (e: any) {
-      console.warn(`writeObjectJson: table ${table} not found for type ${typeId}:`, e.message);
+      // Only tolerate a genuinely-missing projection table (42P01): the payload
+      // just isn't projected. Any OTHER error (unique/constraint violation,
+      // not-null, type mismatch) is real — swallowing it here would leave the
+      // enclosing transaction ABORTED (so every later statement fails with
+      // "current transaction is aborted…") and orphan the items row. Propagate it
+      // so the write rolls back cleanly and the caller gets a proper error.
+      if (e?.code === '42P01') {
+        console.warn(`writeObjectJson: table ${table} not found for type ${typeId}:`, e.message);
+        return;
+      }
+      throw e;
     }
   }
 
   // ─── Function data ───────────────────────────────────────────────────────────
 
+  // A function's payload is projected exactly like any other type (the four-table
+  // law): scalars live on obj_<function-type>; its parameters / generic type
+  // parameters / declared throws are `parameter` / `type-parameter` /
+  // `function-throw` children (ordered by item.sortOrder); its bundleHash open
+  // map is `property` children (item.value = runtime name, payload.value = hash).
+  // readFunctionJson / writeFunctionJson keep their original signatures — they are
+  // the sole reader/writer of the whole nested payload — but the four bespoke
+  // `function*` tables are gone.
   async readFunctionJson(id: any) {
-    const { rows } = await this._pool.query('SELECT * FROM functions WHERE item_id = $1', [id]);
-    const fn = rows[0];
-    if (!fn) return null;
+    const scalars: any = await this.readObjectJson(id, BUILT_IN_TYPE_ID_BY_NAME['function']);
 
-    const [{ rows: typeParamRows }, { rows: paramRows }, { rows: throwRows }] = await Promise.all([
-      this._pool.query(
-        `SELECT name, constraint_expr, default_type FROM function_type_parameters
-         WHERE function_id = $1 ORDER BY sort_order`, [id],
-      ),
-      this._pool.query(
-        `SELECT name, type, type_id, optional, rest, default_value, description FROM function_parameters
-         WHERE function_id = $1 ORDER BY sort_order`, [id],
-      ),
-      this._pool.query(
-        `SELECT type, description FROM function_throws
-         WHERE function_id = $1 ORDER BY sort_order`, [id],
-      ),
-    ]);
+    const { rows: kids } = await this._exec(
+      `SELECT id, value, type FROM items
+        WHERE parent_id = $1 AND deleted_at IS NULL
+          AND type = ANY($2) ORDER BY sort_order`,
+      [id, ['parameter', 'type-parameter', 'function-throw', 'property']],
+    );
+
+    const parameters: any[]     = [];
+    const typeParameters: any[] = [];
+    const throws: any[]         = [];
+    const bundleHash: Record<string, any> = {};
+    let   hasBundleHash = false;
+
+    for (const k of kids) {
+      if (k.type === 'parameter') {
+        const p = (await this.readObjectJson(k.id, BUILT_IN_TYPE_ID_BY_NAME['parameter'])) ?? {};
+        const out: any = { name: p.name };
+        if (p.type != null)         out.type = p.type;
+        if (p.typeId != null)       out.typeId = p.typeId;
+        if (p.functionId != null)   out.functionId = p.functionId;
+        if (p.optional)             out.optional = true;
+        if (p.rest)                 out.rest = true;
+        if (p.defaultValue != null) out.defaultValue = p.defaultValue;
+        if (p.description != null)  out.description = p.description;
+        parameters.push(out);
+      } else if (k.type === 'type-parameter') {
+        const tp = (await this.readObjectJson(k.id, BUILT_IN_TYPE_ID_BY_NAME['type-parameter'])) ?? {};
+        const out: any = { name: tp.name };
+        if (tp.constraint != null)  out.constraint = tp.constraint;
+        if (tp.defaultType != null) out.default = tp.defaultType;
+        typeParameters.push(out);
+      } else if (k.type === 'function-throw') {
+        const t = (await this.readObjectJson(k.id, BUILT_IN_TYPE_ID_BY_NAME['function-throw'])) ?? {};
+        const out: any = { type: t.type };
+        if (t.description != null)  out.description = t.description;
+        throws.push(out);
+      } else if (k.type === 'property') {
+        const pr = (await this.readObjectJson(k.id, BUILT_IN_TYPE_ID_BY_NAME['property'])) ?? {};
+        bundleHash[k.value] = pr.value;
+        hasBundleHash = true;
+      }
+    }
+
+    // "Not set" = never written: no scalar values AND no children. create() lands
+    // an all-null obj_<function> row for a bare function item; that must still read
+    // as null until writeFunctionJson populates it.
+    const hasScalars = scalars && Object.values(scalars).some(v => v != null);
+    if (!hasScalars && !parameters.length && !typeParameters.length && !throws.length && !hasBundleHash)
+      return null;
 
     const result: any = {};
-    result.runtime = fn.runtime ?? 'typescript';
-    if (fn.description != null)    result.description = fn.description;
-    if (fn.is_async)               result.async = true;
-    if (fn.is_ai)                  result.ai = true;
-    if (fn.skill_id)               result.skill = fn.skill_id;
-    if (typeParamRows.length) {
-      result.typeParameters = typeParamRows.map((r: any) => {
-        const tp: any = { name: r.name };
-        if (r.constraint_expr != null) tp.constraint = r.constraint_expr;
-        if (r.default_type != null)    tp.default = r.default_type;
-        return tp;
-      });
-    }
-    result.parameters = paramRows.map((r: any) => {
-      const p: any = { name: r.name };
-      if (r.type != null)          p.type = r.type;
-      if (r.type_id != null)       p.typeId = r.type_id;
-      if (r.optional)              p.optional = true;
-      if (r.rest)                  p.rest = true;
-      if (r.default_value != null) p.defaultValue = r.default_value;
-      if (r.description != null)   p.description = r.description;
-      return p;
-    });
-    if (fn.return_type != null)    result.returnType = fn.return_type;
-    if (fn.return_type_id != null) result.returnTypeId = fn.return_type_id;
-    if (throwRows.length) {
-      result.throws = throwRows.map((r: any) => ({
-        type: r.type,
-        ...(r.description != null ? { description: r.description } : {}),
-      }));
-    }
-    if (fn.deprecated_notice != null) result.deprecated = fn.deprecated_notice;
-    if (fn.body != null)               result.body = fn.body;
-    if (!fn.include_kanecta_sdk)       result.includeKanectaSdk = false;
-    if (fn.dependencies?.length)       result.dependencies = fn.dependencies;
-    if (fn.bundle_hash != null)        result.bundleHash = fn.bundle_hash;
+    result.runtime = scalars?.runtime ?? 'typescript';
+    if (scalars?.description != null)         result.description = scalars.description;
+    if (scalars?.async)                       result.async = true;
+    if (scalars?.ai)                          result.ai = true;
+    if (scalars?.skillId != null)             result.skill = scalars.skillId;
+    if (typeParameters.length)                result.typeParameters = typeParameters;
+    result.parameters = parameters;
+    if (scalars?.returnType != null)          result.returnType = scalars.returnType;
+    if (scalars?.returnTypeId != null)        result.returnTypeId = scalars.returnTypeId;
+    if (throws.length)                        result.throws = throws;
+    if (scalars?.deprecated != null)          result.deprecated = scalars.deprecated;
+    if (scalars?.body != null)                result.body = scalars.body;
+    if (scalars?.includeKanectaSdk === false) result.includeKanectaSdk = false;
+    if (scalars?.dependencies?.length)        result.dependencies = scalars.dependencies;
+    if (hasBundleHash)                        result.bundleHash = bundleHash;
     return result;
   }
 
@@ -1231,46 +2254,67 @@ class PostgresAdapter {
       dependencies = [], bundleHash = null,
     } = data;
 
-    await this._pool.query(
-      `INSERT INTO functions (
-         item_id, runtime, description, is_async, is_ai, skill_id, return_type, return_type_id,
-         deprecated_notice, body, include_kanecta_sdk, dependencies, bundle_hash
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
-       ON CONFLICT (item_id) DO UPDATE SET
-         runtime = $2, description = $3, is_async = $4, is_ai = $5, skill_id = $6,
-         return_type = $7, return_type_id = $8, deprecated_notice = $9,
-         body = $10, include_kanecta_sdk = $11, dependencies = $12, bundle_hash = $13`,
-      [id, runtime, description, isAsync, ai, skill, returnType, returnTypeId,
-       deprecated, body, includeKanectaSdk, dependencies,
-       bundleHash ? JSON.stringify(bundleHash) : null],
+    const functionTypeId = BUILT_IN_TYPE_ID_BY_NAME['function'];
+    await this._ensureProjection(functionTypeId);
+    await this.writeObjectJson(id, functionTypeId, {
+      runtime, description,
+      async: isAsync, ai,
+      skillId: skill,
+      returnType, returnTypeId,
+      deprecated, body, includeKanectaSdk,
+      dependencies,
+    });
+
+    await this._replaceFunctionChildren(id, { parameters, typeParameters, throws, bundleHash });
+  }
+
+  // Regenerate the function's typed children wholesale from `data`. Existing
+  // parameter / type-parameter / function-throw / property children are hard-
+  // deleted (their obj_ rows cascade) and re-created in order. Each child is a
+  // real item with its own obj_<childType> projection — the array-of-objects and
+  // open-map fields are normalised into children, never inline columns.
+  async _replaceFunctionChildren(id: any, { parameters, typeParameters, throws, bundleHash }: any) {
+    const { rows: existing } = await this._exec(
+      `SELECT id FROM items WHERE parent_id = $1
+         AND type = ANY($2)`,
+      [id, ['parameter', 'type-parameter', 'function-throw', 'property']],
     );
+    for (const r of existing) await this.delete(r.id);
 
-    await Promise.all([
-      this._pool.query('DELETE FROM function_type_parameters WHERE function_id = $1', [id]),
-      this._pool.query('DELETE FROM function_parameters WHERE function_id = $1', [id]),
-      this._pool.query('DELETE FROM function_throws WHERE function_id = $1', [id]),
-    ]);
+    const owner = this.config.owner;
+    const mk = async (type: string, value: any, i: number, objectData: any) =>
+      this.create({ parentId: id, type, value, sortOrder: i, owner, objectData });
 
-    for (const [i, tp] of typeParameters.entries()) {
-      await this._pool.query(
-        `INSERT INTO function_type_parameters (id, function_id, sort_order, name, constraint_expr, default_type)
-         VALUES ($1,$2,$3,$4,$5,$6)`,
-        [crypto.randomUUID(), id, i, tp.name, tp.constraint ?? null, tp.default ?? null],
-      );
+    for (const [i, p] of parameters.entries()) {
+      await mk('parameter', p.name ?? null, i, {
+        name: p.name,
+        type: p.type ?? null,
+        typeId: p.typeId ?? null,
+        functionId: p.functionId ?? null,
+        optional: p.optional ?? null,
+        rest: p.rest ?? null,
+        defaultValue: p.defaultValue ?? null,
+        description: p.description ?? null,
+      });
     }
-    for (const [i, param] of parameters.entries()) {
-      await this._pool.query(
-        `INSERT INTO function_parameters (id, function_id, sort_order, name, type, type_id, optional, rest, default_value, description)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-        [crypto.randomUUID(), id, i, param.name, param.type ?? null, param.typeId ?? null, param.optional ?? false, param.rest ?? false, param.defaultValue ?? null, param.description ?? null],
-      );
+    for (const [i, tp] of typeParameters.entries()) {
+      await mk('type-parameter', tp.name ?? null, i, {
+        name: tp.name,
+        constraint: tp.constraint ?? null,
+        defaultType: tp.default ?? null,
+      });
     }
     for (const [i, t] of throws.entries()) {
-      await this._pool.query(
-        `INSERT INTO function_throws (id, function_id, sort_order, type, description)
-         VALUES ($1,$2,$3,$4,$5)`,
-        [crypto.randomUUID(), id, i, t.type, t.description ?? null],
-      );
+      await mk('function-throw', t.type ?? null, i, {
+        type: t.type,
+        description: t.description ?? null,
+      });
+    }
+    if (bundleHash && typeof bundleHash === 'object') {
+      let i = 0;
+      for (const [rt, hash] of Object.entries(bundleHash)) {
+        await mk('property', rt, i++, { value: hash });
+      }
     }
   }
 
@@ -1278,7 +2322,7 @@ class PostgresAdapter {
 
   // All stub items (materialized=false) managed by a specific connector.
   async listStubs(connectorId: any) {
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       `SELECT * FROM items
        WHERE connector_id = $1 AND materialized = false AND deleted_at IS NULL`,
       [connectorId],
@@ -1289,7 +2333,7 @@ class PostgresAdapter {
   // All connector-managed items whose cached_at is older than beforeAt.
   // Used by ConnectorEngine to drive scheduled refresh.
   async listDueForRefresh(beforeAt: any) {
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       `SELECT * FROM items
        WHERE connector_id IS NOT NULL AND cached_at < $1 AND deleted_at IS NULL`,
       [beforeAt],
@@ -1329,27 +2373,27 @@ class PostgresAdapter {
   }
 
   async readTimeJson(id: any) {
-    const { rows } = await this._pool.query('SELECT time_data FROM items WHERE id = $1', [id]);
+    const { rows } = await this._exec('SELECT time_data FROM items WHERE id = $1', [id]);
     return rows[0]?.time_data ?? null;
   }
 
   async writeTimeJson(id: any, data: any) {
-    await this._pool.query(
+    await this._exec(
       'UPDATE items SET time_data = $1 WHERE id = $2', [data, id],
     );
   }
 
   async deleteTimeJson(id: any) {
-    await this._pool.query('UPDATE items SET time_data = NULL WHERE id = $1', [id]);
+    await this._exec('UPDATE items SET time_data = NULL WHERE id = $1', [id]);
   }
 
   async readScheduleJson(id: any) {
-    const { rows } = await this._pool.query('SELECT schedule_data FROM items WHERE id = $1', [id]);
+    const { rows } = await this._exec('SELECT schedule_data FROM items WHERE id = $1', [id]);
     return rows[0]?.schedule_data ?? null;
   }
 
   async writeScheduleJson(id: any, data: any) {
-    await this._pool.query(
+    await this._exec(
       'UPDATE items SET schedule_data = $1 WHERE id = $2', [data, id],
     );
   }
@@ -1360,7 +2404,17 @@ class PostgresAdapter {
   // built-in-types/types/document.json and identical across all installations.
   static get DOCUMENT_TYPE_UUID() { return 'b4e2f1c3-a0d5-4e6f-8b9c-d7f2e1a3b5c0'; }
 
+  // A document is projected like any other type (the four-table law): scalars live
+  // on obj_<document-type>; its two nested maps are children —
+  // expandState.exceptions → `document-expand-exception` ({itemId, depth}; depth −1
+  // encodes the source `false` = collapse), roleMap.byDepth → `document-role-by-depth`
+  // ({depth, role}), roleMap.byType → `document-role-by-type` ({key, role}).
+  // expandState.defaultDepth is flattened onto the document scalar row. createDocument /
+  // readDocumentPayload / writeDocumentPayload / listDocuments keep their signatures —
+  // read/write reassemble the nested payload — so consumers (exportMarkdown, Studio) are
+  // untouched. The `documents` JSONB table is gone (migration 031).
   async createDocument(targetId: any, name: any, {
+    mode = null,
     expandState = null,
     roleMap = null,
     isOrgDefault = false,
@@ -1376,7 +2430,7 @@ class PostgresAdapter {
       owner,
       visibility,
     });
-    const payload = {
+    const payload: any = {
       targetId,
       name,
       expandState: expandState ?? { defaultDepth: 2, exceptions: {} },
@@ -1384,41 +2438,119 @@ class PostgresAdapter {
       isOrgDefault,
       baseDocumentId: baseDocumentId ?? null,
     };
+    if (mode != null) payload.mode = mode;
     await this.writeDocumentPayload(item.id, payload);
     return item;
   }
 
   async readDocumentPayload(id: any) {
-    const { rows } = await this._pool.query(
-      'SELECT payload FROM documents WHERE item_id = $1', [id],
+    const documentTypeId = BUILT_IN_TYPE_ID_BY_NAME['document'];
+    const scalars: any = await this.readObjectJson(id, documentTypeId);
+    // targetId is required on every real document; its absence means "no document
+    // payload" (a non-document item, or the transient empty row create() leaves).
+    if (!scalars || scalars.targetId == null) return null;
+
+    const { rows: kids } = await this._exec(
+      `SELECT id, type FROM items
+        WHERE parent_id = $1 AND deleted_at IS NULL
+          AND type = ANY($2) ORDER BY sort_order`,
+      [id, ['document-expand-exception', 'document-role-by-depth', 'document-role-by-type']],
     );
-    return rows[0]?.payload ?? null;
+
+    const exceptions: Record<string, any> = {};
+    const byDepth: Record<string, any>    = {};
+    const byType: Record<string, any>     = {};
+    for (const k of kids) {
+      if (k.type === 'document-expand-exception') {
+        const e: any = (await this.readObjectJson(k.id, BUILT_IN_TYPE_ID_BY_NAME['document-expand-exception'])) ?? {};
+        if (e.overrideItemId != null) exceptions[e.overrideItemId] = e.depth === -1 ? false : e.depth;
+      } else if (k.type === 'document-role-by-depth') {
+        const r: any = (await this.readObjectJson(k.id, BUILT_IN_TYPE_ID_BY_NAME['document-role-by-depth'])) ?? {};
+        if (r.depth != null) byDepth[String(r.depth)] = r.role;
+      } else if (k.type === 'document-role-by-type') {
+        const r: any = (await this.readObjectJson(k.id, BUILT_IN_TYPE_ID_BY_NAME['document-role-by-type'])) ?? {};
+        if (r.key != null) byType[r.key] = r.role;
+      }
+    }
+
+    const out: any = { targetId: scalars.targetId, name: scalars.name };
+    if (scalars.mode != null) out.mode = scalars.mode;
+    out.expandState = {};
+    if (scalars.defaultDepth != null) out.expandState.defaultDepth = scalars.defaultDepth;
+    out.expandState.exceptions = exceptions;
+    out.roleMap = { byDepth, byType };
+    out.isOrgDefault = scalars.isOrgDefault ?? false;
+    out.baseDocumentId = scalars.baseDocumentId ?? null;
+    return out;
   }
 
   async writeDocumentPayload(id: any, payload: any) {
-    await this._pool.query(
-      `INSERT INTO documents (item_id, payload) VALUES ($1, $2)
-       ON CONFLICT (item_id) DO UPDATE SET payload = EXCLUDED.payload`,
-      [id, JSON.stringify(payload)],
+    const documentTypeId = BUILT_IN_TYPE_ID_BY_NAME['document'];
+    await this._ensureProjection(documentTypeId);
+    await this.writeObjectJson(id, documentTypeId, {
+      targetId: payload?.targetId ?? null,
+      name: payload?.name ?? null,
+      mode: payload?.mode ?? null,
+      defaultDepth: payload?.expandState?.defaultDepth ?? null,
+      isOrgDefault: payload?.isOrgDefault ?? null,
+      baseDocumentId: payload?.baseDocumentId ?? null,
+    });
+    await this._replaceDocumentChildren(id, payload);
+  }
+
+  // Regenerate a document's typed children wholesale from `payload` (mirrors the
+  // function child-replacement). Existing exception / role children are hard-deleted
+  // (obj_ rows cascade) and re-created in map order.
+  async _replaceDocumentChildren(id: any, payload: any) {
+    const { rows: existing } = await this._exec(
+      `SELECT id FROM items WHERE parent_id = $1 AND type = ANY($2)`,
+      [id, ['document-expand-exception', 'document-role-by-depth', 'document-role-by-type']],
     );
+    for (const r of existing) await this.delete(r.id);
+
+    const owner = this.config.owner;
+    const mk = async (type: string, value: any, i: number, objectData: any) =>
+      this.create({ parentId: id, type, value, sortOrder: i, owner, objectData });
+
+    let i = 0;
+    for (const [itemId, depth] of Object.entries(payload?.expandState?.exceptions ?? {})) {
+      await mk('document-expand-exception', itemId, i++, {
+        overrideItemId: itemId,
+        depth: depth === false ? -1 : depth,
+      });
+    }
+    i = 0;
+    for (const [depthStr, role] of Object.entries(payload?.roleMap?.byDepth ?? {})) {
+      await mk('document-role-by-depth', depthStr, i++, { depth: Number(depthStr), role });
+    }
+    i = 0;
+    for (const [key, role] of Object.entries(payload?.roleMap?.byType ?? {})) {
+      await mk('document-role-by-type', key, i++, { key, role });
+    }
   }
 
   async listDocuments(targetId: any) {
-    const { rows } = await this._pool.query(`
-      SELECT i.*
-      FROM items i
-      JOIN documents d ON d.item_id = i.id
-      WHERE i.type = 'document'
-        AND d.payload->>'targetId' = $1
-        AND i.deleted_at IS NULL
-      ORDER BY i.id
-    `, [targetId]);
-    return rows.map(rowToItem);
+    const table = objTableName(BUILT_IN_TYPE_ID_BY_NAME['document']);
+    try {
+      const { rows } = await this._exec(`
+        SELECT i.*
+        FROM items i
+        JOIN "${table}" d ON d.item_id = i.id
+        WHERE i.type = 'document'
+          AND d.target_id = $1
+          AND i.deleted_at IS NULL
+        ORDER BY i.id
+      `, [targetId]);
+      return rows.map(rowToItem);
+    } catch {
+      // obj_<document> not materialised yet (no documents created) → none to list.
+      return [];
+    }
   }
 
   // Active schedule items whose next fire time is at or before beforeAt.
   async listDueSchedules(beforeAt: any) {
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       "SELECT * FROM items WHERE type = 'schedule' AND status = 'active' AND due_at <= $1 AND deleted_at IS NULL",
       [beforeAt],
     );
@@ -1433,19 +2565,10 @@ class PostgresAdapter {
     const owner = this.config.owner;
     const actor = createdBy || owner;
 
-    await this._pool.query(
-      `INSERT INTO items (id, spec_version, parent_id, path, value, type, owner, license, sort_order,
-         created_at, modified_at, created_by, modified_by)
-       VALUES ($1, $2, $1, $7, $3, 'type', $4, $5, 0, $6, $6, $4, $4)
-       ON CONFLICT (id) DO NOTHING`,
-      // $7 is the text `path` (a type item's path is its own id). It is a
-      // separate parameter from $1 (uuid id/parent_id) so PG doesn't try to
-      // deduce one type for a value used as both uuid and text.
-      [id, specVersion, value.trim(), owner, DEFAULT_LICENSE, now, String(id)],
-    );
-
     const resolvedSchema = schema || {
-      meta: { icon: '', description: '', details: '', keywords: '', tags: '', skills: { claude: '' } },
+      // description defaults to the type's name — validateType requires a
+      // non-empty description on every type definition.
+      meta: { icon: '', description: value.trim(), details: '', keywords: '', tags: '', skills: { claude: '' } },
       jsonSchema: {
         '$schema': 'http://json-schema.org/draft-07/schema#',
         '$id': '',
@@ -1457,37 +2580,56 @@ class PostgresAdapter {
       },
     };
 
-    const meta = resolvedSchema.meta ?? {};
-    // `table_name` is documentary — the name the projection WILL use. The
-    // physical `obj_<typeId>` table is NOT created here: a fresh type has zero
-    // instances (N(T)=0), so per the spec invariant it projects no table. The
-    // table is materialised lazily on the first live object instance
-    // (_ensureProjection) and dropped on hard-delete of the last.
-    const tableName = objTableName(id);
+    // Spec: the adapter enforces correctness at write time — a type definition
+    // is validated BEFORE anything persists, exactly like object payloads.
+    this._validateTypeSchema(id, resolvedSchema);
 
-    await this._pool.query(
-      `INSERT INTO types (
-         item_id, table_name,
+    await this._exec(
+      `INSERT INTO items (id, spec_version, parent_id, path, value, type, owner, license, sort_order,
+         created_at, modified_at, created_by, modified_by)
+       VALUES ($1, $2, $8, $7, $3, 'type', $4, $5, 0, $6, $6, $4, $4)
+       ON CONFLICT (id) DO NOTHING`,
+      // Universal parentId rule: a type item lives under the well-known types
+      // node, with the seeder's path convention root/types/<id> — exactly how
+      // the built-in type items are written. (This previously self-parented the
+      // item, which the root-singleton / no-parentid-cycles integrity checks
+      // flag as corruption and rebuildPaths cannot reach.)
+      [id, specVersion, value.trim(), owner, DEFAULT_LICENSE, now,
+       `${ROOT_ID}/${TYPES_CONTAINER_ID}/${id}`, TYPES_CONTAINER_ID],
+    );
+
+    const meta = resolvedSchema.meta ?? {};
+    // The type registry is the type-type's own projection obj_<type-type> (spec
+    // §cqrs-projections — no bespoke `types` table). This type's definition is a
+    // row there. Ensure the registry table exists (idempotent; it already does
+    // after init, since every built-in type seeds a row). The type's OWN instance
+    // table obj_<thisTypeId> is NOT created here — a fresh type has zero instances
+    // (N(T)=0), so per the spec invariant it projects no table until the first
+    // live instance is written (_ensureProjection).
+    await this._ensureProjection(TYPE_TYPE_ID);
+
+    await this._exec(
+      `INSERT INTO "${objTableName(TYPE_TYPE_ID)}" (
+         item_id,
          meta_icon, meta_description, meta_details, meta_keywords, meta_tags,
          meta_primary_field, meta_ai_instructions_claude,
          meta_functions_consumed_by, meta_functions_produced_by,
          json_schema, sql_schema, sync, superseded_by, implements, extends, indexes
        ) VALUES (
-         $1, $2,
-         $3, $4, $5, $6, $7,
-         $8, $9,
-         $10, $11,
-         $12, $13, $14, $15, $16, $17, $18
+         $1,
+         $2, $3, $4, $5, $6,
+         $7, $8,
+         $9, $10,
+         $11, $12, $13, $14, $15, $16, $17
        )
        ON CONFLICT (item_id) DO UPDATE SET
-         table_name = $2,
-         meta_icon = $3, meta_description = $4, meta_details = $5, meta_keywords = $6, meta_tags = $7,
-         meta_primary_field = $8, meta_ai_instructions_claude = $9,
-         meta_functions_consumed_by = $10, meta_functions_produced_by = $11,
-         json_schema = $12, sql_schema = $13, sync = $14, superseded_by = $15, implements = $16, extends = $17,
-         indexes = $18`,
+         meta_icon = $2, meta_description = $3, meta_details = $4, meta_keywords = $5, meta_tags = $6,
+         meta_primary_field = $7, meta_ai_instructions_claude = $8,
+         meta_functions_consumed_by = $9, meta_functions_produced_by = $10,
+         json_schema = $11, sql_schema = $12, sync = $13, superseded_by = $14, implements = $15, extends = $16,
+         indexes = $17`,
       [
-        id, tableName,
+        id,
         meta.icon ?? null, meta.description ?? '', meta.details ?? null, meta.keywords ?? null, meta.tags ?? null,
         meta.primaryField ?? null, meta.skills?.claude ?? null,
         meta.functions?.consumedBy ?? [], meta.functions?.producedBy ?? [],
@@ -1502,9 +2644,25 @@ class PostgresAdapter {
     return { metadata, schema: resolvedSchema };
   }
 
+  // The type registry lives in obj_<type-type> (spec §cqrs-projections — no
+  // bespoke `types` table). Read that projection; fall back to the legacy `types`
+  // table only during the transition, before an authorised init has backfilled +
+  // dropped it. obj_<type-type>'s columns match the legacy table 1:1 (by design of
+  // the seed metaschema), so the reconstruction below is identical for both.
+  async _readTypeRow(id: any) {
+    const table = objTableName(TYPE_TYPE_ID);
+    try {
+      const { rows } = await this._execTry(`SELECT * FROM "${table}" WHERE item_id = $1`, [id]);
+      if (rows[0]) return rows[0];
+    } catch { /* obj_<type-type> not materialised yet — try legacy */ }
+    try {
+      const { rows } = await this._execTry('SELECT * FROM types WHERE item_id = $1', [id]);
+      return rows[0] ?? null;
+    } catch { return null; }   // legacy table already dropped
+  }
+
   async readTypeJson(id: any) {
-    const { rows } = await this._pool.query('SELECT * FROM types WHERE item_id = $1', [id]);
-    const t = rows[0];
+    const t = await this._readTypeRow(id);
     if (!t) return null;
     const meta = {
       icon: t.meta_icon ?? '',
@@ -1525,8 +2683,8 @@ class PostgresAdapter {
 
   async writeTypeJson(id: any, data: any) {
     const meta = data.meta ?? {};
-    await this._pool.query(
-      `UPDATE types SET
+    await this._exec(
+      `UPDATE "${objTableName(TYPE_TYPE_ID)}" SET
          meta_icon = $2, meta_description = $3, meta_details = $4, meta_keywords = $5, meta_tags = $6,
          meta_primary_field = $7, meta_ai_instructions_claude = $8,
          meta_functions_consumed_by = $9, meta_functions_produced_by = $10,
@@ -1544,11 +2702,20 @@ class PostgresAdapter {
   }
 
   async _attachObjectSearchTrigger(tableName: any) {
-    await this._pool.query(`DROP TRIGGER IF EXISTS trg_object_search_vector ON "${tableName}"`);
-    await this._pool.query(
-      `CREATE TRIGGER trg_object_search_vector
-         AFTER INSERT OR UPDATE OR DELETE ON "${tableName}"
-         FOR EACH ROW EXECUTE FUNCTION kanecta_update_object_search_vector()`,
+    // Idempotent + race-safe. The trigger always binds the same function (its body
+    // is updated via CREATE OR REPLACE FUNCTION, never by re-attaching), so there is
+    // no need to DROP+recreate. Two concurrent _ensureProjection calls for the same
+    // fresh table used to race the old `DROP IF EXISTS` + `CREATE` pair — one CREATE
+    // would hit "trigger already exists". Create-and-swallow-duplicate is atomic and
+    // safe under concurrency.
+    await this._exec(
+      `DO $$
+       BEGIN
+         CREATE TRIGGER trg_object_search_vector
+           AFTER INSERT OR UPDATE OR DELETE ON "${tableName}"
+           FOR EACH ROW EXECUTE FUNCTION kanecta_update_object_search_vector();
+       EXCEPTION WHEN duplicate_object THEN NULL;
+       END $$`,
     );
   }
 
@@ -1561,13 +2728,22 @@ class PostgresAdapter {
   // malformed index declaration is skipped with a warning, never blocking the
   // instance write.
   async _ensureProjection(typeId: any): Promise<boolean> {
-    const def = await this.readTypeJson(typeId);
+    // A meta-type's own columns cannot be derived from its own payload schema —
+    // the schema describing the type that defines types is exactly what we would
+    // be building (circular). `type` and `relationship-type` (which extends the
+    // nested type payload) are both built from a flat SEED METASCHEMA instead
+    // (rootPayload.seedMetaschema / the export-only relationshipTypeSeedMetaschema).
+    // Every other type derives from its own def.
+    const seed = SEED_METASCHEMA_BY_TYPE_ID[String(typeId)];
+    const def = seed
+      ? { jsonSchema: seed, indexes: [] }
+      : await this.readTypeJson(typeId);
     if (!def || !def.jsonSchema) return false;   // orphan / schemaless type
     for (const stmt of deriveSqlSchema(def.jsonSchema, { typeId, dialect: 'postgres' }))
-      await this._pool.query(guardDdl(stmt));
+      await this._exec(guardDdl(stmt));
     try {
       for (const stmt of deriveIndexDdl(def.jsonSchema, def.indexes, { typeId, dialect: 'postgres' }))
-        await this._pool.query(guardDdl(stmt));
+        await this._exec(guardDdl(stmt));
     } catch (e: any) {
       console.warn(`[postgres] skipping indexes for type ${typeId}: ${e?.message ?? e}`);
     }
@@ -1582,22 +2758,58 @@ class PostgresAdapter {
   // Hence N counts every remaining items row of the type (live OR soft-deleted);
   // the table is dropped only once the last one is hard-deleted / reassigned.
   async _dropProjectionIfEmpty(typeId: any) {
-    const { rows } = await this._pool.query(
-      "SELECT COUNT(*)::int AS n FROM items WHERE type = 'object' AND type_id = $1",
-      [typeId],
-    );
-    if (!rows[0] || rows[0].n === 0)
-      await this._pool.query(`DROP TABLE IF EXISTS "${objTableName(typeId)}"`);
+    // Count by type_id alone — the projection key. A structured built-in's
+    // instances carry type_id but type='grant'/'query'/…, so filtering on
+    // type='object' would under-count and drop a live table.
+    // The type-type is the exception: type items are its instances but carry
+    // type_id=NULL (type='type' is their identity), so count them by type.
+    // Count live AND archived instances: an archived last instance keeps the
+    // relation so restore does not have to recreate it (spec type-relation
+    // rule); only hard-deleting the last instance anywhere — including purging
+    // the last archived one — drops the table.
+    const { rows } = String(typeId) === TYPE_TYPE_ID
+      ? await this._exec(
+          `SELECT (SELECT COUNT(*) FROM items        WHERE type = 'type') +
+                  (SELECT COUNT(*) FROM item_archive WHERE type = 'type') AS n`)
+      : await this._exec(
+          `SELECT (SELECT COUNT(*) FROM items        WHERE type_id = $1) +
+                  (SELECT COUNT(*) FROM item_archive WHERE type_id = $1) AS n`,
+          [typeId],
+        );
+    if (!rows[0] || Number(rows[0].n) === 0)
+      await this._exec(`DROP TABLE IF EXISTS "${objTableName(typeId)}"`);
   }
 
   // Every materialised per-type table in the current schema. Used by integrity
   // checks; mirrors the sqlite-fs handle surface.
   async listProjectedRelations() {
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       `SELECT table_name FROM information_schema.tables
         WHERE table_schema = current_schema() AND table_name LIKE 'obj\\_%'`,
     );
     return rows.map((r: any) => r.table_name);
+  }
+
+  // Row count of one materialised per-type table. The name is validated so only
+  // obj_ relations are addressable. Mirrors the sqlite-fs handle surface.
+  async countProjectedRows(table: any) {
+    if (!/^obj_[0-9a-f_]+$/.test(String(table)))
+      throw new Error(`not a projected relation: ${table}`);
+    const { rows } = await this._exec(`SELECT COUNT(*) AS n FROM "${table}"`);
+    return Number(rows[0].n);
+  }
+
+  // Column shape of one materialised per-type table, in ordinal order. Used by
+  // integrity checks (obj-table-matches-sqlschema) and the projection rebuild;
+  // mirrors the sqlite-fs handle surface.
+  async describeProjectedRelation(table: any) {
+    const { rows } = await this._exec(
+      `SELECT column_name, data_type FROM information_schema.columns
+        WHERE table_schema = current_schema() AND table_name = $1
+        ORDER BY ordinal_position`,
+      [table],
+    );
+    return rows.map((r: any) => ({ name: r.column_name, dataType: r.data_type }));
   }
 
   // ─── Graph projection (Apache AGE) ───────────────────────────────────────────
@@ -1634,11 +2846,11 @@ class PostgresAdapter {
   async _ensureAgeExtension() {
     if (this._ageAvailable !== undefined) return this._ageAvailable;
     try {
-      const { rows } = await this._pool.query(
+      const { rows } = await this._exec(
         `SELECT 1 FROM pg_available_extensions WHERE name = 'age'`,
       );
       if (!rows.length) { this._ageAvailable = false; return false; }
-      await this._pool.query(`CREATE EXTENSION IF NOT EXISTS age`);
+      await this._exec(`CREATE EXTENSION IF NOT EXISTS age`);
       this._ageAvailable = true;
     } catch {
       this._ageAvailable = false;
@@ -1651,7 +2863,7 @@ class PostgresAdapter {
   // colliding. `public` → `kg_public`.
   async _resolveGraphName() {
     if (this._graphName) return this._graphName;
-    const { rows } = await this._pool.query(`SELECT current_schema() AS s`);
+    const { rows } = await this._exec(`SELECT current_schema() AS s`);
     const schema = (rows[0]?.s || 'public').replace(/[^a-zA-Z0-9_]/g, '_');
     this._graphName = `kg_${schema}`.slice(0, 63);
     return this._graphName;
@@ -1678,7 +2890,7 @@ class PostgresAdapter {
     if (!(await this._ensureAgeExtension())) return false;
     if (this._graphReady) return true;
     const name = await this._resolveGraphName();
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       `SELECT 1 FROM ag_catalog.ag_graph WHERE name = $1`, [name],
     );
     if (!rows.length) {
@@ -1704,7 +2916,7 @@ class PostgresAdapter {
       if (!(await this._ensureGraph())) return;
       // Look up endpoint types on the pooled (schema-scoped) connection BEFORE
       // entering the graph client, whose search_path can't see the items table.
-      const { rows } = await this._pool.query(
+      const { rows } = await this._exec(
         `SELECT id, type FROM items WHERE id = ANY($1::uuid[])`, [[rel.sourceId, rel.targetId]],
       );
       const typeOf = new Map(rows.map((r: any) => [r.id, r.type]));
@@ -1770,7 +2982,7 @@ class PostgresAdapter {
   async rebuildGraphProjection() {
     if (!(await this._ensureAgeExtension())) return { rebuilt: false, reason: 'AGE unavailable', edges: 0 };
     const name = await this._resolveGraphName();
-    const { rows: exists } = await this._pool.query(
+    const { rows: exists } = await this._exec(
       `SELECT 1 FROM ag_catalog.ag_graph WHERE name = $1`, [name],
     );
     if (exists.length) {
@@ -1778,9 +2990,15 @@ class PostgresAdapter {
     }
     this._graphReady = false;
     await this._ensureGraph();
-    const { rows } = await this._pool.query(
-      `SELECT id, source_id, target_id, type FROM relationships`,
-    );
+    // The authoritative relationship set is obj_<relationship> (the relationship
+    // items); the graph is a rebuildable perf_ mirror derived from it.
+    const rows = await this._execTry(
+      `SELECT o.item_id AS id, o.source_id, o.target_id, rt.value AS type
+         FROM "${objTableName(RELATIONSHIP_TYPE_ID)}" o
+         JOIN items i        ON i.id = o.item_id
+         LEFT JOIN items rt  ON rt.id = o.type_id
+        WHERE i.deleted_at IS NULL`,
+    ).then(r => r.rows).catch(() => []);   // no relationships materialised yet
     for (const r of rows) {
       await this._projectRelationshipToGraph({ id: r.id, sourceId: r.source_id, targetId: r.target_id, type: r.type });
     }
@@ -1791,7 +3009,7 @@ class PostgresAdapter {
   async dropGraphProjection() {
     if (!(await this._ensureAgeExtension())) return;
     const name = await this._resolveGraphName();
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       `SELECT 1 FROM ag_catalog.ag_graph WHERE name = $1`, [name],
     );
     if (rows.length) {
@@ -1829,7 +3047,7 @@ class PostgresAdapter {
     const provider = this._requireEmbeddingsEnabled();
     const [queryEmbedding] = await provider.embed([query]);
     const vectorLiteral = `[${queryEmbedding.join(',')}]`;
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       `WITH RECURSIVE subtree AS (
          SELECT id FROM items WHERE id = $3
          UNION ALL
@@ -1862,7 +3080,7 @@ class PostgresAdapter {
     if (!Number.isInteger(dimensions) || dimensions <= 0) {
       throw new Error(`Invalid embedding dimensions for provider '${provider.name}': ${provider.dimensions}`);
     }
-    await this._pool.query(`
+    await this._exec(`
       CREATE TABLE IF NOT EXISTS item_embeddings (
         item_id      UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
         model        TEXT NOT NULL,
@@ -1872,12 +3090,12 @@ class PostgresAdapter {
         PRIMARY KEY (item_id, model)
       )
     `);
-    await this._pool.query(`
+    await this._exec(`
       CREATE INDEX IF NOT EXISTS idx_item_embeddings_hnsw
         ON item_embeddings USING hnsw (embedding public.vector_cosine_ops)
     `);
-    await this._pool.query(
-      `INSERT INTO pending_embeddings (item_id)
+    await this._exec(
+      `INSERT INTO perf_embedding_queue (item_id)
        SELECT i.id FROM items i
        WHERE NOT EXISTS (
          SELECT 1 FROM item_embeddings e WHERE e.item_id = i.id AND e.model = $1
@@ -1890,7 +3108,7 @@ class PostgresAdapter {
   async _embeddingContent(item: any) {
     const parts = [];
     if (item.value) parts.push(String(item.value));
-    if (item.type === 'object' && item.typeId) {
+    if (item.typeId) {
       const data = await this.readObjectJson(item.id, item.typeId);
       if (data) {
         for (const [field, value] of Object.entries(data)) {
@@ -1907,14 +3125,14 @@ class PostgresAdapter {
     if (!item) return false;
     const content     = await this._embeddingContent(item);
     const contentHash = crypto.createHash('sha256').update(content).digest('hex');
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       'SELECT content_hash FROM item_embeddings WHERE item_id = $1 AND model = $2',
       [id, provider.model],
     );
     if (rows[0]?.content_hash === contentHash) return false;
     const [embedding] = await provider.embed([content]);
     const vectorLiteral = `[${embedding.join(',')}]`;
-    await this._pool.query(
+    await this._exec(
       `INSERT INTO item_embeddings (item_id, model, embedding, content_hash, embedded_at)
        VALUES ($1, $2, $3::public.vector, $4, now())
        ON CONFLICT (item_id, model) DO UPDATE
@@ -1926,14 +3144,14 @@ class PostgresAdapter {
 
   async processPendingEmbeddings({ limit = 50 }: any = {}) {
     this._requireEmbeddingProvider();
-    const { rows } = await this._pool.query(
-      'SELECT item_id FROM pending_embeddings ORDER BY queued_at LIMIT $1', [limit],
+    const { rows } = await this._exec(
+      'SELECT item_id FROM perf_embedding_queue ORDER BY queued_at LIMIT $1', [limit],
     );
     let embedded = 0, skipped = 0, failed = 0;
     for (const { item_id } of rows) {
       try {
         if (await this.embedItem(item_id)) embedded++; else skipped++;
-        await this._pool.query('DELETE FROM pending_embeddings WHERE item_id = $1', [item_id]);
+        await this._exec('DELETE FROM perf_embedding_queue WHERE item_id = $1', [item_id]);
       } catch (e: any) {
         failed++;
         console.warn(`processPendingEmbeddings: failed to embed ${item_id}:`, e.message);
@@ -1945,17 +3163,17 @@ class PostgresAdapter {
   // ─── Index maintenance ────────────────────────────────────────────────────────
 
   async rebuildIndexes() {
-    await this._pool.query('DELETE FROM links');
-    const { rows } = await this._pool.query(`SELECT id, value FROM items WHERE value IS NOT NULL`);
+    await this._exec('DELETE FROM perf_backlinks');
+    const { rows } = await this._exec(`SELECT id, value FROM items WHERE value IS NOT NULL`);
     for (const row of rows) {
       for (const link of parseLinks(row.value)) {
-        await this._pool.query(
-          'INSERT INTO links (source_id, target_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
+        await this._exec(
+          'INSERT INTO perf_backlinks (source_id, target_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
           [row.id, link],
         );
       }
     }
-    const { rows: [{ count }] } = await this._pool.query('SELECT COUNT(*) FROM items');
+    const { rows: [{ count }] } = await this._exec('SELECT COUNT(*) FROM items');
     return parseInt(count);
   }
 
@@ -1967,7 +3185,7 @@ class PostgresAdapter {
     const findings = [];
 
     if (run('orphan-type-id')) {
-      const { rows } = await this._pool.query(
+      const { rows } = await this._exec(
         `SELECT i.id, i.type_id
            FROM items i
            LEFT JOIN items t ON t.id = i.type_id AND t.type = 'type'
@@ -1986,7 +3204,7 @@ class PostgresAdapter {
     }
 
     if (run('disconnected-items')) {
-      const { rows } = await this._pool.query(
+      const { rows } = await this._exec(
         `SELECT i.id FROM items i
          WHERE i.path IS NULL AND i.type NOT IN ('root')`,
       );
@@ -2006,7 +3224,7 @@ class PostgresAdapter {
 
   // Recompute materialized paths for all items from the root down.
   async rebuildPaths() {
-    await this._pool.query(`
+    await this._exec(`
       WITH RECURSIVE paths AS (
         SELECT id, id::text AS path FROM items
         WHERE id = '00000000-0000-0000-0000-000000000000'
@@ -2019,28 +3237,248 @@ class PostgresAdapter {
     `);
   }
 
+  // ─── Projection rebuild ─────────────────────────────────────────────────────
+  //
+  // Manual refresh of every derived structure, callable at any time (spec
+  // §"CQRS projections": obj_/perf_ relations are "strictly derived — always
+  // rebuildable"). One asymmetry is architectural, not an omission: on this
+  // adapter the obj_<typeId> row IS the payload store (there is no write-side
+  // items_payload), so obj_ tables are ensured/verified structurally — a
+  // missing table is recreated EMPTY and reported as a warning, because its
+  // rows cannot be conjured back from `items` alone (restore from backup or
+  // item history). Everything else — perf_backlinks, perf_references,
+  // perf_search, the embedding queue, the children[] cache, materialized
+  // paths, the AGE graph — is recomputed wholesale from items + obj_.
+  //
+  // opts.only — array of structure names to rebuild; omitted = all of them.
+
+  async rebuildProjections(opts: any = {}) {
+    const only = Array.isArray(opts.only) && opts.only.length
+      ? new Set(opts.only.map(String)) : null;
+    const want = (name: string) => !only || only.has(name);
+    const structures: any[] = [];
+    const guard = async (name: string, fn: () => Promise<any>) => {
+      if (!want(name)) return;
+      try {
+        structures.push(await fn());
+      } catch (e: any) {
+        structures.push({ name, status: 'error', detail: e?.message ?? String(e) });
+      }
+    };
+
+    await guard('obj-tables', () => this._rebuildObjTables());
+    await guard('perf_backlinks', async () => {
+      await this.rebuildIndexes();
+      const { rows: [b] } = await this._exec('SELECT COUNT(*) AS n FROM perf_backlinks');
+      return { name: 'perf_backlinks', status: 'rebuilt', rows: Number(b.n) };
+    });
+    await guard('perf_references', () => this._rebuildReferences());
+    await guard('perf_search', () => this._rebuildSearchIndex());
+    await guard('embedding-queue', () => this._rebuildEmbeddingQueue());
+    await guard('children', async () => {
+      await this._exec(`
+        UPDATE items i SET children = COALESCE(
+          (SELECT array_agg(c.id ORDER BY c.sort_order, c.created_at, c.id)
+             FROM items c WHERE c.parent_id = i.id AND c.id <> i.id), '{}')`);
+      return { name: 'children', status: 'rebuilt' };
+    });
+    await guard('paths', async () => {
+      await this.rebuildPaths();
+      return { name: 'paths', status: 'rebuilt' };
+    });
+    await guard('graph', async () => {
+      if (!this.graphEnabled)
+        return { name: 'graph', status: 'skipped', detail: 'Apache AGE not available on this database' };
+      const g = await this.rebuildGraphProjection();
+      return { name: 'graph', status: 'rebuilt', rows: g?.edges ?? 0 };
+    });
+
+    return {
+      storage: 'postgres',
+      structures,
+      ok: !structures.some((s: any) => s.status === 'error'),
+    };
+  }
+
+  // Reconcile the obj_<typeId> relation set with the instance set: ensure a
+  // table for every projection key with ≥1 live-or-archived instance, drop
+  // tables whose key has none. Keys are derived with the same projectionTypeId
+  // mapping the write path uses, so built-in structured types and the
+  // type/relationship-type meta-types reconcile identically to how they
+  // project. A recreated table starts EMPTY — its rows were the payload store.
+  async _rebuildObjTables() {
+    const { rows: kinds } = await this._exec(`
+      SELECT type, type_id, COUNT(*) AS n FROM (
+        SELECT type, type_id FROM items
+        UNION ALL
+        SELECT type, type_id FROM item_archive
+      ) t GROUP BY type, type_id`);
+    const wanted = new Map<string, number>();
+    for (const r of kinds) {
+      const key = projectionTypeId(r.type, r.type_id);
+      if (key) wanted.set(String(key), (wanted.get(String(key)) ?? 0) + Number(r.n));
+    }
+
+    const before = new Set(await this.listProjectedRelations());
+    const created: any[] = [];
+    for (const [typeId, n] of wanted) {
+      if (before.has(objTableName(typeId))) continue;
+      const ok = await this._ensureProjection(typeId);
+      if (ok) created.push({ table: objTableName(typeId), instances: n });
+    }
+    for (const table of before) {
+      const typeId = table.slice('obj_'.length).replace(/_/g, '-');
+      if (!wanted.has(typeId)) await this._dropProjectionIfEmpty(typeId);
+    }
+
+    const after = new Set(await this.listProjectedRelations());
+    const dropped = [...before].filter(t => !after.has(t));
+    return {
+      name: 'obj-tables',
+      status: created.length ? 'warning' : 'verified',
+      tables: after.size,
+      created,
+      dropped,
+      ...(created.length ? {
+        detail: 'missing per-type tables were recreated EMPTY — on Postgres the obj_ row is the payload store, so rows are not recoverable from items alone (restore from backup or item history)',
+      } : {}),
+    };
+  }
+
+  // Full recompute of perf_references from live data (it is only seeded by
+  // migration 022 and not maintained on writes — this rebuild is how it gets
+  // fresh). Sources, in the spec's reference_type vocabulary: parent edges from
+  // items.parent_id, inline-link from [[uuid]] in items.value,
+  // relationship-source/-target from obj_<relationship>,
+  // view-item/-component/-context from obj_<view>, and every other uuid-typed
+  // obj_ column as payload-field (field_name = the column).
+  async _rebuildReferences() {
+    await this._exec('DELETE FROM perf_references');
+    await this._exec(`
+      INSERT INTO perf_references (source_item_id, target_item_id, reference_type)
+      SELECT id, parent_id, 'parent' FROM items
+       WHERE parent_id IS NOT NULL AND id <> parent_id
+      ON CONFLICT DO NOTHING`);
+    const { rows: valued } = await this._exec('SELECT id, value FROM items WHERE value IS NOT NULL');
+    for (const row of valued) {
+      for (const link of parseLinks(row.value)) {
+        await this._exec(
+          `INSERT INTO perf_references (source_item_id, target_item_id, reference_type)
+           VALUES ($1, $2, 'inline-link') ON CONFLICT DO NOTHING`,
+          [row.id, link],
+        );
+      }
+    }
+    const SPECIAL: Record<string, Record<string, string>> = {
+      [objTableName(RELATIONSHIP_TYPE_ID)]: {
+        source_id: 'relationship-source',
+        target_id: 'relationship-target',
+      },
+      [objTableName(BUILT_IN_TYPE_ID_BY_NAME['view'])]: {
+        viewed_item_id: 'view-item',
+        component_id:   'view-component',
+        context_id:     'view-context',
+      },
+    };
+    for (const table of await this.listProjectedRelations()) {
+      for (const col of await this.describeProjectedRelation(table)) {
+        if (col.dataType !== 'uuid' || col.name === 'item_id') continue;
+        const refType = SPECIAL[table]?.[col.name] ?? 'payload-field';
+        await this._exec(`
+          INSERT INTO perf_references (source_item_id, target_item_id, reference_type, field_name)
+          SELECT t.item_id, t."${col.name}", '${refType}', '${col.name}'
+            FROM "${table}" t JOIN items i ON i.id = t.item_id
+           WHERE t."${col.name}" IS NOT NULL
+          ON CONFLICT DO NOTHING`);
+      }
+    }
+    const { rows: [c] } = await this._exec('SELECT COUNT(*) AS n FROM perf_references');
+    return { name: 'perf_references', status: 'rebuilt', rows: Number(c.n) };
+  }
+
+  // Recompute perf_search wholesale with the same kanecta_row_to_tsvector
+  // derivation the write triggers use (migration 013/033), so a rebuilt index
+  // is byte-identical to an organically maintained one.
+  async _rebuildSearchIndex() {
+    await this._exec('DELETE FROM perf_search');
+    await this._exec(`
+      INSERT INTO perf_search (item_id, item_tsv)
+      SELECT i.id, kanecta_row_to_tsvector(to_jsonb(i)) FROM items i
+      ON CONFLICT (item_id) DO UPDATE SET item_tsv = EXCLUDED.item_tsv`);
+    for (const table of await this.listProjectedRelations()) {
+      await this._exec(`
+        INSERT INTO perf_search (item_id, object_tsv)
+        SELECT t.item_id, kanecta_row_to_tsvector(to_jsonb(t) - 'item_id')
+          FROM "${table}" t JOIN items i ON i.id = t.item_id
+        ON CONFLICT (item_id) DO UPDATE SET object_tsv = EXCLUDED.object_tsv`);
+    }
+    const { rows: [c] } = await this._exec('SELECT COUNT(*) AS n FROM perf_search');
+    return { name: 'perf_search', status: 'rebuilt', rows: Number(c.n) };
+  }
+
+  // Re-queue every item lacking a current-model embedding. Only meaningful
+  // when a provider is configured — an unconfigured queue would never drain.
+  // perf_embeddings itself is not rebuilt here: embeddings need the external
+  // provider, and the drained queue regenerates them.
+  async _rebuildEmbeddingQueue() {
+    if (!this._embeddingProvider)
+      return { name: 'embedding-queue', status: 'skipped', detail: 'no embedding provider configured' };
+    await this._ensureEmbeddingTable();
+    const { rows } = await this._exec(`
+      INSERT INTO perf_embedding_queue (item_id)
+      SELECT i.id FROM items i
+       WHERE NOT EXISTS (
+         SELECT 1 FROM item_embeddings e WHERE e.item_id = i.id AND e.model = $1
+       )
+      ON CONFLICT (item_id) DO UPDATE SET queued_at = now()
+      RETURNING item_id`,
+      [this._embeddingProvider.model],
+    );
+    return { name: 'embedding-queue', status: 'rebuilt', rows: rows.length };
+  }
+
   // ─── Branching ──────────────────────────────────────────────────────────────
 
-  async createBranch(name: any) {
+  // opts.branchPointAt — the fork watermark (ISO string). A branch pushed from a
+  // local sqlite-fs branch passes the LOCAL fork point (SyncEngine.push does);
+  // upstream may have moved between fork and push, which is exactly the window
+  // conflict detection exists for. Defaults to now() for a branch born here.
+  // opts.base — must be 'main': branch_changes rows physically apply onto the
+  // main tables, so no other base has meaning in this adapter's delta model.
+  // The parameter exists so the constraint is an explicit error, not a silent
+  // hard-code.
+  async createBranch(name: any, opts: any = {}) {
     if (!name || typeof name !== 'string' || !name.trim()) throw new Error('branch name is required');
     name = name.trim();
     if (name === 'main') throw new Error('Cannot create a branch named "main"');
-    const existing = await this._pool.query('SELECT id FROM branches WHERE name = $1 AND deleted_at IS NULL', [name]);
+    if (opts.base != null && opts.base !== 'main')
+      throw new Error(`Postgres branches can only be based on "main" (got "${opts.base}") — the branch_changes delta model applies onto the main tables`);
+    let branchPoint = new Date();
+    if (opts.branchPointAt != null) {
+      branchPoint = new Date(opts.branchPointAt);
+      if (isNaN(branchPoint.getTime())) throw new Error(`Invalid branchPointAt "${opts.branchPointAt}" — expected an ISO-8601 timestamp`);
+    }
+    const existing = await this._exec('SELECT id FROM branches WHERE name = $1 AND deleted_at IS NULL', [name]);
     if (existing.rows.length) throw new Error(`Branch "${name}" already exists`);
-    const { rows } = await this._pool.query(
-      'INSERT INTO branches (name, base_branch) VALUES ($1, $2) RETURNING id, name, base_branch, created_at',
-      [name, 'main'],
+    const { rows } = await this._exec(
+      'INSERT INTO branches (name, base_branch, branch_point_at) VALUES ($1, $2, $3) RETURNING id, name, base_branch, branch_point_at, created_at',
+      [name, 'main', branchPoint],
     );
     const r = rows[0];
-    return { id: r.id, name: r.name, baseBranch: r.base_branch, createdAt: r.created_at.toISOString() };
+    return {
+      id: r.id, name: r.name, baseBranch: r.base_branch,
+      branchPointAt: r.branch_point_at?.toISOString() ?? null,
+      createdAt: r.created_at.toISOString(),
+    };
   }
 
   async listBranches() {
-    const { rows } = await this._pool.query(
-      'SELECT id, name, base_branch, created_at, merged_at, deleted_at FROM branches WHERE deleted_at IS NULL ORDER BY created_at',
+    const { rows } = await this._exec(
+      'SELECT id, name, base_branch, branch_point_at, created_at, merged_at, deleted_at FROM branches WHERE deleted_at IS NULL ORDER BY created_at',
     );
     return rows.map(r => ({
       id: r.id, name: r.name, baseBranch: r.base_branch,
+      branchPointAt: r.branch_point_at?.toISOString() ?? null,
       createdAt: r.created_at.toISOString(),
       mergedAt:  r.merged_at?.toISOString() ?? null,
       deletedAt: r.deleted_at?.toISOString() ?? null,
@@ -2048,13 +3486,37 @@ class PostgresAdapter {
   }
 
   async getBranch(name: any) {
-    const { rows } = await this._pool.query(
-      'SELECT id, name, base_branch, created_at, merged_at, deleted_at FROM branches WHERE name = $1 AND deleted_at IS NULL',
+    const { rows } = await this._exec(
+      'SELECT id, name, base_branch, branch_point_at, created_at, merged_at, deleted_at FROM branches WHERE name = $1 AND deleted_at IS NULL',
       [name],
     );
     if (!rows.length) return null;
     const r = rows[0];
-    return { id: r.id, name: r.name, baseBranch: r.base_branch, createdAt: r.created_at.toISOString(), mergedAt: r.merged_at?.toISOString() ?? null };
+    return {
+      id: r.id, name: r.name, baseBranch: r.base_branch,
+      branchPointAt: r.branch_point_at?.toISOString() ?? null,
+      createdAt: r.created_at.toISOString(), mergedAt: r.merged_at?.toISOString() ?? null,
+    };
+  }
+
+  // Resolve a branch by name or id (unmerged, undeleted). The facade and the
+  // sqlite-fs adapter address branches by NAME; SyncEngine and older callers
+  // hold ids — accept both so the cross-adapter surface stays uniform.
+  async _resolveBranch(nameOrId: any) {
+    if (!nameOrId || typeof nameOrId !== 'string') throw new Error('branch name or id is required');
+    const byId = UUID_RE.test(nameOrId)
+      ? await this._exec('SELECT id, name, base_branch, branch_point_at, created_at FROM branches WHERE id = $1 AND deleted_at IS NULL AND merged_at IS NULL', [nameOrId])
+      : { rows: [] };
+    const rows = byId.rows.length
+      ? byId.rows
+      : (await this._exec('SELECT id, name, base_branch, branch_point_at, created_at FROM branches WHERE name = $1 AND deleted_at IS NULL AND merged_at IS NULL', [nameOrId])).rows;
+    if (!rows.length) throw new Error(`Branch ${nameOrId} not found or already merged`);
+    const r = rows[0];
+    return {
+      id: r.id, name: r.name, baseBranch: r.base_branch,
+      branchPointAt: r.branch_point_at?.toISOString() ?? null,
+      createdAt: r.created_at.toISOString(),
+    };
   }
 
   // Write an array of change entries to branch_changes. Each entry: { itemId, changeType, section, data }.
@@ -2083,7 +3545,7 @@ class PostgresAdapter {
   }
 
   async getBranchChanges(branchId: any) {
-    const { rows } = await this._pool.query(
+    const { rows } = await this._exec(
       'SELECT item_id, change_type, section, data, changed_at FROM branch_changes WHERE branch_id = $1 ORDER BY item_id, section',
       [branchId],
     );
@@ -2097,14 +3559,14 @@ class PostgresAdapter {
   // Blocks merge when any reference item with blockDeletion=true targets a deleted item.
   async preFlightScan(branchId: any) {
     // Collect the set of deleted item IDs on this branch
-    const { rows: delRows } = await this._pool.query(
+    const { rows: delRows } = await this._exec(
       "SELECT DISTINCT item_id FROM branch_changes WHERE branch_id = $1 AND change_type = 'delete'",
       [branchId],
     );
     const deletedIds = delRows.map(r => r.item_id);
 
     // Get all changed item IDs (creates, updates, deletes)
-    const { rows: allRows } = await this._pool.query(
+    const { rows: allRows } = await this._exec(
       "SELECT DISTINCT item_id, change_type FROM branch_changes WHERE branch_id = $1 AND section = 'item'",
       [branchId],
     );
@@ -2118,8 +3580,8 @@ class PostgresAdapter {
     let structuralRefs: any[] = [];
     let blockingRefs: any[]   = [];
     if (changedIds.length) {
-      const { rows: refRows } = await this._pool.query(
-        'SELECT source_item_id, target_item_id, reference_type, field_name FROM item_references WHERE target_item_id = ANY($1)',
+      const { rows: refRows } = await this._execTry(
+        'SELECT source_item_id, target_item_id, reference_type, field_name FROM perf_references WHERE target_item_id = ANY($1)',
         [changedIds],
       ).catch(() => ({ rows: [] })); // item_references may not exist on older schemas
       structuralRefs = refRows.map(r => ({
@@ -2132,7 +3594,7 @@ class PostgresAdapter {
         // Reference items store targetId and blockDeletion flag in the main items value field
         // or time_data column as JSON — query items of type 'reference' pointing at deleted IDs.
         // This is a best-effort check; full payload scanning is handled by the SyncEngine.
-        const { rows: blockRows } = await this._pool.query(`
+        const { rows: blockRows } = await this._exec(`
           SELECT id FROM items
           WHERE type = 'reference'
             AND parent_id = ANY($1)
@@ -2150,17 +3612,8 @@ class PostgresAdapter {
     };
   }
 
-  // Atomically merge all branch_changes into main tables, then mark branch merged.
-  async mergeBranch(branchId: any) {
-    const { rows: branchRows } = await this._pool.query(
-      'SELECT id, name FROM branches WHERE id = $1 AND deleted_at IS NULL AND merged_at IS NULL',
-      [branchId],
-    );
-    if (!branchRows.length) throw new Error(`Branch ${branchId} not found or already merged`);
-
-    const changeRows = await this.getBranchChanges(branchId);
-
-    // Group by item
+  // Group a branch's change rows by item: { changeType, sections: {item, meta, ...} }.
+  _groupBranchChanges(changeRows: any[]) {
     const byItem = new Map<any, any>();
     for (const r of changeRows) {
       if (!byItem.has(r.itemId)) byItem.set(r.itemId, { changeType: r.changeType, sections: {} });
@@ -2168,12 +3621,270 @@ class PostgresAdapter {
       if (r.changeType === 'delete') entry.changeType = 'delete';
       if (r.data) entry.sections[r.section] = r.data;
     }
+    return byItem;
+  }
+
+  // Flatten a staged entry's item+meta sections into the flat item shape the
+  // sqlite-fs previewMerge reports (enough for a review UI's before/after).
+  _stagedToItem(itemId: any, sections: any) {
+    const item = sections.item ?? {};
+    const meta = sections.meta ?? {};
+    return { id: itemId, ...item, ...meta, payload: sections.payload ?? undefined };
+  }
+
+  // Blast radius of deleting `deleteIds`, in the sqlite-fs shape:
+  // [{ id, referencedBy: [{ id, via }] }] with the fs `via` vocabulary
+  // (parent | link | relationship | alias | payload). Computed LIVE from the
+  // main tables — children via items.parent_id, [[uuid]] backlinks via
+  // perf_backlinks, inbound relationships via obj_<relationship>, alias items
+  // via obj_<alias> — because perf_references is only seeded by migration 022
+  // and not maintained on writes (stale for anything created since; it is
+  // still unioned in best-effort for payload-field refs). Referrers that are
+  // themselves in the delete set are excluded (no dangling ref is created).
+  async _blastRadiusFor(deleteIds: any[]) {
+    if (!deleteIds?.length) return [];
+    const delSet   = new Set(deleteIds);
+    const byTarget = new Map<any, any[]>();
+    const addRef = (targetId: any, sourceId: any, via: string) => {
+      if (!sourceId || delSet.has(sourceId) || sourceId === targetId) return;
+      if (!byTarget.has(targetId)) byTarget.set(targetId, []);
+      const refs = byTarget.get(targetId)!;
+      if (!refs.some(r => r.id === sourceId && r.via === via)) refs.push({ id: sourceId, via });
+    };
+
+    // Children (structural parent references)
+    const { rows: children } = await this._exec(
+      'SELECT id, parent_id FROM items WHERE parent_id = ANY($1) AND id != parent_id', [deleteIds],
+    );
+    for (const r of children) addRef(r.parent_id, r.id, 'parent');
+
+    // [[uuid]] inline links (derived backlink index, maintained on writes)
+    const { rows: links } = await this._exec(
+      'SELECT source_id, target_id FROM perf_backlinks WHERE target_id = ANY($1)', [deleteIds],
+    );
+    for (const r of links) addRef(r.target_id, r.source_id, 'link');
+
+    // Inbound relationships (relationship items are first-class, obj-projected)
+    try {
+      const relObj = objTableName(RELATIONSHIP_TYPE_ID);
+      const { rows: rels } = await this._exec(
+        `SELECT o.item_id AS id, o.target_id FROM "${relObj}" o
+           JOIN items i ON i.id = o.item_id
+          WHERE o.target_id = ANY($1) AND i.deleted_at IS NULL`, [deleteIds],
+      );
+      for (const r of rels) addRef(r.target_id, r.id, 'relationship');
+    } catch { /* obj_<relationship> not materialised yet → none */ }
+
+    // Alias items targeting a deleted id
+    try {
+      const aliasTable = objTableName(BUILT_IN_TYPE_ID_BY_NAME['alias']);
+      const { rows: aliases } = await this._exec(
+        `SELECT a.item_id AS id, a.target_id FROM "${aliasTable}" a
+           JOIN items i ON i.id = a.item_id
+          WHERE a.target_id = ANY($1) AND i.deleted_at IS NULL`, [deleteIds],
+      );
+      for (const r of aliases) addRef(r.target_id, r.id, 'alias');
+    } catch { /* obj_<alias> not materialised yet → none */ }
+
+    // Best-effort union of the seeded structural index (payload-field refs).
+    try {
+      const { rows } = await this._exec(
+        'SELECT source_item_id, target_item_id, reference_type FROM perf_references WHERE target_item_id = ANY($1)',
+        [deleteIds],
+      );
+      const VIA: any = { parent: 'parent', 'inline-link': 'link', relationship: 'relationship', 'payload-field': 'payload' };
+      for (const r of rows) addRef(r.target_item_id, r.source_item_id, VIA[r.reference_type] ?? r.reference_type);
+    } catch { /* older schemas without the index */ }
+
+    return [...byTarget.entries()].map(([id, referencedBy]) => ({ id, referencedBy }));
+  }
+
+  // Classify the branch's staged changes against CURRENT main using the fork
+  // watermark — the postgres twin of sqlite-fs previewMerge, same result shape:
+  // { adds, edits, deletes, watermark, conflicts, blastRadius }. Pure read.
+  //
+  // Conflict kinds (spec «Conflict-aware merge»):
+  //   edit-edit    staged create/update of an item main also modified after the fork
+  //   delete-edit  staged delete of an item main modified after the fork
+  //   add-delete   the branch kept/edited an item main has deleted since the fork
+  //                (staged update with no main row, or staged create whose
+  //                createdAt predates the fork), OR a never-merged genuine add is
+  //                impossible to confuse: its createdAt >= watermark.
+  // A staged delete of an already-gone item is a no-op, not a delete and not a
+  // conflict.
+  async previewMerge(nameOrId: any) {
+    const branch    = await this._resolveBranch(nameOrId);
+    const watermark = branch.branchPointAt ?? branch.createdAt ?? null;
+    const byItem    = this._groupBranchChanges(await this.getBranchChanges(branch.id));
+
+    const ids = [...byItem.keys()];
+    let current = new Map<any, any>();
+    if (ids.length) {
+      const { rows } = await this._exec('SELECT * FROM items WHERE id = ANY($1)', [ids]);
+      current = new Map(rows.map(r => [r.id, r]));
+    }
+
+    // ISO-8601 UTC timestamps sort correctly as plain strings.
+    const movedSinceFork = (modifiedAt: any) =>
+      !!watermark && !!modifiedAt && String(modifiedAt) > String(watermark);
+
+    const adds: any[] = [], edits: any[] = [], deletes: any[] = [], conflicts: any[] = [];
+    for (const [itemId, entry] of byItem) {
+      const before = rowToItem(current.get(itemId) ?? null);
+      const after  = this._stagedToItem(itemId, entry.sections);
+      if (entry.changeType === 'delete') {
+        if (!before) continue; // already gone on main — no-op
+        deletes.push({ id: itemId, before });
+        if (movedSinceFork(before.modifiedAt)) conflicts.push({ id: itemId, kind: 'delete-edit', before });
+      } else if (!before) {
+        adds.push({ id: itemId, after });
+        const created = entry.sections.meta?.createdAt ?? null;
+        if (entry.changeType === 'update' || (watermark && created && String(created) < String(watermark))) {
+          // update-with-no-row: main deleted it after the fork; create-with-old
+          // createdAt: same story seen from a re-pushed diff. Either way the
+          // branch kept an item main removed — never resurrect silently.
+          conflicts.push({ id: itemId, kind: 'add-delete', after });
+        }
+      } else {
+        edits.push({ id: itemId, before, after });
+        if (movedSinceFork(before.modifiedAt)) conflicts.push({ id: itemId, kind: 'edit-edit', before, after });
+      }
+    }
+
+    const blastRadius = await this._blastRadiusFor(deletes.map(d => d.id));
+
+    // REVERSE blast radius: adds/edits whose OUTBOUND references (parentId,
+    // [[uuid]] links, payload target/source) point at an item that will not
+    // exist after the merge — deleted on main since the fork, deleted by this
+    // same branch, or never existed. New referrers are invisible to the forward
+    // scan, so without this a merge could create dangling references in the
+    // very act of applying. Shape: [{ id, refs: [{ targetId, via }] }].
+    const branchWrites  = new Set([...adds, ...edits].map((e: any) => e.id));
+    const branchDeletes = new Set(deletes.map((d: any) => d.id));
+    const candidates: any[] = [];
+    for (const e of [...adds, ...edits]) {
+      const entry = byItem.get(e.id);
+      const item    = entry?.sections?.item ?? {};
+      const payload = entry?.sections?.payload ?? {};
+      const seen = new Set<string>();
+      const push = (targetId: any, via: string) => {
+        if (!targetId || typeof targetId !== 'string' || !UUID_RE.test(targetId)) return;
+        if (targetId === e.id || seen.has(`${targetId}|${via}`)) return;
+        seen.add(`${targetId}|${via}`);
+        candidates.push({ id: e.id, targetId, via });
+      };
+      push(item.parentId, 'parent');
+      for (const link of parseLinks(item.value)) push(link, 'link');
+      push(payload.targetId, 'payload');
+      push(payload.sourceId, 'payload');
+    }
+    const unknownTargets = [...new Set(
+      candidates.map(c => c.targetId).filter(t => !branchWrites.has(t) && !branchDeletes.has(t)))];
+    let existing = new Set<any>();
+    if (unknownTargets.length) {
+      const { rows } = await this._exec('SELECT id FROM items WHERE id = ANY($1)', [unknownTargets]);
+      existing = new Set(rows.map(r => r.id));
+    }
+    const targetSurvives = (t: any) =>
+      !branchDeletes.has(t) && (branchWrites.has(t) || existing.has(t));
+    const danglingByItem = new Map<any, any[]>();
+    for (const c of candidates) {
+      if (targetSurvives(c.targetId)) continue;
+      if (!danglingByItem.has(c.id)) danglingByItem.set(c.id, []);
+      danglingByItem.get(c.id)!.push({ targetId: c.targetId, via: c.via });
+    }
+    const danglingRefs = [...danglingByItem.entries()].map(([id, refs]) => ({ id, refs }));
+
+    return { adds, edits, deletes, watermark, conflicts, blastRadius, danglingRefs };
+  }
+
+  // Facade-uniform alias: the sqlite-fs adapter merges by NAME via
+  // mergeBranchLocally(name, opts); postgres resolves either name or id.
+  async mergeBranchLocally(nameOrId: any, opts: any = {}) {
+    const branch = await this._resolveBranch(nameOrId);
+    return this.mergeBranch(branch.id, opts);
+  }
+
+  // Atomically merge all branch_changes into main tables, then mark branch merged.
+  //
+  // Conflict handling (same contract as sqlite-fs mergeBranchLocally):
+  //   * default — ANY conflict aborts before anything is applied; throws with
+  //     `.code = 'MERGE_CONFLICT'` and `.conflicts`; the branch is preserved.
+  //   * { strategy: 'theirs' } — the branch wins: force-apply everything,
+  //     including resurrecting an add-delete item main removed.
+  //   * { strategy: 'ours' } — main wins for conflicting items: apply only the
+  //     clean changes; conflicting ones are skipped (and discarded with the
+  //     branch's change rows).
+  //   * { blockOnBlastRadius: true } — abort with `.code = 'MERGE_BLAST_RADIUS'`
+  //     if the applied deletes would leave live referrers on main.
+  async mergeBranch(branchId: any, opts: any = {}) {
+    const strategy = opts.strategy ?? null; // null | 'theirs' | 'ours'
+    if (strategy && strategy !== 'theirs' && strategy !== 'ours')
+      throw new Error(`Unknown merge strategy "${strategy}" (expected 'theirs' or 'ours')`);
+
+    const { rows: branchRows } = await this._exec(
+      'SELECT id, name FROM branches WHERE id = $1 AND deleted_at IS NULL AND merged_at IS NULL',
+      [branchId],
+    );
+    if (!branchRows.length) throw new Error(`Branch ${branchId} not found or already merged`);
+
+    const preview   = await this.previewMerge(branchId);
+    const conflicts = preview.conflicts;
+
+    if (conflicts.length && !strategy) {
+      const err: any = new Error(
+        `Merge of "${branchRows[0].name}" has ${conflicts.length} conflict(s): main item(s) changed after the ` +
+        `branch point. Re-run with { strategy: 'theirs' } (branch wins) or { strategy: 'ours' } ` +
+        `(keep main) to resolve.`);
+      err.code = 'MERGE_CONFLICT';
+      err.conflicts = conflicts;
+      throw err;
+    }
+
+    const conflictIds = new Set(conflicts.map((c: any) => c.id));
+    const skip = (id: any) => strategy === 'ours' && conflictIds.has(id);
+
+    const appliedDeleteIds = preview.deletes.filter((d: any) => !skip(d.id)).map((d: any) => d.id);
+    const blastRadius = await this._blastRadiusFor(appliedDeleteIds);
+    if (opts.blockOnBlastRadius && blastRadius.length) {
+      const err: any = new Error(
+        `Merge of "${branchRows[0].name}" would break ${blastRadius.length} reference target(s): deleted item(s) are ` +
+        `still referenced on main. Re-run without { blockOnBlastRadius } to merge anyway, or resolve the ` +
+        `references first.`);
+      err.code = 'MERGE_BLAST_RADIUS';
+      err.blastRadius = blastRadius;
+      throw err;
+    }
+
+    // Reverse blast radius — same opt-in gate posture as blastRadius (see the
+    // sqlite-fs twin): surfaced always, blocking only on request.
+    const danglingRefs = (preview.danglingRefs ?? []).filter((d: any) => !skip(d.id));
+    if (opts.blockOnDanglingRefs && danglingRefs.length) {
+      const err: any = new Error(
+        `Merge of "${branchRows[0].name}" would apply ${danglingRefs.length} item(s) referencing target(s) that ` +
+        `will not exist after the merge. Re-run without { blockOnDanglingRefs } to merge anyway, or fix the references first.`);
+      err.code = 'MERGE_DANGLING_REFS';
+      err.danglingRefs = danglingRefs;
+      throw err;
+    }
+
+    const changeRows = await this.getBranchChanges(branchId);
+    const byItem     = this._groupBranchChanges(changeRows);
+
+    // Items main has deleted since the fork have no row to UPDATE — under
+    // 'theirs' the branch's kept version must be resurrected, so route those
+    // staged updates through the INSERT path (their sections carry the full doc).
+    const resurrectIds = new Set(
+      preview.conflicts.filter((c: any) => c.kind === 'add-delete').map((c: any) => c.id));
 
     const client = await this._pool.connect();
+    let applied = 0, skipped = 0;
     try {
       await client.query('BEGIN');
 
       for (const [itemId, entry] of byItem) {
+        if (skip(itemId)) { skipped++; continue; }
+        applied++;
         if (entry.changeType === 'delete') {
           await client.query('DELETE FROM items WHERE id = $1', [itemId]);
         } else {
@@ -2181,7 +3892,7 @@ class PostgresAdapter {
           const meta    = entry.sections.meta    ?? {};
           const payload = entry.sections.payload ?? null;
 
-          if (entry.changeType === 'create') {
+          if (entry.changeType === 'create' || resurrectIds.has(itemId)) {
             // Insert into items table
             await client.query(`
               INSERT INTO items (id, parent_id, value, type, type_id, sort_order, aspect, spec_version,
@@ -2262,15 +3973,22 @@ class PostgresAdapter {
       client.release();
     }
 
-    return { merged: byItem.size, branchName: branchRows[0].name };
+    // Applied changes may carry meta.deletedAt stamps (a sync-pushed soft
+    // delete lands as a flagged live row) — normalise them into the archive
+    // so the live table stays deleted-free by construction. Idempotent; a
+    // crash between commit and this pass is caught by the open()/init()
+    // catch-up.
+    await this._migrateFlaggedRowsToArchive();
+
+    return { merged: applied, skipped, conflicts, blastRadius, danglingRefs, branchName: branchRows[0].name };
   }
 
   async deleteBranch(name: any) {
     if (!name || name === 'main') throw new Error('Cannot delete the main branch');
-    const { rows } = await this._pool.query('SELECT id FROM branches WHERE name = $1 AND deleted_at IS NULL', [name]);
+    const { rows } = await this._exec('SELECT id FROM branches WHERE name = $1 AND deleted_at IS NULL', [name]);
     if (!rows.length) throw new Error(`Branch "${name}" not found`);
-    await this._pool.query('UPDATE branches SET deleted_at = now() WHERE id = $1', [rows[0].id]);
-    await this._pool.query('DELETE FROM branch_changes WHERE branch_id = $1', [rows[0].id]);
+    await this._exec('UPDATE branches SET deleted_at = now() WHERE id = $1', [rows[0].id]);
+    await this._exec('DELETE FROM branch_changes WHERE branch_id = $1', [rows[0].id]);
   }
 }
 

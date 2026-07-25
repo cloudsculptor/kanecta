@@ -13,16 +13,33 @@
 // `files` is a @kanecta/s3 adapter instance (putFile/getFile/deleteFile/listFiles).
 // The caller owns the lifecycle of both.
 
+// Every public capability of the composed items adapter must be listed here —
+// a missing name means the method silently doesn't exist on a cloud working
+// set ('this._items.x is not a function' at runtime). The parity test in
+// tests/adapter.test.ts diffs this list against the Postgres adapter's public
+// surface, so forgetting to extend it fails CI instead of production.
 const ITEM_METHODS = [
   'create', 'get', 'update', 'delete', 'deleteWarnings', 'createType',
   'resolve', 'resolveAlias', 'setAlias', 'removeAlias', 'listAliases',
   'annotate', 'annotations',
-  'relTypes', 'addRelTypes', 'relate', 'relationships', 'backlinks',
-  'history', 'byTag', 'byType', 'listRelationships',
-  'loadAll', 'children', 'tree', 'query', 'rebuildIndexes',
+  'addRelTypes', 'relate', 'unrelate', 'relationships', 'backlinks',
+  'history', 'byTag', 'byType', 'bySource', 'listRelationships',
+  'loadAll', 'children', 'tree', 'ancestors', 'subtreeCount', 'query', 'rebuildIndexes', 'rebuildPaths',
   'readObjectJson', 'writeObjectJson', 'readFunctionJson', 'writeFunctionJson',
-  'readTypeJson', 'writeTypeJson',
+  'readTypeJson', 'writeTypeJson', '_listTypeDefs',
+  'readScheduleJson', 'writeScheduleJson', 'listDueSchedules',
+  'getDocument', 'createDocument', 'readDocumentPayload', 'writeDocumentPayload', 'listDocuments',
+  'listStubs', 'listDueForRefresh',
   'getRoot', 'getDataRoot',
+  'resolveTypeId', 'checkIntegrity', 'softDelete', 'restore',
+  'readTimeJson', 'writeTimeJson', 'deleteTimeJson', 'transaction',
+  'recordActivity', 'activityFor', 'listActivity',
+  'search', 'semanticSearch', 'hybridSearch', 'embedItem', 'processPendingEmbeddings',
+  'createBranch', 'listBranches', 'getBranch', 'getBranchChanges',
+  'applyBranchChanges', 'preFlightScan', 'previewMerge', 'mergeBranch',
+  'mergeBranchLocally', 'deleteBranch',
+  'listProjectedRelations', 'graphNeighbors', 'countProjectedGraphEdges',
+  'rebuildGraphProjection', 'dropGraphProjection',
 ];
 
 const FILE_METHODS = ['putFile', 'getFile', 'deleteFile', 'listFiles'];
@@ -58,6 +75,22 @@ export class CloudAdapter {
   }
 
   get config() { return this._items.config; }
+
+  // Getter passthroughs — the dynamic method proxy below only covers
+  // functions, so property-shaped surface reads through explicitly. relTypes
+  // was previously (wrongly) in ITEM_METHODS: it is a GETTER on the Postgres
+  // adapter, so the method proxy made `cloud.relTypes` a function and
+  // `ds.relTypes.includes(...)` crashed on cloud working sets.
+  get relTypes() { return this._items.relTypes; }
+  get graphEnabled() { return this._items.graphEnabled; }
+  get embeddingsEnabled() { return this._items.embeddingsEnabled; }
+  get transactionMode() { return this._items.transactionMode; }
+
+  // Surface the items backend's Postgres pool so pool-based features on
+  // kanecta-api (the GraphQL engine, the pg authz source) work uniformly on a
+  // Postgres-backed cloud working set — not just on a direct pg adapter. Reads
+  // through to the composed items adapter; undefined if items isn't pg-backed.
+  get _pool() { return this._items?._pool; }
 }
 
 for (const name of ITEM_METHODS) {

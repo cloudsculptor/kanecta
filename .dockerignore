@@ -1,0 +1,12 @@
+# Applies to every image built from the monorepo root (kanecta-api, studio).
+.git
+node_modules
+**/node_modules
+**/dist
+**/storybook-static
+**/*.log
+**/.env
+**/.env.*
+!**/.env.example
+**/playwright-report
+**/test-results

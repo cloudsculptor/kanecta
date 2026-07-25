@@ -1,0 +1,62 @@
+{
+  "item": {
+    "id": "26388ce2-a393-4e85-b1f2-fb23ade985d1",
+    "parentId": "11111111-1111-1111-1111-111111111111",
+    "type": "type",
+    "typeId": null,
+    "value": "claude-code-config",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "Runtime config for a claude-code agent (Claude Code CLI subprocess). Environment variables are `property` children of the config item (an open key-value map), not a payload field.",
+      "confidence": "locked",
+      "icon": "Terminal"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "claudeCodeConfigPayload",
+      "type": "object",
+      "required": [],
+      "additionalProperties": false,
+      "properties": {
+        "workingDirectory": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Working directory for the Claude Code subprocess."
+        }
+      }
+    },
+    "sqlSchema": [
+      "-- Built-in type: adapter handles storage natively."
+    ]
+  }
+}

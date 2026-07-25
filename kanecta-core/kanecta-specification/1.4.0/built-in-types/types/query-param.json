@@ -1,0 +1,81 @@
+{
+  "item": {
+    "id": "82a025d4-a862-434a-9e56-68657814af0f",
+    "parentId": "11111111-1111-1111-1111-111111111111",
+    "type": "type",
+    "typeId": null,
+    "value": "query-param",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "A named, typed parameter of a query. A query's parameters are query-param children of the query item (one per {{params.name}} placeholder), not an inline array.",
+      "confidence": "locked",
+      "icon": "Tune"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "queryParamPayload",
+      "type": "object",
+      "required": [
+        "name",
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Parameter name, referenced in the query expression as {{params.name}}. Unique among the query's params."
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "string",
+            "number",
+            "boolean",
+            "uuid",
+            "date"
+          ],
+          "description": "Parameter type — drives validation and Studio input-form generation."
+        },
+        "description": {
+          "type": ["string", "null"],
+          "description": "Human-readable explanation shown as the input-form label."
+        },
+        "defaultValue": {
+          "type": ["string", "null"],
+          "description": "Default value (text form, interpreted per `type`) used when the parameter is not supplied. Null means the parameter is required."
+        }
+      }
+    },
+    "sqlSchema": [
+      "-- Built-in type: adapter handles storage natively."
+    ]
+  }
+}

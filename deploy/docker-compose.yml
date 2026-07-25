@@ -1,0 +1,54 @@
+# Production-shaped deployment: Kanecta Studio (nginx-served SPA) + kanecta-api,
+# protected by YOUR Keycloak (Kanecta never ships one — every deployment brings
+# its own; the kanecta-keycloak compose is a dev/test stand-in only).
+#
+# Usage:
+#   cd <monorepo root>
+#   cp deploy/example.env deploy/.env    # fill in your values
+#   docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
+#
+# Topology: the studio container's nginx serves the SPA and proxies /api/ to
+# the kanecta-api container — same-origin, so the API needs no CORS and is
+# never exposed directly. Put TLS in front of studio:80 (your reverse proxy /
+# load balancer); register https://<your-host>/* as a valid redirect URI and
+# web origin on the Keycloak client, and confirm /silent-check-sso.html is
+# reachable at the deployed origin.
+#
+# Datastore: a named volume holding a sqlite-fs working set by default. For a
+# cloud datastore (Postgres items + S3 files) mount a KANECTA_CONFIG dir whose
+# working set defines a composite `cloud` origin remote instead.
+
+services:
+  kanecta-api:
+    build:
+      context: ..
+      dockerfile: kanecta-core/kanecta-api/Dockerfile
+    environment:
+      KEYCLOAK_URL: ${KEYCLOAK_URL:?set in deploy/.env}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:?set in deploy/.env}
+      # Strongly recommended: add an audience mapper on the Keycloak client
+      # and set this to its value — without it any token from the realm
+      # (any client) passes signature+issuer verification.
+      KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-}
+      KANECTA_DATASTORE: /data
+    volumes:
+      - kanecta-data:/data
+    restart: unless-stopped
+    # not exposed on the host — studio's nginx proxies to it
+
+  studio:
+    build:
+      context: ..
+      dockerfile: kanecta-ui/kanecta-apps/kanecta-app-studio/Dockerfile
+      args:
+        VITE_KEYCLOAK_URL: ${KEYCLOAK_URL:?set in deploy/.env}
+        VITE_KEYCLOAK_REALM: ${KEYCLOAK_REALM:?set in deploy/.env}
+        VITE_KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:?set in deploy/.env}
+    ports:
+      - "${STUDIO_PORT:-8080}:80"
+    depends_on:
+      - kanecta-api
+    restart: unless-stopped
+
+volumes:
+  kanecta-data:

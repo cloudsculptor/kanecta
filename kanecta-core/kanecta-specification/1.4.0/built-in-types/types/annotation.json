@@ -1,0 +1,74 @@
+{
+  "item": {
+    "id": "235d6155-db2a-4232-9548-8f5a66150d82",
+    "parentId": "11111111-1111-1111-1111-111111111111",
+    "type": "type",
+    "typeId": null,
+    "value": "annotation",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "A comment or note on another item, without modifying it. Like the other payload-dimension built-ins (alias, reference, document, …), an annotation item lives under the annotation type-UUID container and associates with its target via payload.targetId — not as a child of the annotated item. Its author is item.createdBy and its timestamp is item.createdAt; threaded replies nest via payload.parentAnnotationId.",
+      "confidence": "locked",
+      "icon": "Comment"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "annotationPayload",
+      "type": "object",
+      "required": [
+        "targetId",
+        "body"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "targetId": {
+          "type": "string",
+          "format": "uuid",
+          "x-kanecta-itemType": "item",
+          "description": "UUID of the item this annotation is about. The annotation item lives under the annotation type-UUID container and associates with its target via this field (the dominant payload-dimension pattern, like alias/reference/document). Query all annotations on item X with: SELECT * FROM obj_<annotation-type> WHERE target_id = X."
+        },
+        "body": {
+          "type": "string",
+          "description": "The annotation text. Also mirrored to item.value for display/search."
+        },
+        "parentAnnotationId": {
+          "type": ["string", "null"],
+          "format": "uuid",
+          "x-kanecta-itemType": "annotation",
+          "description": "For a threaded reply, the UUID of the parent annotation; null for a top-level annotation. Threading lives here (not on item.parentId, which is always the annotation type-UUID container). Replies still carry the same targetId as the thread they belong to."
+        }
+      }
+    },
+    "sqlSchema": [
+      "-- Built-in type: adapter handles storage natively."
+    ]
+  }
+}

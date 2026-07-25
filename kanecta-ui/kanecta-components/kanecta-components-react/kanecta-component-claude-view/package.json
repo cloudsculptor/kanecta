@@ -6,7 +6,7 @@
   "peerDependencies": {
     "@mui/icons-material": "^9.2.0",
     "@mui/material": ">=9",
-    "react": ">=19",
+    "react": "^19.2.8",
     "react-markdown": "^10"
   }
 }

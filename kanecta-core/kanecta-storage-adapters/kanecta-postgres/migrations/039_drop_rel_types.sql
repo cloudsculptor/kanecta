@@ -1,0 +1,34 @@
+-- Kanecta postgres schema — spec version 1.4.0
+--
+-- Uniform-projection modernisation (spec §cqrs-projections, the four-table law):
+-- retire the bespoke `rel_types` table. The relationship vocabulary is now the
+-- relationship-type type's own projection obj_<relationship-type> — every
+-- relationship-type item (the 9 canonical + any user-defined) is a row there,
+-- exactly like an instance of any other type. There is no bespoke `rel_types`
+-- table (spec §cqrs-projections lists it as a prohibited relation).
+--
+-- obj_<relationship-type>'s columns can't be derived from relationship-type.json's
+-- own payload schema — it EXTENDS the (nested) type payload (`allOf: [type.json,
+-- { meta: { directional, inverse } }]`), the same circularity that blocks
+-- obj_<type-type>. The adapter builds obj_<relationship-type> from the flat
+-- relationshipTypeSeedMetaschema (export-only constant from @kanecta/specification;
+-- spec §cqrs-projections). A migration cannot do that (no compiler, no seed
+-- metaschema at migrate time), so — as with `types` (038), config (037) and
+-- licences (036) — this migration only DROPS the redundant table; the adapter
+-- creates + populates obj_<relationship-type> on init/open
+-- (_ensureRelationshipTypes: _ensureProjection(relationship-type-uuid) from the
+-- seed metaschema, then a two-pass seed of the 9 canonical items).
+-- _loadRelTypes/addRelTypes read/write those items; there is no read-side fallback
+-- to this table (the built-in slugs are the in-memory fallback), so the drop is safe.
+--
+-- BACKFILL CAVEAT (READ BEFORE APPLYING TO A DATA-BEARING DATABASE): `rel_types`
+-- may hold USER-DEFINED relationship type names. This migration does NOT convert
+-- them into relationship-type items — the adapter re-seeds only the 9 canonical
+-- types on init. A deployment with custom relationship types MUST run a scripted
+-- backfill (create a `relationship-type` item per non-canonical `rel_types` row)
+-- and verify it BEFORE applying this drop, and back up first. Fresh / test /
+-- canonical-only databases have no such rows, so the drop is a clean no-op there.
+-- The schema-change guard (KANECTA_ALLOW_SCHEMA_CHANGES) means this only runs on
+-- deliberate authorisation.
+
+DROP TABLE IF EXISTS rel_types;

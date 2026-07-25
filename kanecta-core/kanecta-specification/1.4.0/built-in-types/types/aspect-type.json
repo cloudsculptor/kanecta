@@ -50,7 +50,8 @@
             "object",
             "null"
           ],
-          "description": "JSON Schema validating the payload of aspect items of this type. null means no schema enforcement — any payload is accepted."
+          "x-kanecta-storage": "json",
+          "description": "JSON Schema validating the payload of aspect items of this type. null means no schema enforcement — any payload is accepted. Stored as a JSON column (x-kanecta-storage: json): a JSON Schema document is genuine JSON content the application round-trips as a unit, never queried by sub-field — the one sanctioned use of a JSON column."
         },
         "description": {
           "type": "string",

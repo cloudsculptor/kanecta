@@ -56,7 +56,15 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
   }
 
   const token = authHeader.slice(7);
-  jwt.verify(token, getKey(client), { issuer } as any, (err: any, decoded: any) => {
+  // Audience verification is opt-in via KEYCLOAK_AUDIENCE: out of the box a
+  // Keycloak access token's `aud` is whatever the realm's client scopes map
+  // (often just `account`), so a hard default would reject valid tokens on
+  // realms without an audience mapper. Production deployments SHOULD add an
+  // audience mapper for their client and set KEYCLOAK_AUDIENCE to match —
+  // without it, any token from the realm (any client) passes signature+issuer.
+  const audience = process.env.KEYCLOAK_AUDIENCE;
+  const verifyOpts: any = audience ? { issuer, audience } : { issuer };
+  jwt.verify(token, getKey(client), verifyOpts, (err: any, decoded: any) => {
     if (err) return res.status(401).json({ error: 'Invalid token' });
     req.user = {
       id: decoded.sub,

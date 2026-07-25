@@ -7,6 +7,15 @@ import type { MergePreview } from '../../api/workingSets';
 const WS = 'kanecta-internal';
 const BRANCH = 'feature/edits';
 
+const snap = (id: string, value: string, extra: Record<string, unknown> = {}) => ({
+  id,
+  value,
+  type: 'note',
+  parentId: null,
+  tags: [],
+  ...extra,
+});
+
 const clean: MergePreview = {
   branch: BRANCH,
   adds: 3,
@@ -14,6 +23,28 @@ const clean: MergePreview = {
   deletes: 1,
   conflicts: [],
   blastRadius: [],
+  detail: {
+    adds: [
+      { id: '11111111-aaaa-bbbb-cccc-dddddddddddd', after: snap('11111111-aaaa-bbbb-cccc-dddddddddddd', 'Fundraising ideas') },
+      { id: '22222222-aaaa-bbbb-cccc-dddddddddddd', after: snap('22222222-aaaa-bbbb-cccc-dddddddddddd', 'Sponsor list') },
+      { id: '33333333-aaaa-bbbb-cccc-dddddddddddd', after: snap('33333333-aaaa-bbbb-cccc-dddddddddddd', 'Poster draft') },
+    ],
+    edits: [
+      {
+        id: '44444444-aaaa-bbbb-cccc-dddddddddddd',
+        before: snap('44444444-aaaa-bbbb-cccc-dddddddddddd', 'AGM agenda', { status: 'draft' }),
+        after: snap('44444444-aaaa-bbbb-cccc-dddddddddddd', 'AGM agenda 2026', { status: 'ready' }),
+      },
+      {
+        id: '55555555-aaaa-bbbb-cccc-dddddddddddd',
+        before: snap('55555555-aaaa-bbbb-cccc-dddddddddddd', 'Budget', { tags: [] }),
+        after: snap('55555555-aaaa-bbbb-cccc-dddddddddddd', 'Budget', { tags: ['approved'] }),
+      },
+    ],
+    deletes: [
+      { id: '66666666-aaaa-bbbb-cccc-dddddddddddd', before: snap('66666666-aaaa-bbbb-cccc-dddddddddddd', 'Old flyer') },
+    ],
+  },
 };
 
 // Seed the merge-preview query so each state renders deterministically without a
@@ -57,6 +88,13 @@ export const Default: Story = {
     const body = within(canvasElement.ownerDocument.body);
     await expect(body.getByText('Create pull request')).toBeInTheDocument();
     await expect(body.getByText('+3 added')).toBeInTheDocument();
+    // The item-level review list renders from the preview's detail payload.
+    // Scope to the summary label — the same text also sits in the field table.
+    const label = { selector: '.BranchDiffList__label' };
+    await expect(body.getByTestId('branch-diff-list')).toBeInTheDocument();
+    await expect(body.getByText('Fundraising ideas', label)).toBeInTheDocument();
+    await userEvent.click(body.getByText('AGM agenda 2026', label));
+    await expect(body.getByText('AGM agenda')).toBeInTheDocument();
     await expect(body.getByRole('button', { name: 'Merge into main' })).toBeEnabled();
   },
 };

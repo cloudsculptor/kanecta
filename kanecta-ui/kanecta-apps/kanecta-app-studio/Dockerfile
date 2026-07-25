@@ -1,11 +1,35 @@
-FROM node:22-alpine AS build
+# Kanecta Studio static image (SPA built by vite, served by nginx, /api/
+# proxied to the kanecta-api container — see nginx.conf).
+#
+# BUILD FROM THE MONOREPO ROOT (studio depends on @kanecta/* npm workspaces,
+# which do not resolve from this directory alone):
+#
+#   docker build -f kanecta-ui/kanecta-apps/kanecta-app-studio/Dockerfile \
+#     --build-arg VITE_KEYCLOAK_URL=https://auth.example.com \
+#     --build-arg VITE_KEYCLOAK_REALM=my-realm \
+#     --build-arg VITE_KEYCLOAK_CLIENT_ID=kanecta-studio \
+#     -t kanecta-studio .
+#
+# VITE_* values are baked at build time (vite inlines import.meta.env), so a
+# deployment builds its own image with its own Keycloak. Runtime injection
+# (one generic image + an entrypoint-written config.js) needs Studio source
+# support first — tracked as a follow-up. Omit the args (or set
+# VITE_AUTH_DISABLED=true) for a local unauthenticated image.
+FROM node:22-bookworm-slim AS build
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
 COPY . .
-RUN npm run build
+RUN npm ci
+ARG VITE_KEYCLOAK_URL
+ARG VITE_KEYCLOAK_REALM
+ARG VITE_KEYCLOAK_CLIENT_ID
+ARG VITE_AUTH_DISABLED
+ENV VITE_KEYCLOAK_URL=$VITE_KEYCLOAK_URL \
+    VITE_KEYCLOAK_REALM=$VITE_KEYCLOAK_REALM \
+    VITE_KEYCLOAK_CLIENT_ID=$VITE_KEYCLOAK_CLIENT_ID \
+    VITE_AUTH_DISABLED=$VITE_AUTH_DISABLED
+RUN npm --prefix kanecta-ui/kanecta-apps/kanecta-app-studio run build
 
 FROM nginx:alpine
-COPY --from=build /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/kanecta-ui/kanecta-apps/kanecta-app-studio/dist /usr/share/nginx/html
+COPY kanecta-ui/kanecta-apps/kanecta-app-studio/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80

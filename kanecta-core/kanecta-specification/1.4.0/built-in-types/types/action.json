@@ -63,13 +63,6 @@
           },
           "description": "Item types this action is available on. Each entry is either a built-in type name (e.g. 'task', 'note') or a UUID of a custom type item. Studio shows this action in the action menu when the user is viewing an item whose type is in this list. Null or empty array means the action is a workspace-level action with no type restriction — it appears in the global action palette and can be invoked without a specific item context, in which case params.targetItemId is null."
         },
-        "params": {
-          "type": [
-            "object",
-            "null"
-          ],
-          "description": "Default parameter values passed to the pipeline at invocation time. Keys must match parameter names declared in the pipeline's params[] definition. Caller-supplied params override these defaults; these defaults override the pipeline's own param defaults. Null means no action-level defaults — the pipeline's own defaults and caller-supplied params are used directly."
-        },
         "description": {
           "type": [
             "string",

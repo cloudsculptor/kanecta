@@ -53,6 +53,7 @@ const PAGE: Page = {
   version: 3,
   owner_type: "group",
   owner_id: "g1",
+  archived_at: null,
   group_name: "Resilience Team",
 };
 

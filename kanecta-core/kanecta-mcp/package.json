@@ -24,7 +24,7 @@
   "dependencies": {
     "@kanecta/lib": "^1.0.0",
     "@kanecta/specification": "^1.4.0",
-    "tsx": "^4.23.0"
+    "tsx": "^4.23.1"
   },
   "publishConfig": {
     "access": "public"

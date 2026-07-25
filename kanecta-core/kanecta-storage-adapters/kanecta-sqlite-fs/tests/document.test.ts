@@ -25,7 +25,7 @@ describe('DOCUMENT_TYPE_UUID', () => {
 describe('createDocument', () => {
   test('creates an item of type "document"', () => {
     const a      = tmpAdapter();
-    const target = a.create({ value: 'Root item', type: 'text' });
+    const target = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'Root item', type: 'text' });
     const doc    = a.createDocument(target.id, 'My doc');
     expect(doc.type).toBe('document');
     expect(doc.value).toBe('My doc');
@@ -34,7 +34,7 @@ describe('createDocument', () => {
 
   test('sets parentId to DOCUMENT_TYPE_UUID', () => {
     const a      = tmpAdapter();
-    const target = a.create({ value: 'Root item', type: 'text' });
+    const target = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'Root item', type: 'text' });
     const doc    = a.createDocument(target.id, 'My doc');
     expect(doc.parentId).toBe(SqliteFsAdapter.DOCUMENT_TYPE_UUID);
     cleanup(a);
@@ -42,7 +42,7 @@ describe('createDocument', () => {
 
   test('writes default payload with targetId and name', () => {
     const a       = tmpAdapter();
-    const target  = a.create({ value: 'Root item', type: 'text' });
+    const target  = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'Root item', type: 'text' });
     const doc     = a.createDocument(target.id, 'My doc');
     const payload = a.readDocumentPayload(doc.id);
     expect(payload.targetId).toBe(target.id);
@@ -52,7 +52,7 @@ describe('createDocument', () => {
 
   test('applies default expandState when not supplied', () => {
     const a       = tmpAdapter();
-    const target  = a.create({ value: 'Root item', type: 'text' });
+    const target  = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'Root item', type: 'text' });
     const doc     = a.createDocument(target.id, 'My doc');
     const payload = a.readDocumentPayload(doc.id);
     expect(payload.expandState.defaultDepth).toBe(2);
@@ -62,7 +62,7 @@ describe('createDocument', () => {
 
   test('applies default roleMap when not supplied', () => {
     const a       = tmpAdapter();
-    const target  = a.create({ value: 'Root item', type: 'text' });
+    const target  = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'Root item', type: 'text' });
     const doc     = a.createDocument(target.id, 'My doc');
     const payload = a.readDocumentPayload(doc.id);
     expect(payload.roleMap.byDepth['1']).toBe('heading');
@@ -73,7 +73,7 @@ describe('createDocument', () => {
 
   test('accepts custom expandState and roleMap', () => {
     const a       = tmpAdapter();
-    const target  = a.create({ value: 'Root item', type: 'text' });
+    const target  = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'Root item', type: 'text' });
     const doc     = a.createDocument(target.id, 'Custom', {
       expandState: { defaultDepth: 5, exceptions: {} },
       roleMap:     { byDepth: { '1': 'title' }, byType: { annotation: 'caption' } },
@@ -87,7 +87,7 @@ describe('createDocument', () => {
 
   test('sets isOrgDefault from opts', () => {
     const a       = tmpAdapter();
-    const target  = a.create({ value: 'Root item', type: 'text' });
+    const target  = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'Root item', type: 'text' });
     const doc     = a.createDocument(target.id, 'Org default', { isOrgDefault: true });
     const payload = a.readDocumentPayload(doc.id);
     expect(payload.isOrgDefault).toBe(true);
@@ -96,7 +96,7 @@ describe('createDocument', () => {
 
   test('sets baseDocumentId from opts', () => {
     const a       = tmpAdapter();
-    const target  = a.create({ value: 'Root item', type: 'text' });
+    const target  = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'Root item', type: 'text' });
     const original = a.createDocument(target.id, 'Original');
     const fork     = a.createDocument(target.id, 'Fork', { baseDocumentId: original.id });
     const payload  = a.readDocumentPayload(fork.id);
@@ -112,7 +112,7 @@ describe('createDocument', () => {
 
   test('throws if name is missing', () => {
     const a      = tmpAdapter();
-    const target = a.create({ value: 'Root item', type: 'text' });
+    const target = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'Root item', type: 'text' });
     expect(() => a.createDocument(target.id, '')).toThrow('name is required');
     cleanup(a);
   });
@@ -123,7 +123,7 @@ describe('createDocument', () => {
 describe('writeDocumentPayload / readDocumentPayload', () => {
   test('overwrites payload in full', () => {
     const a       = tmpAdapter();
-    const target  = a.create({ value: 'Root', type: 'text' });
+    const target  = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'Root', type: 'text' });
     const doc     = a.createDocument(target.id, 'Doc');
     const updated = { targetId: target.id, name: 'Renamed', expandState: { defaultDepth: 3, exceptions: {} }, roleMap: { byDepth: {}, byType: {} }, isOrgDefault: false, baseDocumentId: null };
     a.writeDocumentPayload(doc.id, updated);
@@ -140,14 +140,14 @@ describe('writeDocumentPayload / readDocumentPayload', () => {
 
   test('throws if item is not a document', () => {
     const a    = tmpAdapter();
-    const item = a.create({ value: 'plain', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'plain', type: 'text' });
     expect(() => a.writeDocumentPayload(item.id, {})).toThrow('not a document');
     cleanup(a);
   });
 
   test('readDocumentPayload returns null for item with no payload', () => {
     const a    = tmpAdapter();
-    const item = a.create({ value: 'plain', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'plain', type: 'text' });
     expect(a.readDocumentPayload(item.id)).toBeNull();
     cleanup(a);
   });
@@ -158,15 +158,15 @@ describe('writeDocumentPayload / readDocumentPayload', () => {
 describe('listDocuments', () => {
   test('returns empty array when no documents target item', () => {
     const a      = tmpAdapter();
-    const target = a.create({ value: 'Target', type: 'text' });
+    const target = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'Target', type: 'text' });
     expect(a.listDocuments(target.id)).toEqual([]);
     cleanup(a);
   });
 
   test('returns documents targeting a specific item', () => {
     const a       = tmpAdapter();
-    const target  = a.create({ value: 'Target', type: 'text' });
-    const other   = a.create({ value: 'Other', type: 'text' });
+    const target  = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'Target', type: 'text' });
+    const other   = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'Other', type: 'text' });
     const doc1    = a.createDocument(target.id, 'Doc 1');
     const doc2    = a.createDocument(target.id, 'Doc 2');
     /*const docOther =*/ a.createDocument(other.id, 'Other doc');
@@ -181,7 +181,7 @@ describe('listDocuments', () => {
 
   test('excludes soft-deleted documents', () => {
     const a      = tmpAdapter();
-    const target = a.create({ value: 'Target', type: 'text' });
+    const target = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'Target', type: 'text' });
     const doc    = a.createDocument(target.id, 'To be deleted');
     expect(a.listDocuments(target.id)).toHaveLength(1);
     a.softDelete(doc.id);
@@ -191,7 +191,7 @@ describe('listDocuments', () => {
 
   test('returns all documents regardless of visibility', () => {
     const a      = tmpAdapter();
-    const target = a.create({ value: 'Target', type: 'text' });
+    const target = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'Target', type: 'text' });
     a.createDocument(target.id, 'Private doc', { visibility: 'private' });
     a.createDocument(target.id, 'Org doc',     { visibility: 'org' });
     expect(a.listDocuments(target.id)).toHaveLength(2);
@@ -204,7 +204,7 @@ describe('listDocuments', () => {
 describe('org default flag', () => {
   test('only one org-default document visible per target (by convention)', () => {
     const a       = tmpAdapter();
-    const target  = a.create({ value: 'Target', type: 'text' });
+    const target  = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'Target', type: 'text' });
     a.createDocument(target.id, 'Default', { isOrgDefault: true });
     a.createDocument(target.id, 'Alt',     { isOrgDefault: false });
     const docs    = a.listDocuments(target.id);
@@ -221,7 +221,7 @@ describe('payload persistence', () => {
   test('payload survives adapter re-open', () => {
     const root   = fs.mkdtempSync(path.join(os.tmpdir(), 'kanecta-doc-persist-'));
     const a      = SqliteFsAdapter.init(root, 'test@example.com');
-    const target = a.create({ value: 'Root', type: 'text' });
+    const target = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'Root', type: 'text' });
     const doc    = a.createDocument(target.id, 'Persisted doc', {
       expandState: { defaultDepth: 4, exceptions: {} },
     });
@@ -238,7 +238,7 @@ describe('payload persistence', () => {
 describe('document mode', () => {
   test('defaults mode to "document"', () => {
     const a = tmpAdapter();
-    const t = a.create({ value: 'Root', type: 'text' });
+    const t = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'Root', type: 'text' });
     const doc = a.createDocument(t.id, 'D');
     expect(a.readDocumentPayload(doc.id).mode).toBe('document');
     cleanup(a);
@@ -246,7 +246,7 @@ describe('document mode', () => {
 
   test('stores an explicit mode and finds it via listDocuments', () => {
     const a = tmpAdapter();
-    const t = a.create({ value: 'Todos', type: 'text' });
+    const t = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'Todos', type: 'text' });
     const doc = a.createDocument(t.id, 'Todo view', { mode: 'todo' });
     expect(a.listDocuments(t.id).map((d) => d.id)).toContain(doc.id);
     expect(a.readDocumentPayload(doc.id).mode).toBe('todo');
@@ -255,7 +255,7 @@ describe('document mode', () => {
 
   test('writeDocumentPayload flips the mode', () => {
     const a = tmpAdapter();
-    const t = a.create({ value: 'Todos', type: 'text' });
+    const t = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'Todos', type: 'text' });
     const doc = a.createDocument(t.id, 'Todo view', { mode: 'todo' });
     a.writeDocumentPayload(doc.id, { ...a.readDocumentPayload(doc.id), mode: 'tree' });
     expect(a.readDocumentPayload(doc.id).mode).toBe('tree');

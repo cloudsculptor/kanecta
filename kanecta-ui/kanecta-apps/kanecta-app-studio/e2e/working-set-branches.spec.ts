@@ -126,14 +126,43 @@ async function withBranchedWorkingSet(page: Page): Promise<BranchedState> {
     (url) => /\/api\/working-sets\/[^/]+\/branches\/[^/]+\/diff$/.test(url.pathname),
     (route) => route.fulfill({ status: 200, json: { branch: 'feature/edits', adds: 3, edits: 2, deletes: 1 } }),
   );
-  // The dialog previews conflicts / blast radius when it opens. Default: clean.
+  // The dialog previews conflicts / blast radius when it opens. Default: clean,
+  // with an item-level detail payload (the reviewable "PR diff").
   // Individual tests can register a higher-priority route to return conflicts.
   await page.route(
     (url) => /\/api\/working-sets\/[^/]+\/branches\/[^/]+\/merge-preview$/.test(url.pathname),
     (route) =>
       route.fulfill({
         status: 200,
-        json: { branch: 'feature/edits', adds: 3, edits: 2, deletes: 1, conflicts: [], blastRadius: [] },
+        json: {
+          branch: 'feature/edits',
+          adds: 3,
+          edits: 2,
+          deletes: 1,
+          conflicts: [],
+          blastRadius: [],
+          detail: {
+            adds: [
+              {
+                id: '11111111-aaaa-bbbb-cccc-dddddddddddd',
+                after: { id: '11111111-aaaa-bbbb-cccc-dddddddddddd', value: 'Fundraising ideas', type: 'note' },
+              },
+            ],
+            edits: [
+              {
+                id: '44444444-aaaa-bbbb-cccc-dddddddddddd',
+                before: { id: '44444444-aaaa-bbbb-cccc-dddddddddddd', value: 'AGM agenda', type: 'note', status: 'draft' },
+                after: { id: '44444444-aaaa-bbbb-cccc-dddddddddddd', value: 'AGM agenda 2026', type: 'note', status: 'ready' },
+              },
+            ],
+            deletes: [
+              {
+                id: '66666666-aaaa-bbbb-cccc-dddddddddddd',
+                before: { id: '66666666-aaaa-bbbb-cccc-dddddddddddd', value: 'Old flyer', type: 'note' },
+              },
+            ],
+          },
+        },
       }),
   );
   await page.route(
@@ -172,6 +201,27 @@ test.describe('Working-set pull requests', () => {
     await merge.click();
 
     await expect.poll(() => state.mergeCalls).toBeGreaterThan(0);
+  });
+
+  test('renders the item-level changes for review, expandable to field diffs', async ({ page }) => {
+    await withBranchedWorkingSet(page);
+
+    await page.getByRole('button', { name: 'Switch working set' }).click();
+    await page.getByRole('button', { name: /Create Pull Request/ }).click();
+
+    // Every changed item is listed by label.
+    const list = page.getByTestId('branch-diff-list');
+    await expect(list).toBeVisible();
+    const label = (text: string) => list.locator('.BranchDiffList__label', { hasText: text });
+    await expect(label('Fundraising ideas')).toBeVisible();
+    await expect(label('AGM agenda 2026')).toBeVisible();
+    await expect(label('Old flyer')).toBeVisible();
+
+    // Expanding the edit reveals the before → after field diff.
+    await label('AGM agenda 2026').click();
+    await expect(list.getByText('AGM agenda', { exact: true })).toBeVisible();
+    await expect(list.getByText('draft')).toBeVisible();
+    await expect(list.getByText('ready')).toBeVisible();
   });
 
   test('surfaces conflicts and requires a strategy before merging', async ({ page }) => {

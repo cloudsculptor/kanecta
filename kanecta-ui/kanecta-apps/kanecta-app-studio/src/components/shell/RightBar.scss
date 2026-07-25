@@ -3,10 +3,16 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  overflow: hidden;
+  // Same fix as LeftBar: centered flex + hidden overflow makes overflowing
+  // items spill past both edges, clipped and unreachable. The margin:auto
+  // pair centers when there's room and scrolls from the top when not.
+  overflow-y: auto;
+  scrollbar-width: none;
   background: var(--sidebar-bg, transparent);
   padding: 4px;
+
+  &-item:first-child { margin-top: auto; }
+  &-item:last-child  { margin-bottom: auto; }
 
   &-item {
     display: flex;

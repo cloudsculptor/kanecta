@@ -49,23 +49,9 @@
           "type": "string",
           "description": "Rendering environment for this component. Open string — new targets can be added without a spec change. The target name is also the subdirectory name inside the .component/ bundle directory. Defaults to 'react' if absent. Named targets: 'react' (ReactNode, index.tsx), 'web' (Custom Element, index.ts), 'ink' (Ink component, index.tsx)."
         },
-        "bundleHash": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          },
-          "description": "SHA-256 hashes of the source bundle keyed by target name (e.g. { \"react\": \"sha256:b7c2d1...\" }). Excludes node_modules/. Updated by kanecta component save. Stale hash triggers re-fetch and re-unpack before rendering."
-        },
         "description": {
           "type": "string",
           "description": "What this component renders or does."
-        },
-        "props": {
-          "type": "array",
-          "items": {
-            "$ref": "function.json#/definitions/parameterOrProp"
-          },
-          "description": "Ordered list of props. The adapter generates interface.ts from this list. Uses the same parameterOrProp definition as functionPayload — including typeId for Kanecta-typed props and functionId for callback props."
         },
         "dependencies": {
           "type": "array",

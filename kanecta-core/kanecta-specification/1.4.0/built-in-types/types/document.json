@@ -35,7 +35,7 @@
   "search": null,
   "payload": {
     "meta": {
-      "description": "A named projection of a subtree into document form — maps tree depth and item type to document roles (heading, body, caption, etc.) so any tree can be exported or rendered as a well-formed document without restructuring the data.",
+      "description": "A named projection of a subtree into document form — maps tree depth and item type to document roles (heading, body, caption, etc.) so any tree can be exported or rendered as a well-formed document without restructuring the data. Per the flat one-level rule the two nested maps are children: expandState.exceptions → `document-expand-exception` children ({itemId, depth}, depth −1 = collapse), and roleMap.byDepth / roleMap.byType → `document-role-by-depth` / `document-role-by-type` children. expandState.defaultDepth is flattened onto this payload as `defaultDepth`.",
       "confidence": "locked",
       "icon": "Article"
     },
@@ -59,81 +59,17 @@
           "description": "Human-readable name for this document (e.g. 'Executive summary', 'Onboarding guide')."
         },
         "mode": {
-          "type": "string",
-          "enum": ["document", "tree", "todo"],
+          "type": ["string", "null"],
+          "enum": ["document", "tree", "todo", null],
           "description": "How the projected subtree is rendered. 'document' (default) = a well-formed document per roleMap; 'tree' = the interactive tree; 'todo' = the tree with a completion checkbox on each item bound to its completedAt field (checking sets completedAt to now, unchecking clears it)."
         },
-        "expandState": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "defaultDepth": {
-              "type": "integer",
-              "minimum": 0,
-              "description": "Number of levels below targetId to expand by default."
-            },
-            "exceptions": {
-              "type": "object",
-              "description": "Sparse map of item UUID to integer depth or false (collapse). Only items that differ from defaultDepth need an entry.",
-              "additionalProperties": {
-                "oneOf": [
-                  {
-                    "type": "integer",
-                    "minimum": 0
-                  },
-                  {
-                    "type": "boolean",
-                    "enum": [
-                      false
-                    ]
-                  }
-                ]
-              }
-            }
-          }
-        },
-        "roleMap": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "byDepth": {
-              "type": "object",
-              "description": "Map of depth integer (as string key) to role name. Depth 0 = targetId itself.",
-              "additionalProperties": {
-                "type": "string",
-                "enum": [
-                  "title",
-                  "heading",
-                  "subheading",
-                  "body",
-                  "caption",
-                  "list-item",
-                  "code-block",
-                  "ignore"
-                ]
-              }
-            },
-            "byType": {
-              "type": "object",
-              "description": "Map of item type string or typeId UUID to role name. Overrides byDepth. UUID-keyed entries take precedence.",
-              "additionalProperties": {
-                "type": "string",
-                "enum": [
-                  "title",
-                  "heading",
-                  "subheading",
-                  "body",
-                  "caption",
-                  "list-item",
-                  "code-block",
-                  "ignore"
-                ]
-              }
-            }
-          }
+        "defaultDepth": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "Number of levels below targetId to expand by default (flattened from expandState.defaultDepth). Per-item overrides are `document-expand-exception` children."
         },
         "isOrgDefault": {
-          "type": "boolean",
+          "type": ["boolean", "null"],
           "description": "When true, this is the canonical org-level document for targetId. At most one document per targetId should have this set."
         },
         "baseDocumentId": {

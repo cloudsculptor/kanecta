@@ -1,0 +1,29 @@
+{
+  "item": {
+    "id": "0c8a7b10-1111-4a00-8000-000000000203",
+    "parentId": "0c8a7b10-1111-4a00-8000-000000000001",
+    "type": "query",
+    "typeId": null,
+    "value": "ch-message-reply-count",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-07-10T00:00:00.000Z",
+    "modifiedAt": "2026-07-10T00:00:00.000Z",
+    "visibility": "public",
+    "tags": ["community-hub", "discussions", "computed"]
+  },
+  "search": null,
+  "payload": {
+    "language": "sql",
+    "expression": "SELECT count(*)::int AS n FROM items WHERE parent_id = {{params.self}} AND type_id = '0c8a7b10-1111-4a00-8000-000000000102' AND deleted_at IS NULL",
+    "params": [
+      { "name": "self", "type": "uuid", "description": "The ch-message row's item id (bound from the row)." }
+    ],
+    "returnType": null,
+    "description": "ch-message.replyCount — count of non-deleted child ch-message items (one-level replies)."
+  }
+}

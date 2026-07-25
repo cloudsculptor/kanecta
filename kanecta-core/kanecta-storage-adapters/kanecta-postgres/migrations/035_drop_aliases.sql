@@ -1,0 +1,21 @@
+-- Kanecta postgres schema — spec version 1.4.0
+--
+-- Uniform-projection modernisation (spec §cqrs-projections): retire the bespoke
+-- `aliases` table. An alias is now a first-class `alias` item — a payload-dimension
+-- type (spec §"Well-known payload dimension names"): the item lives under the alias
+-- type-UUID container, the alias STRING is item.value (case-insensitive), it points at
+-- its target via payload.targetId, and payload.assignedBy scopes it to an owning entity
+-- (null = unscoped). Payload = { targetId, assignedBy, provisional, confirmedAt,
+-- computedFromFormulaId } projected to obj_<alias-type>. setAlias/resolveAlias/
+-- listAliases/removeAlias keep their signatures, so API + MCP consumers are untouched.
+--
+-- BACKFILL CAVEAT (READ BEFORE APPLYING TO A DATA-BEARING DATABASE): `aliases` may hold
+-- real rows. This migration does NOT convert them into items + obj_<alias-type> rows —
+-- that is a scripted backfill (one `alias` item per row: items row with value = the
+-- alias string + obj_ row with target_id, assigned_by = null, provisional = false,
+-- confirmed_at, computed_from_formula_id = null). A deployment with existing aliases
+-- MUST run that backfill and verify it BEFORE applying this drop — back up first. Fresh
+-- / test databases have no rows, so the drop is a clean no-op there. The schema-change
+-- guard (KANECTA_ALLOW_SCHEMA_CHANGES) means this only runs on deliberate authorisation.
+
+DROP TABLE IF EXISTS aliases;

@@ -298,12 +298,6 @@ export interface BulkUpdateResult {
   errors: Array<{ index: number; id?: string; error: string }>;
 }
 
-export interface SyncSystemItem {
-  folderId: string;
-  title: string;
-  schema: TypeSchema;
-}
-
 // ─── Namespace interfaces ─────────────────────────────────────────────────────
 
 export interface ConfigApi {
@@ -498,12 +492,6 @@ export interface ViewApi {
   save(id: string, payload: { levels: unknown }): Promise<{ ok: boolean }>;
 }
 
-export interface SystemItemsApi {
-  getSync(): Promise<SyncSystemItem[]>;
-  import(folderIds: string[]): Promise<{ imported: Array<{ id: string; value: string }>; errors: Array<{ folderId: string; error: string }> }>;
-  export(typeIds: string[]): Promise<{ exported: Array<{ id: string }>; errors: Array<{ id: string; error: string }> }>;
-}
-
 export interface SettingsApi {
   get(): Promise<StudioSettings>;
   save(payload: Partial<StudioSettings> & { themeName: string }): Promise<{ ok: boolean }>;
@@ -589,6 +577,32 @@ export interface IntegrityApi {
   stream(query?: IntegrityQuery): Promise<Response>;
 }
 
+/** One derived structure's outcome in a projection rebuild report. */
+export interface ProjectionStructureResult {
+  name: string;
+  status: 'rebuilt' | 'verified' | 'warning' | 'skipped' | 'error';
+  rows?: number;
+  tables?: number;
+  created?: Array<{ table: string; instances: number }>;
+  dropped?: string[];
+  detail?: string;
+}
+
+export interface ProjectionRebuildReport {
+  storage: string;
+  structures: ProjectionStructureResult[];
+  /** Filesystem adapter only — items re-ingested from item.json. */
+  items?: number;
+  ok: boolean;
+}
+
+export interface ProjectionsApi {
+  /** The materialised per-type relations of the active working set. */
+  list(): Promise<{ tables: string[] }>;
+  /** Manually regenerate derived structures; `only` limits which. */
+  rebuild(only?: string[]): Promise<ProjectionRebuildReport>;
+}
+
 export interface WorkingSetBranch {
   name: string;
   active: boolean;
@@ -612,10 +626,105 @@ export interface WorkingSet {
   isActive: boolean;
 }
 
+/** How to fill a new branch: a full copy, or a sparse read-through overlay. */
+export type BranchFill = 'full' | 'sparse';
+
+export interface CreateBranchOptions {
+  fill?: BranchFill;
+  /** For a sparse branch, the branch it reads through to (defaults to current). */
+  upstream?: { branch: string };
+}
+
+/**
+ * Flat item snapshot as `/diff` and `/merge-preview` carry it in `detail` —
+ * the adapter's read-model item shape (id, value, type, tags, timestamps…).
+ */
+export interface DiffItemSnapshot {
+  id: string;
+  value?: unknown;
+  type?: string;
+  parentId?: string | null;
+  tags?: string[];
+  [field: string]: unknown;
+}
+
+/** Item-level review payload: what a branch adds, edits, and deletes. */
+export interface DiffDetail {
+  adds: Array<{ id: string; after: DiffItemSnapshot }>;
+  edits: Array<{ id: string; before: DiffItemSnapshot; after: DiffItemSnapshot }>;
+  deletes: Array<{ id: string; before: DiffItemSnapshot }>;
+}
+
+/** `GET .../diff` — a branch's changes vs its upstream. */
+export interface BranchDiff {
+  branch: string;
+  adds: number;
+  edits: number;
+  deletes: number;
+  /** Absent on older servers. */
+  detail?: DiffDetail;
+}
+
+/** How merging conflicts are resolved: branch wins, or keep the upstream (main). */
+export type MergeStrategy = 'theirs' | 'ours';
+
+/**
+ * One item that changed on both sides since the branch forked. `kind`:
+ *  - `edit-edit`   both edited it
+ *  - `delete-edit` the branch deleted an item main modified
+ *  - `add-delete`  the branch kept/edited an item main has since deleted
+ */
+export interface MergeConflict {
+  id: string;
+  kind: 'edit-edit' | 'delete-edit' | 'add-delete';
+}
+
+/** A deleted item that other items on main still reference (would dangle). */
+export interface BlastRadiusEntry {
+  id: string;
+  referencedBy: Array<{ id: string; via: 'parent' | 'link' | 'relationship' | 'alias' }>;
+}
+
+/** `GET .../merge-preview` — what a merge into main would do, applying nothing. */
+export interface MergePreview {
+  branch: string;
+  adds: number;
+  edits: number;
+  deletes: number;
+  conflicts: MergeConflict[];
+  blastRadius: BlastRadiusEntry[];
+  /** Absent on older servers. */
+  detail?: DiffDetail;
+}
+
+/** Options for `POST .../merge`. */
+export interface MergeOptions {
+  strategy?: MergeStrategy;
+  blockOnBlastRadius?: boolean;
+}
+
+/** `POST .../merge` success result. */
+export interface MergeResult {
+  ok: boolean;
+  merged: number;
+  skipped?: number;
+  conflicts?: MergeConflict[];
+  blastRadius?: BlastRadiusEntry[];
+}
+
 export interface WorkingSetsApi {
-  list(): Promise<{ workingSets: WorkingSet[]; activeWorkspace: string }>;
-  createBranch(workspaceName: string, branchName: string): Promise<{ ok: boolean; branch: WorkingSetBranch }>;
-  switchBranch(workspaceName: string, branch: string): Promise<{ ok: boolean; branch: string }>;
+  /** `activeWorkspace` is the legacy name of `activeWorkingSet`; servers send one or the other. */
+  list(): Promise<{ workingSets: WorkingSet[]; activeWorkingSet?: string; activeWorkspace?: string }>;
+  /** Make a working set the active one. */
+  activate(name: string): Promise<{ ok: boolean }>;
+  createBranch(name: string, branchName: string, options?: CreateBranchOptions): Promise<{ ok: boolean; branch: WorkingSetBranch }>;
+  switchBranch(name: string, branch: string): Promise<{ ok: boolean; branch: string }>;
+  /** A branch's changes vs its upstream, with the item-level review payload. */
+  branchDiff(name: string, branch: string): Promise<BranchDiff>;
+  /** Conflicts + blast radius a merge into main would produce — applies nothing. */
+  mergePreview(name: string, branch: string): Promise<MergePreview>;
+  /** Merge a branch into main. Conflicting merges reject with a 409 ApiError. */
+  merge(name: string, branch: string, options?: MergeOptions): Promise<MergeResult>;
 }
 
 // ─── Client config ────────────────────────────────────────────────────────────
@@ -837,19 +946,6 @@ export class KanectaApiClient {
     };
   }
 
-  // ─── System items ────────────────────────────────────────────────────────────
-
-  get systemItems(): SystemItemsApi {
-    const c = this;
-    return {
-      getSync: () => c._fetch('GET', '/app/studio/sync-system-items'),
-      import: (folderIds) =>
-        c._fetch('POST', '/app/studio/sync-system-items/import', { folderIds }),
-      export: (typeIds) =>
-        c._fetch('POST', '/app/studio/sync-system-items/export', { typeIds }),
-    };
-  }
-
   // ─── Settings ────────────────────────────────────────────────────────────────
 
   get settings(): SettingsApi {
@@ -932,16 +1028,39 @@ export class KanectaApiClient {
     };
   }
 
+  // ─── Projections ─────────────────────────────────────────────────────────────
+
+  get projections(): ProjectionsApi {
+    const c = this;
+    return {
+      list: () => c._fetch('GET', '/projections'),
+      rebuild: (only) =>
+        c._fetch('POST', '/projections/rebuild', only?.length ? { only } : {}),
+    };
+  }
+
   // ─── Working sets ────────────────────────────────────────────────────────────
 
   get workingSets(): WorkingSetsApi {
     const c = this;
+    const enc = encodeURIComponent;
     return {
       list: () => c._fetch('GET', '/working-sets'),
-      createBranch: (workspaceName, branchName) =>
-        c._fetch('POST', `/working-sets/${encodeURIComponent(workspaceName)}/branches`, { branchName }),
-      switchBranch: (workspaceName, branch) =>
-        c._fetch('POST', `/working-sets/${encodeURIComponent(workspaceName)}/branches/${encodeURIComponent(branch)}/switch`),
+      activate: (name) => c._fetch('POST', `/working-sets/${enc(name)}/activate`),
+      createBranch: (name, branchName, options) =>
+        c._fetch('POST', `/working-sets/${enc(name)}/branches`, {
+          branchName,
+          ...(options?.fill ? { fill: options.fill } : {}),
+          ...(options?.upstream ? { upstream: options.upstream } : {}),
+        }),
+      switchBranch: (name, branch) =>
+        c._fetch('POST', `/working-sets/${enc(name)}/branches/${enc(branch)}/switch`),
+      branchDiff: (name, branch) =>
+        c._fetch('GET', `/working-sets/${enc(name)}/branches/${enc(branch)}/diff`),
+      mergePreview: (name, branch) =>
+        c._fetch('GET', `/working-sets/${enc(name)}/branches/${enc(branch)}/merge-preview`),
+      merge: (name, branch, options) =>
+        c._fetch('POST', `/working-sets/${enc(name)}/branches/${enc(branch)}/merge`, options ?? {}),
     };
   }
 }

@@ -1,0 +1,30 @@
+{
+  "item": {
+    "id": "0c8a7b10-1111-4a00-8000-000000000202",
+    "parentId": "0c8a7b10-1111-4a00-8000-000000000001",
+    "type": "query",
+    "typeId": null,
+    "value": "ch-thread-notifications-enabled",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-07-10T00:00:00.000Z",
+    "modifiedAt": "2026-07-10T00:00:00.000Z",
+    "visibility": "public",
+    "tags": ["community-hub", "discussions", "computed", "perViewer"]
+  },
+  "search": null,
+  "payload": {
+    "language": "sql",
+    "expression": "SELECT EXISTS(SELECT 1 FROM obj_0c8a7b10_1111_4a00_8000_000000000104 s WHERE s.thread_id = {{params.self}} AND s.user_id = {{params.viewer}}) AS enabled",
+    "params": [
+      { "name": "self", "type": "uuid", "description": "The ch-thread row's item id (bound from the row)." },
+      { "name": "viewer", "type": "string", "description": "The requesting principal (bound from ctx.viewer)." }
+    ],
+    "returnType": null,
+    "description": "ch-thread.isNotificationsEnabled (perViewer) — true when a ch-thread-subscription item exists for (viewer, thread)."
+  }
+}

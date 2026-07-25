@@ -72,10 +72,6 @@ export async function setupApp(page: Page): Promise<void> {
     (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
   );
   await page.route(
-    (url) => url.pathname === '/api/app/studio/sync-system-items',
-    (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
-  );
-  await page.route(
     (url) => url.pathname === '/api/app/studio/layouts',
     (route) =>
       route.fulfill({

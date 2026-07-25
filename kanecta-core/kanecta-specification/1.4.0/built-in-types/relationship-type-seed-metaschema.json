@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "relationshipTypeSeedMetaschema",
+  "description": "The flat, hand-authored column description for the `relationship-type` type's own projection table obj_<relationship-type>. relationship-type EXTENDS the (nested, non-flat) type payload — it is `allOf: [type.json, { meta: { directional, inverse } }]` — so its columns cannot be derived from its own jsonSchema any more than `type`'s can (the same circularity typeSeedMetaschema breaks for obj_<type-type>). This seed = the typeSeedMetaschema columns PLUS metaDirectional and metaInverse, so obj_<relationship-type> carries every type-registry column a relationship-type item needs (its jsonSchema validates relationship.data) plus the two directional-semantics columns. Held as an export-only constant from @kanecta/specification (NOT a second rootPayload.seedMetaschema field — it is derivative of the already-stored type seed, not a second irreducible bootstrap); the adapter special-cases _ensureProjection(relationship-type-uuid) to compile obj_<relationship-type> from it (spec §cqrs-projections). Properties are named so the compiler's camelCase->snake_case mapping yields the obj_<relationship-type> columns.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["metaDescription", "jsonSchema"],
+  "properties": {
+    "metaIcon": { "type": "string", "description": "-> meta_icon. MUI icon slug." },
+    "metaDescription": { "type": "string", "description": "-> meta_description. One-sentence summary." },
+    "metaDetails": { "type": "string", "description": "-> meta_details. Longer description." },
+    "metaKeywords": { "type": "string", "description": "-> meta_keywords. Space-separated search keywords." },
+    "metaTags": { "type": "string", "description": "-> meta_tags. Comma-separated grouping tags." },
+    "metaPrimaryField": { "type": "string", "description": "-> meta_primary_field. Field/expression computing item.value for instances." },
+    "metaAiInstructionsClaude": { "type": "string", "description": "-> meta_ai_instructions_claude. Guidance for Claude on using this type." },
+    "metaFunctionsConsumedBy": { "type": "array", "items": { "type": "string", "format": "uuid" }, "description": "-> meta_functions_consumed_by UUID[]." },
+    "metaFunctionsProducedBy": { "type": "array", "items": { "type": "string", "format": "uuid" }, "description": "-> meta_functions_produced_by UUID[]." },
+    "metaDirectional": { "type": "boolean", "description": "-> meta_directional. Whether the relationship has direction (source -> target). false means symmetric/self-inverse." },
+    "metaInverse": { "type": ["string", "null"], "format": "uuid", "description": "-> meta_inverse. UUID of the paired inverse relationship-type item (e.g. depends-on <-> enables). null for self-inverse types like relates-to." },
+    "jsonSchema": { "type": "object", "x-kanecta-storage": "json", "description": "-> json_schema JSONB. The Draft-07 schema validating relationship.data for instances of this relationship type. A stored JSON document round-tripped as a unit." },
+    "sqlSchema": { "type": "array", "items": { "type": "string" }, "description": "-> sql_schema TEXT[]. Authored DDL statements (typically empty — relationships project to the single obj_<relationship>, not per-relationship-type tables)." },
+    "sync": { "type": "array", "items": { "type": "string", "format": "uuid" }, "description": "-> sync UUID[]. Function items that refresh instances from source." },
+    "supersededBy": { "type": "array", "items": { "type": "string", "format": "uuid" }, "description": "-> superseded_by UUID[]. Definitions replacing this one." },
+    "implements": { "type": "array", "items": { "type": "string", "format": "uuid" }, "description": "-> implements UUID[]. Types whose contract this fulfils." },
+    "extends": { "type": "array", "items": { "type": "string", "format": "uuid" }, "description": "-> extends UUID[]. Types this specialises." },
+    "indexes": { "type": "object", "x-kanecta-storage": "json", "description": "-> indexes JSONB. Authored secondary-index declarations for this type's obj_ table." }
+  }
+}

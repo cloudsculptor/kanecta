@@ -1,0 +1,21 @@
+-- Kanecta postgres schema — spec version 1.4.0
+--
+-- config -> rootPayload cutover (spec §rootPayload / §cqrs-projections, the
+-- four-table law). Datastore configuration (owner, specVersion, itemHistory,
+-- activity, entryPoint) lives in the root node's payload, projected to
+-- obj_<root-type> like any structured type — never a bespoke `config` table.
+--
+-- The adapter now reads/writes config via obj_<root> (_loadConfig / _ensureConfig)
+-- and creates that projection from the root type's jsonSchema (_ensureProjection),
+-- which a migration cannot do (no compiler / no types row at migrate time). So
+-- this migration only DROPS the redundant table; the adapter populates obj_<root>
+-- on init.
+--
+-- Data note: `config` only ever held `owner` + `spec_version`. On init the owner
+-- is re-supplied via the init(owner) argument and spec_version is the package
+-- version, so a fresh/converging init loses nothing. A data-bearing datastore is
+-- cut over by an authorised init(owner) (which writes obj_<root> before this drop
+-- takes effect on the next open) — supply the correct owner. _loadConfig falls
+-- back to this table until it is gone, so opens during the transition still work.
+
+DROP TABLE IF EXISTS config;

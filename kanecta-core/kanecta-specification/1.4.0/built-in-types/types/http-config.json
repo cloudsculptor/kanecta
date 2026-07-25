@@ -1,0 +1,97 @@
+{
+  "item": {
+    "id": "ce19e56d-773d-4e26-a921-625ad9ac8b16",
+    "parentId": "11111111-1111-1111-1111-111111111111",
+    "type": "type",
+    "typeId": null,
+    "value": "http-config",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "Runtime config for an http agent (single HTTP request, no LLM). Request headers are `property` children of the config item (an open key-value map), not a payload field.",
+      "confidence": "locked",
+      "icon": "Http"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "httpConfigPayload",
+      "type": "object",
+      "required": [
+        "url"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "URL to request. May contain {{params.name}} placeholders substituted before the request."
+        },
+        "method": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE",
+            null
+          ],
+          "description": "HTTP method. Defaults to 'GET'."
+        },
+        "body": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Request body template (a string; may contain {{params.name}} placeholders). Ignored for GET/DELETE. Stored as text, not a JSON column."
+        },
+        "outputItemType": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "If set, the runner writes the HTTP response as a Kanecta item of this type. Null injects the response into the phase output map instead."
+        },
+        "timeoutSeconds": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "Request timeout in seconds. Null defaults to the runner's global HTTP timeout."
+        }
+      }
+    },
+    "sqlSchema": [
+      "-- Built-in type: adapter handles storage natively."
+    ]
+  }
+}

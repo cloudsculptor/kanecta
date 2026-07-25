@@ -1,7 +1,7 @@
 {
   "name": "@kanecta/postgres",
   "version": "1.4.0",
-  "description": "Kanecta postgres adapter — REMOTE mode items storage",
+  "description": "Kanecta postgres adapter \u2014 REMOTE mode items storage",
   "main": "src/index.ts",
   "files": [
     "src/",
@@ -31,6 +31,7 @@
     "access": "public"
   },
   "dependencies": {
+    "@kanecta/embeddings": "^1.4.0",
     "@kanecta/schema-compiler": "^1.4.0",
     "@kanecta/specification": "^1.4.0"
   },

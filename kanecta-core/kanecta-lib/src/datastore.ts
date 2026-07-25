@@ -4,7 +4,91 @@ import {
   ROOT_ID, TYPES_NODE, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE, DEFAULT_LICENSE,
 } from '@kanecta/sqlite-fs';
 
+import * as fs from 'fs';
 import * as datastoreUtils from '@kanecta/datastore-utils';
+
+// ─── Remote-only working set: `cloud` remote → openCloud cloudConfig ──────────
+//
+// A remote-only working set (a hosted webapp — shared Postgres for items, S3 for
+// files, no local filesystem) is expressed on disk as a single composite `cloud`
+// remote pairing the two backends, both REQUIRED:
+//
+//   "remotes": {
+//     "origin": {
+//       "type": "cloud",
+//       "postgres": { "host", "port"?, "database", "user", "password"?, "ssl"? },
+//       "s3":       { "endpoint", "region"?, "accessKeyId", "secretAccessKey", "bucket" }
+//     }
+//   }
+//
+// `Datastore.openCloud` wants `{ pg: { connectionString, ssl? }, s3: {…} }`, so we
+// translate the discrete Postgres fields into a `postgres://` connection string
+// (URL-encoding user + password) and pass the S3 block through unchanged. `$VAR`
+// values are already resolved by `readAppConfig` (deepResolveEnv) before a working
+// set reaches here, so no env expansion is needed at this layer.
+
+function buildPgConnectionString(pg: any): string {
+  const host = pg.host;
+  if (!host) throw new Error("cloud remote's postgres block requires 'host'");
+  if (!pg.database) throw new Error("cloud remote's postgres block requires 'database'");
+  if (!pg.user) throw new Error("cloud remote's postgres block requires 'user'");
+  const port = pg.port ?? 5432;
+  const user = encodeURIComponent(pg.user);
+  const auth = pg.password != null && pg.password !== ''
+    ? `${user}:${encodeURIComponent(pg.password)}`
+    : user;
+  return `postgres://${auth}@${host}:${port}/${pg.database}`;
+}
+
+// Resolve the postgres `ssl` block for node-pg. Supports CA pinning via
+// `caFile`: a path to the cluster's CA certificate PEM (e.g. the DigitalOcean
+// managed-pg CA), read here and passed to node-pg as `ca` so the server cert
+// chain is verified against exactly that CA. This is the supported alternative
+// to `rejectUnauthorized: false`, which accepts ANY certificate and must not
+// reach production. `ssl: true` and explicit object forms pass through as-is.
+function resolveSslBlock(ssl: any): any {
+  if (!ssl || typeof ssl !== 'object' || !ssl.caFile) return ssl;
+  const { caFile, ...rest } = ssl;
+  let ca: string;
+  try {
+    ca = fs.readFileSync(caFile, 'utf8');
+  } catch (err: any) {
+    throw new Error(`cloud remote's postgres ssl.caFile is unreadable: ${caFile} (${err.message})`);
+  }
+  return { ...rest, ca };
+}
+
+// Translate a `cloud` origin remote into the cloudConfig shape openCloud expects.
+// Throws a clear error if either half of the required pg+s3 pair is missing.
+function cloudConfigFromRemote(origin: any): any {
+  const pg = origin.postgres;
+  const s3 = origin.s3;
+  if (!pg) {
+    throw new Error("cloud remote requires a 'postgres' block (items backend)");
+  }
+  if (!s3) {
+    throw new Error(
+      "cloud remote requires an 's3' block — files are required for a remote-only " +
+      'working set (items + files are a mandatory pair)',
+    );
+  }
+  const cloudConfig: any = { pg: { connectionString: buildPgConnectionString(pg) } };
+  if (pg.ssl) cloudConfig.pg.ssl = resolveSslBlock(pg.ssl);
+  // Optional `schema` scopes every connection's search_path — lets one Postgres
+  // database host several isolated Kanecta datastores side by side (e.g. a
+  // backfilled app copy in its own schema). Passed as a libpq `options` startup
+  // parameter, which node-postgres forwards per connection.
+  if (pg.schema) cloudConfig.pg.options = `-c search_path="${pg.schema}"`;
+  cloudConfig.s3 = {
+    endpoint:        s3.endpoint,
+    region:          s3.region,
+    accessKeyId:     s3.accessKeyId,
+    secretAccessKey: s3.secretAccessKey,
+    bucket:          s3.bucket,
+  };
+  if (origin.embeddings) cloudConfig.embeddings = origin.embeddings;
+  return cloudConfig;
+}
 
 class Datastore {
   _adapter: any;
@@ -48,11 +132,11 @@ class Datastore {
     return new Datastore(datastoreUtils.createFilesystemAdapter(location, owner));
   }
 
-  static open(location: any, { items = 'FILE', files = 'FILE' }: any = {}) {
+  static open(location: any, { items = 'FILE', files = 'FILE', embeddings = null }: any = {}) {
     if (items === 'REMOTE' || files === 'REMOTE') {
       throw new Error('Use Datastore.openCloud(cloudConfig) for cloud mode.');
     }
-    return new Datastore(datastoreUtils.openFilesystemAdapter(location));
+    return new Datastore(datastoreUtils.openFilesystemAdapter(location, embeddings ? { embeddings } : {}));
   }
 
   // Open a datastore from a working-set config — see ~/.config/kanecta/config.json
@@ -70,6 +154,13 @@ class Datastore {
       const target = branch || workingSet.defaultBranch || workingSet.branch;
       if (target) ds.useBranch(target);
       return ds;
+    }
+    // Remote-only working set (no `local`): a composite `cloud` origin remote that
+    // pairs Postgres (items) + S3 (files). Resolve it in-process to a cloud adapter.
+    // No branch/useBranch — cloud branching is a separate mechanism (schema-per-branch).
+    const origin = workingSet.remotes?.origin;
+    if (origin && origin.type === 'cloud') {
+      return Datastore.openCloud(cloudConfigFromRemote(origin));
     }
     // 1.3.x format: { mode, datastore, cloud }
     switch (workingSet.mode) {
@@ -94,6 +185,63 @@ class Datastore {
   async deleteWarnings(id: any)                   { return this._adapter.deleteWarnings(id); }
   async createType(value: any, opts?: any)              { return this._adapter.createType(value, opts); }
 
+  // ─── Transactions ──────────────────────────────────────────────────────────
+
+  // Run `fn` as ONE atomic transaction. Every write `fn` performs on this
+  // datastore (create/update/delete/relate/…) enlists in a single BEGIN…COMMIT
+  // and commits together, or ALL roll back on any throw. `fn` receives this same
+  // datastore as its `tx` handle — because the adapter opens its transaction scope
+  // (an AsyncLocalStorage) before invoking `fn`, every op the facade delegates
+  // inside `fn` automatically runs on the transaction's connection.
+  //
+  // Generic over items: the CALLER decides what belongs in one transaction —
+  // Kanecta stays domain-agnostic (no "page + revision" awareness). Supported by
+  // both the Postgres adapter (BEGIN…COMMIT on a pinned connection) and the
+  // sqlite-fs adapter (one write-ahead journal of pre-images + one db
+  // transaction; `fn` must be synchronous there). An adapter without
+  // `transaction` throws here rather than silently writing non-atomically.
+  // 'sync' when the adapter cannot hold a transaction across await boundaries
+  // (sqlite-fs / better-sqlite3) — callers pick a synchronous fn accordingly.
+  get transactionMode() { return this._adapter.transactionMode ?? 'async'; }
+
+  async transaction(fn: (tx: Datastore) => any) {
+    if (typeof this._adapter.transaction !== 'function') {
+      throw new Error(
+        'transaction(fn) is not supported on this working set — the adapter ' +
+        'does not implement atomic multi-op transactions.',
+      );
+    }
+    // A sync-transaction adapter (sqlite-fs) cannot hold a transaction across
+    // await boundaries. Reject an async fn BEFORE invoking it — if it ran, its
+    // continuation would resume after rollback and apply the remaining writes
+    // OUTSIDE the transaction. The sync wrapper arrow below would hide the
+    // fn's asyncness from the adapter's own guard, so the check lives here.
+    if (this._adapter.transactionMode === 'sync') {
+      if ((fn as any)?.constructor?.name === 'AsyncFunction') {
+        throw new Error(
+          'transaction(fn) must be synchronous on this working set — the ' +
+          'sqlite-fs adapter cannot hold a transaction across await boundaries.',
+        );
+      }
+      // Hand fn the RAW adapter, not this facade: the facade's methods are
+      // async wrappers, so inside a sync fn a failing op would surface as a
+      // floating rejected promise AFTER the commit decision instead of a
+      // synchronous throw that rolls the transaction back. The adapter's own
+      // methods are synchronous — same names, same args, sync throws.
+      return this._adapter.transaction(() => fn(this._adapter));
+    }
+    return this._adapter.transaction(() => fn(this));
+  }
+
+  // ─── Activity log ──────────────────────────────────────────────────────────
+  // The second append-only exempt log (spec §activityPayload): item_history
+  // tracks what changed; activity tracks what happened. Gated by
+  // rootPayload.activity — recordActivity is a no-op returning null when 'NONE'.
+
+  async recordActivity(event: any)                { return this._adapter.recordActivity(event); }
+  async activityFor(targetId: any, opts?: any)    { return this._adapter.activityFor(targetId, opts); }
+  async listActivity(opts?: any)                  { return this._adapter.listActivity(opts); }
+
   // ─── Aliases ───────────────────────────────────────────────────────────────
 
   async resolve(idOrAlias: any)                   { return this._adapter.resolve(idOrAlias); }
@@ -110,6 +258,7 @@ class Datastore {
   // ─── Relationships ─────────────────────────────────────────────────────────
 
   async relate(sourceId: any, type: any, targetId: any, opts?: any) { return this._adapter.relate(sourceId, type, targetId, opts); }
+  async unrelate(id: any)                         { return this._adapter.unrelate(id); }
   get relTypes()                             { return this._adapter.relTypes; }
   async addRelTypes(names: any)                   { return this._adapter.addRelTypes(names); }
   async relationships(id: any)                    { return this._adapter.relationships(id); }
@@ -130,7 +279,7 @@ class Datastore {
 
   // ─── Tree ──────────────────────────────────────────────────────────────────
 
-  async loadAll()                            { return this._adapter.loadAll(); }
+  async loadAll(opts?: any)                  { return this._adapter.loadAll(opts); }
   async children(parentId: any, aspect?: any)           { return this._adapter.children(parentId, aspect); }
   async tree(rootId: any, maxDepth?: any)               { return this._adapter.tree(rootId, maxDepth); }
   async getDocument(id: any)                      { return this._adapter.getDocument(id); }
@@ -157,6 +306,38 @@ class Datastore {
   // ─── Index maintenance ─────────────────────────────────────────────────────
 
   async rebuildIndexes()                     { return this._adapter.rebuildIndexes(); }
+
+  // ─── Projections (obj_<typeId> + perf_* derived structures) ────────────────
+
+  // Both adapters implement these; the guards keep the facade honest against
+  // a future adapter that doesn't (same pattern as transaction()).
+  async listProjectedRelations() {
+    if (typeof this._adapter.listProjectedRelations !== 'function') return [];
+    return this._adapter.listProjectedRelations();
+  }
+
+  async describeProjectedRelation(table: any) {
+    if (typeof this._adapter.describeProjectedRelation !== 'function') return null;
+    return this._adapter.describeProjectedRelation(table);
+  }
+
+  async countProjectedRows(table: any) {
+    if (typeof this._adapter.countProjectedRows !== 'function') return null;
+    return this._adapter.countProjectedRows(table);
+  }
+
+  // Manual refresh of every derived structure (spec: obj_/perf_ projections are
+  // strictly derived — always rebuildable). Returns a per-structure report:
+  // { storage, structures: [{ name, status, ... }], ok }.
+  async rebuildProjections(opts?: any) {
+    if (typeof this._adapter.rebuildProjections !== 'function') {
+      throw new Error(
+        'rebuildProjections() is not supported on this working set — the ' +
+        'adapter does not implement the projection rebuild surface.',
+      );
+    }
+    return this._adapter.rebuildProjections(opts);
+  }
 
   // ─── Integrity checks ────────────────────────────────────────────────────────
 
@@ -185,6 +366,17 @@ class Datastore {
   branchDiff(name: any)               { return this._adapter.branchDiff(name); }
   previewMerge(name: any)             { return this._adapter.previewMerge(name); }
   mergeBranchLocally(name: any, opts?: any) { return this._adapter.mergeBranchLocally(name, opts); }
+  // Packages — the exchange format (PROVISIONAL v0.1, plans/package-format-design.md)
+  exportPackage(name: any, outPath: any, opts?: any) { return this._adapter.exportPackage(name, outPath, opts); }
+  importPackage(zipPath: any, opts?: any)            { return this._adapter.importPackage(zipPath, opts); }
+
+  // ─── Search (FTS + semantic) — same surface on every adapter ───────────────
+  get embeddingsEnabled()             { return this._adapter.embeddingsEnabled; }
+  search(query: any, opts?: any)      { return this._adapter.search(query, opts); }
+  semanticSearch(query: any, opts?: any) { return this._adapter.semanticSearch(query, opts); }
+  hybridSearch(query: any, opts?: any)   { return this._adapter.hybridSearch(query, opts); }
+  embedItem(id: any)                  { return this._adapter.embedItem(id); }
+  processPendingEmbeddings(opts?: any) { return this._adapter.processPendingEmbeddings(opts); }
 }
 
-export { Datastore, ROOT_ID, TYPES_NODE, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE, DEFAULT_LICENSE };
+export { Datastore, cloudConfigFromRemote, buildPgConnectionString, ROOT_ID, TYPES_NODE, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE, DEFAULT_LICENSE };

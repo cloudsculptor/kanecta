@@ -122,6 +122,34 @@ describeOrSkip('requireAuth / requireRole (real Keycloak)', () => {
     expect(res.status).toBe(200);
   });
 
+  test('KEYCLOAK_AUDIENCE rejects a token whose aud does not match (401)', async () => {
+    process.env.KEYCLOAK_AUDIENCE = 'some-other-client';
+    try {
+      const app2 = express();
+      app2.get('/whoami', requireAuth, (req, res) => res.json(req.user));
+      const res = await request(app2).get('/whoami').set('Authorization', `Bearer ${adminToken}`);
+      expect(res.status).toBe(401);
+    } finally {
+      delete process.env.KEYCLOAK_AUDIENCE;
+    }
+  });
+
+  test('KEYCLOAK_AUDIENCE accepts a token carrying the configured aud (200)', async () => {
+    // The kanecta-test realm export defines a `kanecta-api` client scope with
+    // an audience mapper on the studio client, so its access tokens carry
+    // aud=kanecta-api — the same setup the deployment runbook prescribes for
+    // production realms.
+    process.env.KEYCLOAK_AUDIENCE = 'kanecta-api';
+    try {
+      const app2 = express();
+      app2.get('/whoami', requireAuth, (req, res) => res.json(req.user));
+      const res = await request(app2).get('/whoami').set('Authorization', `Bearer ${adminToken}`);
+      expect(res.status).toBe(200);
+    } finally {
+      delete process.env.KEYCLOAK_AUDIENCE;
+    }
+  });
+
   test('decodes roles, name and email_verified for the admin user', async () => {
     const app2 = express();
     app2.get('/whoami', requireAuth, (req, res) => res.json(req.user));

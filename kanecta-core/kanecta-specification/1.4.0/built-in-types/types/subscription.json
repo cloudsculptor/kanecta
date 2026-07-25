@@ -45,7 +45,7 @@
       "type": "object",
       "required": [
         "targetId",
-        "channel",
+        "channelId",
         "events"
       ],
       "additionalProperties": false,
@@ -55,40 +55,11 @@
           "format": "uuid",
           "description": "UUID of the item being watched."
         },
-        "channel": {
-          "type": "object",
-          "required": [
-            "type"
-          ],
-          "description": "Notification channel configuration. type determines which additional fields are required.",
-          "properties": {
-            "type": {
-              "type": "string",
-              "enum": [
-                "webhook",
-                "mcp",
-                "reactive"
-              ],
-              "description": "Channel type. webhook: HTTP POST to url. mcp: notify an active MCP session. reactive: notify a reactive Studio component."
-            },
-            "url": {
-              "type": "string",
-              "description": "webhook: endpoint URL. Use $VAR syntax for secrets — never inline credentials."
-            },
-            "secret": {
-              "type": "string",
-              "description": "webhook: HMAC-SHA256 signing secret. Use $VAR syntax. If set, the adapter signs the request body and includes the signature in X-Kanecta-Signature."
-            },
-            "sessionId": {
-              "type": "string",
-              "description": "mcp: ID of the active MCP session to deliver notifications to."
-            },
-            "componentId": {
-              "type": "string",
-              "format": "uuid",
-              "description": "reactive: UUID of the Studio component to notify. The component re-renders on delivery."
-            }
-          }
+        "channelId": {
+          "type": "string",
+          "format": "uuid",
+          "x-kanecta-itemType": "channel",
+          "description": "UUID of the channel item that configures delivery (webhook/mcp/reactive). Normalised out of the payload into its own channel type per the flat one-level rule — the notification channel is a nested concept, not an inline object."
         },
         "events": {
           "type": "array",

@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "typeSeedMetaschema",
+  "description": "The irreducible bootstrap: the hand-authored column description for the `type` type's own projection table obj_<type-type>. The generic projection engine derives every type's obj_<typeId> columns from that type's jsonSchema, but it cannot do so for `type` itself (the schema describing the type-defining type is exactly what it would be building — circular). This fixed, flat schema breaks the loop; the adapter compiles obj_<type-type> from it. Its properties are named so the compiler's camelCase->snake_case mapping yields exactly the legacy `types` table columns, so readTypeJson/writeTypeJson/createType change table name only, not column names. Carried in rootPayload.seedMetaschema (spec §rootPayload / §cqrs-projections).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["metaDescription", "jsonSchema"],
+  "properties": {
+    "metaIcon": { "type": "string", "description": "-> meta_icon. MUI icon slug." },
+    "metaDescription": { "type": "string", "description": "-> meta_description. One-sentence summary." },
+    "metaDetails": { "type": "string", "description": "-> meta_details. Longer description." },
+    "metaKeywords": { "type": "string", "description": "-> meta_keywords. Space-separated search keywords." },
+    "metaTags": { "type": "string", "description": "-> meta_tags. Comma-separated grouping tags." },
+    "metaPrimaryField": { "type": "string", "description": "-> meta_primary_field. Field/expression computing item.value for instances." },
+    "metaAiInstructionsClaude": { "type": "string", "description": "-> meta_ai_instructions_claude. Guidance for Claude on using this type." },
+    "metaFunctionsConsumedBy": { "type": "array", "items": { "type": "string", "format": "uuid" }, "description": "-> meta_functions_consumed_by UUID[]." },
+    "metaFunctionsProducedBy": { "type": "array", "items": { "type": "string", "format": "uuid" }, "description": "-> meta_functions_produced_by UUID[]." },
+    "jsonSchema": { "type": "object", "x-kanecta-storage": "json", "description": "-> json_schema JSONB. The instance JSON Schema (Draft-07) this type projects from. A stored JSON document round-tripped as a unit." },
+    "sqlSchema": { "type": "array", "items": { "type": "string" }, "description": "-> sql_schema TEXT[]. Authored DDL statements." },
+    "sync": { "type": "array", "items": { "type": "string", "format": "uuid" }, "description": "-> sync UUID[]. Function items that refresh instances from source." },
+    "supersededBy": { "type": "array", "items": { "type": "string", "format": "uuid" }, "description": "-> superseded_by UUID[]. Type definitions replacing this one." },
+    "implements": { "type": "array", "items": { "type": "string", "format": "uuid" }, "description": "-> implements UUID[]. Types whose contract this type fulfils." },
+    "extends": { "type": "array", "items": { "type": "string", "format": "uuid" }, "description": "-> extends UUID[]. Types this type specialises." },
+    "indexes": { "type": "object", "x-kanecta-storage": "json", "description": "-> indexes JSONB. Authored secondary-index declarations for this type's obj_ table." }
+  }
+}

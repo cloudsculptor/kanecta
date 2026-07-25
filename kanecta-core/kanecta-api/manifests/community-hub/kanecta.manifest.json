@@ -1,0 +1,33 @@
+{
+  "name": "community-hub",
+  "specVersion": "1.4.0",
+  "description": "community-hub type/container manifest for the kanecta-api cutover (G5). Authored inputs — the seeder derives each type's sqlSchema via @kanecta/schema-compiler and creates the container hierarchy. Fields are camelCase; DB columns become snake_case automatically.",
+  "container": {
+    "id": "0c8a7b10-1111-4a00-8000-000000000001",
+    "value": "Discussions",
+    "note": "Domain container (authz cascades role grants down it — see community-hub-authz-mapping). Domain type items and instances nest under it via parentId."
+  },
+  "types": [
+    "ch-thread.type.json",
+    "ch-message.type.json",
+    "ch-file.type.json",
+    "ch-thread-read.type.json",
+    "ch-thread-subscription.type.json"
+  ],
+  "queries": [
+    "ch-message-reply-count.query.json",
+    "ch-thread-has-unread.query.json",
+    "ch-thread-notifications-enabled.query.json"
+  ],
+  "functions": {
+    "note": "The computed-field backings are now authored as `query` items (see queries[]). The engine resolves each field's backedBy UUID to its query at runtime (buildComputedMap -> PgDataSource.runComputed). {{params.self}} binds to the row's item id, {{params.viewer}} to ctx.viewer.",
+    "0c8a7b10-1111-4a00-8000-000000000201": "ch-thread.hasUnread (perViewer) -> ch-thread-has-unread.query.json (joins obj_ch-thread <-> obj_ch-thread-read on viewer)",
+    "0c8a7b10-1111-4a00-8000-000000000202": "ch-thread.isNotificationsEnabled (perViewer) -> ch-thread-notifications-enabled.query.json (EXISTS a ch-thread-subscription for (viewer, thread))",
+    "0c8a7b10-1111-4a00-8000-000000000203": "ch-message.replyCount (shared) -> ch-message-reply-count.query.json (count of non-deleted child ch-message items)"
+  },
+  "todo": [
+    "Remaining domains (finances, events, notices, pages, suggestions, trust) — author their type files the same way.",
+    "Reactions: mutable current-state ch-reaction items (one per active (user,message,emoji)); reactions map via G2 aggregation.",
+    "Finalise UUIDs (currently deterministic placeholders) before seeding."
+  ]
+}
