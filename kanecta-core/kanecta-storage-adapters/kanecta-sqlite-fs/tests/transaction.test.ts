@@ -21,9 +21,9 @@ describe('transaction(fn)', () => {
   afterEach(() => cleanup(a));
 
   test('multi-op commit: all writes land together and the result propagates', () => {
-    const before = a.create({ value: 'pre-existing' });
+    const before = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'pre-existing' });
     const out = a.transaction((tx: any) => {
-      const x = tx.create({ value: 'tx-one' });
+      const x = tx.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'tx-one' });
       const y = tx.create({ value: 'tx-two', parentId: x.id });
       tx.update(before.id, { value: 'pre-existing UPDATED' });
       return { x: x.id, y: y.id };
@@ -37,10 +37,10 @@ describe('transaction(fn)', () => {
   });
 
   test('rollback: a throw undoes every write — created items vanish, updates restore', () => {
-    const keep = a.create({ value: 'original' });
+    const keep = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'original' });
     let createdId: any = null;
     expect(() => a.transaction((tx: any) => {
-      const fresh = tx.create({ value: 'doomed' });
+      const fresh = tx.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'doomed' });
       createdId = fresh.id;
       tx.update(keep.id, { value: 'mutated' });
       throw new Error('abort!');
@@ -55,11 +55,11 @@ describe('transaction(fn)', () => {
     // journal + lock resolved; the store accepts new writes
     expect(fs.existsSync(path.join(a._branchRoot(), 'write.journal'))).toBe(false);
     expect(fs.existsSync(path.join(a._branchRoot(), 'write.lock'))).toBe(false);
-    expect(a.create({ value: 'post-rollback write works' }).id).toBeTruthy();
+    expect(a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'post-rollback write works' }).id).toBeTruthy();
   });
 
   test('rollback restores a deleted item', () => {
-    const victim = a.create({ value: 'to-delete' });
+    const victim = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'to-delete' });
     expect(() => a.transaction((tx: any) => {
       tx.delete(victim.id);
       throw new Error('abort!');
@@ -68,7 +68,7 @@ describe('transaction(fn)', () => {
   });
 
   test('nested transaction() flattens into the outer one', () => {
-    const keep = a.create({ value: 'v0' });
+    const keep = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'v0' });
     expect(() => a.transaction((tx: any) => {
       tx.update(keep.id, { value: 'v1' });
       tx.transaction((inner: any) => inner.update(keep.id, { value: 'v2' }));
@@ -79,12 +79,12 @@ describe('transaction(fn)', () => {
   });
 
   test('an async fn is rejected BEFORE running — no writes, no post-rollback leaks', async () => {
-    const keep = a.create({ value: 'sync-only' });
+    const keep = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'sync-only' });
     expect(() => a.transaction(async (tx: any) => {
       tx.update(keep.id, { value: 'should not survive' });
-      tx.create({ value: 'leak-1' });
+      tx.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'leak-1' });
       await Promise.resolve();
-      tx.create({ value: 'leak-2' });   // would apply OUTSIDE the tx if fn ever ran
+      tx.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'leak-2' });   // would apply OUTSIDE the tx if fn ever ran
     })).toThrow(/synchronous/);
     await new Promise((r) => setTimeout(r, 10)); // let any leaked continuation drain
     expect(a.get(keep.id).value).toBe('sync-only');
@@ -94,7 +94,7 @@ describe('transaction(fn)', () => {
   });
 
   test('first-touch pre-image wins: multiple updates to one item roll back to the ORIGINAL', () => {
-    const keep = a.create({ value: 'first' });
+    const keep = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'first' });
     expect(() => a.transaction((tx: any) => {
       tx.update(keep.id, { value: 'second' });
       tx.update(keep.id, { value: 'third' });

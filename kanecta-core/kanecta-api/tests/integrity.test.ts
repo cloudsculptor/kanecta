@@ -26,7 +26,7 @@ afterEach(() => {
 
 describe('GET /integrity', () => {
   it('returns a full report with checks and a summary', async () => {
-    await ds.create({ value: 'hi', type: 'string' });
+    await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'hi', type: 'string' });
     const res = await request(app).get('/integrity');
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.checks)).toBe(true);
@@ -54,7 +54,7 @@ describe('GET /integrity', () => {
 
 describe('GET /integrity/stream', () => {
   it('streams SSE manifest, results, and done events', async () => {
-    await ds.create({ value: 'hi', type: 'string' });
+    await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'hi', type: 'string' });
     const res = await request(app).get('/integrity/stream');
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/text\/event-stream/);

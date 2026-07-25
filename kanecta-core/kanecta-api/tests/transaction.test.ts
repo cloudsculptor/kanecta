@@ -173,7 +173,7 @@ describe('POST /transaction — real fs working set (sync executor)', () => {
     const res = await request(app).post('/transaction').send({
       actor: 'u-alice',
       ops: [
-        { op: 'create', id: UUID_A, value: 'tx parent', type: 'text' },
+        { op: 'create', id: UUID_A, value: 'tx parent', type: 'text', parentId: '00000000-0000-0000-0000-000000000000' },
         { op: 'create', id: UUID_B, value: 'tx child', type: 'text', parentId: UUID_A },
         { op: 'setAlias', alias: 'TX-Parent', targetId: UUID_A },
       ],
@@ -193,7 +193,7 @@ describe('POST /transaction — real fs working set (sync executor)', () => {
   it('rolls the WHOLE list back on a failing op — zero ops applied on disk', async () => {
     const res = await request(app).post('/transaction').send({
       ops: [
-        { op: 'create', id: UUID_A, value: 'doomed', type: 'text' },
+        { op: 'create', id: UUID_A, value: 'doomed', type: 'text', parentId: '00000000-0000-0000-0000-000000000000' },
         { op: 'update', id: UUID_B, changes: { value: 'no such item' } }, // fails
       ],
     });

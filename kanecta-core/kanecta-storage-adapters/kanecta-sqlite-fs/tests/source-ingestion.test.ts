@@ -24,7 +24,7 @@ afterEach(() => {
 
 describe('create() with a source key', () => {
   it('persists sourceSystem / sourceExternalId', () => {
-    const item = ds.create({
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000',
       value: 'imported', type: 'note',
       sourceSystem: 'claude-code', sourceExternalId: 'evt-1',
     });
@@ -37,7 +37,7 @@ describe('create() with a source key', () => {
   });
 
   it('defaults the source fields to null', () => {
-    const item = ds.create({ value: 'plain', type: 'note' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'plain', type: 'note' });
     expect(item.sourceSystem).toBeNull();
     expect(item.sourceExternalId).toBeNull();
   });
@@ -47,23 +47,23 @@ describe('create() with a source key', () => {
   // prior item's meta row. Callers must therefore never double-create: the
   // idempotent contract is bySource() ? update() : create() (see below).
   it('does not throw on a duplicate source key (why callers must upsert)', () => {
-    const first = ds.create({ value: 'first', type: 'note', sourceSystem: 'sys', sourceExternalId: 'dup' });
-    ds.create({ value: 'second', type: 'note', sourceSystem: 'sys', sourceExternalId: 'dup' });
+    const first = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'first', type: 'note', sourceSystem: 'sys', sourceExternalId: 'dup' });
+    ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'second', type: 'note', sourceSystem: 'sys', sourceExternalId: 'dup' });
     // The key now resolves to the second item, not the first — hence upsert.
     expect(ds.bySource('sys', 'dup').value).toBe('second');
     expect(first.value).toBe('first');
   });
 
   it('allows the same externalId under a different sourceSystem', () => {
-    const a = ds.create({ value: 'a', type: 'note', sourceSystem: 'sysA', sourceExternalId: 'x' });
-    const b = ds.create({ value: 'b', type: 'note', sourceSystem: 'sysB', sourceExternalId: 'x' });
+    const a = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a', type: 'note', sourceSystem: 'sysA', sourceExternalId: 'x' });
+    const b = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b', type: 'note', sourceSystem: 'sysB', sourceExternalId: 'x' });
     expect(a.id).not.toBe(b.id);
   });
 });
 
 describe('bySource()', () => {
   it('returns the item for a known key', () => {
-    const created = ds.create({
+    const created = ds.create({ parentId: '00000000-0000-0000-0000-000000000000',
       value: 'imported', type: 'note',
       sourceSystem: 'claude-code', sourceExternalId: 'session-42',
     });
@@ -83,7 +83,7 @@ describe('bySource()', () => {
   });
 
   it('reflects a source key set later via update()', () => {
-    const item = ds.create({ value: 'v', type: 'note' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'v', type: 'note' });
     expect(ds.bySource('sys', 'later')).toBeNull();
     ds.update(item.id, { sourceSystem: 'sys', sourceExternalId: 'later' });
     const found = ds.bySource('sys', 'later');
@@ -94,7 +94,7 @@ describe('bySource()', () => {
     const key = { sourceSystem: 'claude-code', sourceExternalId: 'turn-7' };
     // First pass: not present → create.
     expect(ds.bySource(key.sourceSystem, key.sourceExternalId)).toBeNull();
-    const created = ds.create({ value: 'v1', type: 'note', ...key });
+    const created = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'v1', type: 'note', ...key });
     // Second pass: present → update in place, same id.
     const existing = ds.bySource(key.sourceSystem, key.sourceExternalId);
     expect(existing.id).toBe(created.id);

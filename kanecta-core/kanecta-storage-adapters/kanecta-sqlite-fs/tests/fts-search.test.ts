@@ -22,8 +22,8 @@ describe('full-text search (FTS5)', () => {
   afterEach(() => cleanup(a));
 
   test('finds items by value, ranked, and misses non-matches', () => {
-    const hit  = a.create({ value: 'quarterly fundraising report for the committee', type: 'text' });
-    a.create({ value: 'typescript strict null checks', type: 'text' });
+    const hit  = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'quarterly fundraising report for the committee', type: 'text' });
+    a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'typescript strict null checks', type: 'text' });
 
     const results = a.search('fundraising committee');
     expect(results.map((r: any) => r.id)).toContain(hit.id);
@@ -55,7 +55,7 @@ describe('full-text search (FTS5)', () => {
   test('updates and deletes keep the index truthful', () => {
     // Unique tokens: built-in type items are searchable too (their schema
     // descriptions are real content), so common words would cross-match.
-    const item = a.create({ value: 'the orangutan wording', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'the orangutan wording', type: 'text' });
     expect(a.search('orangutan').map((r: any) => r.id)).toContain(item.id);
 
     a.update(item.id, { value: 'wallaby text entirely' });
@@ -67,16 +67,16 @@ describe('full-text search (FTS5)', () => {
   });
 
   test('rootId scopes to a subtree', () => {
-    const parent  = a.create({ value: 'projects folder', type: 'text' });
+    const parent  = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'projects folder', type: 'text' });
     const inside  = a.create({ value: 'grant application draft', type: 'text', parentId: parent.id });
-    a.create({ value: 'grant application FINAL', type: 'text' });
+    a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'grant application FINAL', type: 'text' });
 
     const scoped = a.search('grant application', { rootId: parent.id });
     expect(scoped.map((r: any) => r.id)).toEqual([inside.id]);
   });
 
   test('operator characters in the query are input, never syntax', () => {
-    a.create({ value: 'plain content', type: 'text' });
+    a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'plain content', type: 'text' });
     // Raw FTS5 would throw on these; plainto-style sanitising must not.
     expect(() => a.search('"unbalanced OR (NEAR')).not.toThrow();
     expect(a.search('plain-content*').length).toBeGreaterThan(0); // tokenises to plain, content
@@ -84,7 +84,7 @@ describe('full-text search (FTS5)', () => {
   });
 
   test('a rebuilt index restores the FTS rows', () => {
-    const item = a.create({ value: 'survives the rebuild too', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'survives the rebuild too', type: 'text' });
     const dbPath = path.join(a._branchRoot(), 'index.db');
     a._db.close();
     fs.rmSync(dbPath, { force: true });
@@ -100,7 +100,7 @@ describe('hybrid search', () => {
   test('falls back to plain FTS without a provider', async () => {
     const a = tmpAdapter();
     try {
-      const item = a.create({ value: 'hybrid fallback content', type: 'text' });
+      const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'hybrid fallback content', type: 'text' });
       expect(a.embeddingsEnabled).toBe(false);
       const results = await a.hybridSearch('hybrid fallback');
       expect(results.map((r: any) => r.id)).toContain(item.id);
@@ -112,8 +112,8 @@ describe('hybrid search', () => {
   test('fuses FTS and semantic rankings when embeddings are on', async () => {
     const a = tmpAdapter({ embeddings: { provider: 'mock', dimensions: 16 } });
     try {
-      const fruit = a.create({ value: 'apple banana orchard fruit', type: 'text' });
-      const tools = a.create({ value: 'hammer spanner toolbox', type: 'text' });
+      const fruit = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'apple banana orchard fruit', type: 'text' });
+      const tools = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'hammer spanner toolbox', type: 'text' });
       await a.processPendingEmbeddings({ limit: 100 });
 
       const results = await a.hybridSearch('orchard fruit');

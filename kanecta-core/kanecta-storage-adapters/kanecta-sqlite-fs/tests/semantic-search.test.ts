@@ -26,7 +26,7 @@ describe('semantic search (embeddings)', () => {
   afterEach(() => cleanup(a));
 
   test('embedItem stores the vector and skips re-embedding unchanged content', async () => {
-    const item = a.create({ value: 'the committee fundraising plan', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'the committee fundraising plan', type: 'text' });
 
     expect(await a.embedItem(item.id)).toBe(true);
     const row = a._openDb().prepare(
@@ -48,7 +48,7 @@ describe('semantic search (embeddings)', () => {
   });
 
   test('the vector lives as an embedding.bin sidecar with search metadata in the doc', async () => {
-    const item = a.create({ value: 'sidecar storage check', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'sidecar storage check', type: 'text' });
     await a.embedItem(item.id);
 
     // Spec «Search»: never inlined — a raw float32 sidecar next to item.json.
@@ -64,7 +64,7 @@ describe('semantic search (embeddings)', () => {
   });
 
   test('a rebuilt index re-ingests sidecar vectors without any API calls', async () => {
-    const item = a.create({ value: 'survives the rebuild', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'survives the rebuild', type: 'text' });
     await a.embedItem(item.id);
     const before = a._openDb().prepare(
       'SELECT embedding, content_hash FROM perf_embeddings WHERE item_id = ?',
@@ -89,7 +89,7 @@ describe('semantic search (embeddings)', () => {
   });
 
   test('processPendingEmbeddings drains the queue', async () => {
-    const item = a.create({ value: 'queued for embedding', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'queued for embedding', type: 'text' });
     const db = a._openDb();
     expect(db.prepare('SELECT 1 FROM perf_embedding_queue WHERE item_id = ?').get(item.id)).toBeDefined();
 
@@ -100,8 +100,8 @@ describe('semantic search (embeddings)', () => {
   });
 
   test('semanticSearch ranks by cosine distance and respects rootId', async () => {
-    const food  = a.create({ value: 'apple banana orchard fruit harvest', type: 'text' });
-    const code  = a.create({ value: 'typescript compiler strict null checks', type: 'text' });
+    const food  = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'apple banana orchard fruit harvest', type: 'text' });
+    const code  = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'typescript compiler strict null checks', type: 'text' });
     const child = a.create({ value: 'apple pie recipe with orchard fruit', type: 'text', parentId: food.id });
     await a.processPendingEmbeddings({ limit: 100 });
 
@@ -132,7 +132,7 @@ describe('semantic search (embeddings)', () => {
     });
     try {
       expect(paused.embeddingsEnabled).toBe(false);
-      const item = paused.create({ value: 'still embeds while paused', type: 'text' });
+      const item = paused.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'still embeds while paused', type: 'text' });
       expect(await paused.embedItem(item.id)).toBe(true);
       await expect(paused.semanticSearch('anything')).rejects.toThrow(/disabled/i);
     } finally {
@@ -141,7 +141,7 @@ describe('semantic search (embeddings)', () => {
   });
 
   test('hard delete cascades the vector and queue rows away', async () => {
-    const item = a.create({ value: 'doomed item', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'doomed item', type: 'text' });
     await a.embedItem(item.id);
     a.delete(item.id);
     const db = a._openDb();

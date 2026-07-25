@@ -4,7 +4,7 @@
 // and composed in JS — reproducing the pg SQL semantics exactly. File BYTES stay
 // out of here; only the file RECORD metadata is read (native-file section handles
 // the bytes).
-import { graphql, transaction, createItem, updateObject, getItem, deleteItem, resolveTypeId, newId, ROOT_ID, OWNER } from "../../lib/kanectaClient.js";
+import { graphql, transaction, createItem, updateObject, getItem, deleteItem, resolveTypeId, newId, OWNER } from "../../lib/kanectaClient.js";
 import { coerceRow, selectionFor } from "../../lib/kanectaMap.js";
 
 // Does this user have any thread-read rows yet? (First-visit seeding gate.)
@@ -35,7 +35,7 @@ export async function seedThreadReads(userId) {
   const ops = data.discussionsThreadses
     .filter((t) => !already.has(t.id))
     .map((t) => ({
-      op: "create", id: newId(), type: "object", typeId, parentId: ROOT_ID, owner: OWNER,
+      op: "create", id: newId(), type: "object", typeId, parentId: typeId, owner: OWNER,
       objectData: { userId, threadId: t.id, lastReadAt: t.latestMessageAt || now },
     }));
   if (ops.length) await transaction(ops);
@@ -116,7 +116,7 @@ export async function createThread({ name, description, createdByUserId, created
   const typeId = await resolveTypeId("discussions-threads");
   const id = newId();
   await createItem({
-    id, type: "object", typeId, parentId: ROOT_ID, owner: OWNER,
+    id, type: "object", typeId, parentId: typeId, owner: OWNER,
     objectData: {
       name, description: description ?? null, createdByUserId, createdByName,
       createdAt: new Date().toISOString(), archivedAt: null, latestMessageAt: null, sortOrder: null,
@@ -238,7 +238,7 @@ export async function createMessage({ threadId, userId, userName, content }) {
   const typeId = await resolveTypeId("discussions-messages");
   const id = newId();
   await createItem({
-    id, type: "object", typeId, parentId: ROOT_ID, owner: OWNER,
+    id, type: "object", typeId, parentId: typeId, owner: OWNER,
     objectData: {
       threadId, parentMessageId: null, userId, userName, content,
       createdAt: new Date().toISOString(), editedAt: null, deletedAt: null,
@@ -310,7 +310,7 @@ export async function createReply({ threadId, parentMessageId, userId, userName,
   const typeId = await resolveTypeId("discussions-messages");
   const id = newId();
   await createItem({
-    id, type: "object", typeId, parentId: ROOT_ID, owner: OWNER,
+    id, type: "object", typeId, parentId: typeId, owner: OWNER,
     objectData: {
       threadId, parentMessageId, userId, userName, content,
       createdAt: new Date().toISOString(), editedAt: null, deletedAt: null,
@@ -351,7 +351,7 @@ export async function upsertThreadRead(userId, threadId, at) {
   }
   const typeId = await resolveTypeId("discussions-thread-reads");
   await createItem({
-    type: "object", typeId, parentId: ROOT_ID, owner: OWNER,
+    type: "object", typeId, parentId: typeId, owner: OWNER,
     objectData: { userId, threadId, lastReadAt: atIso },
   });
 }
@@ -371,7 +371,7 @@ export async function markThreadRead(userId, threadId) {
   }
   const typeId = await resolveTypeId("discussions-thread-reads");
   await createItem({
-    type: "object", typeId, parentId: ROOT_ID, owner: OWNER,
+    type: "object", typeId, parentId: typeId, owner: OWNER,
     objectData: { userId, threadId, lastReadAt: at },
   });
 }
@@ -385,7 +385,7 @@ export async function subscribeThreadNotifications(userId, threadId) {
   if (data.threadNotificationSubscriptionses.length) return;
   const typeId = await resolveTypeId("thread-notification-subscriptions");
   await createItem({
-    type: "object", typeId, parentId: ROOT_ID, owner: OWNER,
+    type: "object", typeId, parentId: typeId, owner: OWNER,
     objectData: { userId, threadId, createdAt: new Date().toISOString() },
   });
 }
@@ -494,7 +494,7 @@ export async function addReaction(messageId, userId, userName, emoji) {
   if (data.discussionsReactionses.length) return;
   const typeId = await resolveTypeId("discussions-reactions");
   await createItem({
-    type: "object", typeId, parentId: ROOT_ID, owner: OWNER,
+    type: "object", typeId, parentId: typeId, owner: OWNER,
     objectData: { messageId, userId, userName: userName ?? "", emoji, createdAt: new Date().toISOString() },
   });
 }
@@ -553,7 +553,7 @@ export async function attachFilesToMessage(messageId, fileIds, uploaderId) {
   for (const fid of owned) {
     if (already.has(fid)) continue;
     await createItem({
-      type: "object", typeId, parentId: ROOT_ID, owner: OWNER,
+      type: "object", typeId, parentId: typeId, owner: OWNER,
       objectData: { messageId, fileId: fid, showPreview: true, createdAt: new Date().toISOString() },
     });
   }

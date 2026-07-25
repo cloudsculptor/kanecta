@@ -9,7 +9,7 @@ process.env.KANECTA_API_URL = "http://test-kanecta:9999";
 
 const {
   graphql, createItem, getItem, deleteItem, transaction, updateObject,
-  putFile, getFile, deleteFileBytes, resolveTypeId, newId, apiBase, ROOT_ID, OWNER,
+  putFile, getFile, deleteFileBytes, resolveTypeId, newId, apiBase, OWNER,
 } = await import("../lib/kanectaClient.js");
 
 afterEach(() => mockFetch.mockReset());
@@ -123,7 +123,7 @@ describe("error propagation", () => {
 describe("writes", () => {
   test("createItem POSTs the body as-is to /items", async () => {
     mockFetch.mockResolvedValueOnce(jsonRes(200, { id: "new-1" }));
-    const body = { type: "object", value: "pages", parentId: ROOT_ID, owner: OWNER };
+    const body = { type: "object", value: "pages", parentId: "type-uuid-1", owner: OWNER };
     const result = await createItem(body);
     expect(result).toEqual({ id: "new-1" });
     const [url, opts] = mockFetch.mock.calls[0];

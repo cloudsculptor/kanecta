@@ -10,7 +10,7 @@
 import { Readable } from "stream";
 import {
   createItem, deleteItem, putFile, getFile, deleteFileBytes,
-  resolveTypeId, newId, ROOT_ID, OWNER,
+  resolveTypeId, newId, OWNER,
 } from "./kanectaClient.js";
 
 // The URL the frontend embeds for a file. Defaults to the kanecta-api byte
@@ -41,7 +41,7 @@ export async function uploadFile({ buffer, mimeType, originalName, uploadedById,
   let item;
   try {
     item = await createItem({
-      id, type: "object", typeId, parentId: ROOT_ID, owner: OWNER,
+      id, type: "object", typeId, parentId: typeId, owner: OWNER,
       objectData: {
         name: originalName, storageKey: id, mimeType, sizeBytes: buffer.length,
         description: null, uploadedById, uploadedByName,

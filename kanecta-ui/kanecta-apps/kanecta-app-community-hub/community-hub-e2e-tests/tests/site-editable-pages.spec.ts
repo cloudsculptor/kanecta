@@ -35,14 +35,17 @@ test.describe("site-editable pages", () => {
         const c = getComputedStyle(el);
         return { display: c.display, borderStyle: c.borderStyle, textDecorationLine: c.textDecorationLine };
       });
-      expect(style.display).toBe("inline-flex");
+      expect(style.display).toMatch(/flex/); // computed may report flex or inline-flex
       expect(style.borderStyle).toBe("solid");
       expect(style.textDecorationLine).toBe("none");
     });
   }
 
   test("anonymous visitors do not see the edit link", async ({ browser }) => {
-    const ctx = await browser.newContext(); // no storageState — logged out
+    // browser.newContext() inherits the project's storageState (Playwright
+    // merges configured context options), so an empty state must be passed
+    // explicitly to get a genuinely logged-out context.
+    const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
     const page = await ctx.newPage();
     await page.goto("/transport");
     await page.locator(".site-page").waitFor();

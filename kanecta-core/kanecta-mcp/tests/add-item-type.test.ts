@@ -34,14 +34,14 @@ afterEach(() => {
 
 describe('kanecta_add_item threads type through to ds.create', () => {
   test('primitive type is set on the created item and returned', async () => {
-    const res = await dispatch('kanecta_add_item', { value: 'a note', type: 'text' });
+    const res = await dispatch('kanecta_add_item', { value: 'a note', type: 'text', parentId: '00000000-0000-0000-0000-000000000000' });
     expect(res.type).toBe('text');
     const stored = await ds.get(res.id);
     expect(stored.type).toBe('text');
   });
 
   test('default type is string when omitted', async () => {
-    const res = await dispatch('kanecta_add_item', { value: 'no type given' });
+    const res = await dispatch('kanecta_add_item', { value: 'no type given', parentId: '00000000-0000-0000-0000-000000000000' });
     expect(res.type).toBe('string');
   });
 

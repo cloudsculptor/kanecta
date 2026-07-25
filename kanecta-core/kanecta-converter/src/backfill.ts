@@ -23,7 +23,6 @@
 import { snakeToCamel, deterministicUuid } from './introspect.ts';
 import type { SourceTable } from './types.ts';
 
-const ROOT_UUID = '00000000-0000-0000-0000-000000000000';
 
 export interface BackfillOptions {
   /** The Kanecta type UUID for this table (from introspect). */
@@ -33,7 +32,8 @@ export interface BackfillOptions {
   /** FK column whose referenced UUID becomes the item's parentId (containment).
    *  e.g. a message's `thread_id`. */
   parentColumn?: string;
-  /** parentId for rows with no containment FK (the domain container). Default root. */
+  /** parentId for rows with no containment FK. Default: the type item (spec
+   *  §parentid-rules — objects live under their type item, never root). */
   defaultParentId?: string;
   /** relationshipType per non-parent FK column (default: the column name). */
   relationshipTypes?: Record<string, string>;
@@ -89,7 +89,9 @@ export interface BackfillPlan {
 /** Plan the idempotent item upserts for a table's rows. Pure + deterministic. */
 export function planBackfill(table: SourceTable, rows: Record<string, unknown>[], opts: BackfillOptions): BackfillPlan {
   const sourceSystem = opts.sourceSystem ?? 'source';
-  const defaultParent = opts.defaultParentId ?? ROOT_UUID;
+  // Spec §parentid-rules: an object's canonical home is its type item — a
+  // backfill must never default rows to root.
+  const defaultParent = opts.defaultParentId ?? opts.typeId;
   const pk = table.primaryKey ?? [];
   const columnByName = new Map(table.columns.map((c) => [c.name, c]));
   const singlePkCol = pk.length === 1 ? columnByName.get(pk[0]) : undefined;

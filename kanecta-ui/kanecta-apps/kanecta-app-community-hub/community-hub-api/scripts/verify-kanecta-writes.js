@@ -15,7 +15,7 @@ import * as disc from "../repositories/kanecta/discussions.js";
 import * as events from "../repositories/kanecta/events.js";
 import * as download from "../repositories/kanecta/download.js";
 import * as nativeFiles from "../lib/spacesKanecta.js";
-import { deleteItem, graphql, createItem, getFile, resolveTypeId, ROOT_ID, OWNER } from "../lib/kanectaClient.js";
+import { deleteItem, graphql, createItem, getFile, resolveTypeId, OWNER } from "../lib/kanectaClient.js";
 
 // Read a Readable stream to a Buffer (getFileStream returns { Body: Readable }).
 async function streamToBuffer(stream) {
@@ -387,7 +387,7 @@ const ok = (name, cond, detail) => {
   // A throwaway file item referenced by the initial content, then removed on update.
   const fileType = await resolveTypeId("files");
   const file = await createItem({
-    type: "object", typeId: fileType, parentId: ROOT_ID, owner: OWNER,
+    type: "object", typeId: fileType, parentId: fileType, owner: OWNER,
     objectData: { name: "img.png", storageKey: "ph/4/img", mimeType: "image/png", sizeBytes: 10,
       description: null, uploadedById: "u-test", uploadedByName: "T", createdAt: new Date().toISOString(), deletedAt: null },
   });

@@ -131,12 +131,12 @@ describe('filesystem: file-first model', () => {
   };
 
   it('writes item.json to sharded items/ directory on create', () => {
-    const item = ds.create({ value: 'file-first test' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'file-first test' });
     expect(fs.existsSync(mainItemPath(item.id))).toBe(true);
   });
 
   it('item.json contains five sections: item, meta, search, payload, time', () => {
-    const item = ds.create({ value: 'sections test' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'sections test' });
     const doc  = JSON.parse(fs.readFileSync(mainItemPath(item.id), 'utf8'));
     expect(doc).toHaveProperty('item');
     expect(doc).toHaveProperty('meta');
@@ -146,7 +146,7 @@ describe('filesystem: file-first model', () => {
   });
 
   it('item section contains id, parentId, type, value, sortOrder, aspect, typeId', () => {
-    const item = ds.create({ value: 'item section' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'item section' });
     const doc  = JSON.parse(fs.readFileSync(mainItemPath(item.id), 'utf8'));
     expect(doc.item.id).toBe(item.id);
     expect(doc.item.parentId).toBe(item.parentId);
@@ -156,33 +156,33 @@ describe('filesystem: file-first model', () => {
 
   it('preserves a valid caller-supplied id instead of minting one', () => {
     const id = '11111111-2222-4333-8444-555555555555';
-    const item = ds.create({ id, value: 'preserved id' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', id, value: 'preserved id' });
     expect(item.id).toBe(id);
     expect(fs.existsSync(mainItemPath(id))).toBe(true);
     expect(ds.get(id)?.value).toBe('preserved id');
   });
 
   it('mints a random id when none is supplied (regression guard)', () => {
-    const a = ds.create({ value: 'a' });
-    const b = ds.create({ value: 'b' });
+    const a = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a' });
+    const b = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b' });
     expect(a.id).not.toBe(b.id);
     expect(a.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
   });
 
   it('rejects a non-UUID caller-supplied id', () => {
-    expect(() => ds.create({ id: 'not-a-uuid', value: 'x' }))
+    expect(() => ds.create({ parentId: '00000000-0000-0000-0000-000000000000', id: 'not-a-uuid', value: 'x' }))
       .toThrow(/Invalid id \(must be a UUID\)/);
   });
 
   it('rejects a caller-supplied id that already exists', () => {
     const id = '99999999-8888-4777-8666-555555555555';
-    ds.create({ id, value: 'first' });
-    expect(() => ds.create({ id, value: 'second' }))
+    ds.create({ parentId: '00000000-0000-0000-0000-000000000000', id, value: 'first' });
+    expect(() => ds.create({ parentId: '00000000-0000-0000-0000-000000000000', id, value: 'second' }))
       .toThrow(/Item id already exists/);
   });
 
   it('meta section contains owner, visibility, tags, createdAt', () => {
-    const item = ds.create({ value: 'meta section', tags: ['a', 'b'] });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'meta section', tags: ['a', 'b'] });
     const doc  = JSON.parse(fs.readFileSync(mainItemPath(item.id), 'utf8'));
     expect(doc.meta.owner).toBe('test@example.com');
     expect(doc.meta.visibility).toBe('private');
@@ -191,27 +191,27 @@ describe('filesystem: file-first model', () => {
   });
 
   it('payload stored in item.json via writeObjectJson', () => {
-    const item = ds.create({ value: 'payload test' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'payload test' });
     ds.writeObjectJson(item.id, { foo: 'bar' });
     const doc = JSON.parse(fs.readFileSync(mainItemPath(item.id), 'utf8'));
     expect(doc.payload).toEqual({ foo: 'bar' });
   });
 
   it('readObjectJson reads from item.json', () => {
-    const item = ds.create({ value: 'read payload' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'read payload' });
     ds.writeObjectJson(item.id, { x: 42 });
     expect(ds.readObjectJson(item.id)).toEqual({ x: 42 });
   });
 
   it('update writes updated item.json to disk', () => {
-    const item    = ds.create({ value: 'before' });
+    const item    = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'before' });
     ds.update(item.id, { value: 'after' });
     const doc = JSON.parse(fs.readFileSync(mainItemPath(item.id), 'utf8'));
     expect(doc.item.value).toBe('after');
   });
 
   it('delete removes item.json from disk', () => {
-    const item = ds.create({ value: 'to delete' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'to delete' });
     const p    = mainItemPath(item.id);
     expect(fs.existsSync(p)).toBe(true);
     ds.delete(item.id);
@@ -219,8 +219,8 @@ describe('filesystem: file-first model', () => {
   });
 
   it('rebuildIndexes scans item.json files and repopulates index', () => {
-    const a = ds.create({ value: 'rebuild-a' });
-    const b = ds.create({ value: 'rebuild-b' });
+    const a = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'rebuild-a' });
+    const b = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'rebuild-b' });
     // Wipe the SQLite index manually
     const db = ds._openDb();
     db.prepare('DELETE FROM items_meta').run();
@@ -235,7 +235,7 @@ describe('filesystem: file-first model', () => {
   });
 
   it('open() rebuilds index from filesystem when index.db is empty', () => {
-    const item = ds.create({ value: 'persist check' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'persist check' });
     // Delete the main branch's index.db to force rebuild on next open
     const dbPath = path.join(tmp, '.kanecta', 'branches', 'main', 'index.db');
     ds._db.close();
@@ -256,8 +256,8 @@ describe('filesystem: file-first model', () => {
 
 describe('index.db is 100% derived from the filesystem', () => {
   it('history, aliases, relationships and annotations all survive deleting index.db', () => {
-    const a = ds.create({ value: 'alpha' });
-    const b = ds.create({ value: 'beta' });
+    const a = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'alpha' });
+    const b = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'beta' });
     ds.update(a.id, { value: 'alpha-2' });                  // → item_history event
     ds.setAlias('the-alpha', a.id);                          // → alias item
     ds.relate(a.id, 'depends-on', b.id, { note: 'critical' }); // → relationship item
@@ -282,7 +282,7 @@ describe('index.db is 100% derived from the filesystem', () => {
   });
 
   it('itemHistory EXTERNAL (default) writes events to item-history/, not items/', () => {
-    const a = ds.create({ value: 'x' });
+    const a = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.update(a.id, { value: 'y' });
     const histDir = path.join(tmp, '.kanecta', 'branches', 'main', 'item-history');
     expect(fs.existsSync(histDir)).toBe(true);
@@ -292,7 +292,7 @@ describe('index.db is 100% derived from the filesystem', () => {
   it('itemHistory ITEM mode places events in items/ and still rebuilds', () => {
     ds._config.itemHistory = 'ITEM';
     ds._saveConfig();
-    const a = ds.create({ value: 'x' });
+    const a = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.update(a.id, { value: 'y' });
     expect(ds.history(a.id).length).toBeGreaterThan(0);
     // History items live in items/, but are excluded from content traversal.
@@ -303,7 +303,7 @@ describe('index.db is 100% derived from the filesystem', () => {
   });
 
   it('rebuildIndexes() reprojects metadata tables from item.json files', () => {
-    const a = ds.create({ value: 'x' });
+    const a = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.setAlias('xx', a.id);
     ds.annotate(a.id, { content: 'note' });
     ds.rebuildIndexes();
@@ -313,8 +313,8 @@ describe('index.db is 100% derived from the filesystem', () => {
 
   it('the metadata derived tables are never the only home for the data', () => {
     // Sanity: an alias/relationship/annotation must exist as an item.json on disk.
-    const a = ds.create({ value: 'x' });
-    const b = ds.create({ value: 'y' });
+    const a = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
+    const b = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'y' });
     ds.setAlias('zz', a.id);
     ds.relate(a.id, 'relates-to', b.id);
     ds.annotate(a.id, { content: 'c' });
@@ -352,7 +352,7 @@ describe('write integrity — crash recovery', () => {
   const reopen = () => { ds._db?.close(); ds._db = null; return SqliteFsAdapter.open(tmp); };
 
   it('rolls back a half-applied write (phase "started") to the pre-image on reopen', () => {
-    const a = ds.create({ value: 'original' });
+    const a = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'original' });
     const preImage = JSON.parse(fs.readFileSync(itemPath(a.id), 'utf8'));
 
     // Simulate a crash mid-update: the file already holds the new value, but the
@@ -391,7 +391,7 @@ describe('write integrity — crash recovery', () => {
   });
 
   it('rolls forward a completed write (phase "l0-done") by rebuilding the index', () => {
-    const a = ds.create({ value: 'original' });
+    const a = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'original' });
     // Authoritative file holds the new value; the journal reached l0-done but the
     // crash happened before commit — so the index may be stale. Roll forward.
     const doc = JSON.parse(fs.readFileSync(itemPath(a.id), 'utf8'));
@@ -411,17 +411,17 @@ describe('write integrity — crash recovery', () => {
     fs.writeFileSync(lockPath(), JSON.stringify({ pid: 2 ** 30, host: os.hostname(), heartbeatAt: Date.now() }));
     const ds2 = reopen();
     expect(fs.existsSync(lockPath())).toBe(false);
-    expect(() => ds2.create({ value: 'after-recovery' })).not.toThrow();
+    expect(() => ds2.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'after-recovery' })).not.toThrow();
   });
 
   it('normal writes leave no journal or lock behind', () => {
-    ds.create({ value: 'clean' });
+    ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'clean' });
     expect(fs.existsSync(journalPath())).toBe(false);
     expect(fs.existsSync(lockPath())).toBe(false);
   });
 
   it('reads never block on an in-flight write — they return the last committed value', () => {
-    const a = ds.create({ value: 'committed' });
+    const a = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'committed' });
     // Simulate another process holding the write lock with an in-flight journal.
     fs.writeFileSync(lockPath(), JSON.stringify({ pid: process.pid, host: os.hostname(), heartbeatAt: Date.now() }));
     fs.writeFileSync(journalPath(), JSON.stringify({ phase: 'started', branch: 'main', ops: [{ id: a.id, store: 'items', preImage: null }] }));
@@ -438,37 +438,37 @@ describe('write integrity — crash recovery', () => {
 
 describe('create', () => {
   it('creates an item under root by default', () => {
-    const item = ds.create({ value: 'hello' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'hello' });
     expect(item.id).toMatch(/^[0-9a-f-]{36}$/);
     expect(item.parentId).toBe(ds.getRoot().id);
     expect(item.value).toBe('hello');
   });
 
   it('creates item under explicit parentId', () => {
-    const parent = ds.create({ value: 'parent' });
+    const parent = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'parent' });
     const child  = ds.create({ value: 'child', parentId: parent.id });
     expect(child.parentId).toBe(parent.id);
   });
 
   it('assigns sortOrder based on sibling count', () => {
-    const a = ds.create({ value: 'a' });
-    const b = ds.create({ value: 'b' });
+    const a = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a' });
+    const b = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b' });
     expect(b.sortOrder).toBeGreaterThan(a.sortOrder);
   });
 
   it('respects explicit sortOrder', () => {
-    const item = ds.create({ value: 'x', sortOrder: 42 });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x', sortOrder: 42 });
     expect(item.sortOrder).toBe(42);
   });
 
   it('persists tags', () => {
-    const item = ds.create({ value: 'x', tags: ['alpha', 'beta'] });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x', tags: ['alpha', 'beta'] });
     expect(item.tags).toEqual(['alpha', 'beta']);
     expect(ds.get(item.id).tags).toEqual(['alpha', 'beta']);
   });
 
   it('indexes tags for byTag lookup immediately after create', () => {
-    const item = ds.create({ value: 'x', tags: ['featured'] });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x', tags: ['featured'] });
     expect(ds.byTag('featured')).toContain(item.id);
   });
 
@@ -479,18 +479,18 @@ describe('create', () => {
   });
 
   it('throws for well-known type names', () => {
-    expect(() => ds.create({ type: 'root' })).toThrow(/well-known root type/);
-    expect(() => ds.create({ type: 'types' })).toThrow(/well-known root type/);
+    expect(() => ds.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'root' })).toThrow(/well-known root type/);
+    expect(() => ds.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'types' })).toThrow(/well-known root type/);
   });
 
   it('writes backlinks for [[uuid]] references in value', () => {
-    const target = ds.create({ value: 'target' });
-    const linker = ds.create({ value: `see [[${target.id}]]` });
+    const target = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target' });
+    const linker = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: `see [[${target.id}]]` });
     expect(ds.backlinks(target.id)).toContain(linker.id);
   });
 
   it('records a create event in history', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     const h    = ds.history(item.id);
     expect(h.some(e => e.changeType === 'create')).toBe(true);
   });
@@ -514,7 +514,7 @@ describe('create', () => {
 
 describe('get', () => {
   it('retrieves a created item', () => {
-    const item = ds.create({ value: 'hello' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'hello' });
     expect(ds.get(item.id)?.value).toBe('hello');
   });
 
@@ -609,20 +609,20 @@ describe('object payload validation', () => {
 
 describe('update', () => {
   it('updates value', () => {
-    const item = ds.create({ value: 'old' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'old' });
     ds.update(item.id, { value: 'new' });
     expect(ds.get(item.id).value).toBe('new');
   });
 
   it('updates tags — adds and removes from index', () => {
-    const item = ds.create({ value: 'x', tags: ['a'] });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x', tags: ['a'] });
     ds.update(item.id, { tags: ['b'] });
     expect(ds.byTag('a')).not.toContain(item.id);
     expect(ds.byTag('b')).toContain(item.id);
   });
 
   it('updates confidence, status, sortOrder, visibility', () => {
-    const item    = ds.create({ value: 'x' });
+    const item    = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     const updated = ds.update(item.id, { confidence: 'locked', status: 'done', sortOrder: 99 });
     expect(updated.confidence).toBe('locked');
     expect(updated.status).toBe('done');
@@ -630,7 +630,7 @@ describe('update', () => {
   });
 
   it('updates 1.4.0 meta fields (expiresAt, connectorId, materialized, cachedAt)', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     const now  = new Date().toISOString();
     ds.update(item.id, {
       expiresAt:   now,
@@ -646,15 +646,15 @@ describe('update', () => {
   });
 
   it('clears expiresAt by setting to null', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.update(item.id, { expiresAt: new Date().toISOString() });
     ds.update(item.id, { expiresAt: null });
     expect(ds.get(item.id).expiresAt).toBeNull();
   });
 
   it('updates backlinks when value changes', () => {
-    const target = ds.create({ value: 'target' });
-    const linker = ds.create({ value: 'no link' });
+    const target = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target' });
+    const linker = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'no link' });
     ds.update(linker.id, { value: `[[${target.id}]]` });
     expect(ds.backlinks(target.id)).toContain(linker.id);
     ds.update(linker.id, { value: 'removed link' });
@@ -662,7 +662,7 @@ describe('update', () => {
   });
 
   it('updates modifiedAt on each call', async () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     const t1   = item.modifiedAt;
     await new Promise(r => setTimeout(r, 5));
     const r2   = ds.update(item.id, { value: 'y' });
@@ -670,7 +670,7 @@ describe('update', () => {
   });
 
   it('records update event in history', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.update(item.id, { value: 'y' });
     const h = ds.history(item.id);
     expect(h.some(e => e.changeType === 'update')).toBe(true);
@@ -692,7 +692,7 @@ describe('update', () => {
 
   it('locks the root node structural fields', () => {
     expect(() => ds.update(ROOT_ID, { type: 'text' })).toThrow(/root node's 'type'/);
-    expect(() => ds.update(ROOT_ID, { parentId: ds.create({ value: 'p' }).id })).toThrow(/root node's 'parentId'/);
+    expect(() => ds.update(ROOT_ID, { parentId: ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'p' }).id })).toThrow(/root node's 'parentId'/);
     expect(() => ds.update(ROOT_ID, { typeId: '22222222-2222-2222-2222-222222222222' })).toThrow(/root node's 'typeId'/);
     expect(() => ds.update(ROOT_ID, { sortOrder: 5 })).toThrow(/root node's 'sortOrder'/);
   });
@@ -705,8 +705,8 @@ describe('update', () => {
   // ── parentId change cascades materialized path ─────────────────────────────
 
   it('cascades path update when parentId changes', () => {
-    const parent1 = ds.create({ value: 'p1' });
-    const parent2 = ds.create({ value: 'p2' });
+    const parent1 = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'p1' });
+    const parent2 = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'p2' });
     const child   = ds.create({ value: 'c', parentId: parent1.id });
     const grand   = ds.create({ value: 'g', parentId: child.id });
 
@@ -723,8 +723,8 @@ describe('update', () => {
   });
 
   it('tree() reflects moved subtree after parentId change', () => {
-    const p1    = ds.create({ value: 'p1' });
-    const p2    = ds.create({ value: 'p2' });
+    const p1    = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'p1' });
+    const p2    = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'p2' });
     const child = ds.create({ value: 'c', parentId: p1.id });
     ds.update(child.id, { parentId: p2.id });
     const t2 = ds.tree(p2.id);
@@ -738,34 +738,34 @@ describe('update', () => {
 
 describe('delete', () => {
   it('removes an item', () => {
-    const item = ds.create({ value: 'bye' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'bye' });
     ds.delete(item.id);
     expect(ds.get(item.id)).toBeNull();
   });
 
   it('returns warnings for items with backlinks', () => {
-    const target = ds.create({ value: 'target' });
-    ds.create({ value: `[[${target.id}]]` });
+    const target = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target' });
+    ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: `[[${target.id}]]` });
     const result = ds.deleteWarnings(target.id);
     expect(result.length).toBeGreaterThan(0);
   });
 
   it('removes tag index entries on delete', () => {
-    const item = ds.create({ value: 'x', tags: ['old'] });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x', tags: ['old'] });
     ds.delete(item.id);
     expect(ds.byTag('old')).not.toContain(item.id);
   });
 
   it('removes backlink entries on delete', () => {
-    const target = ds.create({ value: 'target' });
-    const linker = ds.create({ value: `[[${target.id}]]` });
+    const target = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target' });
+    const linker = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: `[[${target.id}]]` });
     ds.delete(linker.id);
     expect(ds.backlinks(target.id)).not.toContain(linker.id);
   });
 
   it('cleans up inbound and outbound backlinks', () => {
-    const target = ds.create({ value: 'target' });
-    const linker = ds.create({ value: `see [[${target.id}]]` });
+    const target = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target' });
+    const linker = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: `see [[${target.id}]]` });
     ds.delete(target.id);
     // No error on subsequent operations
     expect(ds.get(target.id)).toBeNull();
@@ -778,7 +778,7 @@ describe('delete', () => {
   });
 
   it('records delete event in history', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.delete(item.id);
     const h = ds.history(item.id);
     expect(h.some(e => e.changeType === 'delete')).toBe(true);
@@ -793,34 +793,34 @@ describe('delete', () => {
 
 describe('softDelete / restore', () => {
   it('softDelete sets deletedAt', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     const res  = ds.softDelete(item.id);
     expect(res.deletedAt).not.toBeNull();
     expect(ds.get(item.id).deletedAt).not.toBeNull();
   });
 
   it('softDeleted item is excluded from query() by default', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.softDelete(item.id);
     const results = ds.query({ type: 'string' });
     expect(results.some(i => i.id === item.id)).toBe(false);
   });
 
   it('softDeleted item included when includeDeleted: true', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.softDelete(item.id);
     const results = ds.query({ type: 'string', includeDeleted: true });
     expect(results.some(i => i.id === item.id)).toBe(true);
   });
 
   it('item is still get()-able after softDelete', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.softDelete(item.id);
     expect(ds.get(item.id)).not.toBeNull();
   });
 
   it('restore clears deletedAt', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.softDelete(item.id);
     const res = ds.restore(item.id);
     expect(res.deletedAt).toBeNull();
@@ -828,7 +828,7 @@ describe('softDelete / restore', () => {
   });
 
   it('restored item appears in default query() again', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.softDelete(item.id);
     ds.restore(item.id);
     const results = ds.query({ type: 'string' });
@@ -836,20 +836,20 @@ describe('softDelete / restore', () => {
   });
 
   it('records soft-delete event in history', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.softDelete(item.id);
     expect(ds.history(item.id).some(e => e.changeType === 'soft-delete')).toBe(true);
   });
 
   it('records restore event in history', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.softDelete(item.id);
     ds.restore(item.id);
     expect(ds.history(item.id).some(e => e.changeType === 'restore')).toBe(true);
   });
 
   it('soft-delete cycle: soft-delete → restore → soft-delete', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.softDelete(item.id);
     ds.restore(item.id);
     ds.softDelete(item.id);
@@ -865,7 +865,7 @@ describe('softDelete / restore', () => {
 
 describe('children', () => {
   it('returns direct children sorted by sortOrder', () => {
-    const parent = ds.create({ value: 'p' });
+    const parent = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'p' });
     ds.create({ value: 'c2', parentId: parent.id, sortOrder: 10 });
     ds.create({ value: 'c1', parentId: parent.id, sortOrder: 0 });
     const kids = ds.children(parent.id);
@@ -874,12 +874,12 @@ describe('children', () => {
   });
 
   it('returns empty array for a leaf item', () => {
-    const item = ds.create({ value: 'leaf' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'leaf' });
     expect(ds.children(item.id)).toEqual([]);
   });
 
   it('filters by aspect when provided', () => {
-    const parent = ds.create({ value: 'p' });
+    const parent = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'p' });
     ds.create({ value: 'sidebar', parentId: parent.id, aspect: 'sidebar' });
     ds.create({ value: 'main',    parentId: parent.id });
     const sidebarKids = ds.children(parent.id, 'sidebar');
@@ -916,7 +916,7 @@ describe('children', () => {
 
 describe('tree', () => {
   it('returns root item at depth 0, children at depth 1', () => {
-    const root  = ds.create({ value: 'root' });
+    const root  = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'root' });
     const child = ds.create({ value: 'child', parentId: root.id });
     const t     = ds.tree(root.id);
     expect(t[0]).toEqual({ item: expect.objectContaining({ id: root.id }), depth: 0 });
@@ -924,7 +924,7 @@ describe('tree', () => {
   });
 
   it('respects maxDepth — excludes deeper nodes', () => {
-    const root   = ds.create({ value: 'root' });
+    const root   = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'root' });
     const child  = ds.create({ value: 'child', parentId: root.id });
     const grand  = ds.create({ value: 'grand', parentId: child.id });
     const t      = ds.tree(root.id, 1);
@@ -937,14 +937,14 @@ describe('tree', () => {
   });
 
   it('uses implicit root when no rootId given', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     const t = ds.tree(null);
     const ids = t.map(n => n.item.id);
     expect(ids).toContain(item.id);
   });
 
   it('children within same level are sorted by sortOrder', () => {
-    const parent = ds.create({ value: 'p' });
+    const parent = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'p' });
     ds.create({ value: 'z', parentId: parent.id, sortOrder: 10 });
     ds.create({ value: 'a', parentId: parent.id, sortOrder: 0 });
     const t     = ds.tree(parent.id);
@@ -954,8 +954,8 @@ describe('tree', () => {
 
   it('only loads subtree rows from SQL (path index used)', () => {
     // Create 100 items at root, then a separate subtree to query
-    const parent = ds.create({ value: 'subtree-root' });
-    for (let i = 0; i < 50; i++) ds.create({ value: `noise-${i}` });
+    const parent = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'subtree-root' });
+    for (let i = 0; i < 50; i++) ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: `noise-${i}` });
     const child = ds.create({ value: 'child', parentId: parent.id });
 
     const t = ds.tree(parent.id);
@@ -974,19 +974,19 @@ describe('materialized path', () => {
   });
 
   it('child of root has path = ROOT_ID/childId', () => {
-    const child = ds.create({ value: 'c' });   // parentId defaults to root
+    const child = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'c' });   // parentId defaults to root
     expect(ds._getPath(child.id)).toBe(`${ROOT_ID}/${child.id}`);
   });
 
   it('grandchild path encodes full ancestry', () => {
-    const parent = ds.create({ value: 'p' });   // under root
+    const parent = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'p' });   // under root
     const child  = ds.create({ value: 'c', parentId: parent.id });
     expect(ds._getPath(child.id)).toBe(`${ROOT_ID}/${parent.id}/${child.id}`);
   });
 
   it('cascades path on parentId change, including deep descendants', () => {
-    const p1 = ds.create({ value: 'p1' });
-    const p2 = ds.create({ value: 'p2' });
+    const p1 = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'p1' });
+    const p2 = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'p2' });
     const c  = ds.create({ value: 'c',  parentId: p1.id });
     const gc = ds.create({ value: 'gc', parentId: c.id });
     const ggc = ds.create({ value: 'ggc', parentId: gc.id });
@@ -1018,13 +1018,13 @@ describe('ancestors', () => {
   });
 
   it('returns [root] for a direct child of root', () => {
-    const child = ds.create({ value: 'c' });   // under root
+    const child = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'c' });   // under root
     const anc   = ds.ancestors(child.id);
     expect(anc.map(a => a.id)).toEqual([ROOT_ID]);
   });
 
   it('returns full ancestor chain root → parent', () => {
-    const p   = ds.create({ value: 'parent' });
+    const p   = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'parent' });
     const c   = ds.create({ value: 'child', parentId: p.id });
     const anc = ds.ancestors(c.id);
     const ids = anc.map(a => a.id);
@@ -1035,7 +1035,7 @@ describe('ancestors', () => {
   });
 
   it('preserves root-to-parent ordering', () => {
-    const p   = ds.create({ value: 'p' });
+    const p   = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'p' });
     const c   = ds.create({ value: 'c', parentId: p.id });
     const anc = ds.ancestors(c.id);
     // ROOT_ID should come first
@@ -1049,12 +1049,12 @@ describe('ancestors', () => {
 
 describe('subtreeCount', () => {
   it('returns 1 for an item with no children', () => {
-    const item = ds.create({ value: 'leaf' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'leaf' });
     expect(ds.subtreeCount(item.id)).toBe(1);
   });
 
   it('counts all descendants', () => {
-    const parent = ds.create({ value: 'p' });
+    const parent = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'p' });
     ds.create({ value: 'c1', parentId: parent.id });
     const c2 = ds.create({ value: 'c2', parentId: parent.id });
     ds.create({ value: 'gc', parentId: c2.id });
@@ -1070,7 +1070,7 @@ describe('subtreeCount', () => {
 
 describe('aliases', () => {
   it('sets and resolves an alias', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.setAlias('my-alias', item.id);
     expect(ds.resolveAlias('my-alias')).toBe(item.id);
   });
@@ -1080,8 +1080,8 @@ describe('aliases', () => {
   });
 
   it('listAliases returns all aliases sorted', () => {
-    const a = ds.create({ value: 'a' });
-    const b = ds.create({ value: 'b' });
+    const a = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a' });
+    const b = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b' });
     ds.setAlias('zzz', a.id);
     ds.setAlias('aaa', b.id);
     const list = ds.listAliases();
@@ -1091,22 +1091,22 @@ describe('aliases', () => {
   });
 
   it('removeAlias deletes it', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.setAlias('bye', item.id);
     ds.removeAlias('bye');
     expect(ds.resolveAlias('bye')).toBeNull();
   });
 
   it('overwriting an alias updates the target', () => {
-    const a = ds.create({ value: 'a' });
-    const b = ds.create({ value: 'b' });
+    const a = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a' });
+    const b = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b' });
     ds.setAlias('alias', a.id);
     ds.setAlias('alias', b.id);
     expect(ds.resolveAlias('alias')).toBe(b.id);
   });
 
   it('resolve() looks up by UUID or alias', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.setAlias('x-alias', item.id);
     expect(ds.resolve(item.id)?.id).toBe(item.id);
     expect(ds.resolve('x-alias')?.id).toBe(item.id);
@@ -1118,7 +1118,7 @@ describe('aliases', () => {
 
 describe('annotations', () => {
   it('annotates an item and retrieves it', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     const ann  = ds.annotate(item.id, { content: 'my note' });
     expect(ann.id).toBeDefined();
     expect(ann.content).toBe('my note');
@@ -1129,12 +1129,12 @@ describe('annotations', () => {
   });
 
   it('returns empty array when no annotations', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     expect(ds.annotations(item.id)).toEqual([]);
   });
 
   it('multiple annotations are returned sorted by createdAt', async () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.annotate(item.id, { content: 'first' });
     await new Promise(r => setTimeout(r, 5));
     ds.annotate(item.id, { content: 'second' });
@@ -1144,7 +1144,7 @@ describe('annotations', () => {
   });
 
   it('stores author and parentAnnotationId', () => {
-    const item  = ds.create({ value: 'x' });
+    const item  = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     const root  = ds.annotate(item.id, { content: 'root', author: 'alice@example.com' });
     const reply = ds.annotate(item.id, { content: 'reply', parentAnnotationId: root.id });
     const all   = ds.annotations(item.id);
@@ -1159,8 +1159,8 @@ describe('annotations', () => {
 
 describe('relationships', () => {
   it('relate() creates outbound + inbound entries', () => {
-    const a = ds.create({ value: 'a' });
-    const b = ds.create({ value: 'b' });
+    const a = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a' });
+    const b = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b' });
     const r = ds.relate(a.id, 'depends-on', b.id, { note: 'critical' });
     expect(r.type).toBe('depends-on');
     expect(r.note).toBe('critical');
@@ -1173,14 +1173,14 @@ describe('relationships', () => {
   });
 
   it('throws for invalid relationship type', () => {
-    const a = ds.create({ value: 'a' });
-    const b = ds.create({ value: 'b' });
+    const a = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a' });
+    const b = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b' });
     expect(() => ds.relate(a.id, 'invented-type', b.id)).toThrow(/Invalid relationship type/);
   });
 
   it('relate() resolves the slug to the relationship-type item UUID in payload.typeId', () => {
-    const a = ds.create({ value: 'a' });
-    const b = ds.create({ value: 'b' });
+    const a = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a' });
+    const b = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b' });
     const r = ds.relate(a.id, 'depends-on', b.id);
     // The relationship item carries the spec relationshipPayload shape, with the
     // canonical relationship-type UUID (not a null slug-only placeholder).
@@ -1191,22 +1191,22 @@ describe('relationships', () => {
   });
 
   it('relationships() returns empty outbound/inbound for item with no relationships', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     const r = ds.relationships(item.id);
     expect(r.outbound).toEqual([]);
     expect(r.inbound).toEqual([]);
   });
 
   it('backlinks() returns IDs of items linking via [[uuid]] syntax', () => {
-    const target = ds.create({ value: 'target' });
-    const linker = ds.create({ value: `see [[${target.id}]]` });
+    const target = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target' });
+    const linker = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: `see [[${target.id}]]` });
     expect(ds.backlinks(target.id)).toContain(linker.id);
   });
 
   it('listRelationships() returns all relationships', () => {
-    const a = ds.create({ value: 'a' });
-    const b = ds.create({ value: 'b' });
-    const c = ds.create({ value: 'c' });
+    const a = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a' });
+    const b = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b' });
+    const c = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'c' });
     ds.relate(a.id, 'depends-on', b.id);
     ds.relate(b.id, 'relates-to', c.id);
     expect(ds.listRelationships()).toHaveLength(2);
@@ -1217,8 +1217,8 @@ describe('relationships', () => {
     expect(ds.relTypes).toContain('affects');
     expect(ds.relTypes).toContain('evidenced-by');
     // Can now create relationships with custom types
-    const a = ds.create({ value: 'a' });
-    const b = ds.create({ value: 'b' });
+    const a = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a' });
+    const b = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b' });
     expect(() => ds.relate(a.id, 'affects', b.id)).not.toThrow();
   });
 
@@ -1250,7 +1250,7 @@ describe('relationships', () => {
 
 describe('history', () => {
   it('returns create event with correct snapshot', () => {
-    const item = ds.create({ value: 'hello' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'hello' });
     const h    = ds.history(item.id);
     expect(h.length).toBeGreaterThanOrEqual(1);
     const create = h.find(e => e.changeType === 'create');
@@ -1258,7 +1258,7 @@ describe('history', () => {
   });
 
   it('accumulates multiple events', () => {
-    const item = ds.create({ value: 'v1' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'v1' });
     ds.update(item.id, { value: 'v2' });
     ds.softDelete(item.id);
     ds.restore(item.id);
@@ -1270,7 +1270,7 @@ describe('history', () => {
   });
 
   it('each snapshot contains snapshotAt and changedBy', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     const h    = ds.history(item.id);
     expect(h[0].snapshotAt).toBeDefined();
     expect(h[0].changedBy).toBe('test@example.com');
@@ -1336,12 +1336,12 @@ describe('type definitions', () => {
 
 describe('objectData / functionData / timeData', () => {
   it('readObjectJson returns null for item with no object_data', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     expect(ds.readObjectJson(item.id)).toBeNull();
   });
 
   it('writeObjectJson / readObjectJson round-trips', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.writeObjectJson(item.id, { key: 'value', arr: [1, 2] });
     expect(ds.readObjectJson(item.id)).toEqual({ key: 'value', arr: [1, 2] });
   });
@@ -1353,7 +1353,7 @@ describe('objectData / functionData / timeData', () => {
   });
 
   it('readFunctionJson returns null when not set', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     expect(ds.readFunctionJson(item.id)).toBeNull();
   });
 
@@ -1397,26 +1397,26 @@ describe('objectData / functionData / timeData', () => {
   });
 
   it('readTimeJson returns null when not set', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     expect(ds.readTimeJson(item.id)).toBeNull();
   });
 
   it('writeTimeJson / readTimeJson round-trips', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     const timeData = { main: { startAt: '2026-01-01T00:00:00Z', endAt: null, recurrenceRule: null } };
     ds.writeTimeJson(item.id, timeData);
     expect(ds.readTimeJson(item.id)).toEqual(timeData);
   });
 
   it('deleteTimeJson clears time_data', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.writeTimeJson(item.id, { main: {} });
     ds.deleteTimeJson(item.id);
     expect(ds.readTimeJson(item.id)).toBeNull();
   });
 
   it('deleteTimeJson is a no-op if no time_data set', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     expect(() => ds.deleteTimeJson(item.id)).not.toThrow();
   });
 });
@@ -1425,8 +1425,8 @@ describe('objectData / functionData / timeData', () => {
 
 describe('byTag / byType', () => {
   it('byTag returns matching item IDs', () => {
-    const a = ds.create({ value: 'a', tags: ['featured'] });
-    ds.create({ value: 'b' });
+    const a = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a', tags: ['featured'] });
+    ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b' });
     expect(ds.byTag('featured')).toContain(a.id);
     expect(ds.byTag('featured')).toHaveLength(1);
   });
@@ -1436,7 +1436,7 @@ describe('byTag / byType', () => {
   });
 
   it('byTag reflects tag updates', () => {
-    const item = ds.create({ value: 'x', tags: ['old'] });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x', tags: ['old'] });
     ds.update(item.id, { tags: ['new'] });
     expect(ds.byTag('old')).not.toContain(item.id);
     expect(ds.byTag('new')).toContain(item.id);
@@ -1445,7 +1445,7 @@ describe('byTag / byType', () => {
   it('byType returns items with matching typeId', () => {
     const { metadata: t } = ds.createType('Bug', { icon: 'Category' });
     const bug = ds.create({ value: 'bug-1', type: 'object', typeId: t.id });
-    ds.create({ value: 'other' });
+    ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'other' });
     expect(ds.byType(t.id)).toContain(bug.id);
     expect(ds.byType(t.id)).toHaveLength(1);
   });
@@ -1459,21 +1459,21 @@ describe('byTag / byType', () => {
 
 describe('query', () => {
   it('default limit is 50', () => {
-    for (let i = 0; i < 60; i++) ds.create({ value: `item-${i}` });
+    for (let i = 0; i < 60; i++) ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: `item-${i}` });
     const results = ds.query({});
     expect(results.length).toBe(50);
   });
 
   it('explicit limit is honoured', () => {
-    ds.create({ value: 'a' });
-    ds.create({ value: 'b' });
-    ds.create({ value: 'c' });
+    ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a' });
+    ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b' });
+    ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'c' });
     expect(ds.query({ limit: 2 }).length).toBe(2);
   });
 
   it('filters by primitive type', () => {
-    ds.create({ value: 'string-one', type: 'string' });
-    ds.create({ value: 'text-one',   type: 'text' });
+    ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'string-one', type: 'string' });
+    ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'text-one',   type: 'text' });
     const results = ds.query({ type: 'string', limit: 100 });
     expect(results.every(i => i.type === 'string')).toBe(true);
     expect(results.some(i => i.value === 'string-one')).toBe(true);
@@ -1483,7 +1483,7 @@ describe('query', () => {
   it('filters by registered custom type', () => {
     const { metadata: t } = ds.createType('Epic', { icon: 'Category' });
     const bug = ds.create({ value: 'epic-1', type: 'object', typeId: t.id });
-    ds.create({ value: 'noise' });
+    ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'noise' });
     const results = ds.query({ type: 'Epic', limit: 100 });
     expect(results).toHaveLength(1);
     expect(results[0].id).toBe(bug.id);
@@ -1525,13 +1525,13 @@ describe('query', () => {
   });
 
   it('excludes soft-deleted items by default', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.softDelete(item.id);
     expect(ds.query({ limit: 100 }).some(i => i.id === item.id)).toBe(false);
   });
 
   it('includeDeleted: true includes soft-deleted items', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.softDelete(item.id);
     expect(ds.query({ includeDeleted: true, limit: 100 }).some(i => i.id === item.id)).toBe(true);
   });
@@ -1539,9 +1539,9 @@ describe('query', () => {
   it('expiredOnly returns only expired items', () => {
     const past   = new Date(Date.now() - 60_000).toISOString();
     const future = new Date(Date.now() + 60_000).toISOString();
-    const exp    = ds.create({ value: 'expired' });
+    const exp    = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'expired' });
     ds.update(exp.id, { expiresAt: past });
-    const fresh  = ds.create({ value: 'fresh' });
+    const fresh  = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'fresh' });
     ds.update(fresh.id, { expiresAt: future });
     const results = ds.query({ expiredOnly: true, limit: 100 });
     expect(results.some(i => i.id === exp.id)).toBe(true);
@@ -1550,15 +1550,15 @@ describe('query', () => {
 
   it('excludeExpired omits items past their expiresAt', () => {
     const past = new Date(Date.now() - 60_000).toISOString();
-    const exp  = ds.create({ value: 'x' });
+    const exp  = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.update(exp.id, { expiresAt: past });
     const results = ds.query({ excludeExpired: true, limit: 100 });
     expect(results.some(i => i.id === exp.id)).toBe(false);
   });
 
   it('rootId scopes results to subtree', () => {
-    const r1 = ds.create({ value: 'r1' });
-    const r2 = ds.create({ value: 'r2' });
+    const r1 = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'r1' });
+    const r2 = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'r2' });
     ds.create({ value: 'c1', parentId: r1.id });
     ds.create({ value: 'c2', parentId: r2.id });
     const results = ds.query({ rootId: r1.id, limit: 100 });
@@ -1569,7 +1569,7 @@ describe('query', () => {
   it('rootId traversal does not pass through a soft-deleted intermediate node', () => {
     // r -> mid -> leaf; deleting mid makes leaf unreachable from r (the walk
     // only traverses surviving nodes), even though leaf itself is not deleted.
-    const r    = ds.create({ value: 'walk-root' });
+    const r    = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'walk-root' });
     const mid  = ds.create({ value: 'walk-mid',  parentId: r.id });
     const leaf = ds.create({ value: 'walk-leaf', parentId: mid.id });
     ds.softDelete(mid.id);
@@ -1581,7 +1581,7 @@ describe('query', () => {
   });
 
   it('rootId traversal terminates on a parent cycle', () => {
-    const a = ds.create({ value: 'cyc-a' });
+    const a = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'cyc-a' });
     const b = ds.create({ value: 'cyc-b', parentId: a.id });
     // Force a cycle directly in the index (a -> b -> a); the traversal must not hang.
     ds._openDb().prepare('UPDATE items SET parent_id = ? WHERE id = ?').run(b.id, a.id);
@@ -1612,7 +1612,7 @@ describe('query', () => {
 
 describe('loadAll', () => {
   it('returns all items including well-known nodes', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     const all  = ds.loadAll();
     expect(all.some(i => i.id === ROOT_ID)).toBe(true);
     expect(all.some(i => i.id === item.id)).toBe(true);
@@ -1623,14 +1623,14 @@ describe('loadAll', () => {
 
 describe('rebuildIndexes', () => {
   it('returns item count', () => {
-    ds.create({ value: 'a' });
-    ds.create({ value: 'b' });
+    ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a' });
+    ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b' });
     const count = ds.rebuildIndexes();
     expect(count).toBeGreaterThanOrEqual(2);
   });
 
   it('re-populates item_tags', () => {
-    const item = ds.create({ value: 'x', tags: ['important'] });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x', tags: ['important'] });
     // Manually corrupt by deleting the tag row
     ds._openDb().prepare('DELETE FROM perf_tags WHERE item_id = ?').run(item.id);
     expect(ds.byTag('important')).not.toContain(item.id);
@@ -1640,8 +1640,8 @@ describe('rebuildIndexes', () => {
   });
 
   it('re-populates backlinks', () => {
-    const target = ds.create({ value: 'target' });
-    const linker = ds.create({ value: `[[${target.id}]]` });
+    const target = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target' });
+    const linker = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: `[[${target.id}]]` });
     // Corrupt
     ds._openDb().prepare('DELETE FROM perf_backlinks WHERE source_id = ?').run(linker.id);
     expect(ds.backlinks(target.id)).not.toContain(linker.id);
@@ -1661,7 +1661,7 @@ describe('checkIntegrity', () => {
   it('detects orphan-type-id (item with typeId but no type definition)', () => {
     const fake = 'ffffffff-ffff-4fff-bfff-ffffffffffff';
     // Bypass the guard by inserting directly
-    const item = ds.create({ value: 'x' }); // plain item
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' }); // plain item
     ds._openDb().prepare("UPDATE items SET type = 'object', type_id = ? WHERE id = ?").run(fake, item.id);
     const findings = ds.checkIntegrity();
     expect(findings.some(f => f.check === 'orphan-type-id' && f.nodeId === item.id)).toBe(true);
@@ -1701,40 +1701,40 @@ describe('well-known node protection', () => {
 
 describe('persistence across reopen', () => {
   it('items survive a close and reopen', () => {
-    const item = ds.create({ value: 'persistent' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'persistent' });
     const ds2  = SqliteFsAdapter.open(tmp);
     expect(ds2.get(item.id)?.value).toBe('persistent');
   });
 
   it('aliases survive reopen', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.setAlias('keep', item.id);
     const ds2 = SqliteFsAdapter.open(tmp);
     expect(ds2.resolveAlias('keep')).toBe(item.id);
   });
 
   it('tags survive reopen', () => {
-    const item = ds.create({ value: 'x', tags: ['important'] });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x', tags: ['important'] });
     const ds2  = SqliteFsAdapter.open(tmp);
     expect(ds2.byTag('important')).toContain(item.id);
   });
 
   it('history survives reopen', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.update(item.id, { value: 'y' });
     const ds2 = SqliteFsAdapter.open(tmp);
     expect(ds2.history(item.id).length).toBeGreaterThanOrEqual(2);
   });
 
   it('time data survives reopen', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.writeTimeJson(item.id, { main: { startAt: '2026-01-01T00:00:00Z' } });
     const ds2 = SqliteFsAdapter.open(tmp);
     expect(ds2.readTimeJson(item.id)).toEqual({ main: { startAt: '2026-01-01T00:00:00Z' } });
   });
 
   it('materialized paths survive reopen', () => {
-    const item    = ds.create({ value: 'x' });
+    const item    = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     const pathB4  = ds._getPath(item.id);
     const ds2     = SqliteFsAdapter.open(tmp);
     expect(ds2._getPath(item.id)).toBe(pathB4);
@@ -1745,13 +1745,13 @@ describe('persistence across reopen', () => {
 
 describe('sourceSystem and sourceExternalId', () => {
   it('default to null on a freshly created item', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     expect(item.sourceSystem).toBeNull();
     expect(item.sourceExternalId).toBeNull();
   });
 
   it('round-trip via update + get', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.update(item.id, { sourceSystem: 'jira', sourceExternalId: 'ENG-42' });
     const got = ds.get(item.id);
     expect(got.sourceSystem).toBe('jira');
@@ -1759,7 +1759,7 @@ describe('sourceSystem and sourceExternalId', () => {
   });
 
   it('can be cleared back to null', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.update(item.id, { sourceSystem: 'jira', sourceExternalId: 'ENG-1' });
     ds.update(item.id, { sourceSystem: null, sourceExternalId: null });
     const got = ds.get(item.id);
@@ -1768,7 +1768,7 @@ describe('sourceSystem and sourceExternalId', () => {
   });
 
   it('survive reopen', () => {
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.update(item.id, { sourceSystem: 'github', sourceExternalId: 'issue/99' });
     const ds2 = SqliteFsAdapter.open(tmp);
     const got = ds2.get(item.id);
@@ -1777,16 +1777,16 @@ describe('sourceSystem and sourceExternalId', () => {
   });
 
   it('enforces uniqueness — same (system, externalId) pair throws', () => {
-    const a = ds.create({ value: 'a' });
-    const b = ds.create({ value: 'b' });
+    const a = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a' });
+    const b = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b' });
     ds.update(a.id, { sourceSystem: 'jira', sourceExternalId: 'ENG-1' });
     expect(() => ds.update(b.id, { sourceSystem: 'jira', sourceExternalId: 'ENG-1' }))
       .toThrow();
   });
 
   it('allows same externalId under different systems', () => {
-    const a = ds.create({ value: 'a' });
-    const b = ds.create({ value: 'b' });
+    const a = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a' });
+    const b = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b' });
     ds.update(a.id, { sourceSystem: 'jira',   sourceExternalId: 'ENG-1' });
     ds.update(b.id, { sourceSystem: 'github', sourceExternalId: 'ENG-1' });
     expect(ds.get(a.id).sourceSystem).toBe('jira');
@@ -1798,15 +1798,15 @@ describe('sourceSystem and sourceExternalId', () => {
 
 describe('listStubs', () => {
   function mkConn() {
-    const c = ds.create({ type: 'connector', value: 'Conn' });
+    const c = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'connector', value: 'Conn' });
     ds.writeObjectJson(c.id, { system: 'test' });
     return c;
   }
 
   it('returns all stub items for a connector', () => {
     const conn = mkConn();
-    const a = ds.create({ value: 'a' });
-    const b = ds.create({ value: 'b' });
+    const a = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a' });
+    const b = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b' });
     ds.update(a.id, { connectorId: conn.id, materialized: false });
     ds.update(b.id, { connectorId: conn.id, materialized: false });
 
@@ -1819,8 +1819,8 @@ describe('listStubs', () => {
 
   it('excludes materialized items', () => {
     const conn = mkConn();
-    const stub = ds.create({ value: 'stub' });
-    const real = ds.create({ value: 'real' });
+    const stub = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'stub' });
+    const real = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'real' });
     ds.update(stub.id, { connectorId: conn.id, materialized: false });
     ds.update(real.id, { connectorId: conn.id, materialized: true });
 
@@ -1832,7 +1832,7 @@ describe('listStubs', () => {
   it('excludes items from a different connector', () => {
     const conn1 = mkConn();
     const conn2 = mkConn();
-    const item  = ds.create({ value: 'x' });
+    const item  = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.update(item.id, { connectorId: conn1.id, materialized: false });
 
     expect(ds.listStubs(conn2.id)).toHaveLength(0);
@@ -1840,7 +1840,7 @@ describe('listStubs', () => {
 
   it('excludes deleted stubs', () => {
     const conn = mkConn();
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.update(item.id, { connectorId: conn.id, materialized: false });
     ds.delete(item.id);
 
@@ -1857,14 +1857,14 @@ describe('listStubs', () => {
 
 describe('listDueForRefresh', () => {
   function mkConn() {
-    const c = ds.create({ type: 'connector', value: 'Conn' });
+    const c = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'connector', value: 'Conn' });
     ds.writeObjectJson(c.id, { system: 'test' });
     return c;
   }
 
   it('returns connector items cached before beforeAt', () => {
     const conn = mkConn();
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.update(item.id, {
       connectorId: conn.id,
       materialized: true,
@@ -1877,7 +1877,7 @@ describe('listDueForRefresh', () => {
 
   it('excludes items cached after beforeAt', () => {
     const conn = mkConn();
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.update(item.id, {
       connectorId: conn.id,
       materialized: true,
@@ -1889,7 +1889,7 @@ describe('listDueForRefresh', () => {
   });
 
   it('excludes native items (no connectorId)', () => {
-    const item = ds.create({ value: 'native' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'native' });
     ds.update(item.id, { cachedAt: '2020-01-01T00:00:00Z' });
 
     const due = ds.listDueForRefresh('2099-01-01T00:00:00Z');
@@ -1898,7 +1898,7 @@ describe('listDueForRefresh', () => {
 
   it('excludes deleted items', () => {
     const conn = mkConn();
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.update(item.id, {
       connectorId: conn.id,
       materialized: true,
@@ -1911,7 +1911,7 @@ describe('listDueForRefresh', () => {
 
   it('includes stubs (materialized=false) that are overdue', () => {
     const conn = mkConn();
-    const item = ds.create({ value: 'x' });
+    const item = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     ds.update(item.id, {
       connectorId: conn.id,
       materialized: false,
@@ -1927,9 +1927,9 @@ describe('listDueForRefresh', () => {
   });
 
   it('listDueSchedules returns active schedules due at/before the cutoff', () => {
-    const due    = ds.create({ type: 'schedule', status: 'active', value: 'due',    dueAt: '2020-01-01T00:00:00.000Z' });
-    const notYet = ds.create({ type: 'schedule', status: 'active', value: 'notYet', dueAt: '2999-01-01T00:00:00.000Z' });
-    const paused = ds.create({ type: 'schedule', status: 'paused', value: 'paused', dueAt: '2020-01-01T00:00:00.000Z' });
+    const due    = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'schedule', status: 'active', value: 'due',    dueAt: '2020-01-01T00:00:00.000Z' });
+    const notYet = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'schedule', status: 'active', value: 'notYet', dueAt: '2999-01-01T00:00:00.000Z' });
+    const paused = ds.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'schedule', status: 'paused', value: 'paused', dueAt: '2020-01-01T00:00:00.000Z' });
 
     const ids = ds.listDueSchedules('2025-01-01T00:00:00.000Z').map((r: any) => r.id);
 

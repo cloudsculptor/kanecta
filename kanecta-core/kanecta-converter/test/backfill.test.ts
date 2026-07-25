@@ -50,7 +50,8 @@ test('Gap D: a UUID PK is preserved verbatim as the item id (never re-minted)', 
   const u = plan.upserts[0];
   assert.equal(u.id, 'aa000000-0000-4000-8000-000000000001'); // preserved
   assert.equal(u.sourceExternalId, 'discussions_threads:aa000000-0000-4000-8000-000000000001');
-  assert.equal(u.parentId, '00000000-0000-0000-0000-000000000000');
+  // spec §parentid-rules: rows with no containment FK default to the TYPE item, never root
+  assert.equal(u.parentId, 'T');
   // id is the item id → NOT an object field; other columns kept (faithful).
   assert.equal('id' in u.objectData, false);
   assert.deepEqual(u.objectData, { name: 'General', archivedAt: null, sortOrder: 1 });

@@ -33,7 +33,7 @@ afterAll(async () => {
 
 describe('activity log', () => {
   test('on by default (rootPayload.activity defaults EXTERNAL): records and reads events', async () => {
-    const item = await adapter.create({ value: 'watched' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'watched' });
     const e1 = await adapter.recordActivity({ eventType: 'item.viewed', actor: 'alice@acme.com', targetId: item.id });
     const e2 = await adapter.recordActivity({
       eventType: 'search.performed', actor: 'alice@acme.com',
@@ -69,7 +69,7 @@ describe('activity log', () => {
   });
 
   test('events survive deletion of the target item (no FK; append-only)', async () => {
-    const item = await adapter.create({ value: 'short-lived' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'short-lived' });
     const e = await adapter.recordActivity({ eventType: 'item.viewed', actor: 'bob@acme.com', targetId: item.id });
     await adapter.delete(item.id, OWNER);
     expect((await adapter.activityFor(item.id)).map(x => x.id)).toEqual([e.id]);

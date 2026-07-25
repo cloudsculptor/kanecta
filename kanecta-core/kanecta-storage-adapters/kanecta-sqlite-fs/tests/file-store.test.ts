@@ -20,7 +20,7 @@ describe('file store (sidecars)', () => {
   let item: any;
   beforeEach(() => {
     a = tmpAdapter();
-    item = a.create({ value: 'holder', type: 'text' });
+    item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'holder', type: 'text' });
   });
   afterEach(() => cleanup(a));
 
@@ -115,7 +115,7 @@ describe('sparse branch file tombstones + merge', () => {
 
   beforeEach(() => {
     a = tmpAdapter();
-    item = a.create({ value: 'holder', type: 'text' });
+    item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'holder', type: 'text' });
     a.putFile(item.id, 'doc.pdf', bytes);
     a.createBranch('feature/files', { fill: 'sparse' });
     a.useBranch('feature/files');
@@ -168,7 +168,7 @@ describe('sparse branch file tombstones + merge', () => {
 
   test('merge copies sidecars written on a branch-ADDED item (bytes no longer dropped)', () => {
     const img = Buffer.from([1, 2, 3]);
-    const fresh = a.create({ value: 'born on branch', type: 'text' });
+    const fresh = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'born on branch', type: 'text' });
     a.putFile(fresh.id, 'img.bin', img);
 
     a.useBranch('main');

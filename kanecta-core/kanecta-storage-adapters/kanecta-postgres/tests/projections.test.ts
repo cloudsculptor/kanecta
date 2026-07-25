@@ -65,7 +65,7 @@ beforeAll(async () => {
   await adapter.createType('ProjWidget', { schema: makeTypeSchema(objTable, 'ProjWidget'), id: typeId });
   itemA = await adapter.create({ type: 'object', typeId, value: 'proj-a', objectData: { label: 'a' } });
   itemB = await adapter.create({ type: 'object', typeId, value: 'proj-b', objectData: { label: 'b', friendId: itemA.id } });
-  linker = await adapter.create({ value: `see [[${itemA.id}]]` });
+  linker = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: `see [[${itemA.id}]]` });
   await adapter.setAlias('proj-widget-a', itemA.id);
   await adapter.relate(itemA.id, 'depends-on', itemB.id, { note: 'proj test' });
 }, 60_000);

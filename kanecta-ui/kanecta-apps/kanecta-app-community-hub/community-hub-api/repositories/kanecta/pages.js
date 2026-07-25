@@ -2,7 +2,7 @@
 // the licence/group name (a LEFT JOIN in pg) with a follow-up point lookup — the
 // FK is preserved as both a data field (licence_id / owner_id) and a relates-to
 // edge; here we resolve the display name via the id.
-import { graphql, transaction, updateObject, getItem, resolveTypeId, newId, ROOT_ID, OWNER } from "../../lib/kanectaClient.js";
+import { graphql, transaction, updateObject, getItem, resolveTypeId, newId, OWNER } from "../../lib/kanectaClient.js";
 import { coerceRow, selectionFor } from "../../lib/kanectaMap.js";
 import { fileIdFromUrl } from "../../lib/fileRefs.js";
 
@@ -220,7 +220,7 @@ export async function createPageWithHistory({
   const contentStr = JSON.stringify(contentJson || {});
   await transaction([
     {
-      op: "create", id: pageId, type: "object", typeId: pageType, parentId: ROOT_ID, owner: OWNER,
+      op: "create", id: pageId, type: "object", typeId: pageType, parentId: pageType, owner: OWNER,
       objectData: {
         slug, title: title || "", contentJson: contentStr, createdById, createdByName,
         licenceId: licenceId || null, public: false, version: 1,
@@ -228,7 +228,7 @@ export async function createPageWithHistory({
       },
     },
     {
-      op: "create", id: newId(), type: "object", typeId: historyType, parentId: ROOT_ID, owner: OWNER,
+      op: "create", id: newId(), type: "object", typeId: historyType, parentId: historyType, owner: OWNER,
       objectData: {
         pageId, action: "Created", version: 1, contentJson: contentStr,
         licenceId: licenceId || null, userId: createdById, userName: createdByName, createdAt: now,
@@ -290,7 +290,7 @@ export async function updatePageWithHistory({
     ops.push({ op: "update", id: fid, changes: { objectData: { ...normalizeFilePayload(fp), deletedAt: now } } });
   }
   ops.push({
-    op: "create", id: newId(), type: "object", typeId: historyType, parentId: ROOT_ID, owner: OWNER,
+    op: "create", id: newId(), type: "object", typeId: historyType, parentId: historyType, owner: OWNER,
     objectData: {
       pageId, action, version: newVersion, contentJson: contentStr,
       licenceId: newLicence, userId, userName, createdAt: now,

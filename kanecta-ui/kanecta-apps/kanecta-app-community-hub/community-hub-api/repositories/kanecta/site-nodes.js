@@ -3,7 +3,7 @@
 // nav is a few dozen nodes). History rows are site-node-history items; writes go
 // through /transaction so node + history land atomically, mirroring the pg
 // BEGIN/COMMIT pairs.
-import { graphql, transaction, updateObject, getItem, resolveTypeId, newId, ROOT_ID, OWNER } from "../../lib/kanectaClient.js";
+import { graphql, transaction, updateObject, getItem, resolveTypeId, newId, OWNER } from "../../lib/kanectaClient.js";
 import { coerceRow, selectionFor } from "../../lib/kanectaMap.js";
 
 const NODE_STAR = [
@@ -76,7 +76,7 @@ function historyOp(historyTypeId, nodeId, action, snapshot, userId, userName) {
   return {
     op: "create",
     item: {
-      id: newId(), type: "object", typeId: historyTypeId, parentId: ROOT_ID, owner: OWNER,
+      id: newId(), type: "object", typeId: historyTypeId, parentId: historyTypeId, owner: OWNER,
       objectData: {
         nodeId, action, snapshot: JSON.stringify(snapshot),
         userId, userName, createdAt: new Date().toISOString(),
@@ -110,7 +110,7 @@ export async function createNode({ parentId, slug, title, nodeType, componentNam
   await transaction([
     {
       op: "create",
-      item: { id: row.id, type: "object", typeId, parentId: ROOT_ID, owner: OWNER, objectData: nodePayload(row) },
+      item: { id: row.id, type: "object", typeId, parentId: typeId, owner: OWNER, objectData: nodePayload(row) },
     },
     historyOp(historyTypeId, row.id, "Created", row, userId, userName),
   ]);

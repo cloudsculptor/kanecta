@@ -35,7 +35,7 @@ afterEach(() => {
 // ── uploadFile ────────────────────────────────────────────────────────────────
 
 describe("uploadFile", () => {
-  test("writes the bytes before the record, then creates the item under ROOT_ID/OWNER", async () => {
+  test("writes the bytes before the record, then creates the item under its type item", async () => {
     mockResolveTypeId.mockResolvedValueOnce("type-files");
     mockNewId.mockReturnValueOnce("file-1");
     mockPutFile.mockResolvedValueOnce({});
@@ -55,7 +55,8 @@ describe("uploadFile", () => {
 
     expect(mockCreateItem).toHaveBeenCalledWith({
       id: "file-1", type: "object", typeId: "type-files",
-      parentId: "00000000-0000-0000-0000-000000000000", owner: "community-hub",
+      // spec §parentid-rules: objects live under their type item, never root
+      parentId: "type-files", owner: "community-hub",
       objectData: expect.objectContaining({
         name: "hello.txt", storageKey: "file-1", mimeType: "text/plain", sizeBytes: buffer.length,
         description: null, uploadedById: "user-1", uploadedByName: "Jane", deletedAt: null,

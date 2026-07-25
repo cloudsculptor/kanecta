@@ -33,7 +33,7 @@ afterAll(async () => {
 
 describe('create() with a source key', () => {
   test('persists sourceSystem / sourceExternalId', async () => {
-    const item = await ds.create({
+    const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000',
       value: 'imported', type: 'note',
       sourceSystem: 'claude-code', sourceExternalId: 'evt-1',
     });
@@ -46,28 +46,28 @@ describe('create() with a source key', () => {
   });
 
   test('defaults the source fields to null', async () => {
-    const item = await ds.create({ value: 'plain', type: 'note' });
+    const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'plain', type: 'note' });
     expect(item.sourceSystem ?? null).toBeNull();
     expect(item.sourceExternalId ?? null).toBeNull();
   });
 
   test('rejects a duplicate (sourceSystem, sourceExternalId) — the key is unique', async () => {
-    await ds.create({ value: 'first', type: 'note', sourceSystem: 'sys', sourceExternalId: 'dup' });
+    await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'first', type: 'note', sourceSystem: 'sys', sourceExternalId: 'dup' });
     await expect(
-      ds.create({ value: 'second', type: 'note', sourceSystem: 'sys', sourceExternalId: 'dup' }),
+      ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'second', type: 'note', sourceSystem: 'sys', sourceExternalId: 'dup' }),
     ).rejects.toThrow();
   });
 
   test('allows the same externalId under a different sourceSystem', async () => {
-    const a = await ds.create({ value: 'a', type: 'note', sourceSystem: 'sysA', sourceExternalId: 'x' });
-    const b = await ds.create({ value: 'b', type: 'note', sourceSystem: 'sysB', sourceExternalId: 'x' });
+    const a = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a', type: 'note', sourceSystem: 'sysA', sourceExternalId: 'x' });
+    const b = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b', type: 'note', sourceSystem: 'sysB', sourceExternalId: 'x' });
     expect(a.id).not.toBe(b.id);
   });
 });
 
 describe('bySource()', () => {
   test('returns the item for a known key', async () => {
-    const created = await ds.create({
+    const created = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000',
       value: 'sess', type: 'note',
       sourceSystem: 'claude-code', sourceExternalId: 'session-42',
     });
@@ -87,7 +87,7 @@ describe('bySource()', () => {
   });
 
   test('reflects a source key set later via update()', async () => {
-    const item = await ds.create({ value: 'v', type: 'note' });
+    const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'v', type: 'note' });
     expect(await ds.bySource('sys', 'later')).toBeNull();
     await ds.update(item.id, { sourceSystem: 'sys', sourceExternalId: 'later' });
     const found = await ds.bySource('sys', 'later');
@@ -97,7 +97,7 @@ describe('bySource()', () => {
   test('supports the upsert pattern (create, then re-find and update in place)', async () => {
     const key = { sourceSystem: 'claude-code', sourceExternalId: 'turn-7' };
     expect(await ds.bySource(key.sourceSystem, key.sourceExternalId)).toBeNull();
-    const created = await ds.create({ value: 'v1', type: 'note', ...key });
+    const created = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'v1', type: 'note', ...key });
     const existing = await ds.bySource(key.sourceSystem, key.sourceExternalId);
     expect(existing.id).toBe(created.id);
     await ds.update(existing.id, { value: 'v2' });

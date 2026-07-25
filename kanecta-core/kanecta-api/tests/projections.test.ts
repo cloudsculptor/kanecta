@@ -37,7 +37,7 @@ describe('GET /projections', () => {
 
 describe('POST /projections/rebuild', () => {
   it('rebuilds and returns the per-structure report', async () => {
-    await ds.create({ value: 'hi', type: 'string' });
+    await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'hi', type: 'string' });
     const res = await request(app).post('/projections/rebuild');
     expect(res.status).toBe(200);
     expect(res.body.storage).toBe('filesystem');

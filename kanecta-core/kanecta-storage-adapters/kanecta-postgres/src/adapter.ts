@@ -48,6 +48,12 @@ const RELATIONSHIP_TYPE_ID = '334ea5f6-6bfa-43e5-b77f-5d811642d897';
 // metaschema (relationshipTypeSeedMetaschema) — see _ensureProjection.
 const RELATIONSHIP_TYPE_TYPE_ID = '15861dd7-e54c-4209-bceb-bdd65de4f472';
 const WELL_KNOWN_TYPES = new Set(['root']);
+// Placement/tree-structural built-ins whose parent is a real tree position,
+// NOT a type bucket (spec §parentid-rules cases: node → parent node/tree,
+// cell → grid, tree → root or parent node, symlink → its tree position). They
+// have a type item so instances CAN be queried by type, but their canonical
+// home is the tree, so create() must not derive a bucket or reject root.
+const PLACEMENT_TYPES = new Set(['node', 'cell', 'tree', 'symlink']);
 const WELL_KNOWN_ORDER: string[] = [];
 
 // Meta-types whose obj_<typeId> columns can't be derived from their own (nested,
@@ -1023,8 +1029,30 @@ class PostgresAdapter {
       await this._validateObjectPayload(rowTypeId, objectData);
     }
 
-    if (parentId == null) {
-      parentId = ROOT_ID;
+    // Spec §parentid-rules — hard constraints, enforced here at write time:
+    // nothing ever defaults to root. A missing parentId is derivable only for
+    // bucket-homed items (objects → their custom type item; type items → the
+    // types node; bucketed structured built-ins → their synthetic type item).
+    // Placement/content items — primitives, aspects, and the explicit tree
+    // exceptions (node → parent node/tree, cell → grid, tree → root or a
+    // parent node, symlink → its tree position) — have a real tree position
+    // only the caller knows: require it, and allow root when the caller means
+    // root (a tree grouping, a root-level content item).
+    if (aspect == null) {
+      const bucketId =
+        type === 'type'   ? TYPES_CONTAINER_ID :
+        type === 'object' ? typeId :
+        PLACEMENT_TYPES.has(type) ? null :
+        BUILT_IN_TYPE_ID_BY_NAME[type] ?? null;
+      if (parentId == null) {
+        if (bucketId == null)
+          throw new Error(`parentId is required: '${type}' items have no type bucket to default to (spec §parentid-rules — nothing defaults to root)`);
+        parentId = bucketId;
+      } else if (parentId === ROOT_ID && bucketId != null) {
+        throw new Error(`Invalid parentId: '${type}' items live under ${type === 'type' ? 'the types node' : 'their type item'} (${bucketId}), never under root (spec §parentid-rules)`);
+      }
+    } else if (parentId == null) {
+      throw new Error('parentId is required for aspect items: the item this is an aspect of (spec §parentid-rules)');
     }
 
     const id       = providedId ?? crypto.randomUUID();

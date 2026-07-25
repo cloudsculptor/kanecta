@@ -20,7 +20,7 @@ function freshAdapter() {
 
 // Create a connector item + write its payload.
 function mkConnector(payload = {}) {
-  const item = adapter.create({ type: 'connector', value: 'Test Connector' });
+  const item = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'connector', value: 'Test Connector' });
   const full = {
     system: 'test-system',
     baseUrl: 'https://api.example.com',
@@ -36,7 +36,7 @@ function mkConnector(payload = {}) {
 
 // Create a stub item referencing a connector.
 function mkStub(connectorId, externalId = 'ext-1') {
-  const item = adapter.create({ type: 'object', value: 'Stub Item' });
+  const item = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'object', value: 'Stub Item' });
   adapter.update(item.id, {
     connectorId,
     materialized: false,
@@ -164,7 +164,7 @@ describe('_loadConnector', () => {
   });
 
   it('throws when connector has no payload', async () => {
-    const conn = adapter.create({ type: 'connector', value: 'No Payload' });
+    const conn = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'connector', value: 'No Payload' });
     await expect(engine._loadConnector(conn.id))
       .rejects.toThrow('Connector payload missing');
   });
@@ -236,7 +236,7 @@ describe('materializeStub', () => {
   it('throws when item is already materialized', async () => {
     const engine = new ConnectorEngine(adapter, makeRunOp());
     const conn   = mkConnector();
-    const item   = adapter.create({ type: 'object', value: 'Already real' });
+    const item   = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'object', value: 'Already real' });
     adapter.update(item.id, { connectorId: conn.id, materialized: true });
 
     await expect(engine.materializeStub(item.id))
@@ -245,7 +245,7 @@ describe('materializeStub', () => {
 
   it('throws when item has no connectorId', async () => {
     const engine = new ConnectorEngine(adapter, makeRunOp());
-    const item   = adapter.create({ type: 'object', value: 'Orphan stub' });
+    const item   = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'object', value: 'Orphan stub' });
     adapter.update(item.id, { materialized: false });
 
     await expect(engine.materializeStub(item.id))
@@ -268,7 +268,7 @@ describe('materializeStub', () => {
     const runOp  = makeRunOp();
     const engine = new ConnectorEngine(adapter, runOp);
     const conn   = mkConnector();
-    const item   = adapter.create({ type: 'object', value: 'Already real' });
+    const item   = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'object', value: 'Already real' });
     adapter.update(item.id, { connectorId: conn.id, materialized: true });
 
     try { await engine.materializeStub(item.id); } catch {}
@@ -289,7 +289,7 @@ describe('getOrMaterialize', () => {
   it('returns a non-stub item without calling runOperation', async () => {
     const runOp  = makeRunOp();
     const engine = new ConnectorEngine(adapter, runOp);
-    const item   = adapter.create({ type: 'string', value: 'Native item' });
+    const item   = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'string', value: 'Native item' });
 
     const result = await engine.getOrMaterialize(item.id);
     expect(result.id).toBe(item.id);
@@ -300,7 +300,7 @@ describe('getOrMaterialize', () => {
     const runOp  = makeRunOp();
     const engine = new ConnectorEngine(adapter, runOp);
     const conn   = mkConnector();
-    const item   = adapter.create({ type: 'object', value: 'Already real' });
+    const item   = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'object', value: 'Already real' });
     adapter.update(item.id, { connectorId: conn.id, materialized: true, cachedAt: '2026-01-01T00:00:00Z' });
 
     const result = await engine.getOrMaterialize(item.id);
@@ -334,7 +334,7 @@ describe('refreshStaleItems', () => {
     const runOp  = makeRunOp({ updated: true });
     const engine = new ConnectorEngine(adapter, runOp);
     const conn   = mkConnector();
-    const item   = adapter.create({ type: 'object', value: 'Stale item' });
+    const item   = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'object', value: 'Stale item' });
     adapter.update(item.id, {
       connectorId: conn.id,
       materialized: true,
@@ -354,7 +354,7 @@ describe('refreshStaleItems', () => {
     const runOp  = makeRunOp({ x: 1 });
     const engine = new ConnectorEngine(adapter, runOp);
     const conn   = mkConnector();
-    const item   = adapter.create({ type: 'object', value: 'Fresh item' });
+    const item   = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'object', value: 'Fresh item' });
     adapter.update(item.id, {
       connectorId: conn.id,
       materialized: true,
@@ -372,7 +372,7 @@ describe('refreshStaleItems', () => {
     failOp.calls = [];
     const engine = new ConnectorEngine(adapter, failOp);
     const conn   = mkConnector();
-    const item   = adapter.create({ type: 'object', value: 'Will fail' });
+    const item   = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'object', value: 'Will fail' });
     adapter.update(item.id, {
       connectorId: conn.id,
       materialized: true,
@@ -389,7 +389,7 @@ describe('refreshStaleItems', () => {
     const conn   = mkConnector();
 
     for (let i = 0; i < 3; i++) {
-      const item = adapter.create({ type: 'object', value: `Stale ${i}` });
+      const item = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'object', value: `Stale ${i}` });
       adapter.update(item.id, {
         connectorId: conn.id,
         materialized: true,
@@ -408,7 +408,7 @@ describe('refreshStaleItems', () => {
     const engine = new ConnectorEngine(adapter, runOp);
     // Just check it doesn't throw (items cached in 2020 should be refreshed)
     const conn  = mkConnector();
-    const item  = adapter.create({ type: 'object', value: 'Old item' });
+    const item  = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'object', value: 'Old item' });
     adapter.update(item.id, {
       connectorId: conn.id,
       materialized: true,
@@ -425,7 +425,7 @@ describe('refreshStaleItems', () => {
 describe('queueWriteBack', () => {
   it('returns false when item has no connectorId', async () => {
     const engine = new ConnectorEngine(adapter, makeRunOp());
-    const item   = adapter.create({ type: 'string', value: 'Native' });
+    const item   = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'string', value: 'Native' });
     expect(await engine.queueWriteBack(item.id)).toBe(false);
   });
 
@@ -433,7 +433,7 @@ describe('queueWriteBack', () => {
     const runOp  = makeRunOp();
     const engine = new ConnectorEngine(adapter, runOp);
     const conn   = mkConnector({ writeBack: false });
-    const item   = adapter.create({ type: 'object', value: 'Managed item' });
+    const item   = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'object', value: 'Managed item' });
     adapter.update(item.id, { connectorId: conn.id, materialized: true });
 
     expect(await engine.queueWriteBack(item.id)).toBe(false);
@@ -444,7 +444,7 @@ describe('queueWriteBack', () => {
     const runOp  = makeRunOp();
     const engine = new ConnectorEngine(adapter, runOp);
     const conn   = mkConnector();  // no writeBack field
-    const item   = adapter.create({ type: 'object', value: 'Managed item' });
+    const item   = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'object', value: 'Managed item' });
     adapter.update(item.id, { connectorId: conn.id, materialized: true });
 
     expect(await engine.queueWriteBack(item.id)).toBe(false);
@@ -454,7 +454,7 @@ describe('queueWriteBack', () => {
     const runOp  = makeRunOp();
     const engine = new ConnectorEngine(adapter, runOp);
     const conn   = mkConnector({ writeBack: true });  // no push op
-    const item   = adapter.create({ type: 'object', value: 'Managed item' });
+    const item   = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'object', value: 'Managed item' });
     adapter.update(item.id, { connectorId: conn.id, materialized: true });
 
     await expect(engine.queueWriteBack(item.id))
@@ -468,7 +468,7 @@ describe('queueWriteBack', () => {
       writeBack: true,
       push: { type: 'function', id: 'cccccccc-0000-0000-0000-000000000001' },
     });
-    const item = adapter.create({ type: 'object', value: 'Managed item' });
+    const item = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'object', value: 'Managed item' });
     adapter.update(item.id, {
       connectorId: conn.id,
       materialized: true,
@@ -489,7 +489,7 @@ describe('queueWriteBack', () => {
       writeBack: true,
       push: { type: 'function', id: 'cccccccc-0000-0000-0000-000000000002' },
     });
-    const item = adapter.create({ type: 'object', value: 'Managed item' });
+    const item = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'object', value: 'Managed item' });
     adapter.update(item.id, {
       connectorId: conn.id,
       materialized: true,
@@ -510,7 +510,7 @@ describe('queueWriteBack', () => {
       writeBack: true,
       push: { type: 'pipeline', id: 'pppppppp-0000-0000-0000-000000000001' },
     });
-    const item = adapter.create({ type: 'object', value: 'Managed item' });
+    const item = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'object', value: 'Managed item' });
     adapter.update(item.id, { connectorId: conn.id, materialized: true });
 
     await engine.queueWriteBack(item.id);

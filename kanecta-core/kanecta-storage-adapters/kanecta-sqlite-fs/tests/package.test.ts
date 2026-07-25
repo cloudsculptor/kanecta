@@ -22,8 +22,8 @@ function cleanup(a: any) { fs.rmSync(a.root, { recursive: true, force: true }); 
 function senderAndReceiver() {
   const aRoot = tmpRoot('kanecta-package-a-');
   const a = SqliteFsAdapter.init(aRoot, 'sender@example.com');
-  const shared = a.create({ value: 'shared doc', type: 'text' });
-  const doomed = a.create({ value: 'doomed', type: 'text' });
+  const shared = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'shared doc', type: 'text' });
+  const doomed = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'doomed', type: 'text' });
 
   const bRoot = tmpRoot('kanecta-package-b-');
   fs.rmSync(bRoot, { recursive: true, force: true });
@@ -40,7 +40,7 @@ describe('package export', () => {
     a.createBranch('outbox'); // sparse by default
     a.useBranch('outbox');
     a.update(shared.id, { value: 'shared doc v2' });
-    const added = a.create({ value: 'brand new', type: 'text' });
+    const added = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'brand new', type: 'text' });
     a.putFile(added.id, 'photo.jpg', Buffer.from('jpeg-bytes'));
     a.delete(doomed.id);
 
@@ -79,7 +79,7 @@ describe('package import → review → merge (the inbox flow)', () => {
     a.createBranch('outbox');
     a.useBranch('outbox');
     a.update(shared.id, { value: 'shared doc v2' });
-    const added = a.create({ value: 'brand new', type: 'text' });
+    const added = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'brand new', type: 'text' });
     a.putFile(added.id, 'photo.jpg', Buffer.from('jpeg-bytes'));
     a.delete(doomed.id);
     const out = path.join(os.tmpdir(), `test-rt-${Date.now()}.kanecta-package`);

@@ -108,7 +108,7 @@ describe('POST /working-sets/:name/branches/:branch/switch', () => {
     expect(res.body).toMatchObject({ ok: true, branch: 'feature/x' });
 
     // A write through the API lands on the branch, not main.
-    const created = await request(app).post('/items').send({ value: 'branch only', type: 'text' });
+    const created = await request(app).post('/items').send({ value: 'branch only', type: 'text', parentId: '00000000-0000-0000-0000-000000000000' });
     expect(created.status).toBe(201);
     ds.useBranch('main');
     expect(await ds.get(created.body.id)).toBeNull();
@@ -135,7 +135,7 @@ describe('GET /working-sets/:name/branches/:branch/diff', () => {
   it('counts a sparse branch\'s local additions', async () => {
     ds.createBranch('feature/x', { fill: 'sparse', upstream: { branch: 'main' } });
     ds.useBranch('feature/x');
-    await ds.create({ type: 'string', value: 'only-on-branch' });
+    await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'string', value: 'only-on-branch' });
 
     const res = await request(app).get('/working-sets/default/branches/feature%2Fx/diff');
     expect(res.status).toBe(200);
@@ -146,11 +146,11 @@ describe('GET /working-sets/:name/branches/:branch/diff', () => {
   });
 
   it('returns the item-level review payload (the "PR diff"), not just counts', async () => {
-    const item = await ds.create({ type: 'string', value: 'v0' });
+    const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'string', value: 'v0' });
     ds.createBranch('feature/detail', { fill: 'sparse', upstream: { branch: 'main' } });
     ds.useBranch('feature/detail');
     await ds.update(item.id, { value: 'v1 on branch' }, 'test@example.com');
-    const added = await ds.create({ type: 'string', value: 'brand new' });
+    const added = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'string', value: 'brand new' });
 
     const res = await request(app).get('/working-sets/default/branches/feature%2Fdetail/diff');
     expect(res.status).toBe(200);
@@ -172,7 +172,7 @@ describe('GET /working-sets/:name/branches/:branch/diff', () => {
   it('merge-preview carries the same detail payload alongside conflicts/blastRadius', async () => {
     ds.createBranch('feature/pv', { fill: 'sparse', upstream: { branch: 'main' } });
     ds.useBranch('feature/pv');
-    const added = await ds.create({ type: 'string', value: 'preview me' });
+    const added = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'string', value: 'preview me' });
 
     const res = await request(app).get('/working-sets/default/branches/feature%2Fpv/merge-preview');
     expect(res.status).toBe(200);
@@ -191,7 +191,7 @@ describe('POST /working-sets/:name/branches/:branch/merge', () => {
   it('applies the branch changes to main and removes the branch', async () => {
     ds.createBranch('feature/y', { fill: 'sparse', upstream: { branch: 'main' } });
     ds.useBranch('feature/y');
-    const item = await ds.create({ type: 'string', value: 'merge-me' });
+    const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'string', value: 'merge-me' });
 
     const res = await request(app).post('/working-sets/default/branches/feature%2Fy/merge');
     expect(res.status).toBe(200);
@@ -211,7 +211,7 @@ describe('POST /working-sets/:name/branches/:branch/merge', () => {
   });
 
   it('reports a conflict (409) when upstream moved after the fork, and resolves with a strategy', async () => {
-    const item = await ds.create({ type: 'string', value: 'v0' });
+    const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'string', value: 'v0' });
     ds.createBranch('feature/c', { fill: 'sparse', upstream: { branch: 'main' } });
     ds.useBranch('feature/c');
     await ds.update(item.id, { value: 'branch edit' }, 'test@example.com');
@@ -240,7 +240,7 @@ describe('POST /working-sets/:name/branches/:branch/merge', () => {
   });
 
   it('surfaces blast radius and blocks on it when requested', async () => {
-    const parent = await ds.create({ type: 'string', value: 'parent' });
+    const parent = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'string', value: 'parent' });
     const child = await ds.create({ type: 'string', value: 'child', parentId: parent.id });
     ds.createBranch('feature/d', { fill: 'sparse', upstream: { branch: 'main' } });
     ds.useBranch('feature/d');

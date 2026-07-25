@@ -3,7 +3,7 @@
 // transaction; the Kanecta path speaks HTTP, so the `db` arg is accepted and
 // ignored. File-BYTES event methods (hero/gallery image up/down) live in the
 // native-file section; here it's event records + event_file record reads.
-import { graphql, createItem, updateObject, getItem, deleteItem, resolveTypeId, ROOT_ID, OWNER } from "../../lib/kanectaClient.js";
+import { graphql, createItem, updateObject, getItem, deleteItem, resolveTypeId, OWNER } from "../../lib/kanectaClient.js";
 import { coerceRow, selectionFor } from "../../lib/kanectaMap.js";
 
 const UPCOMING = [
@@ -107,7 +107,7 @@ export async function createEvent(_db, {
 }) {
   const typeId = await resolveTypeId("events");
   const item = await createItem({
-    type: "object", typeId, parentId: ROOT_ID, owner: OWNER,
+    type: "object", typeId, parentId: typeId, owner: OWNER,
     objectData: {
       title, description: description ?? null, startDate, startTime: startTime ?? null,
       endDate: endDate ?? null, endTime: endTime ?? null, address: address ?? null,
@@ -168,7 +168,7 @@ export async function deleteHeroEventFile(_db, eventId) {
 export async function insertEventFile(_db, { eventId, fileId, role, position }) {
   const typeId = await resolveTypeId("event-files");
   await createItem({
-    type: "object", typeId, parentId: ROOT_ID, owner: OWNER,
+    type: "object", typeId, parentId: typeId, owner: OWNER,
     objectData: { eventId, fileId, role, position, createdAt: new Date().toISOString() },
   });
 }

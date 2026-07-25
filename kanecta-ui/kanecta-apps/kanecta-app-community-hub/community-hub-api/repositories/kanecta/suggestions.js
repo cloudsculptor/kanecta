@@ -1,7 +1,7 @@
 // KanectaRepository — suggestions reads over kanecta-api (GraphQL). archived_at is
 // a normal filterable field (exposeSoftDelete backfill), so the active/archived
 // split reproduces exactly.
-import { graphql, createItem, updateObject, getItem, resolveTypeId, ROOT_ID, OWNER } from "../../lib/kanectaClient.js";
+import { graphql, createItem, updateObject, getItem, resolveTypeId, OWNER } from "../../lib/kanectaClient.js";
 import { coerceRow, selectionFor } from "../../lib/kanectaMap.js";
 
 const ACTIVE = [
@@ -17,7 +17,7 @@ const ARCHIVED = [
 export async function createSuggestion({ content, submittedById, submittedByName }) {
   const typeId = await resolveTypeId("suggestions");
   const item = await createItem({
-    type: "object", typeId, parentId: ROOT_ID, owner: OWNER,
+    type: "object", typeId, parentId: typeId, owner: OWNER,
     objectData: { content, submittedById, submittedByName, submittedAt: new Date().toISOString() },
   });
   return { id: item.id };

@@ -91,20 +91,20 @@ describe('materialized path', () => {
   });
 
   test('child of root has path ROOT_ID/childId', async () => {
-    const child = await adapter.create({ value: 'root-child' });
+    const child = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'root-child' });
     expect(await adapter._getPath(child.id)).toBe(`${ROOT_ID}/${child.id}`);
   });
 
   test('create computes path from parent', async () => {
-    const parent = await adapter.create({ value: 'parent' });
+    const parent = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'parent' });
     const child  = await adapter.create({ value: 'child', parentId: parent.id });
     const expected = `${ROOT_ID}/${parent.id}/${child.id}`;
     expect(await adapter._getPath(child.id)).toBe(expected);
   });
 
   test('update with parentId change cascades path through subtree', async () => {
-    const p1  = await adapter.create({ value: 'p1' });
-    const p2  = await adapter.create({ value: 'p2' });
+    const p1  = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'p1' });
+    const p2  = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'p2' });
     const c   = await adapter.create({ value: 'c',  parentId: p1.id });
     const gc  = await adapter.create({ value: 'gc', parentId: c.id });
     const ggc = await adapter.create({ value: 'ggc', parentId: gc.id });
@@ -122,8 +122,8 @@ describe('materialized path', () => {
   });
 
   test('tree() reflects moved subtree after parentId change', async () => {
-    const p1    = await adapter.create({ value: 'move-p1' });
-    const p2    = await adapter.create({ value: 'move-p2' });
+    const p1    = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'move-p1' });
+    const p2    = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'move-p2' });
     const child = await adapter.create({ value: 'move-c', parentId: p1.id });
     await adapter.update(child.id, { parentId: p2.id }, OWNER);
     const t1 = await adapter.tree(p1.id);
@@ -141,7 +141,7 @@ describe('ancestors', () => {
   });
 
   test('returns full ancestor chain in root-to-parent order', async () => {
-    const p   = await adapter.create({ value: 'anc-parent' });
+    const p   = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'anc-parent' });
     const c   = await adapter.create({ value: 'anc-child', parentId: p.id });
     const anc = await adapter.ancestors(c.id);
     const ids = anc.map(a => a.id);
@@ -151,7 +151,7 @@ describe('ancestors', () => {
   });
 
   test('direct child of root has root as only ancestor', async () => {
-    const child = await adapter.create({ value: 'anc-root-child' });
+    const child = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'anc-root-child' });
     const anc = await adapter.ancestors(child.id);
     expect(anc.map(a => a.id)).toEqual([ROOT_ID]);
   });
@@ -159,12 +159,12 @@ describe('ancestors', () => {
 
 describe('subtreeCount', () => {
   test('returns 1 for a leaf', async () => {
-    const item = await adapter.create({ value: 'sc-leaf' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'sc-leaf' });
     expect(await adapter.subtreeCount(item.id)).toBe(1);
   });
 
   test('counts all descendants', async () => {
-    const p  = await adapter.create({ value: 'sc-root' });
+    const p  = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'sc-root' });
     await adapter.create({ value: 'sc-c1', parentId: p.id });
     const c2 = await adapter.create({ value: 'sc-c2', parentId: p.id });
     await adapter.create({ value: 'sc-gc', parentId: c2.id });
@@ -180,31 +180,31 @@ describe('subtreeCount', () => {
 
 describe('create', () => {
   test('defaults parentId to root', async () => {
-    const item = await adapter.create({ value: 'default-parent' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'default-parent' });
     expect(item.parentId).toBe(ROOT_ID);
   });
 
   test('respects explicit parentId', async () => {
-    const parent = await adapter.create({ value: 'explicit-parent' });
+    const parent = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'explicit-parent' });
     const child  = await adapter.create({ value: 'explicit-child', parentId: parent.id });
     expect(child.parentId).toBe(parent.id);
   });
 
   test('auto-assigns sortOrder after siblings', async () => {
-    const parent = await adapter.create({ value: 'sort-parent' });
+    const parent = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'sort-parent' });
     const a = await adapter.create({ value: 'a', parentId: parent.id });
     const b = await adapter.create({ value: 'b', parentId: parent.id });
     expect(b.sortOrder).toBeGreaterThan(a.sortOrder);
   });
 
   test('persists tags', async () => {
-    const item = await adapter.create({ value: 'tagged', tags: ['alpha', 'beta'] });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'tagged', tags: ['alpha', 'beta'] });
     expect((await adapter.get(item.id)).tags).toEqual(expect.arrayContaining(['alpha', 'beta']));
   });
 
   test('persists 1.4.0 meta fields at create', async () => {
     const future = new Date(Date.now() + 60_000).toISOString();
-    const item   = await adapter.create({
+    const item   = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000',
       value: 'meta14',
       expiresAt:   future,
       connectorId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
@@ -218,8 +218,8 @@ describe('create', () => {
   });
 
   test('writes backlinks for [[uuid]] references in value', async () => {
-    const target = await adapter.create({ value: 'link-target' });
-    const linker = await adapter.create({ value: `see [[${target.id}]]` });
+    const target = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'link-target' });
+    const linker = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: `see [[${target.id}]]` });
     expect(await adapter.backlinks(target.id)).toContain(linker.id);
   });
 
@@ -238,12 +238,12 @@ describe('create', () => {
   });
 
   test('throws for well-known type names', async () => {
-    await expect(adapter.create({ type: 'root' })).rejects.toThrow(/well-known/);
-    await expect(adapter.create({ type: 'root' })).rejects.toThrow(/well-known/);
+    await expect(adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'root' })).rejects.toThrow(/well-known/);
+    await expect(adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'root' })).rejects.toThrow(/well-known/);
   });
 
   test('records create event in history', async () => {
-    const item = await adapter.create({ value: 'hist-create' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'hist-create' });
     const h    = await adapter.history(item.id);
     expect(h.some(e => e.changeType === 'create')).toBe(true);
   });
@@ -253,7 +253,7 @@ describe('create', () => {
 
 describe('get', () => {
   test('retrieves a created item', async () => {
-    const item = await adapter.create({ value: 'get-me' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'get-me' });
     expect((await adapter.get(item.id)).value).toBe('get-me');
   });
 
@@ -270,13 +270,13 @@ describe('get', () => {
 
 describe('update', () => {
   test('updates value', async () => {
-    const item = await adapter.create({ value: 'old' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'old' });
     await adapter.update(item.id, { value: 'new' }, OWNER);
     expect((await adapter.get(item.id)).value).toBe('new');
   });
 
   test('updates tags', async () => {
-    const item = await adapter.create({ value: 'tag-upd', tags: ['old'] });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'tag-upd', tags: ['old'] });
     await adapter.update(item.id, { tags: ['new'] }, OWNER);
     const got = await adapter.get(item.id);
     expect(got.tags).toContain('new');
@@ -284,7 +284,7 @@ describe('update', () => {
   });
 
   test('updates 1.4.0 meta fields', async () => {
-    const item   = await adapter.create({ value: 'meta-upd' });
+    const item   = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'meta-upd' });
     const future = new Date(Date.now() + 60_000).toISOString();
     await adapter.update(item.id, {
       expiresAt:   future,
@@ -300,15 +300,15 @@ describe('update', () => {
   });
 
   test('clears expiresAt by setting null', async () => {
-    const item = await adapter.create({ value: 'exp-clear' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'exp-clear' });
     await adapter.update(item.id, { expiresAt: new Date().toISOString() }, OWNER);
     await adapter.update(item.id, { expiresAt: null }, OWNER);
     expect((await adapter.get(item.id)).expiresAt).toBeNull();
   });
 
   test('updates backlinks when value changes', async () => {
-    const target = await adapter.create({ value: 'bl-target' });
-    const linker = await adapter.create({ value: 'no link' });
+    const target = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'bl-target' });
+    const linker = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'no link' });
     await adapter.update(linker.id, { value: `[[${target.id}]]` }, OWNER);
     expect(await adapter.backlinks(target.id)).toContain(linker.id);
     await adapter.update(linker.id, { value: 'removed' }, OWNER);
@@ -316,7 +316,7 @@ describe('update', () => {
   });
 
   test('bumps modifiedAt', async () => {
-    const item = await adapter.create({ value: 'mod-time' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'mod-time' });
     const t1   = item.modifiedAt;
     await new Promise(r => setTimeout(r, 10));
     const r2   = await adapter.update(item.id, { value: 'changed' }, OWNER);
@@ -324,7 +324,7 @@ describe('update', () => {
   });
 
   test('records update event in history', async () => {
-    const item = await adapter.create({ value: 'upd-hist' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'upd-hist' });
     await adapter.update(item.id, { value: 'changed' }, OWNER);
     expect((await adapter.history(item.id)).some(e => e.changeType === 'update')).toBe(true);
   });
@@ -343,21 +343,21 @@ describe('update', () => {
 
 describe('delete', () => {
   test('removes item', async () => {
-    const item = await adapter.create({ value: 'del-me' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'del-me' });
     await adapter.delete(item.id, OWNER);
     expect(await adapter.get(item.id)).toBeNull();
   });
 
   test('returns warnings for items with backlinks', async () => {
-    const target = await adapter.create({ value: 'del-target' });
-    await adapter.create({ value: `[[${target.id}]]` });
+    const target = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'del-target' });
+    await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: `[[${target.id}]]` });
     const w = await adapter.deleteWarnings(target.id);
     expect(w.length).toBeGreaterThan(0);
   });
 
   test('cleans up backlink entries', async () => {
-    const target = await adapter.create({ value: 'del-bl-target' });
-    const linker = await adapter.create({ value: `[[${target.id}]]` });
+    const target = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'del-bl-target' });
+    const linker = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: `[[${target.id}]]` });
     await adapter.delete(linker.id, OWNER);
     expect(await adapter.backlinks(target.id)).not.toContain(linker.id);
   });
@@ -367,7 +367,7 @@ describe('delete', () => {
   });
 
   test('records delete event in history', async () => {
-    const item = await adapter.create({ value: 'del-hist' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'del-hist' });
     await adapter.delete(item.id, OWNER);
     const h = await adapter.history(item.id);
     expect(h.some(e => e.changeType === 'delete')).toBe(true);
@@ -378,34 +378,34 @@ describe('delete', () => {
 
 describe('softDelete / restore', () => {
   test('softDelete sets deletedAt', async () => {
-    const item = await adapter.create({ value: 'sd-item' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'sd-item' });
     const res  = await adapter.softDelete(item.id, OWNER);
     expect(res.deletedAt).not.toBeNull();
     expect((await adapter.get(item.id)).deletedAt).not.toBeNull();
   });
 
   test('soft-deleted item is excluded from query() by default', async () => {
-    const item = await adapter.create({ value: `sd-exclude-${Date.now()}` });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: `sd-exclude-${Date.now()}` });
     await adapter.softDelete(item.id, OWNER);
     const results = await adapter.query({ limit: 1000 });
     expect(results.some(i => i.id === item.id)).toBe(false);
   });
 
   test('soft-deleted item included when includeDeleted: true', async () => {
-    const item = await adapter.create({ value: `sd-include-${Date.now()}` });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: `sd-include-${Date.now()}` });
     await adapter.softDelete(item.id, OWNER);
     const results = await adapter.query({ includeDeleted: true, limit: 1000 });
     expect(results.some(i => i.id === item.id)).toBe(true);
   });
 
   test('item remains get()-able after softDelete', async () => {
-    const item = await adapter.create({ value: 'sd-gettable' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'sd-gettable' });
     await adapter.softDelete(item.id, OWNER);
     expect(await adapter.get(item.id)).not.toBeNull();
   });
 
   test('restore clears deletedAt', async () => {
-    const item = await adapter.create({ value: 'sd-restore' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'sd-restore' });
     await adapter.softDelete(item.id, OWNER);
     const res = await adapter.restore(item.id, OWNER);
     expect(res.deletedAt).toBeNull();
@@ -414,7 +414,7 @@ describe('softDelete / restore', () => {
 
   test('restored item appears in default query() again', async () => {
     const tag  = `sd-round-${Date.now()}`;
-    const item = await adapter.create({ value: tag, tags: [tag] });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: tag, tags: [tag] });
     await adapter.softDelete(item.id, OWNER);
     await adapter.restore(item.id, OWNER);
     const results = await adapter.query({ limit: 1000 });
@@ -422,7 +422,7 @@ describe('softDelete / restore', () => {
   });
 
   test('records soft-delete and restore events in history', async () => {
-    const item = await adapter.create({ value: 'sd-history' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'sd-history' });
     await adapter.softDelete(item.id, OWNER);
     await adapter.restore(item.id, OWNER);
     const types = (await adapter.history(item.id)).map(e => e.changeType);
@@ -440,7 +440,7 @@ describe('softDelete / restore', () => {
   });
 
   test('soft-delete cycle: soft-delete → restore → soft-delete', async () => {
-    const item = await adapter.create({ value: 'sd-cycle' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'sd-cycle' });
     await adapter.softDelete(item.id, OWNER);
     await adapter.restore(item.id, OWNER);
     await adapter.softDelete(item.id, OWNER);
@@ -452,7 +452,7 @@ describe('softDelete / restore', () => {
 
 describe('children', () => {
   test('returns direct children sorted by sortOrder', async () => {
-    const parent = await adapter.create({ value: 'ch-parent' });
+    const parent = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'ch-parent' });
     await adapter.create({ value: 'b', parentId: parent.id, sortOrder: 10 });
     await adapter.create({ value: 'a', parentId: parent.id, sortOrder: 0 });
     const kids = await adapter.children(parent.id);
@@ -461,12 +461,12 @@ describe('children', () => {
   });
 
   test('returns empty array for a leaf', async () => {
-    const item = await adapter.create({ value: 'ch-leaf' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'ch-leaf' });
     expect(await adapter.children(item.id)).toEqual([]);
   });
 
   test('filters by named aspect', async () => {
-    const parent = await adapter.create({ value: 'asp-parent' });
+    const parent = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'asp-parent' });
     await adapter.create({ value: 'sidebar', parentId: parent.id, aspect: 'sidebar' });
     await adapter.create({ value: 'main', parentId: parent.id });
     const sidebar = await adapter.children(parent.id, 'sidebar');
@@ -483,7 +483,7 @@ describe('children', () => {
 
 describe('tree', () => {
   test('returns root at depth 0 and children at depth 1', async () => {
-    const root  = await adapter.create({ value: 'tree-root' });
+    const root  = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'tree-root' });
     const child = await adapter.create({ value: 'tree-child', parentId: root.id });
     const t     = await adapter.tree(root.id);
     expect(t[0]).toMatchObject({ item: expect.objectContaining({ id: root.id }), depth: 0 });
@@ -491,7 +491,7 @@ describe('tree', () => {
   });
 
   test('respects maxDepth', async () => {
-    const root  = await adapter.create({ value: 'td-root' });
+    const root  = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'td-root' });
     const child = await adapter.create({ value: 'td-child', parentId: root.id });
     const grand = await adapter.create({ value: 'td-grand', parentId: child.id });
     const t     = await adapter.tree(root.id, 1);
@@ -504,13 +504,13 @@ describe('tree', () => {
   });
 
   test('uses root when no rootId given', async () => {
-    const item = await adapter.create({ value: 'null-root-item' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'null-root-item' });
     const t    = await adapter.tree(null);
     expect(t.some(n => n.item.id === item.id)).toBe(true);
   });
 
   test('children within same depth sorted by sortOrder', async () => {
-    const parent = await adapter.create({ value: 'tr-sort-parent' });
+    const parent = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'tr-sort-parent' });
     await adapter.create({ value: 'z', parentId: parent.id, sortOrder: 10 });
     await adapter.create({ value: 'a', parentId: parent.id, sortOrder: 0 });
     const t    = await adapter.tree(parent.id);
@@ -519,8 +519,8 @@ describe('tree', () => {
   });
 
   test('path-scoped tree only returns subtree rows', async () => {
-    const parent = await adapter.create({ value: 'isolated-root' });
-    await adapter.create({ value: 'noise-outside' });
+    const parent = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'isolated-root' });
+    await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'noise-outside' });
     const child = await adapter.create({ value: 'in-subtree', parentId: parent.id });
     const t = await adapter.tree(parent.id);
     expect(t).toHaveLength(2);
@@ -533,7 +533,7 @@ describe('tree', () => {
 
 describe('aliases', () => {
   test('setAlias / resolveAlias round-trip', async () => {
-    const item = await adapter.create({ value: 'alias-item' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'alias-item' });
     await adapter.setAlias('my-alias', item.id);
     expect(await adapter.resolveAlias('my-alias')).toBe(item.id);
   });
@@ -543,8 +543,8 @@ describe('aliases', () => {
   });
 
   test('listAliases returns all aliases sorted', async () => {
-    const a = await adapter.create({ value: 'al-a' });
-    const b = await adapter.create({ value: 'al-b' });
+    const a = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'al-a' });
+    const b = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'al-b' });
     await adapter.setAlias(`zzz-${Date.now()}`, a.id);
     await adapter.setAlias(`aaa-${Date.now()}`, b.id);
     const list = await adapter.listAliases();
@@ -555,22 +555,22 @@ describe('aliases', () => {
   });
 
   test('removeAlias deletes it', async () => {
-    const item = await adapter.create({ value: 'alias-del' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'alias-del' });
     await adapter.setAlias('del-me-alias', item.id);
     await adapter.removeAlias('del-me-alias');
     expect(await adapter.resolveAlias('del-me-alias')).toBeNull();
   });
 
   test('overwriting alias updates target', async () => {
-    const a = await adapter.create({ value: 'alias-overwrite-a' });
-    const b = await adapter.create({ value: 'alias-overwrite-b' });
+    const a = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'alias-overwrite-a' });
+    const b = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'alias-overwrite-b' });
     await adapter.setAlias('overwrite-alias', a.id);
     await adapter.setAlias('overwrite-alias', b.id);
     expect(await adapter.resolveAlias('overwrite-alias')).toBe(b.id);
   });
 
   test('resolve() works by UUID or alias', async () => {
-    const item = await adapter.create({ value: 'resolve-item' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'resolve-item' });
     await adapter.setAlias('resolve-alias', item.id);
     expect((await adapter.resolve(item.id))?.id).toBe(item.id);
     expect((await adapter.resolve('resolve-alias'))?.id).toBe(item.id);
@@ -582,7 +582,7 @@ describe('aliases', () => {
 
 describe('annotations', () => {
   test('annotate / annotations round-trip', async () => {
-    const item = await adapter.create({ value: 'ann-item' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'ann-item' });
     const ann  = await adapter.annotate(item.id, { content: 'my note' });
     expect(ann.id).toBeDefined();
     expect(ann.content).toBe('my note');
@@ -592,12 +592,12 @@ describe('annotations', () => {
   });
 
   test('returns [] when no annotations', async () => {
-    const item = await adapter.create({ value: 'ann-empty' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'ann-empty' });
     expect(await adapter.annotations(item.id)).toEqual([]);
   });
 
   test('stores explicit author', async () => {
-    const item = await adapter.create({ value: 'ann-author' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'ann-author' });
     const ann  = await adapter.annotate(item.id, { content: 'note', author: 'alice@example.com' });
     const all  = await adapter.annotations(item.id);
     const got  = all.find(a => a.id === ann.id);
@@ -605,7 +605,7 @@ describe('annotations', () => {
   });
 
   test('stores parentAnnotationId', async () => {
-    const item  = await adapter.create({ value: 'ann-reply' });
+    const item  = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'ann-reply' });
     const root  = await adapter.annotate(item.id, { content: 'root' });
     const reply = await adapter.annotate(item.id, { content: 'reply', parentAnnotationId: root.id });
     const all   = await adapter.annotations(item.id);
@@ -617,8 +617,8 @@ describe('annotations', () => {
 
 describe('relationships', () => {
   test('relate / relationships round-trip', async () => {
-    const a = await adapter.create({ value: 'rel-a' });
-    const b = await adapter.create({ value: 'rel-b' });
+    const a = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'rel-a' });
+    const b = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'rel-b' });
     const r = await adapter.relate(a.id, 'depends-on', b.id, { note: 'critical' });
     expect(r.type).toBe('depends-on');
     expect(r.note).toBe('critical');
@@ -631,22 +631,22 @@ describe('relationships', () => {
   });
 
   test('throws for invalid relationship type', async () => {
-    const a = await adapter.create({ value: 'rel-inv-a' });
-    const b = await adapter.create({ value: 'rel-inv-b' });
+    const a = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'rel-inv-a' });
+    const b = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'rel-inv-b' });
     await expect(adapter.relate(a.id, 'invented-type', b.id)).rejects.toThrow(/Invalid relationship type/);
   });
 
   test('relationships returns empty outbound/inbound for item with no relationships', async () => {
-    const item = await adapter.create({ value: 'rel-empty' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'rel-empty' });
     const r    = await adapter.relationships(item.id);
     expect(r.outbound).toEqual([]);
     expect(r.inbound).toEqual([]);
   });
 
   test('listRelationships returns all relationships', async () => {
-    const a = await adapter.create({ value: 'lr-a' });
-    const b = await adapter.create({ value: 'lr-b' });
-    const c = await adapter.create({ value: 'lr-c' });
+    const a = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'lr-a' });
+    const b = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'lr-b' });
+    const c = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'lr-c' });
     await adapter.relate(a.id, 'depends-on', b.id);
     await adapter.relate(b.id, 'relates-to', c.id);
     const all = await adapter.listRelationships();
@@ -660,8 +660,8 @@ describe('addRelTypes', () => {
   test('adds a custom rel type and allows using it in relate()', async () => {
     await adapter.addRelTypes(['affects']);
     expect(adapter.relTypes).toContain('affects');
-    const a = await adapter.create({ value: 'art-a' });
-    const b = await adapter.create({ value: 'art-b' });
+    const a = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'art-a' });
+    const b = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'art-b' });
     await expect(adapter.relate(a.id, 'affects', b.id)).resolves.not.toThrow();
   });
 
@@ -755,8 +755,8 @@ describe('relationships -> obj_<relationship>', () => {
   });
 
   test('relate() creates a relationship item whose payload projects to obj_<relationship>', async () => {
-    const a = await adapter.create({ value: 'obj-rel-a' });
-    const b = await adapter.create({ value: 'obj-rel-b' });
+    const a = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'obj-rel-a' });
+    const b = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'obj-rel-b' });
     const r = await adapter.relate(a.id, 'depends-on', b.id, { note: 'x' });
     // The item exists as a first-class `relationship` item.
     const item = await adapter.get(r.id);
@@ -775,8 +775,8 @@ describe('relationships -> obj_<relationship>', () => {
   });
 
   test('relationships() reads obj_<relationship> (outbound + inbound)', async () => {
-    const a = await adapter.create({ value: 'obj-rel2-a' });
-    const b = await adapter.create({ value: 'obj-rel2-b' });
+    const a = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'obj-rel2-a' });
+    const b = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'obj-rel2-b' });
     await adapter.relate(a.id, 'blocks', b.id);
     const ra = await adapter.relationships(a.id);
     expect(ra.outbound.map(o => o.targetId)).toContain(b.id);
@@ -786,8 +786,8 @@ describe('relationships -> obj_<relationship>', () => {
   });
 
   test('unrelate() deletes the relationship item and its obj_<relationship> row', async () => {
-    const a = await adapter.create({ value: 'obj-unrel-a' });
-    const b = await adapter.create({ value: 'obj-unrel-b' });
+    const a = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'obj-unrel-a' });
+    const b = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'obj-unrel-b' });
     const r = await adapter.relate(a.id, 'relates-to', b.id);
     expect(await adapter.unrelate(r.id)).toBe(true);
     expect(await adapter.get(r.id)).toBeNull();
@@ -800,7 +800,7 @@ describe('relationships -> obj_<relationship>', () => {
 
 describe('history', () => {
   test('create event has correct snapshot', async () => {
-    const item = await adapter.create({ value: 'hist-val' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'hist-val' });
     const h    = await adapter.history(item.id);
     expect(h.some(e => e.changeType === 'create')).toBe(true);
     const create = h.find(e => e.changeType === 'create');
@@ -808,7 +808,7 @@ describe('history', () => {
   });
 
   test('accumulates create + update + soft-delete + restore events', async () => {
-    const item  = await adapter.create({ value: 'hist-full' });
+    const item  = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'hist-full' });
     await adapter.update(item.id, { value: 'changed' }, OWNER);
     await adapter.softDelete(item.id, OWNER);
     await adapter.restore(item.id, OWNER);
@@ -820,7 +820,7 @@ describe('history', () => {
   });
 
   test('each entry has snapshotAt and changedBy', async () => {
-    const item = await adapter.create({ value: 'hist-meta' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'hist-meta' });
     const h    = await adapter.history(item.id);
     expect(h[0].snapshotAt).toBeDefined();
     expect(h[0].changedBy).toBe(OWNER);
@@ -835,26 +835,26 @@ describe('history', () => {
 
 describe('readTimeJson / writeTimeJson / deleteTimeJson', () => {
   test('readTimeJson returns null when not set', async () => {
-    const item = await adapter.create({ value: 'td-none' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'td-none' });
     expect(await adapter.readTimeJson(item.id)).toBeNull();
   });
 
   test('writeTimeJson / readTimeJson round-trips', async () => {
-    const item     = await adapter.create({ value: 'td-rw' });
+    const item     = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'td-rw' });
     const timeData = { main: { startAt: '2026-01-01T00:00:00Z', endAt: null, recurrenceRule: null } };
     await adapter.writeTimeJson(item.id, timeData);
     expect(await adapter.readTimeJson(item.id)).toEqual(timeData);
   });
 
   test('deleteTimeJson clears time_data', async () => {
-    const item = await adapter.create({ value: 'td-del' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'td-del' });
     await adapter.writeTimeJson(item.id, { main: {} });
     await adapter.deleteTimeJson(item.id);
     expect(await adapter.readTimeJson(item.id)).toBeNull();
   });
 
   test('deleteTimeJson is a no-op if not set', async () => {
-    const item = await adapter.create({ value: 'td-noop' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'td-noop' });
     await expect(adapter.deleteTimeJson(item.id)).resolves.not.toThrow();
   });
 });
@@ -864,8 +864,8 @@ describe('readTimeJson / writeTimeJson / deleteTimeJson', () => {
 describe('byTag / byType', () => {
   test('byTag returns matching item ids', async () => {
     const tag  = `tag-${Date.now()}`;
-    const item = await adapter.create({ value: 'tagged-item', tags: [tag] });
-    await adapter.create({ value: 'untagged' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'tagged-item', tags: [tag] });
+    await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'untagged' });
     expect(await adapter.byTag(tag)).toContain(item.id);
     expect((await adapter.byTag(tag))).toHaveLength(1);
   });
@@ -882,7 +882,7 @@ describe('byTag / byType', () => {
       },
     });
     const item = await adapter.create({ value: 'bytype-item', type: 'object', typeId: t.id });
-    await adapter.create({ value: 'other' });
+    await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'other' });
     expect(await adapter.byType(t.id)).toContain(item.id);
     expect(await adapter.byType(t.id)).toHaveLength(1);
   });
@@ -898,7 +898,7 @@ describe('query', () => {
 
   test('explicit limit honoured', async () => {
     // Create enough items that we have at least 3
-    for (let i = 0; i < 3; i++) await adapter.create({ value: `ql-item-${i}` });
+    for (let i = 0; i < 3; i++) await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: `ql-item-${i}` });
     expect((await adapter.query({ limit: 2 })).length).toBe(2);
   });
 
@@ -923,7 +923,7 @@ describe('query', () => {
 
   test('excludes soft-deleted items by default', async () => {
     const tag  = `qsd-${Date.now()}`;
-    const item = await adapter.create({ value: 'sd-query-excl', tags: [tag] });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'sd-query-excl', tags: [tag] });
     await adapter.softDelete(item.id, OWNER);
     const results = await adapter.query({ limit: 1000 });
     expect(results.some(i => i.id === item.id)).toBe(false);
@@ -931,7 +931,7 @@ describe('query', () => {
 
   test('includeDeleted: true includes soft-deleted items', async () => {
     const tag  = `qsdi-${Date.now()}`;
-    const item = await adapter.create({ value: 'sd-query-incl', tags: [tag] });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'sd-query-incl', tags: [tag] });
     await adapter.softDelete(item.id, OWNER);
     const results = await adapter.query({ includeDeleted: true, limit: 1000 });
     expect(results.some(i => i.id === item.id)).toBe(true);
@@ -940,8 +940,8 @@ describe('query', () => {
   test('expiredOnly returns only expired items', async () => {
     const past   = new Date(Date.now() - 60_000).toISOString();
     const future = new Date(Date.now() + 60_000).toISOString();
-    const exp    = await adapter.create({ value: 'exp-item', expiresAt: past });
-    const fresh  = await adapter.create({ value: 'fresh-item', expiresAt: future });
+    const exp    = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'exp-item', expiresAt: past });
+    const fresh  = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'fresh-item', expiresAt: future });
     const results = await adapter.query({ expiredOnly: true, limit: 1000 });
     expect(results.some(i => i.id === exp.id)).toBe(true);
     expect(results.some(i => i.id === fresh.id)).toBe(false);
@@ -949,14 +949,14 @@ describe('query', () => {
 
   test('excludeExpired omits items past their expiresAt', async () => {
     const past = new Date(Date.now() - 60_000).toISOString();
-    const item = await adapter.create({ value: 'exex-expired', expiresAt: past });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'exex-expired', expiresAt: past });
     const results = await adapter.query({ excludeExpired: true, limit: 1000 });
     expect(results.some(i => i.id === item.id)).toBe(false);
   });
 
   test('rootId scopes results to subtree using path index', async () => {
-    const r1 = await adapter.create({ value: 'qroot-r1' });
-    const r2 = await adapter.create({ value: 'qroot-r2' });
+    const r1 = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'qroot-r1' });
+    const r2 = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'qroot-r2' });
     const c1 = await adapter.create({ value: `qroot-c1-${Date.now()}`, parentId: r1.id });
     const c2 = await adapter.create({ value: `qroot-c2-${Date.now()}`, parentId: r2.id });
     const results = await adapter.query({ rootId: r1.id, limit: 1000 });
@@ -1177,7 +1177,7 @@ describe('objectData round-trip', () => {
   });
 
   test('readObjectJson returns null when not set', async () => {
-    const item = await adapter.create({ value: 'obj-none' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'obj-none' });
     expect(await adapter.readObjectJson(item.id, typeId)).toBeNull();
   });
 
@@ -1386,7 +1386,7 @@ describe('per-type table projection', () => {
 
   test('non-object items never project a table', async () => {
     const before = await adapter.listProjectedRelations();
-    await adapter.create({ value: 'plain text', type: 'text' });
+    await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'plain text', type: 'text' });
     expect(await adapter.listProjectedRelations()).toEqual(before);
   });
 });
@@ -1508,7 +1508,7 @@ describe('functionData round-trip', () => {
 // green through it.
 describe('documentData round-trip', () => {
   test('createDocument creates a document item under the document type node', async () => {
-    const target = await adapter.create({ value: 'target', type: 'note' });
+    const target = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target', type: 'note' });
     const doc = await adapter.createDocument(target.id, 'My Doc', { owner: OWNER });
     expect(doc.type).toBe('document');
     expect(doc.parentId).toBe(PostgresAdapter.DOCUMENT_TYPE_UUID);
@@ -1516,7 +1516,7 @@ describe('documentData round-trip', () => {
   });
 
   test('readDocumentPayload round-trips the created payload with defaults applied', async () => {
-    const target = await adapter.create({ value: 'target-defaults', type: 'note' });
+    const target = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target-defaults', type: 'note' });
     const doc = await adapter.createDocument(target.id, 'Defaults Doc', { owner: OWNER });
     const payload = await adapter.readDocumentPayload(doc.id);
     expect(payload.targetId).toBe(target.id);
@@ -1530,8 +1530,8 @@ describe('documentData round-trip', () => {
   });
 
   test('createDocument honours explicit expandState / roleMap / isOrgDefault / baseDocumentId', async () => {
-    const target = await adapter.create({ value: 'target-explicit', type: 'note' });
-    const base = await adapter.create({ value: 'base-doc', type: 'note' });
+    const target = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target-explicit', type: 'note' });
+    const base = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'base-doc', type: 'note' });
     const expandState = { defaultDepth: 4, exceptions: { [base.id]: 1 } };
     const roleMap = { byDepth: { '1': 'body' }, byType: { [target.id]: 'heading' } };
     const doc = await adapter.createDocument(target.id, 'Explicit Doc', {
@@ -1545,12 +1545,12 @@ describe('documentData round-trip', () => {
   });
 
   test('readDocumentPayload returns null when the item has no document payload', async () => {
-    const item = await adapter.create({ value: 'not-a-doc', type: 'note' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'not-a-doc', type: 'note' });
     expect(await adapter.readDocumentPayload(item.id)).toBeNull();
   });
 
   test('writeDocumentPayload upserts — a second write replaces the payload', async () => {
-    const target = await adapter.create({ value: 'target-upsert', type: 'note' });
+    const target = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target-upsert', type: 'note' });
     const doc = await adapter.createDocument(target.id, 'Upsert Doc', { owner: OWNER });
     const next = {
       targetId: target.id, name: 'Renamed', isOrgDefault: true, baseDocumentId: null,
@@ -1562,8 +1562,8 @@ describe('documentData round-trip', () => {
   });
 
   test('listDocuments returns only documents for the given target, excluding soft-deleted', async () => {
-    const targetA = await adapter.create({ value: 'target-A', type: 'note' });
-    const targetB = await adapter.create({ value: 'target-B', type: 'note' });
+    const targetA = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target-A', type: 'note' });
+    const targetB = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target-B', type: 'note' });
     const d1 = await adapter.createDocument(targetA.id, 'A-1', { owner: OWNER });
     const d2 = await adapter.createDocument(targetA.id, 'A-2', { owner: OWNER });
     await adapter.createDocument(targetB.id, 'B-1', { owner: OWNER });
@@ -1578,7 +1578,7 @@ describe('documentData round-trip', () => {
 
   test('createDocument requires targetId and name', async () => {
     await expect(adapter.createDocument(null, 'x', { owner: OWNER })).rejects.toThrow(/targetId/);
-    const target = await adapter.create({ value: 'target-noname', type: 'note' });
+    const target = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target-noname', type: 'note' });
     await expect(adapter.createDocument(target.id, null, { owner: OWNER })).rejects.toThrow(/name/);
   });
 });
@@ -1592,8 +1592,8 @@ describe('rebuildIndexes', () => {
   });
 
   test('re-populates backlinks after manual delete', async () => {
-    const target = await adapter.create({ value: 'rb-target' });
-    const linker = await adapter.create({ value: `[[${target.id}]]` });
+    const target = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'rb-target' });
+    const linker = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: `[[${target.id}]]` });
     await pool.query('DELETE FROM perf_backlinks WHERE source_id = $1', [linker.id]);
     expect(await adapter.backlinks(target.id)).not.toContain(linker.id);
     await adapter.rebuildIndexes();
@@ -1619,7 +1619,7 @@ describe('checkIntegrity', () => {
   });
 
   test('detects orphan-type-id', async () => {
-    const item  = await adapter.create({ value: 'orphan-item' });
+    const item  = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'orphan-item' });
     const bogus = crypto.randomUUID();
     await pool.query('UPDATE items SET type = $1, type_id = $2 WHERE id = $3', ['object', bogus, item.id]);
     const findings = await adapter.checkIntegrity({ checks: ['orphan-type-id'] });
@@ -1631,7 +1631,7 @@ describe('checkIntegrity', () => {
 
 describe('rebuildPaths', () => {
   test('fixes NULL paths', async () => {
-    const item = await adapter.create({ value: 'rp-item' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'rp-item' });
     await pool.query('UPDATE items SET path = NULL WHERE id = $1', [item.id]);
     expect(await adapter._getPath(item.id)).toBeNull();
     await adapter.rebuildPaths();
@@ -1670,7 +1670,7 @@ describe('well-known node protection', () => {
 
 describe('loadAll', () => {
   test('returns all items including well-known nodes', async () => {
-    const item = await adapter.create({ value: 'loadall-item' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'loadall-item' });
     const all  = await adapter.loadAll();
     expect(all.some(i => i.id === ROOT_ID)).toBe(true);
     expect(all.some(i => i.id === item.id)).toBe(true);
@@ -1705,9 +1705,9 @@ test('the first instance materialises the obj_* table with the FTS trigger', asy
 
 describe('full-text search', () => {
   test('finds items by value and stays in sync on update', async () => {
-    const a = await adapter.create({ value: 'the quick brown fox jumps over the lazy dog', type: 'text' });
-    const b = await adapter.create({ value: 'foxes are quick and clever animals', type: 'text' });
-    await adapter.create({ value: 'completely unrelated content about gardening', type: 'text' });
+    const a = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'the quick brown fox jumps over the lazy dog', type: 'text' });
+    const b = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'foxes are quick and clever animals', type: 'text' });
+    await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'completely unrelated content about gardening', type: 'text' });
 
     let results = await adapter.search('fox', { limit: 10 });
     expect(results.map(r => r.id)).toEqual(expect.arrayContaining([a.id, b.id]));
@@ -1719,9 +1719,9 @@ describe('full-text search', () => {
   });
 
   test('search can be scoped to a subtree via rootId', async () => {
-    const branch  = await adapter.create({ value: 'fts-scope-branch' });
+    const branch  = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'fts-scope-branch' });
     const inside  = await adapter.create({ parentId: branch.id, value: 'needle inside the branch', type: 'text' });
-    const outside = await adapter.create({ value: 'needle outside the branch', type: 'text' });
+    const outside = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'needle outside the branch', type: 'text' });
     const scoped  = await adapter.search('needle', { rootId: branch.id, limit: 10 });
     expect(scoped.map(r => r.id)).toContain(inside.id);
     expect(scoped.map(r => r.id)).not.toContain(outside.id);
@@ -1761,10 +1761,10 @@ test('create warns by default and throws under strict for orphan typeId', async 
 });
 
 test('update to orphan typeId warns by default and throws under strict', async () => {
-  const item   = await adapter.create({ value: 'upd-orphan' });
+  const item   = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'upd-orphan' });
   const warned = await adapter.update(item.id, { type: 'object', typeId: ORPHAN_TYPE_ID }, OWNER);
   expect(warned.warning).toMatch(/has no type definition/);
-  const fresh = await adapter.create({ value: 'upd-orphan-strict' });
+  const fresh = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'upd-orphan-strict' });
   await expect(
     adapter.update(fresh.id, { type: 'object', typeId: ORPHAN_TYPE_ID }, OWNER, { strict: true }),
   ).rejects.toMatchObject({ name: 'UnknownTypeError' });
@@ -1822,7 +1822,7 @@ describe('semantic / hybrid search', () => {
   });
 
   test('embedItem stores a vector and skips re-embedding unchanged content', async () => {
-    const item = await semanticAdapter.create({ value: 'photosynthesis converts sunlight into chemical energy' });
+    const item = await semanticAdapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'photosynthesis converts sunlight into chemical energy' });
     expect(await semanticAdapter.embedItem(item.id)).toBe(true);
     const { rows: first } = await pool.query('SELECT content_hash FROM item_embeddings WHERE item_id = $1', [item.id]);
     expect(first).toHaveLength(1);
@@ -1842,7 +1842,7 @@ describe('semantic / hybrid search', () => {
     try {
       await PostgresAdapter.init(p, OWNER);
       const emb = await PostgresAdapter.open(p, { embeddings: { provider: 'mock', dimensions: 16 } });
-      const item = await emb.create({ value: 'queued for background embedding' });
+      const item = await emb.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'queued for background embedding' });
       expect((await p.query('SELECT 1 FROM perf_embedding_queue WHERE item_id = $1', [item.id])).rows).toHaveLength(1);
       const result = await emb.processPendingEmbeddings({ limit: 100 });
       expect(result.embedded).toBeGreaterThan(0);
@@ -1857,7 +1857,7 @@ describe('semantic / hybrid search', () => {
   test('semanticSearch and hybridSearch behave correctly without provider', async () => {
     await expect(adapter.semanticSearch('anything')).rejects.toThrow(/embedding provider/i);
     expect(adapter.embeddingsEnabled).toBe(false);
-    const item    = await adapter.create({ value: 'fts-fallback-probe unique phrase' });
+    const item    = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'fts-fallback-probe unique phrase' });
     const results = await adapter.hybridSearch('fts-fallback-probe', { limit: 10 });
     expect(results.map(r => r.id)).toContain(item.id);
   });
@@ -1865,7 +1865,7 @@ describe('semantic / hybrid search', () => {
   test('embeddings.enabled: false keeps generating but disables semantic/hybrid', async () => {
     const pausedAdapter = await PostgresAdapter.open(pool, { embeddings: { provider: 'mock', dimensions: 16, enabled: false } });
     expect(pausedAdapter.embeddingsEnabled).toBe(false);
-    const item = await pausedAdapter.create({ value: 'paused-mode embedding probe' });
+    const item = await pausedAdapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'paused-mode embedding probe' });
     expect(await pausedAdapter.embedItem(item.id)).toBe(true);
     await expect(pausedAdapter.semanticSearch('anything')).rejects.toThrow(/disabled/i);
     const results = await pausedAdapter.hybridSearch('paused-mode embedding probe', { limit: 10 });
@@ -1873,9 +1873,9 @@ describe('semantic / hybrid search', () => {
   });
 
   test('listDueSchedules returns active schedules due at/before the cutoff (regression: rowToItem)', async () => {
-    const due    = await adapter.create({ type: 'schedule', status: 'active', value: 'due',    dueAt: '2020-01-01T00:00:00.000Z' });
-    const notYet = await adapter.create({ type: 'schedule', status: 'active', value: 'notYet', dueAt: '2999-01-01T00:00:00.000Z' });
-    const paused = await adapter.create({ type: 'schedule', status: 'paused', value: 'paused', dueAt: '2020-01-01T00:00:00.000Z' });
+    const due    = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'schedule', status: 'active', value: 'due',    dueAt: '2020-01-01T00:00:00.000Z' });
+    const notYet = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'schedule', status: 'active', value: 'notYet', dueAt: '2999-01-01T00:00:00.000Z' });
+    const paused = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'schedule', status: 'paused', value: 'paused', dueAt: '2020-01-01T00:00:00.000Z' });
 
     // Previously threw `this.rowToItem is not a function` whenever rows came back.
     const ids = (await adapter.listDueSchedules('2025-01-01T00:00:00.000Z')).map((r) => r.id);
@@ -1904,8 +1904,8 @@ describe.skipIf(!AGE_ENABLED)('graph projection (AGE)', () => {
   });
 
   test('relate() projects an edge; graphNeighbors traverses it', async () => {
-    const a = await adapter.create({ value: 'g-a' });
-    const b = await adapter.create({ value: 'g-b' });
+    const a = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'g-a' });
+    const b = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'g-b' });
     await adapter.relate(a.id, 'depends-on', b.id);
 
     const out = await adapter.graphNeighbors(a.id, { direction: 'out' });
@@ -1920,9 +1920,9 @@ describe.skipIf(!AGE_ENABLED)('graph projection (AGE)', () => {
   });
 
   test('graphNeighbors can filter by relationship type', async () => {
-    const a = await adapter.create({ value: 'g-f-a' });
-    const b = await adapter.create({ value: 'g-f-b' });
-    const c = await adapter.create({ value: 'g-f-c' });
+    const a = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'g-f-a' });
+    const b = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'g-f-b' });
+    const c = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'g-f-c' });
     await adapter.relate(a.id, 'depends-on', b.id);
     await adapter.relate(a.id, 'blocks', c.id);
 
@@ -1932,8 +1932,8 @@ describe.skipIf(!AGE_ENABLED)('graph projection (AGE)', () => {
   });
 
   test('unrelate() retracts the edge', async () => {
-    const a = await adapter.create({ value: 'g-u-a' });
-    const b = await adapter.create({ value: 'g-u-b' });
+    const a = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'g-u-a' });
+    const b = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'g-u-b' });
     const rel = await adapter.relate(a.id, 'relates-to', b.id);
     expect(await adapter.graphNeighbors(a.id)).toContain(b.id);
 
@@ -1943,8 +1943,8 @@ describe.skipIf(!AGE_ENABLED)('graph projection (AGE)', () => {
   });
 
   test('rebuildGraphProjection reconstructs edges from obj_<relationship>', async () => {
-    const a = await adapter.create({ value: 'g-r-a' });
-    const b = await adapter.create({ value: 'g-r-b' });
+    const a = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'g-r-a' });
+    const b = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'g-r-b' });
     await adapter.relate(a.id, 'enables', b.id);
 
     const summary = await adapter.rebuildGraphProjection();
@@ -1971,7 +1971,7 @@ describe('structured built-in projection', () => {
   });
 
   test('a grant instance projects to obj_<grant-type> with typed columns', async () => {
-    const governed = await adapter.create({ value: 'governed-doc' });
+    const governed = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'governed-doc' });
     const grant = await adapter.create({
       type: 'grant',
       value: 'grant',
@@ -2076,7 +2076,7 @@ describe('structured built-in projection (reference, file)', () => {
   const FILE_TYPE_ID = 'c0f603f1-a3ac-4a7d-b9ac-983822c7304f';
 
   test('a reference instance projects to obj_<reference-type> and round-trips', async () => {
-    const target = await adapter.create({ value: 'ref-target' });
+    const target = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'ref-target' });
     const ref = await adapter.create({
       type: 'reference', value: 'external-fk',
       objectData: { targetId: target.id, kind: 'external-system', description: 'FK held in another DB', blockDeletion: true },
@@ -2115,7 +2115,7 @@ describe('structured built-in projection (formula, context, cell)', () => {
   ];
   for (const c of cases) {
     test(`a ${c.type} instance projects to obj_<${c.type}-type> and round-trips`, async () => {
-      const item = await adapter.create({ type: c.type, value: c.type, objectData: c.data });
+      const item = await adapter.create({ parentId: c.id, type: c.type, value: c.type, objectData: c.data });
       expect(item.type).toBe(c.type);
       expect(item.typeId).toBe(c.id);
       c.check(await adapter.readObjectJson(item.id, c.id));
@@ -2127,7 +2127,7 @@ describe('structured built-in projection (view)', () => {
   const VIEW_TYPE_ID = 'cfba24ea-be40-46ba-b4db-e15a55af4392';
   test('a view instance projects to obj_<view-type>; viewedItemId does not collide with item_id', async () => {
     const [viewed, comp, ctx] = await Promise.all([
-      adapter.create({ value: 'viewed' }), adapter.create({ value: 'comp' }), adapter.create({ value: 'ctx' }),
+      adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'viewed' }), adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'comp' }), adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'ctx' }),
     ]);
     const view = await adapter.create({
       type: 'view', value: 'compact-card',
@@ -2183,7 +2183,7 @@ describe('licence cutover — licences are items projecting to obj_<licence-type
   });
 
   test('items.license now references items(id): a new item resolves to the default licence item', async () => {
-    const it = await adapter.create({ value: 'licensed thing', type: 'note' });
+    const it = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'licensed thing', type: 'note' });
     const { rows } = await pool.query('SELECT license FROM items WHERE id = $1', [it.id]);
     expect(rows[0].license).toBe(DEFAULT_LICENCE);
     const lic = await adapter.get(rows[0].license);   // FK target is a real licence item
@@ -2228,7 +2228,7 @@ describe('structured built-in projection (subscription + channel, normalised)', 
   const CHANNEL_TYPE_ID = 'b4e15597-5a90-4e40-bed0-dbb28a9165a9';
   const SUB_TYPE_ID = 'cf066390-a599-4dbe-bc20-491de885cb18';
   test('a channel projects, and a subscription references it via channelId (no inline object)', async () => {
-    const watched = await adapter.create({ value: 'watched-item' });
+    const watched = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'watched-item' });
     const channel = await adapter.create({
       type: 'channel', value: 'my-webhook',
       objectData: { type: 'webhook', url: 'https://example.test/hook', secret: '$HOOK' },
@@ -2304,7 +2304,7 @@ describe('structured built-in projection (agent + per-runtime config, normalised
 describe('structured built-in projection (action, params normalised out)', () => {
   const ACTION_TYPE_ID = '1ab2a990-c2cf-4b91-aace-588c66b0a78b';
   test('action projects with no inline params object (defaults are property children)', async () => {
-    const pipeline = await adapter.create({ value: 'summarise-pipeline' });
+    const pipeline = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'summarise-pipeline' });
     const action = await adapter.create({
       type: 'action', value: 'Summarise',
       objectData: { pipelineId: pipeline.id, targetTypes: ['task', 'note'], icon: 'AutoAwesome' },
@@ -2348,7 +2348,7 @@ describe('transactions', () => {
   test('transaction(fn) commits every op together', async () => {
     let aId, bId;
     await adapter.transaction(async (tx) => {
-      const a = await tx.create({ value: 'tx-commit-a' });
+      const a = await tx.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'tx-commit-a' });
       const b = await tx.create({ value: 'tx-commit-b', parentId: a.id });
       aId = a.id; bId = b.id;
     });
@@ -2363,7 +2363,7 @@ describe('transactions', () => {
     let aId;
     await expect(
       adapter.transaction(async (tx) => {
-        const a = await tx.create({ value: 'tx-rollback-a' });
+        const a = await tx.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'tx-rollback-a' });
         aId = a.id;
         // Second op fails — the whole transaction must unwind, including op 1.
         throw new Error('boom');
@@ -2375,7 +2375,7 @@ describe('transactions', () => {
 
   test('the return value of transaction(fn) is fn\'s result', async () => {
     const out = await adapter.transaction(async (tx) => {
-      const a = await tx.create({ value: 'tx-return' });
+      const a = await tx.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'tx-return' });
       return a.id;
     });
     expect(typeof out).toBe('string');
@@ -2386,7 +2386,7 @@ describe('transactions', () => {
     const parentId = crypto.randomUUID();
     let childId;
     await adapter.transaction(async (tx) => {
-      await tx.create({ id: parentId, value: 'tx-parent' });
+      await tx.create({ id: parentId, value: 'tx-parent', parentId: '00000000-0000-0000-0000-000000000000' });
       const child = await tx.create({ value: 'tx-child', parentId });
       childId = child.id;
     });
@@ -2407,7 +2407,7 @@ describe('transactions', () => {
       throw new Error('injected crash after items insert');
     };
     try {
-      await expect(adapter.create({ value: 'orphan-check' })).rejects.toThrow('injected crash');
+      await expect(adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'orphan-check' })).rejects.toThrow('injected crash');
     } finally {
       adapter._snapshot = orig;
     }
@@ -2436,7 +2436,7 @@ describe('transactions', () => {
       let startedId;
       await expect(
         solo.transaction(async (tx) => {
-          const a = await tx.create({ value: 'poison-check-a' });
+          const a = await tx.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'poison-check-a' });
           startedId = a.id;
           await tx._exec('SELECT * FROM a_table_that_does_not_exist_xyz');
         }),
@@ -2444,7 +2444,7 @@ describe('transactions', () => {
 
       // The SAME single connection is now back in the pool. If it were still
       // aborted, this would throw "current transaction is aborted…". It must not.
-      const after = await solo.create({ value: 'poison-check-after' });
+      const after = await solo.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'poison-check-after' });
       expect(after.id).toBeTruthy();
       expect((await solo.get(after.id))?.value).toBe('poison-check-after');
 

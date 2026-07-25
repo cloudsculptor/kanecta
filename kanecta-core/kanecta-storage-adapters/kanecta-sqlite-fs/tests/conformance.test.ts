@@ -55,7 +55,7 @@ describe('the strict gate: a live index.db conforms', () => {
     // tags + [[links]] (perf tables), delete (item_history), sidecars.
     const { metadata: t } = a.createType('ConfThing', { icon: 'Category' });
     const x = a.create({ value: 'x', type: 'object', typeId: t.id, objectData: { name: 'one' } });
-    const y = a.create({ value: `see [[${x.id}]]`, tags: ['conf'] });
+    const y = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: `see [[${x.id}]]`, tags: ['conf'] });
     a.putFile(x.id, 'blob.bin', Buffer.from('bytes'));
     a.delete(y.id);
 
@@ -82,7 +82,7 @@ describe('the strict gate: a live index.db conforms', () => {
 
   test('a legacy-era index.db is upgraded on open: wiped and rebuilt conformant', () => {
     const a = tmpAdapter();
-    const kept = a.create({ value: 'survives the index upgrade' });
+    const kept = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'survives the index upgrade' });
     const dbPath = path.join(a._branchRoot(), 'index.db');
     // Regress the index to the legacy era: close, then plant a bespoke table.
     a._db.close(); a._db = null;
