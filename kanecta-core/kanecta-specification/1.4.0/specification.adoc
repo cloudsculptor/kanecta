@@ -6028,6 +6028,10 @@ The Postgres and S3 halves are one remote — not two — because a datastore is
 | `./core-file-specs/config.json`
 | JSON Schema for `config.json`. Defines workspaces, remotes, and platform ports.
 
+| Working set API response
+| `./core-file-specs/working-sets.json`
+| JSON Schema for the `GET /working-sets` response. A separate, credential-free wire contract that clients consume — never the on-disk `config.json`. Carries no secrets by construction (a remote is reduced to a non-secret `{ type, label }` summary), not by redaction.
+
 | Built-in types
 | `./built-in-types/built-in-types.json`
 | Canonical list of all valid `item.type` values.

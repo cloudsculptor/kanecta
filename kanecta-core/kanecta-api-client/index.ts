@@ -609,12 +609,17 @@ export interface WorkingSetBranch {
   baseBranch: string | null;
 }
 
+/**
+ * A NON-SECRET, display-only summary of a configured remote — the wire shape,
+ * not the on-disk connection config. Deliberately closed: there is no field for
+ * a host, port, user, password, access key, or bucket, so a credential cannot be
+ * placed on it. Spec: kanecta-specification/1.4.0/core-file-specs/working-sets.json.
+ */
 export interface WorkingSetRemote {
+  /** The remote's kind — 'postgres' | 'cloud' | 'sqlite' | 'server'. */
   type: string;
-  host?: string;
-  port?: number;
-  database?: string;
-  [key: string]: unknown;
+  /** Credential-free display string (e.g. 'host/database'), or null. Never a secret. */
+  label: string | null;
 }
 
 export interface WorkingSet {

@@ -402,22 +402,16 @@ app.get('/config', async (req, res) => {
   res.json({ datastorePath, workingSetName: name, vscodeAvailable: vscodeCheck.status === 0 });
 });
 
-// Credential-bearing keys anywhere in a remote's config (pg password, s3
-// secretAccessKey, embeddings apiKey, …). The API must never echo their VALUES;
-// the redacted placeholder keeps the key present so clients can still show
-// "configured" without ever holding the secret.
-const SECRET_KEY_RE = /password|secret|token|api[-_]?key|credential/i;
-function redactSecrets(value: any): any {
-  if (Array.isArray(value)) return value.map(redactSecrets);
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value).map(([k, v]) => [
-        k,
-        SECRET_KEY_RE.test(k) && typeof v !== 'object' ? '***' : redactSecrets(v),
-      ]),
-    );
-  }
-  return value;
+// Non-secret display label for a remote — e.g. 'host/database' for a postgres or
+// cloud remote, else null. Built ONLY from non-secret fields; must never include
+// a password, key, or token. This is the sole thing GET /working-sets exposes
+// about a remote's connection, alongside its `type`. See the response contract:
+// kanecta-specification/1.4.0/core-file-specs/working-sets.json.
+function remoteLabel(remote: any): string | null {
+  if (!remote) return null;
+  const pg = remote.type === 'cloud' ? remote.postgres : remote.type === 'postgres' ? remote : null;
+  if (pg?.host) return `${pg.host}/${pg.database ?? ''}`;
+  return null;
 }
 
 // GET /working-sets — all configured working sets with branch info
@@ -448,11 +442,19 @@ app.get('/working-sets', async (req, res) => {
         } catch { /* use defaults */ }
       }
 
-      const remotes = ws.remotes ?? (ws.cloud ? { origin: { type: 'cloud', ...ws.cloud } } : {});
+      // Build the response's remote summaries BY HAND from a closed { type, label }
+      // shape. Never spread the raw config (`remotesCfg` holds the pg password + S3
+      // secret) into the response — the response has no field for a credential, so
+      // none can leak. Spec: core-file-specs/working-sets.json.
+      const remotesCfg = ws.remotes ?? (ws.cloud ? { origin: { type: 'cloud', ...ws.cloud } } : {});
+      const remotes: Record<string, { type: string; label: string | null }> = {};
+      for (const [remoteName, remoteCfg] of Object.entries<any>(remotesCfg)) {
+        remotes[remoteName] = { type: remoteCfg?.type ?? 'unknown', label: remoteLabel(remoteCfg) };
+      }
       return {
         name,
         local: local ? { path: local.localPath, ok: Datastore.isDatastore(local.localPath) } : null,
-        remotes: redactSecrets(remotes),
+        remotes,
         branch: currentBranch,
         branches,
         isActive: name === activeWorkingSet,
