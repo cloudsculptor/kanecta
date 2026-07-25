@@ -73,6 +73,38 @@ export const ListRendersFromApi: Story = {
   },
 };
 
+/**
+ * Regression guard (issue: "all pages showing under resilience"). All content —
+ * governance sections, site-editable pages — lives in the shared `pages` table
+ * distinguished by owner_type; GET /api/pages/public returns every public one.
+ * The Resilience list must show only resilience-owned pages (owner_type
+ * "group"/"private") and filter the rest out. A lost filter regressed this once.
+ */
+export const FiltersOutNonGroupPages: Story = {
+  parameters: {
+    msw: {
+      handlers: [
+        http.get("/api/pages/public", () =>
+          HttpResponse.json([
+            ...PAGES,
+            { ...PAGES[0], id: "s1", slug: "home", title: "Site Home Page", owner_type: "site" },
+            { ...PAGES[0], id: "g1", slug: "privacy-policy", title: "Privacy Policy", owner_type: "policy-legal" },
+          ])
+        ),
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // Resilience-owned pages render…
+    await expect(await canvas.findByText("Featherston Emergency Plan")).toBeInTheDocument();
+    await expect(canvas.getByText("Civil Defence Contacts")).toBeInTheDocument();
+    // …but site and governance pages are filtered out.
+    await expect(canvas.queryByText("Site Home Page")).not.toBeInTheDocument();
+    await expect(canvas.queryByText("Privacy Policy")).not.toBeInTheDocument();
+  },
+};
+
 /** An empty response shows the "no public documents" message. */
 export const EmptyShowsMessage: Story = {
   parameters: { msw: { handlers: [http.get("/api/pages/public", () => HttpResponse.json([]))] } },

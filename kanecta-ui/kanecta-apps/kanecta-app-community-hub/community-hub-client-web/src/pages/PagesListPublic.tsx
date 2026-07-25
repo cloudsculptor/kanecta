@@ -14,7 +14,7 @@ export default function PagesListPublic() {
 
   useEffect(() => {
     listPublicPages()
-      .then(setPages)
+      .then((all) => setPages(all.filter((p) => p.owner_type === "group" || p.owner_type === "private")))
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
