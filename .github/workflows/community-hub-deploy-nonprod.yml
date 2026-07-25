@@ -1,11 +1,7 @@
 name: Deploy Community Hub (nonprod)
 
 on:
-  push:
-    branches: ['test/community-hub*']
-    paths:
-      - 'kanecta-ui/kanecta-apps/kanecta-app-community-hub/**'
-      - '.github/workflows/community-hub-deploy-nonprod.yml'
+  # Manual only — nonprod is never deployed automatically on push.
   workflow_dispatch:
 
 jobs:
