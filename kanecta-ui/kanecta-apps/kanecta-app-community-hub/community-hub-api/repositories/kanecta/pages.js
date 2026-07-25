@@ -31,7 +31,16 @@ const LIST = [
   ["id", "id"], ["slug", "text"], ["title", "text"], ["created_by_name", "text"],
   ["created_at", "timestamp"], ["updated_at", "timestamp"], ["public", "bool"],
   ["licence_id", "ref"], ["version", "int"], ["owner_type", "text"], ["owner_id", "ref"],
+  ["deleted_at", "timestamp"],
 ];
+
+// pg list SELECTs alias deleted_at AS archived_at — mirror that shape.
+function toListRow(gql) {
+  const row = coerceRow(gql, LIST);
+  row.archived_at = row.deleted_at ?? null;
+  delete row.deleted_at;
+  return row;
+}
 // p.* — full column set for the by-slug detail reads.
 const STAR = [
   ["id", "id"], ["slug", "text"], ["title", "text"], ["content_json", "json"],
@@ -40,22 +49,26 @@ const STAR = [
   ["owner_type", "text"], ["owner_id", "ref"], ["deleted_at", "timestamp"],
 ];
 
-// pg: WHERE deleted_at IS NULL ORDER BY updated_at DESC
-export async function listPages() {
+// pg: WHERE ($1 OR deleted_at IS NULL) ORDER BY updated_at DESC
+export async function listPages(includeArchived = false) {
+  const live = includeArchived ? "" : "where:{deletedAt:{isNull:true}}, ";
   const data = await graphql(
-    `{ pageses(where:{deletedAt:{isNull:true}}, sort:[{field:updatedAt,direction:DESC}],
+    `{ pageses(${live}sort:[{field:updatedAt,direction:DESC}],
         limit:500){ ${selectionFor(LIST)} } }`,
   );
-  return data.pageses.map((r) => coerceRow(r, LIST));
+  return data.pageses.map(toListRow);
 }
 
-// pg: WHERE public=TRUE AND deleted_at IS NULL ORDER BY updated_at DESC
-export async function listPublicPages() {
+// pg: WHERE public=TRUE AND ($1 OR deleted_at IS NULL) ORDER BY updated_at DESC
+export async function listPublicPages(includeArchived = false) {
+  const where = includeArchived
+    ? "where:{public:{eq:true}}"
+    : "where:{public:{eq:true}, deletedAt:{isNull:true}}";
   const data = await graphql(
-    `{ pageses(where:{public:{eq:true}, deletedAt:{isNull:true}},
+    `{ pageses(${where},
         sort:[{field:updatedAt,direction:DESC}], limit:500){ ${selectionFor(LIST)} } }`,
   );
-  return data.pageses.map((r) => coerceRow(r, LIST));
+  return data.pageses.map(toListRow);
 }
 
 // Resolve a licence's display name by id (LEFT JOIN licences l ON l.id=p.licence_id).
@@ -100,11 +113,35 @@ export async function getPageIdTitleBySlug(slug) {
   const data = await graphql(`query($s:String){ pageses(where:{slug:{eq:$s}}, limit:1){ id title } }`, { s: slug });
   return data.pageses[0] ? { id: data.pageses[0].id, title: data.pageses[0].title } : null;
 }
-// { id } for a LIVE (non-deleted) page with this slug.
+// { id, owner_type } for a LIVE (non-deleted) page with this slug.
 export async function getLivePageIdBySlug(slug) {
   const data = await graphql(
+    `query($s:String){ pageses(where:{slug:{eq:$s}, deletedAt:{isNull:true}}, limit:1){ id ownerType } }`, { s: slug });
+  return data.pageses[0] ? { id: data.pageses[0].id, owner_type: data.pageses[0].ownerType ?? null } : null;
+}
+
+// pg: UPDATE pages SET deleted_at=NOW() WHERE slug=$1 AND deleted_at IS NULL RETURNING *
+export async function archivePage(slug) {
+  const found = await graphql(
     `query($s:String){ pageses(where:{slug:{eq:$s}, deletedAt:{isNull:true}}, limit:1){ id } }`, { s: slug });
-  return data.pageses[0] ? { id: data.pageses[0].id } : null;
+  const id = found.pageses[0]?.id;
+  if (!id) return null;
+  const item = await getItem(id);
+  if (!item?.payload) return null;
+  await updateObject(id, { ...item.payload, deletedAt: new Date().toISOString() });
+  return readPageStar(id);
+}
+
+// pg: UPDATE pages SET deleted_at=NULL WHERE slug=$1 AND deleted_at IS NOT NULL RETURNING *
+export async function unarchivePage(slug) {
+  const found = await graphql(
+    `query($s:String){ pageses(where:{slug:{eq:$s}, deletedAt:{isNull:false}}, limit:1){ id } }`, { s: slug });
+  const id = found.pageses[0]?.id;
+  if (!id) return null;
+  const item = await getItem(id);
+  if (!item?.payload) return null;
+  await updateObject(id, { ...item.payload, deletedAt: null });
+  return readPageStar(id);
 }
 
 // Read one page back as a pg-shaped p.* row (no licence/group name — matches RETURNING *).

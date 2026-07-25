@@ -15,6 +15,7 @@ interface PageLayoutProps {
   pageName: string;
   children?: ReactNode;
   showComingSoon?: boolean;
+  showHeading?: boolean;
   parents?: Crumb[];
   wip?: boolean;
 }
@@ -23,6 +24,7 @@ export default function PageLayout({
   pageName,
   children,
   showComingSoon = true,
+  showHeading = true,
   parents,
   wip = false,
 }: PageLayoutProps) {
@@ -33,7 +35,7 @@ export default function PageLayout({
       <Header />
       <Breadcrumb pageName={pageName} parents={parents} />
       <main className="page-content">
-        <h2>{pageName}</h2>
+        {showHeading && <h2>{pageName}</h2>}
         {showComingSoon && <ComingSoon />}
         {wip && (
           <Alert severity="warning" sx={{ mb: 3, fontSize: "1rem" }}>

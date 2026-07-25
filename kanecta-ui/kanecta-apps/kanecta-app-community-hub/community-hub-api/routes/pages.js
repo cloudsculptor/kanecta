@@ -21,7 +21,7 @@ const requireTeam = requireRole("team", "moderator");
 
 // ── List pages ────────────────────────────────────────────────────────────────
 router.get("/", requireAuth, wrap(async (req, res) => {
-  res.json(await pagesRepo.listPages());
+  res.json(await pagesRepo.listPages(req.query.includeArchived === "true"));
 }));
 
 // ── Upload file (must come before /:slug to avoid conflict) ───────────────────
@@ -40,7 +40,7 @@ router.post("/upload", requireAuth, requireTeam, upload.single("file"), wrap(asy
 
 // ── List public pages (no auth) ───────────────────────────────────────────────
 router.get("/public", wrap(async (req, res) => {
-  res.json(await pagesRepo.listPublicPages());
+  res.json(await pagesRepo.listPublicPages(req.query.includeArchived === "true"));
 }));
 
 // ── Get public page by slug (no auth) ─────────────────────────────────────────
@@ -123,9 +123,27 @@ router.put("/:slug", requireAuth, requireTeam, wrap(async (req, res) => {
 }));
 
 // ── Delete page (soft delete) ─────────────────────────────────────────────────
+// ── Archive page (sets deleted_at, aka archived_at) ───────────────────────────
+router.put("/:slug/archive", requireAuth, requireTeam, wrap(async (req, res) => {
+  const page = await pagesRepo.archivePage(req.params.slug);
+  if (!page) return res.status(404).json({ error: "Not found" });
+  res.json(page);
+}));
+
+// ── Unarchive page (clears deleted_at) ────────────────────────────────────────
+router.put("/:slug/unarchive", requireAuth, requireTeam, wrap(async (req, res) => {
+  const page = await pagesRepo.unarchivePage(req.params.slug);
+  if (!page) return res.status(404).json({ error: "Not found" });
+  res.json(page);
+}));
+
 router.delete("/:slug", requireAuth, requireTeam, wrap(async (req, res) => {
   const existing = await pagesRepo.getLivePageIdBySlug(req.params.slug);
   if (!existing) return res.status(404).json({ error: "Not found" });
+
+  if (existing.owner_type === "site") {
+    return res.status(403).json({ error: "Site pages cannot be deleted" });
+  }
 
   await pagesRepo.softDeletePage(req.params.slug);
   res.json({ deleted: existing.id });

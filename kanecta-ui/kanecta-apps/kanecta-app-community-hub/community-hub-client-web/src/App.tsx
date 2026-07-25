@@ -26,21 +26,12 @@ import Roles from "./pages/Roles";
 import Values from "./pages/Values";
 import Purpose from "./pages/Purpose";
 import PoliciesIndex from "./pages/PoliciesIndex";
-import PolicyCustodianBylaws from "./pages/PolicyCustodianBylaws";
-import PolicyCustodianGuidelines from "./pages/PolicyCustodianGuidelines";
-import PolicyVolunteerBylaws from "./pages/PolicyVolunteerBylaws";
-import PolicyVolunteerGuidelines from "./pages/PolicyVolunteerGuidelines";
 import ProceduresIndex from "./pages/ProceduresIndex";
-import ProcedureContentModeration from "./pages/ProcedureContentModeration";
-import ProcedureVolunteerOnboarding from "./pages/ProcedureVolunteerOnboarding";
-import ProcedureComplaintHandling from "./pages/ProcedureComplaintHandling";
-import ProcedureItIncidentResponse from "./pages/ProcedureItIncidentResponse";
-import ProcedureDomainAndHosting from "./pages/ProcedureDomainAndHosting";
-import ProcedureBackupAndRecovery from "./pages/ProcedureBackupAndRecovery";
-import ProcedureBoardMeeting from "./pages/ProcedureBoardMeeting";
-import ProcedureAgm from "./pages/ProcedureAgm";
-import ProcedureFinancialReporting from "./pages/ProcedureFinancialReporting";
-import ProcedureStatutoryCompliance from "./pages/ProcedureStatutoryCompliance";
+import MinutesIndex from "./pages/MinutesIndex";
+import RoadmapIndex from "./pages/RoadmapIndex";
+import GovernanceSectionList from "./pages/GovernanceSectionList";
+import GovernancePageView from "./pages/GovernancePageView";
+import GovernancePageEdit from "./pages/GovernancePageEdit";
 import Volunteering from "./pages/Volunteering";
 import FinancesIndex from "./pages/FinancesIndex";
 import FinancesTransactions from "./pages/FinancesTransactions";
@@ -106,6 +97,9 @@ export default function App() {
       <Route path="/groups/resilience/new" element={<PageEdit />} />
       <Route path="/pages/:slug/edit" element={<PageEdit />} />
       <Route path="/groups/resilience/:slug/edit" element={<PageEdit />} />
+      <Route path="/site-pages/:slug/edit" element={<PageEdit />} />
+      <Route path="/site-pages/:slug/history" element={<PageHistory />} />
+      <Route path="/site-pages/:slug/v/:version" element={<PageVersion />} />
 
       {/* Governance — public */}
       <Route path="/governance" element={<Governance />} />
@@ -116,21 +110,25 @@ export default function App() {
       <Route path="/governance/roles/volunteer" element={<RoleVolunteer />} />
       <Route path="/governance/constitution" element={<Constitution />} />
       <Route path="/governance/policies" element={<PoliciesIndex />} />
-      <Route path="/governance/policies/custodian-bylaws" element={<PolicyCustodianBylaws />} />
-      <Route path="/governance/policies/custodian-guidelines" element={<PolicyCustodianGuidelines />} />
-      <Route path="/governance/policies/volunteer-bylaws" element={<PolicyVolunteerBylaws />} />
-      <Route path="/governance/policies/volunteer-guidelines" element={<PolicyVolunteerGuidelines />} />
+      <Route path="/governance/policies/:category/new" element={<GovernancePageEdit type="policy" />} />
+      <Route path="/governance/policies/:category/:slug/edit" element={<GovernancePageEdit type="policy" />} />
+      <Route path="/governance/policies/:category/:slug" element={<GovernancePageView type="policy" />} />
+      <Route path="/governance/policies/:category" element={<GovernanceSectionList type="policy" />} />
       <Route path="/governance/procedures" element={<ProceduresIndex />} />
-      <Route path="/governance/procedures/content-moderation" element={<ProcedureContentModeration />} />
-      <Route path="/governance/procedures/volunteer-onboarding" element={<ProcedureVolunteerOnboarding />} />
-      <Route path="/governance/procedures/complaint-handling" element={<ProcedureComplaintHandling />} />
-      <Route path="/governance/procedures/it-incident-response" element={<ProcedureItIncidentResponse />} />
-      <Route path="/governance/procedures/domain-and-hosting" element={<ProcedureDomainAndHosting />} />
-      <Route path="/governance/procedures/backup-and-recovery" element={<ProcedureBackupAndRecovery />} />
-      <Route path="/governance/procedures/board-meeting" element={<ProcedureBoardMeeting />} />
-      <Route path="/governance/procedures/agm" element={<ProcedureAgm />} />
-      <Route path="/governance/procedures/financial-reporting" element={<ProcedureFinancialReporting />} />
-      <Route path="/governance/procedures/statutory-compliance" element={<ProcedureStatutoryCompliance />} />
+      <Route path="/governance/procedures/:category/new" element={<GovernancePageEdit type="procedure" />} />
+      <Route path="/governance/procedures/:category/:slug/edit" element={<GovernancePageEdit type="procedure" />} />
+      <Route path="/governance/procedures/:category/:slug" element={<GovernancePageView type="procedure" />} />
+      <Route path="/governance/procedures/:category" element={<GovernanceSectionList type="procedure" />} />
+      <Route path="/governance/minutes" element={<MinutesIndex />} />
+      <Route path="/governance/minutes/:category/new" element={<GovernancePageEdit type="minutes" />} />
+      <Route path="/governance/minutes/:category/:slug/edit" element={<GovernancePageEdit type="minutes" />} />
+      <Route path="/governance/minutes/:category/:slug" element={<GovernancePageView type="minutes" />} />
+      <Route path="/governance/minutes/:category" element={<GovernanceSectionList type="minutes" />} />
+      <Route path="/governance/roadmap" element={<RoadmapIndex />} />
+      <Route path="/governance/roadmap/:category/new" element={<GovernancePageEdit type="roadmap" />} />
+      <Route path="/governance/roadmap/:category/:slug/edit" element={<GovernancePageEdit type="roadmap" />} />
+      <Route path="/governance/roadmap/:category/:slug" element={<GovernancePageView type="roadmap" />} />
+      <Route path="/governance/roadmap/:category" element={<GovernanceSectionList type="roadmap" />} />
       <Route path="/governance/finances" element={<FinancesIndex />} />
       <Route path="/governance/finances/transactions" element={<FinancesTransactions />} />
       <Route path="/governance/finances/cashflow" element={<FinancesCashflow />} />

@@ -51,26 +51,30 @@ async function insertHistory(client, { pageId, action, version, contentJson, lic
   );
 }
 
-export async function listPages() {
-  if (USE_KANECTA) return kanecta.listPages();
+export async function listPages(includeArchived = false) {
+  if (USE_KANECTA) return kanecta.listPages(includeArchived);
   const { rows } = await pool.query(
     `SELECT p.id, p.slug, p.title, p.created_by_name, p.created_at, p.updated_at,
-            p.public, p.licence_id, p.version, p.owner_type, p.owner_id
+            p.public, p.licence_id, p.version, p.owner_type, p.owner_id,
+            p.deleted_at AS archived_at
      FROM pages p
-     WHERE p.deleted_at IS NULL
-     ORDER BY p.updated_at DESC`
+     WHERE ($1 OR p.deleted_at IS NULL)
+     ORDER BY p.updated_at DESC`,
+    [includeArchived]
   );
   return rows;
 }
 
-export async function listPublicPages() {
-  if (USE_KANECTA) return kanecta.listPublicPages();
+export async function listPublicPages(includeArchived = false) {
+  if (USE_KANECTA) return kanecta.listPublicPages(includeArchived);
   const { rows } = await pool.query(
     `SELECT p.id, p.slug, p.title, p.created_by_name, p.created_at, p.updated_at,
-            p.public, p.licence_id, p.version, p.owner_type, p.owner_id
+            p.public, p.licence_id, p.version, p.owner_type, p.owner_id,
+            p.deleted_at AS archived_at
      FROM pages p
-     WHERE p.public = TRUE AND p.deleted_at IS NULL
-     ORDER BY p.updated_at DESC`
+     WHERE p.public = TRUE AND ($1 OR p.deleted_at IS NULL)
+     ORDER BY p.updated_at DESC`,
+    [includeArchived]
   );
   return rows;
 }
@@ -119,7 +123,27 @@ export async function getPageIdTitleBySlug(slug) {
 export async function getLivePageIdBySlug(slug) {
   if (USE_KANECTA) return kanecta.getLivePageIdBySlug(slug);
   const { rows } = await pool.query(
-    "SELECT id FROM pages WHERE slug = $1 AND deleted_at IS NULL", [slug]
+    "SELECT id, owner_type FROM pages WHERE slug = $1 AND deleted_at IS NULL", [slug]
+  );
+  return rows[0] ?? null;
+}
+
+// Archive / unarchive — deleted_at doubles as the archive flag (exposed to
+// clients as archived_at). Restored with the site-nodes governance subsystem.
+export async function archivePage(slug) {
+  if (USE_KANECTA) return kanecta.archivePage(slug);
+  const { rows } = await pool.query(
+    `UPDATE pages SET deleted_at = NOW() WHERE slug = $1 AND deleted_at IS NULL RETURNING *`,
+    [slug]
+  );
+  return rows[0] ?? null;
+}
+
+export async function unarchivePage(slug) {
+  if (USE_KANECTA) return kanecta.unarchivePage(slug);
+  const { rows } = await pool.query(
+    `UPDATE pages SET deleted_at = NULL WHERE slug = $1 AND deleted_at IS NOT NULL RETURNING *`,
+    [slug]
   );
   return rows[0] ?? null;
 }
