@@ -13,5 +13,10 @@
 -- With no default and NOT NULL kept, a raw-SQL writer that omits spec_version
 -- fails loudly at INSERT time instead of mis-stamping — the failure mode we
 -- want. The adapter always stamps explicitly, so it is unaffected.
+--
+-- item_archive gets the same ALTER: migration 043 creates it LIKE items
+-- INCLUDING DEFAULTS, and the schema-identity drift gate requires the two
+-- tables to match column-for-column, defaults included.
 
 ALTER TABLE items ALTER COLUMN spec_version DROP DEFAULT;
+ALTER TABLE item_archive ALTER COLUMN spec_version DROP DEFAULT;
