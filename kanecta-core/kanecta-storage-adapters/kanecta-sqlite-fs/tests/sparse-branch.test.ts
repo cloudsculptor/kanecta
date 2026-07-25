@@ -28,7 +28,7 @@ function itemPathOn(a, branch, id) {
 // branch that reads through to main. Returns { a, onMain, child }.
 function withSparseBranch() {
   const a      = tmpAdapter();
-  const onMain = a.create({ value: 'on main', type: 'text' });
+  const onMain = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'on main', type: 'text' });
   const child  = a.create({ value: 'child', type: 'text', parentId: onMain.id });
   a.createBranch('feature/sparse', { fill: 'sparse' });
   a.useBranch('feature/sparse');
@@ -40,7 +40,7 @@ function withSparseBranch() {
 describe('sparse branch creation', () => {
   test('createBranch(sparse) writes a sparse manifest and an empty items/ tree', () => {
     const a = tmpAdapter();
-    const item = a.create({ value: 'on main', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'on main', type: 'text' });
     const b = a.createBranch('feature/sparse', { fill: 'sparse' });
 
     expect(b.fill).toBe('sparse');
@@ -95,7 +95,9 @@ describe('sparse branch reads through to upstream', () => {
 
   test('readObjectJson() falls through to the upstream payload', () => {
     const a = tmpAdapter();
-    const obj = a.create({ value: 'typed', type: 'object' });
+    // synthetic typeless object fixture — no type bucket exists to derive, so
+    // the parent must be explicit
+    const obj = a.create({ value: 'typed', type: 'object', parentId: '00000000-0000-0000-0000-000000000000' });
     a.writeObjectJson(obj.id, { foo: 'bar' });
     a.createBranch('feature/sparse', { fill: 'sparse' });
     a.useBranch('feature/sparse');
@@ -109,7 +111,7 @@ describe('sparse branch reads through to upstream', () => {
 describe('sparse branch local changes', () => {
   test('a local add is visible on the branch and absent from upstream', () => {
     const { a } = withSparseBranch();
-    const added = a.create({ value: 'branch only', type: 'text' });
+    const added = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'branch only', type: 'text' });
     expect(a.get(added.id)?.value).toBe('branch only');
     expect(fs.existsSync(itemPathOn(a, 'feature__sparse', added.id))).toBe(true);
 
@@ -147,7 +149,7 @@ describe('sparse branch local changes', () => {
 
   test('the sparse index is fully derived — rebuildIndexes() reprojects it', () => {
     const { a, onMain } = withSparseBranch();
-    const added = a.create({ value: 'branch only', type: 'text' });
+    const added = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'branch only', type: 'text' });
     a.delete(onMain.id, 'test@example.com'); // tombstone masking an upstream item
 
     // Wipe + reproject the index purely from items/ + the local upstream.
@@ -166,7 +168,7 @@ describe('sparse branch local changes', () => {
 describe('sparse branch diff + merge', () => {
   test('branchDiff reports only local adds/edits/deletes (not inherited items)', () => {
     const { a, onMain, child } = withSparseBranch();
-    const added = a.create({ value: 'branch only', type: 'text' });
+    const added = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'branch only', type: 'text' });
     a.update(onMain.id, { value: 'edited' }, 'test@example.com');
     a.delete(child.id, 'test@example.com');
 
@@ -181,7 +183,7 @@ describe('sparse branch diff + merge', () => {
 
   test('mergeBranchLocally applies the sparse diff to main', () => {
     const { a, onMain, child } = withSparseBranch();
-    const added = a.create({ value: 'branch only', type: 'text' });
+    const added = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'branch only', type: 'text' });
     a.update(onMain.id, { value: 'edited' }, 'test@example.com');
     a.delete(child.id, 'test@example.com');
 
@@ -203,7 +205,7 @@ describe('sparse branch diff + merge', () => {
 // a clean EDIT from a CONFLICT.
 function withDivergedEdit() {
   const a      = tmpAdapter();
-  const onMain = a.create({ value: 'v0', type: 'text' });
+  const onMain = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'v0', type: 'text' });
   a.createBranch('feature/sparse', { fill: 'sparse' });
 
   // Edit on the branch.
@@ -279,7 +281,7 @@ describe('sparse branch conflict-aware merge', () => {
 
   test('flags a branch edit of an item deleted upstream — no silent resurrection', () => {
     const a = tmpAdapter();
-    const x = a.create({ value: 'x0', type: 'text' });
+    const x = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x0', type: 'text' });
     a.createBranch('feature/sparse', { fill: 'sparse' });
 
     // Branch keeps/edits x (materialises it locally).
@@ -308,7 +310,7 @@ describe('sparse branch conflict-aware merge', () => {
 
   test('a genuine branch-only add (created after the fork) is NOT a conflict', () => {
     const { a } = withSparseBranch();
-    const added = a.create({ value: 'brand new', type: 'text' });
+    const added = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'brand new', type: 'text' });
     const preview = a.previewMerge('feature/sparse');
     expect(preview.adds.map(x => x.id)).toContain(added.id);
     expect(preview.conflicts.map(c => c.id)).not.toContain(added.id);
@@ -317,8 +319,8 @@ describe('sparse branch conflict-aware merge', () => {
 
   test('a clean edit still merges alongside a conflicting one under a strategy', () => {
     const a       = tmpAdapter();
-    const conf    = a.create({ value: 'c0', type: 'text' });
-    const clean   = a.create({ value: 'k0', type: 'text' });
+    const conf    = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'c0', type: 'text' });
+    const clean   = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'k0', type: 'text' });
     a.createBranch('feature/sparse', { fill: 'sparse' });
 
     a.useBranch('feature/sparse');
@@ -355,8 +357,8 @@ describe('sparse branch merge blast radius', () => {
 
   test('includes [[uuid]] backlinks in the blast radius', () => {
     const a      = tmpAdapter();
-    const target = a.create({ value: 'target', type: 'text' });
-    const linker = a.create({ value: `see [[${target.id}]]`, type: 'text' });
+    const target = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target', type: 'text' });
+    const linker = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: `see [[${target.id}]]`, type: 'text' });
     a.createBranch('feature/sparse', { fill: 'sparse' });
     a.useBranch('feature/sparse');
     a.delete(target.id, 'test@example.com');
@@ -370,7 +372,7 @@ describe('sparse branch merge blast radius', () => {
 
   test('includes aliases that target a deleted item', () => {
     const a      = tmpAdapter();
-    const target = a.create({ value: 'aliased target', type: 'text' });
+    const target = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'aliased target', type: 'text' });
     a.setAlias('my-alias', target.id);
     a.createBranch('feature/sparse', { fill: 'sparse' });
     a.useBranch('feature/sparse');
@@ -453,7 +455,7 @@ describe('reverse blast radius — danglingRefs', () => {
 
   test('a branch add under a parent deleted upstream after the fork is flagged as via:parent', () => {
     const a = tmpAdapter();
-    const standalone = a.create({ value: 'doomed parent', type: 'text' });
+    const standalone = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'doomed parent', type: 'text' });
     a.createBranch('feature/sparse', { fill: 'sparse' });
     a.useBranch('feature/sparse');
     const added = a.create({ value: 'orphan-to-be', type: 'text', parentId: standalone.id });
@@ -473,7 +475,7 @@ describe('reverse blast radius — danglingRefs', () => {
     const a = tmpAdapter();
     a.createBranch('feature/sparse', { fill: 'sparse' });
     a.useBranch('feature/sparse');
-    const parent = a.create({ value: 'new parent', type: 'text' });
+    const parent = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'new parent', type: 'text' });
     const child  = a.create({ value: `child of [[${parent.id}]]`, type: 'text', parentId: parent.id });
 
     a.useBranch('main');
@@ -562,7 +564,7 @@ describe('sparse branch base fingerprints', () => {
 
   test('genuine branch adds never get a fingerprint (nothing upstream to base on)', () => {
     const { a } = withSparseBranch();
-    a.create({ value: 'born on branch', type: 'text' });
+    a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'born on branch', type: 'text' });
     const basesPath = path.join(a.k, 'branches', 'feature__sparse', 'bases.json');
     if (fs.existsSync(basesPath)) {
       const bases = JSON.parse(fs.readFileSync(basesPath, 'utf8'));

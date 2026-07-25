@@ -1,7 +1,7 @@
 // KanectaRepository — notices reads over kanecta-api (GraphQL). The legacy filters
 // on deleted_at (soft delete) reproduce because the backfill ran with
 // exposeSoftDelete, so `deletedAt` is a normal filterable field.
-import { graphql, createItem, updateObject, getItem, resolveTypeId, ROOT_ID, OWNER } from "../../lib/kanectaClient.js";
+import { graphql, createItem, updateObject, getItem, resolveTypeId, OWNER } from "../../lib/kanectaClient.js";
 import { coerceRow, selectionFor } from "../../lib/kanectaMap.js";
 
 const APPROVED = [
@@ -47,7 +47,7 @@ export async function listPendingNotices() {
 export async function createNotice({ heading, body, noticeDate, submittedById, submittedByName }) {
   const typeId = await resolveTypeId("notices");
   const item = await createItem({
-    type: "object", typeId, parentId: ROOT_ID, owner: OWNER,
+    type: "object", typeId, parentId: typeId, owner: OWNER,
     objectData: {
       heading, body, noticeDate, status: "pending",
       submittedById, submittedByName, submittedAt: new Date().toISOString(),

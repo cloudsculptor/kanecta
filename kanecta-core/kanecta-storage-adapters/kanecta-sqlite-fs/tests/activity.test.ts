@@ -30,7 +30,7 @@ describe('activity log', () => {
 
   test('records and reads workspace events, newest first', () => {
     enableActivity(a);
-    const item = a.create({ value: 'watched' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'watched' });
     const e1 = a.recordActivity({ eventType: 'item.viewed', actor: 'alice@acme.com', targetId: item.id });
     const e2 = a.recordActivity({
       eventType: 'search.performed', actor: 'alice@acme.com',
@@ -56,7 +56,7 @@ describe('activity log', () => {
 
   test('events survive deletion of the target item (no FK; append-only)', () => {
     enableActivity(a);
-    const item = a.create({ value: 'short-lived' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'short-lived' });
     const e = a.recordActivity({ eventType: 'item.viewed', actor: 'bob@acme.com', targetId: item.id });
     a.delete(item.id);
     expect(a.activityFor(item.id).map((x: any) => x.id)).toEqual([e.id]);

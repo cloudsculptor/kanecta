@@ -92,8 +92,8 @@ describe('checkIntegrityStream', () => {
 describe('clean datastore', () => {
   test('a fresh datastore reports no errors', async () => {
     const ds = tmpDs();
-    await ds.create({ value: 'hello', type: 'string' });
-    await ds.create({ value: 'a note', type: 'text' });
+    await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'hello', type: 'string' });
+    await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a note', type: 'text' });
     const rep = await report(ds);
     const failing = rep.checks.filter((c) => c.status === 'fail');
     expect(failing, `unexpected failures: ${JSON.stringify(failing, null, 2)}`).toHaveLength(0);
@@ -126,7 +126,7 @@ describe('corrupted datastores', () => {
 
   test('over-long value fails value-length', async () => {
     const ds = tmpDs();
-    await ds.create({ value: 'x'.repeat(300), type: 'text' });
+    await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x'.repeat(300), type: 'text' });
     const rep = await report(ds, { checks: ['value-length'] });
     expect(byId(rep, 'value-length').status).toBe('fail');
   });
@@ -150,7 +150,7 @@ describe('corrupted datastores', () => {
     expect(byId(bad, 'alias-targets-resolve').status).toBe('fail');
     await ds.removeAlias('ghost');
     // A valid alias projects and passes the check.
-    const real = await ds.create({ value: 'real', type: 'string' });
+    const real = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'real', type: 'string' });
     await ds.setAlias('good', real.id);
     const rep = await report(ds, { checks: ['alias-targets-resolve'] });
     expect(byId(rep, 'alias-targets-resolve').status).toBe('pass');
@@ -158,7 +158,7 @@ describe('corrupted datastores', () => {
 
   test('case-insensitive duplicate alias fails alias-uniqueness', async () => {
     const ds = tmpDs();
-    const a = await ds.create({ value: 'real', type: 'string' });
+    const a = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'real', type: 'string' });
     // setAlias stores the exact string; two casings become two rows.
     await ds.setAlias('Foo', a.id);
     await ds.setAlias('foo', a.id);
@@ -168,7 +168,7 @@ describe('corrupted datastores', () => {
 
   test('broken inline link warns via inline-links-resolve', async () => {
     const ds = tmpDs();
-    await ds.create({ value: `see [[${RANDOM_UUID}]] for details`, type: 'text' });
+    await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: `see [[${RANDOM_UUID}]] for details`, type: 'text' });
     const rep = await report(ds, { checks: ['inline-links-resolve'] });
     const r = byId(rep, 'inline-links-resolve');
     // warn-only: status stays pass, but a finding is recorded
@@ -178,8 +178,8 @@ describe('corrupted datastores', () => {
 
   test('valid inline link produces no finding', async () => {
     const ds = tmpDs();
-    const target = await ds.create({ value: 'target', type: 'string' });
-    await ds.create({ value: `see [[${target.id}]]`, type: 'text' });
+    const target = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target', type: 'string' });
+    await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: `see [[${target.id}]]`, type: 'text' });
     const rep = await report(ds, { checks: ['inline-links-resolve'] });
     expect(byId(rep, 'inline-links-resolve').findings).toHaveLength(0);
   });
@@ -309,22 +309,22 @@ async function makeUserType(ds: any, value: string, payloadExtra: Record<string,
 describe('symlink-target-resolves', () => {
   test('dangling symlink fails', async () => {
     const ds = tmpDs();
-    await ds.create({ type: 'symlink', value: RANDOM_UUID });
+    await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'symlink', value: RANDOM_UUID });
     const rep = await report(ds, { checks: ['symlink-target-resolves'] });
     expect(byId(rep, 'symlink-target-resolves').status).toBe('fail');
   });
 
   test('symlink pointing at a real item passes', async () => {
     const ds = tmpDs();
-    const target = await ds.create({ value: 'target', type: 'text' });
-    await ds.create({ type: 'symlink', value: target.id });
+    const target = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target', type: 'text' });
+    await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'symlink', value: target.id });
     const rep = await report(ds, { checks: ['symlink-target-resolves'] });
     expect(byId(rep, 'symlink-target-resolves').status).toBe('pass');
   });
 
   test('symlink whose value is not a UUID fails', async () => {
     const ds = tmpDs();
-    await ds.create({ type: 'symlink', value: 'not-a-uuid' });
+    await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'symlink', value: 'not-a-uuid' });
     const rep = await report(ds, { checks: ['symlink-target-resolves'] });
     expect(byId(rep, 'symlink-target-resolves').status).toBe('fail');
   });
@@ -333,7 +333,7 @@ describe('symlink-target-resolves', () => {
 describe('connectorid-resolves', () => {
   test('dangling connectorId fails', async () => {
     const ds = tmpDs();
-    const it = await ds.create({ value: 'stub', type: 'text' });
+    const it = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'stub', type: 'text' });
     await ds.update(it.id, { connectorId: RANDOM_UUID });
     const rep = await report(ds, { checks: ['connectorid-resolves'] });
     expect(byId(rep, 'connectorid-resolves').status).toBe('fail');
@@ -341,8 +341,8 @@ describe('connectorid-resolves', () => {
 
   test('resolving connectorId passes', async () => {
     const ds = tmpDs();
-    const conn = await ds.create({ value: 'jira', type: 'text' });
-    const it = await ds.create({ value: 'stub', type: 'text' });
+    const conn = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'jira', type: 'text' });
+    const it = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'stub', type: 'text' });
     await ds.update(it.id, { connectorId: conn.id });
     const rep = await report(ds, { checks: ['connectorid-resolves'] });
     expect(byId(rep, 'connectorid-resolves').status).toBe('pass');
@@ -352,7 +352,7 @@ describe('connectorid-resolves', () => {
 describe('materialized-stub-consistency', () => {
   test('stub (materialized=false) without a connectorId fails', async () => {
     const ds = tmpDs();
-    const it = await ds.create({ value: 'stub', type: 'text' });
+    const it = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'stub', type: 'text' });
     await ds.update(it.id, { materialized: false });
     const rep = await report(ds, { checks: ['materialized-stub-consistency'] });
     expect(byId(rep, 'materialized-stub-consistency').status).toBe('fail');
@@ -360,8 +360,8 @@ describe('materialized-stub-consistency', () => {
 
   test('stub with a connectorId passes', async () => {
     const ds = tmpDs();
-    const conn = await ds.create({ value: 'jira', type: 'text' });
-    const it = await ds.create({ value: 'stub', type: 'text' });
+    const conn = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'jira', type: 'text' });
+    const it = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'stub', type: 'text' });
     await ds.update(it.id, { materialized: false, connectorId: conn.id });
     const rep = await report(ds, { checks: ['materialized-stub-consistency'] });
     expect(byId(rep, 'materialized-stub-consistency').status).toBe('pass');
@@ -369,7 +369,7 @@ describe('materialized-stub-consistency', () => {
 
   test('a fully materialized item (materialized=true) is unaffected', async () => {
     const ds = tmpDs();
-    const it = await ds.create({ value: 'native', type: 'text' });
+    const it = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'native', type: 'text' });
     await ds.update(it.id, { materialized: true });
     const rep = await report(ds, { checks: ['materialized-stub-consistency'] });
     expect(byId(rep, 'materialized-stub-consistency').status).toBe('pass');
@@ -411,7 +411,7 @@ describe('typedef-children-well-formed', () => {
 describe('nullable-timestamps-valid', () => {
   test('a bad expiresAt fails', async () => {
     const ds = tmpDs();
-    const it = await ds.create({ value: 'x', type: 'text' });
+    const it = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x', type: 'text' });
     await ds.update(it.id, { expiresAt: 'not-a-date' });
     const rep = await report(ds, { checks: ['nullable-timestamps-valid'] });
     expect(byId(rep, 'nullable-timestamps-valid').status).toBe('fail');
@@ -419,7 +419,7 @@ describe('nullable-timestamps-valid', () => {
 
   test('a valid ISO dueAt and null fields pass', async () => {
     const ds = tmpDs();
-    const it = await ds.create({ value: 'x', type: 'text' });
+    const it = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x', type: 'text' });
     await ds.update(it.id, { dueAt: '2026-07-08T00:00:00.000Z' });
     const rep = await report(ds, { checks: ['nullable-timestamps-valid'] });
     expect(byId(rep, 'nullable-timestamps-valid').status).toBe('pass');
@@ -476,7 +476,7 @@ describe('reference-type payload resolution', () => {
 
   test('resolvable reference target passes', async () => {
     const ds = tmpDs();
-    const target = await ds.create({ value: 'target', type: 'note' });
+    const target = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target', type: 'note' });
     await ds.create({ type: 'object', typeId: await typeId(ds, 'reference'), value: 'ref',
       objectData: { targetId: target.id, kind: 'link' } });
     expect(byId(await report(ds, { checks: ['reference-target-resolves'] }), 'reference-target-resolves').status).toBe('pass');
@@ -494,7 +494,7 @@ describe('reference-type payload resolution', () => {
 
   test('resolvable subscription target passes', async () => {
     const ds = tmpDs();
-    const target = await ds.create({ value: 'sub-target', type: 'note' });
+    const target = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'sub-target', type: 'note' });
     const channel = await ds.create({ type: 'object', typeId: await typeId(ds, 'channel'), value: 'ch',
       objectData: { type: 'webhook' } });
     await ds.create({ type: 'object', typeId: await typeId(ds, 'subscription'), value: 'sub',
@@ -504,7 +504,7 @@ describe('reference-type payload resolution', () => {
 
   test('view with resolvable references passes', async () => {
     const ds = tmpDs();
-    const t = await ds.create({ value: 'shown', type: 'note' });
+    const t = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'shown', type: 'note' });
     await ds.create({ type: 'object', typeId: await typeId(ds, 'view'), value: 'v',
       objectData: { viewedItemId: t.id, componentId: t.id, contextId: t.id } });
     expect(byId(await report(ds, { checks: ['view-refs-resolve'] }), 'view-refs-resolve').status).toBe('pass');
@@ -512,7 +512,7 @@ describe('reference-type payload resolution', () => {
 
   test('cell under a non-grid parent fails cell-parent-is-grid', async () => {
     const ds = tmpDs();
-    const note = await ds.create({ value: 'not a grid', type: 'note' });
+    const note = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'not a grid', type: 'note' });
     await ds.create({ type: 'object', typeId: await typeId(ds, 'cell'), value: 'c', parentId: note.id,
       objectData: { row: 0, column: 'A' } });
     const r = byId(await report(ds, { checks: ['cell-parent-is-grid'] }), 'cell-parent-is-grid');
@@ -633,7 +633,7 @@ describe('reference checks — batch 3', () => {
 
   test('grant governing a missing item fails; a real one passes', async () => {
     const ds = tmpDs();
-    const real = await ds.create({ value: 'governed', type: 'text' });
+    const real = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'governed', type: 'text' });
     const gid = await builtinTypeId(ds, 'grant');
     await ds.create({ type: 'object', typeId: gid, value: 'g-ok',
       objectData: { governedItemId: real.id, principal: 'user:a', permissions: ['read'] } });
@@ -685,7 +685,7 @@ describe('reference checks — batch 3', () => {
 
   test('a non-lowercase alias key fails alias-lowercase-normalised', async () => {
     const ds = tmpDs();
-    const target = await ds.create({ value: 'aliased', type: 'text' });
+    const target = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'aliased', type: 'text' });
     await ds.setAlias('goodalias', target.id);
     expect(byId(await report(ds, { checks: ['alias-lowercase-normalised'] }), 'alias-lowercase-normalised').status).toBe('pass');
     // Corrupt the stored key the way a manual edit would (setAlias normalises).
@@ -705,7 +705,7 @@ describe('reference checks — batch 3', () => {
         }, required: [], additionalProperties: false,
       },
     });
-    const textItem = await ds.create({ value: 'plain', type: 'text' });
+    const textItem = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'plain', type: 'text' });
     const otherInst = await ds.create({ type: 'object', typeId: other, value: 'target-inst', objectData: {} });
 
     // Clean: friend → instance of the declared type, doc → a text item.

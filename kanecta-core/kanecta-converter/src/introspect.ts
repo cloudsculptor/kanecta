@@ -27,7 +27,7 @@ import type {
   Seam,
 } from './types.ts';
 
-const ROOT_UUID = '00000000-0000-0000-0000-000000000000';
+const TYPES_NODE_UUID = '11111111-1111-1111-1111-111111111111';
 
 // Columns that overlap the native item/meta envelope — reported as Seam-4
 // candidates (kept as columns by default for a faithful mirror).
@@ -194,7 +194,8 @@ export function introspect(table: SourceTable, opts: IntrospectOptions = {}): In
   const primaryField = pickPrimaryField(table, propNames);
 
   const typeItem = {
-    item: { id: typeId, parentId: opts.parentId ?? ROOT_UUID, type: 'type', typeId: null, value: typeValue, sortOrder: null },
+    // Spec §parentid-rules: type items live under the types node — never root.
+    item: { id: typeId, parentId: opts.parentId ?? TYPES_NODE_UUID, type: 'type', typeId: null, value: typeValue, sortOrder: null },
     meta: { specVersion: '1.4.0', owner: opts.owner ?? 'kanecta', visibility: 'public', tags: ['converted'] },
     search: null,
     payload: {

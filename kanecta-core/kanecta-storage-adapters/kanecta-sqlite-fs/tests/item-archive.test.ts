@@ -51,7 +51,7 @@ describe('schema: item_archive twins', () => {
 describe('softDelete = physical move to archive/', () => {
   it('moves the whole folder (sidecars included) and stamps deletedAt', () => {
     const a = tmpAdapter();
-    const item = a.create({ value: 'doomed', type: 'text', owner: OWNER });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'doomed', type: 'text', owner: OWNER });
     a.putFile(item.id, 'attachment.bin', Buffer.from('bytes'));
 
     const res = a.softDelete(item.id);
@@ -68,7 +68,7 @@ describe('softDelete = physical move to archive/', () => {
 
   it('the live index physically loses the item; the archive twins gain it', () => {
     const a = tmpAdapter();
-    const item = a.create({ value: 'gone from live', type: 'text', owner: OWNER, tags: ['t1'] });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'gone from live', type: 'text', owner: OWNER, tags: ['t1'] });
     a.softDelete(item.id);
     const db = a._openDb();
     expect(db.prepare('SELECT 1 FROM items WHERE id = ?').get(item.id)).toBeUndefined();
@@ -84,7 +84,7 @@ describe('softDelete = physical move to archive/', () => {
 
   it('is idempotent on an already-archived item', () => {
     const a = tmpAdapter();
-    const item = a.create({ value: 'twice', type: 'text', owner: OWNER });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'twice', type: 'text', owner: OWNER });
     const first = a.softDelete(item.id);
     const second = a.softDelete(item.id);
     expect(second.deletedAt).toBe(first.deletedAt);
@@ -93,7 +93,7 @@ describe('softDelete = physical move to archive/', () => {
 
   it('does not cascade: children stay live under an archived parent', () => {
     const a = tmpAdapter();
-    const parent = a.create({ value: 'folder', type: 'text', owner: OWNER });
+    const parent = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'folder', type: 'text', owner: OWNER });
     const child  = a.create({ value: 'kept', type: 'text', parentId: parent.id, owner: OWNER });
     a.softDelete(parent.id);
     expect(a.get(child.id).deletedAt).toBeNull();
@@ -105,7 +105,7 @@ describe('softDelete = physical move to archive/', () => {
 describe('point reads resolve the archive; set reads never do', () => {
   it('get(id) returns the archived item with deletedAt set', () => {
     const a = tmpAdapter();
-    const item = a.create({ value: 'findable', type: 'text', owner: OWNER });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'findable', type: 'text', owner: OWNER });
     a.softDelete(item.id);
     const got = a.get(item.id);
     expect(got).toBeTruthy();
@@ -116,7 +116,7 @@ describe('point reads resolve the archive; set reads never do', () => {
 
   it('getFile keeps serving bytes for an archived item (file-proxy contract)', () => {
     const a = tmpAdapter();
-    const item = a.create({ value: 'image holder', type: 'text', owner: OWNER });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'image holder', type: 'text', owner: OWNER });
     a.putFile(item.id, 'photo.png', Buffer.from('png-bytes'));
     a.softDelete(item.id);
     expect(a.getFile(item.id, 'photo.png')).toEqual(Buffer.from('png-bytes'));
@@ -126,7 +126,7 @@ describe('point reads resolve the archive; set reads never do', () => {
 
   it('query/loadAll/children exclude archived items without any filter', () => {
     const a = tmpAdapter();
-    const item = a.create({ value: 'excluded-by-construction', type: 'text', owner: OWNER });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'excluded-by-construction', type: 'text', owner: OWNER });
     a.softDelete(item.id);
     expect(a.query({ limit: 0 }).some((i: any) => i.id === item.id)).toBe(false);
     expect(a.loadAll().some((i: any) => i.id === item.id)).toBe(false);
@@ -136,7 +136,7 @@ describe('point reads resolve the archive; set reads never do', () => {
 
   it('query({ includeDeleted: true }) unions the archive in', () => {
     const a = tmpAdapter();
-    const item = a.create({ value: 'recoverable', type: 'text', owner: OWNER });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'recoverable', type: 'text', owner: OWNER });
     a.softDelete(item.id);
     const rows = a.query({ includeDeleted: true, limit: 0 });
     const hit = rows.find((i: any) => i.id === item.id);
@@ -147,7 +147,7 @@ describe('point reads resolve the archive; set reads never do', () => {
 
   it('loadAll({ includeDeleted: true }) unions the archive in', () => {
     const a = tmpAdapter();
-    const item = a.create({ value: 'in the union', type: 'text', owner: OWNER });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'in the union', type: 'text', owner: OWNER });
     a.softDelete(item.id);
     expect(a.loadAll({ includeDeleted: true }).some((i: any) => i.id === item.id)).toBe(true);
     cleanup(a);
@@ -155,10 +155,10 @@ describe('point reads resolve the archive; set reads never do', () => {
 
   it('update() refuses archived items and flag-style deletedAt changes', () => {
     const a = tmpAdapter();
-    const item = a.create({ value: 'immutable while archived', type: 'text', owner: OWNER });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'immutable while archived', type: 'text', owner: OWNER });
     a.softDelete(item.id);
     expect(() => a.update(item.id, { value: 'nope' })).toThrow(/archived/);
-    const live = a.create({ value: 'live', type: 'text', owner: OWNER });
+    const live = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'live', type: 'text', owner: OWNER });
     expect(() => a.update(live.id, { deletedAt: new Date().toISOString() })).toThrow(/softDelete/);
     cleanup(a);
   });
@@ -210,7 +210,7 @@ describe('restore = move back out of the archive', () => {
 describe('hard delete of an archived item = purge', () => {
   it('removes the archive copy and its index rows for good', () => {
     const a = tmpAdapter();
-    const item = a.create({ value: 'purge me', type: 'text', owner: OWNER });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'purge me', type: 'text', owner: OWNER });
     a.softDelete(item.id);
     a.delete(item.id);
     expect(fs.existsSync(archiveDir(a, item.id))).toBe(false);
@@ -236,8 +236,8 @@ describe('hard delete of an archived item = purge', () => {
 describe('rebuild ingests both stores', () => {
   it('a deleted index.db reconstructs live AND archive state from the filesystem', () => {
     const a = tmpAdapter();
-    const live = a.create({ value: 'alive', type: 'text', owner: OWNER });
-    const dead = a.create({ value: 'archived', type: 'text', owner: OWNER });
+    const live = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'alive', type: 'text', owner: OWNER });
+    const dead = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'archived', type: 'text', owner: OWNER });
     a.softDelete(dead.id);
 
     const n = a.rebuildIndexes();
@@ -254,7 +254,7 @@ describe('rebuild ingests both stores', () => {
 describe('migrate-on-open: legacy flag-deleted items move to archive/', () => {
   it('a pre-archive store with flagged rows upgrades on open (original stamp kept)', () => {
     const a = tmpAdapter();
-    const item = a.create({ value: 'legacy-deleted', type: 'text', owner: OWNER });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'legacy-deleted', type: 'text', owner: OWNER });
     const stamp = '2025-01-01T00:00:00.000Z';
 
     // Simulate the pre-archive world: flag the doc in the LIVE store by hand
@@ -285,7 +285,7 @@ describe('migrate-on-open: legacy flag-deleted items move to archive/', () => {
 describe('sparse branches: archive is branch-local and merges as a real move', () => {
   it('soft delete on a sparse branch masks the upstream live item; upstream untouched', () => {
     const a = tmpAdapter();
-    const item = a.create({ value: 'shared', type: 'text', owner: OWNER });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'shared', type: 'text', owner: OWNER });
     a.createBranch('feat/arch', {});             // sparse by default
     a.useBranch('feat/arch');
     a.softDelete(item.id);
@@ -300,7 +300,7 @@ describe('sparse branches: archive is branch-local and merges as a real move', (
 
   it('merge applies the branch soft delete as an archive move on main', () => {
     const a = tmpAdapter();
-    const item = a.create({ value: 'merge-archived', type: 'text', owner: OWNER });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'merge-archived', type: 'text', owner: OWNER });
     a.putFile(item.id, 'keepsake.bin', Buffer.from('kept'));
     a.createBranch('feat/softdel', {});
     a.useBranch('feat/softdel');
@@ -325,7 +325,7 @@ describe('sparse branches: archive is branch-local and merges as a real move', (
 
   it('hard delete (tombstone) still merges as a hard delete', () => {
     const a = tmpAdapter();
-    const item = a.create({ value: 'merge-harddel', type: 'text', owner: OWNER });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'merge-harddel', type: 'text', owner: OWNER });
     a.createBranch('feat/harddel', {});
     a.useBranch('feat/harddel');
     a.delete(item.id);

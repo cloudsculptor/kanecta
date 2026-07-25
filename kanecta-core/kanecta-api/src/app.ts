@@ -806,6 +806,9 @@ app.post('/items', async (req, res) => {
     res.status(201).json(item);
   } catch (err: any) {
     if (/id already exists/i.test(err.message)) return res.status(409).json({ error: err.message });
+    // spec §parentid-rules: a derivable-or-required placement violation is a
+    // bad request, not a server fault
+    if (/parentId is required|Invalid parentId/i.test(err.message)) return res.status(400).json({ error: err.message });
     res.status(500).json({ error: err.message });
   }
 });

@@ -48,7 +48,7 @@ function mkSchedule({
   targetItemId   = null,
   params         = null,
 } = {}) {
-  const item = adapter.create({ type: 'schedule', value, status, dueAt });
+  const item = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'schedule', value, status, dueAt });
   adapter.writeScheduleJson(item.id, {
     cronExpression, timezone, actionId, actionType, targetItemId, params,
     lastFiredAt: null, lastResult: null, lastError: null,
@@ -183,7 +183,7 @@ describe('tick — runOperation call shape', () => {
   it('injects targetItemId into params', async () => {
     const runOp  = makeRunOp();
     const runner = new ScheduleRunner(adapter, runOp, { nextFireAt: mockNextFireAt() });
-    const targetItem = adapter.create({ value: 'Target' });
+    const targetItem = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'Target' });
     mkSchedule({ dueAt: '2026-06-27T01:00:00.000Z', targetItemId: targetItem.id });
 
     await runner.tick('2026-06-27T02:00:00.000Z');
@@ -334,7 +334,7 @@ describe('tick — failure handling', () => {
   it('throws (counted as failed) when schedule payload is missing', async () => {
     const runOp  = makeRunOp();
     const runner = new ScheduleRunner(adapter, runOp, { nextFireAt: mockNextFireAt() });
-    const item   = adapter.create({ type: 'schedule', value: 'No Payload', status: 'active', dueAt: '2026-06-27T01:00:00.000Z' });
+    const item   = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'schedule', value: 'No Payload', status: 'active', dueAt: '2026-06-27T01:00:00.000Z' });
 
     const result = await runner.tick('2026-06-27T02:00:00.000Z');
     expect(result.failed).toBe(1);
@@ -349,12 +349,12 @@ describe('tick — failure handling', () => {
 
 describe('adapter readScheduleJson / writeScheduleJson', () => {
   it('returns null when no payload is set', () => {
-    const item = adapter.create({ type: 'schedule', value: 'x' });
+    const item = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'schedule', value: 'x' });
     expect(adapter.readScheduleJson(item.id)).toBeNull();
   });
 
   it('round-trips the full payload', () => {
-    const item = adapter.create({ type: 'schedule', value: 'x' });
+    const item = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'schedule', value: 'x' });
     const data = {
       cronExpression: '0 9 * * 1',
       timezone: 'Pacific/Auckland',
@@ -371,14 +371,14 @@ describe('adapter readScheduleJson / writeScheduleJson', () => {
   });
 
   it('can be overwritten', () => {
-    const item = adapter.create({ type: 'schedule', value: 'x' });
+    const item = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'schedule', value: 'x' });
     adapter.writeScheduleJson(item.id, { cronExpression: '0 1 * * *', actionId: 'a', actionType: 'function' });
     adapter.writeScheduleJson(item.id, { cronExpression: '0 2 * * *', actionId: 'b', actionType: 'pipeline' });
     expect(adapter.readScheduleJson(item.id).cronExpression).toBe('0 2 * * *');
   });
 
   it('update() does not wipe schedule_data', () => {
-    const item = adapter.create({ type: 'schedule', value: 'x', status: 'active' });
+    const item = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'schedule', value: 'x', status: 'active' });
     adapter.writeScheduleJson(item.id, { cronExpression: '0 1 * * *', actionId: 'a', actionType: 'function' });
     adapter.update(item.id, { status: 'paused' });
     expect(adapter.readScheduleJson(item.id)).not.toBeNull();
@@ -414,7 +414,7 @@ describe('adapter listDueSchedules', () => {
   });
 
   it('excludes non-schedule items even if status=active and due_at is past', () => {
-    const item = adapter.create({ type: 'string', value: 'x', status: 'active', dueAt: '2026-06-27T01:00:00.000Z' });
+    const item = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'string', value: 'x', status: 'active', dueAt: '2026-06-27T01:00:00.000Z' });
     const due  = adapter.listDueSchedules('2026-06-27T02:00:00.000Z');
     expect(due.map(d => d.id)).not.toContain(item.id);
   });
@@ -430,7 +430,7 @@ describe('real cron-parser integration', () => {
   it('fires and advances dueAt to a real next occurrence', async () => {
     const runOp  = makeRunOp();
     const runner = new ScheduleRunner(adapter, runOp);  // real nextFireAt
-    const item = adapter.create({
+    const item = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000',
       type: 'schedule', value: 'Hourly', status: 'active',
       dueAt: '2026-06-27T01:00:00.000Z',
     });
@@ -455,7 +455,7 @@ describe('real cron-parser integration', () => {
   it('fires with timezone-aware next occurrence', async () => {
     const runOp  = makeRunOp();
     const runner = new ScheduleRunner(adapter, runOp);
-    const item = adapter.create({
+    const item = adapter.create({ parentId: '00000000-0000-0000-0000-000000000000',
       type: 'schedule', value: 'Daily NZ', status: 'active',
       dueAt: '2026-06-27T01:00:00.000Z',
     });

@@ -1,7 +1,7 @@
 // KanectaRepository — trust reads/writes over kanecta-api. Trust items back the
 // endorsement chain (who vouched for whom when a team role is granted). No
 // soft-delete or archive here — plain create + point reads.
-import { graphql, createItem, resolveTypeId, ROOT_ID, OWNER } from "../../lib/kanectaClient.js";
+import { graphql, createItem, resolveTypeId, OWNER } from "../../lib/kanectaClient.js";
 import { coerceRow, selectionFor } from "../../lib/kanectaMap.js";
 
 // The endorsement projection getEndorsementFor returns (pg column order).
@@ -37,7 +37,7 @@ export async function createEndorsement({
 }) {
   const typeId = await resolveTypeId("trust");
   await createItem({
-    type: "object", typeId, parentId: ROOT_ID, owner: OWNER,
+    type: "object", typeId, parentId: typeId, owner: OWNER,
     objectData: {
       userId, endorsedById, knowPersonally: !!knowPersonally, trustedBySomeone: !!trustedBySomeone,
       resilienceHui: !!resilienceHui, otherReason: otherReason || null, locality: locality || null,

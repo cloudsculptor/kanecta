@@ -79,7 +79,7 @@ describe('schema identity (THE drift gate)', () => {
 
 describe('softDelete = physical row move', () => {
   test('the row leaves items and lands verbatim in item_archive with deletedAt stamped', async () => {
-    const item = await adapter.create({ value: 'doomed' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'doomed' });
     const res = await adapter.softDelete(item.id);
     expect(res.deletedAt).toBeTruthy();
     expect(await inLive(item.id)).toBe(false);
@@ -87,7 +87,7 @@ describe('softDelete = physical row move', () => {
   });
 
   test('is idempotent on an already-archived item', async () => {
-    const item = await adapter.create({ value: 'twice' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'twice' });
     const first = await adapter.softDelete(item.id);
     const second = await adapter.softDelete(item.id);
     expect(second.deletedAt).toEqual(first.deletedAt);
@@ -95,7 +95,7 @@ describe('softDelete = physical row move', () => {
   });
 
   test('does not cascade: children stay live under an archived parent', async () => {
-    const parent = await adapter.create({ value: 'folder' });
+    const parent = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'folder' });
     const child  = await adapter.create({ value: 'kept', parentId: parent.id });
     await adapter.softDelete(parent.id);
     expect(await inLive(child.id)).toBe(true);
@@ -114,8 +114,8 @@ describe('softDelete = physical row move', () => {
   });
 
   test('a relationship endpoint can be archived (relation survives — no FK in the way)', async () => {
-    const a = await adapter.create({ value: 'endpoint-a' });
-    const b = await adapter.create({ value: 'endpoint-b' });
+    const a = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'endpoint-a' });
+    const b = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'endpoint-b' });
     await adapter.relate(a.id, 'relates-to', b.id);
     const res = await adapter.softDelete(b.id);
     expect(res.deletedAt).toBeTruthy();
@@ -125,7 +125,7 @@ describe('softDelete = physical row move', () => {
 
 describe('point reads vs set reads', () => {
   test('get(id) resolves the archive transparently', async () => {
-    const item = await adapter.create({ value: 'findable' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'findable' });
     await adapter.softDelete(item.id);
     const got = await adapter.get(item.id);
     expect(got).toBeTruthy();
@@ -134,7 +134,7 @@ describe('point reads vs set reads', () => {
   });
 
   test('query()/loadAll()/children() exclude archived items by construction', async () => {
-    const item = await adapter.create({ value: 'excluded' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'excluded' });
     await adapter.softDelete(item.id);
     expect((await adapter.query({ limit: 0 })).some((i: any) => i.id === item.id)).toBe(false);
     expect((await adapter.loadAll()).some((i: any) => i.id === item.id)).toBe(false);
@@ -142,7 +142,7 @@ describe('point reads vs set reads', () => {
   });
 
   test('query({ includeDeleted: true }) and loadAll({ includeDeleted: true }) union the archive', async () => {
-    const item = await adapter.create({ value: 'in-union' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'in-union' });
     await adapter.softDelete(item.id);
     const q = await adapter.query({ includeDeleted: true, limit: 0 });
     expect(q.find((i: any) => i.id === item.id)?.deletedAt).toBeTruthy();
@@ -151,10 +151,10 @@ describe('point reads vs set reads', () => {
   });
 
   test('update() refuses archived items and flag-style deletedAt changes', async () => {
-    const item = await adapter.create({ value: 'frozen' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'frozen' });
     await adapter.softDelete(item.id);
     await expect(adapter.update(item.id, { value: 'nope' })).rejects.toThrow(/archived/);
-    const live = await adapter.create({ value: 'live' });
+    const live = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'live' });
     await expect(adapter.update(live.id, { deletedAt: new Date().toISOString() }))
       .rejects.toThrow(/softDelete/);
   });
@@ -162,7 +162,7 @@ describe('point reads vs set reads', () => {
 
 describe('restore = move back', () => {
   test('round-trips a typed object: projection row, payload and backlinks repopulate', async () => {
-    const target = await adapter.create({ value: 'link-target' });
+    const target = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'link-target' });
     const { metadata: t } = await adapter.createType('PhoenixPg', { schema: typeSchema('PhoenixPg') });
     const item = await adapter.create({
       value: `phoenix [[${target.id}]]`, type: 'object', typeId: t.id, objectData: { name: 'p1' },
@@ -197,7 +197,7 @@ describe('restore = move back', () => {
 
 describe('hard delete', () => {
   test('of an archived item = purge (archive row + payload capture gone)', async () => {
-    const item = await adapter.create({ value: 'purge me' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'purge me' });
     await adapter.softDelete(item.id);
     await adapter.delete(item.id);
     expect(await inArchive(item.id)).toBe(false);
@@ -217,7 +217,7 @@ describe('hard delete', () => {
   });
 
   test('the deferred guard still blocks hard-deleting a live parent with live children', async () => {
-    const parent = await adapter.create({ value: 'guarded parent' });
+    const parent = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'guarded parent' });
     await adapter.create({ value: 'dependent child', parentId: parent.id });
     await expect(adapter.delete(parent.id)).rejects.toThrow(/fk_items_parent|orphan/);
   });
@@ -226,7 +226,7 @@ describe('hard delete', () => {
 describe('legacy catch-up', () => {
   test('flagged live rows (pre-archive stores) move to the archive on init/open', async () => {
     // Simulate the pre-archive world: a flagged live row with its original stamp.
-    const item = await adapter.create({ value: 'legacy-flagged' });
+    const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'legacy-flagged' });
     const stamp = new Date('2025-01-01T00:00:00.000Z');
     await pool.query('UPDATE items SET deleted_at = $1 WHERE id = $2', [stamp, item.id]);
 

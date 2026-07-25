@@ -269,6 +269,25 @@ const CHECKS: IntegrityCheckDef[] = [
     },
   },
   {
+    id: 'object-placement', group: 'tree',
+    title: 'Objects live under their type item, never under root',
+    specRef: 'specification.adoc §parentId rules (type: "object" → parentId = item.typeId)',
+    async run(ctx) {
+      const findings: Finding[] = [];
+      for (const it of ctx.items) {
+        if (it.type !== 'object' || it.aspect != null) continue;
+        if (it.parentId === ROOT_ID) {
+          findings.push(err(`object ${it.id} is parented at root — objects live under their type item`, it.id,
+            `re-parent to its type item ${it.typeId}`, { parentId: it.parentId, typeId: it.typeId }));
+        } else if (it.typeId != null && it.parentId !== it.typeId) {
+          findings.push(err(`object ${it.id} is parented under ${it.parentId}, expected its type item ${it.typeId}`, it.id,
+            're-parent to the type item (the type collection is the canonical home)', { parentId: it.parentId, typeId: it.typeId }));
+        }
+      }
+      return findings;
+    },
+  },
+  {
     id: 'parentid-resolves', group: 'tree',
     title: 'Every parentId resolves to an existing item',
     specRef: 'specification.adoc §parentId rules (FK to items(id))',

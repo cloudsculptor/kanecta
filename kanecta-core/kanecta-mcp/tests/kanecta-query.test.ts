@@ -33,7 +33,7 @@ afterEach(() => {
 
 /** Create an item with the given objectData in the temp store. */
 async function seed(value, objectData) {
-  const item = await ds.create({ value, type: 'object' });
+  const item = await ds.create({ value, type: 'object', parentId: '00000000-0000-0000-0000-000000000000' });
   await ds.writeObjectJson(item.id, objectData);
   return item;
 }

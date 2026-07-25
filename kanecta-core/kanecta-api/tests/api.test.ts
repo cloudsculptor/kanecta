@@ -30,9 +30,9 @@ afterEach(() => {
 
 describe('GET /items', () => {
   it('returns root children', async () => {
-    await ds.create({ value: 'root1' });
-    await ds.create({ value: 'root2' });
-    const child = await ds.create({ value: 'child-parent' });
+    await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'root1' });
+    await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'root2' });
+    const child = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'child-parent' });
     await ds.create({ value: 'child', parentId: child.id });
     const res = await request(app).get('/items');
     expect(res.status).toBe(200);
@@ -49,24 +49,28 @@ describe('GET /items', () => {
 });
 
 describe('POST /items', () => {
-  it('creates a root item', async () => {
-    const res = await request(app).post('/items').send({ value: 'hello', type: 'string' });
+  it('creates a root-parented item when root is passed explicitly', async () => {
+    // spec §parentid-rules: parentId is never defaulted — a content item's
+    // placement is always the caller's to specify
+    const res = await request(app)
+      .post('/items')
+      .send({ value: 'hello', type: 'string', parentId: '00000000-0000-0000-0000-000000000000' });
     expect(res.status).toBe(201);
     expect(res.body.value).toBe('hello');
     expect(res.body.type).toBe('string');
-    expect(res.body.parentId).toMatch(/^[0-9a-f-]{36}$/); // defaults to root
+    expect(res.body.parentId).toBe('00000000-0000-0000-0000-000000000000');
     expect(res.body.id).toMatch(/^[0-9a-f-]{36}$/);
   });
 
   it('creates a child item', async () => {
-    const parent = await ds.create({ value: 'parent' });
+    const parent = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'parent' });
     const res = await request(app).post('/items').send({ value: 'child', parentId: parent.id });
     expect(res.status).toBe(201);
     expect(res.body.parentId).toBe(parent.id);
   });
 
   it('sets alias when provided', async () => {
-    const res = await request(app).post('/items').send({ value: 'x', alias: 'my-alias' });
+    const res = await request(app).post('/items').send({ value: 'x', parentId: '00000000-0000-0000-0000-000000000000', alias: 'my-alias' });
     expect(res.status).toBe(201);
     expect(await ds.resolveAlias('my-alias')).toBe(res.body.id);
   });
@@ -91,7 +95,7 @@ describe('POST /items', () => {
 
 describe('GET /items/:id', () => {
   it('returns item by UUID', async () => {
-    const item = await ds.create({ value: 'test' });
+    const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'test' });
     const res = await request(app).get(`/items/${item.id}`);
     expect(res.status).toBe(200);
     expect(res.body.id).toBe(item.id);
@@ -113,7 +117,7 @@ describe('GET /items/:id', () => {
 
 describe('PUT /items/:id', () => {
   it('updates item value', async () => {
-    const item = await ds.create({ value: 'old' });
+    const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'old' });
     const res = await request(app).put(`/items/${item.id}`).send({ value: 'new' });
     expect(res.status).toBe(200);
     expect(res.body.value).toBe('new');
@@ -121,7 +125,7 @@ describe('PUT /items/:id', () => {
   });
 
   it('updates tags', async () => {
-    const item = await ds.create({ value: 'x', tags: ['old'] });
+    const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x', tags: ['old'] });
     const res = await request(app).put(`/items/${item.id}`).send({ tags: ['new'] });
     expect(res.status).toBe(200);
     expect(await ds.byTag('old')).not.toContain(item.id);
@@ -129,14 +133,14 @@ describe('PUT /items/:id', () => {
   });
 
   it('updates confidence', async () => {
-    const item = await ds.create({ value: 'x' });
+    const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     const res = await request(app).put(`/items/${item.id}`).send({ confidence: 'locked' });
     expect(res.status).toBe(200);
     expect(res.body.confidence).toBe('locked');
   });
 
   it('returns 400 for invalid type', async () => {
-    const item = await ds.create({ value: 'x' });
+    const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     const res = await request(app).put(`/items/${item.id}`).send({ type: 'bad' });
     expect(res.status).toBe(400);
   });
@@ -149,7 +153,7 @@ describe('PUT /items/:id', () => {
 
 describe('DELETE /items/:id', () => {
   it('deletes an item', async () => {
-    const item = await ds.create({ value: 'bye' });
+    const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'bye' });
     const res = await request(app).delete(`/items/${item.id}`);
     expect(res.status).toBe(200);
     expect(res.body.deleted).toEqual([item.id]); // deletion returns the full removed subtree
@@ -157,16 +161,16 @@ describe('DELETE /items/:id', () => {
   });
 
   it('returns 409 when item has backlinks without ?force', async () => {
-    const target = await ds.create({ value: 'target' });
-    await ds.create({ value: `[[${target.id}]]` });
+    const target = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target' });
+    await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: `[[${target.id}]]` });
     const res = await request(app).delete(`/items/${target.id}`);
     expect(res.status).toBe(409);
     expect(res.body.warnings).toBeDefined();
   });
 
   it('deletes with backlinks when ?force=true', async () => {
-    const target = await ds.create({ value: 'target' });
-    await ds.create({ value: `[[${target.id}]]` });
+    const target = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target' });
+    await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: `[[${target.id}]]` });
     const res = await request(app).delete(`/items/${target.id}?force=true`);
     expect(res.status).toBe(200);
   });
@@ -179,7 +183,7 @@ describe('DELETE /items/:id', () => {
 
 describe('GET /items/:id/children', () => {
   it('returns sorted children', async () => {
-    const parent = await ds.create({ value: 'parent' });
+    const parent = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'parent' });
     await ds.create({ value: 'c1', parentId: parent.id, sortOrder: 0 });
     await ds.create({ value: 'c2', parentId: parent.id, sortOrder: 1 });
     const res = await request(app).get(`/items/${parent.id}/children`);
@@ -190,7 +194,7 @@ describe('GET /items/:id/children', () => {
   });
 
   it('returns empty array for leaf item', async () => {
-    const item = await ds.create({ value: 'leaf' });
+    const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'leaf' });
     const res = await request(app).get(`/items/${item.id}/children`);
     expect(res.status).toBe(200);
     expect(res.body).toEqual([]);
@@ -199,7 +203,7 @@ describe('GET /items/:id/children', () => {
 
 describe('GET /items/:id/tree', () => {
   it('returns flat list of tree nodes', async () => {
-    const root = await ds.create({ value: 'root' });
+    const root = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'root' });
     await ds.create({ value: 'child', parentId: root.id });
     const res = await request(app).get(`/items/${root.id}/tree`);
     expect(res.status).toBe(200);
@@ -210,7 +214,7 @@ describe('GET /items/:id/tree', () => {
   });
 
   it('respects ?depth', async () => {
-    const root = await ds.create({ value: 'root' });
+    const root = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'root' });
     const child = await ds.create({ value: 'child', parentId: root.id });
     await ds.create({ value: 'grandchild', parentId: child.id });
     const res = await request(app).get(`/items/${root.id}/tree?depth=1`);
@@ -221,7 +225,7 @@ describe('GET /items/:id/tree', () => {
 
 describe('GET /items/:id/annotations', () => {
   it('returns annotations', async () => {
-    const item = await ds.create({ value: 'x' });
+    const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     await ds.annotate(item.id, { content: 'a note' });
     const res = await request(app).get(`/items/${item.id}/annotations`);
     expect(res.status).toBe(200);
@@ -230,7 +234,7 @@ describe('GET /items/:id/annotations', () => {
   });
 
   it('returns empty array when no annotations', async () => {
-    const item = await ds.create({ value: 'x' });
+    const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     const res = await request(app).get(`/items/${item.id}/annotations`);
     expect(res.status).toBe(200);
     expect(res.body).toEqual([]);
@@ -239,7 +243,7 @@ describe('GET /items/:id/annotations', () => {
 
 describe('POST /items/:id/annotations', () => {
   it('creates an annotation', async () => {
-    const item = await ds.create({ value: 'x' });
+    const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     const res = await request(app)
       .post(`/items/${item.id}/annotations`)
       .send({ content: 'my note' });
@@ -249,7 +253,7 @@ describe('POST /items/:id/annotations', () => {
   });
 
   it('returns 400 when content is missing', async () => {
-    const item = await ds.create({ value: 'x' });
+    const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     const res = await request(app).post(`/items/${item.id}/annotations`).send({});
     expect(res.status).toBe(400);
   });
@@ -257,8 +261,8 @@ describe('POST /items/:id/annotations', () => {
 
 describe('GET /items/:id/relationships', () => {
   it('returns outbound and inbound relationships', async () => {
-    const a = await ds.create({ value: 'a' });
-    const b = await ds.create({ value: 'b' });
+    const a = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a' });
+    const b = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b' });
     await ds.relate(a.id, 'depends-on', b.id);
     const resA = await request(app).get(`/items/${a.id}/relationships`);
     expect(resA.status).toBe(200);
@@ -271,8 +275,8 @@ describe('GET /items/:id/relationships', () => {
 
 describe('GET /items/:id/backlinks', () => {
   it('returns IDs of items that link here', async () => {
-    const target = await ds.create({ value: 'target' });
-    const linker = await ds.create({ value: `[[${target.id}]]` });
+    const target = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target' });
+    const linker = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: `[[${target.id}]]` });
     const res = await request(app).get(`/items/${target.id}/backlinks`);
     expect(res.status).toBe(200);
     expect(res.body).toContain(linker.id);
@@ -281,7 +285,7 @@ describe('GET /items/:id/backlinks', () => {
 
 describe('GET /items/:id/history', () => {
   it('returns history snapshots', async () => {
-    const item = await ds.create({ value: 'v1' });
+    const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'v1' });
     await ds.update(item.id, { value: 'v2' });
     const res = await request(app).get(`/items/${item.id}/history`);
     expect(res.status).toBe(200);
@@ -296,7 +300,7 @@ describe('GET /items/:id/history', () => {
 
 describe('GET /tree', () => {
   it('returns full tree from all roots', async () => {
-    const root = await ds.create({ value: 'root' });
+    const root = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'root' });
     await ds.create({ value: 'child', parentId: root.id });
     const res = await request(app).get('/tree');
     expect(res.status).toBe(200);
@@ -304,7 +308,7 @@ describe('GET /tree', () => {
   });
 
   it('respects ?depth', async () => {
-    const root = await ds.create({ value: 'root' });
+    const root = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'root' });
     const child = await ds.create({ value: 'child', parentId: root.id });
     await ds.create({ value: 'grandchild', parentId: child.id });
     const res = await request(app).get('/tree?depth=1');
@@ -324,8 +328,8 @@ describe('GET /tree', () => {
 
 describe('GET /aliases', () => {
   it('returns all aliases sorted', async () => {
-    const a = await ds.create({ value: 'a' });
-    const b = await ds.create({ value: 'b' });
+    const a = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a' });
+    const b = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b' });
     await ds.setAlias('zzz', a.id);
     await ds.setAlias('aaa', b.id);
     const res = await request(app).get('/aliases');
@@ -337,7 +341,7 @@ describe('GET /aliases', () => {
 
 describe('GET /aliases/:alias', () => {
   it('resolves alias to targetId', async () => {
-    const item = await ds.create({ value: 'x' });
+    const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     await ds.setAlias('my-alias', item.id);
     const res = await request(app).get('/aliases/my-alias');
     expect(res.status).toBe(200);
@@ -352,14 +356,14 @@ describe('GET /aliases/:alias', () => {
 
 describe('POST /aliases', () => {
   it('sets an alias', async () => {
-    const item = await ds.create({ value: 'x' });
+    const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     const res = await request(app).post('/aliases').send({ alias: 'new-alias', targetId: item.id });
     expect(res.status).toBe(201);
     expect(await ds.resolveAlias('new-alias')).toBe(item.id);
   });
 
   it('returns 400 when alias is missing', async () => {
-    const item = await ds.create({ value: 'x' });
+    const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     const res = await request(app).post('/aliases').send({ targetId: item.id });
     expect(res.status).toBe(400);
   });
@@ -372,7 +376,7 @@ describe('POST /aliases', () => {
 
 describe('DELETE /aliases/:alias', () => {
   it('removes alias', async () => {
-    const item = await ds.create({ value: 'x' });
+    const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     await ds.setAlias('gone', item.id);
     const res = await request(app).delete('/aliases/gone');
     expect(res.status).toBe(200);
@@ -389,8 +393,8 @@ describe('DELETE /aliases/:alias', () => {
 
 describe('POST /relationships', () => {
   it('creates a relationship', async () => {
-    const a = await ds.create({ value: 'a' });
-    const b = await ds.create({ value: 'b' });
+    const a = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a' });
+    const b = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b' });
     const res = await request(app).post('/relationships').send({
       sourceId: a.id, type: 'depends-on', targetId: b.id, note: 'reason',
     });
@@ -400,8 +404,8 @@ describe('POST /relationships', () => {
   });
 
   it('returns 400 for invalid type', async () => {
-    const a = await ds.create({ value: 'a' });
-    const b = await ds.create({ value: 'b' });
+    const a = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a' });
+    const b = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b' });
     const res = await request(app).post('/relationships').send({
       sourceId: a.id, type: 'made-up', targetId: b.id,
     });
@@ -419,8 +423,8 @@ describe('POST /relationships', () => {
 
 describe('GET /tags/:tag', () => {
   it('returns item IDs with the tag', async () => {
-    const a = await ds.create({ value: 'a', tags: ['featured'] });
-    await ds.create({ value: 'b' });
+    const a = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a', tags: ['featured'] });
+    await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b' });
     const res = await request(app).get('/tags/featured');
     expect(res.status).toBe(200);
     expect(res.body).toContain(a.id);
@@ -438,8 +442,8 @@ describe('GET /tags/:tag', () => {
 
 describe('POST /rebuild-indexes', () => {
   it('rebuilds indexes and returns item count', async () => {
-    await ds.create({ value: 'a' });
-    await ds.create({ value: 'b' });
+    await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a' });
+    await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b' });
     const res = await request(app).post('/rebuild-indexes');
     expect(res.status).toBe(200);
     expect(res.body.rebuilt).toBe(true);
@@ -454,7 +458,7 @@ describe('multi-level tree integration', () => {
   let child1Id;
 
   beforeEach(async () => {
-    const root = await ds.create({ value: 'Project Alpha' });
+    const root = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'Project Alpha' });
     rootId = root.id;
     await ds.setAlias('project-alpha', rootId);
     const c1 = await ds.create({ value: 'Phase 1', parentId: rootId, sortOrder: 0 });
@@ -535,8 +539,8 @@ describe('GET /search', () => {
   });
 
   it('searches item value case-insensitively', async () => {
-    await ds.create({ value: 'Find Me Here' });
-    await ds.create({ value: 'Other node' });
+    await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'Find Me Here' });
+    await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'Other node' });
 
     const res = await request(app).get('/search?q=find');
     expect(res.status).toBe(200);
@@ -623,8 +627,8 @@ describe('GET /search', () => {
       JSON.stringify({ id: typeId, value: 'mycustomtype' })
     );
 
-    const r1 = await ds.create({ value: 'r1' });
-    const r2 = await ds.create({ value: 'r2' });
+    const r1 = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'r1' });
+    const r2 = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'r2' });
 
     const item1 = await ds.create({
       parentId: r1.id,
@@ -651,7 +655,7 @@ describe('GET /search', () => {
 
 describe('Documents API', () => {
   it('creates, lists, gets and updates a document (mode)', async () => {
-    const target = await ds.create({ value: 'Todos', type: 'text' });
+    const target = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'Todos', type: 'text' });
 
     const created = await request(app)
       .post(`/items/${target.id}/documents`)

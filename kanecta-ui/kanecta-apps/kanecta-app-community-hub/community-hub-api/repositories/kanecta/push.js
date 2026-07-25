@@ -3,7 +3,7 @@
 // create-or-update, mirroring the seedThreadReads shape. The DELETE-by-predicate
 // paths resolve the matching item ids first, then delete them. `subscription` is a
 // jsonb column projected to a string property (stringify on write, parse on read).
-import { graphql, createItem, updateObject, deleteItem, getItem, resolveTypeId, ROOT_ID, OWNER } from "../../lib/kanectaClient.js";
+import { graphql, createItem, updateObject, deleteItem, getItem, resolveTypeId, OWNER } from "../../lib/kanectaClient.js";
 import { coerceRow, selectionFor } from "../../lib/kanectaMap.js";
 
 const SUB = [["id", "id"], ["subscription", "json"]];
@@ -43,7 +43,7 @@ export async function upsertPushSubscription(userId, subscription) {
   }
   const typeId = await resolveTypeId("push-subscriptions");
   await createItem({
-    type: "object", typeId, parentId: ROOT_ID, owner: OWNER,
+    type: "object", typeId, parentId: typeId, owner: OWNER,
     objectData: { id: nextBigintId(), userId, subscription: payload, createdAt: new Date().toISOString() },
   });
 }
@@ -111,7 +111,7 @@ export async function upsertFcmToken(userId, token) {
   if (existing) return;
   const typeId = await resolveTypeId("fcm-tokens");
   await createItem({
-    type: "object", typeId, parentId: ROOT_ID, owner: OWNER,
+    type: "object", typeId, parentId: typeId, owner: OWNER,
     objectData: { id: nextBigintId(), userId, token, createdAt: new Date().toISOString() },
   });
 }
@@ -144,7 +144,7 @@ export async function upsertPreference(userId, category, enabled) {
   }
   const typeId = await resolveTypeId("notification-preferences");
   await createItem({
-    type: "object", typeId, parentId: ROOT_ID, owner: OWNER,
+    type: "object", typeId, parentId: typeId, owner: OWNER,
     objectData: { userId, category, enabled: !!enabled },
   });
 }
