@@ -13,7 +13,9 @@ async function resolveNames(ids) {
       const user = await adminFetch(`/users/${id}`);
       nameMap[id] = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.username || null;
     } catch {
-      nameMap[id] = null;
+      // Most likely the account was deleted (see routes/account.js) — the
+      // trust record itself is kept so chains below them stay valid.
+      nameMap[id] = "Former member";
     }
   }));
   return nameMap;

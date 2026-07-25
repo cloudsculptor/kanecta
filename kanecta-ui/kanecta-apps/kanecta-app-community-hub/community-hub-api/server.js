@@ -15,6 +15,7 @@ import suggestionsRouter from "./routes/suggestions.js";
 import noticesRouter from "./routes/notices.js";
 import trustRouter from "./routes/trust.js";
 import filesRouter from "./routes/files.js";
+import accountRouter from "./routes/account.js";
 import { setupDiscussionsSocket } from "./socket/discussions.js";
 
 const app = express();
@@ -51,6 +52,7 @@ app.use("/api/suggestions", suggestionsRouter);
 app.use("/api/notices", noticesRouter);
 app.use("/api/trust", trustRouter);
 app.use("/api/files", filesRouter);
+app.use("/api/account", accountRouter);
 
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
