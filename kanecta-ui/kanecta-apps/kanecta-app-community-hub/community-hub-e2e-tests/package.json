@@ -1,0 +1,16 @@
+{
+  "name": "community-hub-e2e-tests",
+  "private": true,
+  "version": "0.1.0",
+  "description": "End-to-end Playwright tests for the Community Hub, run against a deployed environment (nonprod by default).",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "@types/node": "^22.0.0"
+  }
+}
