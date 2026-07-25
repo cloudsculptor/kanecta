@@ -1,0 +1,134 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://kanecta.com/spec/1.4.0/working-sets",
+  "title": "Kanecta Working Set API Response",
+  "description": "The wire shape returned by `GET /working-sets` — the list of configured working sets with their branch state, as any client (Studio, an embedding app, MCP, an AI-built frontend) consumes it.\n\nThis is a SEPARATE contract from the on-disk `config.json` (see ./config.json), and deliberately so. `config.json` is the platform's private, server-side bootstrap file: it legitimately holds connection details and, via '$VAR'/.env references, the credentials the server needs to open its datastores. This response is what leaves the server over HTTP to an untrusted client. The two must never be the same object.\n\nSECURITY INVARIANT — the response carries NO secrets, BY CONSTRUCTION, not by redaction. Earlier the endpoint serialised the working-set config and scrubbed anything that looked like a secret (a blocklist); that is fragile — a credential embedded in a URL, or a newly-added secret field, slips through. Instead the API builds this response by hand, copying across ONLY the fields defined here. A remote is reduced to a non-secret `{ type, label }` summary: there is no property on this schema for a password, access key, host, port, user, or bucket, so no code path can place one on the wire, regardless of what credentials the on-disk config gains later. `additionalProperties: false` on every object makes that closure explicit and machine-checkable. The safe default is inverted: a field is hidden unless it is deliberately listed here.",
+  "type": "object",
+  "required": ["workingSets", "activeWorkingSet"],
+  "additionalProperties": false,
+  "properties": {
+    "workingSets": {
+      "type": "array",
+      "description": "Every configured working set, in configuration order.",
+      "items": { "$ref": "#/definitions/workingSet" }
+    },
+    "activeWorkingSet": {
+      "type": ["string", "null"],
+      "description": "Name of the currently active working set (a `name` present in `workingSets`), or null when none is active/resolvable."
+    }
+  },
+  "definitions": {
+    "workingSet": {
+      "type": "object",
+      "description": "One working set as seen by a client: its identity, whether its local datastore is present, non-secret summaries of its remotes, and its branch state. Mirrors a `config.json` working set but exposes only what a client renders — never how to connect to it.",
+      "required": ["name", "local", "remotes", "branch", "branches", "isActive"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The working set's key in `config.json.workingSets`."
+        },
+        "local": {
+          "type": ["object", "null"],
+          "description": "The local datastore's presence, or null for a remote-only working set (a hosted webapp with no local filesystem). Carries only the datastore path and whether it resolves to a valid datastore — no datastore contents.",
+          "required": ["path", "ok"],
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Absolute path to the local datastore directory. Shown for operator orientation; clients typically render only its final path segment."
+            },
+            "ok": {
+              "type": "boolean",
+              "description": "True when `path` resolves to a readable Kanecta datastore."
+            }
+          }
+        },
+        "remotes": {
+          "type": "object",
+          "description": "Non-secret summaries of the working set's configured remotes, keyed by remote name ('origin' is the conventional default, mirroring the on-disk config). An empty object means no remote is configured — clients use `Object.keys(remotes).length > 0` as the 'has a remote' signal. Each value is a `remoteSummary`; the full connection config (host, port, user, password, S3 keys, bucket) stays server-side in `config.json` and is never included here.",
+          "additionalProperties": { "$ref": "#/definitions/remoteSummary" }
+        },
+        "branch": {
+          "type": "string",
+          "description": "The working set's currently active branch (from the datastore when resolvable, else the config's default branch, else 'main')."
+        },
+        "branches": {
+          "type": "array",
+          "description": "All branches known for this working set, each flagged for whether it is the active one.",
+          "items": { "$ref": "#/definitions/branch" }
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "True when this working set is the active one (equivalently, its `name` equals the top-level `activeWorkingSet`)."
+        }
+      }
+    },
+    "remoteSummary": {
+      "type": "object",
+      "description": "A NON-SECRET, display-only summary of one configured remote. This schema deliberately has no field for host, port, user, password, access key id, secret access key, or bucket. The API constructs it by copying only the remote's `type` and a pre-formatted, credential-free `label`. This is the schema-level guarantee behind the security invariant in the root description: there is nowhere on this object for a secret to be placed.",
+      "required": ["type", "label"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "The remote's kind — e.g. 'postgres', 'cloud', 'sqlite', 'server'. The discriminator from the on-disk remote config; safe to expose."
+        },
+        "label": {
+          "type": ["string", "null"],
+          "description": "A human-readable, credential-free display string the server builds for this remote (for example a postgres remote's 'host/database'), or null when there is nothing meaningful to show beyond `type`. MUST NEVER contain a password, access key, token, or any other secret — the server is responsible for composing it from non-secret fields only."
+        }
+      }
+    },
+    "branch": {
+      "type": "object",
+      "description": "One branch of a working set's datastore.",
+      "required": ["name", "active", "baseBranch"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Branch name. 'main' is the conventional trunk / merge target."
+        },
+        "active": {
+          "type": "boolean",
+          "description": "True when this is the working set's currently active branch."
+        },
+        "baseBranch": {
+          "type": ["string", "null"],
+          "description": "The branch this one was forked from, or null for 'main' (which has no base)."
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "workingSets": [
+        {
+          "name": "hosted",
+          "local": null,
+          "remotes": {
+            "origin": { "type": "cloud", "label": "db.example.com/acme" }
+          },
+          "branch": "main",
+          "branches": [
+            { "name": "main", "active": true, "baseBranch": null }
+          ],
+          "isActive": true
+        },
+        {
+          "name": "personal",
+          "local": { "path": "/home/dev/kanecta/personal", "ok": true },
+          "remotes": {},
+          "branch": "draft",
+          "branches": [
+            { "name": "main", "active": false, "baseBranch": null },
+            { "name": "draft", "active": true, "baseBranch": "main" }
+          ],
+          "isActive": false
+        }
+      ],
+      "activeWorkingSet": "hosted"
+    }
+  ]
+}

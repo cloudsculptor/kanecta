@@ -42,10 +42,9 @@ function toDisplayName(name: string): string {
 function remoteDescription(ws: WorkingSet): string | null {
   const origin = ws.remotes?.origin;
   if (!origin) return null;
-  if (origin.type === 'postgres' && origin.host) {
-    return `${origin.host}/${origin.database ?? ''}`;
-  }
-  return origin.type ?? null;
+  // The server builds a credential-free display label (e.g. 'host/database');
+  // fall back to the bare type when there's nothing more to show.
+  return origin.label ?? origin.type ?? null;
 }
 
 function localDescription(ws: WorkingSet): string {

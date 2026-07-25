@@ -9,7 +9,7 @@ const SAMPLE_WORKING_SETS: WorkingSet[] = [
   {
     name: 'kanecta-internal',
     local: { path: '/data/kanecta-internal', ok: true },
-    remotes: { origin: { type: 'postgres', host: 'db.kanecta.dev', database: 'kanecta' } },
+    remotes: { origin: { type: 'postgres', label: 'db.kanecta.dev/kanecta' } },
     branch: 'main',
     branches: [
       { name: 'main', active: true, baseBranch: null },
