@@ -402,6 +402,24 @@ app.get('/config', async (req, res) => {
   res.json({ datastorePath, workingSetName: name, vscodeAvailable: vscodeCheck.status === 0 });
 });
 
+// Credential-bearing keys anywhere in a remote's config (pg password, s3
+// secretAccessKey, embeddings apiKey, …). The API must never echo their VALUES;
+// the redacted placeholder keeps the key present so clients can still show
+// "configured" without ever holding the secret.
+const SECRET_KEY_RE = /password|secret|token|api[-_]?key|credential/i;
+function redactSecrets(value: any): any {
+  if (Array.isArray(value)) return value.map(redactSecrets);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([k, v]) => [
+        k,
+        SECRET_KEY_RE.test(k) && typeof v !== 'object' ? '***' : redactSecrets(v),
+      ]),
+    );
+  }
+  return value;
+}
+
 // GET /working-sets — all configured working sets with branch info
 app.get('/working-sets', async (req, res) => {
   const appCfg = readAppConfig();
@@ -434,7 +452,7 @@ app.get('/working-sets', async (req, res) => {
       return {
         name,
         local: local ? { path: local.localPath, ok: Datastore.isDatastore(local.localPath) } : null,
-        remotes,
+        remotes: redactSecrets(remotes),
         branch: currentBranch,
         branches,
         isActive: name === activeWorkingSet,
@@ -2319,6 +2337,38 @@ app.get('/integrity/stream', async (req, res) => {
     if (!closed) res.write(`data: ${JSON.stringify({ type: 'error', error: err.message })}\n\n`);
   } finally {
     if (!closed) res.end();
+  }
+});
+
+// ─── Projections ──────────────────────────────────────────────────────────────
+
+// The materialised per-type relations of the active working set.
+app.get('/projections', async (req, res) => {
+  const ds = await openDatastore(res, req);
+  if (!ds) return;
+  try {
+    const tables = await ds.listProjectedRelations();
+    res.json({ tables });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Manual refresh of the derived structures (obj_ reconcile + every perf_*,
+// children cache, paths, AGE graph). Spec: projections are strictly derived —
+// always rebuildable. Body/query `only` (CSV or array) limits the structures.
+app.post('/projections/rebuild', async (req, res) => {
+  const ds = await openDatastore(res, req);
+  if (!ds) return;
+  const raw = req.body?.only ?? req.query.only;
+  const only = Array.isArray(raw)
+    ? raw
+    : typeof raw === 'string' ? raw.split(',').map((s) => s.trim()).filter(Boolean) : undefined;
+  try {
+    const report = await ds.rebuildProjections(only?.length ? { only } : {});
+    res.json(report);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
 

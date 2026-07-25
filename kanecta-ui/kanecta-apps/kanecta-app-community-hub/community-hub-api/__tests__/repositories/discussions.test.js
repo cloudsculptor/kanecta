@@ -26,6 +26,11 @@ describe("message files", () => {
     expect(params).toEqual(["m1", ["f1", "f2"], "u1"]);
   });
 
+  test("deleteFileLinks is a pg no-op (ON DELETE CASCADE owns the cleanup)", async () => {
+    await repo.deleteFileLinks("f1");
+    expect(mockQuery).not.toHaveBeenCalled();
+  });
+
   test("getMessageFiles joins files, ordered by attachment time", async () => {
     mockQuery.mockResolvedValueOnce({ rows: [{ id: "dmf1" }] });
     const rows = await repo.getMessageFiles("m1");

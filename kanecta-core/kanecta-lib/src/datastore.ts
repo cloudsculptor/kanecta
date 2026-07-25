@@ -4,6 +4,7 @@ import {
   ROOT_ID, TYPES_NODE, WELL_KNOWN_TYPES, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE, DEFAULT_LICENSE,
 } from '@kanecta/sqlite-fs';
 
+import * as fs from 'fs';
 import * as datastoreUtils from '@kanecta/datastore-utils';
 
 // ─── Remote-only working set: `cloud` remote → openCloud cloudConfig ──────────
@@ -39,6 +40,24 @@ function buildPgConnectionString(pg: any): string {
   return `postgres://${auth}@${host}:${port}/${pg.database}`;
 }
 
+// Resolve the postgres `ssl` block for node-pg. Supports CA pinning via
+// `caFile`: a path to the cluster's CA certificate PEM (e.g. the DigitalOcean
+// managed-pg CA), read here and passed to node-pg as `ca` so the server cert
+// chain is verified against exactly that CA. This is the supported alternative
+// to `rejectUnauthorized: false`, which accepts ANY certificate and must not
+// reach production. `ssl: true` and explicit object forms pass through as-is.
+function resolveSslBlock(ssl: any): any {
+  if (!ssl || typeof ssl !== 'object' || !ssl.caFile) return ssl;
+  const { caFile, ...rest } = ssl;
+  let ca: string;
+  try {
+    ca = fs.readFileSync(caFile, 'utf8');
+  } catch (err: any) {
+    throw new Error(`cloud remote's postgres ssl.caFile is unreadable: ${caFile} (${err.message})`);
+  }
+  return { ...rest, ca };
+}
+
 // Translate a `cloud` origin remote into the cloudConfig shape openCloud expects.
 // Throws a clear error if either half of the required pg+s3 pair is missing.
 function cloudConfigFromRemote(origin: any): any {
@@ -54,7 +73,7 @@ function cloudConfigFromRemote(origin: any): any {
     );
   }
   const cloudConfig: any = { pg: { connectionString: buildPgConnectionString(pg) } };
-  if (pg.ssl) cloudConfig.pg.ssl = pg.ssl;
+  if (pg.ssl) cloudConfig.pg.ssl = resolveSslBlock(pg.ssl);
   // Optional `schema` scopes every connection's search_path — lets one Postgres
   // database host several isolated Kanecta datastores side by side (e.g. a
   // backfilled app copy in its own schema). Passed as a libpq `options` startup
@@ -287,6 +306,38 @@ class Datastore {
   // ─── Index maintenance ─────────────────────────────────────────────────────
 
   async rebuildIndexes()                     { return this._adapter.rebuildIndexes(); }
+
+  // ─── Projections (obj_<typeId> + perf_* derived structures) ────────────────
+
+  // Both adapters implement these; the guards keep the facade honest against
+  // a future adapter that doesn't (same pattern as transaction()).
+  async listProjectedRelations() {
+    if (typeof this._adapter.listProjectedRelations !== 'function') return [];
+    return this._adapter.listProjectedRelations();
+  }
+
+  async describeProjectedRelation(table: any) {
+    if (typeof this._adapter.describeProjectedRelation !== 'function') return null;
+    return this._adapter.describeProjectedRelation(table);
+  }
+
+  async countProjectedRows(table: any) {
+    if (typeof this._adapter.countProjectedRows !== 'function') return null;
+    return this._adapter.countProjectedRows(table);
+  }
+
+  // Manual refresh of every derived structure (spec: obj_/perf_ projections are
+  // strictly derived — always rebuildable). Returns a per-structure report:
+  // { storage, structures: [{ name, status, ... }], ok }.
+  async rebuildProjections(opts?: any) {
+    if (typeof this._adapter.rebuildProjections !== 'function') {
+      throw new Error(
+        'rebuildProjections() is not supported on this working set — the ' +
+        'adapter does not implement the projection rebuild surface.',
+      );
+    }
+    return this._adapter.rebuildProjections(opts);
+  }
 
   // ─── Integrity checks ────────────────────────────────────────────────────────
 

@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert';
 import { camelToSnake, planBackfill, applyBackfillPlan } from '../src/index.ts';
 import type { SourceTable } from '../src/index.ts';
+import { version as specVersion } from '@kanecta/specification';
 
 test('camelToSnake mirrors the compiler column naming', () => {
   assert.equal(camelToSnake('threadId'), 'thread_id');
@@ -46,8 +47,11 @@ test('applyBackfillPlan writes items/obj/relationships and is idempotent', { ski
   try {
     await pool.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
     await pool.query(`CREATE SCHEMA ${schema}`);
+    // spec_version carries the stale one-time-backfill DEFAULT deliberately: the
+    // executor must override it explicitly, never inherit it (the 651-row incident).
     await pool.query(`CREATE TABLE ${schema}.items (
-      id uuid PRIMARY KEY, parent_id uuid, value text, type varchar(50) NOT NULL, type_id uuid,
+      id uuid PRIMARY KEY, spec_version text NOT NULL DEFAULT '1.3.0',
+      parent_id uuid, value text, type varchar(50) NOT NULL, type_id uuid,
       owner varchar(255) NOT NULL, sort_order int NOT NULL DEFAULT 0,
       created_at timestamptz NOT NULL, modified_at timestamptz NOT NULL,
       created_by varchar(255) NOT NULL, modified_by varchar(255) NOT NULL,
@@ -76,9 +80,11 @@ test('applyBackfillPlan writes items/obj/relationships and is idempotent', { ski
     assert.equal(first.objects, 2);
     assert.equal(first.relationships, 1); // only M2 → M1
 
-    // Rows landed with the idempotency key + preserved UUIDs + parent + obj data.
-    const { rows: got } = await pool.query(`SELECT id, parent_id, source_external_id FROM ${schema}.items ORDER BY id`);
+    // Rows landed with the idempotency key + preserved UUIDs + parent + obj data,
+    // and the lib spec version — NOT the column's stale '1.3.0' default.
+    const { rows: got } = await pool.query(`SELECT id, parent_id, source_external_id, spec_version FROM ${schema}.items ORDER BY id`);
     assert.deepEqual(got.map((r: any) => r.id), [M1, M2]);
+    for (const r of got) assert.equal(r.spec_version, specVersion);
     assert.equal(got.find((r: any) => r.id === M1).source_external_id, `discussions_messages:${M1}`);
     assert.equal(got.find((r: any) => r.id === M2).parent_id, T1);
     const { rows: objRows } = await pool.query(`SELECT content FROM ${schema}.${obj} WHERE item_id = $1`, [M1]);

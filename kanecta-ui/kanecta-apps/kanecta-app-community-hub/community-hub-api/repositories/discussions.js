@@ -53,6 +53,16 @@ export async function getFileForDownload(fileId) {
   return rows[0];
 }
 
+// Remove the discussions_message_files link rows for a file that is about to be
+// deleted. pg needs no work — the schema cascades (file_id … ON DELETE CASCADE).
+// Kanecta has no FK cascade, so the link items must be deleted explicitly or they
+// dangle after the file item is gone (the 2026-07-23 "no messages yet" incident:
+// one dangling link poisoned every thread's file query). Call BEFORE deleting the
+// file itself so a partial failure can never leave a link without a file.
+export async function deleteFileLinks(fileId) {
+  if (USE_KANECTA) return kanecta.deleteFileLinks(fileId);
+}
+
 // { id, storage_key, uploaded_by_id } for a file, or undefined (delete endpoint).
 export async function getFileForDelete(fileId) {
   if (USE_KANECTA) return kanecta.getFileForDelete(fileId);
