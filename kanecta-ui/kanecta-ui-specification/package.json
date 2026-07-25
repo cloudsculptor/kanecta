@@ -15,7 +15,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
-    "asciidoctor": "^4.0.4"
+    "asciidoctor": "^4.0.5"
   },
   "files": [
     "index.ts",
