@@ -49,7 +49,7 @@ test('isDatastore returns false for non-datastore directory', () => {
 
 test('create returns item with valid UUID and correct fields', async () => {
   const ds = tmpDs();
-  const item = await ds.create({ value: 'hello', type: 'string', tags: ['x'] });
+  const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'hello', type: 'string', tags: ['x'] });
   expect(item.id).toMatch(UUID_RE);
   expect(item.value).toBe('hello');
   expect(item.type).toBe('string');
@@ -62,15 +62,15 @@ test('create returns item with valid UUID and correct fields', async () => {
 
 test('create auto-increments sortOrder among siblings', async () => {
   const ds = tmpDs();
-  const a = await ds.create({ value: 'a' });
-  const b = await ds.create({ value: 'b' });
+  const a = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a' });
+  const b = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b' });
   expect(b.sortOrder).toBeGreaterThan(a.sortOrder);
   fs.rmSync(ds.root, { recursive: true });
 });
 
 test('get returns item by UUID, null for unknown', async () => {
   const ds = tmpDs();
-  const item = await ds.create({ value: 'x' });
+  const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
   expect((await ds.get(item.id)).id).toBe(item.id);
   expect(await ds.get('ffffffff-ffff-4fff-bfff-ffffffffffff')).toBeNull(); // unknown UUID
   fs.rmSync(ds.root, { recursive: true });
@@ -78,15 +78,15 @@ test('get returns item by UUID, null for unknown', async () => {
 
 test('create records [[uuid]] backlinks', async () => {
   const ds = tmpDs();
-  const target = await ds.create({ value: 'target' });
-  const src = await ds.create({ value: `see [[${target.id}]]` });
+  const target = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target' });
+  const src = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: `see [[${target.id}]]` });
   expect(await ds.backlinks(target.id)).toContain(src.id);
   fs.rmSync(ds.root, { recursive: true });
 });
 
 test('create writes history entry with changeType create', async () => {
   const ds = tmpDs();
-  const item = await ds.create({ value: 'test' });
+  const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'test' });
   const hist = await ds.history(item.id);
   expect(hist).toHaveLength(1);
   expect(hist[0].changeType).toBe('create');
@@ -97,7 +97,7 @@ test('create writes history entry with changeType create', async () => {
 
 test('setAlias / resolveAlias / resolve round-trip', async () => {
   const ds = tmpDs();
-  const item = await ds.create({ value: 'x' });
+  const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
   await ds.setAlias('my-alias', item.id);
   expect(await ds.resolveAlias('my-alias')).toBe(item.id);
   expect((await ds.resolve('my-alias')).id).toBe(item.id);
@@ -107,8 +107,8 @@ test('setAlias / resolveAlias / resolve round-trip', async () => {
 
 test('listAliases returns sorted aliases', async () => {
   const ds = tmpDs();
-  const a = await ds.create({ value: 'a' });
-  const b = await ds.create({ value: 'b' });
+  const a = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a' });
+  const b = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b' });
   await ds.setAlias('zzz', a.id);
   await ds.setAlias('aaa', b.id);
   const list = await ds.listAliases();
@@ -119,7 +119,7 @@ test('listAliases returns sorted aliases', async () => {
 
 test('removeAlias makes alias unresolvable', async () => {
   const ds = tmpDs();
-  const item = await ds.create({ value: 'x' });
+  const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
   await ds.setAlias('gone', item.id);
   await ds.removeAlias('gone');
   expect(await ds.resolveAlias('gone')).toBeNull();
@@ -130,9 +130,9 @@ test('removeAlias makes alias unresolvable', async () => {
 
 test('update changes value and reconciles backlinks', async () => {
   const ds = tmpDs();
-  const t1 = await ds.create({ value: 'target1' });
-  const t2 = await ds.create({ value: 'target2' });
-  const src = await ds.create({ value: `[[${t1.id}]]` });
+  const t1 = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target1' });
+  const t2 = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target2' });
+  const src = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: `[[${t1.id}]]` });
   await ds.update(src.id, { value: `[[${t2.id}]]` });
   expect(await ds.backlinks(t1.id)).not.toContain(src.id);
   expect(await ds.backlinks(t2.id)).toContain(src.id);
@@ -141,7 +141,7 @@ test('update changes value and reconciles backlinks', async () => {
 
 test('update reconciles tags', async () => {
   const ds = tmpDs();
-  const item = await ds.create({ value: 'x', tags: ['old'] });
+  const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x', tags: ['old'] });
   await ds.update(item.id, { tags: ['new'] });
   expect(await ds.byTag('old')).not.toContain(item.id);
   expect(await ds.byTag('new')).toContain(item.id);
@@ -150,7 +150,7 @@ test('update reconciles tags', async () => {
 
 test('update adds history snapshot', async () => {
   const ds = tmpDs();
-  const item = await ds.create({ value: 'v1' });
+  const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'v1' });
   await ds.update(item.id, { value: 'v2' });
   const hist = await ds.history(item.id);
   expect(hist).toHaveLength(2);
@@ -164,7 +164,7 @@ test('update adds history snapshot', async () => {
 
 test('delete removes item and cleans up indexes', async () => {
   const ds = tmpDs();
-  const item = await ds.create({ value: 'bye', tags: ['t'] });
+  const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'bye', tags: ['t'] });
   await ds.delete(item.id);
   expect(await ds.get(item.id)).toBeNull();
   expect(await ds.byTag('t')).not.toContain(item.id);
@@ -173,8 +173,8 @@ test('delete removes item and cleans up indexes', async () => {
 
 test('deleteWarnings reports backlinks and inbound relationships', async () => {
   const ds = tmpDs();
-  const target = await ds.create({ value: 'target' });
-  await ds.create({ value: `[[${target.id}]]` });
+  const target = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target' });
+  await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: `[[${target.id}]]` });
   const warnings = await ds.deleteWarnings(target.id);
   expect(warnings.length).toBeGreaterThan(0);
   fs.rmSync(ds.root, { recursive: true });
@@ -184,7 +184,7 @@ test('deleteWarnings reports backlinks and inbound relationships', async () => {
 
 test('annotate / annotations round-trip', async () => {
   const ds = tmpDs();
-  const item = await ds.create({ value: 'x' });
+  const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
   const ann = await ds.annotate(item.id, { content: 'my note' });
   expect(ann.targetId).toBe(item.id);
   expect(ann.content).toBe('my note');
@@ -196,7 +196,7 @@ test('annotate / annotations round-trip', async () => {
 
 test('annotate supports threaded reply', async () => {
   const ds = tmpDs();
-  const item = await ds.create({ value: 'x' });
+  const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
   const parent = await ds.annotate(item.id, { content: 'parent' });
   const reply = await ds.annotate(item.id, { content: 'reply', parentAnnotationId: parent.id });
   expect(reply.parentAnnotationId).toBe(parent.id);
@@ -207,8 +207,8 @@ test('annotate supports threaded reply', async () => {
 
 test('relate creates outbound and inbound entries', async () => {
   const ds = tmpDs();
-  const a = await ds.create({ value: 'a' });
-  const b = await ds.create({ value: 'b' });
+  const a = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a' });
+  const b = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b' });
   const rel = await ds.relate(a.id, 'depends-on', b.id, { note: 'reason' });
   const srcRels = await ds.relationships(a.id);
   const tgtRels = await ds.relationships(b.id);
@@ -221,8 +221,8 @@ test('relate creates outbound and inbound entries', async () => {
 
 test('rel types: datastore-configurable via addRelTypes; relate validates against the effective list', async () => {
   const ds = tmpDs();
-  const a = await ds.create({ value: 'a' });
-  const b = await ds.create({ value: 'b' });
+  const a = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a' });
+  const b = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b' });
   // unknown type rejected against built-in defaults
   await expect(ds.relate(a.id, 'affects', b.id)).rejects.toThrow(/Invalid relationship type/);
   // register datastore-level types -> now accepted; built-ins preserved
@@ -242,7 +242,7 @@ test('rel types: datastore-configurable via addRelTypes; relate validates agains
 
 test('children returns sorted children', async () => {
   const ds = tmpDs();
-  const root = await ds.create({ value: 'root' });
+  const root = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'root' });
   const c1 = await ds.create({ value: 'c1', parentId: root.id, sortOrder: 0 });
   const c2 = await ds.create({ value: 'c2', parentId: root.id, sortOrder: 1 });
   const kids = await ds.children(root.id);
@@ -253,7 +253,7 @@ test('children returns sorted children', async () => {
 
 test('tree respects maxDepth', async () => {
   const ds = tmpDs();
-  const root = await ds.create({ value: 'root' });
+  const root = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'root' });
   const child = await ds.create({ value: 'child', parentId: root.id });
   await ds.create({ value: 'grandchild', parentId: child.id });
   const nodes = await ds.tree(root.id, 1);
@@ -265,8 +265,8 @@ test('tree respects maxDepth', async () => {
 
 test('byTag returns IDs of tagged items', async () => {
   const ds = tmpDs();
-  const item = await ds.create({ value: 'x', tags: ['important'] });
-  await ds.create({ value: 'y' });
+  const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x', tags: ['important'] });
+  await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'y' });
   expect(await ds.byTag('important')).toContain(item.id);
   expect(await ds.byTag('important')).toHaveLength(1);
   fs.rmSync(ds.root, { recursive: true });
@@ -284,11 +284,11 @@ test('byType returns IDs of typed object items', async () => {
 
 test('rebuildIndexes repopulates indexes from filesystem', async () => {
   const ds     = tmpDs();
-  const target = await ds.create({ value: 'target' });
-  const src    = await ds.create({ value: `[[${target.id}]]`, tags: ['mytag'] });
+  const target = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target' });
+  const src    = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: `[[${target.id}]]`, tags: ['mytag'] });
   // Corrupt the SQLite index directly — backlinks and tags derived from item.json files
-  ds._adapter._openDb().prepare('DELETE FROM item_tags WHERE item_id = ?').run(src.id);
-  ds._adapter._openDb().prepare('DELETE FROM backlinks WHERE source_id = ?').run(src.id);
+  ds._adapter._openDb().prepare('DELETE FROM perf_tags WHERE item_id = ?').run(src.id);
+  ds._adapter._openDb().prepare('DELETE FROM perf_backlinks WHERE source_id = ?').run(src.id);
   await ds.rebuildIndexes();
   expect(await ds.backlinks(target.id)).toContain(src.id);
   expect(await ds.byTag('mytag')).toContain(src.id);
@@ -305,7 +305,7 @@ test('rebuildIndexes repopulates indexes from filesystem', async () => {
 
 test('query filters by type and matches primitive/custom type names', async () => {
   const ds       = tmpDs();
-  const root     = await ds.create({ value: 'root' });
+  const root     = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'root' });
   const textItem = await ds.create({ value: 'hello', type: 'text', parentId: root.id });
   await ds.create({ value: 'world', type: 'string', parentId: root.id });
 
@@ -329,8 +329,8 @@ test('query filters by type and matches primitive/custom type names', async () =
 
 test('query filters by rootId scoping', async () => {
   const ds = tmpDs();
-  const r1 = await ds.create({ value: 'r1' });
-  const r2 = await ds.create({ value: 'r2' });
+  const r1 = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'r1' });
+  const r2 = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'r2' });
 
   const c1 = await ds.create({ value: 'c1', parentId: r1.id });
   const c2 = await ds.create({ value: 'c2', parentId: r2.id });
@@ -347,7 +347,7 @@ test('query filters by rootId scoping', async () => {
 
 test('query filters by where predicates (operators: =, !=, in, contains, >, <)', async () => {
   const ds   = tmpDs();
-  const root = await ds.create({ value: 'root' });
+  const root = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'root' });
   const { metadata: typeMeta } = await ds.createType('item', { icon: 'Category' });
 
   const item1 = await ds.create({
@@ -399,7 +399,7 @@ test('query filters by where predicates (operators: =, !=, in, contains, >, <)',
 
 test('query supports sorting and limits', async () => {
   const ds   = tmpDs();
-  const root = await ds.create({ value: 'root' });
+  const root = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'root' });
   const { metadata: typeMeta } = await ds.createType('item', { icon: 'Category' });
 
   await ds.create({ type: 'object', typeId: typeMeta.id, parentId: root.id, objectData: { score: 10 } });
@@ -436,7 +436,7 @@ test('VALID_TYPES includes connector and excludes removed primitive types', () =
 
 test('create initialises 1.4.0 meta fields to null', async () => {
   const ds = tmpDs();
-  const item = await ds.create({ value: 'test' });
+  const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'test' });
   expect(item.expiresAt).toBeNull();
   expect(item.deletedAt).toBeNull();
   expect(item.connectorId).toBeNull();
@@ -449,7 +449,7 @@ test('create initialises 1.4.0 meta fields to null', async () => {
 
 test('update accepts and persists expiresAt, connectorId, materialized, cachedAt', async () => {
   const ds = tmpDs();
-  const item = await ds.create({ value: 'x' });
+  const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
   const connectorId = 'aaaaaaaa-0000-0000-0000-000000000001';
   const expires = new Date(Date.now() + 86400_000).toISOString();
   const cached = new Date().toISOString();
@@ -475,7 +475,7 @@ test('update accepts and persists expiresAt, connectorId, materialized, cachedAt
 
 test('softDelete sets deletedAt, item still exists on disk', async () => {
   const ds = tmpDs();
-  const item = await ds.create({ value: 'doomed' });
+  const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'doomed' });
   const deleted = await ds.softDelete(item.id);
   expect(deleted.deletedAt).not.toBeNull();
   // get() returns it (with deletedAt set)
@@ -486,7 +486,7 @@ test('softDelete sets deletedAt, item still exists on disk', async () => {
 
 test('softDelete writes a soft-delete history entry', async () => {
   const ds = tmpDs();
-  const item = await ds.create({ value: 'x' });
+  const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
   await ds.softDelete(item.id);
   const hist = await ds.history(item.id);
   expect(hist.map(h => h.changeType)).toContain('soft-delete');
@@ -495,7 +495,7 @@ test('softDelete writes a soft-delete history entry', async () => {
 
 test('restore clears deletedAt and writes a restore history entry', async () => {
   const ds = tmpDs();
-  const item = await ds.create({ value: 'x' });
+  const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
   await ds.softDelete(item.id);
   const restored = await ds.restore(item.id);
   expect(restored.deletedAt).toBeNull();
@@ -506,8 +506,8 @@ test('restore clears deletedAt and writes a restore history entry', async () => 
 
 test('query excludes soft-deleted items by default', async () => {
   const ds = tmpDs();
-  const live = await ds.create({ value: 'live' });
-  const gone = await ds.create({ value: 'gone' });
+  const live = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'live' });
+  const gone = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'gone' });
   await ds.softDelete(gone.id);
   const results = await ds.query({ limit: 0 });
   const ids = results.map(r => r.id);
@@ -518,8 +518,8 @@ test('query excludes soft-deleted items by default', async () => {
 
 test('query with includeDeleted: true returns soft-deleted items', async () => {
   const ds = tmpDs();
-  const live = await ds.create({ value: 'live' });
-  const gone = await ds.create({ value: 'gone' });
+  const live = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'live' });
+  const gone = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'gone' });
   await ds.softDelete(gone.id);
   const results = await ds.query({ includeDeleted: true, limit: 0 });
   const ids = results.map(r => r.id);
@@ -534,9 +534,9 @@ test('query expiredOnly returns only items with expiresAt in the past', async ()
   const ds = tmpDs();
   const past = new Date(Date.now() - 10_000).toISOString();
   const future = new Date(Date.now() + 86400_000).toISOString();
-  const stale = await ds.create({ value: 'stale' });
-  const fresh = await ds.create({ value: 'fresh' });
-  const never = await ds.create({ value: 'never' });
+  const stale = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'stale' });
+  const fresh = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'fresh' });
+  const never = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'never' });
   await ds.update(stale.id, { expiresAt: past });
   await ds.update(fresh.id, { expiresAt: future });
   const results = await ds.query({ expiredOnly: true, limit: 0 });
@@ -551,9 +551,9 @@ test('query excludeExpired omits items with expiresAt in the past', async () => 
   const ds = tmpDs();
   const past = new Date(Date.now() - 10_000).toISOString();
   const future = new Date(Date.now() + 86400_000).toISOString();
-  const stale = await ds.create({ value: 'stale' });
-  const fresh = await ds.create({ value: 'fresh' });
-  const never = await ds.create({ value: 'never' });
+  const stale = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'stale' });
+  const fresh = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'fresh' });
+  const never = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'never' });
   await ds.update(stale.id, { expiresAt: past });
   await ds.update(fresh.id, { expiresAt: future });
   const results = await ds.query({ excludeExpired: true, limit: 0 });
@@ -568,14 +568,14 @@ test('query excludeExpired omits items with expiresAt in the past', async () => 
 
 test('readTimeJson returns null when no time.json exists', async () => {
   const ds = tmpDs();
-  const item = await ds.create({ value: 'x' });
+  const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
   expect(await ds.readTimeJson(item.id)).toBeNull();
   fs.rmSync(ds.root, { recursive: true });
 });
 
 test('writeTimeJson / readTimeJson round-trip persists keyed contexts', async () => {
   const ds = tmpDs();
-  const item = await ds.create({ value: 'x' });
+  const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
   const timeData = {
     main: {
       startAt: '2026-07-01T09:00:00Z',
@@ -602,7 +602,7 @@ test('writeTimeJson / readTimeJson round-trip persists keyed contexts', async ()
 
 test('deleteTimeJson removes time.json, readTimeJson returns null afterwards', async () => {
   const ds = tmpDs();
-  const item = await ds.create({ value: 'x' });
+  const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
   await ds.writeTimeJson(item.id, { main: { startAt: '2026-07-01T00:00:00Z' } });
   await ds.deleteTimeJson(item.id);
   expect(await ds.readTimeJson(item.id)).toBeNull();
@@ -614,7 +614,7 @@ test('deleteTimeJson removes time.json, readTimeJson returns null afterwards', a
 describe('sparse branches via the Datastore facade', () => {
   test('create sparse branch, make local changes, read through, and merge', async () => {
     const ds     = tmpDs();
-    const onMain = await ds.create({ value: 'on main', type: 'text' });
+    const onMain = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'on main', type: 'text' });
     const child  = await ds.create({ value: 'child', type: 'text', parentId: onMain.id });
 
     const branch = ds.createBranch('feature/sparse', { fill: 'sparse' });
@@ -626,7 +626,7 @@ describe('sparse branches via the Datastore facade', () => {
     expect((await ds.get(onMain.id)).value).toBe('on main');
 
     // Local add + edit + delete.
-    const added = await ds.create({ value: 'branch only', type: 'text' });
+    const added = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'branch only', type: 'text' });
     await ds.update(onMain.id, { value: 'edited' }, 'test@example.com');
     await ds.delete(child.id, 'test@example.com');
     expect(await ds.get(child.id)).toBeNull();
@@ -665,19 +665,48 @@ describe('transaction(fn) facade', () => {
     const ds = new Datastore(stubAdapter);
     const out = await ds.transaction(async (tx) => {
       received = tx;
-      const a = await tx.create({ value: 'a' });
+      const a = await tx.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a' });
       return a.id;
     });
     // fn's return value flows back out.
     expect(out).toBe('x');
     // The handle passed to fn is the facade itself, so every tx.* enlists via it.
     expect(received).toBe(ds);
-    expect(calls).toEqual([['create', { value: 'a' }]]);
+    expect(calls).toEqual([['create', { parentId: '00000000-0000-0000-0000-000000000000', value: 'a' }]]);
   });
 
   test('throws on a working set whose adapter has no transaction support', async () => {
-    const ds = tmpDs(); // fs/sqlite adapter — transaction is deferred
+    const ds = new Datastore({}); // an adapter with no transaction()
     await expect(ds.transaction(async () => {})).rejects.toThrow(/not supported on this working set/);
+  });
+
+  test('sqlite-fs working set: transaction commits atomically and rejects an async fn', async () => {
+    const ds = tmpDs();
+    // sync fn: multi-op atomic commit. The tx handle is the SYNC surface
+    // (plain returns, sync throws) — no reaching into _adapter needed.
+    const id = await ds.transaction((tx) => {
+      const a = tx.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'tx-a' });
+      tx.update(a.id, { value: 'tx-a2' });
+      return a.id;
+    });
+    expect((await ds.get(id)).value).toBe('tx-a2');
+    // async fn: rejected loudly (better-sqlite3 is synchronous), nothing written
+    await expect(ds.transaction(async (tx) => { await tx.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'lost' }); }))
+      .rejects.toThrow(/synchronous/);
+    fs.rmSync(ds.root, { recursive: true, force: true });
+  });
+
+  test('sqlite-fs working set: a failing op inside the fn rolls the whole transaction back', async () => {
+    const ds = tmpDs();
+    // The tx handle throws SYNCHRONOUSLY on a failing op — with the async
+    // facade as the handle this surfaced as a floating rejected promise after
+    // commit, and the earlier ops stayed applied (the bug this test pins).
+    let createdId: any = null;
+    await expect(ds.transaction((tx) => {
+      createdId = tx.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'doomed' }).id;
+      tx.update('99999999-9999-4999-8999-999999999999', { value: 'no such item' });
+    })).rejects.toThrow(/not found/i);
+    expect(await ds.get(createdId)).toBeNull();
     fs.rmSync(ds.root, { recursive: true, force: true });
   });
 });

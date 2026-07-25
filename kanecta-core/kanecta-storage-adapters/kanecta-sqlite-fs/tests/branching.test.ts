@@ -29,19 +29,21 @@ describe('branch lifecycle', () => {
     cleanup(a);
   });
 
-  test('createBranch returns manifest with name, base, fill, createdAt', () => {
+  test('createBranch returns manifest with name, base, fill, createdAt — default fill is SPARSE', () => {
     const a = tmpAdapter();
     const b = a.createBranch('feature/foo');
     expect(b.name).toBe('feature/foo');
     expect(b.base).toBe('main');
-    expect(b.fill).toBe('full');
+    expect(b.fill).toBe('sparse'); // scale-correct default (spec «Branch operations»)
+    expect(b.upstream).toEqual({ branch: 'main' });
     expect(b.createdAt).toBeTruthy();
+    expect(() => a.createBranch('feature/bad', { fill: 'partial' })).toThrow(/Unknown fill/);
     cleanup(a);
   });
 
   test('createBranch creates a full self-contained branch folder', () => {
     const a   = tmpAdapter();
-    a.createBranch('feature/foo');
+    a.createBranch('feature/foo', { fill: 'full' });
     const dir = path.join(a.k, 'branches', 'feature__foo');
     expect(fs.existsSync(dir)).toBe(true);
     expect(fs.existsSync(path.join(dir, 'branch.json'))).toBe(true);
@@ -57,8 +59,8 @@ describe('branch lifecycle', () => {
 
   test('createBranch is a full copy — base items appear in the new branch', () => {
     const a    = tmpAdapter();
-    const item = a.create({ value: 'on main', type: 'text' });
-    a.createBranch('feature/foo');
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'on main', type: 'text' });
+    a.createBranch('feature/foo', { fill: 'full' });
     // Item file copied into the branch's own items/ tree.
     expect(fs.existsSync(itemPathOn(a, 'feature__foo', item.id))).toBe(true);
     a.switchBranch('feature/foo');
@@ -114,7 +116,7 @@ describe('branch lifecycle', () => {
     const a = tmpAdapter();
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
-    const item = a.create({ value: 'branch item', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'branch item', type: 'text' });
     // A fresh adapter on the same root + useBranch sees the branch's items.
     const b = SqliteFsAdapter.open(a.root);
     b.useBranch('feature/foo');
@@ -168,7 +170,7 @@ describe('branch write path', () => {
     const a = tmpAdapter();
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
-    const item = a.create({ value: 'branch item', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'branch item', type: 'text' });
     expect(fs.existsSync(itemPathOn(a, 'main', item.id))).toBe(false);
     expect(fs.existsSync(itemPathOn(a, 'feature__foo', item.id))).toBe(true);
     cleanup(a);
@@ -178,7 +180,7 @@ describe('branch write path', () => {
     const a = tmpAdapter();
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
-    const item = a.create({ value: 'branch item', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'branch item', type: 'text' });
     a.switchBranch('main');
     expect(a.get(item.id)).toBeNull();
     cleanup(a);
@@ -186,7 +188,7 @@ describe('branch write path', () => {
 
   test('update on branch is isolated — main keeps the original value on disk', () => {
     const a    = tmpAdapter();
-    const main = a.create({ value: 'original', type: 'text' });
+    const main = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'original', type: 'text' });
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
     a.update(main.id, { value: 'modified on branch' });
@@ -201,8 +203,8 @@ describe('branch write path', () => {
 
   test('delete on branch of a copied item leaves main file intact', () => {
     const a    = tmpAdapter();
-    const item = a.create({ value: 'to delete', type: 'text' });
-    a.createBranch('feature/foo');
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'to delete', type: 'text' });
+    a.createBranch('feature/foo', { fill: 'full' });
     a.switchBranch('feature/foo');
     a.delete(item.id);
     // Removed from the branch folder, still present on main.
@@ -219,7 +221,7 @@ describe('branch read path', () => {
     const a = tmpAdapter();
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
-    const item = a.create({ value: 'branch item', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'branch item', type: 'text' });
     expect(a.get(item.id)).not.toBeNull();
     expect(a.get(item.id).value).toBe('branch item');
     cleanup(a);
@@ -227,7 +229,7 @@ describe('branch read path', () => {
 
   test('get() on branch returns updated value for modified item', () => {
     const a    = tmpAdapter();
-    const item = a.create({ value: 'original', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'original', type: 'text' });
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
     a.update(item.id, { value: 'branch modified' });
@@ -237,7 +239,7 @@ describe('branch read path', () => {
 
   test('get() returns null for item deleted on branch', () => {
     const a    = tmpAdapter();
-    const item = a.create({ value: 'to delete', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'to delete', type: 'text' });
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
     a.delete(item.id);
@@ -247,7 +249,7 @@ describe('branch read path', () => {
 
   test('get() on main still returns item deleted on branch', () => {
     const a    = tmpAdapter();
-    const item = a.create({ value: 'to delete', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'to delete', type: 'text' });
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
     a.delete(item.id);
@@ -258,7 +260,7 @@ describe('branch read path', () => {
 
   test('get() on main still returns original value for item modified on branch', () => {
     const a    = tmpAdapter();
-    const item = a.create({ value: 'original', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'original', type: 'text' });
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
     a.update(item.id, { value: 'branch modified' });
@@ -269,7 +271,7 @@ describe('branch read path', () => {
 
   test('children() on branch includes branch-created children', () => {
     const a      = tmpAdapter();
-    const parent = a.create({ value: 'parent', type: 'text' });
+    const parent = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'parent', type: 'text' });
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
     const child = a.create({ value: 'branch child', type: 'text', parentId: parent.id });
@@ -280,7 +282,7 @@ describe('branch read path', () => {
 
   test('children() on branch excludes items deleted on branch', () => {
     const a      = tmpAdapter();
-    const parent = a.create({ value: 'parent', type: 'text' });
+    const parent = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'parent', type: 'text' });
     const child  = a.create({ value: 'doomed', type: 'text', parentId: parent.id });
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
@@ -292,7 +294,7 @@ describe('branch read path', () => {
 
   test('children() on branch shows updated values for modified children', () => {
     const a      = tmpAdapter();
-    const parent = a.create({ value: 'parent', type: 'text' });
+    const parent = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'parent', type: 'text' });
     const child  = a.create({ value: 'original', type: 'text', parentId: parent.id });
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
@@ -307,7 +309,7 @@ describe('branch read path', () => {
     const a   = tmpAdapter();
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
-    const item = a.create({ value: 'branch item', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'branch item', type: 'text' });
     const all  = a.loadAll();
     expect(all.map(i => i.id)).toContain(item.id);
     cleanup(a);
@@ -315,7 +317,7 @@ describe('branch read path', () => {
 
   test('loadAll() on branch excludes items deleted on branch', () => {
     const a    = tmpAdapter();
-    const item = a.create({ value: 'main item', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'main item', type: 'text' });
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
     a.delete(item.id);
@@ -326,7 +328,7 @@ describe('branch read path', () => {
 
   test('loadAll() on branch shows updated values for modified items', () => {
     const a    = tmpAdapter();
-    const item = a.create({ value: 'original', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'original', type: 'text' });
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
     a.update(item.id, { value: 'branch value' });
@@ -337,7 +339,7 @@ describe('branch read path', () => {
 
   test('switching branches clears memory cache', () => {
     const a    = tmpAdapter();
-    const item = a.create({ value: 'original', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'original', type: 'text' });
     // Warm cache on main
     a.get(item.id);
     a.createBranch('feature/foo');
@@ -367,7 +369,7 @@ describe('branchDiff()', () => {
     const a = tmpAdapter();
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
-    const item = a.create({ value: 'new', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'new', type: 'text' });
     const diff = a.branchDiff('feature/foo');
     expect(diff.adds.map(x => x.id)).toContain(item.id);
     cleanup(a);
@@ -375,7 +377,7 @@ describe('branchDiff()', () => {
 
   test('EDIT appears in diff for modified items', () => {
     const a    = tmpAdapter();
-    const item = a.create({ value: 'original', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'original', type: 'text' });
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
     a.update(item.id, { value: 'modified' });
@@ -388,7 +390,7 @@ describe('branchDiff()', () => {
 
   test('DELETE appears in diff for deleted items', () => {
     const a    = tmpAdapter();
-    const item = a.create({ value: 'to delete', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'to delete', type: 'text' });
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
     a.delete(item.id);
@@ -399,11 +401,11 @@ describe('branchDiff()', () => {
 
   test('diff includes all three change types at once', () => {
     const a  = tmpAdapter();
-    const e  = a.create({ value: 'edit me', type: 'text' });
-    const d  = a.create({ value: 'delete me', type: 'text' });
+    const e  = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'edit me', type: 'text' });
+    const d  = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'delete me', type: 'text' });
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
-    const n  = a.create({ value: 'new', type: 'text' });
+    const n  = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'new', type: 'text' });
     a.update(e.id, { value: 'edited' });
     a.delete(d.id);
     const diff = a.branchDiff('feature/foo');
@@ -417,7 +419,7 @@ describe('branchDiff()', () => {
     const a = tmpAdapter();
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
-    a.create({ value: 'new', type: 'text' });
+    a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'new', type: 'text' });
     const diff = a.branchDiff(); // no arg — uses current branch
     expect(diff.adds).toHaveLength(1);
     cleanup(a);
@@ -427,7 +429,7 @@ describe('branchDiff()', () => {
     const a = tmpAdapter();
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
-    const item = a.create({ value: 'ephemeral', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'ephemeral', type: 'text' });
     a.delete(item.id);
     const diff = a.branchDiff('feature/foo');
     expect(diff.adds.map(x => x.id)).not.toContain(item.id);
@@ -443,7 +445,7 @@ describe('mergeBranchLocally()', () => {
     const a = tmpAdapter();
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
-    const item = a.create({ value: 'new', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'new', type: 'text' });
     a.switchBranch('main');
     a.mergeBranchLocally('feature/foo');
     expect(a.get(item.id)).not.toBeNull();
@@ -453,7 +455,7 @@ describe('mergeBranchLocally()', () => {
 
   test('branch-updated item reflects new value in main after merge', () => {
     const a    = tmpAdapter();
-    const item = a.create({ value: 'original', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'original', type: 'text' });
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
     a.update(item.id, { value: 'updated' });
@@ -465,7 +467,7 @@ describe('mergeBranchLocally()', () => {
 
   test('branch-deleted item is gone from main after merge', () => {
     const a    = tmpAdapter();
-    const item = a.create({ value: 'to delete', type: 'text' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'to delete', type: 'text' });
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
     a.delete(item.id);
@@ -479,7 +481,7 @@ describe('mergeBranchLocally()', () => {
     const a = tmpAdapter();
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
-    a.create({ value: 'x', type: 'text' });
+    a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x', type: 'text' });
     a.switchBranch('main');
     a.mergeBranchLocally('feature/foo');
     expect(fs.existsSync(path.join(a.k, 'branches', 'feature__foo'))).toBe(false);
@@ -498,7 +500,7 @@ describe('mergeBranchLocally()', () => {
     const a = tmpAdapter();
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
-    a.create({ value: 'x', type: 'text' });
+    a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x', type: 'text' });
     a.switchBranch('main');
     a.mergeBranchLocally('feature/foo');
     expect(a.listBranches().map(b => b.name)).not.toContain('feature/foo');
@@ -509,8 +511,8 @@ describe('mergeBranchLocally()', () => {
     const a = tmpAdapter();
     a.createBranch('feature/foo');
     a.switchBranch('feature/foo');
-    a.create({ value: 'a', type: 'text' });
-    a.create({ value: 'b', type: 'text' });
+    a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'a', type: 'text' });
+    a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'b', type: 'text' });
     a.switchBranch('main');
     const result = a.mergeBranchLocally('feature/foo');
     expect(result.merged).toBeGreaterThanOrEqual(2);
@@ -527,10 +529,10 @@ describe('multiple branches', () => {
     a.createBranch('feature/b');
 
     a.switchBranch('feature/a');
-    const itemA = a.create({ value: 'branch a item', type: 'text' });
+    const itemA = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'branch a item', type: 'text' });
 
     a.switchBranch('feature/b');
-    const itemB = a.create({ value: 'branch b item', type: 'text' });
+    const itemB = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'branch b item', type: 'text' });
 
     // On branch b: can see branch b's item, not branch a's
     expect(a.get(itemB.id)).not.toBeNull();
@@ -545,13 +547,13 @@ describe('multiple branches', () => {
 
   test('a write on a branch does not appear on main and vice versa', () => {
     const a = tmpAdapter();
-    a.createBranch('feature/foo');
+    a.createBranch('feature/foo', { fill: 'full' });
 
     a.switchBranch('feature/foo');
-    const onBranch = a.create({ value: 'branch only', type: 'text' });
+    const onBranch = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'branch only', type: 'text' });
 
     a.switchBranch('main');
-    const onMain = a.create({ value: 'main only', type: 'text' });
+    const onMain = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'main only', type: 'text' });
     expect(a.get(onBranch.id)).toBeNull();
 
     a.switchBranch('feature/foo');
@@ -565,7 +567,7 @@ describe('multiple branches', () => {
     a.createBranch('feature/a');
     a.createBranch('feature/b');
     a.switchBranch('feature/a');
-    a.create({ value: 'only on a', type: 'text' });
+    a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'only on a', type: 'text' });
     a.switchBranch('feature/b'); // switch away from a
     const diffA = a.branchDiff('feature/a');
     const diffB = a.branchDiff('feature/b');

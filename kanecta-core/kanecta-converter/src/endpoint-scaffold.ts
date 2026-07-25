@@ -56,7 +56,11 @@ export interface ScaffoldResult {
   punchList?: string;
 }
 
-const ROOT_UUID = '00000000-0000-0000-0000-000000000000';
+// Spec §parentid-rules: bucketed built-ins live under their synthetic type
+// item, never root. Fixed UUIDs from the core manifest (types/query.json,
+// types/function.json).
+const QUERY_TYPE_UUID = '1c23396d-c3a0-4f51-9307-a1aecd1f44fa';
+const FUNCTION_TYPE_UUID = '3672b0ca-e81f-44b0-92e8-1b3253cbf38a';
 
 /** `:id`, `:threadId` … in declaration order. */
 export function pathParams(path: string): string[] {
@@ -68,7 +72,11 @@ function endpointTypeId(value: string): string {
 }
 
 function envelope(id: string, type: 'query' | 'function', value: string) {
-  return { id, parentId: ROOT_UUID, type, typeId: null, value, sortOrder: null };
+  return {
+    id,
+    parentId: type === 'query' ? QUERY_TYPE_UUID : FUNCTION_TYPE_UUID,
+    type, typeId: null, value, sortOrder: null,
+  };
 }
 function meta(description: string) {
   return { specVersion: '1.4.0', owner: 'kanecta', visibility: 'public', tags: ['converted', 'endpoint'], description };

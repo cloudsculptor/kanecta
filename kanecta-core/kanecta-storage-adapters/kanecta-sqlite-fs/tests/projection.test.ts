@@ -21,14 +21,15 @@ function definePerson(a: any) {
   return a.createType('Person', {
     id: PERSON_ID,
     schema: {
-      meta: { icon: 'Person' },
+      meta: { icon: 'Person', description: 'A test person type' },
       jsonSchema: {
+        '$schema': 'http://json-schema.org/draft-07/schema#',
         type: 'object',
         properties: {
-          fullName: { type: 'string' },
-          age:      { type: 'integer' },
-          active:   { type: 'boolean' },
-          tags:     { type: 'array', items: { type: 'string' } },
+          fullName: { type: 'string', 'x-id': '11111111-1111-4111-8111-000000000001' },
+          age:      { type: 'integer', 'x-id': '11111111-1111-4111-8111-000000000002' },
+          active:   { type: 'boolean', 'x-id': '11111111-1111-4111-8111-000000000003' },
+          tags:     { type: 'array', items: { type: 'string' }, 'x-id': '11111111-1111-4111-8111-000000000004' },
         },
       },
       indexes: [{ fields: ['fullName'] }],
@@ -178,7 +179,14 @@ describe('per-type projection — update', () => {
     const OTHER_ID = 'ffffffff-1111-2222-3333-444444444444';
     a.createType('Robot', {
       id: OTHER_ID,
-      schema: { meta: { icon: 'SmartToy' }, jsonSchema: { type: 'object', properties: { model: { type: 'string' } } } },
+      schema: {
+        meta: { icon: 'SmartToy', description: 'A test robot type' },
+        jsonSchema: {
+          '$schema': 'http://json-schema.org/draft-07/schema#',
+          type: 'object',
+          properties: { model: { type: 'string', 'x-id': '55555555-5555-4555-8555-000000000001' } },
+        },
+      },
     });
     const p = addPerson(a, { fullName: 'Ada' });
     expect(tableExists(a)).toBe(true);
@@ -215,6 +223,54 @@ describe('per-type projection — rebuildIndexes', () => {
   });
 });
 
+// ─── Manual projection refresh (rebuildProjections) ───────────────────────────
+// Spec §"Rebuildability guarantee": index.db — obj_ and perf_ tables included —
+// is 100% derivable from items/. rebuildProjections is the manual surface.
+
+describe('per-type projection — rebuildProjections', () => {
+  test('regenerates obj_ rows after the whole index is blown away', () => {
+    const a = tmpAdapter();
+    definePerson(a);
+    addPerson(a, { fullName: 'Ada' });
+    addPerson(a, { fullName: 'Grace' });
+    // Simulate corruption: drop the projected table behind the adapter's back.
+    a._openDb().exec(`DROP TABLE "${PERSON_TABLE}"`);
+    expect(tableExists(a)).toBe(false);
+
+    const report = a.rebuildProjections();
+    expect(report.storage).toBe('filesystem');
+    expect(report.ok).toBe(true);
+    expect(report.items).toBeGreaterThan(0);
+    expect(tableExists(a)).toBe(true);
+    expect(rows(a).length).toBe(2);          // rows restored from item.json
+    const objs = report.structures.find((s: any) => s.name === 'obj-tables');
+    expect(objs.status).toBe('rebuilt');
+    expect(objs.tables).toBeGreaterThan(0);
+    cleanup(a);
+  });
+
+  test('opts.only filters the reported structures (rebuild is monolithic)', () => {
+    const a = tmpAdapter();
+    definePerson(a);
+    addPerson(a, { fullName: 'Ada' });
+    const report = a.rebuildProjections({ only: ['perf_backlinks'] });
+    expect(report.structures.map((s: any) => s.name)).toEqual(['perf_backlinks']);
+    expect(report.ok).toBe(true);
+    cleanup(a);
+  });
+
+  test('describeProjectedRelation returns schema-derived columns', () => {
+    const a = tmpAdapter();
+    definePerson(a);
+    addPerson(a, { fullName: 'Ada' });
+    const cols = a.describeProjectedRelation(PERSON_TABLE);
+    expect(cols.map((c: any) => c.name).sort())
+      .toEqual(['active', 'age', 'full_name', 'item_id', 'tags'].sort());
+    expect(a.describeProjectedRelation('obj_nope')).toEqual([]);
+    cleanup(a);
+  });
+});
+
 // ─── Exemptions ────────────────────────────────────────────────────────────────
 
 describe('per-type projection — exemptions', () => {
@@ -223,7 +279,7 @@ describe('per-type projection — exemptions', () => {
     // A fresh store seeds the built-in licences → obj_<licence> exists; a plain
     // text item must not add any further obj_ table.
     const before = a.listProjectedRelations().length;
-    a.create({ value: 'plain text', type: 'text' });
+    a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'plain text', type: 'text' });
     expect(a.listProjectedRelations().length).toBe(before);
     cleanup(a);
   });
@@ -248,8 +304,8 @@ describe('per-type projection — relationship', () => {
 
   test('relate() projects a row into obj_<relationship> with the spec column shape', () => {
     const a = tmpAdapter();
-    const x = a.create({ value: 'x' });
-    const y = a.create({ value: 'y' });
+    const x = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
+    const y = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'y' });
     a.relate(x.id, 'depends-on', y.id, { note: 'critical' });
 
     expect(a.listProjectedRelations()).toContain(REL_TABLE);
@@ -265,8 +321,8 @@ describe('per-type projection — relationship', () => {
 
   test('relationships()/listRelationships() read from the projection', () => {
     const a = tmpAdapter();
-    const x = a.create({ value: 'x' });
-    const y = a.create({ value: 'y' });
+    const x = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
+    const y = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'y' });
     a.relate(x.id, 'depends-on', y.id);
     expect(a.relationships(x.id).outbound).toHaveLength(1);
     expect(a.relationships(x.id).outbound[0].targetId).toBe(y.id);
@@ -274,15 +330,15 @@ describe('per-type projection — relationship', () => {
     expect(a.relationships(y.id).inbound[0].sourceId).toBe(x.id);
     expect(a.listRelationships()).toHaveLength(1);
     // Empty store (obj_<relationship> not materialised) resolves to empty, not throw.
-    expect(a.relationships(a.create({ value: 'z' }).id)).toEqual({ outbound: [], inbound: [] });
+    expect(a.relationships(a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'z' }).id)).toEqual({ outbound: [], inbound: [] });
     cleanup(a);
   });
 
   test('custom (unseeded) relationship types project with a null type_id', () => {
     const a = tmpAdapter();
     a.addRelTypes(['affects']);
-    const x = a.create({ value: 'x' });
-    const y = a.create({ value: 'y' });
+    const x = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
+    const y = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'y' });
     a.relate(x.id, 'affects', y.id);
     const row = a._openDb().prepare(`SELECT * FROM "${REL_TABLE}"`).get();
     expect(row.type_id).toBeNull();                 // no seeded relationship-type item
@@ -292,8 +348,8 @@ describe('per-type projection — relationship', () => {
 
   test('deleting an endpoint cascades the relationship out of the projection', () => {
     const a = tmpAdapter();
-    const x = a.create({ value: 'x' });
-    const y = a.create({ value: 'y' });
+    const x = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
+    const y = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'y' });
     a.relate(x.id, 'depends-on', y.id);
     a.delete(x.id);
     expect(a.relationships(y.id).inbound).toHaveLength(0);
@@ -302,8 +358,8 @@ describe('per-type projection — relationship', () => {
 
   test('projection survives a full rebuild from the filesystem', () => {
     const a = tmpAdapter();
-    const x = a.create({ value: 'x' });
-    const y = a.create({ value: 'y' });
+    const x = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
+    const y = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'y' });
     a.relate(x.id, 'depends-on', y.id, { note: 'critical' });
     a.rebuildIndexes();                             // drops + reconstructs obj_ from items/
     expect(a.relationships(x.id).outbound).toHaveLength(1);
@@ -405,7 +461,7 @@ describe('per-type projection — alias', () => {
 
   test('setAlias() projects a row with the spec column shape; the string is item.value', () => {
     const a = tmpAdapter();
-    const t = a.create({ value: 'target' });
+    const t = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target' });
     a.setAlias('the-alias', t.id);
     expect(a.listProjectedRelations()).toContain(ALIAS_TABLE);
     const row = a._openDb().prepare(`SELECT * FROM "${ALIAS_TABLE}"`).get();
@@ -421,7 +477,7 @@ describe('per-type projection — alias', () => {
 
   test('resolveAlias/listAliases/removeAlias read + write the projection', () => {
     const a = tmpAdapter();
-    const t = a.create({ value: 'target' });
+    const t = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target' });
     a.setAlias('a1', t.id);
     expect(a.resolveAlias('a1')).toBe(t.id);
     expect(a.resolveAlias('missing')).toBeNull();          // no throw on empty match
@@ -434,8 +490,8 @@ describe('per-type projection — alias', () => {
 
   test('setAlias() overwrites the target of an existing alias string', () => {
     const a = tmpAdapter();
-    const t1 = a.create({ value: 't1' });
-    const t2 = a.create({ value: 't2' });
+    const t1 = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 't1' });
+    const t2 = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 't2' });
     a.setAlias('same', t1.id);
     a.setAlias('same', t2.id);
     expect(a.resolveAlias('same')).toBe(t2.id);
@@ -445,7 +501,7 @@ describe('per-type projection — alias', () => {
 
   test('deleting the target cascades the alias out of the projection', () => {
     const a = tmpAdapter();
-    const t = a.create({ value: 'target' });
+    const t = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target' });
     a.setAlias('gone-soon', t.id);
     a.delete(t.id);
     expect(a.resolveAlias('gone-soon')).toBeNull();
@@ -455,7 +511,7 @@ describe('per-type projection — alias', () => {
 
   test('projection survives a full rebuild from the filesystem', () => {
     const a = tmpAdapter();
-    const t = a.create({ value: 'target' });
+    const t = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target' });
     a.setAlias('persists', t.id);
     a.rebuildIndexes();
     expect(a.resolveAlias('persists')).toBe(t.id);
@@ -483,7 +539,7 @@ describe('per-type projection — annotation', () => {
 
   test('annotate() projects a row and parents under the type container', () => {
     const a = tmpAdapter();
-    const t = a.create({ value: 'target' });
+    const t = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target' });
     const ann = a.annotate(t.id, { content: 'a note', author: 'alice@x.z' });
     expect(a.listProjectedRelations()).toContain(ANN_TABLE);
     const row = a._openDb().prepare(`SELECT * FROM "${ANN_TABLE}"`).get();
@@ -498,7 +554,7 @@ describe('per-type projection — annotation', () => {
 
   test('annotations() reads the projection: author=createdBy, threaded replies', () => {
     const a = tmpAdapter();
-    const t = a.create({ value: 'target' });
+    const t = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target' });
     const root  = a.annotate(t.id, { content: 'root', author: 'alice@x.z' });
     a.annotate(t.id, { content: 'reply', parentAnnotationId: root.id });
     const anns = a.annotations(t.id);
@@ -506,13 +562,13 @@ describe('per-type projection — annotation', () => {
     expect(anns[0].author).toBe('alice@x.z');
     expect(anns[0].content).toBe('root');
     expect(anns[1].parentAnnotationId).toBe(root.id);
-    expect(a.annotations(a.create({ value: 'x' }).id)).toEqual([]);   // empty, no throw
+    expect(a.annotations(a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' }).id)).toEqual([]);   // empty, no throw
     cleanup(a);
   });
 
   test('deleting the target cascades threaded annotations out of the projection', () => {
     const a = tmpAdapter();
-    const t = a.create({ value: 'target' });
+    const t = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target' });
     const root = a.annotate(t.id, { content: 'root' });
     a.annotate(t.id, { content: 'reply', parentAnnotationId: root.id });
     a.delete(t.id);
@@ -522,7 +578,7 @@ describe('per-type projection — annotation', () => {
 
   test('projection survives a full rebuild from the filesystem', () => {
     const a = tmpAdapter();
-    const t = a.create({ value: 'target' });
+    const t = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'target' });
     a.annotate(t.id, { content: 'persisted note', author: 'bob@x.z' });
     a.rebuildIndexes();
     const anns = a.annotations(t.id);
@@ -556,7 +612,7 @@ describe('per-type projection — licence', () => {
   test('DEFAULT_LICENSE has a real backing item that meta.license resolves to', () => {
     const a = tmpAdapter();
     expect(a.get(DEFAULT_LICENSE)?.type).toBe('licence');
-    const item = a.create({ value: 'x' });
+    const item = a.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x' });
     const licenceId = a.get(item.id).license;
     expect(licenceId).toBe(DEFAULT_LICENSE);
     expect(a.get(licenceId)).not.toBeNull();               // resolves to the backing item

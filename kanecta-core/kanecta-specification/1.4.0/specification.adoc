@@ -5283,7 +5283,7 @@ A user MAY still keep a filesystem datastore under Git for their own history —
 
 === Branch operations (filesystem)
 
-`createBranch(name, { fill, upstream })` creates a branch (default `fill: 'full'`; `upstream` defaults to the current branch). `useBranch(name)` / `switchBranch(name)` select the active branch for the instance (reopening its `index.db`; no shared "current branch" is persisted, so concurrent consumers — API, MCP, CLI — operate on different branches independently). `listBranches()` reads the `branches/` directory and each `branch.json`. `deleteBranch(name)` removes the folder.
+`createBranch(name, { fill, upstream })` creates a branch (default `fill: 'sparse'` — O(1) at any datastore size, the scale-correct default; `full` is an explicit opt-in for mirrors and localisation. `upstream` defaults to the current branch). `useBranch(name)` / `switchBranch(name)` select the active branch for the instance (reopening its `index.db`; no shared "current branch" is persisted, so concurrent consumers — API, MCP, CLI — operate on different branches independently). `listBranches()` reads the `branches/` directory and each `branch.json`. `deleteBranch(name)` removes the folder.
 
 `branchDiff(name)` returns the branch's changes versus its upstream as `{ adds, edits, deletes }`:
 

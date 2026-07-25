@@ -4,7 +4,7 @@ on:
   push:
     branches: [master]
     paths:
-      - 'kanecta-apps/kanecta-apps/kanecta-app-community-hub/community-hub-governance/constitution/constitution.adoc'
+      - 'kanecta-ui/kanecta-apps/kanecta-app-community-hub/community-hub-governance/constitution/constitution.adoc'
 
 jobs:
   deploy:
@@ -17,15 +17,15 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: kanecta-apps/kanecta-app-community-hub/community-hub-governance/package-lock.json
+          cache-dependency-path: kanecta-ui/kanecta-apps/kanecta-app-community-hub/community-hub-governance/package-lock.json
 
       - name: Install dependencies
         run: npm ci
-        working-directory: kanecta-apps/kanecta-app-community-hub/community-hub-governance
+        working-directory: kanecta-ui/kanecta-apps/kanecta-app-community-hub/community-hub-governance
 
       - name: Build constitution HTML
         run: node build.js
-        working-directory: kanecta-apps/kanecta-app-community-hub/community-hub-governance
+        working-directory: kanecta-ui/kanecta-apps/kanecta-app-community-hub/community-hub-governance
 
       - name: Configure SSH
         run: |
@@ -37,5 +37,5 @@ jobs:
       - name: Deploy constitution
         run: |
           rsync -az --delete -e "ssh -i ~/.ssh/deploy_key" \
-            kanecta-apps/kanecta-app-community-hub/community-hub-governance/index.html \
+            kanecta-ui/kanecta-apps/kanecta-app-community-hub/community-hub-governance/index.html \
             root@${{ secrets.DEPLOY_HOST }}:/var/www/featherston-constitution/

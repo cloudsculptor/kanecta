@@ -1,8 +1,10 @@
 import PageLayout from "../components/PageLayout";
+import SiteEditablePage from "../components/SiteEditablePage";
 
 export default function SocialServices() {
   return (
-    <PageLayout pageName="Social Services" showComingSoon={false}>
+    <PageLayout pageName="Social Services" showComingSoon={false} showHeading={false}>
+      <SiteEditablePage slug="social-services" title="Social Services">
       <h3>Food Support in Featherston</h3>
       <p>
         Resources for accessing kai and supporting food security in our
@@ -53,6 +55,7 @@ export default function SocialServices() {
           — local community groups and organisations in the South Wairarapa
         </li>
       </ul>
+      </SiteEditablePage>
     </PageLayout>
   );
 }

@@ -7,14 +7,13 @@ import archiver from "archiver";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { getFileStream } from "../lib/spaces.js";
 import { listPublicPagesForExport, getFilesByIds } from "../repositories/download.js";
+import { fileIdFromUrl } from "../lib/fileRefs.js";
 
 const router = Router();
 const requireTeam = requireRole("team", "moderator", "admin");
 const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 
-const PUBLIC_URL = process.env.SPACES_PUBLIC_URL;
 const SITE_URL = "https://featherston.co.nz";
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EXPIRY_MS = 5 * 60 * 1000;
 
 const pending = new Map();
@@ -83,17 +82,16 @@ function lexicalToMarkdown(contentJson) {
 
 function extractImageRefs(contentJson) {
   const refs = [];
-  if (!PUBLIC_URL || !contentJson?.root) return refs;
-  const prefix = PUBLIC_URL + "/";
+  if (!contentJson?.root) return refs;
 
   function walk(node) {
     if (!node) return;
-    if (node.type === "image" && typeof node.src === "string" && node.src.startsWith(prefix)) {
-      const storageKey = node.src.slice(prefix.length);
-      const uuid = storageKey.split("/")[2];
-      if (uuid && UUID_RE.test(uuid)) {
-        refs.push({ uuid, src: node.src, storageKey });
-      }
+    if (node.type === "image") {
+      // CDN and kanecta file-proxy URL shapes alike. The storage key for byte
+      // fetching comes from the files RECORD (uuidToFile), never from the URL —
+      // a kanecta proxy URL carries no bucket key to slice out.
+      const uuid = fileIdFromUrl(node.src);
+      if (uuid) refs.push({ uuid, src: node.src });
     }
     if (Array.isArray(node.children)) node.children.forEach(walk);
   }
@@ -109,7 +107,7 @@ router.post("/prepare", requireAuth, requireTeam, wrap(async (req, res) => {
 
   // Collect unique image UUIDs and per-page image maps
   const allUUIDs = new Set();
-  const pageImageRefs = new Map(); // slug -> [{ uuid, src, storageKey }]
+  const pageImageRefs = new Map(); // slug -> [{ uuid, src }]
 
   for (const page of pages) {
     const refs = extractImageRefs(page.content_json);
@@ -166,7 +164,7 @@ router.post("/prepare", requireAuth, requireTeam, wrap(async (req, res) => {
       if (!fileInfo || addedToThisPage.has(fileInfo.name)) continue;
       addedToThisPage.add(fileInfo.name);
       try {
-        const response = await getFileStream({ storageKey: ref.storageKey });
+        const response = await getFileStream({ storageKey: fileInfo.storageKey });
         archive.append(response.Body, { name: `pages/${page.slug}/${fileInfo.name}` });
       } catch {
         // Skip images that can't be fetched; markdown ref keeps original URL as fallback

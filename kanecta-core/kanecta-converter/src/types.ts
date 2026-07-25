@@ -106,4 +106,11 @@ export interface IntrospectOptions {
    *  emitting an obj_ column. Default: none — a faithful mirror keeps every
    *  non-PK column, and envelope candidates are only *reported*. */
   envelopeColumns?: string[];
+  /** Expose soft-delete / archive columns (deleted_at, archived_at, …) as normal
+   *  filterable GraphQL fields instead of hiding them. Default false (hidden, to
+   *  steer consumers toward native soft-delete). Set true for a faithful mirror
+   *  of a legacy app whose own queries filter these columns directly
+   *  (`WHERE deleted_at IS NULL`, `WHERE archived_at IS NOT NULL`) — the read path
+   *  must be able to reproduce those filters. */
+  exposeSoftDelete?: boolean;
 }

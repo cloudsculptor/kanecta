@@ -267,9 +267,16 @@ export function buildSchemaModel(typeItems: any[], options: BuildOptions = {}): 
         const targetName = px.targetType
           ?? (mapped.referenceTypeId ? nameByTypeId.get(mapped.referenceTypeId) : undefined);
         if (targetName) {
+          // Always nullable, even when the column is required. A NOT NULL FK
+          // column guarantees a UUID is present, not that the target item is
+          // resolvable at read time: types without typeId/x-kanecta-itemType get
+          // no DB-level FK, and item_archive physically moves soft-deleted rows
+          // out of items. A dangling reference must degrade to null on the one
+          // field — a non-null type would error the entire query for every row
+          // in the result set (one bad row poisons the whole read).
           fields.push({
             name: fieldName,
-            graphqlType: renderTypeRef(targetName, { list: false, nonNull }),
+            graphqlType: renderTypeRef(targetName, { list: false, nonNull: false }),
             namedType: targetName,
             backing: { kind: 'reference', targetTypeName: targetName, list: false, column },
             description: propSchema.description,

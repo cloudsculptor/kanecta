@@ -8,7 +8,14 @@ import { readPgCatalog } from '../src/catalog-pg.ts';
 import { introspect } from '../src/introspect.ts';
 import { snakeToCamel } from '../src/introspect.ts';
 
-const SOURCE = { host: 'localhost', port: 45433, database: 'communityhub', user: 'kanecta', password: 'kanecta' };
+const SOURCE = {
+  host:     process.env.SOURCE_PG_HOST     || 'localhost',
+  port:     Number(process.env.SOURCE_PG_PORT || 45433),
+  database: process.env.SOURCE_PG_DATABASE || 'communityhub',
+  user:     process.env.SOURCE_PG_USER     || 'kanecta',
+  password: process.env.SOURCE_PG_PASSWORD || 'kanecta',
+  ...(process.env.SOURCE_PG_SSL ? { ssl: { rejectUnauthorized: false } } : {}),
+};
 const TARGET_CONN = process.env.KANECTA_TEST_PG_URL || 'postgres://kanecta:kanecta@localhost:45432/kanecta';
 const argSchema = process.argv.find((a) => a.startsWith('--schema='));
 const SCHEMA = argSchema ? argSchema.split('=')[1] : 'communityhub_backfill';
@@ -55,8 +62,20 @@ async function main() {
 
   // ── 3. Relationship-edge integrity: every edge target is a real item ──────────
   console.log('\n3. Relationship edges (relates-to items) resolve to real items:');
+  // Expected = one edge per non-null FK value whose target table is introspected —
+  // mirrors planBackfill's edge planning; derived from the source, never hard-coded
+  // (a literal count goes stale the moment the source dataset moves).
+  const tableNames = new Set(tables.map((t) => t.name));
+  let expectedEdges = 0;
+  for (const t of tables) {
+    for (const fk of t.foreignKeys ?? []) {
+      if (!tableNames.has(fk.references.table)) continue;
+      const { rows } = await source.query(`SELECT count(*)::int n FROM "${t.name}" WHERE "${fk.column}" IS NOT NULL`);
+      expectedEdges += rows[0].n;
+    }
+  }
   const { rows: relCount } = await target.query(`SELECT count(*)::int n FROM items WHERE type='relationship'`);
-  line(relCount[0].n === 603, `${relCount[0].n} relationship items (expected 603)`);
+  line(relCount[0].n === expectedEdges, `${relCount[0].n} relationship items (expected ${expectedEdges} from source FKs)`);
 
   // dangling-target check via the relationship projection table
   const relObj = await target.query(`

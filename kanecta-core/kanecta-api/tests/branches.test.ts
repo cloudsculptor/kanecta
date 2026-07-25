@@ -31,6 +31,100 @@ afterEach(() => {
   delete process.env.AUTH_DISABLED;
 });
 
+// ─── Branch lifecycle entry points (create / activate / switch) ───────────────
+// The Studio branch workflow STARTS here — NewBranchDialog posts create, the
+// WorkingSetSelector posts activate/switch — so these routes get HTTP-layer
+// coverage alongside the diff/merge review steps below.
+
+describe('POST /working-sets/:name/branches (create)', () => {
+  it('creates a full branch by default', async () => {
+    const res = await request(app)
+      .post('/working-sets/default/branches')
+      .send({ branchName: 'feature/full' });
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(ds.listBranches().map((b) => b.name)).toContain('feature/full');
+  });
+
+  it('creates a sparse branch reading through to an upstream', async () => {
+    const res = await request(app)
+      .post('/working-sets/default/branches')
+      .send({ branchName: 'feature/sparse', fill: 'sparse', upstream: { branch: 'main' } });
+    expect(res.status).toBe(200);
+    const created = ds.listBranches().find((b) => b.name === 'feature/sparse');
+    expect(created).toBeDefined();
+  });
+
+  it('400 without a branchName and on an invalid fill', async () => {
+    const noName = await request(app).post('/working-sets/default/branches').send({});
+    expect(noName.status).toBe(400);
+    expect(noName.body.error).toMatch(/branchName/);
+
+    const badFill = await request(app)
+      .post('/working-sets/default/branches')
+      .send({ branchName: 'x', fill: 'partial' });
+    expect(badFill.status).toBe(400);
+    expect(badFill.body.error).toMatch(/full.*sparse|sparse.*full/);
+  });
+
+  it('400 on a duplicate branch name (adapter error surfaced, nothing clobbered)', async () => {
+    ds.createBranch('feature/taken');
+    const res = await request(app)
+      .post('/working-sets/default/branches')
+      .send({ branchName: 'feature/taken' });
+    expect(res.status).toBe(400);
+  });
+
+  it('404 on an unknown working set', async () => {
+    const res = await request(app)
+      .post('/working-sets/nope/branches')
+      .send({ branchName: 'x' });
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('POST /working-sets/:name/activate', () => {
+  it('activates a known working set and reports it in the listing', async () => {
+    const res = await request(app).post('/working-sets/default/activate');
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ ok: true, activeWorkingSet: 'default' });
+
+    const list = await request(app).get('/working-sets');
+    expect(list.body.activeWorkingSet).toBe('default');
+  });
+
+  it('404 on an unknown working set', async () => {
+    const res = await request(app).post('/working-sets/nope/activate');
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('POST /working-sets/:name/branches/:branch/switch', () => {
+  it('switches the active branch — subsequent requests read/write that branch', async () => {
+    ds.createBranch('feature/x', { fill: 'sparse', upstream: { branch: 'main' } });
+
+    const res = await request(app).post('/working-sets/default/branches/feature%2Fx/switch');
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ ok: true, branch: 'feature/x' });
+
+    // A write through the API lands on the branch, not main.
+    const created = await request(app).post('/items').send({ value: 'branch only', type: 'text', parentId: '00000000-0000-0000-0000-000000000000' });
+    expect(created.status).toBe(201);
+    ds.useBranch('main');
+    expect(await ds.get(created.body.id)).toBeNull();
+
+    // Switch back — the item disappears from reads again.
+    await request(app).post('/working-sets/default/branches/main/switch');
+    const gone = await request(app).get(`/items/${created.body.id}`);
+    expect(gone.status).toBe(404);
+  });
+
+  it('404 on an unknown working set', async () => {
+    const res = await request(app).post('/working-sets/nope/branches/main/switch');
+    expect(res.status).toBe(404);
+  });
+});
+
 describe('GET /working-sets/:name/branches/:branch/diff', () => {
   it('reports zero changes for main', async () => {
     const res = await request(app).get('/working-sets/default/branches/main/diff');
@@ -41,7 +135,7 @@ describe('GET /working-sets/:name/branches/:branch/diff', () => {
   it('counts a sparse branch\'s local additions', async () => {
     ds.createBranch('feature/x', { fill: 'sparse', upstream: { branch: 'main' } });
     ds.useBranch('feature/x');
-    await ds.create({ type: 'string', value: 'only-on-branch' });
+    await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'string', value: 'only-on-branch' });
 
     const res = await request(app).get('/working-sets/default/branches/feature%2Fx/diff');
     expect(res.status).toBe(200);
@@ -49,6 +143,42 @@ describe('GET /working-sets/:name/branches/:branch/diff', () => {
     expect(res.body.adds).toBe(1);
     expect(res.body.edits).toBe(0);
     expect(res.body.deletes).toBe(0);
+  });
+
+  it('returns the item-level review payload (the "PR diff"), not just counts', async () => {
+    const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'string', value: 'v0' });
+    ds.createBranch('feature/detail', { fill: 'sparse', upstream: { branch: 'main' } });
+    ds.useBranch('feature/detail');
+    await ds.update(item.id, { value: 'v1 on branch' }, 'test@example.com');
+    const added = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'string', value: 'brand new' });
+
+    const res = await request(app).get('/working-sets/default/branches/feature%2Fdetail/diff');
+    expect(res.status).toBe(200);
+    // counts stay backward-compatible…
+    expect(res.body).toMatchObject({ adds: 1, edits: 1, deletes: 0 });
+    // …and detail carries per-item before/after for review
+    expect(res.body.detail.adds).toHaveLength(1);
+    expect(res.body.detail.adds[0]).toMatchObject({ id: added.id });
+    expect(res.body.detail.adds[0].after.value).toBe('brand new');
+    expect(res.body.detail.edits).toHaveLength(1);
+    expect(res.body.detail.edits[0].id).toBe(item.id);
+    expect(res.body.detail.edits[0].before.value).toBe('v0');
+    expect(res.body.detail.edits[0].after.value).toBe('v1 on branch');
+    // the adapter's internal doc is not leaked
+    expect(res.body.detail.adds[0].doc).toBeUndefined();
+    expect(res.body.detail.edits[0].doc).toBeUndefined();
+  });
+
+  it('merge-preview carries the same detail payload alongside conflicts/blastRadius', async () => {
+    ds.createBranch('feature/pv', { fill: 'sparse', upstream: { branch: 'main' } });
+    ds.useBranch('feature/pv');
+    const added = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'string', value: 'preview me' });
+
+    const res = await request(app).get('/working-sets/default/branches/feature%2Fpv/merge-preview');
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ adds: 1, conflicts: [], blastRadius: [] });
+    expect(res.body.detail.adds[0]).toMatchObject({ id: added.id });
+    expect(res.body.detail.adds[0].after.value).toBe('preview me');
   });
 
   it('404s for an unknown working set', async () => {
@@ -61,7 +191,7 @@ describe('POST /working-sets/:name/branches/:branch/merge', () => {
   it('applies the branch changes to main and removes the branch', async () => {
     ds.createBranch('feature/y', { fill: 'sparse', upstream: { branch: 'main' } });
     ds.useBranch('feature/y');
-    const item = await ds.create({ type: 'string', value: 'merge-me' });
+    const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'string', value: 'merge-me' });
 
     const res = await request(app).post('/working-sets/default/branches/feature%2Fy/merge');
     expect(res.status).toBe(200);
@@ -81,7 +211,7 @@ describe('POST /working-sets/:name/branches/:branch/merge', () => {
   });
 
   it('reports a conflict (409) when upstream moved after the fork, and resolves with a strategy', async () => {
-    const item = await ds.create({ type: 'string', value: 'v0' });
+    const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'string', value: 'v0' });
     ds.createBranch('feature/c', { fill: 'sparse', upstream: { branch: 'main' } });
     ds.useBranch('feature/c');
     await ds.update(item.id, { value: 'branch edit' }, 'test@example.com');
@@ -110,7 +240,7 @@ describe('POST /working-sets/:name/branches/:branch/merge', () => {
   });
 
   it('surfaces blast radius and blocks on it when requested', async () => {
-    const parent = await ds.create({ type: 'string', value: 'parent' });
+    const parent = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'string', value: 'parent' });
     const child = await ds.create({ type: 'string', value: 'child', parentId: parent.id });
     ds.createBranch('feature/d', { fill: 'sparse', upstream: { branch: 'main' } });
     ds.useBranch('feature/d');

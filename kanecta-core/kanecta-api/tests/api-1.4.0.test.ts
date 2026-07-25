@@ -40,7 +40,8 @@ afterEach(() => {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function createItem(opts = {}) {
-  return await ds.create({ type: 'string', ...opts });
+  // content items need explicit placement (spec §parentid-rules — no root default)
+  return await ds.create({ type: 'string', parentId: '00000000-0000-0000-0000-000000000000', ...opts });
 }
 
 // ─── GET /items/stats: over-long value figure ────────────────────────────────

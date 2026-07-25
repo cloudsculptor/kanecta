@@ -18,7 +18,16 @@ import { planBackfill } from '../src/backfill.ts';
 import { applyBackfillPlan } from '../src/backfill-executor.ts';
 import { PostgresAdapter } from '../../kanecta-storage-adapters/kanecta-postgres/src/adapter.ts';
 
-const SOURCE = { host: 'localhost', port: 45433, database: 'communityhub', user: 'kanecta', password: 'kanecta' };
+// Source defaults to the LOCAL prod-copy container (:45433). For the real
+// cutover run, point SOURCE_PG_* at the production database (read-only use).
+const SOURCE = {
+  host:     process.env.SOURCE_PG_HOST     || 'localhost',
+  port:     Number(process.env.SOURCE_PG_PORT || 45433),
+  database: process.env.SOURCE_PG_DATABASE || 'communityhub',
+  user:     process.env.SOURCE_PG_USER     || 'kanecta',
+  password: process.env.SOURCE_PG_PASSWORD || 'kanecta',
+  ...(process.env.SOURCE_PG_SSL ? { ssl: { rejectUnauthorized: false } } : {}),
+};
 const TARGET_CONN = process.env.KANECTA_TEST_PG_URL || 'postgres://kanecta:kanecta@localhost:45432/kanecta';
 const SOURCE_SYSTEM = 'community-hub';
 const OWNER = 'community-hub-backfill';
@@ -111,7 +120,10 @@ async function main() {
 
   // ── 3. Seed the 24 type items + force their obj_ projection tables ────────────
   for (const t of tables) {
-    const res = introspect(t, { typeIdForTable });
+    // exposeSoftDelete: community-hub's own SQL filters deleted_at / archived_at
+    // directly (approved-not-deleted notices, archived suggestions), so the read
+    // path must be able to reproduce those filters over GraphQL.
+    const res = introspect(t, { typeIdForTable, exposeSoftDelete: true });
     const typeId = res.typeItem.item.id;
     await adapter.createType(res.report.typeValue, { schema: res.typeItem.payload, id: typeId });
     await adapter._ensureProjection(typeId);
@@ -164,11 +176,18 @@ async function main() {
     const { rows: existing } = await pool.query(`SELECT source_id, target_id, note FROM "${relObjName}"`);
     for (const r of existing) seen.add(`${r.source_id}|${r.target_id}|${r.note ?? ''}`);
   }
+  // Sequential relate() calls: LAN-fast, but over a WAN/tunnel each edge is
+  // several round-trips — log progress so a long run is visibly alive.
+  log(`\nrelating ${edges.length} FK edges...`);
   let edgeOk = 0, edgeSkip = 0;
   for (const e of edges) {
-    if (seen.has(`${e.sourceId}|${e.targetId}|${e.fk}`)) { edgeSkip++; continue; }
-    try { await adapter.relate(e.sourceId, 'relates-to', e.targetId, { note: e.fk }); seen.add(`${e.sourceId}|${e.targetId}|${e.fk}`); edgeOk++; }
-    catch { edgeSkip++; }
+    if (seen.has(`${e.sourceId}|${e.targetId}|${e.fk}`)) {
+      edgeSkip++;
+    } else {
+      try { await adapter.relate(e.sourceId, 'relates-to', e.targetId, { note: e.fk }); seen.add(`${e.sourceId}|${e.targetId}|${e.fk}`); edgeOk++; }
+      catch { edgeSkip++; }
+    }
+    if ((edgeOk + edgeSkip) % 50 === 0) log(`  [edges] ${edgeOk + edgeSkip}/${edges.length} (${edgeOk} created, ${edgeSkip} skipped)`);
   }
   totals.relationships = edgeOk;
   log(`\nrelationship edges: ${edgeOk} created, ${edgeSkip} skipped (of ${edges.length})`);

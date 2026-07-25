@@ -224,7 +224,13 @@ export const DIALECTS: Record<DialectName, Dialect> = {
   },
 };
 
-const snake = (k: string): string => k.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase());
+/**
+ * The compiler's one column-naming rule: camelCase property → snake_case
+ * column. Exported so consumers that must PREDICT column names (integrity
+ * checks, introspection diffing) share the exact rule instead of copying it.
+ */
+export const sqlColumnName = (k: string): string => k.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase());
+const snake = sqlColumnName;
 
 /** obj_<typeId> with hyphens as underscores. */
 export function objTableName(typeId: string): string {
@@ -312,8 +318,17 @@ export function deriveSqlSchema(jsonSchema: JsonSchema, opts: DeriveOptions = {}
     }
 
     const { sql, ref } = scalarType(prop, d);
-    // A UUID reference to another item gets a foreign key to items(id).
-    columns.push(`  ${q(col)} ${sql}${ref ? ' REFERENCES items(id)' : ''}`);
+    // A UUID reference to another item is a plain UUID column — deliberately
+    // NOT a foreign key to items(id). Under the item_archive model a reference
+    // may legitimately point at an ARCHIVED item (soft delete physically moves
+    // the row out of `items`; the relation survives per the spec's
+    // type-relation rule), and one FK cannot span the items ∪ item_archive
+    // union. Referential integrity for reference columns is verified by the
+    // integrity checker over the union instead. The spine FK (item_id → items,
+    // ON DELETE CASCADE) below is unaffected — an obj_ row's own item can
+    // never be archived while the row exists (the archive move removes it).
+    void ref;
+    columns.push(`  ${q(col)} ${sql}`);
   }
 
   // Generated/computed columns are emitted inline in the CREATE TABLE, after the

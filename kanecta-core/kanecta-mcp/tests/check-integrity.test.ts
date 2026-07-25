@@ -32,7 +32,7 @@ afterEach(() => {
 
 describe('kanecta_check_integrity', () => {
   test('returns a report with checks and a summary (clean store)', async () => {
-    await ds.create({ value: 'hi', type: 'string' });
+    await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'hi', type: 'string' });
     const res = await dispatch('kanecta_check_integrity', {});
     expect(Array.isArray(res.checks)).toBe(true);
     expect(res.checks.length).toBeGreaterThan(0);

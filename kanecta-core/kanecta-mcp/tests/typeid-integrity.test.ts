@@ -60,13 +60,13 @@ describe('add_item typeId referential integrity', () => {
 
 describe('update_item typeId referential integrity', () => {
   test('changing typeId to an orphan warns by default', async () => {
-    const item = await ds.create({ value: 'x', type: 'string' });
+    const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x', type: 'string' });
     const res = await dispatch('kanecta_update_item', { id: item.id, type: 'object', typeId: ORPHAN_TYPE_ID });
     expect(res.warning).toMatch(new RegExp(ORPHAN_TYPE_ID));
   });
 
   test('changing typeId to an orphan under strict throws and leaves the item unchanged', async () => {
-    const item = await ds.create({ value: 'x', type: 'string' });
+    const item = await ds.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'x', type: 'string' });
     await expect(
       dispatch('kanecta_update_item', { id: item.id, type: 'object', typeId: ORPHAN_TYPE_ID, strict: true }),
     ).rejects.toThrow(/unknown typeId/);

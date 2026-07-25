@@ -27,6 +27,13 @@ const OBJ_RE = /^obj_[0-9a-f]{8}_[0-9a-f]{4}_[0-9a-f]{4}_[0-9a-f]{4}_[0-9a-f]{12
 /** Classify a table name against the four-table law. */
 export function classifyTable(name: string): TableKind {
   if (name === 'items') return 'items';
+  // The spine's ARCHIVE half (soft delete = physical row move; spec
+  // §item_archive draft): schema-identical to items — enforced by the drift
+  // test — plus its write-side payload section (the pg analogue of the fs
+  // adapter's items_payload, needed because the obj_ row cascades away with
+  // the archive move). Not a fifth kind: the live/archived partition of the
+  // one logical spine.
+  if (name === 'item_archive' || name === 'item_archive_payload') return 'items';
   if (name === 'item_history') return 'item_history';
   if (name === 'activity') return 'activity';
   if (OBJ_RE.test(name)) return 'obj';

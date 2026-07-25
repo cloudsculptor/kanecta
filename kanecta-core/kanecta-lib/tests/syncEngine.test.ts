@@ -119,7 +119,17 @@ describe('SyncEngine.push()', () => {
     const local  = mockLocal({ diff: { adds: [ITEM_A], edits: [], deletes: [] } });
     const remote = mockRemote({ branch: null });
     await SyncEngine.push(local, remote, 'feature/new');
-    expect(remote.createBranch).toHaveBeenCalledWith('feature/new');
+    expect(remote.createBranch).toHaveBeenCalledWith('feature/new', {});
+  });
+
+  test('a new remote branch inherits the LOCAL fork watermark (branchPoint.at)', async () => {
+    const local  = mockLocal({ diff: { adds: [ITEM_A], edits: [], deletes: [] } });
+    (local as any).listBranches = vi.fn().mockResolvedValue([
+      { name: 'feature/new', branchPoint: { branch: 'main', at: '2026-07-01T00:00:00.000Z' }, createdAt: '2026-07-02T00:00:00.000Z' },
+    ]);
+    const remote = mockRemote({ branch: null });
+    await SyncEngine.push(local, remote, 'feature/new');
+    expect(remote.createBranch).toHaveBeenCalledWith('feature/new', { branchPointAt: '2026-07-01T00:00:00.000Z' });
   });
 
   test('does not create the remote branch if it already exists', async () => {
@@ -265,7 +275,7 @@ describe('SyncEngine.merge()', () => {
     const remote = mockRemote({ branch: br, mergeResult: { merged: 2, branchName: 'merge-me' } });
     const result = await SyncEngine.merge(remote, 'merge-me');
     expect(remote.preFlightScan).toHaveBeenCalledWith('br-merge');
-    expect(remote.mergeBranch).toHaveBeenCalledWith('br-merge');
+    expect(remote.mergeBranch).toHaveBeenCalledWith('br-merge', { strategy: null, blockOnBlastRadius: false });
     expect(result.merged).toBe(2);
   });
 

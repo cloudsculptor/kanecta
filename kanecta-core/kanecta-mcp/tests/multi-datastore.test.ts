@@ -21,7 +21,7 @@ let mod;
 
 /** Create a typed object item with objectData in a given datastore. */
 async function seed(ds, value, objectData) {
-  const item = await ds.create({ value, type: 'object' });
+  const item = await ds.create({ value, type: 'object', parentId: '00000000-0000-0000-0000-000000000000' });
   await ds.writeObjectJson(item.id, objectData);
   return item;
 }
@@ -113,6 +113,7 @@ describe('selectors are stripped from tool args', () => {
     const created = await mod.dispatch('kanecta_add_item', {
       value: 'new-node',
       type: 'string',
+      parentId: '00000000-0000-0000-0000-000000000000',
       workingSet: 'a',
       branch: 'main',
     });

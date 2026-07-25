@@ -52,9 +52,11 @@ function makeSampleDatastore(dir: any, { owner = 'sample@kanecta.test' } = {}) {
   // tree(bwp) = bwp + 4 phase headings + 8 leaves = 13 nodes.
   // loadAll   = root + types + Welcome + the 13 above = 16 content items
   //             (alias + the seeded built-in type items are excluded from loadAll).
-  // rebuild   = the raw items-table count = 16 content + 1 alias + 26 built-in
-  //             type items seeded at init = 43.
-  const counts = { treeFromBaseWorkProcess: 13, loadAll: 16, rebuild: 43 };
+  // rebuild   = the raw items-table count. The seeded built-in population grows
+  //             as the manifest grows, so it is measured live rather than
+  //             hardcoded (a literal here rotted once already: 43 → 90).
+  const rebuild = ds._openDb().prepare('SELECT COUNT(*) AS n FROM items').get().n;
+  const counts = { treeFromBaseWorkProcess: 13, loadAll: 16, rebuild };
 
   const ids = {
     root: '00000000-0000-0000-0000-000000000000',
