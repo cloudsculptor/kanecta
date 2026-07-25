@@ -2,7 +2,7 @@ import { Router } from "express";
 import multer from "multer";
 import pool from "../db.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
-import { uploadFile, deleteFile } from "../lib/spaces.js";
+import { uploadFile, deleteFile, fileUrl } from "../lib/spaces.js";
 import { broadcastFcm } from "../lib/fcm.js";
 import { notify } from "../lib/notification-templates.js";
 import * as eventsRepo from "../repositories/events.js";
@@ -11,8 +11,6 @@ const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 const requireModerator = requireRole("moderator", "admin");
 const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
-
-const PUBLIC_URL = process.env.SPACES_PUBLIC_URL;
 
 // Attach file URLs to event rows
 async function attachFiles(events) {
@@ -23,7 +21,7 @@ async function attachFiles(events) {
   for (const row of rows) {
     if (!byEvent.has(row.event_id)) byEvent.set(row.event_id, { hero: null, gallery: [] });
     const entry = byEvent.get(row.event_id);
-    const url = `${PUBLIC_URL}/${row.storage_key}`;
+    const url = fileUrl({ fileId: row.file_id, storageKey: row.storage_key, mimeType: row.mime_type });
     if (row.role === "hero") {
       entry.hero = { file_id: row.file_id, url };
     } else {

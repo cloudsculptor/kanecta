@@ -14,7 +14,7 @@ import * as kanecta from "./kanecta/events.js";
 export async function getEventFiles(db, ids) {
   if (USE_KANECTA) return kanecta.getEventFiles(db, ids);
   const { rows } = await db.query(
-    `SELECT ef.event_id, ef.role, ef.position, f.id AS file_id, f.storage_key
+    `SELECT ef.event_id, ef.role, ef.position, f.id AS file_id, f.storage_key, f.mime_type
      FROM event_files ef
      JOIN files f ON f.id = ef.file_id
      WHERE ef.event_id = ANY($1::uuid[]) AND f.deleted_at IS NULL

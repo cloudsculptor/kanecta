@@ -127,7 +127,7 @@ export async function createEvent(_db, {
 export async function getEventFiles(_db, ids) {
   if (!ids?.length) return [];
   const data = await graphql(
-    `{ eventFileses(limit:2000){ eventId{id} fileId{id} role position } fileses(limit:2000){ id storageKey deletedAt } }`,
+    `{ eventFileses(limit:2000){ eventId{id} fileId{id} role position } fileses(limit:2000){ id storageKey mimeType deletedAt } }`,
   );
   const idset = new Set(ids);
   const fileById = new Map(data.fileses.map((f) => [f.id, f]));
@@ -135,7 +135,7 @@ export async function getEventFiles(_db, ids) {
     .filter((ef) => idset.has(ef.eventId?.id))
     .map((ef) => ({ ef, f: fileById.get(ef.fileId?.id) }))
     .filter((x) => x.f && x.f.deletedAt == null)
-    .map(({ ef, f }) => ({ event_id: ef.eventId.id, role: ef.role, position: ef.position, file_id: f.id, storage_key: f.storageKey }));
+    .map(({ ef, f }) => ({ event_id: ef.eventId.id, role: ef.role, position: ef.position, file_id: f.id, storage_key: f.storageKey, mime_type: f.mimeType }));
   rows.sort((a, b) =>
     a.event_id < b.event_id ? -1 : a.event_id > b.event_id ? 1
       : a.role < b.role ? 1 : a.role > b.role ? -1 // role DESC
