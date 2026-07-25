@@ -2,7 +2,12 @@ import { test, expect, type Page } from "@playwright/test";
 
 // Discussions over the kanecta backend: reads render migrated data, writes
 // round-trip (socket + persisted read-back), and deletes/archives disappear
-// for good (item_archive machinery on the kanecta side).
+// from the UI for good. NOTE: message deletes and thread archives are payload
+// soft-deletes (deleted_at/archived_at fields in the obj row), faithfully
+// mirroring the legacy pg backend — they intentionally do NOT go through
+// kanecta's item_archive. Only hard deletes (reaction removal, unsubscribes,
+// file-link cleanup) touch kanecta item deletion, and those are hard —
+// item_archive is never written by this app.
 //
 // Write tests create their own data in "Test Thread" (designated for testing)
 // and delete it again — the suite leaves no residue beyond read markers.
@@ -62,22 +67,40 @@ test.describe("discussions reads", () => {
   });
 });
 
-test.describe("discussions writes (Test Thread lifecycle)", () => {
-  test("post → persist → edit → reply → react → delete", async ({ page }) => {
+test.describe("discussions writes (scratch-thread lifecycle)", () => {
+  // Two KNOWN pre-existing UI bugs (identical in the legacy pg backend — not
+  // cutover regressions; verified 2026-07-25 against both code paths):
+  //  1. Editing a message replaces it in state with the PUT response, which
+  //     (like legacy `RETURNING *`) carries no reply_count — so the parent's
+  //     reply-count link vanishes until reload. The test therefore replies
+  //     BEFORE editing and never asserts the link post-edit.
+  //  2. A posted reply increments the sender's count twice live (HTTP callback
+  //     + message:reply_count socket event both fire) — live count may read
+  //     "2 replies" after one reply; the reload assertion checks server truth.
+  // Deletes are payload soft-deletes (tombstones), mirroring legacy — they do
+  // NOT move rows to item_archive, so no archive assertions belong here.
+  //
+  // The lifecycle runs in its OWN thread (created here, archived at the end):
+  // the messages list serves the OLDEST 50 top-level rows (ASC LIMIT 50 with
+  // no load-older in the client — a latent legacy-identical bug), so writing
+  // into the >50-message Test Thread would make read-backs invisible. A
+  // scratch thread also stops tombstone build-up in Test Thread.
+  test("post → persist → reply → edit → react → delete", async ({ page }) => {
     test.setTimeout(120_000);
+    const threadName = `${MARK} lifecycle`;
     await openDiscussions(page);
-    await openThread(page, "Test Thread");
+    await page.locator('[title="New thread"]:visible, [aria-label="New thread"]:visible').first().click();
+    const createDlg = page.getByRole("dialog");
+    await createDlg.waitFor();
+    await createDlg.locator("input").first().fill(threadName);
+    await createDlg.getByRole("button", { name: /create/i }).click();
+    await page.locator(".discussions-main .discussions-input__field").waitFor();
 
-    // clean up residue from any earlier failed runs before asserting
-    for (let i = 0; i < 10; i++) {
-      const stale = page.locator(".discussions-message", { hasText: /e2e-\d+/ }).first();
-      if ((await stale.count()) === 0) break;
-      await stale.hover();
-      await stale.locator('button[title="Delete"]').click();
-      await page.waitForTimeout(800);
-    }
     const input = page.locator(".discussions-main .discussions-input__field").first();
     const send = page.locator(".discussions-main .discussions-input__send").first();
+    // hasText MARK survives the later edit ("<MARK> edited 🧪"); the panel
+    // reply also matches, but the main list precedes the panel in the DOM so
+    // first() stays the parent
     const myMsg = page.locator(".discussions-message", { hasText: MARK }).first();
 
     // post (socket delivery)
@@ -88,10 +111,37 @@ test.describe("discussions writes (Test Thread lifecycle)", () => {
     // persisted read-back
     await page.reload();
     await page.locator(".discussions-thread-item").first().waitFor();
-    await openThread(page, "Test Thread");
+    await openThread(page, threadName);
     await myMsg.waitFor({ timeout: 10_000 });
 
-    // edit
+    // reply increments the parent count (live count may double — bug 2)
+    await myMsg.hover();
+    await myMsg.locator('button[title="Reply in thread"]').click();
+    await page.locator(".discussions-reply-panel__replies, .discussions-reply-panel__empty").first().waitFor();
+    await page.locator(".discussions-reply-panel .discussions-input__field").fill(`${MARK} reply`);
+    await page.locator(".discussions-reply-panel .discussions-input__send").click();
+    const panelReply = page
+      .locator(".discussions-reply-panel .discussions-message", { hasText: `${MARK} reply` })
+      .first();
+    await expect(panelReply).toBeVisible();
+    await page.locator(".discussions-reply-panel__close").click();
+    await expect(myMsg.locator(".discussions-message__reply-link")).toHaveText(/\d+\s+repl/, { timeout: 10_000 });
+
+    // server truth after reload: exactly one reply
+    await page.reload();
+    await page.locator(".discussions-thread-item").first().waitFor();
+    await openThread(page, threadName);
+    await expect(myMsg.locator(".discussions-message__reply-link")).toHaveText(/1\s+repl/, { timeout: 10_000 });
+
+    // delete the reply again (via the panel) so the run leaves no live content
+    await myMsg.locator(".discussions-message__reply-link").click();
+    await panelReply.waitFor();
+    await panelReply.hover();
+    await panelReply.locator('button[title="Delete"]').click();
+    await expect(panelReply).toHaveCount(0, { timeout: 10_000 });
+    await page.locator(".discussions-reply-panel__close").click();
+
+    // edit (last write step — the reply-link vanishes from state here, bug 1)
     await myMsg.hover();
     await myMsg.locator('button[title="Edit"]').click();
     const editBox = page.locator(".discussions-message__edit-input");
@@ -100,51 +150,59 @@ test.describe("discussions writes (Test Thread lifecycle)", () => {
     await expect(page.locator(".discussions-message", { hasText: `${MARK} edited` }).first()).toBeVisible();
     await expect(myMsg.locator(".discussions-message__edited")).toBeVisible();
 
-    // reply increments the parent count
-    await myMsg.hover();
-    await myMsg.locator('button[title="Reply in thread"]').click();
-    await page.locator(".discussions-reply-panel__replies, .discussions-reply-panel__empty").first().waitFor();
-    await page.locator(".discussions-reply-panel .discussions-input__field").fill(`${MARK} reply`);
-    await page.locator(".discussions-reply-panel .discussions-input__send").click();
-    await expect(
-      page.locator(".discussions-reply-panel .discussions-message", { hasText: `${MARK} reply` }).first()
-    ).toBeVisible();
-    await page.locator(".discussions-reply-panel__close").click();
-    await expect(myMsg.locator(".discussions-message__reply-link")).toHaveText(/1\s+repl/, { timeout: 10_000 });
-
     // react, then remove the reaction via the chip
     await myMsg.hover();
     await myMsg.locator('button[title="Add reaction"]').click();
     const picker = page.locator("em-emoji-picker");
     await picker.waitFor();
-    await picker.locator('button[aria-label*="+1"], button[aria-label*="thumbs up"]').first().click();
+    // emoji buttons carry title="Thumbs Up" / aria-label="👍" (shadow DOM —
+    // Playwright pierces open roots)
+    await picker.locator('button[title="Thumbs Up"]').first().click();
     await expect(myMsg.locator(".discussions-reaction").first()).toBeVisible();
     await myMsg.locator(".discussions-reaction").first().click();
     await expect(myMsg.locator(".discussions-reaction")).toHaveCount(0);
 
-    // delete: gone now AND after a hard refresh (item_archive physical move)
+    // delete: tombstoned now AND after a hard refresh (payload soft-delete —
+    // content blanks, so the MARK no longer matches anything in the main list)
     await myMsg.hover();
     await myMsg.locator('button[title="Delete"]').click();
     await expect(page.locator(".discussions-message", { hasText: MARK })).toHaveCount(0, { timeout: 10_000 });
     await page.reload();
     await page.locator(".discussions-thread-item").first().waitFor();
-    await openThread(page, "Test Thread");
+    await openThread(page, threadName);
     await expect(page.locator(".discussions-message", { hasText: MARK })).toHaveCount(0, { timeout: 10_000 });
+
+    // cleanup: archive the scratch thread so runs leave no sidebar residue
+    await page.locator('[aria-label="Thread options"]').click();
+    await page.getByRole("menuitem", { name: /archive thread/i }).click();
+    await page.getByRole("button", { name: /^archive$/i }).click();
+    await expect(page.locator(".discussions-thread-item__name", { hasText: threadName })).toHaveCount(0, {
+      timeout: 10_000,
+    });
   });
 
   test("create thread → post → archive removes it from the sidebar", async ({ page }) => {
     test.setTimeout(120_000);
     const threadName = `${MARK} thread`;
     await openDiscussions(page);
-    // two buttons share this label; the mobile one is hidden on desktop
-    await page.locator('[aria-label="New thread"]:visible').click();
+    // desktop sidebar "+" carries title="New thread"; only the (hidden on
+    // desktop) mobile button has the aria-label — accept either, visible only
+    await page.locator('[title="New thread"]:visible, [aria-label="New thread"]:visible').first().click();
     const dlg = page.getByRole("dialog");
     await dlg.waitFor();
     await dlg.locator("input").first().fill(threadName);
     await dlg.getByRole("button", { name: /create/i }).click();
     await page.locator(".discussions-thread-item__name", { hasText: MARK }).first().waitFor({ timeout: 10_000 });
 
-    await openThread(page, threadName);
+    // open directly — openThread() waits for an existing message, and a
+    // freshly created thread has none yet
+    await page
+      .locator(".discussions-thread-item", {
+        has: page.locator(".discussions-thread-item__name", { hasText: threadName }),
+      })
+      .first()
+      .click();
+    await page.locator(".discussions-main .discussions-input__field").waitFor();
     await page.locator(".discussions-main .discussions-input__field").fill(`${MARK} first post`);
     await page.locator(".discussions-main .discussions-input__send").click();
     await expect(page.locator(".discussions-message", { hasText: `${MARK} first post` }).first()).toBeVisible();
