@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useKeycloak } from "./KeycloakProvider";
-import keycloak from "./keycloak";
+import { getKeycloak } from "./keycloak";
 
 // Unlike community-hub (one fixed realm with a known set of roles), Kanecta
 // is installed against whatever Keycloak realm the client provides — so we
@@ -9,7 +9,7 @@ export function useUserRoles(): string[] {
   const { authenticated } = useKeycloak();
   return useMemo(() => {
     if (!authenticated) return [];
-    return keycloak.tokenParsed?.realm_access?.roles ?? [];
+    return getKeycloak()?.tokenParsed?.realm_access?.roles ?? [];
   }, [authenticated]);
 }
 

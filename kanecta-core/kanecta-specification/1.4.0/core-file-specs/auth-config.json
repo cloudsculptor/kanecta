@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://kanecta.com/spec/1.4.0/auth-config",
+  "title": "Kanecta Auth Config API Response",
+  "description": "The wire shape returned by the PUBLIC `GET /auth-config` endpoint — the boot-time authentication configuration a browser client (Studio, an embedding app) fetches BEFORE any login to learn how to authenticate against this particular deployment.\n\nThis is what makes one built client artifact serve many deployments: instead of baking a Keycloak realm/client into the build, the client fetches this at startup and configures its OIDC login from whatever the deployment's API reports. A no-auth local instance and a Keycloak-protected cloud instance run the SAME build; only their API's environment differs.\n\nThe endpoint is deliberately UNAUTHENTICATED — a client cannot present a token before it knows how to obtain one. Every field here is non-secret: a public OIDC client id, the realm name, and the auth server URL are all values a browser OIDC client necessarily exposes. No secret (client secret, signing key, password) is ever part of this response.\n\nWhen `authDisabled` is true the deployment runs with no Keycloak (local dev, or a single-tenant no-auth install): the client initialises no OIDC layer and sends no Authorization header, matching the API's AUTH_DISABLED bypass. When false, the client uses `keycloakUrl` + `realm` + `clientId` to drive the login flow.",
+  "type": "object",
+  "required": ["authDisabled", "keycloakUrl", "realm", "clientId"],
+  "additionalProperties": false,
+  "properties": {
+    "authDisabled": {
+      "type": "boolean",
+      "description": "True when this deployment runs with authentication disabled (the API's AUTH_DISABLED bypass). The client then initialises no Keycloak and sends no token. When true, `keycloakUrl`, `realm`, and `clientId` are null."
+    },
+    "keycloakUrl": {
+      "type": ["string", "null"],
+      "description": "Base URL of the Keycloak server the client should authenticate against (e.g. 'https://auth.example.com'), or null when `authDisabled` is true. Non-secret — a browser OIDC client redirects here in the open."
+    },
+    "realm": {
+      "type": ["string", "null"],
+      "description": "Keycloak realm the client logs in to, or null when `authDisabled` is true. Non-secret."
+    },
+    "clientId": {
+      "type": ["string", "null"],
+      "description": "The PUBLIC OIDC client id the browser client presents when logging in, or null when `authDisabled` is true. This is a public client (no client secret); the id is not sensitive."
+    }
+  },
+  "examples": [
+    {
+      "authDisabled": false,
+      "keycloakUrl": "https://auth.example.com",
+      "realm": "acme-studio",
+      "clientId": "studio-web"
+    },
+    {
+      "authDisabled": true,
+      "keycloakUrl": null,
+      "realm": null,
+      "clientId": null
+    }
+  ]
+}

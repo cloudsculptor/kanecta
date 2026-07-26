@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
+import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
 import { AppShell } from '../components/shell/AppShell';
 import { PanelWorkspace } from '../components/workspace/PanelWorkspace';
 import { TreeView } from '@kanecta/component-tree-view';
@@ -32,7 +34,7 @@ import { QuickCapture } from '@kanecta/component-quick-capture';
 import { CommandPalette } from '@kanecta/component-command-palette';
 import { SettingsPage } from './SettingsPage';
 import { LocationProvider } from '../context/LocationContext';
-import { KeycloakProvider } from '../auth/KeycloakProvider';
+import { KeycloakProvider, useKeycloak } from '../auth/KeycloakProvider';
 import { useWorkingSetStore } from '../store/workingSet';
 import { useSettingsStore, THEMES } from '../store/settings';
 import { useUiStore } from '../store/ui';
@@ -214,6 +216,22 @@ function StudioInner() {
   );
 }
 
+// Hold the app until KeycloakProvider has resolved the deployment's auth mode
+// (fetch /auth-config → optionally check-sso). Rendering StudioInner earlier
+// would fire data queries before we know whether — and with what token — to
+// authenticate, flashing 401s on a Keycloak-protected instance.
+function AuthGate({ children }: { children: ReactNode }) {
+  const { initialized } = useKeycloak();
+  if (!initialized) {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+  return <>{children}</>;
+}
+
 export function StudioPage() {
   return (
     <KeycloakProvider>
@@ -221,7 +239,9 @@ export function StudioPage() {
         <ThemeProvider theme={theme}>
           <CssBaseline />
           <LocationProvider>
-            <StudioInner />
+            <AuthGate>
+              <StudioInner />
+            </AuthGate>
           </LocationProvider>
         </ThemeProvider>
       </QueryClientProvider>

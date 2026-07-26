@@ -6032,6 +6032,10 @@ The Postgres and S3 halves are one remote — not two — because a datastore is
 | `./core-file-specs/working-sets.json`
 | JSON Schema for the `GET /working-sets` response. A separate, credential-free wire contract that clients consume — never the on-disk `config.json`. Carries no secrets by construction (a remote is reduced to a non-secret `{ type, label }` summary), not by redaction.
 
+| Auth config API response
+| `./core-file-specs/auth-config.json`
+| JSON Schema for the PUBLIC `GET /auth-config` response — the boot-time auth configuration a client fetches before login so one built artifact serves any deployment. Non-secret client config only; reports `authDisabled` for no-auth deployments.
+
 | Built-in types
 | `./built-in-types/built-in-types.json`
 | Canonical list of all valid `item.type` values.

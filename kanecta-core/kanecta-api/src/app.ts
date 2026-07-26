@@ -35,6 +35,27 @@ function runtimeFromQuery(req: any) {
 
 const app = express();
 app.use(express.json());
+
+// GET /auth-config — PUBLIC (registered before requireAuth): the Studio SPA
+// fetches this at boot, before any login, to learn how to authenticate against
+// THIS deployment's Keycloak. It advertises only non-secret client config — a
+// public OIDC client id, the realm, and the auth server URL, all of which a
+// browser client needs and none of which are secret. When AUTH_DISABLED, it
+// reports `authDisabled: true` and the SPA runs with no Keycloak at all, so the
+// same build serves a no-auth local instance and a Keycloak-protected cloud one.
+// Response contract: kanecta-specification/1.4.0/core-file-specs/auth-config.json.
+app.get('/auth-config', (_req, res) => {
+  if (process.env.AUTH_DISABLED === 'true') {
+    return res.json({ authDisabled: true, keycloakUrl: null, realm: null, clientId: null });
+  }
+  res.json({
+    authDisabled: false,
+    keycloakUrl: process.env.KEYCLOAK_URL ?? null,
+    realm: process.env.KEYCLOAK_REALM ?? null,
+    clientId: process.env.KEYCLOAK_CLIENT_ID ?? null,
+  });
+});
+
 app.use(requireAuth);
 
 // readAppConfig / resolveWorkingSet / resolveBranch / workingSetLocalPath come from
