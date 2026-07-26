@@ -9,6 +9,7 @@ import {
 import * as claude from '@kanecta/ai';
 import { generateFunctionScaffold, getRuntimeDir, computeBundleHash, toCamelCase, toPythonName, VALID_RUNTIME_RE } from '@kanecta/lib';
 import { requireAuth } from './middleware/auth.ts';
+import { requireWrite } from './middleware/write-gate.ts';
 import { buildSchemaModel, buildGraphqlEngine, loadTypeItems, buildComputedMap, PgDataSource, type GraphqlEngine } from './graphql/index.ts';
 import { principalsFromToken, can } from './authz/index.ts';
 import { PgAuthzSource } from './authz/pg-authz-source.ts';
@@ -36,6 +37,9 @@ function runtimeFromQuery(req: any) {
 const app = express();
 app.use(express.json());
 app.use(requireAuth);
+// Coarse read/write gate (no-op under AUTH_DISABLED): reads open to any token,
+// mutations require a write capability. See middleware/write-gate.ts.
+app.use(requireWrite);
 
 // readAppConfig / resolveWorkingSet / resolveBranch / workingSetLocalPath come from
 // @kanecta/lib — the single config+state resolver shared by every entry point.
