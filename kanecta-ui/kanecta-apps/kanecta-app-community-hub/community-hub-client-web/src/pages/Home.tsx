@@ -88,7 +88,10 @@ const publicComing = [
     title: "Buy, Sell & Swap",
     blurb: "Buy, sell, swap, or give away items locally.",
     image: "/home-page-images/buy-sell-and-swap-160x160.jpg",
-    attribution: { label: "Photo: Gemini AI" },
+    attribution: {
+      label: "Photo: Gemini AI",
+      url: "https://gemini.google.com/",
+    },
   },
   {
     title: "Visitor Activities",
@@ -127,7 +130,10 @@ const publicComing = [
     title: "Food & Drink",
     blurb: "Cafes, restaurants, local producers, and farmers markets.",
     image: "/home-page-images/food-and-drink-160x160.jpg",
-    attribution: { label: "Photo: Gemini AI" },
+    attribution: {
+      label: "Photo: Gemini AI",
+      url: "https://gemini.google.com/",
+    },
   },
   {
     title: "Jobs & Volunteering",
