@@ -139,7 +139,10 @@ const publicComing = [
     title: "Property & Housing",
     blurb: "Rentals, real estate, and local housing information.",
     image: "/home-page-images/housing-160x160.jpg",
-    attribution: { label: "Photo: Joanna Baldwin" },
+    attribution: {
+      label: "Photo: Pakoire / CC0",
+      url: "https://commons.wikimedia.org/wiki/File:FthstnB_05.jpg",
+    },
   },
   {
     title: "Youth",
