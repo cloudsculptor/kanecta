@@ -31,6 +31,10 @@ const publicActive = [
     blurb: "Community announcements, lost & found, and local news.",
     path: "/notice-board",
     image: "/home-page-images/notice-board-160x160.jpg",
+    attribution: {
+      label: "Photo: Canva AI",
+      url: "https://www.canva.com/",
+    },
   },
   {
     title: "Community Groups",
