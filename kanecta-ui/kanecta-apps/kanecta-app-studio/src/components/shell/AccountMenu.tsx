@@ -8,7 +8,7 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import { useKeycloak } from '../../auth/KeycloakProvider';
 import { useUserRoles, primaryRole } from '../../auth/useUserRole';
-import keycloak from '../../auth/keycloak';
+import { getKeycloak } from '../../auth/keycloak';
 import './AccountMenu.scss';
 
 function displayName(profile: Record<string, unknown> | undefined): string {
@@ -31,7 +31,7 @@ export function AccountMenu() {
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const { authenticated, authDisabled } = useKeycloak();
   const roles = useUserRoles();
-  const profile = keycloak.idTokenParsed;
+  const profile = getKeycloak()?.idTokenParsed;
   const name = displayName(profile);
   const primary = primaryRole(roles);
 
@@ -41,7 +41,7 @@ export function AccountMenu() {
     return (
       <Button
         className="AccountMenu-login"
-        onClick={() => keycloak.login()}
+        onClick={() => getKeycloak()?.login()}
         aria-label="Log in"
       >
         Log in
@@ -66,7 +66,7 @@ export function AccountMenu() {
           </div>
         </MenuItem>
         <Divider />
-        <MenuItem onClick={() => { setMenuAnchor(null); keycloak.logout({ redirectUri: window.location.origin }); }}>
+        <MenuItem onClick={() => { setMenuAnchor(null); getKeycloak()?.logout({ redirectUri: window.location.origin }); }}>
           Sign out
         </MenuItem>
       </Menu>

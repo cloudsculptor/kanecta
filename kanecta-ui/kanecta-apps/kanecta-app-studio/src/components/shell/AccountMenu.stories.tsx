@@ -3,7 +3,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { AccountMenu } from './AccountMenu';
 import { KeycloakContext } from '../../auth/KeycloakProvider';
-import keycloak from '../../auth/keycloak';
+import { initKeycloak } from '../../auth/keycloak';
 
 const theme = createTheme({ colorSchemes: { dark: true } });
 
@@ -42,6 +42,9 @@ export const LoggedOut: Story = {
 export const LoggedIn: Story = {
   decorators: [
     (Story) => {
+      // Runtime auth-config means no keycloak singleton exists until initKeycloak();
+      // create one and seed the parsed tokens the menu reads.
+      const keycloak = initKeycloak({ url: 'http://localhost', realm: 'test', clientId: 'studio-web' });
       keycloak.tokenParsed = { realm_access: { roles: ['admin'] } };
       keycloak.idTokenParsed = { given_name: 'Kanecta Admin', email: 'kanecta-admin@example.com' };
       return (
