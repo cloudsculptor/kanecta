@@ -80,6 +80,9 @@ export default function Settings() {
 
   async function openDeleteDialog() {
     setDeleteError(null);
+    // Clear the previous open's list, or a failed preview would silently reuse
+    // it and warn about events that may no longer be there.
+    setUpcomingEvents([]);
     setDeleteDialogOpen(true);
     setDeletePreviewLoading(true);
     try {

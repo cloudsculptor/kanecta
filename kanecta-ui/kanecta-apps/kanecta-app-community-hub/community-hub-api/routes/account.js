@@ -48,6 +48,9 @@ router.delete("/me", requireAuth, wrap(async (req, res) => {
     await client.query(`UPDATE events SET reviewed_by_name = $2 WHERE reviewed_by_id = $1`, [userId, ANONYMISED_NAME]);
     await client.query(`UPDATE suggestions SET submitted_by_name = $2 WHERE submitted_by_id = $1`, [userId, ANONYMISED_NAME]);
     await client.query(`UPDATE pages SET created_by_name = $2 WHERE created_by_id = $1`, [userId, ANONYMISED_NAME]);
+    await client.query(`UPDATE page_history SET user_name = $2 WHERE user_id = $1`, [userId, ANONYMISED_NAME]);
+    await client.query(`UPDATE site_node_history SET user_name = $2 WHERE user_id = $1`, [userId, ANONYMISED_NAME]);
+    await client.query(`UPDATE finances_transactions SET created_by_name = $2 WHERE created_by_id = $1`, [userId, ANONYMISED_NAME]);
     await client.query(`UPDATE files SET uploaded_by_name = $2 WHERE uploaded_by_id = $1`, [userId, ANONYMISED_NAME]);
 
     await client.query(`DELETE FROM discussions_thread_reads WHERE user_id = $1`, [userId]);
@@ -58,13 +61,28 @@ router.delete("/me", requireAuth, wrap(async (req, res) => {
 
     await client.query("COMMIT");
   } catch (err) {
-    await client.query("ROLLBACK");
+    // Swallow a failing ROLLBACK (e.g. the connection itself dropped) so it
+    // can't mask the error that actually caused the failure.
+    await client.query("ROLLBACK").catch(() => {});
     throw err;
   } finally {
     client.release();
   }
 
-  await adminFetch(`/users/${userId}`, { method: "DELETE" });
+  // Deliberately last, and outside the transaction — there is no way to roll a
+  // Keycloak delete back. Every statement above is idempotent, so if this call
+  // fails the member can just try again. Doing it first would mean a later DB
+  // failure locked them out with no way to retry.
+  try {
+    await adminFetch(`/users/${userId}`, { method: "DELETE" });
+  } catch (err) {
+    console.error(
+      `[account] anonymised content for ${userId} but the Keycloak delete failed — ` +
+      `their login still works and the deletion must be retried:`,
+      err
+    );
+    return res.status(502).json({ error: "Your login could not be removed. Please try again." });
+  }
 
   res.json({ ok: true });
 }));

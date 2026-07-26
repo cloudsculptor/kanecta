@@ -12,10 +12,12 @@ async function resolveNames(ids) {
     try {
       const user = await adminFetch(`/users/${id}`);
       nameMap[id] = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.username || null;
-    } catch {
-      // Most likely the account was deleted (see routes/account.js) — the
-      // trust record itself is kept so chains below them stay valid.
-      nameMap[id] = "Former member";
+    } catch (err) {
+      // A 404 means the account was deleted (see routes/account.js) — the trust
+      // record itself is kept so chains below them stay valid. Anything else is
+      // a transient Keycloak problem, so leave the name unresolved rather than
+      // labelling a member who is still very much here a "Former member".
+      nameMap[id] = err.status === 404 ? "Former member" : null;
     }
   }));
   return nameMap;

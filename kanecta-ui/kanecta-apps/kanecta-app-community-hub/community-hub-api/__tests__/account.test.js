@@ -77,6 +77,48 @@ describe("DELETE /api/account/me", () => {
     expect(updatedEvents).toBe(true);
   });
 
+  test("re-labels every table that stores a member's display name", async () => {
+    mockClientQuery.mockResolvedValue({ rows: [] });
+    mockAdminFetch.mockResolvedValueOnce(null);
+
+    await request(app).delete("/api/account/me");
+
+    // Every table with a name column a member's name can land in. Keep this in
+    // step with the migrations — a table missing here means a deleted member's
+    // real name stays on show somewhere in the app.
+    const nameTables = [
+      "discussions_messages", "discussions_threads", "discussions_reactions",
+      "notices", "events", "suggestions", "pages", "page_history",
+      "site_node_history", "finances_transactions", "files",
+    ];
+
+    for (const table of nameTables) {
+      const call = mockClientQuery.mock.calls.find(
+        ([sql]) =>
+          typeof sql === "string" &&
+          sql.startsWith(`UPDATE ${table} SET`) &&
+          sql.includes("_name = $2")
+      );
+      expect(call ? [table, call[1]] : table).toEqual([table, ["user-1", "Former member"]]);
+    }
+  });
+
+  test("keeps the DB changes and reports a 502 if the Keycloak delete fails", async () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
+    mockClientQuery.mockResolvedValue({ rows: [] });
+    mockAdminFetch.mockRejectedValueOnce(new Error("keycloak down"));
+
+    const res = await request(app).delete("/api/account/me");
+
+    // The DB work stays committed on purpose: every statement is idempotent, so
+    // the member can simply try again and the retry finishes the job.
+    expect(res.status).toBe(502);
+    expect(mockClientQuery).toHaveBeenCalledWith("COMMIT");
+    expect(mockClientQuery).not.toHaveBeenCalledWith("ROLLBACK");
+    expect(consoleError).toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
   test("rolls back and does not delete the Keycloak user if a DB step fails", async () => {
     mockClientQuery.mockImplementation((sql) => {
       if (sql === "BEGIN") return Promise.resolve();

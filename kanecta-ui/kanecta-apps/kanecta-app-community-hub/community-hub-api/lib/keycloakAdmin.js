@@ -54,7 +54,11 @@ export async function adminFetch(path, options = {}) {
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Keycloak admin API error (${res.status}): ${text}`);
+    // Callers need to tell "this user is gone" (404) apart from "Keycloak is
+    // having a bad day" (5xx) — see resolveNames in routes/trust.js.
+    const err = new Error(`Keycloak admin API error (${res.status}): ${text}`);
+    err.status = res.status;
+    throw err;
   }
 
   if (res.status === 204) return null;
