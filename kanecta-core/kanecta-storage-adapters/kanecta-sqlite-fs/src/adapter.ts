@@ -6,6 +6,7 @@ import Database from 'better-sqlite3';
 import * as spec from '@kanecta/specification';
 import { deriveSqlSchema, deriveIndexDdl, objTableName } from '@kanecta/schema-compiler';
 import { validateItem, validateType } from '@kanecta/specification/validator';
+import { contentHash } from '@kanecta/specification/canonical';
 import { createEmbeddingProvider, reciprocalRankFusion } from '@kanecta/embeddings';
 import { WriteGuard } from './write-integrity.ts';
 
@@ -495,17 +496,11 @@ class SqliteFsAdapter {
   // The branchPoint timestamp watermark remains the fast-path fallback for
   // branches/items without a fingerprint (pre-existing branches).
 
-  // CONTENT hash: bookkeeping stamps (meta.modifiedAt/modifiedBy) are excluded
-  // so a conflict means "upstream content differs from my base", not "upstream
-  // was written to" — an item edited and then reverted hashes clean.
-  _docHash(doc: any) {
-    let d = doc;
-    if (d?.meta && ('modifiedAt' in d.meta || 'modifiedBy' in d.meta)) {
-      const { modifiedAt: _ma, modifiedBy: _mb, ...meta } = d.meta;
-      d = { ...d, meta };
-    }
-    return crypto.createHash('sha256').update(JSON.stringify(d)).digest('hex');
-  }
+  // CONTENT fingerprint now lives in the shared @kanecta/specification/canonical
+  // module (`contentHash`), so postgres computes byte-identical hashes for the
+  // same logical item — the basis for cross-adapter (local→remote) conflict
+  // detection. It excludes bookkeeping (modifiedAt/By) so an edit-then-revert
+  // hashes clean, and accepts sqlite-fs's nested item.json doc directly.
 
   _basesPath(name?: any) { return path.join(this._branchRoot(name ?? this._branch), 'bases.json'); }
 
@@ -513,6 +508,11 @@ class SqliteFsAdapter {
     try { return JSON.parse(fs.readFileSync(this._basesPath(name), 'utf8')); }
     catch { return {}; }
   }
+
+  // Public: the branch's recorded base content fingerprints (the bases.json map,
+  // { itemId: { sha256, modifiedAt, capturedAt } }), for transport to a remote
+  // adapter during push so its merge can detect content drift clock-free.
+  getBaseFingerprints(name?: any) { return this._baseFingerprints(name); }
 
   _recordBaseFingerprint(id: any) {
     if (!this._isSparse()) return;
@@ -525,7 +525,7 @@ class SqliteFsAdapter {
     const bases = this._baseFingerprints();
     if (bases[id]) return;
     bases[id] = {
-      sha256:     this._docHash(upDoc),
+      sha256:     contentHash(upDoc),
       modifiedAt: upDoc?.meta?.modifiedAt ?? null,
       capturedAt: new Date().toISOString(),
     };
@@ -4456,7 +4456,7 @@ class SqliteFsAdapter {
       const base = bases[id];
       if (base?.sha256) {
         const upDoc = this._upstreamDocOf(name, id);
-        return !!upDoc && this._docHash(upDoc) !== base.sha256;
+        return !!upDoc && contentHash(upDoc) !== base.sha256;
       }
       return movedSinceFork(upstreamModifiedAt);
     };

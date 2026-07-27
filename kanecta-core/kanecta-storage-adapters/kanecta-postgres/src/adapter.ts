@@ -20,6 +20,7 @@ import {
   relationshipTypeSeedMetaschema,
 } from '@kanecta/specification';
 import { validateItem, validateType } from '@kanecta/specification/validator';
+import { contentHash } from '@kanecta/specification/canonical';
 import { deriveSqlSchema, deriveIndexDdl } from '@kanecta/schema-compiler';
 import { Pool } from 'pg';
 import type { PoolClient, QueryResult } from 'pg';
@@ -3505,18 +3506,26 @@ class PostgresAdapter {
   async _resolveBranch(nameOrId: any) {
     if (!nameOrId || typeof nameOrId !== 'string') throw new Error('branch name or id is required');
     const byId = UUID_RE.test(nameOrId)
-      ? await this._exec('SELECT id, name, base_branch, branch_point_at, created_at FROM branches WHERE id = $1 AND deleted_at IS NULL AND merged_at IS NULL', [nameOrId])
+      ? await this._exec('SELECT id, name, base_branch, branch_point_at, created_at, bases FROM branches WHERE id = $1 AND deleted_at IS NULL AND merged_at IS NULL', [nameOrId])
       : { rows: [] };
     const rows = byId.rows.length
       ? byId.rows
-      : (await this._exec('SELECT id, name, base_branch, branch_point_at, created_at FROM branches WHERE name = $1 AND deleted_at IS NULL AND merged_at IS NULL', [nameOrId])).rows;
+      : (await this._exec('SELECT id, name, base_branch, branch_point_at, created_at, bases FROM branches WHERE name = $1 AND deleted_at IS NULL AND merged_at IS NULL', [nameOrId])).rows;
     if (!rows.length) throw new Error(`Branch ${nameOrId} not found or already merged`);
     const r = rows[0];
     return {
       id: r.id, name: r.name, baseBranch: r.base_branch,
       branchPointAt: r.branch_point_at?.toISOString() ?? null,
       createdAt: r.created_at.toISOString(),
+      bases: r.bases ?? {},
     };
+  }
+
+  // Store the branch's base content fingerprints (pushed from a local sqlite-fs
+  // branch's bases.json). Full replace — push sends the complete map each time.
+  // Enables clock-free conflict detection in previewMerge/mergeBranch.
+  async setBranchBases(branchId: any, bases: any) {
+    await this._exec('UPDATE branches SET bases = $2 WHERE id = $1', [branchId, JSON.stringify(bases ?? {})]);
   }
 
   // Write an array of change entries to branch_changes. Each entry: { itemId, changeType, section, data }.
@@ -3724,9 +3733,28 @@ class PostgresAdapter {
       current = new Map(rows.map(r => [r.id, r]));
     }
 
-    // ISO-8601 UTC timestamps sort correctly as plain strings.
+    // ISO-8601 UTC timestamps sort correctly as plain strings — fallback path.
     const movedSinceFork = (modifiedAt: any) =>
       !!watermark && !!modifiedAt && String(modifiedAt) > String(watermark);
+
+    // Content-fingerprint conflict detection (durable, clock-free): when the
+    // branch carries a base fingerprint for an item (pushed from sqlite-fs
+    // bases.json), main "moved" iff its CURRENT content hash differs from that
+    // base. Falls back to the branchPoint timestamp watermark for items with no
+    // fingerprint (branches created on postgres, or pushed before bases existed).
+    // Mirrors the sqlite-fs previewMerge twin. Payload is reconstructed so
+    // object/relationship items hash the same as they did on the local side.
+    const bases = branch.bases ?? {};
+    const upstreamMoved = async (itemId: any, before: any) => {
+      const base = bases[itemId];
+      if (base?.sha256) {
+        const payload = before?.typeId
+          ? await this.readObjectJson(itemId, before.typeId).catch(() => null)
+          : null;
+        return contentHash(before, { payload }) !== base.sha256;
+      }
+      return movedSinceFork(before?.modifiedAt);
+    };
 
     const adds: any[] = [], edits: any[] = [], deletes: any[] = [], conflicts: any[] = [];
     for (const [itemId, entry] of byItem) {
@@ -3735,19 +3763,21 @@ class PostgresAdapter {
       if (entry.changeType === 'delete') {
         if (!before) continue; // already gone on main — no-op
         deletes.push({ id: itemId, before });
-        if (movedSinceFork(before.modifiedAt)) conflicts.push({ id: itemId, kind: 'delete-edit', before });
+        if (await upstreamMoved(itemId, before)) conflicts.push({ id: itemId, kind: 'delete-edit', before });
       } else if (!before) {
         adds.push({ id: itemId, after });
+        // Kept-vs-upstream-delete: a recorded base fingerprint means the branch
+        // forked this item from main (which has since deleted it) — an add-delete
+        // conflict. Without a fingerprint, fall back to the changeType/createdAt
+        // heuristic (update-with-no-row, or a create whose createdAt predates the fork).
         const created = entry.sections.meta?.createdAt ?? null;
-        if (entry.changeType === 'update' || (watermark && created && String(created) < String(watermark))) {
-          // update-with-no-row: main deleted it after the fork; create-with-old
-          // createdAt: same story seen from a re-pushed diff. Either way the
-          // branch kept an item main removed — never resurrect silently.
-          conflicts.push({ id: itemId, kind: 'add-delete', after });
-        }
+        const kept = bases[itemId]?.sha256
+          ? true
+          : (entry.changeType === 'update' || (!!watermark && !!created && String(created) < String(watermark)));
+        if (kept) conflicts.push({ id: itemId, kind: 'add-delete', after });
       } else {
         edits.push({ id: itemId, before, after });
-        if (movedSinceFork(before.modifiedAt)) conflicts.push({ id: itemId, kind: 'edit-edit', before, after });
+        if (await upstreamMoved(itemId, before)) conflicts.push({ id: itemId, kind: 'edit-edit', before, after });
       }
     }
 
