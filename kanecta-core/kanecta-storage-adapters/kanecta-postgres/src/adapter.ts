@@ -1047,7 +1047,7 @@ class PostgresAdapter {
         BUILT_IN_TYPE_ID_BY_NAME[type] ?? null;
       if (parentId == null) {
         if (bucketId == null)
-          throw new Error(`parentId is required: '${type}' items have no type bucket to default to (spec §parentid-rules — nothing defaults to root)`);
+          throw new Error('parentId is required');
         parentId = bucketId;
       } else if (parentId === ROOT_ID && bucketId != null) {
         throw new Error(`Invalid parentId: '${type}' items live under ${type === 'type' ? 'the types node' : 'their type item'} (${bucketId}), never under root (spec §parentid-rules)`);
