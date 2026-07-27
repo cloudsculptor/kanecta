@@ -59,6 +59,16 @@ class SyncEngine {
     }
     const branchId = remoteBranch.id;
 
+    // Carry the branch's base content fingerprints (sqlite-fs bases.json) to the
+    // remote so its conflict-aware merge detects whether main's CURRENT content
+    // differs from the fork base — clock-free, no shared-clock assumption. The
+    // remote stores the full map (idempotent re-push replaces it).
+    if (typeof localAdapter.getBaseFingerprints === 'function' &&
+        typeof remoteAdapter.setBranchBases === 'function') {
+      const bases = localAdapter.getBaseFingerprints(branchName) || {};
+      if (Object.keys(bases).length) await remoteAdapter.setBranchBases(branchId, bases);
+    }
+
     // Read local branch overlay: full item.json docs for each changed item
     const { adds, edits, deletes } = await localAdapter.branchDiff(branchName);
 

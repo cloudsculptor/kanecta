@@ -509,6 +509,11 @@ class SqliteFsAdapter {
     catch { return {}; }
   }
 
+  // Public: the branch's recorded base content fingerprints (the bases.json map,
+  // { itemId: { sha256, modifiedAt, capturedAt } }), for transport to a remote
+  // adapter during push so its merge can detect content drift clock-free.
+  getBaseFingerprints(name?: any) { return this._baseFingerprints(name); }
+
   _recordBaseFingerprint(id: any) {
     if (!this._isSparse()) return;
     if (fs.existsSync(this._itemPath(id))) return; // already materialised — base already captured

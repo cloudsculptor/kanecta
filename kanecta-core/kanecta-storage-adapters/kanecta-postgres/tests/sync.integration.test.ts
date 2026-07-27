@@ -413,3 +413,64 @@ describe('remote branch isolation', () => {
     });
   }, 90_000);
 });
+
+// ─── Content-fingerprint conflict detection (the local→remote push payoff) ──────
+//
+// A local sparse branch records a base content fingerprint for every upstream
+// item it edits/deletes; push carries those fingerprints to the remote, and the
+// remote's previewMerge/mergeBranch compare main's CURRENT content hash against
+// the base — clock-free. These two tests prove the behaviour the old
+// modifiedAt-vs-watermark check could not get right across a laptop↔server clock.
+
+describe('content-fingerprint conflict detection (cross-adapter)', () => {
+  test('DETECTS real content drift on remote main → edit-edit conflict', async () => {
+    await withBoth(async ({ local, remote }) => {
+      const [item] = await seed(local, remote, [{ value: 'original' }]);
+
+      // Local sparse branch edits the item — records a base fingerprint of 'original'.
+      local.createBranch('fp-drift');
+      local.switchBranch('fp-drift');
+      local.update(item.id, { value: 'branch-edit' }, OWNER);
+
+      // Meanwhile remote main independently changes the SAME item's content.
+      await remote.update(item.id, { value: 'remote-changed' }, OWNER);
+
+      await SyncEngine.push(local, remote, 'fp-drift');
+      const preview = await remote.previewMerge('fp-drift');
+
+      const conflict = preview.conflicts.find((c) => c.id === item.id);
+      expect(conflict).toBeTruthy();
+      expect(conflict.kind).toBe('edit-edit');
+
+      // A strategy-less merge must refuse.
+      await expect(SyncEngine.merge(remote, 'fp-drift')).rejects.toThrow(/conflict/i);
+    });
+  }, 90_000);
+
+  test('IGNORES a clock-only touch on remote main (same content) → no false conflict', async () => {
+    await withBoth(async ({ local, remote, pool }) => {
+      const [item] = await seed(local, remote, [{ value: 'original' }]);
+
+      // Local sparse branch edits the item — base fingerprint = 'original'.
+      local.createBranch('fp-touch');
+      local.switchBranch('fp-touch');
+      local.update(item.id, { value: 'branch-edit' }, OWNER);
+
+      // Remote main is "touched": modifiedAt bumps well past the branch point,
+      // but the content round-trips back to the fork base. A timestamp-watermark
+      // check would FALSE-flag this as a conflict; the fingerprint must not.
+      await remote.update(item.id, { value: 'temporary' }, OWNER);
+      await remote.update(item.id, { value: 'original' }, OWNER);
+
+      await SyncEngine.push(local, remote, 'fp-touch');
+      const preview = await remote.previewMerge('fp-touch');
+      expect(preview.conflicts.find((c) => c.id === item.id)).toBeFalsy();
+
+      // Merge succeeds and applies the branch edit.
+      const res = await SyncEngine.merge(remote, 'fp-touch');
+      expect(res.merged).toBeGreaterThan(0);
+      const { rows } = await pool.query('SELECT value FROM items WHERE id = $1', [item.id]);
+      expect(rows[0].value).toBe('branch-edit');
+    });
+  }, 90_000);
+});
