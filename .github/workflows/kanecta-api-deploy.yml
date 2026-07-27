@@ -68,6 +68,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      # Deploy one instance at a time: all instances share the single 2GB
+      # remutaka box, and concurrent `npm ci`s OOM-kill each other. Sequential
+      # keeps peak memory to one install.
+      max-parallel: 1
       matrix:
         # Every kanecta-api instance EXCEPT nonprod (which deploys via its own job).
         include:
