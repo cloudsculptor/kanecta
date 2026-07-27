@@ -56,12 +56,17 @@ export function KeycloakProvider({ children }: { children: ReactNode }) {
         }
 
         const kc = initKeycloak({ url: cfg.keycloakUrl, realm: cfg.realm, clientId: cfg.clientId });
+        // Hard door: redirect straight to the Keycloak login when there is no
+        // session. Studio is an admin tool where nothing works without a token, so
+        // a silent check-sso (which also depends on now-blocked third-party cookies)
+        // just yields a broken unauthenticated shell. login-required navigates away
+        // to Keycloak and returns authenticated. (Auth-disabled deployments never
+        // reach here — that path short-circuits above.)
         kc
           .init({
             pkceMethod: "S256",
             checkLoginIframe: false,
-            onLoad: "check-sso",
-            silentCheckSsoRedirectUri: window.location.origin + "/silent-check-sso.html",
+            onLoad: "login-required",
           })
           .then((auth) => {
             if (cancelled) return;
