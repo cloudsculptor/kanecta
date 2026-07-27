@@ -16,7 +16,7 @@ import { Pool } from 'pg';
 
 import { PostgresAdapter, ROOT_ID } from '../src/adapter';
 import { SqliteFsAdapter } from '@kanecta/sqlite-fs';
-import { SyncEngine } from '@kanecta/lib';
+import { SyncEngine, Datastore } from '@kanecta/lib';
 
 const CONNECTION_STRING =
   process.env.KANECTA_TEST_PG_URL || 'postgres://kanecta:kanecta@localhost:45432/kanecta';
@@ -36,7 +36,7 @@ async function withBoth(fn) {
   const local   = SqliteFsAdapter.init(tmpDir, OWNER);
 
   try {
-    await fn({ local, remote, pool, tmpDir });
+    await fn({ local, remote, pool, tmpDir, schema });
   } finally {
     await pool.end();
     await adminPool.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
@@ -473,4 +473,86 @@ describe('content-fingerprint conflict detection (cross-adapter)', () => {
       expect(rows[0].value).toBe('branch-edit');
     });
   }, 90_000);
+});
+
+// ─── Branch-push surface: Datastore.openRemotePg + SyncEngine.fullSync ─────────
+//
+// The endpoint / CLI / Studio all reach the remote through Datastore.openRemotePg
+// (config → bare pg items adapter) and drive SyncEngine.fullSync. The raw
+// SyncEngine.push/merge path is covered above; these tests exercise the new
+// public entry points end-to-end against a real, pre-migrated remote schema —
+// exactly the shape a working-set `remotes.origin` postgres block carries.
+
+// Build the `remotes.origin` postgres config for an already-migrated schema from
+// the test connection string. openRemotePg URL-encodes these back into a
+// connection string and scopes the search_path to `schema`.
+function remotePgConfigFor(schema: string) {
+  const u = new URL(CONNECTION_STRING);
+  return {
+    type: 'postgres',
+    host: u.hostname,
+    port: Number(u.port) || 5432,
+    database: u.pathname.replace(/^\//, ''),
+    user: decodeURIComponent(u.username),
+    password: decodeURIComponent(u.password),
+    schema,
+  };
+}
+
+describe('Datastore.openRemotePg + SyncEngine.fullSync (branch-push surface)', () => {
+  test('opens a pre-migrated remote and pushes+merges a local branch add', async () => {
+    await withBoth(async ({ local, schema }) => {
+      local.createBranch('push-surface');
+      local.switchBranch('push-surface');
+      const item = await localCreate(local, { value: 'pushed via openRemotePg' });
+
+      const { adapter, pool } = await Datastore.openRemotePg(remotePgConfigFor(schema));
+      try {
+        const result = await SyncEngine.fullSync(local, adapter, 'push-surface');
+        expect(result.push.pushed).toBeGreaterThan(0);
+        expect(result.merge.merged).toBeGreaterThan(0);
+        // The add now lives on remote main (default branch, no active branch).
+        const remoteItem = await adapter.get(item.id);
+        expect(remoteItem?.value).toBe('pushed via openRemotePg');
+      } finally {
+        await pool.end();
+      }
+    });
+  }, 90_000);
+
+  test('surfaces a real conflict from fullSync (strategy-less) via openRemotePg', async () => {
+    await withBoth(async ({ local, remote, schema }) => {
+      const [item] = await seed(local, remote, [{ value: 'original' }]);
+
+      // Local sparse branch edits the item; remote main independently changes it.
+      local.createBranch('push-conflict');
+      local.switchBranch('push-conflict');
+      local.update(item.id, { value: 'branch-edit' }, OWNER);
+      await remote.update(item.id, { value: 'remote-changed' }, OWNER);
+
+      const { adapter, pool } = await Datastore.openRemotePg(remotePgConfigFor(schema));
+      try {
+        // A strategy-less fullSync must refuse the conflicting merge.
+        await expect(SyncEngine.fullSync(local, adapter, 'push-conflict')).rejects.toThrow(/conflict/i);
+
+        // Re-driving with strategy: 'theirs' resolves it (branch wins).
+        const result = await SyncEngine.fullSync(local, adapter, 'push-conflict', { strategy: 'theirs' });
+        expect(result.merge.merged).toBeGreaterThan(0);
+        const remoteItem = await adapter.get(item.id);
+        expect(remoteItem?.value).toBe('branch-edit');
+      } finally {
+        await pool.end();
+      }
+    });
+  }, 90_000);
+});
+
+describe('Datastore.openRemotePg config validation', () => {
+  test('throws a clear error when the remote has no postgres block', async () => {
+    await expect(Datastore.openRemotePg({ type: 'cloud', s3: {} } as any)).rejects.toThrow(/postgres/i);
+  });
+
+  test('throws when no remote config is given', async () => {
+    await expect(Datastore.openRemotePg(null as any)).rejects.toThrow(/remote config/i);
+  });
 });

@@ -5,8 +5,8 @@ import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
 import {
-  Datastore, VALID_TYPES, VALID_CONFIDENCES,
-  readAppConfig, resolveWorkingSet, resolveBranch,
+  Datastore, SyncEngine, VALID_TYPES, VALID_CONFIDENCES,
+  readAppConfig, resolveWorkingSet, resolveBranch, workingSetLocalPath,
   checkIntegrity, checkIntegrityStream,
 } from '@kanecta/lib';
 
@@ -147,6 +147,15 @@ COMMANDS
     (✓ pass / ✗ fail / ○ skip), then a summary. Validates object payloads, type
     and function definitions, references, aliases and metadata against the 1.4.0
     spec. Exits non-zero if any check errored (CI-usable).
+
+  push <branch> [--remote <name>] [--strategy theirs|ours] [--force] [--json]
+    Push a LOCAL feature branch into a REMOTE postgres datastore and run the
+    remote's conflict-aware merge. Carries the branch's changes and base content
+    fingerprints upstream; the local branch is left intact.
+    --remote <name>       Remote to push to (default: origin)
+    --strategy <mode>     Resolve conflicts: theirs (branch wins) | ours (remote wins)
+    --force               Skip the pre-flight scan and merge branch-wins
+    A conflicting push fails with a clear message unless --strategy/--force is given.
 
 ITEM TYPES
   string      Short text value
@@ -855,6 +864,73 @@ async function cmdIntegrity(positional: string[], flags: Flags) {
   process.exitCode = summary.ok ? 0 : 1;
 }
 
+// `kanecta push <branch>` — push a LOCAL feature branch into a REMOTE postgres
+// datastore and run the remote's conflict-aware merge. Opens the local datastore
+// and a bare remote pg adapter (no S3 — a push moves items only), drives
+// SyncEngine.fullSync (diff → push → pre-flight scan → merge), and always closes
+// the remote pool. A conflicting merge surfaces as a clear non-zero exit unless
+// --strategy/--force is supplied.
+async function cmdPush(positional: string[], flags: Flags) {
+  const branch = positional[0] || flags['branch'];
+  if (!branch) die('Usage: kanecta push <branch> [--remote origin] [--strategy theirs|ours] [--force]');
+  if (branch === 'main') die('Cannot push main — only feature branches are pushable');
+
+  const appCfg = readAppConfig();
+  if (!appCfg?.workingSets || !Object.keys(appCfg.workingSets).length) {
+    die('push requires a working set with a configured remote (none found in config.json)');
+  }
+  const { name, workingSet } = resolveWorkingSet(flags['working-set']);
+  const localPath = workingSetLocalPath(workingSet);
+  if (!localPath) die(`Working set '${name}' has no local datastore to push from`);
+  if (!Datastore.isDatastore(localPath)) die(`Local datastore not found at: ${localPath}`);
+
+  const remoteName = flags['remote'] || 'origin';
+  const remotesCfg = workingSet.remotes ?? (workingSet.cloud ? { origin: { type: 'cloud', ...workingSet.cloud } } : {});
+  const remoteCfg = remotesCfg[remoteName];
+  if (!remoteCfg) die(`Remote '${remoteName}' not configured for working set '${name}'`);
+
+  const strategy = flags['strategy'] || null;
+  if (strategy && strategy !== 'theirs' && strategy !== 'ours') {
+    die(`Invalid --strategy: ${strategy}. Valid: theirs, ours`);
+  }
+  const force = !!flags['force'];
+
+  const localDs = Datastore.open(localPath);
+  const { adapter, pool } = await Datastore.openRemotePg(remoteCfg);
+  try {
+    const result = await SyncEngine.fullSync(localDs._adapter, adapter, branch, { force, strategy });
+    const out = {
+      ok: true,
+      remote: remoteName,
+      pushed: result.push.pushed,
+      merged: result.merge.merged,
+      skipped: result.merge.skipped,
+      conflicts: result.merge.conflicts ?? [],
+      blastRadius: result.merge.blastRadius ?? [],
+    };
+    if (flags['json']) {
+      console.log(JSON.stringify(out, null, 2));
+    } else {
+      console.log(`Pushed branch '${branch}' → ${remoteName}`);
+      console.log(`  changes pushed: ${out.pushed}`);
+      console.log(`  merged:         ${out.merged}`);
+      console.log(`  skipped:        ${out.skipped}`);
+      if (out.conflicts.length) console.log(`  conflicts:      ${out.conflicts.length}`);
+    }
+  } catch (err: any) {
+    if (err.code === 'MERGE_CONFLICT') {
+      die(`Push blocked by merge conflict: ${err.message}\n` +
+          'Re-run with --strategy theirs|ours (or --force) to resolve.');
+    }
+    if (err.code === 'MERGE_BLAST_RADIUS') {
+      die(`Push blocked by blast radius: ${err.message}`);
+    }
+    throw err;
+  } finally {
+    try { await pool.end(); } catch { /* pool already closing */ }
+  }
+}
+
 // ─── Dispatch ─────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -896,6 +972,7 @@ async function main() {
     case 'rebuild-projections': await cmdRebuildProjections(rest, flags); break;
     case 'doctor':         await cmdDoctor(rest, flags); break;
     case 'integrity':      await cmdIntegrity(rest, flags); break;
+    case 'push':           await cmdPush(rest, flags); break;
     default:
       die(`Unknown command: ${cmd}\nRun \`kanecta --help\` for usage.`);
   }

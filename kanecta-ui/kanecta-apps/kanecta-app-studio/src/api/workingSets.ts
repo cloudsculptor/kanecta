@@ -12,6 +12,8 @@ export type {
   MergePreview,
   MergeOptions,
   MergeResult,
+  PushOptions,
+  PushResult,
 } from '@kanecta/api-client';
 import type { BranchDiff } from '@kanecta/api-client';
 
@@ -49,5 +51,7 @@ export function workingSetsApi(client: KanectaApiClient) {
     /** Conflicts + blast radius a merge into main would produce — applies nothing. */
     getMergePreview: ws.mergePreview,
     mergeBranch: ws.merge,
+    /** Push a local feature branch into a remote postgres datastore. */
+    pushBranch: ws.pushBranch,
   };
 }

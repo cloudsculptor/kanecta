@@ -7,6 +7,7 @@ import AddIcon from '@mui/icons-material/Add';
 import CheckIcon from '@mui/icons-material/Check';
 import ErrorOutlinedIcon from '@mui/icons-material/ErrorOutlined';
 import AltRouteIcon from '@mui/icons-material/AltRoute';
+import CloudUploadOutlinedIcon from '@mui/icons-material/CloudUploadOutlined';
 import Divider from '@mui/material/Divider';
 import Popover from '@mui/material/Popover';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -106,6 +107,17 @@ export function WorkingSetSelector() {
   });
 
   const hasChanges = Boolean(diff && diff.adds + diff.edits + diff.deletes > 0);
+
+  // Push the active branch to the remote (origin) and run the remote's
+  // conflict-aware merge. The local branch is left intact, so we only refresh
+  // the working-sets summary — no need to invalidate every item view.
+  const pushMutation = useMutation({
+    mutationFn: ({ name, branch }: { name: string; branch: string }) =>
+      api.workingSets.pushBranch(name, branch),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['working-sets'] }),
+  });
+
+  const canPush = Boolean(activeWs) && hasRemote && canDiff && hasChanges && !pushMutation.isPending;
 
   return (
     <>
@@ -271,6 +283,33 @@ export function WorkingSetSelector() {
             <AltRouteIcon />
             <span>Create Pull Request</span>
           </button>
+
+          {hasRemote && (
+            <button
+              className="WorkingSetSelector__action-btn"
+              onClick={() => activeWs && pushMutation.mutate({ name: activeWs.name, branch: activeBranch })}
+              disabled={!canPush}
+              title={
+                canDiff
+                  ? (hasChanges ? 'Push this branch to the remote' : 'No changes on this branch to push')
+                  : 'Switch to a working branch to push to the remote'
+              }
+            >
+              <CloudUploadOutlinedIcon />
+              <span>{pushMutation.isPending ? 'Pushing…' : 'Push to remote'}</span>
+            </button>
+          )}
+
+          {pushMutation.isError && (
+            <p className="WorkingSetSelector__action-error" role="alert">
+              {(pushMutation.error as Error).message}
+            </p>
+          )}
+          {pushMutation.isSuccess && (
+            <p className="WorkingSetSelector__action-status" role="status">
+              Pushed {pushMutation.data.pushed} change{pushMutation.data.pushed === 1 ? '' : 's'} to {pushMutation.data.remote} — merged {pushMutation.data.merged}.
+            </p>
+          )}
         </div>
 
       </Popover>
