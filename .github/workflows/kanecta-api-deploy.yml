@@ -1,42 +1,60 @@
 name: Deploy Kanecta API + Studio
 
-# Deploys the kanecta-api backend (and the Studio SPA) to one or all of the
-# per-instance stacks on the remutaka droplet. Each instance runs its own
-# pm2 process bound to 127.0.0.1 on its own port, reading its own
-# /opt/kanecta-<dir>/config (config.json + .env — NOT in the repo, never touched
-# by deploy). Config/studio dirs are siblings of app/, so the app rsync leaves
-# them alone.
+# Deploys the kanecta-api backend (and the Studio SPA) to the per-instance
+# stacks on the remutaka droplet. Each instance runs its own pm2 process bound
+# to 127.0.0.1 on its own port, reading its own /opt/kanecta-<dir>/config
+# (config.json + .env — NOT in the repo, never touched by deploy). Config/studio
+# dirs are siblings of app/, so the app rsync leaves them alone.
 #
-# Manual by design (workflow_dispatch): prod is live, so a redeploy restarts a
-# serving process — trigger it intentionally, not on every push.
-# Pick a single instance or "all". (nonprod is deployed separately.)
+# CD: on merge to master, when kanecta-api/core or the Studio changes, EVERY
+# instance is redeployed — EXCEPT nonprod, which is the deliberate exception
+# (it has its own separate, working deploy job). Also runnable manually
+# (workflow_dispatch) to target a single instance or skip the Studio build.
 
 on:
+  push:
+    branches: [master]
+    paths:
+      - 'kanecta-core/**'
+      - 'kanecta-ui/kanecta-apps/kanecta-app-studio/**'
+      - 'kanecta-ui/kanecta-components/**'
+      - '.github/workflows/kanecta-api-deploy.yml'
   workflow_dispatch:
     inputs:
       instance:
         description: Instance to deploy
         type: choice
         default: all
-        options: [all, prod, internal, team, organiser]
+        options: [all, prod, internal, team, organiser, lei]
       deploy_studio:
         description: Also rebuild + deploy the Studio SPA
         type: boolean
         default: true
 
+# Serialise deploys so overlapping merges don't race on the droplet.
+concurrency:
+  group: kanecta-api-deploy
+  cancel-in-progress: false
+
 jobs:
   build-studio:
-    if: ${{ inputs.deploy_studio }}
+    # On push (CD) always build the Studio; on manual runs honour the toggle.
+    if: ${{ github.event_name == 'push' || inputs.deploy_studio }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Build Studio (auth-disabled, relative /api — backend-agnostic)
+      - name: Build Studio (backend-agnostic — relative /api, runtime auth-config)
+        # No VITE_AUTH_DISABLED: one universal artifact for every instance.
+        # Login is decided at runtime by each API's GET /auth-config — the
+        # Keycloak instances log in; the AUTH_DISABLED instances (prod's basic-
+        # auth studio) report authDisabled and skip it. Baking the flag in here
+        # would ship a Studio that can never attach a Keycloak token.
         run: |
           npm ci --workspace kanecta-ui/kanecta-apps/kanecta-app-studio
-          VITE_AUTH_DISABLED=true npx --workspace kanecta-ui/kanecta-apps/kanecta-app-studio vite build
+          npx --workspace kanecta-ui/kanecta-apps/kanecta-app-studio vite build
         working-directory: .
       - uses: actions/upload-artifact@v4
         with:
@@ -51,19 +69,23 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Every kanecta-api instance EXCEPT nonprod (which deploys via its own job).
         include:
-          - { instance: prod,       dir: kanecta-prod,       pm2: kanecta-api-prod,       port: 3101 }
-          - { instance: internal,   dir: kanecta-internal,   pm2: kanecta-api-internal,   port: 3102 }
-          - { instance: team, dir: kanecta-team, pm2: kanecta-api-team, port: 3103 }
-          - { instance: organiser,    dir: kanecta-organiser,    pm2: kanecta-api-organiser,    port: 3104 }
+          - { instance: prod,      dir: kanecta-prod,      pm2: kanecta-api-prod,      port: 3101 }
+          - { instance: internal,  dir: kanecta-internal,  pm2: kanecta-api-internal,  port: 3102 }
+          - { instance: team,      dir: kanecta-team,      pm2: kanecta-api-team,      port: 3103 }
+          - { instance: organiser, dir: kanecta-organiser, pm2: kanecta-api-organiser, port: 3104 }
+          - { instance: lei,       dir: kanecta-lei,       pm2: kanecta-api-lei,       port: 3105 }
     steps:
       - name: Gate on selected instance
         id: gate
         run: |
-          if [ "${{ inputs.instance }}" != "all" ] && [ "${{ inputs.instance }}" != "${{ matrix.instance }}" ]; then
-            echo "run=false" >> "$GITHUB_OUTPUT"
-          else
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"                       # CD: deploy every matrix instance
+          elif [ "${{ inputs.instance }}" = "all" ] || [ "${{ inputs.instance }}" = "${{ matrix.instance }}" ]; then
             echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
           fi
 
       - uses: actions/checkout@v5
@@ -87,14 +109,14 @@ jobs:
             "cd /opt/${{ matrix.dir }}/app && npm ci --workspace kanecta-core/kanecta-api && pm2 restart ${{ matrix.pm2 }} --update-env && pm2 save"
 
       - name: Deploy Studio
-        if: ${{ steps.gate.outputs.run == 'true' && inputs.deploy_studio }}
+        if: ${{ steps.gate.outputs.run == 'true' && (github.event_name == 'push' || inputs.deploy_studio) }}
         uses: actions/download-artifact@v4
         with:
           name: studio-dist
           path: studio-dist/
 
       - name: Push Studio dist
-        if: ${{ steps.gate.outputs.run == 'true' && inputs.deploy_studio }}
+        if: ${{ steps.gate.outputs.run == 'true' && (github.event_name == 'push' || inputs.deploy_studio) }}
         run: |
           rsync -az --delete -e "ssh -i ~/.ssh/deploy_key" \
             studio-dist/ root@${{ secrets.DEPLOY_HOST }}:/opt/${{ matrix.dir }}/studio/
