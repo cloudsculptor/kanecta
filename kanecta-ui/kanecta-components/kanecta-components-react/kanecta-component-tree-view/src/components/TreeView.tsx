@@ -759,7 +759,7 @@ export function TreeView({
           <div className="TreeNode">
             <div
               className="TreeNode-row"
-              onClick={() => createMutation.mutate({ value: '', parentId: rootId ?? undefined })}
+              onClick={() => createMutation.mutate({ value: '', parentId: focusedItemId ?? undefined })}
             >
               <button className="TreeNode-toggle TreeNode-toggle--leaf" tabIndex={-1} aria-hidden="true" />
               <AddIcon className="TreeNode-bullet" />
