@@ -27,7 +27,7 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "asciidoctor": "^4.0.5"
+    "asciidoctor": "^4.0.6"
   },
   "license": "MIT",
   "publishConfig": {
