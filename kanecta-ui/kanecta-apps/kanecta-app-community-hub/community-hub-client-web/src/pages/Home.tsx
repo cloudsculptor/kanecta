@@ -85,6 +85,13 @@ const publicActive = [
     image: "/home-page-images/education-160x160.jpg",
     attribution: { label: "Photo: Joanna Baldwin" },
   },
+  {
+    title: "Seniors",
+    blurb: "Services, activities, and support for older residents.",
+    path: "/seniors",
+    image: "/home-page-images/seniors-160x160.jpg",
+    attribution: { label: "Photo: Joanna Baldwin" },
+  },
 ];
 
 const publicComing = [
@@ -158,12 +165,6 @@ const publicComing = [
     title: "Youth",
     blurb: "Services, activities, and resources for young people in Featherston.",
     image: "/home-page-images/youth-160x160.jpg",
-    attribution: { label: "Photo: Joanna Baldwin" },
-  },
-  {
-    title: "Seniors",
-    blurb: "Services, activities, and support for older residents.",
-    image: "/home-page-images/seniors-160x160.jpg",
     attribution: { label: "Photo: Joanna Baldwin" },
   },
   {
