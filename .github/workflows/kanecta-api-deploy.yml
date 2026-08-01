@@ -68,6 +68,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      # The droplet has 2GB RAM. Concurrent `npm ci` legs OOM-kill each other and
+      # leave node_modules half-written (2026-08-01: five parallel legs emptied
+      # node_modules/tsx on every instance, crash-looping the whole fleet).
+      # Deploy one instance at a time — never raise this.
+      max-parallel: 1
       matrix:
         # Every kanecta-api instance EXCEPT nonprod (which deploys via its own job).
         include:
@@ -105,8 +110,12 @@ jobs:
           rsync -az --delete --exclude node_modules --exclude .git -e "ssh -i ~/.ssh/deploy_key" \
             ./ root@${{ secrets.DEPLOY_HOST }}:/opt/${{ matrix.dir }}/app/
           # Scoped install only — a full monorepo `npm ci` OOM-kills the 2GB box.
+          # Assert tsx actually resolves BEFORE restarting: an OOM-killed `npm ci`
+          # leaves node_modules/tsx as an empty dir, and `start` (node --import tsx)
+          # then fails instantly, so pm2 crash-loops forever. Fail the deploy and
+          # leave the old process running rather than restart into that loop.
           ssh -i ~/.ssh/deploy_key root@${{ secrets.DEPLOY_HOST }} \
-            "cd /opt/${{ matrix.dir }}/app && npm ci --workspace kanecta-core/kanecta-api && pm2 restart ${{ matrix.pm2 }} --update-env && pm2 save"
+            "cd /opt/${{ matrix.dir }}/app && npm ci --workspace kanecta-core/kanecta-api && node -e \"require.resolve('tsx/package.json')\" && pm2 restart ${{ matrix.pm2 }} --update-env && pm2 save"
 
       - name: Deploy Studio
         if: ${{ steps.gate.outputs.run == 'true' && (github.event_name == 'push' || inputs.deploy_studio) }}
@@ -124,6 +133,15 @@ jobs:
       - name: Smoke test (localhost /working-sets)
         if: steps.gate.outputs.run == 'true'
         run: |
-          sleep 5
-          ssh -i ~/.ssh/deploy_key root@${{ secrets.DEPLOY_HOST }} \
-            "curl -fsS -o /dev/null -w 'HTTP %{http_code}\n' http://localhost:${{ matrix.port }}/working-sets"
+          # Only prod is basic-auth; the Keycloak instances answer /working-sets
+          # with 401. A 401 still proves the process is up and serving, so treat
+          # 2xx AND 401 as healthy — `curl -fsS` alone fails every non-prod leg.
+          # Sleep past pm2's restart window so a crash-looper can't answer.
+          sleep 15
+          code=$(ssh -i ~/.ssh/deploy_key root@${{ secrets.DEPLOY_HOST }} \
+            "curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://localhost:${{ matrix.port }}/working-sets")
+          echo "${{ matrix.instance }} :${{ matrix.port }} HTTP $code"
+          case "$code" in
+            2??|401) echo "healthy" ;;
+            *) echo "::error::${{ matrix.instance }} unhealthy (HTTP $code)"; exit 1 ;;
+          esac
