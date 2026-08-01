@@ -9,118 +9,6 @@ export default function Seniors() {
         Services, activities, and support for older residents of Featherston.
       </p>
 
-      <h3>Superannuation &amp; Entitlements</h3>
-      <ul>
-        <li>
-          <a href="https://www.workandincome.govt.nz/eligibility/seniors/superannuation/" target="_blank" rel="noopener noreferrer">
-            Work and Income — NZ Superannuation
-          </a>{" "}
-          — who can get NZ Super, how much it pays, and how to apply. You can apply up to
-          12 weeks before you turn 65
-        </li>
-        <li>
-          <a href="https://www.supergold.govt.nz/" target="_blank" rel="noopener noreferrer">
-            SuperGold Card
-          </a>{" "}
-          — free off-peak public transport and discounts from businesses across New Zealand.
-          Issued automatically when your NZ Super is approved
-        </li>
-        <li>
-          <a href="https://www.workandincome.govt.nz/products/a-z-benefits/accommodation-supplement.html" target="_blank" rel="noopener noreferrer">
-            Accommodation Supplement
-          </a>{" "}
-          — help with rent, board, or home ownership costs. Available alongside NZ Super
-          depending on your circumstances
-        </li>
-        <li>
-          <a href="https://www.superseniors.msd.govt.nz/" target="_blank" rel="noopener noreferrer">
-            SuperSeniors
-          </a>{" "}
-          — the Office for Seniors' hub for information on entitlements, health, housing,
-          and staying connected
-        </li>
-      </ul>
-
-      <h3>Advice &amp; Advocacy</h3>
-      <ul>
-        <li>
-          <a href="https://www.ageconcern.org.nz/" target="_blank" rel="noopener noreferrer">
-            Age Concern New Zealand
-          </a>{" "}
-          — advocacy, visiting services, and support for older people. Use the site's
-          "find your local office" to reach the branch covering the Wairarapa
-        </li>
-        <li>
-          <a href="https://greypower.co.nz/" target="_blank" rel="noopener noreferrer">
-            Grey Power New Zealand
-          </a>{" "}
-          — membership organisation advocating for the rights and wellbeing of those over 50,
-          with local associations around the country
-        </li>
-        <li>
-          <a href="https://www.cab.org.nz/" target="_blank" rel="noopener noreferrer">
-            Citizens Advice Bureau
-          </a>{" "}
-          — free, confidential advice on anything from entitlements to tenancy and legal
-          questions. Phone 0800 367 222
-        </li>
-      </ul>
-
-      <h3>Health &amp; Wellbeing</h3>
-      <ul>
-        <li>
-          <a href="https://healthify.nz/" target="_blank" rel="noopener noreferrer">
-            Healthify He Puna Waiora
-          </a>{" "}
-          — plain-language health information and self-care resources (formerly Health
-          Navigator New Zealand)
-        </li>
-        <li>
-          <a href="https://info.health.nz/services-support/health-and-disability-providers/healthline" target="_blank" rel="noopener noreferrer">
-            Healthline — 0800 611 116
-          </a>{" "}
-          — free health advice from trained nurses and paramedics, 24 hours a day,
-          seven days a week
-        </li>
-        <li>
-          <a href="https://alzheimers.org.nz/" target="_blank" rel="noopener noreferrer">
-            Alzheimers New Zealand
-          </a>{" "}
-          — information and support for people living with dementia and those caring for them
-        </li>
-        <li>
-          <a href="https://www.stjohn.org.nz/what-we-do/community-programmes/st-john-medical-alarms/" target="_blank" rel="noopener noreferrer">
-            St John Medical Alarms
-          </a>{" "}
-          — personal alarms for getting help quickly at home. Some people qualify for a
-          Work and Income subsidy
-        </li>
-        <li>
-          <a href="https://carers.net.nz/" target="_blank" rel="noopener noreferrer">
-            Carers New Zealand
-          </a>{" "}
-          — support, information, and respite guidance for family and whānau carers
-        </li>
-      </ul>
-
-      <h3>Staying Safe</h3>
-      <ul>
-        <li>
-          <a href="https://www.officeforseniors.govt.nz/our-work/raising-awareness-of-elder-abuse/elder-abuse-response-service" target="_blank" rel="noopener noreferrer">
-            Elder Abuse Response Service — 0800 32 668 65
-          </a>{" "}
-          — free and confidential, 24 hours a day, for anyone worried about an older person's
-          safety or their own. You can also text 5032 or email support@elderabuse.nz, and
-          you'll be put in touch with a trained coordinator for this region
-        </li>
-        <li>
-          <a href="https://www.netsafe.org.nz/" target="_blank" rel="noopener noreferrer">
-            Netsafe
-          </a>{" "}
-          — help with online scams, which often target older people. Phone 0508 638 723
-        </li>
-      </ul>
-
       <h3>Local Groups &amp; Activities</h3>
       <ul>
         <li>
@@ -170,8 +58,27 @@ export default function Seniors() {
         </li>
       </ul>
 
-      <h3>Other Local Services</h3>
+      <h3>Local Places &amp; Services</h3>
       <ul>
+        <li>
+          <a href="https://swdc.govt.nz/services/venues/featherston-2/" target="_blank" rel="noopener noreferrer">
+            Anzac Hall
+          </a>{" "}
+          — 62–64 Bell Street, on the corner of Bell and Birdwood Streets. Featherston's main
+          hall, opened in 1916 as a recreation centre for troops at the nearby military camp,
+          and still the venue for many local gatherings. The Anzac Hall, Kiwi Hall, and Supper
+          Room seat groups from 20 up to 400, with kitchen access and a screen for
+          presentations. Book through the council on 06 306 9611 or enquiries@swdc.govt.nz
+        </li>
+        <li>
+          <a href="https://www.cab.org.nz/location/cab-wairarapa" target="_blank" rel="noopener noreferrer">
+            Citizens Advice Bureau Wairarapa
+          </a>{" "}
+          — free, confidential advice on entitlements, tenancy, legal questions, and much
+          else. The Wairarapa bureau is based in Masterton and covers Featherston; see the
+          link for its current address and opening hours, or phone 0800 367 222 from
+          anywhere in New Zealand
+        </li>
         <li>
           <a href="https://swdc.govt.nz/services/libraries/" target="_blank" rel="noopener noreferrer">
             Featherston Library
