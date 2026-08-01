@@ -16,7 +16,7 @@
     "@kanecta/specification": "^1.4.0",
     "@types/adm-zip": "^0.5.8",
     "adm-zip": "^0.6.0",
-    "better-sqlite3": "^13.0.1"
+    "better-sqlite3": "^13.0.2"
   },
   "devDependencies": {
     "jest": "^30.4.2"
