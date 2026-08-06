@@ -55,6 +55,7 @@ import NoticeBoard from "./pages/NoticeBoard";
 import Profile from "./pages/Profile";
 import CommunityResilience from "./pages/CommunityResilience";
 import Education from "./pages/Education";
+import Seniors from "./pages/Seniors";
 
 export default function App() {
   const { initialized } = useKeycloak();
@@ -85,6 +86,7 @@ export default function App() {
       <Route path="/profile" element={<Profile />} />
       <Route path="/community-resilience" element={<CommunityResilience />} />
       <Route path="/education" element={<Education />} />
+      <Route path="/seniors" element={<Seniors />} />
       <Route path="/discussions" element={<Discussions />} />
       <Route path="/discussions/team-required" element={<TeamRequired />} />
       <Route path="/roadmap" element={<Roadmap />} />
