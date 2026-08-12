@@ -4,7 +4,7 @@
   "private": true,
   "main": "src/index.ts",
   "peerDependencies": {
-    "@mui/icons-material": "^9.2.0",
+    "@mui/icons-material": "^9.3.1",
     "react": "^19.2.8"
   }
 }
