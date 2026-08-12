@@ -20,10 +20,10 @@
     "dist": "electron-builder --linux deb"
   },
   "devDependencies": {
-    "@types/node": "^26.1.2",
-    "electron": "43.2.0",
+    "@types/node": "^26.2.0",
+    "electron": "43.3.0",
     "electron-builder": "^26.15.3",
-    "esbuild": "^0.28.1"
+    "esbuild": "^0.28.2"
   },
   "license": "MIT",
   "build": {

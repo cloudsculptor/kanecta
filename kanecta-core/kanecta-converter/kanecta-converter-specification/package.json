@@ -7,7 +7,7 @@
     "build:spec": "asciidoctor 1.4.0/specification.converter.adoc -o 1.4.0/specification.converter.html"
   },
   "devDependencies": {
-    "asciidoctor": "^4.0.6"
+    "asciidoctor": "^4.0.8"
   },
   "author": "Kanecta",
   "license": "MIT"

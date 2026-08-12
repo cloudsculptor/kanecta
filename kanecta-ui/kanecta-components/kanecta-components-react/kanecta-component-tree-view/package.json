@@ -23,11 +23,11 @@
     "@storybook/react": "*",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "*",
-    "@testing-library/user-event": "*",
-    "@types/react": "^19.0.0",
+    "@testing-library/user-event": "^14.6.3",
+    "@types/react": "^19.2.18",
     "storybook": "*",
     "typescript": "~7.0.2",
-    "vite": "^8.1.5",
+    "vite": "^8.2.1",
     "vitest": "^4.1.9"
   }
 }
