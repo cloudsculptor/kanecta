@@ -478,6 +478,14 @@ describe('create', () => {
     expect(ds.readObjectJson(item.id)).toEqual({ severity: 'P1' });
   });
 
+  it('rejects a content item with no parentId — terse message, no internals leaked', () => {
+    // Regression (PR #170): content items (e.g. the tree view's 'text'
+    // primitives) have no type bucket to derive a parent from, so create must
+    // fail — and the message must be exactly "parentId is required", not the
+    // old spec-quoting explanation that leaked placement mechanics to clients.
+    expect(() => ds.create({ value: 'orphan', type: 'text' })).toThrow(/^parentId is required$/);
+  });
+
   it('throws for well-known type names', () => {
     expect(() => ds.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'root' })).toThrow(/well-known root type/);
     expect(() => ds.create({ parentId: '00000000-0000-0000-0000-000000000000', type: 'types' })).toThrow(/well-known root type/);
