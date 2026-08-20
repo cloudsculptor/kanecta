@@ -146,7 +146,7 @@ class SyncEngine {
   // fullSync() — convenience: diff → push → preFlightScan → merge in one call.
   // If the scan is blocked, throws without merging (unless force: true).
   // Returns { diff, push: pushResult, scan, merge: mergeResult }.
-  static async fullSync(localAdapter: any, remoteAdapter: any, branchName: any, { force = false }: any = {}) {
+  static async fullSync(localAdapter: any, remoteAdapter: any, branchName: any, { force = false, strategy = null, blockOnBlastRadius = false }: any = {}) {
     const diffResult = await SyncEngine.diff(localAdapter, branchName);
     const pushResult = await SyncEngine.push(localAdapter, remoteAdapter, branchName);
     const scan       = await SyncEngine.preFlightScan(remoteAdapter, branchName);
@@ -155,7 +155,7 @@ class SyncEngine {
       throw new Error(`Sync blocked at pre-flight scan: ${scan.blockingRefs.length} blocking reference(s)`);
     }
 
-    const mergeResult = await SyncEngine.merge(remoteAdapter, branchName, { force });
+    const mergeResult = await SyncEngine.merge(remoteAdapter, branchName, { force, strategy, blockOnBlastRadius });
     return { diff: diffResult, push: pushResult, scan, merge: mergeResult };
   }
 }

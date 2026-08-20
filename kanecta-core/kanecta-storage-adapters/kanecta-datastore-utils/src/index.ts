@@ -80,6 +80,23 @@ export async function openCloudAdapter(cloudConfig: any) {
   return CloudAdapter.open({ items, files });
 }
 
+// Open a bare postgres items adapter (no S3) for a branch push target. A push
+// moves ITEM changes, and the postgres adapter is the branch gatekeeper
+// (createBranch / applyBranchChanges / previewMerge / mergeBranch /
+// setBranchBases), so files/S3 are not required. Returns { adapter, pool } so
+// the caller can close the pool when the push completes. Assumes the remote has
+// already run its migrations (open() does not migrate).
+export async function openRemotePgAdapter(pgConfig: any) {
+  const { Pool }            = require('pg');
+  const { PostgresAdapter } = require('@kanecta/database');
+  const pgOpts: any = { connectionString: pgConfig.connectionString };
+  if (pgConfig.ssl)     pgOpts.ssl     = pgConfig.ssl;
+  if (pgConfig.options) pgOpts.options = pgConfig.options;
+  const pool = new Pool(pgOpts);
+  const adapter = await PostgresAdapter.open(pool, { embeddings: pgConfig.embeddings ?? null });
+  return { adapter, pool };
+}
+
 export async function createCloudAdapter(cloudConfig: any, owner?: any) {
   const { Pool }            = require('pg');
   const { S3Client }        = require('@aws-sdk/client-s3');
