@@ -159,9 +159,10 @@ COMMANDS
 
   migrate [--remote <name>] [--status] [--json]
     Apply pending Postgres schema migrations to a REMOTE datastore (the working
-    set's postgres remote), using the same ledgered runner the app uses. This is
-    the safe alternative to hand-running SQL: it records what it applied and can
-    only mutate the schema when authorised.
+    set's postgres remote), using the same ledgered runner the app uses, and
+    seed any built-in types added to the spec since the remote was initialised.
+    This is the safe alternative to hand-running SQL: it records what it applied
+    and can only mutate the schema when authorised.
     --remote <name>       Remote to migrate (default: origin)
     --status              Report applied/pending only; never mutates (no backup/guard needed)
     Applying requires KANECTA_ALLOW_SCHEMA_CHANGES=1 and — please — a fresh backup.
@@ -974,7 +975,7 @@ async function cmdMigrate(positional: string[], flags: Flags) {
     return;
   }
 
-  const { didApply, ran, baseline, status } = result;
+  const { didApply, ran, baseline, status, missingTypes = [], seededTypes = [] } = result;
   console.log(`Remote '${remoteName}' (working set '${name}')`);
   console.log(`  recorded applied: ${status.applied.length} migration(s)`);
 
@@ -992,6 +993,13 @@ async function cmdMigrate(positional: string[], flags: Flags) {
       console.log('');
       console.log(`  pending: ${status.pending.length}`);
       for (const f of status.pending) console.log(`       ${f}`);
+    }
+    if (missingTypes.length) {
+      console.log('');
+      console.log(`  unseeded built-in type(s): ${missingTypes.length}`);
+      console.log(`       ${missingTypes.join(', ')}`);
+    }
+    if (status.pending.length || missingTypes.length) {
       console.log('');
       console.log('  To apply: back up the database, then run');
       console.log('    KANECTA_ALLOW_SCHEMA_CHANGES=1 kanecta migrate' +
@@ -1006,7 +1014,16 @@ async function cmdMigrate(positional: string[], flags: Flags) {
     console.log('');
     console.log(`  applied ${ran.length} migration(s):`);
     for (const f of ran) console.log(`       ${f}`);
-  } else if (!baseline.length) {
+  }
+  if (seededTypes.length) {
+    console.log('');
+    console.log(`  seeded ${seededTypes.length} built-in type(s): ${seededTypes.join(', ')}`);
+  }
+  if (missingTypes.length) {
+    console.log('');
+    console.log(`  ⚠  still missing built-in type(s): ${missingTypes.join(', ')}`);
+  }
+  if (!ran.length && !seededTypes.length && !baseline.length) {
     console.log('  nothing to apply — already up to date.');
   }
 }

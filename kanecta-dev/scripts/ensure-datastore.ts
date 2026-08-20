@@ -312,6 +312,85 @@ async function pickWorkspace(names: string[]) {
   return names[idx];
 }
 
+// Check a working set's postgres remotes for pending schema changes (SQL
+// migrations + unseeded built-in types) and offer to apply them before the app
+// launches. The app connects with open(), which never mutates a remote — so
+// without this, a remote silently falls behind the spec until something breaks
+// at runtime. Applying reuses `kanecta migrate`'s runner (Datastore.migrateRemotePg);
+// the schema-change authority is granted only for the apply call and revoked
+// before launch so the API process never inherits it. Any check failure just
+// warns and lets startup continue — a slow or unreachable remote must not block
+// local work.
+async function offerRemoteMigrations(workspaceRaw: any, workspaceName: string) {
+  const remotes = workspaceRaw?.remotes
+    ?? (workspaceRaw?.cloud ? { origin: { type: 'cloud', ...workspaceRaw.cloud } } : {});
+  const pgRemotes = Object.entries(remotes)
+    .map(([rname, r]: [string, any]) => {
+      const pg = r?.type === 'postgres' ? r : (r?.postgres ?? r?.pg);
+      return pg ? ([rname, { type: 'postgres', ...pg }] as [string, any]) : null;
+    })
+    .filter(Boolean) as [string, any][];
+  if (!pgRemotes.length) return;
+
+  for (const [rname, remoteCfg] of pgRemotes) {
+    let check;
+    try {
+      check = await Datastore.migrateRemotePg(remoteCfg, { apply: false });
+    } catch (err: any) {
+      console.log(`  ⚠ Could not check postgres remote '${rname}': ${err.message}`);
+      continue;
+    }
+    const pending = check.status?.pending ?? [];
+    const missing = check.missingTypes ?? [];
+    if (!pending.length && !missing.length) {
+      console.log(`  ✓ postgres remote '${rname}': schema up to date`);
+      continue;
+    }
+
+    console.log(`\n  Postgres remote '${rname}' (working set '${workspaceName}') is behind:`);
+    if (pending.length) {
+      console.log(`    ${pending.length} pending migration(s):`);
+      for (const f of pending) console.log(`      ${f}`);
+    }
+    if (missing.length) {
+      console.log(`    ${missing.length} unseeded built-in type(s): ${missing.join(', ')}`);
+    }
+    const manualHint = `KANECTA_ALLOW_SCHEMA_CHANGES=1 kanecta migrate` +
+      (rname === 'origin' ? '' : ` --remote ${rname}`);
+    if (!process.stdin.isTTY) {
+      console.log(`    Apply with: ${manualHint}`);
+      continue;
+    }
+
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    const answer = await ask(rl, `    Apply now? Take a database backup first. [y/N]: `);
+    rl.close();
+    if (answer.toLowerCase() !== 'y' && answer.toLowerCase() !== 'yes') {
+      console.log(`    Skipped. Apply later with: ${manualHint}`);
+      continue;
+    }
+
+    const prev = process.env.KANECTA_ALLOW_SCHEMA_CHANGES;
+    process.env.KANECTA_ALLOW_SCHEMA_CHANGES = '1';
+    try {
+      const result = await Datastore.migrateRemotePg(remoteCfg, { apply: true });
+      if (result.ran.length) console.log(`    ✓ applied ${result.ran.length} migration(s): ${result.ran.join(', ')}`);
+      if (result.seededTypes?.length) console.log(`    ✓ seeded ${result.seededTypes.length} built-in type(s): ${result.seededTypes.join(', ')}`);
+      if (result.baseline?.length) {
+        console.log(`    ⚠ ${result.baseline.length} migration(s) baselined — marked applied WITHOUT running; verify the schema`);
+      }
+      if (!result.ran.length && !result.seededTypes?.length && !result.baseline?.length) {
+        console.log('    ✓ nothing to apply');
+      }
+    } catch (err: any) {
+      console.log(`    ✗ migration failed: ${err.message}`);
+    } finally {
+      if (prev === undefined) delete process.env.KANECTA_ALLOW_SCHEMA_CHANGES;
+      else process.env.KANECTA_ALLOW_SCHEMA_CHANGES = prev;
+    }
+  }
+}
+
 async function wizard(): Promise<any> {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout, completer: pathCompleter });
 
@@ -649,6 +728,7 @@ async function main() {
     if (!norm) {
       // CLOUD-only workspace (old format mode: CLOUD) — no local path
       console.log(`✓ Working set: ${name} (${selectionReason}; cloud)`);
+      await offerRemoteMigrations(workspace, name);
       return launch(name, null, data.apiPort ?? 9744, data.studioPort ?? 9743, null, pointerFile);
     }
     if (!Datastore.isDatastore(norm.localPath)) {
@@ -657,6 +737,7 @@ async function main() {
     }
     console.log(`✓ Working set: ${name} (${selectionReason}; ${norm.localPath}; branch: ${norm.branch})`);
     checkSpecVersion(norm.localPath, norm.branch);
+    await offerRemoteMigrations(workspace, name);
 
     return launch(name, norm.localPath, data.apiPort ?? 9744, data.studioPort ?? 9743, norm.branch, pointerFile);
   }

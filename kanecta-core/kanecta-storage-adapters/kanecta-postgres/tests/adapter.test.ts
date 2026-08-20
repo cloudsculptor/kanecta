@@ -180,6 +180,35 @@ describe('migration runner + status', () => {
       await adminPool.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
     }
   });
+
+  test('_missingBuiltInTypes reports absent spec types; an authorised open() reseeds them', async () => {
+    const schema = `mig_types_${crypto.randomBytes(4).toString('hex')}`;
+    await adminPool.query(`CREATE SCHEMA "${schema}"`);
+    const p = new Pool({ connectionString: CONNECTION_STRING, options: `-c search_path="${schema}"` });
+    try {
+      await PostgresAdapter.init(p, OWNER);
+      const a = new PostgresAdapter(p);
+      expect(await a._missingBuiltInTypes()).toEqual([]);
+
+      // Simulate a datastore initialised before the spec gained table-column:
+      // remove its type-registry row, then the type item itself (a leaf type —
+      // nothing else references it in a fresh datastore).
+      const TABLE_COLUMN_TYPE_ID = '0d27fbff-2ad1-4c3d-b3c1-4ae91b519f3a';
+      await p.query('DELETE FROM "obj_abbd7b52_92aa_4fca_b458_d9c4e1a60061" WHERE item_id = $1', [TABLE_COLUMN_TYPE_ID]);
+      await p.query('DELETE FROM items WHERE id = $1', [TABLE_COLUMN_TYPE_ID]);
+      expect(await a._missingBuiltInTypes()).toEqual(['table-column']);
+
+      // open() runs the idempotent seed backfill (authorised via the test env),
+      // converging the remote back onto the spec manifest.
+      await PostgresAdapter.open(p);
+      expect(await a._missingBuiltInTypes()).toEqual([]);
+      const { rows } = await p.query('SELECT value, type FROM items WHERE id = $1', [TABLE_COLUMN_TYPE_ID]);
+      expect(rows[0]).toEqual({ value: 'table-column', type: 'type' });
+    } finally {
+      await p.end();
+      await adminPool.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
+    }
+  });
 });
 
 // ─── Materialized path ─────────────────────────────────────────────────────────
