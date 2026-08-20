@@ -60,6 +60,7 @@
     "@kanecta/component-quick-capture": "*",
     "@kanecta/component-sort-bar": "*",
     "@kanecta/component-starred-view": "*",
+    "@kanecta/component-table": "*",
     "@kanecta/component-table-view": "*",
     "@kanecta/component-tag-chip": "*",
     "@kanecta/component-todo-view": "^1.4.0",

@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react';
-import type { TreeViewApi } from './types';
+import type { ReactNode } from 'react';
+import type { KanectaItem, TreeViewApi } from './types';
 
 interface TreeViewContextValue {
   api: TreeViewApi;
@@ -11,6 +12,13 @@ interface TreeViewContextValue {
   onFocusItem: (id: string) => void;
   onSelectItem: (id: string | null) => void;
   onOpenOverlay: () => void;
+  /**
+   * Host seam for `table` nodes (spec §tablePayload): renders the node's inline
+   * table preview — the host owns the grid component and the saved-query
+   * execution path, keeping tree-view free of ag-grid. Absent (or returning
+   * nothing) falls back to the plain text value.
+   */
+  renderTable?: (item: KanectaItem) => ReactNode;
 }
 
 const TreeViewContext = createContext<TreeViewContextValue | null>(null);

@@ -5,6 +5,7 @@ import {
   readAppConfig, resolveWorkingSet, resolveBranch, workingSetLocalPath,
   setActiveWorkingSet, setActiveBranch,
   checkIntegrity, checkIntegrityStream, isValueOverLong,
+  runSavedQuery, SavedQueryError,
 } from '@kanecta/lib';
 import * as claude from '@kanecta/ai';
 import { generateFunctionScaffold, getRuntimeDir, computeBundleHash, toCamelCase, toPythonName, VALID_RUNTIME_RE } from '@kanecta/lib';
@@ -1517,6 +1518,28 @@ Promise.resolve(mod[${JSON.stringify(fnName)}](...values))
     const logs = [logsFromStdout, stderr].filter(Boolean).join('\n').trim();
     res.json({ success: code === 0, output, logs });
   });
+});
+
+// POST /query/:id/run — execute a saved query item (spec §queryPayload).
+// Body: { params?: Record<string, value>, rowLimit?: number }. Parameter values
+// are bound as SQL parameters and the statement runs under the adapter's
+// DB-level read-only guard (runReadOnlySql); this endpoint can never write.
+app.post('/query/:id/run', async (req, res) => {
+  const { id } = req.params;
+  if (!isUuid(id)) return res.status(400).json({ error: 'Invalid UUID format' });
+  const ds = await openDatastore(res);
+  if (!ds) return;
+  try {
+    const result = await runSavedQuery(ds, id, req.body?.params ?? {}, { rowLimit: req.body?.rowLimit });
+    res.json(result);
+  } catch (err: any) {
+    if (err instanceof SavedQueryError) {
+      const status = err.code === 'not-found' ? 404 : 400;
+      return res.status(status).json({ error: err.message, code: err.code });
+    }
+    console.error(`[kanecta] saved-query run failed for ${id}:`, err);
+    res.status(500).json({ error: String(err?.message ?? err) });
+  }
 });
 
 // GET /items/:id/tree — tree rooted at item (?depth=n)

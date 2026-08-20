@@ -21,7 +21,7 @@ import {
 } from '@kanecta/specification';
 import { validateItem, validateType } from '@kanecta/specification/validator';
 import { contentHash } from '@kanecta/specification/canonical';
-import { deriveSqlSchema, deriveIndexDdl } from '@kanecta/schema-compiler';
+import { deriveSqlSchema, deriveIndexDdl, substituteQueryParams, clampReadOnlyRowLimit } from '@kanecta/schema-compiler';
 import { Pool } from 'pg';
 import type { PoolClient, QueryResult } from 'pg';
 import { AsyncLocalStorage } from 'async_hooks';
@@ -118,6 +118,20 @@ const BUILT_IN_TYPE_ID_BY_NAME: Record<string, string> = Object.fromEntries(
   (builtInTypeItems as any[]).map(t => [t.item.value, t.item.id]),
 );
 
+// Saved-query execution (runReadOnlySql): bound on a single statement so a
+// runaway join cannot hold a pooled connection indefinitely.
+const READ_ONLY_SQL_TIMEOUT_MS = 10_000;
+
+// Human-readable names for the common result-column OIDs a saved query
+// produces. Anything unmapped reports null — informational only, the grid
+// renders regardless.
+const PG_TYPE_NAME_BY_OID: Record<number, string> = {
+  16: 'boolean', 20: 'bigint', 21: 'smallint', 23: 'integer',
+  25: 'text', 114: 'json', 700: 'real', 701: 'double precision',
+  1043: 'text', 1082: 'date', 1114: 'timestamp', 1184: 'timestamptz',
+  1700: 'numeric', 2950: 'uuid', 3802: 'jsonb',
+};
+
 // Structured built-ins whose instance payloads are ALREADY projected to
 // obj_<typeId> (the target model). This grows type-by-type as each bespoke
 // table is retired (see plans/uniform-projection-modernisation.md). A type not
@@ -131,6 +145,9 @@ const PROJECTED_BUILT_IN_TYPES = new Set<string>([
   'kanecta-function-config', 'group-chat-config', 'http-config',
   // query.params is normalised to query-param children (array-of-objects rule).
   'query', 'query-param',
+  // table.columns -> table-column children (array-of-objects rule); queryParams
+  // and defaultFilters are sanctioned opaque-JSON columns.
+  'table', 'table-column',
   // component.props -> parameter children; bundleHash -> property children.
   'component', 'parameter', 'property',
   // function.parameters -> parameter children; typeParameters -> type-parameter
@@ -2849,6 +2866,44 @@ class PostgresAdapter {
       [table],
     );
     return rows.map((r: any) => ({ name: r.column_name, dataType: r.data_type }));
+  }
+
+  // Execute a saved-query SQL expression (spec §queryPayload) under a hard
+  // read-only guard: a dedicated connection running BEGIN READ ONLY, so any
+  // write statement fails at the Postgres level regardless of what the
+  // expression says — never by inspecting the SQL text. `{{params.name}}`
+  // placeholders are bound as $n parameters (never interpolated). The
+  // expression is wrapped in a subselect to enforce the row cap in the
+  // database, and SET LOCAL statement_timeout bounds runaway queries. Mirrors
+  // the sqlite-fs adapter's surface.
+  async runReadOnlySql(expression: any, params: any = {}, opts: any = {}) {
+    const { sql, values } = substituteQueryParams(String(expression), params ?? {}, 'postgres');
+    const cap: number = clampReadOnlyRowLimit(opts?.rowLimit);
+    const body = sql.replace(/[\s;]+$/, '');
+    const wrapped = `SELECT * FROM (${body}) AS kanecta_q LIMIT ${cap + 1}`;
+
+    const client = await this._pool.connect();
+    let broken = false;
+    try {
+      await client.query('BEGIN TRANSACTION READ ONLY');
+      await client.query(`SET LOCAL statement_timeout = ${READ_ONLY_SQL_TIMEOUT_MS}`);
+      const result = await client.query(wrapped, values as unknown[]);
+      const rows = result.rows;
+      const truncated = rows.length > cap;
+      if (truncated) rows.length = cap;
+      const columns = result.fields.map((f: any) => ({
+        name: f.name,
+        dataType: PG_TYPE_NAME_BY_OID[f.dataTypeID] ?? null,
+      }));
+      return { columns, rows, rowCount: rows.length, truncated };
+    } finally {
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        broken = true; // connection couldn't be reset — must not go back to the pool
+      }
+      (client.release as any)(broken ? new Error('discarding connection: rollback failed') : undefined);
+    }
   }
 
   // ─── Graph projection (Apache AGE) ───────────────────────────────────────────

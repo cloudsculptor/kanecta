@@ -48,6 +48,8 @@ import tRelationship from './1.4.0/built-in-types/types/relationship.json' with 
 import tRelationshipType from './1.4.0/built-in-types/types/relationship-type.json' with { type: 'json' };
 import tRoot from './1.4.0/built-in-types/types/root.json' with { type: 'json' };
 import tSubscription from './1.4.0/built-in-types/types/subscription.json' with { type: 'json' };
+import tTable from './1.4.0/built-in-types/types/table.json' with { type: 'json' };
+import tTableColumn from './1.4.0/built-in-types/types/table-column.json' with { type: 'json' };
 import tType from './1.4.0/built-in-types/types/type.json' with { type: 'json' };
 import tTypeParameter from './1.4.0/built-in-types/types/type-parameter.json' with { type: 'json' };
 import tView from './1.4.0/built-in-types/types/view.json' with { type: 'json' };
@@ -129,7 +131,7 @@ export const builtInTypeItems: object[] = [
   tEval, tEvalRun, tFile, tFormula, tFunction, tFunctionThrow, tGrant, tGrid,
   tGroupChatConfig, tHttpConfig, tItemHistory, tKanectaFunctionConfig, tLicence, tObject, tParameter, tPipeline,
   tPipelineRun, tProperty, tPythonConfig, tQuery, tQueryParam, tReference, tRelationship, tRelationshipType,
-  tRoot, tSubscription, tType, tTypeParameter, tView,
+  tRoot, tSubscription, tTable, tTableColumn, tType, tTypeParameter, tView,
 ];
 
 // Mandatory seed instances (currently the 19 built-in licences). Order is

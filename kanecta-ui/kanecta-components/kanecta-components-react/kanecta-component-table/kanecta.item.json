@@ -1,0 +1,53 @@
+{
+  "item": {
+    "id": "42b578ed-02c6-453c-8d9c-f6e99027e0ba",
+    "parentId": "00000000-0000-0000-0000-000000000000",
+    "type": "component",
+    "typeId": null,
+    "value": "Kanecta Table",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "owner": "kanecta.org",
+    "ownerDomain": "kanecta.org",
+    "namespace": "kanecta.org/ui/components",
+    "copyrightHolder": null,
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "visibility": "public",
+    "aspect": null,
+    "confidence": "decided",
+    "status": "active",
+    "tags": [
+      "ui",
+      "component",
+      "react"
+    ],
+    "template": null,
+    "createdAt": "2026-08-21T00:00:00.000Z",
+    "modifiedAt": "2026-08-21T00:00:00.000Z",
+    "createdBy": null,
+    "modifiedBy": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "files": {
+      "body": "src/index.ts"
+    }
+  },
+  "search": null,
+  "payload": {
+    "description": "Renders a `table` item (spec §tablePayload): runs its referenced saved query through a host-injected seam and shows the result in ag-grid with per-column overrides, default sort/filters, and paging.",
+    "props": [],
+    "dependencies": [
+      "@tanstack/react-query",
+      "ag-grid-community",
+      "ag-grid-react"
+    ]
+  }
+}

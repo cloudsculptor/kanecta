@@ -1,0 +1,120 @@
+{
+  "item": {
+    "id": "3f4550c2-de4e-4662-8b17-593a36fcd74e",
+    "parentId": "11111111-1111-1111-1111-111111111111",
+    "type": "type",
+    "typeId": null,
+    "value": "table",
+    "sortOrder": null
+  },
+  "meta": {
+    "specVersion": "1.4.0",
+    "layer": "core",
+    "owner": "kanecta",
+    "license": "bb3bf137-d8a9-4264-9fb7-ac373b1d4739",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "modifiedAt": "2026-01-01T00:00:00Z",
+    "visibility": "public",
+    "confidence": "locked",
+    "status": null,
+    "tags": [],
+    "template": null,
+    "completedAt": null,
+    "dueAt": null,
+    "cachedAt": null,
+    "subscribedAt": null,
+    "subscriptionSource": null,
+    "ownerDomain": null,
+    "namespace": null,
+    "copyrightHolder": null,
+    "contentHash": null,
+    "mirrors": [],
+    "sameAs": [],
+    "files": {}
+  },
+  "search": null,
+  "payload": {
+    "meta": {
+      "description": "A configured tabular presentation of a saved query's result set. References a query item for its data; column overrides are table-column children (one per customised column, ordered by sortOrder — the flat one-level rule); columns absent from the children render with result-set defaults.",
+      "confidence": "locked",
+      "icon": "TableChart"
+    },
+    "jsonSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "tablePayload",
+      "type": "object",
+      "required": [
+        "queryId"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "queryId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "UUID of the query item that supplies this table's rows. The query is executed via the saved-query path (kanecta_run_query / POST /query/:id/run) — parameter binding, DB-level read-only guard, and row cap all apply. The table never embeds SQL of its own."
+        },
+        "queryParams": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "x-kanecta-storage": "json",
+          "description": "Fixed parameter values passed to the query at execution time, keyed by query-param name. Merged over the query's own defaultValues (these win). Null means the query runs with its defaults alone. Genuine opaque JSON round-tripped as a unit → projects to a JSON column, never normalised."
+        },
+        "defaultSortField": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Result-set column the grid sorts by initially. Null means the result set's natural order (whatever ORDER BY the query itself declares)."
+        },
+        "defaultSortDirection": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "asc",
+            "desc",
+            null
+          ],
+          "description": "Initial sort direction for defaultSortField. Null (or an absent defaultSortField) means no grid-side sort is applied."
+        },
+        "defaultFilters": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "x-kanecta-storage": "json",
+          "description": "Initial grid filter state, keyed by result-set column name, in the grid component's native filter-model shape (ag-grid). Applied client-side after the query runs — it narrows the display, not the query. Null means no initial filters. Genuine opaque JSON round-tripped as a unit → projects to a JSON column, never normalised."
+        },
+        "pageSize": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "description": "Rows per page in the grid's client-side pagination. Null means pagination is off — the grid scrolls the full fetched result set."
+        },
+        "rowLimit": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "description": "Maximum rows to fetch from the query for this table (passed as the run's rowLimit and clamped by the executor's hard cap). Null means the executor default. The grid surfaces a truncation notice when the result set was cut at this limit."
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Human-readable explanation of what this table shows, displayed near the grid in Studio. Null falls back to the referenced query's own description."
+        }
+      }
+    },
+    "sqlSchema": [
+      "-- Built-in type: adapter handles storage natively."
+    ]
+  }
+}

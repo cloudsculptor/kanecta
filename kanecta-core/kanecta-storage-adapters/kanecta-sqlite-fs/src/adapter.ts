@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import AdmZip from 'adm-zip';
 import Database from 'better-sqlite3';
 import * as spec from '@kanecta/specification';
-import { deriveSqlSchema, deriveIndexDdl, objTableName } from '@kanecta/schema-compiler';
+import { deriveSqlSchema, deriveIndexDdl, objTableName, substituteQueryParams, clampReadOnlyRowLimit } from '@kanecta/schema-compiler';
 import { validateItem, validateType } from '@kanecta/specification/validator';
 import { contentHash } from '@kanecta/specification/canonical';
 import { createEmbeddingProvider, reciprocalRankFusion } from '@kanecta/embeddings';
@@ -141,7 +141,14 @@ const BUILT_IN_TYPE_DEF_BY_ID: Record<string, any> = Object.fromEntries(
 // Structured built-in types that project to obj_<typeId>, matching the Postgres
 // PROJECTED_BUILT_IN_TYPES allow-list. Grown one type per cutover as its bespoke
 // lookup table is retired.
-const PROJECTED_BUILT_IN_TYPES = new Set(['relationship', 'relationship-type', 'alias', 'annotation', 'licence']);
+const PROJECTED_BUILT_IN_TYPES = new Set([
+  'relationship', 'relationship-type', 'alias', 'annotation', 'licence',
+  // query.params is normalised to query-param children (array-of-objects rule).
+  'query', 'query-param',
+  // table.columns -> table-column children (array-of-objects rule); queryParams
+  // and defaultFilters are sanctioned opaque-JSON columns.
+  'table', 'table-column',
+]);
 
 // Meta-types whose obj_<typeId> columns can't be derived from their own (empty,
 // self-referential) payload schema, so the adapter builds the table AND flattens
@@ -1376,9 +1383,12 @@ class SqliteFsAdapter {
       let v = rowPayload ? rowPayload[name] : undefined;
       if (v === undefined) v = null;
       if (v !== null) {
-        if (prop && prop.type === 'array')        v = JSON.stringify(v);
-        else if (prop && prop.type === 'boolean') v = v ? 1 : 0;
-        else if (typeof v === 'object')           v = JSON.stringify(v);
+        // Collapse a nullable union (['boolean','null']) to its real type so the
+        // coercion below still fires — a raw JS boolean is unbindable in SQLite.
+        const t = Array.isArray(prop?.type) ? prop.type.find((x: any) => x !== 'null') : prop?.type;
+        if (t === 'array')              v = JSON.stringify(v);
+        else if (t === 'boolean')       v = v ? 1 : 0;
+        else if (typeof v === 'object') v = JSON.stringify(v);
       }
       vals.push(v);
     }
@@ -1433,6 +1443,39 @@ class SqliteFsAdapter {
       .prepare(`SELECT name, type FROM pragma_table_info(?) ORDER BY cid`)
       .all(table)
       .map((r: any) => ({ name: r.name, dataType: String(r.type ?? '').toLowerCase() }));
+  }
+
+  // Execute a saved-query SQL expression (spec §queryPayload) against the index
+  // DB under a hard read-only guard: a SEPARATE readonly connection, so any
+  // write statement fails at the SQLite level regardless of what the expression
+  // says — never by inspecting the SQL text. `{{params.name}}` placeholders are
+  // bound as named parameters (never interpolated). The expression is wrapped in
+  // a subselect to enforce the row cap in the database, not in JS. Mirrors the
+  // Postgres adapter's surface.
+  runReadOnlySql(expression: any, params: any = {}, opts: any = {}) {
+    const { sql, values } = substituteQueryParams(String(expression), params ?? {}, 'sqlite');
+    const cap: number = clampReadOnlyRowLimit(opts?.rowLimit);
+
+    // Make sure the index DB exists and is current before pointing a second
+    // connection at its file (a fresh clone rebuilds index.db lazily).
+    this._openDb();
+    const dbPath = path.join(this._branchRoot(), 'index.db');
+
+    const db = new Database(dbPath, { readonly: true, fileMustExist: true });
+    try {
+      const body = sql.replace(/[\s;]+$/, '');
+      const stmt: any = db.prepare(`SELECT * FROM (${body}) AS kanecta_q LIMIT ${cap + 1}`);
+      const rows = stmt.all(values);
+      const truncated = rows.length > cap;
+      if (truncated) rows.length = cap;
+      const columns = stmt.columns().map((c: any) => ({
+        name: c.name,
+        dataType: c.type ? String(c.type).toLowerCase() : null,
+      }));
+      return { columns, rows, rowCount: rows.length, truncated };
+    } finally {
+      try { db.close(); } catch { /* already closed */ }
+    }
   }
 
   // Write a metadata item (alias/relationship/annotation) as a real item.json in
@@ -2105,17 +2148,22 @@ class SqliteFsAdapter {
     if (type === 'object' && typeId && this._getTypeName(typeId) === null)
       typeWarning = this._guardTypeIdRef(typeId, strict);
 
+    // The projection table this item belongs to (obj_<typeId>): a user 'object'
+    // carries its typeId; a projection-enabled structured built-in (query, …)
+    // resolves its fixed type-item UUID. Mirrors the Postgres adapter.
+    const rowTypeId = this._projectionTypeId(type, typeId);
+
     // Enforce the type's jsonSchema on a supplied payload before persisting.
     // A shell create (objectData omitted) is not validated here — it will be
     // validated when the payload is written via writeObjectJson.
-    if (type === 'object' && typeId && objectData != null)
-      this._validateObjectPayload(typeId, objectData);
+    if (rowTypeId && objectData != null)
+      this._validateObjectPayload(rowTypeId, objectData);
 
-    const resolvedPayload = (type === 'object' && typeId) ? (objectData ?? {}) : null;
+    const resolvedPayload = rowTypeId ? (objectData ?? {}) : null;
 
     const item: any = {
       id, specVersion, parentId, value, type,
-      typeId: type === 'object' ? (typeId || null) : null,
+      typeId: rowTypeId,
       owner: ownerVal, license: license ?? DEFAULT_LICENSE,
       visibility, aspect, sortOrder, confidence, status,
       tags: [...tags],

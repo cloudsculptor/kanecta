@@ -7,6 +7,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { AppShell } from '../components/shell/AppShell';
 import { PanelWorkspace } from '../components/workspace/PanelWorkspace';
 import { TreeView } from '@kanecta/component-tree-view';
+import { TableNodePreview } from '../components/item/TableNodePreview';
 import { TableView } from '../components/views/TableView/TableView';
 import { BoardView } from '../components/views/BoardView/BoardView';
 import { GalleryView } from '../components/views/GalleryView/GalleryView';
@@ -143,6 +144,7 @@ function StudioInner() {
           onFocusItem={(id) => setFocusedItem(id)}
           onSelectItem={(id) => setItemId(id)}
           onOpenOverlay={openOverlay}
+          renderTable={(item) => <TableNodePreview itemId={item.id} api={getApi()} />}
         />
       );
       case 'table': return <TableView />;

@@ -7,7 +7,7 @@
     "src/"
   ],
   "scripts": {
-    "test": "node --import tsx --test test/derive.test.ts",
+    "test": "node --import tsx --test test/derive.test.ts test/queryParams.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

@@ -69,6 +69,10 @@ export function createApi(baseUrl: string) {
     view: viewApi(client),
     layouts: layoutsApi(client),
     workingSets: workingSetsApi(client),
+    query: {
+      run: (id: string, params?: Record<string, unknown>, rowLimit?: number) =>
+        client.query.run(id, params, rowLimit),
+    },
   };
 }
 
