@@ -184,6 +184,15 @@ describe('create', () => {
     expect(item.parentId).toBe(ROOT_ID);
   });
 
+  test('rejects a content item with no parentId — terse message, no internals leaked', async () => {
+    // Regression (PR #170): content items (e.g. the tree view's 'text'
+    // primitives) have no type bucket to derive a parent from, so create must
+    // fail — and the message must be exactly "parentId is required", not the
+    // old spec-quoting explanation that leaked placement mechanics to clients.
+    await expect(adapter.create({ value: 'orphan-no-parent', type: 'text' }))
+      .rejects.toThrow(/^parentId is required$/);
+  });
+
   test('respects explicit parentId', async () => {
     const parent = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'explicit-parent' });
     const child  = await adapter.create({ value: 'explicit-child', parentId: parent.id });
