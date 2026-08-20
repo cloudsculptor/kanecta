@@ -144,6 +144,25 @@ class Datastore {
     return datastoreUtils.openRemotePgAdapter(pgConfig);
   }
 
+  // Apply (or report) pending Postgres schema migrations against a working-set
+  // remote — the safe, automated alternative to hand-running SQL or triggering a
+  // full init(). Mirrors openRemotePg's config extraction: a bare `postgres`
+  // block (`{ type: 'postgres', … }`) or the `postgres` half of a `cloud` remote.
+  // `apply: false` reports status without mutating (needs no guard); `apply: true`
+  // runs the ledgered runner, which is gated by KANECTA_ALLOW_SCHEMA_CHANGES.
+  // Returns { didApply, ran, baseline, status } (see migrateRemotePgAdapter).
+  static async migrateRemotePg(remoteCfg: any, { apply = true }: any = {}) {
+    if (!remoteCfg) throw new Error('migrateRemotePg requires a remote config');
+    const pg = remoteCfg.type === 'postgres' ? remoteCfg : remoteCfg.postgres;
+    if (!pg) {
+      throw new Error("remote requires a 'postgres' block (items backend) to migrate");
+    }
+    const pgConfig: any = { connectionString: buildPgConnectionString(pg) };
+    if (pg.ssl)    pgConfig.ssl     = resolveSslBlock(pg.ssl);
+    if (pg.schema) pgConfig.options = `-c search_path="${pg.schema}"`;
+    return datastoreUtils.migrateRemotePgAdapter(pgConfig, { apply });
+  }
+
   // Init a new cloud datastore (runs migrations, creates root nodes).
   static async initCloud(cloudConfig: any, owner: any) {
     const adapter = await datastoreUtils.createCloudAdapter(cloudConfig, owner);
