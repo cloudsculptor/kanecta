@@ -326,6 +326,19 @@ class Datastore {
     return this._adapter.countProjectedRows(table);
   }
 
+  // Saved-query execution (spec §queryPayload). Both adapters implement it under
+  // a hard DB-level read-only guard; the typeof guard keeps the facade honest
+  // against a future adapter that doesn't.
+  async runReadOnlySql(expression: any, params?: any, opts?: any) {
+    if (typeof this._adapter.runReadOnlySql !== 'function') {
+      throw new Error(
+        'runReadOnlySql() is not supported on this working set — the adapter ' +
+        'does not implement the read-only SQL surface.',
+      );
+    }
+    return this._adapter.runReadOnlySql(expression, params, opts);
+  }
+
   // Manual refresh of every derived structure (spec: obj_/perf_ projections are
   // strictly derived — always rebuildable). Returns a per-structure report:
   // { storage, structures: [{ name, status, ... }], ok }.

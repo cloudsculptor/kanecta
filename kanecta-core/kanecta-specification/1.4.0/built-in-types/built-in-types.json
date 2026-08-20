@@ -62,7 +62,9 @@
     "type-parameter",
     "document-expand-exception",
     "document-role-by-depth",
-    "document-role-by-type"
+    "document-role-by-type",
+    "table",
+    "table-column"
   ],
   "wellKnown": [
     "root",
@@ -97,6 +99,8 @@
     "eval-run": "The execution record of a single eval invocation. Created when the eval runs and updated in place as assertions evaluate. parentId is the eval item UUID. Holds a reference to the pipeline-run item created for this execution and per-assertion results including verdict and reasoning for llm-judge assertions. Status: running → passed | failed | error.",
     "reference": "A declared dependency on a UUID from outside the item graph — physical (engraved, printed, QR code), external system (another database holds this UUID as a foreign key), function argument, function output, webhook, or reactive subscription. Unlike relationship, a reference asserts that the target UUID has reach beyond Kanecta itself. blockDeletion:true prevents deletion of the target until the reference is explicitly removed. Lives as a standalone item (like relationship) — targetId in payload, not constrained by parentId. The item_references derived index tracks structural references automatically; reference items cover declared/manual cases.",
     "document": "A named projection of a subtree into document form. Points at a target item via payload.targetId and declares how the tree under that item should be interpreted for export or display. Multiple document items can project the same subtree differently. roleMap.byDepth assigns a document role (heading, body, caption, etc.) to items at each tree depth; roleMap.byType overrides per item type. expandState controls how deep the tree is rendered and which subtrees are collapsed. isOrgDefault marks the canonical org-level view; fork-on-modify creates a personal copy (meta.visibility: 'private') with baseDocumentId tracking the source. parentId is the synthetic document type item UUID (universal rule). The exportMarkdown(adapter, documentId) function in kanecta-lib renders the projection as a Markdown string.",
-    "property": "One entry of an arbitrary key-value map. The key is item.value (unique among siblings under a constraints.children semantics:\"map\" constraint); payload.value holds the value (non-string values serialised to text). property is the core scalar value-holder that map semantics needs — a variable/unbounded map (keys differ per instance, e.g. a tool call's arguments) is stored as property children rather than fixed columns, keeping the parent type flat and portable. Maps whose values are themselves rich structured objects use a domain type as the child instead of property."
+    "property": "One entry of an arbitrary key-value map. The key is item.value (unique among siblings under a constraints.children semantics:\"map\" constraint); payload.value holds the value (non-string values serialised to text). property is the core scalar value-holder that map semantics needs — a variable/unbounded map (keys differ per instance, e.g. a tool call's arguments) is stored as property children rather than fixed columns, keeping the parent type flat and portable. Maps whose values are themselves rich structured objects use a domain type as the child instead of property.",
+    "table": "A configured tabular presentation of a saved query's result set. payload.queryId references the query item that supplies rows — the table never embeds SQL of its own; execution goes through the saved-query path (parameter binding, DB-level read-only guard, row cap). Per-column display overrides are table-column children (the flat one-level rule, mirroring query ↔ query-param). Distinct from grid — a grid stores its own cell data; a table renders rows computed by a query.",
+    "table-column": "A per-column display override on a table (label, width, hidden). A table's column config is table-column children of the table item, ordered by sortOrder — declaration order is column order. Result-set columns with no table-column child render after the declared ones with default labels."
   }
 }

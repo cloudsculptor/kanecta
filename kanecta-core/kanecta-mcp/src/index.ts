@@ -18,6 +18,8 @@ import {
   workingSetLocalPath,
   checkIntegrity,
   isValueOverLong,
+  runSavedQuery,
+  SavedQueryError,
 } from '@kanecta/lib';
 import * as kanectaSpec from '@kanecta/specification';
 
@@ -987,6 +989,30 @@ const TOOLS: any[] = [
     },
   },
   {
+    name: 'kanecta_run_query',
+    description:
+      'Execute a saved query item (spec §queryPayload). Loads the query item, resolves its query-param children (caller values override defaultValue), binds {{params.name}} placeholders as real SQL parameters, and runs the expression under a database-level read-only guard with a row cap. v1 executes language "sql" only. Returns { columns, rows, rowCount, truncated, description, returnType }.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: {
+          type: 'string',
+          description: 'UUID of the query item to execute',
+        },
+        params: {
+          type: 'object',
+          description:
+            'Parameter values keyed by query-param name. Each value is coerced per the param\'s declared type (string/number/boolean/uuid/date). Params with a defaultValue may be omitted; params without one are required.',
+        },
+        rowLimit: {
+          type: 'number',
+          description: 'Maximum rows to return (default 1000, capped at 10000).',
+        },
+      },
+      required: ['id'],
+    },
+  },
+  {
     name: 'kanecta_stats',
     description: 'Return data-quality statistics for the datastore: total item count, typed/structured count, per-type breakdown for structured objects, and per-type breakdown for unstructured primitives. Built-in structured types (pipeline, pipeline-run, agent) appear in the structured list. Root system types are excluded. Use this to get the same data shown in the QualityControlView.',
     inputSchema: { type: 'object', properties: {} },
@@ -1615,6 +1641,15 @@ async function dispatch(name: string, args: any): Promise<any> {
       };
       if (items.warning) out.warning = items.warning;
       return out;
+    }
+
+    case 'kanecta_run_query': {
+      try {
+        return await runSavedQuery(ds, args.id, args.params ?? {}, { rowLimit: args.rowLimit });
+      } catch (err: any) {
+        if (err instanceof SavedQueryError) return { error: err.message, code: err.code };
+        throw err;
+      }
     }
 
     case 'kanecta_stats': {

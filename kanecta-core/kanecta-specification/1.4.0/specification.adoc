@@ -2824,6 +2824,67 @@ Two classes of query:
 
 Queries are executed via the `kanecta_run_query` MCP tool (see <<mcp-api-surface>>) or by the Studio grid renderer when a query item is opened. The grid renderer resolves `returnType` to load the type's column definitions; for null `returnType` it uses the result column names directly.
 
+=== tablePayload
+
+link:../built-in-types/types/table.json[Seed item^]
+
+For `type: "table"`. A configured tabular presentation of a saved query's result set — the Access "form over a query" counterpart to `query` itself. A table item never embeds SQL of its own: `queryId` references the `query` item that supplies rows, and execution always goes through the saved-query path (parameter binding, database-level read-only guard, row cap). Everything the table adds is presentation: column labels, order, widths, visibility, initial sort and filters, paging.
+
+Distinct from `grid` — a grid stores its own cell data as `cell` children; a table renders rows computed by a query and stores none of them.
+
+[source,json]
+----
+{
+  "queryId": "uuid-of-open-tasks-query",
+  "queryParams": { "assignee": "richie" },
+  "defaultSortField": "created_at",
+  "defaultSortDirection": "desc",
+  "defaultFilters": null,
+  "pageSize": 25,
+  "rowLimit": null,
+  "description": "Richie's open tasks, newest first."
+}
+----
+
+[cols="1,1,2", options="header"]
+|===
+| Field | Required | Description
+
+| `queryId`
+| yes
+| UUID of the `query` item that supplies this table's rows. Executed via the saved-query path — the table cannot bypass the read-only guard or row cap.
+
+| `queryParams`
+| no
+| Fixed parameter values passed to the query at execution time, keyed by `query-param` name. These win over the query's own `defaultValue`s. Genuine opaque JSON round-tripped as a unit (`x-kanecta-storage: "json"`) — never normalised.
+
+| columns
+| no
+| Per-column display overrides are `table-column` *children* of the table item — an array of objects is never an inline field (the flat one-level rule, mirroring `query` ↔ `query-param`). Each `table-column` has `field` (the result-set column name), optional `label`, `width`, and `hidden`; child `sortOrder` is column order. Result-set columns with no `table-column` child render after the declared ones, in result order, with the field name as label.
+
+| `defaultSortField` / `defaultSortDirection`
+| no
+| Initial grid-side sort (`"asc"` \| `"desc"`). Null means the result set's natural order — whatever `ORDER BY` the query itself declares.
+
+| `defaultFilters`
+| no
+| Initial grid filter state keyed by result-set column name, in the grid component's native filter-model shape. Applied client-side after the query runs — it narrows the display, not the query. Opaque JSON (`x-kanecta-storage: "json"`).
+
+| `pageSize`
+| no
+| Rows per page for client-side pagination. Null means pagination off — the grid scrolls the full fetched result set.
+
+| `rowLimit`
+| no
+| Maximum rows to fetch for this table (passed as the run's `rowLimit`, clamped by the executor's hard cap). The grid surfaces a truncation notice when the result was cut.
+
+| `description`
+| no
+| Human-readable explanation shown near the grid in Studio. Null falls back to the referenced query's own `description`.
+|===
+
+`item.value` is the table's human label (e.g. `"Open tasks"`). The table item's `parentId` follows the universal rule — it lives anywhere in the user's tree, and Studio renders the grid as the item's preview.
+
 === actionPayload
 
 link:../built-in-types/types/action.json[Seed item^]

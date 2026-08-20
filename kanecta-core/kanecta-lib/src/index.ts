@@ -9,3 +9,4 @@ export * from './scheduleRunner.ts';
 export * from './syncEngine.ts';
 export * from './exportMarkdown.ts';
 export * from './checkIntegrity.ts';
+export * from './savedQuery.ts';

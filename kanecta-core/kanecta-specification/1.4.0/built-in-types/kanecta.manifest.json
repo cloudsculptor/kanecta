@@ -45,6 +45,8 @@
     { "id": "15861dd7-e54c-4209-bceb-bdd65de4f472", "type": "relationship-type",         "file": "built-in-types/types/relationship-type.json" },
     { "id": "73068dfc-e56b-4c4b-a8e6-f623f9ad9ab9", "type": "root",                      "file": "built-in-types/types/root.json" },
     { "id": "cf066390-a599-4dbe-bc20-491de885cb18", "type": "subscription",              "file": "built-in-types/types/subscription.json" },
+    { "id": "3f4550c2-de4e-4662-8b17-593a36fcd74e", "type": "table",                     "file": "built-in-types/types/table.json" },
+    { "id": "0d27fbff-2ad1-4c3d-b3c1-4ae91b519f3a", "type": "table-column",              "file": "built-in-types/types/table-column.json" },
     { "id": "abbd7b52-92aa-4fca-b458-d9c4e1a60061", "type": "type",                      "file": "built-in-types/types/type.json" },
     { "id": "3d993652-42df-4bd2-b4ad-c0c23a7c83f0", "type": "type-parameter",            "file": "built-in-types/types/type-parameter.json" },
     { "id": "cfba24ea-be40-46ba-b4db-e15a55af4392", "type": "view",                      "file": "built-in-types/types/view.json" }

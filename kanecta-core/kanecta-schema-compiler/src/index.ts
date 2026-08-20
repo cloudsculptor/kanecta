@@ -519,3 +519,6 @@ export function deriveFullSchema(
     ...deriveTriggerDdl(triggers, deriveOpts),
   ];
 }
+
+// Saved-query `{{params.name}}` substitution (spec §queryPayload).
+export * from './queryParams.ts';
