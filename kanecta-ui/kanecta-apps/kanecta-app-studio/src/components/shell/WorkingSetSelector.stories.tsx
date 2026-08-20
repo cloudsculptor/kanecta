@@ -46,6 +46,22 @@ function makeSeededClient(workingSets: WorkingSet[] = SAMPLE_WORKING_SETS) {
   return client;
 }
 
+// A working set whose ACTIVE branch is a feature branch with a remote — the
+// state in which "Push to remote" is enabled.
+const PUSHABLE_WORKING_SETS: WorkingSet[] = [
+  {
+    name: 'kanecta-internal',
+    local: { path: '/data/kanecta-internal', ok: true },
+    remotes: { origin: { type: 'postgres', label: 'db.kanecta.dev/kanecta' } },
+    branch: 'experiment',
+    branches: [
+      { name: 'main', active: false, baseBranch: null },
+      { name: 'experiment', active: true, baseBranch: 'main' },
+    ],
+    isActive: true,
+  },
+];
+
 const meta: Meta<typeof WorkingSetSelector> = {
   component: WorkingSetSelector,
   title: 'Shell/WorkingSetSelector',
@@ -113,5 +129,45 @@ export const PanelFullVisualBaseline: Story = {
 
     // Create PR action must be present.
     await expect(body.getByText('Create Pull Request')).toBeInTheDocument();
+  },
+};
+
+// "Push to remote": the active branch is a feature branch WITH a remote and
+// pending changes, so the push action renders and is enabled.
+export const PushToRemote: Story = {
+  decorators: [
+    (Story) => {
+      useWorkingSetStore.setState({
+        workingSets: [
+          { id: 'primary', name: 'Kanecta Internal', apiUrl: '/api', colour: '#1976d2', pollIntervalMs: 5000 },
+        ],
+        activeWorkingSetId: 'primary',
+      });
+      const client = makeSeededClient(PUSHABLE_WORKING_SETS);
+      // Seed the active branch's diff so the push button sees pending changes.
+      client.setQueryData(['branch-diff', 'kanecta-internal', 'experiment'], {
+        branch: 'experiment', adds: 2, edits: 1, deletes: 0,
+      });
+      return (
+        <QueryClientProvider client={client}>
+          <div style={{ background: '#535754', height: '56px', position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <Story />
+          </div>
+        </QueryClientProvider>
+      );
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    const canvas = within(canvasElement);
+
+    const trigger = canvas.getByRole('button', { name: 'Switch working set' });
+    await userEvent.click(trigger);
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+
+    // The push action must be present and enabled for a feature branch with a remote.
+    const pushBtn = body.getByRole('button', { name: /Push to remote/i });
+    await expect(pushBtn).toBeInTheDocument();
+    await expect(pushBtn).toBeEnabled();
   },
 };

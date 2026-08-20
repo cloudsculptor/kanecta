@@ -33,7 +33,7 @@
   },
   "devDependencies": {
     "@kanecta/postgres": "^1.4.0",
-    "pg": "^8.22.0",
-    "tsx": "^4.23.11"
+    "pg": "^8.23.0",
+    "tsx": "^4.23.12"
   }
 }

@@ -83,6 +83,105 @@ describe('init / open', () => {
   });
 });
 
+// ─── Migration runner + status ──────────────────────────────────────────────────
+
+describe('migration runner + status', () => {
+  const MIG = '045_branch_bases.sql';   // a known recent migration: adds branches.bases
+
+  const hasBasesColumn = async (p, schema) => {
+    const { rows } = await p.query(
+      `SELECT 1 FROM information_schema.columns
+        WHERE table_schema = $1 AND table_name = 'branches' AND column_name = 'bases'`,
+      [schema],
+    );
+    return rows.length === 1;
+  };
+
+  test('_migrationStatus on a fully-migrated schema: all applied, nothing pending', async () => {
+    const status = await adapter._migrationStatus();
+    expect(status.pending).toEqual([]);
+    expect(status.baseline).toEqual([]);
+    expect(status.fresh).toBe(false);
+    expect(status.applied).toContain(MIG);
+    expect(new Set(status.applied)).toEqual(new Set(status.files));
+  });
+
+  test('a genuinely pending migration is reported, then applied by _migrate', async () => {
+    const schema = `mig_pending_${crypto.randomBytes(4).toString('hex')}`;
+    await adminPool.query(`CREATE SCHEMA "${schema}"`);
+    const p = new Pool({ connectionString: CONNECTION_STRING, options: `-c search_path="${schema}"` });
+    try {
+      await PostgresAdapter.init(p, OWNER);            // fully migrated
+      const a = new PostgresAdapter(p);
+      // Simulate a schema left behind: drop the column 045 adds, forget its ledger row.
+      await p.query('ALTER TABLE branches DROP COLUMN bases');
+      await p.query('DELETE FROM schema_migrations WHERE filename = $1', [MIG]);
+
+      const before = await a._migrationStatus();
+      expect(before.pending).toContain(MIG);
+      expect(before.baseline).toEqual([]);             // ledger non-empty → no baseline
+      expect(await hasBasesColumn(p, schema)).toBe(false);
+
+      await a._migrate();
+
+      const after = await a._migrationStatus();
+      expect(after.pending).toEqual([]);
+      expect(after.applied).toContain(MIG);
+      expect(await hasBasesColumn(p, schema)).toBe(true);   // column really restored
+    } finally {
+      await p.end();
+      await adminPool.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
+    }
+  });
+
+  test('baseline: items present, empty ledger → reported as baseline (not pending); _migrate marks applied WITHOUT running', async () => {
+    const schema = `mig_baseline_${crypto.randomBytes(4).toString('hex')}`;
+    await adminPool.query(`CREATE SCHEMA "${schema}"`);
+    const p = new Pool({ connectionString: CONNECTION_STRING, options: `-c search_path="${schema}"` });
+    try {
+      await PostgresAdapter.init(p, OWNER);
+      const a = new PostgresAdapter(p);
+      // Pre-ledger simulation: items table present, ledger empty, and the column
+      // 045 would add is missing — the documented baseline trap.
+      await p.query('ALTER TABLE branches DROP COLUMN bases');
+      await p.query('TRUNCATE schema_migrations');
+
+      const before = await a._migrationStatus();
+      expect(before.baseline).toContain(MIG);          // would be marked WITHOUT running
+      expect(before.pending).toEqual([]);              // so it is NOT in pending
+
+      await a._migrate();                              // baselines everything
+
+      // ledger now records it as applied…
+      const { rows: led } = await p.query('SELECT filename FROM schema_migrations WHERE filename = $1', [MIG]);
+      expect(led.length).toBe(1);
+      // …but the column was NOT actually added — status must have warned via baseline.
+      expect(await hasBasesColumn(p, schema)).toBe(false);
+    } finally {
+      await p.end();
+      await adminPool.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
+    }
+  });
+
+  test('fresh empty schema: _migrationStatus reports fresh with every migration pending', async () => {
+    const schema = `mig_fresh_${crypto.randomBytes(4).toString('hex')}`;
+    await adminPool.query(`CREATE SCHEMA "${schema}"`);
+    const p = new Pool({ connectionString: CONNECTION_STRING, options: `-c search_path="${schema}"` });
+    try {
+      const a = new PostgresAdapter(p);
+      const status = await a._migrationStatus();
+      expect(status.fresh).toBe(true);
+      expect(status.applied).toEqual([]);
+      expect(status.baseline).toEqual([]);
+      expect(status.pending).toEqual(status.files);    // everything runs on a fresh DB
+      expect(status.pending).toContain(MIG);
+    } finally {
+      await p.end();
+      await adminPool.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
+    }
+  });
+});
+
 // ─── Materialized path ─────────────────────────────────────────────────────────
 
 describe('materialized path', () => {
@@ -182,6 +281,15 @@ describe('create', () => {
   test('defaults parentId to root', async () => {
     const item = await adapter.create({ parentId: '00000000-0000-0000-0000-000000000000', value: 'default-parent' });
     expect(item.parentId).toBe(ROOT_ID);
+  });
+
+  test('rejects a content item with no parentId — terse message, no internals leaked', async () => {
+    // Regression (PR #170): content items (e.g. the tree view's 'text'
+    // primitives) have no type bucket to derive a parent from, so create must
+    // fail — and the message must be exactly "parentId is required", not the
+    // old spec-quoting explanation that leaked placement mechanics to clients.
+    await expect(adapter.create({ value: 'orphan-no-parent', type: 'text' }))
+      .rejects.toThrow(/^parentId is required$/);
   });
 
   test('respects explicit parentId', async () => {

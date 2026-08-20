@@ -1,7 +1,7 @@
 /// <reference path="./express-shim.d.ts" />
 import express from 'express';
 import {
-  Datastore, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE,
+  Datastore, SyncEngine, VALID_TYPES, VALID_CONFIDENCES, VALID_REL_TYPES, UUID_RE,
   readAppConfig, resolveWorkingSet, resolveBranch, workingSetLocalPath,
   setActiveWorkingSet, setActiveBranch,
   checkIntegrity, checkIntegrityStream, isValueOverLong,
@@ -639,6 +639,55 @@ app.post('/working-sets/:name/branches/:branch/merge', async (req, res) => {
     if (err.code === 'MERGE_BLAST_RADIUS')
       return res.status(409).json({ error: err.message, code: err.code, blastRadius: err.blastRadius });
     res.status(400).json({ error: err.message });
+  }
+});
+
+// POST /working-sets/:name/branches/:branch/push — push a LOCAL sqlite-fs branch
+// into a REMOTE postgres datastore (the "publish my branch upstream" action).
+// Unlike /merge (which merges a local branch into local main), this carries the
+// branch's changes + base content fingerprints to the remote and runs the
+// remote's conflict-aware merge. The local branch is left intact.
+//
+// Body (optional): { remote?: string (default 'origin'), strategy?: 'theirs' |
+// 'ours', force?: boolean, blockOnBlastRadius?: boolean }. A conflicting or
+// reference-breaking push is reported as 409 (with conflicts / blastRadius)
+// rather than silently applied — same contract as /merge.
+app.post('/working-sets/:name/branches/:branch/push', async (req, res) => {
+  const { name, branch } = req.params;
+  if (branch === 'main') return res.status(400).json({ error: 'Cannot push main — only feature branches are pushable' });
+  const appCfg = readAppConfig();
+  const ws = appCfg?.workingSets?.[name];
+  const local = workingSetLocal(ws);
+  if (!local) return res.status(404).json({ error: `Working set '${name}' not found or has no local datastore` });
+
+  const { remote: remoteName = 'origin', strategy, force = false, blockOnBlastRadius } = req.body || {};
+  const remotesCfg = ws.remotes ?? (ws.cloud ? { origin: { type: 'cloud', ...ws.cloud } } : {});
+  const remoteCfg = remotesCfg[remoteName];
+  if (!remoteCfg) return res.status(404).json({ error: `Remote '${remoteName}' not configured for working set '${name}'` });
+
+  let pool: any = null;
+  try {
+    const localDs = Datastore.open(local.localPath);
+    const opened = await Datastore.openRemotePg(remoteCfg);
+    pool = opened.pool;
+    const result = await SyncEngine.fullSync(localDs._adapter, opened.adapter, branch, { force, strategy, blockOnBlastRadius });
+    res.json({
+      ok: true,
+      remote: remoteName,
+      pushed: result.push.pushed,
+      merged: result.merge.merged,
+      skipped: result.merge.skipped,
+      conflicts: result.merge.conflicts,
+      blastRadius: result.merge.blastRadius,
+    });
+  } catch (err: any) {
+    if (err.code === 'MERGE_CONFLICT')
+      return res.status(409).json({ error: err.message, code: err.code, conflicts: err.conflicts });
+    if (err.code === 'MERGE_BLAST_RADIUS')
+      return res.status(409).json({ error: err.message, code: err.code, blastRadius: err.blastRadius });
+    res.status(400).json({ error: err.message });
+  } finally {
+    if (pool) { try { await pool.end(); } catch { /* pool already closing */ } }
   }
 });
 

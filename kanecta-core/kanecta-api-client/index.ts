@@ -735,6 +735,29 @@ export interface MergeResult {
   blastRadius?: BlastRadiusEntry[];
 }
 
+/** Options for `POST .../push` — publish a local branch to a remote postgres. */
+export interface PushOptions {
+  /** Remote to push to (default 'origin'). */
+  remote?: string;
+  strategy?: MergeStrategy;
+  /** Skip the pre-flight scan and merge branch-wins. */
+  force?: boolean;
+  blockOnBlastRadius?: boolean;
+}
+
+/** `POST .../push` success result. */
+export interface PushResult {
+  ok: boolean;
+  /** The remote the branch was pushed to. */
+  remote: string;
+  /** Number of change records written to the remote. */
+  pushed: number;
+  merged: number;
+  skipped?: number;
+  conflicts?: MergeConflict[];
+  blastRadius?: BlastRadiusEntry[];
+}
+
 export interface WorkingSetsApi {
   /** `activeWorkspace` is the legacy name of `activeWorkingSet`; servers send one or the other. */
   list(): Promise<{ workingSets: WorkingSet[]; activeWorkingSet?: string; activeWorkspace?: string }>;
@@ -748,6 +771,11 @@ export interface WorkingSetsApi {
   mergePreview(name: string, branch: string): Promise<MergePreview>;
   /** Merge a branch into main. Conflicting merges reject with a 409 ApiError. */
   merge(name: string, branch: string, options?: MergeOptions): Promise<MergeResult>;
+  /**
+   * Push a LOCAL feature branch into a REMOTE postgres datastore and run the
+   * remote's conflict-aware merge. Conflicting pushes reject with a 409 ApiError.
+   */
+  pushBranch(name: string, branch: string, options?: PushOptions): Promise<PushResult>;
 }
 
 // ─── Client config ────────────────────────────────────────────────────────────
@@ -1097,6 +1125,8 @@ export class KanectaApiClient {
         c._fetch('GET', `/working-sets/${enc(name)}/branches/${enc(branch)}/merge-preview`),
       merge: (name, branch, options) =>
         c._fetch('POST', `/working-sets/${enc(name)}/branches/${enc(branch)}/merge`, options ?? {}),
+      pushBranch: (name, branch, options) =>
+        c._fetch('POST', `/working-sets/${enc(name)}/branches/${enc(branch)}/push`, options ?? {}),
     };
   }
 }

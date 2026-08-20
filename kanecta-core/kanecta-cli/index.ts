@@ -5,8 +5,8 @@ import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
 import {
-  Datastore, VALID_TYPES, VALID_CONFIDENCES,
-  readAppConfig, resolveWorkingSet, resolveBranch,
+  Datastore, SyncEngine, VALID_TYPES, VALID_CONFIDENCES,
+  readAppConfig, resolveWorkingSet, resolveBranch, workingSetLocalPath,
   checkIntegrity, checkIntegrityStream,
 } from '@kanecta/lib';
 
@@ -147,6 +147,24 @@ COMMANDS
     (✓ pass / ✗ fail / ○ skip), then a summary. Validates object payloads, type
     and function definitions, references, aliases and metadata against the 1.4.0
     spec. Exits non-zero if any check errored (CI-usable).
+
+  push <branch> [--remote <name>] [--strategy theirs|ours] [--force] [--json]
+    Push a LOCAL feature branch into a REMOTE postgres datastore and run the
+    remote's conflict-aware merge. Carries the branch's changes and base content
+    fingerprints upstream; the local branch is left intact.
+    --remote <name>       Remote to push to (default: origin)
+    --strategy <mode>     Resolve conflicts: theirs (branch wins) | ours (remote wins)
+    --force               Skip the pre-flight scan and merge branch-wins
+    A conflicting push fails with a clear message unless --strategy/--force is given.
+
+  migrate [--remote <name>] [--status] [--json]
+    Apply pending Postgres schema migrations to a REMOTE datastore (the working
+    set's postgres remote), using the same ledgered runner the app uses. This is
+    the safe alternative to hand-running SQL: it records what it applied and can
+    only mutate the schema when authorised.
+    --remote <name>       Remote to migrate (default: origin)
+    --status              Report applied/pending only; never mutates (no backup/guard needed)
+    Applying requires KANECTA_ALLOW_SCHEMA_CHANGES=1 and — please — a fresh backup.
 
 ITEM TYPES
   string      Short text value
@@ -855,6 +873,144 @@ async function cmdIntegrity(positional: string[], flags: Flags) {
   process.exitCode = summary.ok ? 0 : 1;
 }
 
+// `kanecta push <branch>` — push a LOCAL feature branch into a REMOTE postgres
+// datastore and run the remote's conflict-aware merge. Opens the local datastore
+// and a bare remote pg adapter (no S3 — a push moves items only), drives
+// SyncEngine.fullSync (diff → push → pre-flight scan → merge), and always closes
+// the remote pool. A conflicting merge surfaces as a clear non-zero exit unless
+// --strategy/--force is supplied.
+async function cmdPush(positional: string[], flags: Flags) {
+  const branch = positional[0] || flags['branch'];
+  if (!branch) die('Usage: kanecta push <branch> [--remote origin] [--strategy theirs|ours] [--force]');
+  if (branch === 'main') die('Cannot push main — only feature branches are pushable');
+
+  const appCfg = readAppConfig();
+  if (!appCfg?.workingSets || !Object.keys(appCfg.workingSets).length) {
+    die('push requires a working set with a configured remote (none found in config.json)');
+  }
+  const { name, workingSet } = resolveWorkingSet(flags['working-set']);
+  const localPath = workingSetLocalPath(workingSet);
+  if (!localPath) die(`Working set '${name}' has no local datastore to push from`);
+  if (!Datastore.isDatastore(localPath)) die(`Local datastore not found at: ${localPath}`);
+
+  const remoteName = flags['remote'] || 'origin';
+  const remotesCfg = workingSet.remotes ?? (workingSet.cloud ? { origin: { type: 'cloud', ...workingSet.cloud } } : {});
+  const remoteCfg = remotesCfg[remoteName];
+  if (!remoteCfg) die(`Remote '${remoteName}' not configured for working set '${name}'`);
+
+  const strategy = flags['strategy'] || null;
+  if (strategy && strategy !== 'theirs' && strategy !== 'ours') {
+    die(`Invalid --strategy: ${strategy}. Valid: theirs, ours`);
+  }
+  const force = !!flags['force'];
+
+  const localDs = Datastore.open(localPath);
+  const { adapter, pool } = await Datastore.openRemotePg(remoteCfg);
+  try {
+    const result = await SyncEngine.fullSync(localDs._adapter, adapter, branch, { force, strategy });
+    const out = {
+      ok: true,
+      remote: remoteName,
+      pushed: result.push.pushed,
+      merged: result.merge.merged,
+      skipped: result.merge.skipped,
+      conflicts: result.merge.conflicts ?? [],
+      blastRadius: result.merge.blastRadius ?? [],
+    };
+    if (flags['json']) {
+      console.log(JSON.stringify(out, null, 2));
+    } else {
+      console.log(`Pushed branch '${branch}' → ${remoteName}`);
+      console.log(`  changes pushed: ${out.pushed}`);
+      console.log(`  merged:         ${out.merged}`);
+      console.log(`  skipped:        ${out.skipped}`);
+      if (out.conflicts.length) console.log(`  conflicts:      ${out.conflicts.length}`);
+    }
+  } catch (err: any) {
+    if (err.code === 'MERGE_CONFLICT') {
+      die(`Push blocked by merge conflict: ${err.message}\n` +
+          'Re-run with --strategy theirs|ours (or --force) to resolve.');
+    }
+    if (err.code === 'MERGE_BLAST_RADIUS') {
+      die(`Push blocked by blast radius: ${err.message}`);
+    }
+    throw err;
+  } finally {
+    try { await pool.end(); } catch { /* pool already closing */ }
+  }
+}
+
+// `kanecta migrate` — apply pending Postgres schema migrations to a REMOTE
+// datastore (the working set's postgres remote), or just report status with
+// --status. The safe, automated alternative to hand-running SQL or triggering a
+// full init(): it drives the same ledgered runner the app uses, records what it
+// applied, and can only mutate the schema when KANECTA_ALLOW_SCHEMA_CHANGES=1 is
+// set. Postgres remotes only (sqlite-fs datastores manage their own format).
+async function cmdMigrate(positional: string[], flags: Flags) {
+  const appCfg = readAppConfig();
+  if (!appCfg?.workingSets || !Object.keys(appCfg.workingSets).length) {
+    die('migrate requires a working set with a configured postgres remote (none found in config.json)');
+  }
+  const { name, workingSet } = resolveWorkingSet(flags['working-set']);
+
+  const remoteName = flags['remote'] || 'origin';
+  const remotesCfg = workingSet.remotes ?? (workingSet.cloud ? { origin: { type: 'cloud', ...workingSet.cloud } } : {});
+  const remoteCfg = remotesCfg[remoteName];
+  if (!remoteCfg) die(`Remote '${remoteName}' not configured for working set '${name}'`);
+
+  const statusOnly = !!flags['status'];
+
+  let result: any;
+  try {
+    result = await Datastore.migrateRemotePg(remoteCfg, { apply: !statusOnly });
+  } catch (err: any) {
+    // The runner refuses pending migrations unless KANECTA_ALLOW_SCHEMA_CHANGES=1;
+    // surface its guidance verbatim (it names the pending files and the flag).
+    die(err.message);
+  }
+
+  if (flags['json']) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  const { didApply, ran, baseline, status } = result;
+  console.log(`Remote '${remoteName}' (working set '${name}')`);
+  console.log(`  recorded applied: ${status.applied.length} migration(s)`);
+
+  if (baseline.length) {
+    console.log('');
+    console.log(`  ⚠  ${baseline.length} migration(s) baselined — marked applied WITHOUT running:`);
+    for (const f of baseline) console.log(`       ${f}`);
+    console.log('     This database had no migration ledger. If its schema is actually');
+    console.log('     missing any of these changes, they were NOT added — verify the schema');
+    console.log('     (or apply the SQL by hand) before relying on the affected feature.');
+  }
+
+  if (statusOnly) {
+    if (status.pending.length) {
+      console.log('');
+      console.log(`  pending: ${status.pending.length}`);
+      for (const f of status.pending) console.log(`       ${f}`);
+      console.log('');
+      console.log('  To apply: back up the database, then run');
+      console.log('    KANECTA_ALLOW_SCHEMA_CHANGES=1 kanecta migrate' +
+                  (remoteName === 'origin' ? '' : ` --remote ${remoteName}`));
+    } else if (!baseline.length) {
+      console.log('  pending: 0 — up to date.');
+    }
+    return;
+  }
+
+  if (ran.length) {
+    console.log('');
+    console.log(`  applied ${ran.length} migration(s):`);
+    for (const f of ran) console.log(`       ${f}`);
+  } else if (!baseline.length) {
+    console.log('  nothing to apply — already up to date.');
+  }
+}
+
 // ─── Dispatch ─────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -896,6 +1052,8 @@ async function main() {
     case 'rebuild-projections': await cmdRebuildProjections(rest, flags); break;
     case 'doctor':         await cmdDoctor(rest, flags); break;
     case 'integrity':      await cmdIntegrity(rest, flags); break;
+    case 'push':           await cmdPush(rest, flags); break;
+    case 'migrate':        await cmdMigrate(rest, flags); break;
     default:
       die(`Unknown command: ${cmd}\nRun \`kanecta --help\` for usage.`);
   }

@@ -81,19 +81,19 @@
     "kanecta-core/kanecta-converter/kanecta-converter-specification"
   ],
   "devDependencies": {
-    "@changesets/cli": "^2.31.1",
+    "@changesets/cli": "^3.0.0",
     "@dnd-kit/core": "^6.3.1",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
-    "@storybook/react-vite": "^10.5.5",
-    "concurrently": "^10.0.4",
+    "@storybook/react-vite": "^10.5.8",
+    "concurrently": "^10.0.5",
     "husky": "^9.1.7",
     "storybook": "^10.3.5",
-    "tsx": "^4.23.11"
+    "tsx": "^4.23.12"
   },
   "dependencies": {
-    "@tiptap/core": "^3.29.2",
-    "@tiptap/pm": "^3.29.2",
-    "@tiptap/starter-kit": "^3.29.2"
+    "@tiptap/core": "^3.30.1",
+    "@tiptap/pm": "^3.30.1",
+    "@tiptap/starter-kit": "^3.30.1"
   }
 }

@@ -119,6 +119,50 @@ class Datastore {
     return new Datastore(adapter);
   }
 
+  // Open a BARE postgres items adapter for a branch-push target (no S3, no
+  // Datastore wrapper). A push moves item changes only, and the postgres
+  // adapter is the branch gatekeeper (createBranch / applyBranchChanges /
+  // previewMerge / mergeBranch / setBranchBases), so files/S3 are not needed.
+  // Returns `{ adapter, pool }` — the caller owns the pool and must `pool.end()`
+  // when the push completes. Assumes the remote has already run its migrations
+  // (open() does not migrate; `045_branch_bases.sql` must be applied).
+  //
+  // `remoteCfg` is a working-set remote entry: either a bare postgres block
+  // (`{ type: 'postgres', host, port?, database, user, password?, ssl?, schema? }`)
+  // or a composite `cloud` remote (`{ type: 'cloud', postgres: {…}, s3: {…} }`),
+  // from which only the `postgres` half is used.
+  static async openRemotePg(remoteCfg: any) {
+    if (!remoteCfg) throw new Error('openRemotePg requires a remote config');
+    const pg = remoteCfg.type === 'postgres' ? remoteCfg : remoteCfg.postgres;
+    if (!pg) {
+      throw new Error("remote requires a 'postgres' block (items backend) for branch push");
+    }
+    const pgConfig: any = { connectionString: buildPgConnectionString(pg) };
+    if (pg.ssl)    pgConfig.ssl     = resolveSslBlock(pg.ssl);
+    if (pg.schema) pgConfig.options = `-c search_path="${pg.schema}"`;
+    if (remoteCfg.embeddings) pgConfig.embeddings = remoteCfg.embeddings;
+    return datastoreUtils.openRemotePgAdapter(pgConfig);
+  }
+
+  // Apply (or report) pending Postgres schema migrations against a working-set
+  // remote — the safe, automated alternative to hand-running SQL or triggering a
+  // full init(). Mirrors openRemotePg's config extraction: a bare `postgres`
+  // block (`{ type: 'postgres', … }`) or the `postgres` half of a `cloud` remote.
+  // `apply: false` reports status without mutating (needs no guard); `apply: true`
+  // runs the ledgered runner, which is gated by KANECTA_ALLOW_SCHEMA_CHANGES.
+  // Returns { didApply, ran, baseline, status } (see migrateRemotePgAdapter).
+  static async migrateRemotePg(remoteCfg: any, { apply = true }: any = {}) {
+    if (!remoteCfg) throw new Error('migrateRemotePg requires a remote config');
+    const pg = remoteCfg.type === 'postgres' ? remoteCfg : remoteCfg.postgres;
+    if (!pg) {
+      throw new Error("remote requires a 'postgres' block (items backend) to migrate");
+    }
+    const pgConfig: any = { connectionString: buildPgConnectionString(pg) };
+    if (pg.ssl)    pgConfig.ssl     = resolveSslBlock(pg.ssl);
+    if (pg.schema) pgConfig.options = `-c search_path="${pg.schema}"`;
+    return datastoreUtils.migrateRemotePgAdapter(pgConfig, { apply });
+  }
+
   // Init a new cloud datastore (runs migrations, creates root nodes).
   static async initCloud(cloudConfig: any, owner: any) {
     const adapter = await datastoreUtils.createCloudAdapter(cloudConfig, owner);

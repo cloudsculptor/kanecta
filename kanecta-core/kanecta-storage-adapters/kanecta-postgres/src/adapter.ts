@@ -431,10 +431,54 @@ class PostgresAdapter {
 
   // ─── Migrations ─────────────────────────────────────────────────────────────
 
-  async _migrate() {
-    const dir  = path.join(__dirname, '..', 'migrations');
+  // Read-only snapshot of migration state: the on-disk migration files, which
+  // ones the ledger records as applied, and which remain pending. Does NOT create
+  // the ledger table or apply anything, so it is safe to call on any connection —
+  // it is the shared source of truth for `_migrate()` (below) and for read-only
+  // tooling like `kanecta migrate --status`. `hasLedger` / `hasItems` drive the
+  // baseline rule.
+  async _migrationState() {
+    const dir   = path.join(__dirname, '..', 'migrations');
     const files = fs.readdirSync(dir).filter(f => f.endsWith('.sql')).sort();
+    const { rows: reg } = await this._exec(
+      "SELECT to_regclass('schema_migrations') IS NOT NULL AS has_ledger, " +
+      "       to_regclass('items')             IS NOT NULL AS has_items",
+    );
+    const hasLedger = !!reg[0].has_ledger;
+    const hasItems  = !!reg[0].has_items;
+    let applied = new Set<string>();
+    if (hasLedger) {
+      const { rows } = await this._exec('SELECT filename FROM schema_migrations');
+      applied = new Set(rows.map(r => r.filename));
+    }
+    const pending = files.filter(f => !applied.has(f));
+    return { dir, files, applied, pending, hasLedger, hasItems };
+  }
 
+  // Reportable migration status for tooling. Predicts what `_migrate()` would do
+  // WITHOUT mutating anything:
+  //  - `applied`  — migrations the ledger already records.
+  //  - `pending`  — migrations that would actually be RUN.
+  //  - `baseline` — migrations that would instead be marked applied WITHOUT
+  //    running, because a pre-ledger schema (items present, empty ledger) is
+  //    assumed already at the latest migration. Anything here is trusted to be
+  //    present in the schema already; if it is NOT (e.g. a genuinely missing
+  //    column), it is silently recorded as applied — so a non-empty `baseline`
+  //    on a database you expected to migrate is a red flag, not a success.
+  //  - `fresh`    — brand-new empty schema; `_migrate()` will run every file.
+  async _migrationStatus() {
+    const s = await this._migrationState();
+    const wouldBaseline = s.applied.size === 0 && s.hasItems;
+    return {
+      files:    s.files,
+      applied:  [...s.applied].sort(),
+      pending:  wouldBaseline ? [] : s.pending,
+      baseline: wouldBaseline ? s.pending : [],
+      fresh:    !s.hasItems && s.applied.size === 0,
+    };
+  }
+
+  async _migrate() {
     // Migrations are forward-only and run exactly once, in filename order. A
     // ledger records what's been applied so reopening a datastore does not
     // re-run (and fail on) non-idempotent statements like ADD CONSTRAINT.
@@ -445,23 +489,17 @@ class PostgresAdapter {
        )`,
     );
 
+    const { dir, files, applied, pending, hasItems } = await this._migrationState();
+
     // Baseline: a schema that was already migrated before this ledger existed
     // (items table present, no ledger rows) is recorded as fully applied so we
     // never re-run migrations against a live database.
-    const { rows: count } = await this._exec('SELECT COUNT(*)::int AS n FROM schema_migrations');
-    if (count[0].n === 0) {
-      const { rows: has } = await this._exec("SELECT to_regclass('items') IS NOT NULL AS has_items");
-      if (has[0].has_items) {
-        for (const file of files) {
-          await this._exec('INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING', [file]);
-        }
-        return;
+    if (applied.size === 0 && hasItems) {
+      for (const file of files) {
+        await this._exec('INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING', [file]);
       }
+      return;
     }
-
-    const { rows } = await this._exec('SELECT filename FROM schema_migrations');
-    const applied = new Set(rows.map(r => r.filename));
-    const pending = files.filter(f => !applied.has(f));
 
     // Fail-closed schema-change guard. Applying a migration MUTATES the database
     // (create/drop tables, alter constraints) and could destroy production data.

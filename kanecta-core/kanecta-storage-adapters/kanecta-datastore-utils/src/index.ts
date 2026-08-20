@@ -80,6 +80,54 @@ export async function openCloudAdapter(cloudConfig: any) {
   return CloudAdapter.open({ items, files });
 }
 
+// Open a bare postgres items adapter (no S3) for a branch push target. A push
+// moves ITEM changes, and the postgres adapter is the branch gatekeeper
+// (createBranch / applyBranchChanges / previewMerge / mergeBranch /
+// setBranchBases), so files/S3 are not required. Returns { adapter, pool } so
+// the caller can close the pool when the push completes. Assumes the remote has
+// already run its migrations (open() does not migrate).
+export async function openRemotePgAdapter(pgConfig: any) {
+  const { Pool }            = require('pg');
+  const { PostgresAdapter } = require('@kanecta/database');
+  const pgOpts: any = { connectionString: pgConfig.connectionString };
+  if (pgConfig.ssl)     pgOpts.ssl     = pgConfig.ssl;
+  if (pgConfig.options) pgOpts.options = pgConfig.options;
+  const pool = new Pool(pgOpts);
+  const adapter = await PostgresAdapter.open(pool, { embeddings: pgConfig.embeddings ?? null });
+  return { adapter, pool };
+}
+
+// Apply (or just report) pending Postgres schema migrations against a remote
+// database WITHOUT going through open()/init(). open() would fail on a
+// not-yet-migrated schema (config read before the migration lands), and init()
+// also seeds data — neither is what a migrate step wants. Builds a BARE adapter
+// (no open/init), runs the same ledgered runner the app uses, and reports what
+// happened. Closes its own pool.
+//   opts.apply === false → status only: never mutates, needs no guard.
+//   opts.apply === true  → runs _migrate(), which honours KANECTA_ALLOW_SCHEMA_CHANGES.
+// Returns { didApply, ran, baseline, status } where `status` is the post-run (or,
+// for status-only, current) _migrationStatus() and `baseline` lists any migrations
+// that were/would be marked applied WITHOUT running (see _migrationStatus).
+export async function migrateRemotePgAdapter(pgConfig: any, { apply = true }: any = {}) {
+  const { Pool }            = require('pg');
+  const { PostgresAdapter } = require('@kanecta/database');
+  const pgOpts: any = { connectionString: pgConfig.connectionString };
+  if (pgConfig.ssl)     pgOpts.ssl     = pgConfig.ssl;
+  if (pgConfig.options) pgOpts.options = pgConfig.options;
+  const pool = new Pool(pgOpts);
+  try {
+    const adapter = new PostgresAdapter(pool);
+    const before  = await adapter._migrationStatus();
+    if (!apply) return { didApply: false, ran: [], baseline: before.baseline, status: before };
+    const ran = before.pending;
+    await adapter._migrate();
+    const status = await adapter._migrationStatus();
+    return { didApply: true, ran, baseline: before.baseline, status };
+  } finally {
+    await pool.end();
+  }
+}
+
 export async function createCloudAdapter(cloudConfig: any, owner?: any) {
   const { Pool }            = require('pg');
   const { S3Client }        = require('@aws-sdk/client-s3');
