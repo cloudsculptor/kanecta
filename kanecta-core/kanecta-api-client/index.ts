@@ -391,6 +391,24 @@ export interface TreeApi {
   get(depth?: number): Promise<unknown>;
 }
 
+/** Result of executing a saved `query` item (spec §queryPayload). */
+export interface SavedQueryRunResult {
+  columns: Array<{ name: string; dataType: string | null }>;
+  rows: Array<Record<string, unknown>>;
+  rowCount: number;
+  truncated: boolean;
+  description: string | null;
+  returnType: string | null;
+}
+
+export interface QueryApi {
+  run(
+    id: string,
+    params?: Record<string, unknown>,
+    rowLimit?: number,
+  ): Promise<SavedQueryRunResult>;
+}
+
 export type DocumentMode = 'document' | 'tree' | 'todo';
 
 // Type alias (not interface) so it is assignable to KanectaItem's
@@ -848,6 +866,19 @@ export class KanectaApiClient {
       getFunctionScaffold: (id) => c._fetch('GET', `/items/${id}/function/scaffold`),
       compileFunction: (id) => c._fetch('POST', `/items/${id}/function/compile`, {}),
       runFunction: (id, args = {}) => c._fetch('POST', `/items/${id}/function/run`, { args }),
+    };
+  }
+
+  // ─── Saved queries ───────────────────────────────────────────────────────────
+
+  get query(): QueryApi {
+    const c = this;
+    return {
+      run: (id, params, rowLimit) =>
+        c._fetch('POST', `/query/${id}/run`, {
+          ...(params != null ? { params } : {}),
+          ...(rowLimit != null ? { rowLimit } : {}),
+        }),
     };
   }
 

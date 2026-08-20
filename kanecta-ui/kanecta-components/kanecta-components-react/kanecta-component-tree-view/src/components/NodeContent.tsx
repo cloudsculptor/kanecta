@@ -1,6 +1,8 @@
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import GridOnIcon from '@mui/icons-material/GridOn';
+import TableChartIcon from '@mui/icons-material/TableChart';
 import DownloadIcon from '@mui/icons-material/Download';
+import type { ReactNode } from 'react';
 import { ItemValue } from './ItemValue';
 import type { KanectaItem } from '../types';
 import './NodeContent.scss';
@@ -36,6 +38,12 @@ interface NodeContentProps {
   resolveId?: (id: string) => KanectaItem | undefined;
   onNavigate?: (id: string) => void;
   resolveMediaUrl?: ResolveMediaUrl;
+  /**
+   * Host seam for `table` nodes (spec §tablePayload) — the host renders the
+   * inline grid (it owns ag-grid and the saved-query execution path). Absent
+   * or returning nothing falls back to a labelled table affordance.
+   */
+  renderTable?: (item: KanectaItem) => ReactNode;
 }
 
 /**
@@ -46,7 +54,7 @@ interface NodeContentProps {
  * the per-type `TYPE_ICONS` pattern but for node BODY content, and is the seam
  * the ~15-years-ago Connector rich-node rendering is being restored onto.
  */
-export function NodeContent({ item, resolveId, onNavigate, resolveMediaUrl }: NodeContentProps) {
+export function NodeContent({ item, resolveId, onNavigate, resolveMediaUrl, renderTable }: NodeContentProps) {
   const type = item._synthetic ? 'text' : item.type;
   const text = <ItemValue value={item.value} resolveId={resolveId} onNavigate={onNavigate} />;
 
@@ -82,6 +90,24 @@ export function NodeContent({ item, resolveId, onNavigate, resolveMediaUrl }: No
             <DownloadIcon fontSize="inherit" />
           </a>
         )}
+      </span>
+    );
+  }
+
+  if (type === 'table') {
+    const rendered = renderTable?.(item);
+    if (rendered != null) {
+      // Grid interactions (sort, filter, page) must not toggle/focus the node.
+      return (
+        <div className="NodeContent-table" onClick={(e) => e.stopPropagation()}>
+          {rendered}
+        </div>
+      );
+    }
+    return (
+      <span className="NodeContent-grid">
+        <TableChartIcon className="NodeContent-grid-icon" fontSize="inherit" />
+        {text}
       </span>
     );
   }

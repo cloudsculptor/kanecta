@@ -129,6 +129,11 @@
       "file": "../../kanecta-components/kanecta-components-react/kanecta-component-starred-view/kanecta.item.json"
     },
     {
+      "id": "42b578ed-02c6-453c-8d9c-f6e99027e0ba",
+      "type": "component",
+      "file": "../../kanecta-components/kanecta-components-react/kanecta-component-table/kanecta.item.json"
+    },
+    {
       "id": "3e84f003-88fd-4e4e-a3df-ebc536496879",
       "type": "component",
       "file": "../../kanecta-components/kanecta-components-react/kanecta-component-table-view/kanecta.item.json"

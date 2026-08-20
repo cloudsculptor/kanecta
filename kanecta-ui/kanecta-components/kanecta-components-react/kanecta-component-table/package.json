@@ -1,0 +1,12 @@
+{
+  "name": "@kanecta/component-table",
+  "version": "1.4.0",
+  "private": true,
+  "main": "src/index.ts",
+  "peerDependencies": {
+    "@tanstack/react-query": "^5.101.4",
+    "ag-grid-community": "^36.1.0",
+    "ag-grid-react": "^36.1.0",
+    "react": "^19.2.8"
+  }
+}

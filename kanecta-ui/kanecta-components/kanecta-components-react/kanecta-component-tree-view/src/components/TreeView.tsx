@@ -48,6 +48,8 @@ export interface TreeViewProps {
   onFocusItem?: (id: string) => void;
   onSelectItem?: (id: string | null) => void;
   onOpenOverlay?: () => void;
+  /** Host seam: inline table preview for `table` nodes (see TreeViewContext). */
+  renderTable?: (item: KanectaItem) => React.ReactNode;
 }
 
 function useTreeData(parentId: string | null, workspaceKey?: string) {
@@ -178,6 +180,7 @@ export function TreeView({
   onFocusItem,
   onSelectItem,
   onOpenOverlay,
+  renderTable,
 }: TreeViewProps) {
   const qc = useQueryClient();
 
@@ -568,6 +571,7 @@ export function TreeView({
     onFocusItem: onFocusItem ?? (() => {}),
     onSelectItem: onSelectItem ?? (() => {}),
     onOpenOverlay: onOpenOverlay ?? (() => {}),
+    renderTable,
   };
 
   const todoToggle = (

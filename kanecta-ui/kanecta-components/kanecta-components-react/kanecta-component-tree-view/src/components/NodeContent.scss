@@ -42,4 +42,13 @@
     color: var(--color-text-muted, #888);
     flex: 0 0 auto;
   }
+
+  // Host-rendered inline table preview (see renderTable seam). The grid needs
+  // a bounded height to lay out; width tracks the node row.
+  &-table {
+    display: block;
+    width: 100%;
+    height: var(--tree-node-table-height, 320px);
+    max-width: 100%;
+  }
 }
