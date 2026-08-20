@@ -1013,6 +1013,97 @@ const TOOLS: any[] = [
     },
   },
   {
+    name: 'kanecta_create_table',
+    description:
+      'Create a table item (spec §tablePayload) — a configured tabular view over a saved query — with guardrails plain kanecta_add_item lacks. Provide queryId to reference an existing query item, OR query {expression, params} to create the query too (exactly one of the two), so "create a table under <uuid> with this SQL" is a single call. Before creating anything permanent it validates the query reference, dry-runs the SQL (catching errors now instead of at render time), and warns when a column override or defaultSortField names a field the result set does not produce. Column overrides become table-column children in array order (array order = display order); omit columns to auto-scaffold one child per result column with Title Case labels, ready for later width/label edits. On a failed dry run, anything created by this call is rolled back. Returns { table, queryId, query?, columns, resultColumns?, warnings? }.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        value: { type: 'string', description: 'Table item name/value' },
+        parentId: {
+          type: 'string',
+          description: 'Parent UUID — omit to auto-bucket under the built-in tables container',
+        },
+        queryId: {
+          type: 'string',
+          description:
+            'UUID of an existing query item this table renders. Exactly one of queryId or query is required.',
+        },
+        query: {
+          type: 'object',
+          description:
+            'Create the query item as part of this call. Exactly one of queryId or query is required.',
+          properties: {
+            value: {
+              type: 'string',
+              description: 'Query item name (defaults to "<table value> query")',
+            },
+            expression: {
+              type: 'string',
+              description:
+                'Read-only SQL. Queryable tables: items (every item: id, value, type, parent_id, sort_order, …) and obj_<typeId> projections (one table per registered type, columns = the type\'s fields in snake_case). Use {{params.name}} placeholders for parameters — they are bound as real SQL parameters, never string-interpolated.',
+            },
+            description: { type: 'string', description: 'What the query returns' },
+            params: {
+              type: 'array',
+              description: 'Query parameters, created as query-param children of the query item.',
+              items: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', description: 'Placeholder name used in {{params.name}}' },
+                  type: {
+                    type: 'string',
+                    enum: ['string', 'number', 'boolean', 'uuid', 'date'],
+                    description: 'Declared value type — caller values are coerced to it',
+                  },
+                  defaultValue: {
+                    type: 'string',
+                    description:
+                      'Default in text form, interpreted per type. Params without one are required at run time.',
+                  },
+                  description: { type: 'string' },
+                },
+                required: ['name', 'type'],
+              },
+            },
+          },
+          required: ['expression'],
+        },
+        columns: {
+          type: 'array',
+          description:
+            'Per-column overrides, created as table-column children in array order (that order is the display order). Omit entirely to auto-scaffold one table-column child per result-set column with a Title Case label (e.g. parent_id -> "Parent Id"), ready for later editing (widths, labels, hiding).',
+          items: {
+            type: 'object',
+            properties: {
+              field: { type: 'string', description: 'Result-set column name this override applies to' },
+              label: { type: 'string', description: 'Header label (defaults to the field name)' },
+              width: { type: 'number', description: 'Column width in pixels' },
+              hidden: { type: 'boolean', description: 'Exclude this column from the grid' },
+            },
+            required: ['field'],
+          },
+        },
+        queryParams: {
+          type: 'object',
+          description:
+            'Fixed parameter values the table binds when running its query, keyed by query-param name. Also used for the dry run.',
+        },
+        defaultSortField: { type: 'string', description: 'Result-set column to sort by on load' },
+        defaultSortDirection: { type: 'string', enum: ['asc', 'desc'] },
+        defaultFilters: {
+          type: 'object',
+          description: 'ag-grid filter model applied on load. Stored opaquely (x-kanecta-storage: json).',
+        },
+        pageSize: { type: 'number', description: 'Rows per page — enables pagination when set' },
+        rowLimit: { type: 'number', description: 'Row cap for this table (default 1000, capped at 10000)' },
+        description: { type: 'string', description: 'What this table shows' },
+        tags: { type: 'array', items: { type: 'string' }, description: 'Tags for the table item' },
+      },
+      required: ['value'],
+    },
+  },
+  {
     name: 'kanecta_stats',
     description: 'Return data-quality statistics for the datastore: total item count, typed/structured count, per-type breakdown for structured objects, and per-type breakdown for unstructured primitives. Built-in structured types (pipeline, pipeline-run, agent) appear in the structured list. Root system types are excluded. Use this to get the same data shown in the QualityControlView.',
     inputSchema: { type: 'object', properties: {} },
@@ -1650,6 +1741,150 @@ async function dispatch(name: string, args: any): Promise<any> {
         if (err instanceof SavedQueryError) return { error: err.message, code: err.code };
         throw err;
       }
+    }
+
+    case 'kanecta_create_table': {
+      if (!args.queryId === !args.query) {
+        return { error: 'Provide exactly one of queryId (existing query) or query (create one inline)', code: 'bad-request' };
+      }
+
+      const warnings: string[] = [];
+
+      // Resolve or create the query the table will render. Everything created
+      // by this call is tracked so a failed dry run leaves nothing behind.
+      let queryId: string = args.queryId;
+      let createdQuery: any = null;
+      const createdIds: string[] = [];
+      if (queryId) {
+        const q = await ds.get(queryId);
+        if (!q) return { error: `No item with id ${queryId}`, code: 'not-found' };
+        if (q.type !== 'query') {
+          return { error: `Item ${queryId} is a "${q.type}", not a query — a table must reference a query item`, code: 'not-a-query' };
+        }
+      } else {
+        createdQuery = await ds.create({
+          type: 'query',
+          value: args.query.value ?? `${args.value} query`,
+          objectData: {
+            language: 'sql',
+            expression: args.query.expression,
+            description: args.query.description ?? null,
+          },
+        });
+        queryId = createdQuery.id;
+        createdIds.push(queryId);
+        for (const p of args.query.params ?? []) {
+          const child = await ds.create({
+            type: 'query-param',
+            value: p.name,
+            parentId: queryId,
+            objectData: {
+              name: p.name,
+              type: p.type,
+              defaultValue: p.defaultValue ?? null,
+              description: p.description ?? null,
+            },
+          });
+          createdIds.push(child.id);
+        }
+      }
+
+      const rollback = async () => {
+        for (const id of [...createdIds].reverse()) await ds.delete(id, cfg?.owner);
+      };
+
+      // Dry-run before creating the table: a broken query fails NOW (rolled
+      // back), instead of a table that errors at render time — and a working
+      // one yields the result columns to validate field references against.
+      let resultColumns: string[] | null = null;
+      try {
+        const probe = await runSavedQuery(ds, queryId, args.queryParams ?? {}, { rowLimit: 1 });
+        resultColumns = probe.columns.map((c: any) => c.name);
+      } catch (err: any) {
+        const missingRequired =
+          err instanceof SavedQueryError && err.code === 'bad-param' && /missing required/i.test(err.message);
+        if (missingRequired) {
+          warnings.push(`Dry run skipped (${err.message}) — column fields were not validated against the result set.`);
+        } else {
+          await rollback();
+          return {
+            error: `Query dry run failed: ${err.message}`,
+            code: err instanceof SavedQueryError ? err.code : 'sql-error',
+            ...(createdQuery ? { rolledBack: true } : {}),
+          };
+        }
+      }
+
+      if (resultColumns) {
+        for (const c of args.columns ?? []) {
+          if (!resultColumns.includes(c.field)) {
+            warnings.push(`Column override "${c.field}" matches no result column (result set: ${resultColumns.join(', ')}) — the grid will ignore it.`);
+          }
+        }
+        if (args.defaultSortField && !resultColumns.includes(args.defaultSortField)) {
+          warnings.push(`defaultSortField "${args.defaultSortField}" matches no result column — the grid will not sort.`);
+        }
+      }
+
+      // No explicit columns: scaffold one table-column per result column with a
+      // Title Case label (parent_id -> "Parent Id"), so widths/labels/hiding
+      // can be edited on real children afterwards.
+      const titleCase = (s: string) =>
+        s.split(/[_\s]+/).filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      const columnSpecs: Array<{ field: string; label?: string | null; width?: number | null; hidden?: boolean | null }> =
+        args.columns?.length
+          ? args.columns
+          : (resultColumns ?? []).map((field: string) => ({ field, label: titleCase(field) }));
+
+      let table: any;
+      const columnItems: any[] = [];
+      try {
+        table = await ds.create({
+          type: 'table',
+          value: args.value,
+          ...(args.parentId ? { parentId: args.parentId } : {}),
+          ...(args.tags ? { tags: args.tags } : {}),
+          objectData: {
+            queryId,
+            queryParams: args.queryParams ?? null,
+            defaultSortField: args.defaultSortField ?? null,
+            defaultSortDirection: args.defaultSortDirection ?? null,
+            defaultFilters: args.defaultFilters ?? null,
+            pageSize: args.pageSize ?? null,
+            rowLimit: args.rowLimit ?? null,
+            description: args.description ?? null,
+          },
+        });
+        createdIds.push(table.id);
+        for (const [i, c] of columnSpecs.entries()) {
+          columnItems.push(
+            await ds.create({
+              type: 'table-column',
+              value: c.field,
+              parentId: table.id,
+              sortOrder: i,
+              objectData: {
+                field: c.field,
+                label: c.label ?? null,
+                width: c.width ?? null,
+                hidden: c.hidden ?? null,
+              },
+            }),
+          );
+        }
+      } catch (err: any) {
+        await rollback();
+        return { error: `Table creation failed: ${err.message}`, code: 'create-failed', rolledBack: true };
+      }
+
+      return {
+        table: await resolveItem(ds, table),
+        queryId,
+        ...(createdQuery ? { query: await resolveItem(ds, createdQuery) } : {}),
+        columns: columnItems.map((c) => ({ id: c.id, field: c.value })),
+        ...(resultColumns ? { resultColumns } : {}),
+        ...(warnings.length ? { warnings } : {}),
+      };
     }
 
     case 'kanecta_stats': {
