@@ -897,6 +897,20 @@ class PostgresAdapter {
     }
   }
 
+  // Built-in type items from the spec manifest that are ABSENT from this
+  // datastore's items table (returned as type names). Read-only companion to
+  // _ensureBuiltInTypes for tooling (`kanecta migrate --status`, npm start's
+  // remote check): an unauthorised open() skips seeding silently, so a remote
+  // can be fully migrated yet still missing newly-added built-in types.
+  async _missingBuiltInTypes(): Promise<string[]> {
+    const { rows: reg } = await this._exec("SELECT to_regclass('items') IS NOT NULL AS ok");
+    if (!reg[0].ok) return (builtInTypeItems as any[]).map(s => s.item.value);
+    const ids = (builtInTypeItems as any[]).map(s => s.item.id);
+    const { rows } = await this._exec('SELECT id FROM items WHERE id = ANY($1::uuid[])', [ids]);
+    const present = new Set(rows.map(r => r.id));
+    return (builtInTypeItems as any[]).filter(s => !present.has(s.item.id)).map(s => s.item.value);
+  }
+
   // Seed the mandatory system INSTANCES the platform depends on — currently the
   // 19 built-in licences (spec §licencePayload) — from @kanecta/specification's
   // builtInSystemItems. Each becomes a `licence` item under the licence type

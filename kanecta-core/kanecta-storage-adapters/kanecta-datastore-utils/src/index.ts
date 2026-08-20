@@ -103,11 +103,21 @@ export async function openRemotePgAdapter(pgConfig: any) {
 // also seeds data — neither is what a migrate step wants. Builds a BARE adapter
 // (no open/init), runs the same ledgered runner the app uses, and reports what
 // happened. Closes its own pool.
+//
+// Beyond the SQL ledger this also covers built-in type SEEDING: types added to
+// the spec after a remote was initialised are only written by the _ensure*
+// backfills in open()/init(), which a prod app's unauthorised open() skips
+// silently — so a remote can be "fully migrated" yet unable to hold e.g. a
+// `table` item. Status reports those as `missingTypes`; apply seeds them (via
+// an authorised open(), which runs the same idempotent backfills init() does).
 //   opts.apply === false → status only: never mutates, needs no guard.
-//   opts.apply === true  → runs _migrate(), which honours KANECTA_ALLOW_SCHEMA_CHANGES.
-// Returns { didApply, ran, baseline, status } where `status` is the post-run (or,
-// for status-only, current) _migrationStatus() and `baseline` lists any migrations
-// that were/would be marked applied WITHOUT running (see _migrationStatus).
+//   opts.apply === true  → runs _migrate() and, when types are missing, the seed
+//     backfills — both honour KANECTA_ALLOW_SCHEMA_CHANGES (fail-closed).
+// Returns { didApply, ran, baseline, status, missingTypes, seededTypes } where
+// `status` is the post-run (or, for status-only, current) _migrationStatus(),
+// `baseline` lists any migrations that were/would be marked applied WITHOUT
+// running (see _migrationStatus), `missingTypes` names built-in types still
+// absent, and `seededTypes` names the ones this call seeded.
 export async function migrateRemotePgAdapter(pgConfig: any, { apply = true }: any = {}) {
   const { Pool }            = require('pg');
   const { PostgresAdapter } = require('@kanecta/database');
@@ -118,11 +128,30 @@ export async function migrateRemotePgAdapter(pgConfig: any, { apply = true }: an
   try {
     const adapter = new PostgresAdapter(pool);
     const before  = await adapter._migrationStatus();
-    if (!apply) return { didApply: false, ran: [], baseline: before.baseline, status: before };
+    const missingTypes = await adapter._missingBuiltInTypes();
+    if (!apply) {
+      return { didApply: false, ran: [], baseline: before.baseline, status: before, missingTypes, seededTypes: [] };
+    }
+    if (missingTypes.length && !PostgresAdapter._schemaChangesAllowed()) {
+      throw new Error(
+        `Refusing to seed ${missingTypes.length} missing built-in type(s): this would modify ` +
+        `the database and may affect production data.\n` +
+        `  Missing: ${missingTypes.join(', ')}\n` +
+        `Back up the database, then set KANECTA_ALLOW_SCHEMA_CHANGES=1 to apply.`,
+      );
+    }
     const ran = before.pending;
     await adapter._migrate();
+    // Fresh schemas have no config row yet, so open() (the seeding vehicle)
+    // cannot run — init() is the right tool there and seeds everything anyway.
+    if (missingTypes.length && !before.fresh) await PostgresAdapter.open(pool);
     const status = await adapter._migrationStatus();
-    return { didApply: true, ran, baseline: before.baseline, status };
+    const stillMissing = await adapter._missingBuiltInTypes();
+    return {
+      didApply: true, ran, baseline: before.baseline, status,
+      missingTypes: stillMissing,
+      seededTypes: missingTypes.filter((t: string) => !stillMissing.includes(t)),
+    };
   } finally {
     await pool.end();
   }
