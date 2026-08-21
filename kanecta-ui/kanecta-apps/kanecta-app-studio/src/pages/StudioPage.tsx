@@ -37,7 +37,6 @@ import { SettingsPage } from './SettingsPage';
 import { LocationProvider } from '../context/LocationContext';
 import { KeycloakProvider, useKeycloak } from '../auth/KeycloakProvider';
 import { useWorkingSetStore } from '../store/workingSet';
-import { useMediaUrlResolver } from '../hooks/useMediaUrlResolver';
 import { useSettingsStore, THEMES } from '../store/settings';
 import { useUiStore } from '../store/ui';
 import { useLiveActivity } from '../hooks/useLiveActivity';
@@ -69,7 +68,6 @@ function StudioInner() {
     setPanelViewState,
   } = useUiStore();
   const { setItemId, openOverlay } = useLocation();
-  const resolveMediaUrl = useMediaUrlResolver(getApi());
 
   useLiveActivity();
 
@@ -147,7 +145,6 @@ function StudioInner() {
           onSelectItem={(id) => setItemId(id)}
           onOpenOverlay={openOverlay}
           renderTable={(item) => <TableNodePreview itemId={item.id} api={getApi()} />}
-          resolveMediaUrl={resolveMediaUrl}
         />
       );
       case 'table': return <TableView />;

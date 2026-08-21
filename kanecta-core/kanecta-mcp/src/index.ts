@@ -958,6 +958,37 @@ const TOOLS: any[] = [
     },
   },
   {
+    name: 'kanecta_read_file',
+    description:
+      'Download the stored bytes of a file item (the sidecar content — unlike kanecta_get, which returns the item JSON). Writes to outputPath, or returns the content inline (utf8 for text mimes, base64 otherwise).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: {
+          type: 'string',
+          description: 'UUID of the file item.',
+        },
+        filename: {
+          type: 'string',
+          description:
+            'Sidecar filename to read. Defaults to the meta.files role map (image, then file, then body).',
+        },
+        outputPath: {
+          type: 'string',
+          description:
+            'Absolute path to write the bytes to (parent directories are created). Omit to get the content inline.',
+        },
+        encoding: {
+          type: 'string',
+          enum: ['utf8', 'base64'],
+          description:
+            'Inline content encoding. Defaults to utf8 for text mimes, base64 for binary. Ignored with outputPath.',
+        },
+      },
+      required: ['id'],
+    },
+  },
+  {
     name: 'kanecta_by_tag',
     description: 'List all items carrying a given tag.',
     inputSchema: {
@@ -1504,6 +1535,10 @@ function detectMimeType(filename: string): string {
   const ext = filename.includes('.') ? filename.split('.').pop()!.toLowerCase() : '';
   return MIME_BY_EXT[ext] ?? 'application/octet-stream';
 }
+
+// Inline kanecta_read_file responses land in the model's context — beyond this,
+// require outputPath (base64 inflates by ~4/3 on top of the raw size).
+const MAX_INLINE_FILE_BYTES = 10 * 1024 * 1024;
 
 // The spec's well-known meta.files role for a mime class (§files-and-sidecars):
 // images → 'image', text-based bodies → 'body', other binaries → 'file'.
@@ -2236,6 +2271,60 @@ async function dispatch(name: string, args: any): Promise<any> {
 
       const updated = await ds.get(item.id);
       return { item: updated, payload, files, role, filename };
+    }
+
+    case 'kanecta_read_file': {
+      if (!datastorePath)
+        return { error: 'kanecta_read_file requires filesystem mode' };
+      const { id, outputPath } = args;
+      const item = await ds.get(id);
+      if (!item) return { error: `Not found: ${id}` };
+
+      const files = item.files ?? {};
+      const filename =
+        args.filename ?? files.image ?? files.file ?? files.body ?? Object.values(files)[0];
+      if (!filename) {
+        const stored = await ds.listFiles(id);
+        return stored.length
+          ? { error: `Item ${id} has no meta.files roles — pass filename (stored: ${stored.join(', ')})` }
+          : { error: `Item ${id} has no stored files` };
+      }
+
+      const bytes = await ds.getFile(id, filename);
+      if (!bytes) {
+        const stored = await ds.listFiles(id);
+        return { error: `No stored file "${filename}" on ${id}${stored.length ? ` (stored: ${stored.join(', ')})` : ''}` };
+      }
+
+      // Payload mimeType describes the role-mapped sidecar; for an explicitly
+      // requested other filename, fall back to extension detection.
+      const payload: any = (await ds.readObjectJson(id)) ?? {};
+      const roleMapped = Object.values(files).includes(filename);
+      const mimeType =
+        (roleMapped ? payload.mimeType : undefined) ?? detectMimeType(filename);
+
+      if (outputPath) {
+        try {
+          fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+          fs.writeFileSync(outputPath, bytes);
+        } catch (e: any) {
+          return { error: `Cannot write ${outputPath}: ${e?.message ?? e}` };
+        }
+        return { filename, mimeType, size: bytes.length, path: outputPath };
+      }
+
+      const isText =
+        mimeType.startsWith('text/') ||
+        mimeType === 'application/json' ||
+        mimeType === 'image/svg+xml';
+      const encoding = args.encoding ?? (isText ? 'utf8' : 'base64');
+      if (encoding !== 'utf8' && encoding !== 'base64')
+        return { error: `Unsupported encoding: ${encoding}` };
+      if (bytes.length > MAX_INLINE_FILE_BYTES)
+        return {
+          error: `File is ${bytes.length} bytes — too large to return inline. Pass outputPath instead.`,
+        };
+      return { filename, mimeType, size: bytes.length, encoding, content: bytes.toString(encoding) };
     }
 
     case 'kanecta_execute_function': {

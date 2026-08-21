@@ -2,7 +2,8 @@ import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import DownloadIcon from '@mui/icons-material/Download';
-import { useContext } from 'react';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
+import { useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ItemValue } from './ItemValue';
@@ -29,6 +30,15 @@ function mediaUrl(item: KanectaItem, resolve?: ResolveMediaUrl): string | undefi
   return DISPLAYABLE_URL.test(v) ? v : undefined;
 }
 
+/**
+ * A host-supplied fetcher for a file item's stored bytes (datastore sidecar /
+ * S3 object — file bytes always live inside the datastore, never at an
+ * external URL). Returns null when the item has no stored bytes. Powers the
+ * download interactions: click-to-download on file rows, the hover overlay on
+ * images.
+ */
+export type FetchFileBytes = (item: KanectaItem) => Promise<Blob | null>;
+
 /** A human filename from a file item's value (a path/URL or a bare name). */
 function fileName(value: string): string {
   if (!value) return 'file';
@@ -36,11 +46,36 @@ function fileName(value: string): string {
   return base || value;
 }
 
+/** The filename a download should save as — the stored sidecar's, ideally. */
+function downloadName(item: KanectaItem): string {
+  return (
+    item.files?.image ?? item.files?.file ?? item.files?.body ?? fileName(item.value)
+  );
+}
+
+/** Trigger a browser save of already-fetched bytes. */
+function saveBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 interface NodeContentProps {
   item: KanectaItem;
   resolveId?: (id: string) => KanectaItem | undefined;
   onNavigate?: (id: string) => void;
   resolveMediaUrl?: ResolveMediaUrl;
+  /**
+   * Host seam for downloading a file item's stored bytes on demand (see
+   * FetchFileBytes). When present, file rows download on click (behind a
+   * confirmation dialog) and images grow a hover download overlay.
+   */
+  fetchFileBytes?: FetchFileBytes;
   /**
    * Host seam for `table` nodes (spec §tablePayload) — the host renders the
    * inline grid (it owns ag-grid and the saved-query execution path). Absent
@@ -62,7 +97,7 @@ interface NodeContentProps {
  * the per-type `TYPE_ICONS` pattern but for node BODY content, and is the seam
  * the ~15-years-ago Connector rich-node rendering is being restored onto.
  */
-export function NodeContent({ item, resolveId, onNavigate, resolveMediaUrl, renderTable, symlinkDepth = 0 }: NodeContentProps) {
+export function NodeContent({ item, resolveId, onNavigate, resolveMediaUrl, fetchFileBytes, renderTable, symlinkDepth = 0 }: NodeContentProps) {
   const type = item._synthetic ? 'text' : item.type;
   const text = <ItemValue value={item.value} resolveId={resolveId} onNavigate={onNavigate} />;
 
@@ -73,6 +108,7 @@ export function NodeContent({ item, resolveId, onNavigate, resolveMediaUrl, rend
         resolveId={resolveId}
         onNavigate={onNavigate}
         resolveMediaUrl={resolveMediaUrl}
+        fetchFileBytes={fetchFileBytes}
         renderTable={renderTable}
         symlinkDepth={symlinkDepth}
       />
@@ -82,50 +118,17 @@ export function NodeContent({ item, resolveId, onNavigate, resolveMediaUrl, rend
   if (type === 'image') {
     const src = mediaUrl(item, resolveMediaUrl);
     if (!src) return text;
-    return (
-      <img
-        className="NodeContent-image"
-        src={src}
-        alt={item.value || 'image'}
-        loading="lazy"
-        onClick={(e) => e.stopPropagation()}
-      />
-    );
+    return <ImageContent item={item} src={src} fetchFileBytes={fetchFileBytes} />;
   }
 
   if (type === 'file') {
     const href = mediaUrl(item, resolveMediaUrl);
-    const name = fileName(item.value);
     // A file item carrying an `image` sidecar role (spec §files-and-sidecars)
     // renders the picture itself; every other file renders a download row.
     if (item.files?.image && href) {
-      return (
-        <img
-          className="NodeContent-image"
-          src={href}
-          alt={item.value || 'image'}
-          loading="lazy"
-          onClick={(e) => e.stopPropagation()}
-        />
-      );
+      return <ImageContent item={item} src={href} fetchFileBytes={fetchFileBytes} />;
     }
-    return (
-      <span className="NodeContent-file">
-        <InsertDriveFileIcon className="NodeContent-file-icon" fontSize="inherit" />
-        <span className="NodeContent-file-name">{name}</span>
-        {href && (
-          <a
-            className="NodeContent-file-download"
-            href={href}
-            download={name}
-            onClick={(e) => e.stopPropagation()}
-            aria-label={`Download ${name}`}
-          >
-            <DownloadIcon fontSize="inherit" />
-          </a>
-        )}
-      </span>
-    );
+    return <FileContent item={item} href={href} fetchFileBytes={fetchFileBytes} />;
   }
 
   if (type === 'table') {
@@ -159,6 +162,157 @@ export function NodeContent({ item, resolveId, onNavigate, resolveMediaUrl, rend
   }
 
   return text;
+}
+
+/**
+ * An inline image with a download overlay button that appears on hover when
+ * the host can supply the stored bytes. Images download immediately on the
+ * overlay click — the confirmation dialog is for opaque file rows, where a
+ * click could otherwise trigger an accidental download of unknown bytes.
+ */
+function ImageContent({
+  item,
+  src,
+  fetchFileBytes,
+}: {
+  item: KanectaItem;
+  src: string;
+  fetchFileBytes?: FetchFileBytes;
+}) {
+  const [busy, setBusy] = useState(false);
+  const name = downloadName(item);
+
+  const img = (
+    <img
+      className="NodeContent-image"
+      src={src}
+      alt={item.value || 'image'}
+      loading="lazy"
+      onClick={(e) => e.stopPropagation()}
+    />
+  );
+  if (!fetchFileBytes) return img;
+
+  return (
+    <span className="NodeContent-imageWrap">
+      {img}
+      <button
+        type="button"
+        className="NodeContent-image-download"
+        title={`Download ${name}`}
+        aria-label={`Download ${name}`}
+        disabled={busy}
+        onClick={async (e) => {
+          e.stopPropagation();
+          setBusy(true);
+          try {
+            const blob = await fetchFileBytes(item);
+            if (blob) saveBlob(blob, name);
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <DownloadIcon fontSize="inherit" />
+      </button>
+    </span>
+  );
+}
+
+/**
+ * A non-image file row: icon + name + download affordance. With a
+ * fetchFileBytes host seam the whole row is clickable and downloads the
+ * stored bytes after an explicit confirmation dialog; without one it falls
+ * back to a plain anchor when the item's value/resolver yields a URL (the
+ * standalone-usage path — datastore-backed hosts always pass the seam).
+ */
+function FileContent({
+  item,
+  href,
+  fetchFileBytes,
+}: {
+  item: KanectaItem;
+  href?: string;
+  fetchFileBytes?: FetchFileBytes;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const name = fileName(item.value);
+
+  const row = (
+    <>
+      <InsertDriveFileIcon className="NodeContent-file-icon" fontSize="inherit" />
+      <span className="NodeContent-file-name">{name}</span>
+    </>
+  );
+
+  if (!fetchFileBytes) {
+    return (
+      <span className="NodeContent-file">
+        {row}
+        {href && (
+          <a
+            className="NodeContent-file-download"
+            href={href}
+            download={name}
+            onClick={(e) => e.stopPropagation()}
+            aria-label={`Download ${name}`}
+          >
+            <DownloadIcon fontSize="inherit" />
+          </a>
+        )}
+      </span>
+    );
+  }
+
+  const saveName = downloadName(item);
+  const download = async () => {
+    setConfirming(false);
+    setBusy(true);
+    try {
+      const blob = await fetchFileBytes(item);
+      if (blob) saveBlob(blob, saveName);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <span
+      className="NodeContent-file NodeContent-file--downloadable"
+      role="button"
+      tabIndex={0}
+      aria-label={`Download ${name}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (!busy) setConfirming(true);
+      }}
+      onKeyDown={(e) => {
+        if ((e.key === 'Enter' || e.key === ' ') && !busy) {
+          e.preventDefault();
+          e.stopPropagation();
+          setConfirming(true);
+        }
+      }}
+    >
+      {row}
+      <DownloadIcon className="NodeContent-file-downloadIcon" fontSize="inherit" />
+      <Dialog
+        open={confirming}
+        onClose={() => setConfirming(false)}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <DialogTitle>Download file?</DialogTitle>
+        <DialogContent>{saveName}</DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirming(false)}>Cancel</Button>
+          <Button variant="contained" onClick={download}>
+            Download
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </span>
+  );
 }
 
 const SYMLINK_UUID_RE =
@@ -228,6 +382,7 @@ function SymlinkBody({
   resolveId,
   onNavigate,
   resolveMediaUrl,
+  fetchFileBytes,
   renderTable,
   symlinkDepth = 0,
 }: Omit<NodeContentProps, 'item'> & {
@@ -262,6 +417,7 @@ function SymlinkBody({
             resolveId={resolveId}
             onNavigate={onNavigate}
             resolveMediaUrl={resolveMediaUrl}
+            fetchFileBytes={fetchFileBytes}
             renderTable={renderTable}
             symlinkDepth={symlinkDepth + 1}
           />

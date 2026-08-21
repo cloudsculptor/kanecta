@@ -130,6 +130,15 @@ export interface TreeViewApi {
   tree: {
     full(depth?: number): Promise<KanectaItemWithChildren[]>;
   };
+  /**
+   * Bytes of a stored file sidecar (datastore file storage / S3 — never an
+   * external location). Optional: hosts that provide it get inline image
+   * rendering and click-to-download on file nodes without any extra wiring;
+   * the `resolveMediaUrl` / `fetchFileBytes` TreeView props override it.
+   */
+  files?: {
+    get(itemId: string, filename: string, mime?: string): Promise<Blob | null>;
+  };
   documents: {
     listForTarget(targetId: string): Promise<Array<{ id: string; payload?: DocumentPayload | null }>>;
     create(targetId: string, payload: { name: string; mode?: DocumentMode } & Record<string, unknown>): Promise<{ id: string; payload?: DocumentPayload | null }>;
