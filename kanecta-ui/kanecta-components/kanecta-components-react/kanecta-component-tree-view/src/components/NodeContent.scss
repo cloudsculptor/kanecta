@@ -51,4 +51,42 @@
     height: var(--tree-node-table-height, 320px);
     max-width: 100%;
   }
+
+  // Resolved symlink: green bullet marks "this is a link, not the item
+  // itself"; the target renders through its own type's renderer beside it.
+  &-symlink {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45em;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  &-symlink-bullet {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-success, #2e9e5b);
+    cursor: pointer;
+
+    &.is-broken {
+      background: var(--color-error, #d64545);
+      cursor: default;
+    }
+  }
+
+  &-symlink-target {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  &-symlink-pending {
+    color: var(--color-text-muted, #888);
+  }
+
+  &-symlink-broken {
+    color: var(--color-error, #d64545);
+    text-decoration: line-through;
+  }
 }
