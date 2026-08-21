@@ -33,6 +33,7 @@ export function itemsApi(client: KanectaApiClient) {
       createdAt: item.createdAt ?? null,
       modifiedAt: item.modifiedAt ?? null,
       payload: item.payload ?? null,
+      files: item.files,
       childCount: item.childCount,
       _hasObject: item._hasObject,
       _synthetic: item._synthetic,

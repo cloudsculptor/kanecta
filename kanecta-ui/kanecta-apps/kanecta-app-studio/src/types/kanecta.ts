@@ -32,6 +32,8 @@ export interface KanectaItem {
   completedAt?: string | null;
   childCount?: number;
   icon?: string | null;
+  /** Sidecar role map (spec §files-and-sidecars): role → sidecar filename. */
+  files?: Record<string, string>;
   _synthetic?: boolean;
   _hasObject?: boolean;
   _fieldPath?: string;

@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
 import type { KanectaItem, TreeViewApi } from './types';
+import type { ResolveMediaUrl } from './components/NodeContent';
 
 interface TreeViewContextValue {
   api: TreeViewApi;
@@ -19,6 +20,11 @@ interface TreeViewContextValue {
    * nothing) falls back to the plain text value.
    */
   renderTable?: (item: KanectaItem) => ReactNode;
+  /**
+   * Host seam for media bytes: maps an `image`/`file` item to a displayable
+   * URL (typically an authenticated-fetch blob URL). See ResolveMediaUrl.
+   */
+  resolveMediaUrl?: ResolveMediaUrl;
 }
 
 const TreeViewContext = createContext<TreeViewContextValue | null>(null);

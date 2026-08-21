@@ -2316,6 +2316,20 @@ class SqliteFsAdapter {
       if (f in changes) updated[f] = changes[f];
     }
 
+    // meta.files — the sidecar role map (spec §files-and-sidecars). Every entry
+    // must be a role → valid sidecar filename; the bytes themselves are managed
+    // separately via putFile/deleteFile.
+    if ('files' in changes) {
+      const files = changes.files;
+      if (files === null || typeof files !== 'object' || Array.isArray(files))
+        throw new Error('files must be an object mapping role names to sidecar filenames');
+      for (const [role, name] of Object.entries(files)) {
+        if (!this._validSidecarName(name))
+          throw new Error(`files.${role}: invalid sidecar filename '${name}'`);
+      }
+      updated.files = { ...files };
+    }
+
     if ('type' in changes && changes.type !== current.type) {
       updated.type   = changes.type;
       updated.typeId = changes.type === 'object' ? (changes.typeId || null) : null;
