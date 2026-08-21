@@ -391,6 +391,16 @@ export interface TreeApi {
   get(depth?: number): Promise<unknown>;
 }
 
+export interface FilesApi {
+  /**
+   * Raw sidecar bytes for an item (spec §files-and-sidecars), or null if the
+   * sidecar does not exist. `mime` sets the response Content-Type (and thus
+   * the Blob's type) — the server stores bytes only and defaults to
+   * octet-stream.
+   */
+  get(itemId: string, filename: string, mime?: string): Promise<Blob | null>;
+}
+
 /** Result of executing a saved `query` item (spec §queryPayload). */
 export interface SavedQueryRunResult {
   columns: Array<{ name: string; dataType: string | null }>;
@@ -916,6 +926,32 @@ export class KanectaApiClient {
     const c = this;
     return {
       get: (depth) => c._fetch('GET', `/tree${depth != null ? `?depth=${depth}` : ''}`),
+    };
+  }
+
+  // ─── Files (sidecar bytes) ───────────────────────────────────────────────────
+
+  get files(): FilesApi {
+    const c = this;
+    return {
+      // Bytes, not JSON — bypasses _fetch but carries the same bearer token,
+      // which is why hosts can't just point an <img> at the URL directly.
+      get: async (itemId, filename, mime) => {
+        const headers: Record<string, string> = {};
+        const token = await c._resolveToken();
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const qs = mime ? `?mime=${encodeURIComponent(mime)}` : '';
+        const res = await fetch(
+          `${c._base}/items/${itemId}/files/${encodeURIComponent(filename)}${qs}`,
+          { headers },
+        );
+        if (res.status === 404) return null;
+        if (!res.ok) {
+          const body: any = await res.json().catch(() => ({}));
+          throw new ApiError(res.status, body.error ?? res.statusText);
+        }
+        return await res.blob();
+      },
     };
   }
 

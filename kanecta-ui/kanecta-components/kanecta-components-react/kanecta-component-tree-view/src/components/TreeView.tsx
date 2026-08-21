@@ -50,6 +50,8 @@ export interface TreeViewProps {
   onOpenOverlay?: () => void;
   /** Host seam: inline table preview for `table` nodes (see TreeViewContext). */
   renderTable?: (item: KanectaItem) => React.ReactNode;
+  /** Host seam: displayable URL for media items' bytes (see TreeViewContext). */
+  resolveMediaUrl?: (item: KanectaItem) => string | undefined;
 }
 
 function useTreeData(parentId: string | null, workspaceKey?: string) {
@@ -181,6 +183,7 @@ export function TreeView({
   onSelectItem,
   onOpenOverlay,
   renderTable,
+  resolveMediaUrl,
 }: TreeViewProps) {
   const qc = useQueryClient();
 
@@ -572,6 +575,7 @@ export function TreeView({
     onSelectItem: onSelectItem ?? (() => {}),
     onOpenOverlay: onOpenOverlay ?? (() => {}),
     renderTable,
+    resolveMediaUrl,
   };
 
   const todoToggle = (
