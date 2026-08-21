@@ -21,7 +21,7 @@ import {
   runSavedQuery,
   SavedQueryError,
 } from '@kanecta/lib';
-import * as kanectaSpec from '@kanecta/specification';
+import { validateType } from '@kanecta/specification/validator';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -1412,36 +1412,19 @@ async function handleRecent(args: any, ds: any) {
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const typeFileSpec: any = (kanectaSpec as any).type;
-
+// Validate a type definition with the spec's canonical validator — the same
+// rules createType enforces at the adapter layer (meta/jsonSchema required,
+// draft-07 object schema, x-id'd flat properties, no $ref). writeTypeJson does
+// NOT validate, so this pre-check is the only guard on updates. Returns a
+// joined human-readable message, or null when valid. (The previous hand-rolled
+// checks read a `type` core-file-spec that @kanecta/specification never
+// exported, so every call threw a TypeError before validating anything.)
 function validateTypeSchema(schema: any) {
-  if (typeof schema !== 'object' || schema === null || Array.isArray(schema))
-    return 'Schema must be a JSON object';
-  for (const key of typeFileSpec.required) {
-    if (!schema[key] || typeof schema[key] !== 'object')
-      return `${key} is required`;
-  }
-  const metaRequired = typeFileSpec.properties.meta.required ?? [];
-  for (const key of metaRequired) {
-    if (typeof schema.meta[key] !== 'string')
-      return `meta.${key} is required and must be a string`;
-  }
-  const jsRequired = typeFileSpec.properties.jsonSchema.required ?? [];
-  const js = schema.jsonSchema;
-  for (const key of jsRequired) {
-    if (js[key] === undefined || js[key] === null)
-      return `jsonSchema.${key} is required`;
-  }
-  if (
-    js['$schema'] !==
-    typeFileSpec.properties.jsonSchema.properties['$schema'].const
-  )
-    return `jsonSchema.$schema must be "${typeFileSpec.properties.jsonSchema.properties['$schema'].const}"`;
-  if (js.type !== typeFileSpec.properties.jsonSchema.properties.type.const)
-    return `jsonSchema.type must be "${typeFileSpec.properties.jsonSchema.properties.type.const}"`;
-  if (!js.properties || typeof js.properties !== 'object')
-    return 'jsonSchema.properties is required';
-  return null;
+  const result = validateType(schema);
+  if (result.valid) return null;
+  return result.errors
+    .map((er: any) => `${er.path || '(root)'}: ${er.message}`)
+    .join('; ');
 }
 
 // ─── MCP protocol ─────────────────────────────────────────────────────────────
