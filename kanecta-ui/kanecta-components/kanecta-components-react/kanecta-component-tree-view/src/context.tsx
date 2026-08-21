@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
 import type { KanectaItem, TreeViewApi } from './types';
-import type { ResolveMediaUrl } from './components/NodeContent';
+import type { FetchFileBytes, ResolveMediaUrl } from './components/NodeContent';
 
 interface TreeViewContextValue {
   api: TreeViewApi;
@@ -25,6 +25,11 @@ interface TreeViewContextValue {
    * URL (typically an authenticated-fetch blob URL). See ResolveMediaUrl.
    */
   resolveMediaUrl?: ResolveMediaUrl;
+  /**
+   * Host seam for downloading a file item's stored bytes on demand (file
+   * bytes live inside the datastore — sidecars / S3). See FetchFileBytes.
+   */
+  fetchFileBytes?: FetchFileBytes;
 }
 
 const TreeViewContext = createContext<TreeViewContextValue | null>(null);

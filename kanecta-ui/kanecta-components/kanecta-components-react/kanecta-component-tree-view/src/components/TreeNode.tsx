@@ -113,7 +113,7 @@ export function TreeNode({
   const [isHovered, setIsHovered] = useState(false);
   const diskConfigRef = useRef<{ datastorePath: string } | null>(null);
   const resolveId = useItemLookup();
-  const { api, vscodeAvailable, todoMode, onSelectItem: setItemId, onOpenOverlay: openOverlay, renderTable, resolveMediaUrl } = useTreeViewContext();
+  const { api, vscodeAvailable, todoMode, onSelectItem: setItemId, onOpenOverlay: openOverlay, renderTable, resolveMediaUrl, fetchFileBytes } = useTreeViewContext();
   const queryClient = useQueryClient();
 
   // Todo mode: a completion checkbox bound to completedAt. Headings and synthetic
@@ -370,7 +370,7 @@ const allConversionsDestructive = item.type === 'function';
           <span
             className="TreeNode-label"
           >
-            <NodeContent item={item} resolveId={resolveId} onNavigate={onNavigateToId} renderTable={renderTable} resolveMediaUrl={resolveMediaUrl} />
+            <NodeContent item={item} resolveId={resolveId} onNavigate={onNavigateToId} renderTable={renderTable} resolveMediaUrl={resolveMediaUrl} fetchFileBytes={fetchFileBytes} />
           </span>
         )}
 

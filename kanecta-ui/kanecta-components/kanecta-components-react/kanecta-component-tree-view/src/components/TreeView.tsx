@@ -23,6 +23,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import { TreeNode } from './TreeNode';
+import { useMediaSeams } from '../hooks/useMediaSeams';
 import { CopyAsDialog } from './CopyAsDialog';
 import { Breadcrumb } from './Breadcrumb';
 import type { BreadcrumbItem } from './Breadcrumb';
@@ -52,6 +53,8 @@ export interface TreeViewProps {
   renderTable?: (item: KanectaItem) => React.ReactNode;
   /** Host seam: displayable URL for media items' bytes (see TreeViewContext). */
   resolveMediaUrl?: (item: KanectaItem) => string | undefined;
+  /** Host seam: on-demand download of a file item's stored bytes (see TreeViewContext). */
+  fetchFileBytes?: (item: KanectaItem) => Promise<Blob | null>;
 }
 
 function useTreeData(parentId: string | null, workspaceKey?: string) {
@@ -184,8 +187,13 @@ export function TreeView({
   onOpenOverlay,
   renderTable,
   resolveMediaUrl,
+  fetchFileBytes,
 }: TreeViewProps) {
   const qc = useQueryClient();
+
+  // Default media seams from api.files (blob-URL resolver + bytes fetcher);
+  // explicit host props take precedence.
+  const defaultMediaSeams = useMediaSeams(api);
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [zoomStack, setZoomStack] = useState<BreadcrumbItem[]>([]);
@@ -575,7 +583,8 @@ export function TreeView({
     onSelectItem: onSelectItem ?? (() => {}),
     onOpenOverlay: onOpenOverlay ?? (() => {}),
     renderTable,
-    resolveMediaUrl,
+    resolveMediaUrl: resolveMediaUrl ?? defaultMediaSeams.resolveMediaUrl,
+    fetchFileBytes: fetchFileBytes ?? defaultMediaSeams.fetchFileBytes,
   };
 
   const todoToggle = (

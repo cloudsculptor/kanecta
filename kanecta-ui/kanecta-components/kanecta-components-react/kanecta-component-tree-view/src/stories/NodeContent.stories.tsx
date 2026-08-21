@@ -90,6 +90,33 @@ export const FileNoDownloadUrl: Story = {
   },
 };
 
+// With a fetchFileBytes host the file row itself is the download trigger,
+// guarded by a confirmation dialog (bytes come from datastore file storage).
+export const FileClickToDownload: Story = {
+  args: {
+    item: item({ type: 'file', value: 'Quarterly report', files: { file: 'report.pdf' } }),
+    fetchFileBytes: async () => new Blob(['pdf bytes']),
+  },
+  play: async ({ canvasElement }) => {
+    const row = canvasElement.querySelector('.NodeContent-file--downloadable');
+    await expect(row).toBeTruthy();
+    await expect(row).toHaveAttribute('role', 'button');
+  },
+};
+
+// Images with a bytes host grow a hover download overlay — no dialog.
+export const ImageWithDownloadOverlay: Story = {
+  args: {
+    item: item({ type: 'file', value: 'holiday.png', files: { image: 'holiday.png' } }),
+    resolveMediaUrl: () => PNG_1x1,
+    fetchFileBytes: async () => new Blob(['png bytes']),
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('img.NodeContent-image')).toBeTruthy();
+    await expect(canvasElement.querySelector('.NodeContent-image-download')).toBeTruthy();
+  },
+};
+
 export const Grid: Story = {
   args: { item: item({ type: 'grid', value: 'Quarterly metrics' }) },
 };

@@ -3,17 +3,68 @@
 .NodeContent {
   &-image {
     display: inline-block;
-    max-height: var(--tree-node-image-max-height, 120px);
+    max-height: var(--tree-node-image-max-height, 240px);
     max-width: 100%;
     border-radius: var(--radius-sm, 4px);
     object-fit: contain;
     vertical-align: middle;
   }
 
+  // Image with a stored-bytes host: the download button sits over the top-right
+  // corner and only appears while hovering the image.
+  &-imageWrap {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+  }
+
+  &-image-download {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border: none;
+    border-radius: var(--radius-sm, 4px);
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    font-size: 1rem;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 120ms ease;
+
+    &:disabled {
+      cursor: default;
+      opacity: 0.4;
+    }
+  }
+
+  &-imageWrap:hover &-image-download,
+  &-image-download:focus-visible {
+    opacity: 1;
+  }
+
   &-file {
     display: inline-flex;
     align-items: center;
     gap: 0.35em;
+  }
+
+  // With a bytes host the whole row is a download trigger (behind a confirm
+  // dialog); the trailing icon signals the affordance.
+  &-file--downloadable {
+    cursor: pointer;
+
+    &:hover .NodeContent-file-downloadIcon {
+      color: var(--color-primary-dark, #115293);
+    }
+  }
+
+  &-file-downloadIcon {
+    color: var(--color-primary, #1976d2);
+    flex: 0 0 auto;
   }
 
   &-file-icon {
