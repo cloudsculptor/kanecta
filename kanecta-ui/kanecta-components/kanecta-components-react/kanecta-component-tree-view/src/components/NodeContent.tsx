@@ -2,8 +2,11 @@ import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import DownloadIcon from '@mui/icons-material/Download';
+import { useContext } from 'react';
 import type { ReactNode } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { ItemValue } from './ItemValue';
+import { TreeViewContext } from '../context';
 import type { KanectaItem } from '../types';
 import './NodeContent.scss';
 
@@ -44,6 +47,11 @@ interface NodeContentProps {
    * or returning nothing falls back to a labelled table affordance.
    */
   renderTable?: (item: KanectaItem) => ReactNode;
+  /**
+   * Internal recursion counter for symlink chains — a symlink target that is
+   * itself a symlink resolves again, up to MAX_SYMLINK_DEPTH. Not a host prop.
+   */
+  symlinkDepth?: number;
 }
 
 /**
@@ -54,9 +62,22 @@ interface NodeContentProps {
  * the per-type `TYPE_ICONS` pattern but for node BODY content, and is the seam
  * the ~15-years-ago Connector rich-node rendering is being restored onto.
  */
-export function NodeContent({ item, resolveId, onNavigate, resolveMediaUrl, renderTable }: NodeContentProps) {
+export function NodeContent({ item, resolveId, onNavigate, resolveMediaUrl, renderTable, symlinkDepth = 0 }: NodeContentProps) {
   const type = item._synthetic ? 'text' : item.type;
   const text = <ItemValue value={item.value} resolveId={resolveId} onNavigate={onNavigate} />;
+
+  if (type === 'symlink') {
+    return (
+      <SymlinkContent
+        item={item}
+        resolveId={resolveId}
+        onNavigate={onNavigate}
+        resolveMediaUrl={resolveMediaUrl}
+        renderTable={renderTable}
+        symlinkDepth={symlinkDepth}
+      />
+    );
+  }
 
   if (type === 'image') {
     const src = mediaUrl(item, resolveMediaUrl);
@@ -125,4 +146,118 @@ export function NodeContent({ item, resolveId, onNavigate, resolveMediaUrl, rend
   }
 
   return text;
+}
+
+const SYMLINK_UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Symlink chains longer than this render as broken instead of recursing. */
+const MAX_SYMLINK_DEPTH = 3;
+
+/**
+ * Resolves a `symlink` node (spec §trees: item.value holds the target UUID)
+ * and renders the TARGET through NodeContent's normal per-type dispatch — a
+ * symlink to an image shows the image, a symlink to a table shows the host's
+ * grid, and so on — prefixed with a green bullet marking it as a link rather
+ * than a direct item. Clicking the bullet navigates to the target. Resolution
+ * prefers the host's already-loaded items (resolveId) and falls back to
+ * api.items.get. Outside a TreeView (no context) or with a non-UUID value the
+ * raw value renders as plain text; a dangling target renders a broken (red)
+ * bullet with the unresolvable UUID.
+ */
+function SymlinkContent(props: NodeContentProps) {
+  const { item, resolveId, onNavigate, symlinkDepth = 0 } = props;
+  const ctx = useContext(TreeViewContext);
+  const targetId = typeof item.value === 'string' ? item.value.trim() : '';
+  const isUuid = SYMLINK_UUID_RE.test(targetId);
+  const local = isUuid ? resolveId?.(targetId) : undefined;
+
+  if (!isUuid) {
+    return <ItemValue value={item.value} resolveId={resolveId} onNavigate={onNavigate} />;
+  }
+  // A too-deep chain renders broken even when the target IS resolvable — a
+  // symlink cycle would otherwise recurse forever.
+  if (symlinkDepth >= MAX_SYMLINK_DEPTH) {
+    return <SymlinkBody {...props} targetId={targetId} broken />;
+  }
+  if (local) {
+    return <SymlinkBody {...props} targetId={targetId} target={local} />;
+  }
+  // Fetching needs the TreeView context (and its QueryClient — TreeView hosts
+  // always provide one; standalone/story usage of NodeContent may not, which
+  // is why useQuery lives in the child that only mounts here).
+  if (!ctx) {
+    return <ItemValue value={item.value} resolveId={resolveId} onNavigate={onNavigate} />;
+  }
+  return <SymlinkRemote {...props} targetId={targetId} />;
+}
+
+/** Resolves the symlink target through the TreeView API via react-query. */
+function SymlinkRemote(props: NodeContentProps & { targetId: string }) {
+  const ctx = useContext(TreeViewContext);
+  const { targetId } = props;
+  const { data, isPending, isError } = useQuery({
+    queryKey: ['symlink-target', targetId],
+    queryFn: () => ctx!.api.items.get(targetId),
+    retry: false,
+  });
+  if (isPending) return <SymlinkBody {...props} pending />;
+  if (isError || !data) return <SymlinkBody {...props} broken />;
+  return <SymlinkBody {...props} target={data} />;
+}
+
+/** Green (or broken-red) bullet plus the resolved target's own rendering. */
+function SymlinkBody({
+  target,
+  targetId,
+  broken = false,
+  pending = false,
+  resolveId,
+  onNavigate,
+  resolveMediaUrl,
+  renderTable,
+  symlinkDepth = 0,
+}: Omit<NodeContentProps, 'item'> & {
+  target?: KanectaItem;
+  targetId: string;
+  broken?: boolean;
+  pending?: boolean;
+}) {
+  const title = broken
+    ? `Broken symlink → ${targetId}`
+    : `Symlink → ${target?.value || targetId}${target ? ' — click to open the target' : ''}`;
+  return (
+    <span className="NodeContent-symlink">
+      <span
+        className={`NodeContent-symlink-bullet${broken ? ' is-broken' : ''}`}
+        title={title}
+        aria-label={title}
+        role={target && onNavigate ? 'button' : undefined}
+        onClick={
+          target && onNavigate
+            ? (e) => {
+                e.stopPropagation();
+                onNavigate(target.id);
+              }
+            : undefined
+        }
+      />
+      <span className="NodeContent-symlink-target">
+        {target && !broken ? (
+          <NodeContent
+            item={target}
+            resolveId={resolveId}
+            onNavigate={onNavigate}
+            resolveMediaUrl={resolveMediaUrl}
+            renderTable={renderTable}
+            symlinkDepth={symlinkDepth + 1}
+          />
+        ) : (
+          <span className={pending ? 'NodeContent-symlink-pending' : 'NodeContent-symlink-broken'}>
+            {targetId}
+          </span>
+        )}
+      </span>
+    </span>
+  );
 }

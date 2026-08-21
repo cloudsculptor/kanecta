@@ -79,3 +79,43 @@ export const Text: Story = {
     await expect(canvasElement.querySelector('.NodeContent-file')).toBeNull();
   },
 };
+
+// ── Symlinks — the target renders through its own type's renderer, marked by
+// a green bullet (spec: a symlink's value holds the target item's UUID).
+
+const LINK_TARGET_ID = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+
+export const SymlinkToText: Story = {
+  args: {
+    item: item({ type: 'symlink', value: LINK_TARGET_ID }),
+    resolveId: (id) =>
+      id === LINK_TARGET_ID ? item({ id, value: 'The linked item' }) : undefined,
+  },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByText('The linked item')).toBeInTheDocument();
+    const bullet = canvasElement.querySelector('.NodeContent-symlink-bullet');
+    await expect(bullet).toBeTruthy();
+    await expect(bullet).not.toHaveClass('is-broken');
+  },
+};
+
+export const SymlinkToImage: Story = {
+  args: {
+    item: item({ type: 'symlink', value: LINK_TARGET_ID }),
+    resolveId: (id) =>
+      id === LINK_TARGET_ID ? item({ id, type: 'image', value: PNG_1x1 }) : undefined,
+  },
+  play: async ({ canvasElement }) => {
+    // Universal dispatch: the symlink renders its target's renderer — an <img>.
+    await expect(canvasElement.querySelector('img.NodeContent-image')).toHaveAttribute('src', PNG_1x1);
+    await expect(canvasElement.querySelector('.NodeContent-symlink-bullet')).toBeTruthy();
+  },
+};
+
+export const SymlinkNonUuidFallsBackToText: Story = {
+  args: { item: item({ type: 'symlink', value: 'not-a-uuid' }) },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByText('not-a-uuid')).toBeInTheDocument();
+    await expect(canvasElement.querySelector('.NodeContent-symlink')).toBeNull();
+  },
+};
