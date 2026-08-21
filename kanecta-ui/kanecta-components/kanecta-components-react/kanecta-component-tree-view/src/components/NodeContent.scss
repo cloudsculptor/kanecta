@@ -39,6 +39,13 @@
       cursor: default;
       opacity: 0.4;
     }
+
+    // A failed fetch keeps the button visible and marked so the failure is
+    // seen, not silent — clicking again retries.
+    &.is-failed {
+      background: var(--color-error, #d64545);
+      opacity: 1;
+    }
   }
 
   &-imageWrap:hover &-image-download,
@@ -70,6 +77,13 @@
   &-file-icon {
     color: var(--color-text-muted, #888);
     flex: 0 0 auto;
+  }
+
+  // Fetch failure shown inside the confirm dialog.
+  &-file-error {
+    margin: 0.75em 0 0;
+    color: var(--color-error, #d64545);
+    font-size: 0.85em;
   }
 
   &-file-download {
