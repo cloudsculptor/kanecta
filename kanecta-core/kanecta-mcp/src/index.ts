@@ -906,6 +906,58 @@ const TOOLS: any[] = [
     },
   },
   {
+    name: 'kanecta_write_file',
+    description:
+      'Create or update a file item: stores the bytes as a sidecar, sets the meta.files role (image/body/file by mime class), and writes the filePayload (mimeType, size, width/height for images, altText). Pass path to read a local file, or content (+encoding) for inline data. Pass id to update an existing file item, or parentId to create a new one.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: {
+          type: 'string',
+          description: 'UUID of an existing file item to update. Omit to create.',
+        },
+        parentId: {
+          type: 'string',
+          description: 'UUID of the parent item (create mode).',
+        },
+        path: {
+          type: 'string',
+          description:
+            'Absolute path of a local file to read the bytes from. Use this OR content.',
+        },
+        content: {
+          type: 'string',
+          description:
+            'Inline file content. Use this OR path. Text by default; set encoding:"base64" for binary.',
+        },
+        encoding: {
+          type: 'string',
+          enum: ['utf8', 'base64'],
+          description: 'How to decode content (default utf8). Ignored with path.',
+        },
+        value: {
+          type: 'string',
+          description:
+            'Display label for the item. Defaults to the file basename (required with content on create).',
+        },
+        filename: {
+          type: 'string',
+          description:
+            'Sidecar filename to store the bytes under. Defaults to the path basename, or is derived from value + mimeType. The extension should match the content.',
+        },
+        mimeType: {
+          type: 'string',
+          description:
+            'IANA media type (e.g. "image/png", "text/markdown", "application/pdf"). Auto-detected from the filename extension when omitted.',
+        },
+        altText: {
+          type: 'string',
+          description: 'Accessible description — primarily for images.',
+        },
+      },
+    },
+  },
+  {
     name: 'kanecta_by_tag',
     description: 'List all items carrying a given tag.',
     inputSchema: {
@@ -1425,6 +1477,78 @@ function validateTypeSchema(schema: any) {
   return result.errors
     .map((er: any) => `${er.path || '(root)'}: ${er.message}`)
     .join('; ');
+}
+
+// ─── File tool helpers ────────────────────────────────────────────────────────
+
+// Extension → IANA media type for the formats the tool commonly meets. Fallback
+// is application/octet-stream; callers can always pass mimeType explicitly.
+const MIME_BY_EXT: Record<string, string> = {
+  png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif',
+  webp: 'image/webp', svg: 'image/svg+xml', avif: 'image/avif', ico: 'image/x-icon',
+  bmp: 'image/bmp', tif: 'image/tiff', tiff: 'image/tiff',
+  md: 'text/markdown', markdown: 'text/markdown', txt: 'text/plain',
+  csv: 'text/csv', html: 'text/html', css: 'text/css', xml: 'application/xml',
+  json: 'application/json', yaml: 'application/yaml', yml: 'application/yaml',
+  js: 'text/javascript', ts: 'text/plain',
+  pdf: 'application/pdf', zip: 'application/zip', gz: 'application/gzip',
+  mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', m4a: 'audio/mp4',
+  mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+};
+
+function detectMimeType(filename: string): string {
+  const ext = filename.includes('.') ? filename.split('.').pop()!.toLowerCase() : '';
+  return MIME_BY_EXT[ext] ?? 'application/octet-stream';
+}
+
+// The spec's well-known meta.files role for a mime class (§files-and-sidecars):
+// images → 'image', text-based bodies → 'body', other binaries → 'file'.
+function fileRole(mimeType: string): 'image' | 'body' | 'file' {
+  if (mimeType.startsWith('image/')) return 'image';
+  if (mimeType.startsWith('text/') || mimeType === 'application/json') return 'body';
+  return 'file';
+}
+
+// Best-effort pixel dimensions from the header bytes of the common raster
+// formats. Returns null when the format isn't recognised — dimensions are
+// optional in filePayload, so a miss just omits them.
+function sniffImageSize(buf: Buffer): { width: number; height: number } | null {
+  try {
+    // PNG: 8-byte signature, then IHDR with width/height at offsets 16/20.
+    if (buf.length >= 24 && buf.readUInt32BE(0) === 0x89504e47) {
+      return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+    }
+    // GIF: "GIF8", then little-endian width/height at offsets 6/8.
+    if (buf.length >= 10 && buf.toString('ascii', 0, 4) === 'GIF8') {
+      return { width: buf.readUInt16LE(6), height: buf.readUInt16LE(8) };
+    }
+    // JPEG: scan segments for the first SOF marker (0xC0-0xCF minus DHT/DAC).
+    if (buf.length >= 4 && buf.readUInt16BE(0) === 0xffd8) {
+      let off = 2;
+      while (off + 9 < buf.length) {
+        if (buf[off] !== 0xff) { off++; continue; }
+        const marker = buf[off + 1];
+        if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+          return { height: buf.readUInt16BE(off + 5), width: buf.readUInt16BE(off + 7) };
+        }
+        off += 2 + buf.readUInt16BE(off + 2);
+      }
+    }
+  } catch { /* malformed header — no dimensions */ }
+  return null;
+}
+
+// A sidecar filename must be a single path segment and not collide with the
+// adapter's reserved names (item.json, *.tmp, .tombstone.*).
+function sanitizeSidecarName(name: string): string | null {
+  const base = name.split(/[/\\]/).pop() ?? '';
+  if (!base || base === '.' || base === '..' || base === 'item.json'
+      || base.endsWith('.tmp') || base.startsWith('.tombstone.')) return null;
+  return base;
 }
 
 // ─── MCP protocol ─────────────────────────────────────────────────────────────
@@ -2028,6 +2152,90 @@ async function dispatch(name: string, args: any): Promise<any> {
       const result: any = { definition: fnData, scaffold: fnScaffoldStatus(dir) };
       if (compile) result.compile = compileFunctionScaffold(dir);
       return result;
+    }
+
+    case 'kanecta_write_file': {
+      if (!datastorePath)
+        return { error: 'kanecta_write_file requires filesystem mode' };
+      const { id, parentId, path: srcPath, content, encoding = 'utf8', altText } = args;
+
+      // Bytes: local file, or inline content (utf8/base64).
+      let bytes: Buffer;
+      if (srcPath) {
+        try {
+          bytes = fs.readFileSync(srcPath);
+        } catch (e: any) {
+          return { error: `Cannot read ${srcPath}: ${e?.message ?? e}` };
+        }
+      } else if (typeof content === 'string') {
+        if (encoding !== 'utf8' && encoding !== 'base64')
+          return { error: `Unsupported encoding: ${encoding}` };
+        bytes = Buffer.from(content, encoding);
+      } else {
+        return { error: 'Either path or content is required' };
+      }
+
+      let item = null;
+      if (id) {
+        item = await ds.get(id);
+        if (!item) return { error: `Not found: ${id}` };
+        if (item.type !== 'file') return { error: `Item ${id} is not a file item (type: ${item.type})` };
+      } else if (parentId) {
+        if (!(await ds.get(parentId))) return { error: `Parent not found: ${parentId}` };
+      } else {
+        return { error: 'Either id (update) or parentId (create) is required' };
+      }
+
+      const value = args.value ?? (srcPath ? path.basename(srcPath) : item?.value);
+      if (!value) return { error: 'value is required when creating from inline content' };
+
+      const rawName = args.filename ?? (srcPath ? path.basename(srcPath) : value);
+      const filename = sanitizeSidecarName(rawName);
+      if (!filename) return { error: `Invalid sidecar filename: ${rawName}` };
+
+      const mimeType = args.mimeType ?? detectMimeType(filename);
+      const role = fileRole(mimeType);
+
+      if (!item) {
+        item = await ds.create({ parentId, value, type: 'file', owner: cfg?.owner });
+      } else if (args.value && args.value !== item.value) {
+        await ds.update(item.id, { value: args.value }, cfg?.owner);
+      }
+
+      // Bytes first, then the meta.files role map, then the payload — mirrors
+      // the spec's sidecar-before-item.json write ordering.
+      await ds.putFile(item.id, filename, bytes, { mimeType });
+      const files = { ...(item.files ?? {}) };
+      // A re-upload under a new name or mime class retires the old sidecar so
+      // the item never points at two generations of content.
+      for (const [oldRole, oldName] of Object.entries(files)) {
+        if (oldName !== filename) {
+          await ds.deleteFile(item.id, oldName as string);
+          delete files[oldRole];
+        }
+      }
+      files[role] = filename;
+      await ds.update(item.id, { files }, cfg?.owner);
+
+      const existingPayload = (await ds.readObjectJson(item.id)) ?? {};
+      const payload: any = {
+        ...existingPayload,
+        mimeType,
+        size: bytes.length,
+      };
+      if (altText !== undefined) payload.altText = altText;
+      // Dimensions always reflect the CURRENT bytes — stale values from a
+      // previous upload never survive a content change.
+      delete payload.width;
+      delete payload.height;
+      if (role === 'image') {
+        const dims = sniffImageSize(bytes);
+        if (dims) { payload.width = dims.width; payload.height = dims.height; }
+      }
+      await ds.writeObjectJson(item.id, payload);
+
+      const updated = await ds.get(item.id);
+      return { item: updated, payload, files, role, filename };
     }
 
     case 'kanecta_execute_function': {

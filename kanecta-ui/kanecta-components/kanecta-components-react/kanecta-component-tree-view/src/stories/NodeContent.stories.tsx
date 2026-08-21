@@ -60,6 +60,28 @@ export const File: Story = {
   },
 };
 
+// A `file` item whose sidecar role map carries `image` renders the picture
+// itself (spec §files-and-sidecars) — the host resolver supplies the bytes URL.
+export const FileWithImageRole: Story = {
+  args: {
+    item: item({ type: 'file', value: 'holiday.png', files: { image: 'holiday.png' } }),
+    resolveMediaUrl: () => PNG_1x1,
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('img.NodeContent-image')).toHaveAttribute('src', PNG_1x1);
+    await expect(canvasElement.querySelector('.NodeContent-file')).toBeNull();
+  },
+};
+
+export const FileWithImageRoleNoResolver: Story = {
+  args: { item: item({ type: 'file', value: 'holiday.png', files: { image: 'holiday.png' } }) },
+  play: async ({ canvasElement }) => {
+    // Without a bytes URL the image role degrades to the ordinary file row.
+    await expect(canvasElement.querySelector('img')).toBeNull();
+    await expect(within(canvasElement).getByText('holiday.png')).toBeInTheDocument();
+  },
+};
+
 export const FileNoDownloadUrl: Story = {
   args: { item: item({ type: 'file', value: 'notes.txt' }) },
   play: async ({ canvasElement }) => {
@@ -107,6 +129,22 @@ export const SymlinkToImage: Story = {
   },
   play: async ({ canvasElement }) => {
     // Universal dispatch: the symlink renders its target's renderer — an <img>.
+    await expect(canvasElement.querySelector('img.NodeContent-image')).toHaveAttribute('src', PNG_1x1);
+    await expect(canvasElement.querySelector('.NodeContent-symlink-bullet')).toBeTruthy();
+  },
+};
+
+export const SymlinkToFileImage: Story = {
+  args: {
+    item: item({ type: 'symlink', value: LINK_TARGET_ID }),
+    resolveId: (id) =>
+      id === LINK_TARGET_ID
+        ? item({ id, type: 'file', value: 'holiday.png', files: { image: 'holiday.png' } })
+        : undefined,
+    resolveMediaUrl: (i) => (i.id === LINK_TARGET_ID ? PNG_1x1 : undefined),
+  },
+  play: async ({ canvasElement }) => {
+    // The symlink renders its file target's own renderer — the inline image.
     await expect(canvasElement.querySelector('img.NodeContent-image')).toHaveAttribute('src', PNG_1x1);
     await expect(canvasElement.querySelector('.NodeContent-symlink-bullet')).toBeTruthy();
   },

@@ -13,6 +13,12 @@ export interface KanectaItem {
   createdAt: string | null;
   modifiedAt: string | null;
   childCount?: number;
+  /**
+   * Sidecar role map (spec §files-and-sidecars): role → sidecar filename,
+   * e.g. `{ image: 'photo.png' }`. Presence of the `image` role is what makes
+   * a `file` node render as an image instead of a file icon.
+   */
+  files?: Record<string, string>;
   _synthetic?: boolean;
   _hasObject?: boolean;
   _fieldPath?: string;

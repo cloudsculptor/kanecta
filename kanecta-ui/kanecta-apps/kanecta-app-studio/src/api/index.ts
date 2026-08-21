@@ -73,6 +73,10 @@ export function createApi(baseUrl: string) {
       run: (id: string, params?: Record<string, unknown>, rowLimit?: number) =>
         client.query.run(id, params, rowLimit),
     },
+    files: {
+      get: (itemId: string, filename: string, mime?: string) =>
+        client.files.get(itemId, filename, mime),
+    },
   };
 }
 

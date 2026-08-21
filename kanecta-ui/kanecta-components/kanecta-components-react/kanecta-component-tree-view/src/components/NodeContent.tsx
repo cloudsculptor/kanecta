@@ -96,6 +96,19 @@ export function NodeContent({ item, resolveId, onNavigate, resolveMediaUrl, rend
   if (type === 'file') {
     const href = mediaUrl(item, resolveMediaUrl);
     const name = fileName(item.value);
+    // A file item carrying an `image` sidecar role (spec §files-and-sidecars)
+    // renders the picture itself; every other file renders a download row.
+    if (item.files?.image && href) {
+      return (
+        <img
+          className="NodeContent-image"
+          src={href}
+          alt={item.value || 'image'}
+          loading="lazy"
+          onClick={(e) => e.stopPropagation()}
+        />
+      );
+    }
     return (
       <span className="NodeContent-file">
         <InsertDriveFileIcon className="NodeContent-file-icon" fontSize="inherit" />
