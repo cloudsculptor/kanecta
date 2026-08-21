@@ -101,6 +101,71 @@ test('image-role files get a download overlay that saves without a dialog', asyn
   expect(screen.queryByText('Download file?')).not.toBeInTheDocument();
 });
 
+test('a file with no stored bytes renders the plain row even with the seam', () => {
+  const fetchFileBytes = vi.fn(async () => new Blob(['x']));
+  const doc = item({ type: 'file', value: 'notes.txt' }); // no files role map
+  const { container } = render(<NodeContent item={doc} fetchFileBytes={fetchFileBytes} />);
+  expect(container.querySelector('.NodeContent-file--downloadable')).toBeNull();
+  expect(container.querySelector('.NodeContent-file-downloadIcon')).toBeNull();
+});
+
+test('a URL-value image with no stored bytes gets no overlay even with the seam', () => {
+  const photo = item({ type: 'image', value: PNG_1x1 }); // src from value, nothing stored
+  const { container } = render(
+    <NodeContent item={photo} fetchFileBytes={vi.fn(async () => new Blob(['x']))} />,
+  );
+  expect(container.querySelector('img.NodeContent-image')).toBeTruthy();
+  expect(container.querySelector('.NodeContent-image-download')).toBeNull();
+});
+
+test('a null byte fetch keeps the dialog open with an error and a Retry button', async () => {
+  const fetchFileBytes = vi.fn(async () => null);
+  const doc = item({ type: 'file', value: 'Report', files: { file: 'report.pdf' } });
+  const { container } = render(<NodeContent item={doc} fetchFileBytes={fetchFileBytes} />);
+
+  fireEvent.click(container.querySelector('.NodeContent-file--downloadable')!);
+  fireEvent.click(screen.getByRole('button', { name: 'Download' }));
+
+  await waitFor(() =>
+    expect(screen.getByText(/No stored bytes came back/)).toBeInTheDocument(),
+  );
+  expect(screen.getByText('Download file?')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+  expect(anchorClicks).toEqual([]);
+});
+
+test('a rejected byte fetch surfaces its message in the dialog', async () => {
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  const fetchFileBytes = vi.fn(async () => {
+    throw new Error('boom');
+  });
+  const doc = item({ type: 'file', value: 'Report', files: { file: 'report.pdf' } });
+  const { container } = render(<NodeContent item={doc} fetchFileBytes={fetchFileBytes} />);
+
+  fireEvent.click(container.querySelector('.NodeContent-file--downloadable')!);
+  fireEvent.click(screen.getByRole('button', { name: 'Download' }));
+
+  await waitFor(() => expect(screen.getByText(/Download failed: boom/)).toBeInTheDocument());
+  expect(anchorClicks).toEqual([]);
+});
+
+test('a failed image overlay download marks the button for retry', async () => {
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  const fetchFileBytes = vi.fn(async () => {
+    throw new Error('offline');
+  });
+  const photo = item({ type: 'file', value: 'holiday.png', files: { image: 'holiday.png' } });
+  const { container } = render(
+    <NodeContent item={photo} resolveMediaUrl={() => PNG_1x1} fetchFileBytes={fetchFileBytes} />,
+  );
+
+  fireEvent.click(container.querySelector('.NodeContent-image-download')!);
+  await waitFor(() =>
+    expect(container.querySelector('.NodeContent-image-download.is-failed')).toBeTruthy(),
+  );
+  expect(anchorClicks).toEqual([]);
+});
+
 test('images without the seam render with no overlay button', () => {
   const photo = item({ type: 'image', value: PNG_1x1 });
   const { container } = render(<NodeContent item={photo} />);

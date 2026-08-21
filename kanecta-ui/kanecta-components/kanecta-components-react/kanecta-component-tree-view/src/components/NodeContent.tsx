@@ -46,11 +46,20 @@ function fileName(value: string): string {
   return base || value;
 }
 
+/**
+ * The stored sidecar filename a byte fetch would target (meta.files role
+ * priority image → file → body, then any other role), or undefined when the
+ * item has no stored bytes at all. Download affordances only render when this
+ * resolves — a fetch seam alone can't download anything from a role-less item.
+ */
+function storedFileName(item: KanectaItem): string | undefined {
+  const files = item.files ?? {};
+  return files.image ?? files.file ?? files.body ?? Object.values(files)[0];
+}
+
 /** The filename a download should save as — the stored sidecar's, ideally. */
 function downloadName(item: KanectaItem): string {
-  return (
-    item.files?.image ?? item.files?.file ?? item.files?.body ?? fileName(item.value)
-  );
+  return storedFileName(item) ?? fileName(item.value);
 }
 
 /** Trigger a browser save of already-fetched bytes. */
@@ -180,6 +189,7 @@ function ImageContent({
   fetchFileBytes?: FetchFileBytes;
 }) {
   const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
   const name = downloadName(item);
 
   const img = (
@@ -191,23 +201,34 @@ function ImageContent({
       onClick={(e) => e.stopPropagation()}
     />
   );
-  if (!fetchFileBytes) return img;
+  // No seam, or nothing stored to fetch (an image whose src is just a URL
+  // value) — a download button here would be a dead control.
+  if (!fetchFileBytes || !storedFileName(item)) return img;
 
+  const title = failed ? `Download of ${name} failed — click to retry` : `Download ${name}`;
   return (
     <span className="NodeContent-imageWrap">
       {img}
       <button
         type="button"
-        className="NodeContent-image-download"
-        title={`Download ${name}`}
-        aria-label={`Download ${name}`}
+        className={`NodeContent-image-download${failed ? ' is-failed' : ''}`}
+        title={title}
+        aria-label={title}
         disabled={busy}
         onClick={async (e) => {
           e.stopPropagation();
           setBusy(true);
           try {
             const blob = await fetchFileBytes(item);
-            if (blob) saveBlob(blob, name);
+            if (blob) {
+              saveBlob(blob, name);
+              setFailed(false);
+            } else {
+              setFailed(true);
+            }
+          } catch (err) {
+            console.error(`Download of ${name} failed`, err);
+            setFailed(true);
           } finally {
             setBusy(false);
           }
@@ -237,7 +258,9 @@ function FileContent({
 }) {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const name = fileName(item.value);
+  const storedName = storedFileName(item);
 
   const row = (
     <>
@@ -246,7 +269,10 @@ function FileContent({
     </>
   );
 
-  if (!fetchFileBytes) {
+  // No seam, or nothing stored to fetch — the click-to-download row would be a
+  // dead control, so fall back to the plain row (with the legacy anchor when
+  // the value/resolver yields a URL).
+  if (!fetchFileBytes || !storedName) {
     return (
       <span className="NodeContent-file">
         {row}
@@ -265,13 +291,22 @@ function FileContent({
     );
   }
 
-  const saveName = downloadName(item);
+  // The dialog stays open until the bytes actually arrive — a failed fetch
+  // shows its error in place instead of silently doing nothing.
   const download = async () => {
-    setConfirming(false);
     setBusy(true);
+    setError(null);
     try {
       const blob = await fetchFileBytes(item);
-      if (blob) saveBlob(blob, saveName);
+      if (!blob) {
+        setError('No stored bytes came back for this file — the server may not have them.');
+        return;
+      }
+      saveBlob(blob, storedName);
+      setConfirming(false);
+    } catch (err) {
+      console.error(`Download of ${storedName} failed`, err);
+      setError(`Download failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setBusy(false);
     }
@@ -285,12 +320,16 @@ function FileContent({
       aria-label={`Download ${name}`}
       onClick={(e) => {
         e.stopPropagation();
-        if (!busy) setConfirming(true);
+        if (!busy) {
+          setError(null);
+          setConfirming(true);
+        }
       }}
       onKeyDown={(e) => {
         if ((e.key === 'Enter' || e.key === ' ') && !busy) {
           e.preventDefault();
           e.stopPropagation();
+          setError(null);
           setConfirming(true);
         }
       }}
@@ -303,11 +342,14 @@ function FileContent({
         onClick={(e) => e.stopPropagation()}
       >
         <DialogTitle>Download file?</DialogTitle>
-        <DialogContent>{saveName}</DialogContent>
+        <DialogContent>
+          {storedName}
+          {error && <p className="NodeContent-file-error">{error}</p>}
+        </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirming(false)}>Cancel</Button>
-          <Button variant="contained" onClick={download}>
-            Download
+          <Button variant="contained" onClick={download} disabled={busy}>
+            {error ? 'Retry' : 'Download'}
           </Button>
         </DialogActions>
       </Dialog>
